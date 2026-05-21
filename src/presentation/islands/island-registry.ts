@@ -43,5 +43,6 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   menubar: lazy(() => import('./menubar-island')),
   'navigation-menu': lazy(() => import('./nav-menu-island')),
   'scroll-area': lazy(() => import('./scroll-area-island')),
+  'presence-indicator': lazy(() => import('./presence-indicator-island')),
 }
 

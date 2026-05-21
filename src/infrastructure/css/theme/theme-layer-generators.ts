@@ -7,12 +7,6 @@
 
 import type { Theme } from '@/domain/models/app/theme'
 
-export interface ThemeColorFlags {
-  readonly hasTextColor: boolean
-  readonly hasPrimaryColor: boolean
-  readonly hasPrimaryHoverColor: boolean
-}
-
 export interface ThemeFontFlags {
   readonly hasTitleFont: boolean
   readonly hasBodyFont: boolean
@@ -22,14 +16,6 @@ export interface TitleFontConfig {
   readonly style?: string
   readonly transform?: string
   readonly letterSpacing?: string
-}
-
-export function extractThemeColorFlags(theme?: Theme): ThemeColorFlags {
-  return {
-    hasTextColor: Boolean(theme?.colors?.text),
-    hasPrimaryColor: Boolean(theme?.colors?.primary),
-    hasPrimaryHoverColor: Boolean(theme?.colors?.['primary-hover']),
-  }
 }
 
 export function extractThemeFontFlags(theme?: Theme): ThemeFontFlags {
@@ -47,33 +33,18 @@ export function extractTitleFontProperties(theme?: Theme): TitleFontConfig | und
   return theme.fonts.title as TitleFontConfig
 }
 
-export function buildBodyClasses(hasTextColor: boolean, hasBodyFont: boolean): readonly string[] {
+export function buildBodyClasses(hasBodyFont: boolean): readonly string[] {
   const fontClass = hasBodyFont ? 'font-body' : 'font-sans'
-  return hasTextColor ? [fontClass, 'antialiased', 'text-text'] : [fontClass, 'antialiased']
+  return [fontClass, 'antialiased', 'text-fg']
 }
 
-export function buildHeadingClasses(
-  hasTextColor: boolean,
-  hasTitleFont: boolean
-): readonly string[] {
+export function buildHeadingClasses(hasTitleFont: boolean): readonly string[] {
   const fontClass = hasTitleFont ? 'font-title' : 'font-sans'
-  const baseClasses = hasTextColor
-    ? [fontClass, 'font-semibold', 'tracking-tight', 'text-text']
-    : [fontClass, 'font-semibold', 'tracking-tight']
-  return baseClasses
+  return [fontClass, 'font-semibold', 'tracking-tight', 'text-fg']
 }
 
-export function buildLinkClasses(
-  hasPrimaryColor: boolean,
-  hasPrimaryHoverColor: boolean
-): readonly string[] {
-  if (hasPrimaryColor && hasPrimaryHoverColor) {
-    return ['transition-colors', 'text-primary', 'hover:text-primary-hover']
-  }
-  if (hasPrimaryColor) {
-    return ['transition-colors', 'text-primary']
-  }
-  return ['transition-colors', 'text-blue-600', 'hover:text-blue-700']
+export function buildLinkClasses(): readonly string[] {
+  return ['transition-colors', 'text-primary', 'hover:text-primary-hover']
 }
 
 export function buildHeadingStyleProperties(titleFont?: TitleFontConfig): readonly string[] {
@@ -110,12 +81,11 @@ export function generateHeadingStyles(
 }
 
 export function generateBaseLayer(theme?: Theme): string {
-  const colorFlags = extractThemeColorFlags(theme)
   const fontFlags = extractThemeFontFlags(theme)
 
-  const bodyClasses = buildBodyClasses(colorFlags.hasTextColor, fontFlags.hasBodyFont)
-  const headingClasses = buildHeadingClasses(colorFlags.hasTextColor, fontFlags.hasTitleFont)
-  const linkClasses = buildLinkClasses(colorFlags.hasPrimaryColor, colorFlags.hasPrimaryHoverColor)
+  const bodyClasses = buildBodyClasses(fontFlags.hasBodyFont)
+  const headingClasses = buildHeadingClasses(fontFlags.hasTitleFont)
+  const linkClasses = buildLinkClasses()
 
   const titleFont = extractTitleFontProperties(theme)
   const headingStyleProps = buildHeadingStyleProperties(titleFont)

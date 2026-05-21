@@ -17,7 +17,7 @@ export function KanbanCardDefault({ record }: { readonly record: TableRecord }):
     (record.name as string | undefined) ??
     (record.label as string | undefined) ??
     String(record.id ?? '')
-  return <p className="text-sm font-medium text-gray-900">{title}</p>
+  return <p className="text-fg text-sm font-medium">{title}</p>
 }
 
 export function KanbanCardBody({
@@ -41,7 +41,7 @@ export function KanbanCardBody({
       <div className="flex flex-col gap-1 p-3">
         {card.children?.map((child, index) => renderCardChild(child, record, index))}
         {card.footer && card.footer.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
+          <div className="border-border mt-2 flex flex-wrap items-center gap-2 border-t pt-2">
             {card.footer.map((item, index) => {
               const node = renderFooterItem(item, record)
               return node ? <span key={`footer-${String(index)}`}>{node}</span> : undefined

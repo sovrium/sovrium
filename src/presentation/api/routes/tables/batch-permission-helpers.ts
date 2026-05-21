@@ -18,16 +18,16 @@ import type { Context } from 'hono'
 export function checkViewerPermission(
   userRole: string,
   c: Context,
-  action: string = 'perform this action'
+  _action: string = 'perform this action'
 ): Response | undefined {
   if (userRole === 'viewer') {
     return c.json(
       {
         success: false,
-        message: `You do not have permission to ${action}`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
   return undefined
@@ -92,14 +92,13 @@ export function checkBatchFieldPermissions(config: {
     .filter((fields) => fields.length > 0)
 
   if (allForbiddenFields.length > 0) {
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
     return c.json(
       {
         success: false,
-        message: `Cannot write to field '${uniqueForbiddenFields[0]}': insufficient permissions`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 
@@ -114,21 +113,16 @@ export function validateStrippedRecordsNotEmpty(config: {
   readonly userRole: string
   readonly c: Context
 }): Response | null {
-  const { strippedRecords, originalRecords, app, tableName, userRole, c } = config
+  const { strippedRecords, c } = config
   const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
   if (!hasWritableFields) {
-    const allForbiddenFields = originalRecords
-      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-      .filter((fields) => fields.length > 0)
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    const firstForbiddenField = uniqueForbiddenFields[0]
     return c.json(
       {
         success: false,
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 

@@ -11,6 +11,8 @@ import { useDataTableQuery } from '../../hooks/use-data-table-query'
 import { useDataTableState, ROW_HEIGHT_CLASSES } from '../../hooks/use-data-table-state'
 import { useInlineEditing, type FieldMetaMap } from '../../hooks/use-inline-editing'
 import { useIslandSearch } from '../../hooks/use-island-search'
+import { useRealtimeReconciliation } from '../../hooks/use-realtime-reconciliation'
+import { useRealtimeSubscription } from '../../hooks/use-realtime-subscription'
 import { executeBulkAction } from './bulk-action-execute'
 import { buildColumns } from './columns'
 import { createRowActionHandler } from './row-actions'
@@ -36,6 +38,8 @@ interface IslandSetupParams {
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
+    readonly refreshMode?: 'none' | 'poll' | 'realtime'
+    readonly pollIntervalMs?: number
   }
   readonly columnConfig?: readonly DataTableColumn[]
   readonly paginationConfig?: DataTablePagination
@@ -118,12 +122,20 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     globalFilter: tableState.globalFilter,
     dataSourceFilter: dataSource.filter,
     dataSourceSort: dataSource.sort,
+    refreshMode: dataSource.refreshMode,
+    pollIntervalMs: dataSource.pollIntervalMs,
   })
 
   const handleRefresh = useCallback(
     () => void queryClient.invalidateQueries({ queryKey }),
     [queryClient, queryKey]
   )
+
+  const connectionStatus = useRealtimeSubscription({
+    enabled: dataSource.refreshMode === 'realtime',
+    table: dataSource.table,
+    onChange: handleRefresh,
+  })
 
   const inlineEditing = useInlineEditing({
     tableName: dataSource.table,
@@ -144,6 +156,13 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     tableFields,
     groupByField: groupByConfig?.field,
     onActionClick: executeRowAction,
+    autoColumnsEditable: dataSource.refreshMode === 'realtime',
+  })
+
+  const { conflict, dismissConflict } = useRealtimeReconciliation({
+    enabled: dataSource.refreshMode === 'realtime',
+    records,
+    onConflict: inlineEditing.cancelEditing,
   })
 
   const table = useDataTableInstance({
@@ -211,13 +230,16 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     saveIndicator,
     handleRefresh,
     onBulkExecute,
+    conflict,
+    dismissConflict,
+    connectionStatus,
     globalFilter: tableState.globalFilter,
     setGlobalFilter: tableState.setGlobalFilter,
     rowSelection: tableState.rowSelection,
     currentRowHeight: tableState.currentRowHeight,
     toggleDensity: tableState.toggleDensity,
     cellClass: ROW_HEIGHT_CLASSES[tableState.currentRowHeight],
-    borderClass: bordered ? 'border border-gray-200' : '',
+    borderClass: bordered ? 'border border-border' : '',
     showSearch: shouldShowSearch(searchConfig, toolbarConfig),
   }
 }

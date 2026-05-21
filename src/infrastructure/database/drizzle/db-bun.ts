@@ -5,30 +5,54 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { drizzle } from 'drizzle-orm/bun-sql'
-import * as schema from './schema'
+import { Database as BunSqlite } from 'bun:sqlite'
+import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
+import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
+import * as schemaPg from './schema'
+import * as schemaSqlite from './schema-sqlite'
 
 
-type DrizzleClient = ReturnType<typeof drizzle<typeof schema>>
+export type DrizzleDB = ReturnType<typeof drizzlePg<typeof schemaPg>>
 
-let cached: DrizzleClient | undefined
+type SqliteDrizzleDB = ReturnType<typeof drizzleSqlite<typeof schemaSqlite>>
 
-export const getDb = (): DrizzleClient => {
-  if (cached !== undefined) return cached
-  const url = process.env.DATABASE_URL
-  if (url === undefined || url === '') {
-    throw new Error(
-      'DATABASE_URL must be set before accessing the database. ' +
-        'If this throws during module-import, a static import is reaching the database eagerly — ' +
-        'switch to a lazy access pattern (call getDb() inside a function body).'
-    )
+let cached: DrizzleDB | undefined
+
+const buildClient = (): DrizzleDB => {
+  const config = parseDatabaseDialectConfig()
+
+  if (config.dialect === 'postgres') {
+    return drizzlePg({ connection: { url: config.databaseUrl }, schema: schemaPg })
   }
-  cached = drizzle({ connection: { url }, schema })
+
+  const client = new BunSqlite(config.path, { create: true })
+  client.exec('PRAGMA foreign_keys = ON')
+  client.exec('PRAGMA journal_mode = WAL')
+  client.exec('PRAGMA busy_timeout = 5000')
+
+  const sqliteDb: SqliteDrizzleDB = drizzleSqlite({ client, schema: schemaSqlite })
+  return sqliteDb as unknown as DrizzleDB
+}
+
+export const getDb = (): DrizzleDB => {
+  if (cached !== undefined) return cached
+  cached = buildClient()
   return cached
 }
 
-export const db: DrizzleClient = new Proxy({} as DrizzleClient, {
+export const getPgDb = (): DrizzleDB => {
+  if (parseDatabaseDialectConfig().dialect !== 'postgres') {
+    throw new UnsupportedInSqliteError({
+      feature: 'raw-sql',
+      message:
+        'db.execute / raw SQL requires the PostgreSQL runtime. This operation is not available on the SQLite (zero-config) runtime.',
+    })
+  }
+  return getDb()
+}
+
+export const db: DrizzleDB = new Proxy({} as DrizzleDB, {
   get: (_target, prop) => Reflect.get(getDb(), prop),
 })
-
-export type DrizzleDB = DrizzleClient

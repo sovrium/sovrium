@@ -20,7 +20,12 @@ function buildInitialValues(
       const fromRecord = record?.[f.name]
       const fromInitial = initialValues?.[f.name]
       const fallbackDefault = f.defaultValue !== undefined ? String(f.defaultValue) : ''
-      const recordValue = fromRecord !== undefined && fromRecord !== null ? String(fromRecord) : ''
+      const recordValue =
+        fromRecord !== undefined && fromRecord !== null
+          ? typeof fromRecord === 'object'
+            ? JSON.stringify(fromRecord)
+            : String(fromRecord)
+          : ''
       const value = fromInitial ?? (recordValue !== '' ? recordValue : fallbackDefault)
       return [f.name, value]
     })

@@ -6,6 +6,7 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface MenuItem {
@@ -38,13 +39,13 @@ export default function MenubarIsland({
   return (
     <div
       role="menubar"
-      className={`flex items-center rounded-md border border-gray-200 bg-white ${className ?? ''}`}
+      className={cn('border-border bg-bg-raised flex items-center rounded-md border', className)}
       id={id}
       data-testid={testId}
     >
       {menus.map((menu, menuIndex) => (
         <Menu.Root key={`menu-${menuIndex}`}>
-          <Menu.Trigger className="px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 data-[open]:bg-gray-100">
+          <Menu.Trigger className="text-fg hover:bg-bg-subtle data-[open]:bg-bg-subtle px-3 py-1.5 text-sm font-medium transition-colors">
             {menu.label}
           </Menu.Trigger>
           <Menu.Portal>
@@ -53,24 +54,24 @@ export default function MenubarIsland({
               align="start"
               sideOffset={4}
             >
-              <Menu.Popup className="min-w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+              <Menu.Popup className="border-border bg-bg-overlay text-fg min-w-48 rounded-md border py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
                 {menu.items.map((item, itemIndex) =>
                   item.separator ? (
                     <Menu.Separator
                       key={`sep-${itemIndex}`}
-                      className="my-1 h-px bg-gray-200"
+                      className="bg-border my-1 h-px"
                     />
                   ) : (
                     <Menu.Item
                       key={`item-${itemIndex}`}
                       disabled={item.disabled}
-                      className={`flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[highlighted]:bg-gray-100 ${
-                        item.variant === 'destructive' ? 'text-red-600' : 'text-gray-900'
+                      className={`data-[highlighted]:bg-bg-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 ${
+                        item.variant === 'destructive' ? 'text-error-fg' : 'text-fg'
                       }`}
                     >
                       <span className="flex-1">{item.label}</span>
                       {item.shortcut && (
-                        <span className="ml-4 text-xs text-gray-400">{item.shortcut}</span>
+                        <span className="text-fg-subtle ml-4 text-xs">{item.shortcut}</span>
                       )}
                     </Menu.Item>
                   )

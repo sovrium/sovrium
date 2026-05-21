@@ -5,8 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql } from 'drizzle-orm'
-import { typedExecute } from '../shared/typed-execute'
+import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
 export const AUTHORSHIP_FIELDS = {
@@ -19,17 +18,8 @@ async function checkAuthorshipColumns(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   columnNames: readonly string[]
-): Promise<Set<string>> {
-  const columnNameParams = sql.join(
-    columnNames.map((name) => sql`${name}`),
-    sql`, `
-  )
-  const rows = await typedExecute<{ column_name: string }>(
-    tx,
-    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN (${columnNameParams})`
-  )
-
-  return new Set(rows.map((row) => row.column_name))
+): Promise<ReadonlySet<string>> {
+  return getExistingColumnNames(tx, tableName, columnNames)
 }
 
 function normalizeUserIdForDb(userId: string | undefined): string | null {

@@ -19,6 +19,7 @@ import {
 import { RagSyncLayer } from '@/infrastructure/ai/embed-pipeline'
 import { runSyncKnowledge } from '@/infrastructure/ai/knowledge-sync'
 import { AiLive } from '@/infrastructure/ai/layer'
+import { requireRuntime } from '@/presentation/api/openapi/runtimes'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
@@ -61,6 +62,16 @@ const handleSearch = async (c: Readonly<Context>): Promise<Response> => {
   if (query.trim().length === 0) {
     return c.json({ error: 'query is required' }, 400)
   }
+  if ((process.env.AI_PROVIDER?.trim() ?? '') === '') {
+    return c.json(
+      {
+        error:
+          'AI provider not configured. Set AI_PROVIDER (and AI_BASE_URL / AI_API_KEY) to enable RAG search.',
+        code: 'AI_PROVIDER_NOT_CONFIGURED',
+      },
+      503
+    )
+  }
   const ragConfig = resolveRagConfig(process.env, 'text-embedding-3-small')
   const program = Effect.gen(function* () {
     const ai = yield* AiService
@@ -98,7 +109,7 @@ const authorizeRebuild = async (
   }
   const role = await getUserRole(session.userId).catch(() => 'member')
   if (role !== 'admin') {
-    return c.json({ error: 'Admin role required' }, 403)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
   return undefined
 }
@@ -158,8 +169,12 @@ export function chainRagRoutes<T extends Hono>(honoApp: T, app?: App): T {
   return honoApp
     .get('/api/ai/rag/config', (c) => handleConfig(c as unknown as Readonly<Context>))
     .get('/api/ai/rag/status', (c) => handleStatus(c as unknown as Readonly<Context>))
-    .post('/api/ai/rag/search', (c) => handleSearch(c as unknown as Readonly<Context>))
-    .post('/api/ai/rag/rebuild', (c) => handleRebuild(c as unknown as Readonly<Context>, app))
+    .post('/api/ai/rag/search', requireRuntime(['postgres']), (c) =>
+      handleSearch(c as unknown as Readonly<Context>)
+    )
+    .post('/api/ai/rag/rebuild', requireRuntime(['postgres']), (c) =>
+      handleRebuild(c as unknown as Readonly<Context>, app)
+    )
     .get('/api/ai/agents/:name/config', (c) =>
       handleAgentConfig(c as unknown as Readonly<Context>, app)
     ) as unknown as T

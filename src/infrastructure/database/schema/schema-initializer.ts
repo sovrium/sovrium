@@ -6,7 +6,11 @@
  */
 
 import { SQL } from 'bun'
-import { Config, Effect, Console, Data, Runtime, type ConfigError } from 'effect'
+import { Effect, Console, Data, type ConfigError } from 'effect'
+import {
+  parseDatabaseDialectConfig,
+  type DatabaseDialectConfig,
+} from '@/domain/models/env/database-dialect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
@@ -18,6 +22,7 @@ import {
   type BetterAuthUsersTableRequired,
 } from '../auth/auth-validation'
 import * as lookupViewGenerators from '../lookup/lookup-view-generators'
+import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
 import {
   tableExists,
   executeSQL,
@@ -34,7 +39,6 @@ import {
 import * as viewGenerators from '../views/view-generators'
 import {
   getPreviousSchema,
-  logRollbackOperation,
   recordMigration,
   storeSchemaChecksum,
   generateSchemaChecksum,
@@ -44,6 +48,7 @@ import {
   detectCircularDependenciesWithOptionalFK,
   sortTablesByDependencies,
 } from './schema-dependency-sorting'
+import { executeSchemaInit, checkShouldSkipMigration } from './schema-initializer-execute'
 import {
   dropObsoleteTables,
   renameTablesIfNeeded,
@@ -339,189 +344,37 @@ const executeMigrationSteps = (
     yield* storeSchemaChecksum(tx, app)
   })
 
-const logRollbackError = (
-  databaseUrl: string,
-  errorMessage: string,
-  runtime: Runtime.Runtime<never>
-): Effect.Effect<void, never, never> =>
-  Effect.gen(function* () {
-    logDebug(`[executeSchemaInit] CATCH HANDLER - Error caught: ${errorMessage}`)
-    const logDb = new SQL(databaseUrl)
-
-    yield* Effect.tryPromise({
-      try: async () => {
-        await logDb.begin(async (logTx) => {
-          await Runtime.runPromise(runtime)(
-            logRollbackOperation(logTx, errorMessage).pipe(
-              Effect.catchAll((logError) => {
-                logDebug(`[executeSchemaInit] Failed to log rollback: ${logError.message}`)
-                return Effect.void
-              })
-            )
-          )
-        })
-        logDebug('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
-      },
-      catch: () => undefined,
-    }).pipe(
-      Effect.ensuring(
-        Effect.gen(function* () {
-          yield* Effect.promise(() => logDb.close())
-          logDebug('[executeSchemaInit] CATCH HANDLER - Log DB connection closed')
-        })
-      ),
-      Effect.ignore
-    )
-  })
-
-const executeSchemaInit = (
-  databaseUrl: string,
-  tables: readonly Table[],
-  app: App
-): Effect.Effect<void, SchemaInitializationError, never> =>
-  Effect.gen(function* () {
-    const db = new SQL({ url: databaseUrl, max: 1 })
-    const runtime = yield* Effect.runtime<never>()
-
-    try {
-      yield* Effect.tryPromise({
-        try: async () => {
-          await db.begin(async (tx) => {
-            await Runtime.runPromise(runtime)(executeMigrationSteps(tx, tables, app))
-            logDebug('[executeSchemaInit] Transaction completed successfully (auto-commit)')
-          })
-        },
-        catch: (error) =>
-          new SchemaInitializationError({
-            message: `Schema initialization failed: ${String(error)}`,
-            cause: error,
-          }),
-      }).pipe(
-        Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            yield* logRollbackError(databaseUrl, error.message, runtime)
-            return yield* error
-          })
-        )
-      )
-    } finally {
-      yield* Effect.promise(() => db.close())
-    }
-  })
-
-const checkShouldSkipMigration = (
-  databaseUrl: string,
-  currentChecksum: string,
-  tables: readonly Table[]
-): Effect.Effect<boolean, SchemaInitializationError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const quickDb = new SQL(databaseUrl)
-      try {
-        const result = (await quickDb.unsafe(
-          `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
-        )) as readonly { checksum: string }[]
-
-        if (result.length === 0 || result[0]?.checksum !== currentChecksum) {
-          logDebug(
-            '[checkShouldSkipMigration] Schema checksum differs or missing - running full migration'
-          )
-          return false
-        }
-
-        if (tables.length === 0) {
-          logDebug(
-            '[checkShouldSkipMigration] Schema checksum matches and no tables expected - skipping migration (fast path)'
-          )
-          return true
-        }
-
-        const firstTableName = tables[0]?.name
-        if (!firstTableName) {
-          logDebug(
-            '[checkShouldSkipMigration] Schema checksum matches and tables verified - skipping migration (fast path)'
-          )
-          return true
-        }
-
-        const sanitizedTableName = sanitizeTableName(firstTableName)
-
-        const tableCheck = (await quickDb.unsafe(`
-          SELECT EXISTS (
-            SELECT FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name = '${sanitizedTableName}'
-          )
-        `)) as readonly { exists: boolean }[]
-
-        if (!tableCheck[0]?.exists) {
-          logDebug(
-            `[checkShouldSkipMigration] Checksum matches but table '${sanitizedTableName}' does not exist - running full migration (template DB detected)`
-          )
-          return false
-        }
-
-        logDebug(
-          '[checkShouldSkipMigration] Schema checksum matches and tables verified - skipping migration (fast path)'
-        )
-        return true
-      } catch {
-        logDebug('[checkShouldSkipMigration] Checksum table not found - running full migration')
-        return false
-      } finally {
-        await quickDb.close()
-      }
-    },
-    catch: () =>
-      new SchemaInitializationError({
-        message: 'Failed to check schema checksum',
-        cause: undefined,
-      }),
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
-
 export type SchemaError =
   | SchemaInitializationError
   | NoDatabaseUrlError
   | BetterAuthUsersTableRequired
   | AuthConfigRequiredForUserFields
 
-const initializeSchemaInternal = (
-  app: App
-): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
+const cleanupObsoleteViews = (
+  dialectConfig: Readonly<DatabaseDialectConfig>,
+  tables: readonly Table[]
+): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
-    logDebug('[initializeSchemaInternal] Starting schema initialization...')
-    logDebug(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
-
-    const tables = app.tables ?? []
-
-    const tablesNeedUsersTable = needsUsersTable(tables)
-    const hasAuthConfig = !!app.auth
-    logDebug(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
-    logDebug(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
-
-
-    const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(Config.withDefault(''))
-    logDebug(
-      `[initializeSchemaInternal] DATABASE_URL: ${databaseUrlConfig ? 'present' : 'missing'}`
-    )
-
-    if (!databaseUrlConfig) {
-      logDebug('[Schema] No DATABASE_URL found, skipping schema initialization')
-      return
-    }
-
-    logDebug('[Schema] Initializing database schema...')
-
-    const currentChecksum = generateSchemaChecksum(app)
-    const shouldSkipMigration = yield* checkShouldSkipMigration(
-      databaseUrlConfig,
-      currentChecksum,
-      tables
-    )
-
-    if (shouldSkipMigration) {
-      logDebug('[Schema] Schema unchanged, cleaning up obsolete views...')
-      const db = new SQL({ url: databaseUrlConfig, max: 1 })
+    logDebug('[Schema] Schema unchanged, cleaning up obsolete views...')
+    if (dialectConfig.dialect === 'sqlite') {
+      const sqliteDb = openSqliteDdlDatabase(dialectConfig.path)
+      try {
+        yield* Effect.tryPromise({
+          try: () =>
+            runSqliteSchemaTransaction(sqliteDb, (tx) =>
+              viewGenerators.dropAllObsoleteViews(tx, tables)
+            ),
+          catch: (error) =>
+            new SchemaInitializationError({
+              message: `View cleanup failed: ${String(error)}`,
+              cause: error,
+            }),
+        })
+      } finally {
+        sqliteDb.close()
+      }
+    } else {
+      const db = new SQL({ url: dialectConfig.databaseUrl, max: 1 })
       try {
         yield* Effect.tryPromise({
           try: async () => {
@@ -538,11 +391,44 @@ const initializeSchemaInternal = (
       } finally {
         yield* Effect.promise(() => db.close())
       }
-      logDebug('[Schema] Schema unchanged, view cleanup complete')
+    }
+    logDebug('[Schema] Schema unchanged, view cleanup complete')
+  })
+
+const initializeSchemaInternal = (
+  app: App
+): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
+  Effect.gen(function* () {
+    logDebug('[initializeSchemaInternal] Starting schema initialization...')
+    logDebug(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
+
+    const tables = app.tables ?? []
+
+    const tablesNeedUsersTable = needsUsersTable(tables)
+    const hasAuthConfig = !!app.auth
+    logDebug(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
+    logDebug(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
+
+
+    const dialectConfig = parseDatabaseDialectConfig()
+    logDebug(`[initializeSchemaInternal] Database dialect: ${dialectConfig.dialect}`)
+
+    logDebug('[Schema] Initializing database schema...')
+
+    const currentChecksum = generateSchemaChecksum(app)
+    const shouldSkipMigration = yield* checkShouldSkipMigration(
+      dialectConfig,
+      currentChecksum,
+      tables,
+      sanitizeTableName
+    )
+
+    if (shouldSkipMigration) {
+      yield* cleanupObsoleteViews(dialectConfig, tables)
       return
     }
 
-    yield* executeSchemaInit(databaseUrlConfig, tables, app)
+    yield* executeSchemaInit(dialectConfig, tables, app, executeMigrationSteps)
 
     logDebug('[Schema] Database schema initialized successfully')
   })

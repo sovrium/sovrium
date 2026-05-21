@@ -12,10 +12,11 @@ import {
   FormSubmissionRepository,
 } from '@/application/ports/repositories/form-submission-repository'
 import { db } from '@/infrastructure/database'
-import { formSubmissions } from '@/infrastructure/database/drizzle/schema/form-submissions'
+import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import type { TopLevelFormSubmissionRow } from '@/application/ports/repositories/form-submission-repository'
+import type { formSubmissions } from '@/infrastructure/database/drizzle/schema/form-submissions'
 
 const wrap = makeDbWrap((cause) => new FormSubmissionDatabaseError({ cause }))
 
@@ -71,7 +72,7 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
   create: ({ pageName, shareToken, tableName, submittedData, guestEmail, ipAddress }) =>
     wrap(async () => {
       const [row] = await db
-        .insert(formSubmissions)
+        .insert(formSubmissionsTable())
         .values({
           pageName,
           shareToken,
@@ -87,14 +88,15 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
   countRecentByIp: ({ ipAddress, windowSeconds }) =>
     wrap(async () => {
       const cutoff = new Date(Date.now() - windowSeconds * 1000)
+      const submissions = formSubmissionsTable()
       const [row] = await db
         .select({ size: count() })
-        .from(formSubmissions)
+        .from(submissions)
         .where(
           and(
-            eq(formSubmissions.ipAddress, ipAddress),
-            gt(formSubmissions.submittedAt, cutoff),
-            isNull(formSubmissions.deletedAt)
+            eq(submissions.ipAddress, ipAddress),
+            gt(submissions.submittedAt, cutoff),
+            isNull(submissions.deletedAt)
           )
         )
       return Number(row?.size ?? 0)
@@ -103,7 +105,7 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
   createTopLevel: (input) =>
     wrap(async () => {
       const [row] = await db
-        .insert(formSubmissions)
+        .insert(formSubmissionsTable())
         .values(buildTopLevelInsertValues(input))
         .returning()
       return shapeTopLevelRow(row, input)
@@ -112,10 +114,11 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
   updateStatus: ({ id, status, statusReason }) =>
     wrap(() => {
       const reasonOverride = statusReason === undefined ? {} : { statusReason }
+      const submissions = formSubmissionsTable()
       return db
-        .update(formSubmissions)
+        .update(submissions)
         .set({ status, ...reasonOverride })
-        .where(eq(formSubmissions.id, id))
+        .where(eq(submissions.id, id))
         .then(() => undefined)
     }),
 })

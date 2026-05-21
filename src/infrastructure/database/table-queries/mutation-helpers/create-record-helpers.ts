@@ -7,11 +7,13 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import {
   SessionContextError,
   UniqueConstraintViolationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { validateColumnName, validateTableName } from '../shared/validation'
 
@@ -71,6 +73,7 @@ export async function lookupArrayColumnTypes(
   columnNames: ReadonlyArray<string>
 ): Promise<Readonly<Record<string, string>>> {
   if (columnNames.length === 0) return {}
+  if (parseDatabaseDialectConfig().dialect === 'sqlite') return {}
   validateTableName(tableName)
   try {
     const validatedNames = columnNames.map((name) => {
@@ -81,7 +84,8 @@ export async function lookupArrayColumnTypes(
       validatedNames.map((n) => sql`${n}`),
       sql.raw(', ')
     )
-    const rows = (await tx.execute(
+    const rows = (await executeRaw(
+      tx,
       sql`SELECT column_name, data_type FROM information_schema.columns
           WHERE table_schema = current_schema()
             AND table_name = ${tableName}
@@ -104,9 +108,10 @@ export function executeInsert(
 ): Effect.Effect<Record<string, unknown>, SessionContextError | UniqueConstraintViolationError> {
   return Effect.tryPromise({
     try: async () => {
-      const insertResult = (await tx.execute(
+      const insertResult = await executeRaw(
+        tx,
         sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
-      )) as readonly Record<string, unknown>[]
+      )
       return insertResult[0] ?? {}
     },
     catch: (error) => {

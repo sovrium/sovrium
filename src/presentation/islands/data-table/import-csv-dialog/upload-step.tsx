@@ -13,14 +13,14 @@ interface UploadStepProps {
 export function UploadStep({ noDataError, onFileChange }: UploadStepProps) {
   if (noDataError) {
     return (
-      <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="border-error-border bg-error-bg text-error-fg rounded border p-4 text-sm">
         No data rows found
       </div>
     )
   }
   return (
-    <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-      <p className="mb-4 text-sm text-gray-600">Drag and drop a CSV file here</p>
+    <div className="border-border rounded-lg border-2 border-dashed p-8 text-center">
+      <p className="text-fg-muted mb-4 text-sm">Drag and drop a CSV file here</p>
       <label className="cursor-pointer">
         <input
           type="file"
@@ -28,7 +28,7 @@ export function UploadStep({ noDataError, onFileChange }: UploadStepProps) {
           className="sr-only"
           onChange={onFileChange}
         />
-        <span className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+        <span className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm">
           Browse file
         </span>
       </label>

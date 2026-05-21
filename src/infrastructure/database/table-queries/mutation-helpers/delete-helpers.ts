@@ -7,6 +7,9 @@
 
 import { sql } from 'drizzle-orm'
 import { SessionContextError } from '@/domain/errors'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
+import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
 import { validateTableName, validateColumnName } from '../shared/validation'
 import { hasDeletedByColumn, getDeletedByValue } from './authorship-helpers'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
@@ -54,20 +57,20 @@ export async function cascadeSoftDelete(
       validateTableName(childTable)
       validateColumnName(childColumn)
 
-      const childColumnCheck = (await tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${childTable} AND column_name = 'deleted_at'`
-      )) as readonly Record<string, unknown>[]
+      const childHasDeletedAt = await columnExists(tx, childTable, 'deleted_at')
 
-      if (childColumnCheck.length > 0) {
+      if (childHasDeletedAt) {
         const hasDeletedByCol = await hasDeletedByColumn(tx, childTable)
 
         if (hasDeletedByCol) {
-          await tx.execute(
-            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW(), deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
+          await executeRaw(
+            tx,
+            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = ${nowExpr()}, deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
           )
         } else {
-          await tx.execute(
-            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW() WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
+          await executeRaw(
+            tx,
+            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = ${nowExpr()} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
           )
         }
       }
@@ -117,7 +120,8 @@ export async function cascadeSetNull(
       validateTableName(childTable)
       validateColumnName(childColumn)
 
-      await tx.execute(
+      await executeRaw(
+        tx,
         sql`UPDATE ${sql.identifier(childTable)} SET ${sql.identifier(childColumn)} = NULL WHERE ${sql.identifier(childColumn)} = ${recordId}`
       )
     })
@@ -162,9 +166,10 @@ export async function checkRestrictConstraint(
       validateTableName(relatedInfo.tableName)
       validateColumnName(relatedInfo.fieldName)
 
-      const result = (await tx.execute(
+      const result = await executeRaw(
+        tx,
         sql`SELECT COUNT(*) as count FROM ${sql.identifier(relatedInfo.tableName)} WHERE ${sql.identifier(relatedInfo.fieldName)} = ${recordId}`
-      )) as readonly Record<string, unknown>[]
+      )
 
       return Number(result[0]?.count ?? 0) > 0
     })
@@ -186,12 +191,14 @@ export async function executeSoftDelete(
     const tableIdent = sql.identifier(tableName)
 
     const result = hasDeletedByCol
-      ? ((await tx.execute(
-          sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${deletedByValue} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
-        )) as readonly Record<string, unknown>[])
-      : ((await tx.execute(
-          sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
-        )) as readonly Record<string, unknown>[])
+      ? await executeRaw(
+          tx,
+          sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()}, deleted_by = ${deletedByValue} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+        )
+      : await executeRaw(
+          tx,
+          sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+        )
 
     return result.length > 0
   } catch (error) {
@@ -206,9 +213,10 @@ export async function executeHardDelete(
 ): Promise<boolean> {
   try {
     const tableIdent = sql.identifier(tableName)
-    const result = (await tx.execute(
+    const result = await executeRaw(
+      tx,
       sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
-    )) as readonly Record<string, unknown>[]
+    )
     return result.length > 0
   } catch (error) {
     throw new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error)
@@ -220,10 +228,7 @@ export async function checkDeletedAtColumn(
   tableName: string
 ): Promise<boolean> {
   try {
-    const columnCheck = (await tx.execute(
-      sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-    )) as readonly Record<string, unknown>[]
-    return columnCheck.length > 0
+    return await columnExists(tx, tableName, 'deleted_at')
   } catch (error) {
     throw new SessionContextError(`Failed to check columns for ${tableName}`, error)
   }

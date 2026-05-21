@@ -40,6 +40,7 @@ import { chainCommandSearchRoutes } from '@/presentation/api/routes/command-sear
 import { chainConnectionRoutes } from '@/presentation/api/routes/connections'
 import { chainFavoriteRoutes } from '@/presentation/api/routes/favorites'
 import { chainNotificationRoutes } from '@/presentation/api/routes/notifications'
+import { chainRealtimeRoutes } from '@/presentation/api/routes/realtime'
 import { chainRecentRoutes } from '@/presentation/api/routes/recent'
 import { chainShareLinkRoutes } from '@/presentation/api/routes/share-links'
 import {
@@ -59,6 +60,9 @@ class HealthResponseValidationError extends Data.TaggedError('HealthResponseVali
   readonly message: string
   readonly cause?: unknown
 }> {}
+
+const isRealtimeSubscriptionPath = (path: string): boolean =>
+  /^\/api\/tables\/[^/]+\/subscribe(\/sse)?$/.test(path)
 
 const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
   return honoApp
@@ -88,6 +92,11 @@ const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))
       const { method } = c.req
       const { path } = c.req
+
+      if (isRealtimeSubscriptionPath(path)) {
+        await next()
+        return
+      }
 
       if (isTablesRateLimitExceeded(method, path, ip)) {
         const retryAfter = getTablesRateLimitRetryAfter(method, path, ip)
@@ -163,7 +172,7 @@ const envInt = (name: string, fallback: number): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-const STREAMING_PREFIXES = ['/api/ai/chat/stream'] as const
+const STREAMING_PREFIXES = ['/api/ai/chat/stream', '/api/realtime/presence'] as const
 
 const applyRequestGuards = (honoApp: Hono): Hono => {
   const timeoutMs = envInt('API_TIMEOUT_MS', 30_000)
@@ -245,6 +254,9 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/admin/buckets/quota', authMiddleware(auth))
         .use('/api/admin/buckets/quota', requireAuth())
         .use('/api/admin/buckets/quota', requireAdmin())
+        .use('/api/admin/config/version', authMiddleware(auth))
+        .use('/api/admin/config/version', requireAuth())
+        .use('/api/admin/config/version', requireAdmin())
         .use('/api/admin/storage/transform-cache', authMiddleware(auth))
         .use('/api/admin/storage/transform-cache', requireAuth())
         .use('/api/admin/storage/transform-cache', requireAdmin())
@@ -283,6 +295,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/favorites', authMiddleware(auth))
         .use('/api/recent', authMiddleware(auth))
         .use('/api/command-search', authMiddleware(auth))
+        .use('/api/realtime/presence', authMiddleware(auth))
     : honoWithActivityRateLimit
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', requireAuth())
@@ -301,7 +314,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/analytics/campaigns', requireAuth())
         .use('/api/analytics/campaigns', requireAdmin())
 
-  const honoWithTables = chainTableRoutes(honoWithAuth, app)
+  const resolveLiveApp = (): App => (getLiveApp() as App | undefined) ?? app
+  const honoWithTables = chainTableRoutes(honoWithAuth, app, resolveLiveApp)
 
   const honoWithActivity = chainActivityRoutes(honoWithTables)
 
@@ -357,7 +371,9 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithRecent = chainRecentRoutes(honoWithFavorites)
   const honoWithCommandSearch = chainCommandSearchRoutes(honoWithRecent, app)
 
-  return chainAuthRoutes(honoWithCommandSearch, auth)
+  const honoWithRealtime = chainRealtimeRoutes(honoWithCommandSearch, app)
+
+  return chainAuthRoutes(honoWithRealtime, auth)
 }
 
 export type ApiType = ReturnType<typeof createApiRoutes<Hono>>

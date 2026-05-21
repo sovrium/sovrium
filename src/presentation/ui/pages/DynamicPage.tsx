@@ -78,6 +78,7 @@ function itemNeedsIslands(item: Component): boolean {
 }
 
 function hasIslandComponents(page: Page): boolean {
+  if (page.presence === true) return true
   if (!page.components || page.components.length === 0) return false
   return page.components.some((item) => {
     if ('component' in item || '$ref' in item) return false
@@ -238,6 +239,24 @@ const TOAST_CONTAINER_STYLE = {
   minHeight: '1px',
 } as const
 
+const PRESENCE_CONTAINER_STYLE = { minHeight: '1px' } as const
+
+function PresenceIndicatorMount({ page }: { readonly page: Page }): Readonly<ReactElement> {
+  const islandProps = JSON.stringify({ pagePath: page.path })
+  return (
+    <div
+      data-island="presence-indicator"
+      data-island-props={islandProps}
+      style={PRESENCE_CONTAINER_STYLE}
+    >
+      <div
+        data-testid="presence-indicator"
+        aria-label="Users viewing this page"
+      />
+    </div>
+  )
+}
+
 function selectSidebarSections(
   resolvedSidebar: readonly ResolvedSidebarSection[] | undefined,
   page: Page
@@ -308,6 +327,7 @@ function DynamicPageBody({
         routeParams={routeParams}
         markdownPayload={markdownPayload}
       />
+      {page.presence === true && <PresenceIndicatorMount page={page} />}
       {page.toasts && <PageToastContainer toasts={page.toasts} />}
       <PageBodyScripts
         page={page}

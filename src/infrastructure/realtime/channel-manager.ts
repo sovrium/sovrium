@@ -6,6 +6,8 @@
  */
 
 
+
+
 const subscriptions = new Map<string, Set<string>>()
 
 export const addSubscription = (channel: string, userId: string): void => {
@@ -29,3 +31,37 @@ export const getSubscribers = (channel: string): readonly string[] => [
 ]
 
 export const getChannelCount = (): number => subscriptions.size
+
+
+type ChannelListener = (event: Record<string, unknown>) => void
+
+const listeners = new Map<string, Set<ChannelListener>>()
+
+export const addChannelListener = (channel: string, listener: ChannelListener): (() => void) => {
+  const set = listeners.get(channel) ?? new Set()
+  set.add(listener)
+  listeners.set(channel, set)
+  return () => {
+    const current = listeners.get(channel)
+    if (!current) return
+    current.delete(listener)
+    if (current.size === 0) {
+      listeners.delete(channel)
+    }
+  }
+}
+
+export const publishToChannel = (channel: string, event: Record<string, unknown>): void => {
+  const set = listeners.get(channel)
+  if (!set) return
+  const snapshot = [...set]
+  snapshot.forEach((listener) => {
+    try {
+      listener(event)
+    } catch {
+    }
+  })
+}
+
+export const getChannelListenerCount = (channel: string): number =>
+  listeners.get(channel)?.size ?? 0

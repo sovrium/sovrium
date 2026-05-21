@@ -7,6 +7,7 @@
 
 import { Radio } from '@base-ui/react/radio'
 import { RadioGroup } from '@base-ui/react/radio-group'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface OptionItem {
@@ -40,11 +41,11 @@ export default function RadioIsland({
 }: RadioIslandProps): ReactElement {
   return (
     <fieldset
-      className={className}
+      className={cn(className)}
       id={id}
       data-testid={testId}
     >
-      {label && <legend className="mb-2 text-sm font-medium text-gray-900">{label}</legend>}
+      {label && <legend className="text-fg mb-2 text-sm font-medium">{label}</legend>}
       <RadioGroup
         defaultValue={defaultValue}
         disabled={disabled}
@@ -61,11 +62,11 @@ export default function RadioIsland({
             <Radio.Root
               value={option.value}
               disabled={option.disabled}
-              className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 bg-white transition-colors data-[checked]:border-blue-600"
+              className="border-border bg-bg-raised data-[checked]:border-primary flex h-4 w-4 items-center justify-center rounded-full border transition-colors"
             >
-              <Radio.Indicator className="h-2 w-2 rounded-full bg-blue-600" />
+              <Radio.Indicator className="bg-primary h-2 w-2 rounded-full" />
             </Radio.Root>
-            <span className="text-gray-900">{option.label}</span>
+            <span className="text-fg">{option.label}</span>
           </label>
         ))}
       </RadioGroup>

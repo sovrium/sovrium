@@ -17,4 +17,6 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'tabs',
   'accordion',
   'select',
+  'dialog',
+  'alert-dialog',
 ])

@@ -12,8 +12,24 @@ import { logError } from '@/infrastructure/logging/logger'
 import { getOpenAPIDocument } from '@/infrastructure/server/route-setup/openapi-schema'
 import type { App } from '@/domain/models/app'
 
+type GuardContext = Parameters<Parameters<Hono['use']>[1]>[0]
+
+const unauthorizedResponse = (c: GuardContext) =>
+  c.json(
+    {
+      success: false,
+      error: 'Unauthorized',
+      message: 'Authentication required',
+      code: 'UNAUTHORIZED',
+    },
+    401
+  )
+
+const notFoundResponse = (c: GuardContext) =>
+  c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+
 function createAdminGuard(authInstance: Readonly<ReturnType<typeof createAuthInstance>>) {
-  return async (c: Parameters<Parameters<Hono['use']>[1]>[0], next: () => Promise<void>) => {
+  return async (c: GuardContext, next: () => Promise<void>) => {
     try {
       const authHeader = c.req.header('authorization')
       const headers = authHeader?.toLowerCase().startsWith('bearer ')
@@ -25,44 +41,20 @@ function createAdminGuard(authInstance: Readonly<ReturnType<typeof createAuthIns
       } | null
 
       if (!sessionResult?.session) {
-        return c.json(
-          {
-            success: false,
-            error: 'Unauthorized',
-            message: 'Authentication required',
-            code: 'UNAUTHORIZED',
-          },
-          401
-        )
+        return unauthorizedResponse(c)
       }
 
       const { getUserRole } = await import('@/application/use-cases/tables/user-role')
       const role = await getUserRole(sessionResult.session.userId)
 
       if (role !== 'admin') {
-        return c.json(
-          {
-            success: false,
-            error: 'Forbidden',
-            message: 'Admin access required',
-            code: 'FORBIDDEN',
-          },
-          403
-        )
+        return notFoundResponse(c)
       }
 
       await next()
     } catch (error) {
       logError('[OpenAPI Auth] Session check error', error)
-      return c.json(
-        {
-          success: false,
-          error: 'Unauthorized',
-          message: 'Authentication required',
-          code: 'UNAUTHORIZED',
-        },
-        401
-      )
+      return unauthorizedResponse(c)
     }
   }
 }

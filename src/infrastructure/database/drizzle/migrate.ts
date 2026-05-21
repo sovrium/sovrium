@@ -8,14 +8,22 @@
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { SQL } from 'bun'
-import { drizzle } from 'drizzle-orm/bun-sql'
-import { migrate } from 'drizzle-orm/bun-sql/migrator'
+import { Database as BunSqlite } from 'bun:sqlite'
+import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
+import { migrate as migratePg } from 'drizzle-orm/bun-sql/migrator'
+import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
+import { migrate as migrateSqlite } from 'drizzle-orm/bun-sqlite/migrator'
 import { Effect, Data } from 'effect'
 import { logDebug } from '@/infrastructure/logging/logger'
 import * as schema from './schema'
+import * as schemaSqlite from './schema-sqlite'
+import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 
-const hasMigrations = (dir: string): boolean =>
-  existsSync(join(dir, 'drizzle', 'meta', '_journal.json'))
+const journalSegments = (subdir: string): readonly string[] =>
+  subdir ? ['drizzle', subdir, 'meta', '_journal.json'] : ['drizzle', 'meta', '_journal.json']
+
+const hasMigrations = (dir: string, subdir: string): boolean =>
+  existsSync(join(dir, ...journalSegments(subdir)))
 
 const ancestors = (start: string, depth: number): readonly string[] =>
   depth <= 0
@@ -25,12 +33,14 @@ const ancestors = (start: string, depth: number): readonly string[] =>
         return parent === start ? [start] : [start, ...ancestors(parent, depth - 1)]
       })()
 
-const findMigrationsFolder = (): string => {
-  const cwdPath = resolve('drizzle')
+const findMigrationsFolder = (subdir: string): string => {
+  const folder = subdir ? join('drizzle', subdir) : 'drizzle'
 
-  const packageDir = ancestors(import.meta.dir, 5).find(hasMigrations)
+  const cwdPath = resolve(folder)
 
-  return packageDir ? join(packageDir, 'drizzle') : cwdPath
+  const packageDir = ancestors(import.meta.dir, 5).find((dir) => hasMigrations(dir, subdir))
+
+  return packageDir ? join(packageDir, folder) : cwdPath
 }
 
 export class DatabaseConnectionError extends Data.TaggedError('DatabaseConnectionError')<{
@@ -43,14 +53,12 @@ export class MigrationError extends Data.TaggedError('MigrationError')<{
   readonly cause?: unknown
 }> {}
 
-export const runMigrations = (
+const runPostgresMigrations = (
   databaseUrl: string
 ): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
-    logDebug('[Migrations] Running Drizzle migrations...')
-
     const client = new SQL(databaseUrl)
-    const db = drizzle({ client, schema })
+    const db = drizzlePg({ client, schema })
 
     yield* Effect.tryPromise({
       try: () => client.unsafe('SELECT 1'),
@@ -71,7 +79,7 @@ export const runMigrations = (
     })
 
     yield* Effect.tryPromise({
-      try: () => migrate(db, { migrationsFolder: findMigrationsFolder() }),
+      try: () => migratePg(db, { migrationsFolder: findMigrationsFolder('') }),
       catch: (error) =>
         new MigrationError({
           message: `Migration failed: ${String(error)}`,
@@ -80,6 +88,53 @@ export const runMigrations = (
     })
 
     yield* Effect.promise(() => client.close())
+  })
+
+const runSqliteMigrations = (
+  path: string
+): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
+  Effect.gen(function* () {
+    const client = yield* Effect.try({
+      try: () => new BunSqlite(path, { create: true }),
+      catch: (error) =>
+        new DatabaseConnectionError({
+          message: `SQLite database open failed: ${String(error)}`,
+          cause: error,
+        }),
+    })
+
+    yield* Effect.try({
+      try: () => client.exec('PRAGMA foreign_keys = ON'),
+      catch: (error) =>
+        new DatabaseConnectionError({
+          message: `SQLite PRAGMA setup failed: ${String(error)}`,
+          cause: error,
+        }),
+    })
+
+    const db = drizzleSqlite({ client, schema: schemaSqlite })
+
+    yield* Effect.try({
+      try: () => migrateSqlite(db, { migrationsFolder: findMigrationsFolder('sqlite') }),
+      catch: (error) =>
+        new MigrationError({
+          message: `Migration failed: ${String(error)}`,
+          cause: error,
+        }),
+    })
+
+    yield* Effect.sync(() => client.close())
+  })
+
+export const runMigrations = (
+  config: DatabaseDialectConfig
+): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
+  Effect.gen(function* () {
+    logDebug(`[Migrations] Running Drizzle migrations (${config.dialect})...`)
+
+    yield* config.dialect === 'postgres'
+      ? runPostgresMigrations(config.databaseUrl)
+      : runSqliteMigrations(config.path)
 
     logDebug('[Migrations] Drizzle migrations completed')
   })

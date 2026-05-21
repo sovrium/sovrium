@@ -47,14 +47,14 @@ function LineAxes({
         x2={0}
         y1={0}
         y2={innerHeight}
-        stroke="#6b7280"
+        stroke="var(--color-border)"
       />
       <line
         x1={0}
         x2={innerWidth}
         y1={innerHeight}
         y2={innerHeight}
-        stroke="#6b7280"
+        stroke="var(--color-border)"
       />
       {points.map((p) => (
         <text
@@ -62,7 +62,7 @@ function LineAxes({
           x={p.x}
           y={innerHeight + 18}
           fontSize={11}
-          fill="#374151"
+          fill="var(--color-fg-muted)"
           textAnchor="middle"
         >
           {p.key}

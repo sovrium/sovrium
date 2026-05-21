@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/utils/sql-formatting'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   getExistingViews,
   getExistingMaterializedViews,
@@ -18,6 +19,13 @@ import { generateSqlCondition } from '../table-queries/filter-operators'
 import type { Table } from '@/domain/models/app/tables'
 import type { View } from '@/domain/models/app/tables/views'
 import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
+
+const dropViewStatement = (viewName: string): string => {
+  const quoted = quoteSqlIdentifier(viewName)
+  return isSqliteRuntime()
+    ? `DROP VIEW IF EXISTS ${quoted}`
+    : `DROP VIEW IF EXISTS ${quoted} CASCADE`
+}
 
 const mapFilterConditions = (nodes: readonly ViewFilterNode[]): readonly string[] => {
   return nodes
@@ -153,9 +161,7 @@ export const generateDropObsoleteViewsSQL = async (
       (viewName) => !allSchemaViewIds.has(viewName)
     )
 
-    const dropViewStatements = viewsToDrop.map(
-      (viewName) => `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
-    )
+    const dropViewStatements = viewsToDrop.map(dropViewStatement)
     const dropMatViewStatements = matViewsToDrop.map(
       (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
     )
@@ -183,9 +189,7 @@ export const dropAllObsoleteViews = async (
     const viewsToDrop = existingViewNames.filter((viewName) => !allSchemaViews.has(viewName))
     const matViewsToDrop = existingMatViewNames.filter((viewName) => !allSchemaViews.has(viewName))
 
-    const dropViewStatements = viewsToDrop.map(
-      (viewName) => `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
-    )
+    const dropViewStatements = viewsToDrop.map(dropViewStatement)
     const dropMatViewStatements = matViewsToDrop.map(
       (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
     )

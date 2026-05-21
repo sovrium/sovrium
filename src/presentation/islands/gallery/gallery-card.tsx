@@ -52,7 +52,7 @@ function GalleryCardDefault({ record }: { readonly record: TableRecord }): React
     (record.name as string | undefined) ??
     (record.label as string | undefined) ??
     String(record.id ?? '')
-  return <p className="text-sm font-medium text-gray-900">{title}</p>
+  return <p className="text-fg text-sm font-medium">{title}</p>
 }
 
 function GalleryCardBody({
@@ -111,7 +111,7 @@ function HoverOverlayButton({
     <button
       type="button"
       onClick={handleClick}
-      className="rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50"
+      className="bg-bg-raised text-fg hover:bg-bg-subtle rounded-md px-4 py-2 text-sm font-medium shadow-sm"
     >
       {content}
     </button>
@@ -130,7 +130,7 @@ function HoverOverlay({
   return (
     <div
       data-role="gallery-card-overlay"
-      className="invisible absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100"
+      className="bg-scrim/50 invisible absolute inset-0 flex items-center justify-center gap-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100"
     >
       {overlayChildren.map((child, index) => {
         const childType = typeof child['type'] === 'string' ? child['type'] : ''
@@ -169,7 +169,7 @@ function buildCardNavigation(navigatePath: string | undefined): CardNavigation {
       }
     },
     navigateProps: { role: 'button', tabIndex: 0 },
-    cursorClass: 'cursor-pointer hover:border-blue-400',
+    cursorClass: 'cursor-pointer hover:border-primary',
   }
 }
 
@@ -215,7 +215,7 @@ export function GalleryCardView({
       onClick={onClick}
       onKeyDown={onKeyDown}
       {...navigateProps}
-      className={`group relative overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-colors ${cursorClass}`}
+      className={`group border-border bg-bg-raised relative overflow-hidden rounded-lg border shadow-sm transition-colors ${cursorClass}`}
     >
       <CardBody
         card={card}

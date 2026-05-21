@@ -15,11 +15,6 @@ interface HeroThemeTokens {
     readonly md: number
     readonly lg: number
   }
-  readonly colors: {
-    readonly background: string
-    readonly text: string
-    readonly primary: string
-  }
   readonly spacing: {
     readonly section: string
   }
@@ -40,7 +35,6 @@ interface HeroThemeTokens {
 
 const DEFAULT_THEME = {
   breakpoints: { sm: '640px', md: '768px', lg: '1024px' },
-  colors: { background: '#ffffff', text: '#212529', primary: '#007bff' },
   spacing: { section: '4rem' },
   borderRadius: { lg: '0.5rem' },
   fonts: {
@@ -54,14 +48,6 @@ function extractBreakpoints(theme?: Theme): HeroThemeTokens['breakpoints'] {
     sm: parseInt(theme?.breakpoints?.sm ?? DEFAULT_THEME.breakpoints.sm, 10),
     md: parseInt(theme?.breakpoints?.md ?? DEFAULT_THEME.breakpoints.md, 10),
     lg: parseInt(theme?.breakpoints?.lg ?? DEFAULT_THEME.breakpoints.lg, 10),
-  }
-}
-
-function extractColors(theme?: Theme): HeroThemeTokens['colors'] {
-  return {
-    background: theme?.colors?.background ?? DEFAULT_THEME.colors.background,
-    text: theme?.colors?.text ?? DEFAULT_THEME.colors.text,
-    primary: theme?.colors?.primary ?? DEFAULT_THEME.colors.primary,
   }
 }
 
@@ -94,7 +80,6 @@ function extractFonts(theme?: Theme): HeroThemeTokens['fonts'] {
 function extractHeroTheme(theme?: Theme): HeroThemeTokens {
   return {
     breakpoints: extractBreakpoints(theme),
-    colors: extractColors(theme),
     spacing: {
       section: theme?.spacing?.section ?? '2rem',
     },
@@ -118,20 +103,19 @@ function HeroDefaultContent({
       }}
     >
       <h1
+        className="text-fg"
         style={{
           fontFamily: themeTokens.fonts.title.family,
           fontWeight: themeTokens.fonts.title.weight,
           fontSize: themeTokens.fonts.title.size,
-          color: themeTokens.colors.text,
           marginBottom: '2rem',
         }}
       >
         Welcome to Sovrium
       </h1>
       <button
+        className="bg-primary text-primary-fg hover:bg-primary-hover"
         style={{
-          backgroundColor: themeTokens.colors.primary,
-          color: '#ffffff',
           fontFamily: themeTokens.fonts.body.family,
           fontSize: '1rem',
           padding: '0.75rem 1.5rem',
@@ -223,7 +207,6 @@ function hasFadeInUpAnimation(theme?: Theme): boolean {
 function buildHeroSectionStyle(themeTokens: HeroThemeTokens): Record<string, string> {
   return {
     ...heroSectionBaseStyle,
-    backgroundColor: themeTokens.colors.background,
     padding: themeTokens.spacing.section,
   }
 }
@@ -246,13 +229,13 @@ function HeroWithButton({
   return (
     <section
       data-testid={testId}
+      className="bg-bg"
       style={buildHeroSectionStyle(themeTokens)}
     >
       <button
         data-testid="animated-cta"
+        className="bg-primary text-primary-fg hover:bg-primary-hover"
         style={{
-          backgroundColor: themeTokens.colors.primary,
-          color: '#ffffff',
           fontFamily: themeTokens.fonts.body.family,
           fontSize: '1rem',
           padding: '0.75rem 1.5rem',
@@ -297,7 +280,7 @@ export function Hero({
     children && (Array.isArray(children) ? children.length > 0 : Boolean(children))
   const renderedContent = hasChildren ? children : <HeroDefaultContent themeTokens={themeTokens} />
   const shouldAnimateFadeInUp = hasFadeInUpAnimation(theme)
-  const sectionClassName = shouldAnimateFadeInUp ? 'animate-fadeInUp' : undefined
+  const sectionClassName = shouldAnimateFadeInUp ? 'bg-bg animate-fadeInUp' : 'bg-bg'
 
   return (
     <section

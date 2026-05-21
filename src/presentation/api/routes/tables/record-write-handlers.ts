@@ -27,6 +27,7 @@ import {
   provideTableWithNotificationsAndAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
+import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
@@ -69,19 +70,12 @@ function checkCreatePermission(
   c: Context,
   allTables?: App['tables']
 ) {
-  if (!hasCreatePermissionForRoles(table, effectiveRoles, allTables)) {
-    if (
-      !hasReadPermissionForRoles(
-        table as Parameters<typeof hasReadPermission>[0],
-        effectiveRoles,
-        allTables
-      )
-    ) {
-      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-    }
-    return forbiddenCreateResponse(c)
+  if (hasCreatePermissionForRoles(table, effectiveRoles, allTables)) return undefined
+  const readTable = table as Parameters<typeof hasReadPermission>[0]
+  if (!hasReadPermissionForRoles(readTable, effectiveRoles, allTables)) {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
-  return undefined
+  return forbiddenCreateResponse(c)
 }
 
 interface CreateGateInput {
@@ -136,17 +130,7 @@ function checkWriteRoleGate(
   guard: RowLevelGuardContext
 ): Response | undefined {
   if (passesTableRoleGate(table?.permissions, 'write', guard.effectiveRoles)) return undefined
-  if (!passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)) {
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-  }
-  return c.json(
-    {
-      success: false,
-      message: 'You do not have permission to update records in this table',
-      code: 'FORBIDDEN',
-    },
-    403
-  )
+  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 }
 
 interface WritePredicateInput {
@@ -184,6 +168,21 @@ async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Resp
   )
 }
 
+const publishInsertChange = (
+  appId: string,
+  tableName: string,
+  record: { readonly id: string | number; readonly fields: Record<string, unknown> }
+) =>
+  Effect.sync(() =>
+    publishRecordChange({
+      appId,
+      tableName,
+      event: 'insert',
+      recordId: record.id,
+      record: { id: record.id, ...record.fields },
+    })
+  )
+
 function buildCreateRecordProgram(input: {
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableName: string
@@ -193,6 +192,7 @@ function buildCreateRecordProgram(input: {
 }) {
   const { session, tableName, fields, app, userRole } = input
   return createRecordProgram({ session, tableName, fields, app, userRole }).pipe(
+    Effect.tap((record) => publishInsertChange(app.name, tableName, record)),
     Effect.tap((record) =>
       notifyRecordCreated({
         app,

@@ -83,10 +83,10 @@ export function validateSortPermission(config: {
     return c.json(
       {
         success: false,
-        message: `You do not have permission to perform this action. Cannot sort by field '${inaccessibleField}'`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 

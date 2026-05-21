@@ -22,11 +22,13 @@ import { validateTriggerConfigs } from '@/application/use-cases/automations/vali
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
 import { normalizeAppConfig } from '@/application/use-cases/server/normalize-app-config'
 import { AppSchema } from '@/domain/models/app'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { PackageResolver } from '@/infrastructure/automations/package-resolver'
 import { TypeScriptValidator } from '@/infrastructure/automations/typescript-validator'
 import { db } from '@/infrastructure/database'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/bootstrap-token-repository-live'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
@@ -62,7 +64,7 @@ class BootstrapTokenBootError extends Data.TaggedError('BootstrapTokenBootError'
 const userTableIsEmpty = (): Effect.Effect<boolean, never> =>
   Effect.tryPromise({
     try: async () => {
-      const rows = await db.select({ value: count() }).from(users)
+      const rows = await db.select({ value: count() }).from(authUsersTable())
       const userCount = Number(rows[0]?.value ?? 0)
       return userCount === 0
     },
@@ -146,7 +148,15 @@ const bootstrapAdminAndToken = (
 ): Effect.Effect<void, never, AuthRepository | Auth> =>
   Effect.gen(function* () {
     yield* bootstrapAdmin(validatedApp).pipe(
-      Effect.catchAll((error) => logger.warn('Admin bootstrap error', error.message))
+      Effect.catchAll((error) => {
+        const detail =
+          '_tag' in error && error._tag === 'DatabaseError'
+            ? error.cause instanceof Error
+              ? error.cause.message
+              : String(error.cause)
+            : error.message
+        return logger.warn('Admin bootstrap error', detail)
+      })
     )
     yield* runBootstrapTokenFlow(validatedApp, logger).pipe(
       Effect.catchAll((error) => {
@@ -191,6 +201,9 @@ export const startServer = (
     const serverFactory = yield* ServerFactory
     const pageRenderer = yield* PageRenderer
     const logger = yield* Logger
+
+    yield* runMigrations(parseDatabaseDialectConfig())
+
     yield* bootstrapAdminAndToken(validatedApp, logger)
 
     return yield* serverFactory.create({

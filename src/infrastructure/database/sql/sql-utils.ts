@@ -7,15 +7,23 @@
 
 import { sql } from 'drizzle-orm'
 import { escapeSqlString } from '@/domain/utils/sql-formatting'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 export { escapeSqlString, formatSqlValue, formatLikePattern } from '@/domain/utils/sql-formatting'
 
 export const jsonbLiteral = (value: unknown) => {
   const literal = escapeSqlString(JSON.stringify(value))
+  if (isSqliteRuntime()) {
+    return sql.raw(`'${literal}'`)
+  }
   return sql.raw(`'${literal}'::jsonb`)
 }
 
 export const pgTextArrayLiteral = (values: ReadonlyArray<string | number | boolean>) => {
+  if (isSqliteRuntime()) {
+    const json = escapeSqlString(JSON.stringify(values))
+    return sql.raw(`'${json}'`)
+  }
   if (values.length === 0) return sql.raw(`ARRAY[]::text[]`)
   const literal = values.map((v) => `'${escapeSqlString(String(v))}'`).join(', ')
   return sql.raw(`ARRAY[${literal}]::text[]`)

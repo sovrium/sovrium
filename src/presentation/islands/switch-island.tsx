@@ -6,6 +6,7 @@
  */
 
 import { Switch } from '@base-ui/react/switch'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface SwitchIslandProps {
@@ -39,7 +40,11 @@ export default function SwitchIsland({
 
   return (
     <label
-      className={`inline-flex items-center gap-2 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${className ?? ''}`}
+      className={cn(
+        'inline-flex items-center gap-2',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+        className
+      )}
       id={id}
       data-testid={testId}
     >
@@ -47,13 +52,13 @@ export default function SwitchIsland({
         defaultChecked={checked}
         disabled={disabled}
         name={name}
-        className={`relative inline-flex shrink-0 items-center rounded-full border-2 border-transparent bg-gray-200 transition-colors duration-200 data-[checked]:bg-blue-600 ${sizeClass.track}`}
+        className={`bg-bg-subtle data-[checked]:bg-primary relative inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 ${sizeClass.track}`}
       >
         <Switch.Thumb
-          className={`pointer-events-none block rounded-full bg-white shadow-sm transition-transform duration-200 ${sizeClass.thumb}`}
+          className={`bg-bg-raised pointer-events-none block rounded-full shadow-sm transition-transform duration-200 ${sizeClass.thumb}`}
         />
       </Switch.Root>
-      {label && <span className="text-sm text-gray-900">{label}</span>}
+      {label && <span className="text-fg text-sm">{label}</span>}
     </label>
   )
 }

@@ -33,14 +33,14 @@ export default function AiChatIsland(props: AiChatIslandProps): ReactElement {
         <div
           data-testid="chat-error"
           role="alert"
-          className="flex items-center justify-between gap-2 border-t border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          className="border-error-border bg-error-bg text-error-fg flex items-center justify-between gap-2 border-t px-3 py-2 text-sm"
         >
           <span>The assistant is unavailable. Please try again.</span>
           <button
             type="button"
             data-testid="chat-retry"
             onClick={handleRetry}
-            className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+            className="bg-error-solid text-error-solid-fg rounded px-3 py-1 text-xs font-medium hover:opacity-90"
           >
             Retry
           </button>

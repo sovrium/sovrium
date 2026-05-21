@@ -10,6 +10,8 @@ import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 function buildRecordCheckQuery(params: {
@@ -43,17 +45,13 @@ export function checkRecordExists(config: {
 }): Effect.Effect<boolean, SessionContextError> {
   const { session, tableName, recordId, isAdmin = false } = config
   return Effect.gen(function* () {
-    const columnsResult = yield* Effect.tryPromise({
-      try: () =>
-        db.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name IN ('deleted_at', 'owner_id')`
-        ),
+    const columns = yield* Effect.tryPromise({
+      try: () => getExistingColumnNames(db, tableName, ['deleted_at', 'owner_id']),
       catch: (error) => new SessionContextError('Failed to check table columns', error),
     })
 
-    const columns = columnsResult as readonly Record<string, unknown>[]
-    const hasDeletedAt = columns.some((row) => row.column_name === 'deleted_at')
-    const hasOwnerId = columns.some((row) => row.column_name === 'owner_id')
+    const hasDeletedAt = columns.has('deleted_at')
+    const hasOwnerId = columns.has('owner_id')
 
     const query = buildRecordCheckQuery({
       tableName,
@@ -64,7 +62,7 @@ export function checkRecordExists(config: {
       isAdmin,
     })
     const result = yield* Effect.tryPromise({
-      try: () => db.execute(query),
+      try: () => executeRaw(db, query),
       catch: (error) => new SessionContextError('Failed to check record existence', error),
     })
 

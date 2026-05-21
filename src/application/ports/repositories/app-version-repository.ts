@@ -6,7 +6,7 @@
  */
 
 import { Context, Data, type Effect } from 'effect'
-import type { AppVersion, AppVersionListItem } from '@/domain/models/system'
+import type { AppVersion, AppVersionListItem, AppVersionSource } from '@/domain/models/system'
 
 export class AppVersionDatabaseError extends Data.TaggedError('AppVersionDatabaseError')<{
   readonly cause: unknown
@@ -16,6 +16,8 @@ export interface CreateAppVersionInput {
   readonly snapshot: unknown
   readonly checksum: string
   readonly createdByUserId: string
+  readonly source: AppVersionSource
+  readonly fileChecksum?: string
   readonly message: string
   readonly restoredFromVersion?: number
 }

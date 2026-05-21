@@ -15,6 +15,7 @@ import {
   runSyncKnowledgeAtStartup,
 } from '@/infrastructure/ai/knowledge-sync'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { isSqliteRuntime } from './unsupported-in-sqlite'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
 
 
@@ -156,6 +157,10 @@ export const startAiKnowledgeListener = async (
   bindings: ReadonlyArray<KnowledgeTableBinding>
 ): Promise<void> => {
   if (bindings.length === 0) return
+  if (isSqliteRuntime()) {
+    logDebug('[ai-knowledge] listener disabled — requires PostgreSQL (SQLite runtime)')
+    return
+  }
   if (listenerHolder.current) {
     await listenerHolder.current.stop().catch(() => undefined)
   }
@@ -176,6 +181,10 @@ export const runRagKnowledgeStartup = async (
   agents: ReadonlyArray<RagAgent> | undefined,
   databaseUrl: string
 ): Promise<void> => {
+  if (isSqliteRuntime()) {
+    logDebug('[ai-rag] knowledge startup disabled — requires PostgreSQL (SQLite runtime)')
+    return
+  }
   await runSyncDocumentsAtStartup()
   await runSyncKnowledgeAtStartup({ agents })
   await startAiKnowledgeListener(databaseUrl, buildKnowledgeBindings(agents))

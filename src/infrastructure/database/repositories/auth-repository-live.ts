@@ -8,21 +8,23 @@
 import { eq } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import { AuthRepository, AuthDatabaseError } from '@/application/ports/repositories/auth-repository'
-import { users, sessions } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import { authUsersTable, authSessionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 const wrap = makeDbWrap((error) => new AuthDatabaseError({ cause: error }))
 
 export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
   verifyUserEmail: (userId: string) =>
-    wrap(() => db.update(users).set({ emailVerified: true }).where(eq(users.id, userId))).pipe(
-      Effect.asVoid
-    ),
+    wrap(() => {
+      const users = authUsersTable()
+      return db.update(users).set({ emailVerified: true }).where(eq(users.id, userId))
+    }).pipe(Effect.asVoid),
 
   findUserEmailById: (userId: string) =>
     Effect.gen(function* () {
       const result = yield* wrap(async () => {
+        const users = authUsersTable()
         return await db
           .select({ email: users.email })
           .from(users)
@@ -36,6 +38,7 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
   getUserRole: (userId: string) =>
     Effect.gen(function* () {
       const result = yield* wrap(async () => {
+        const users = authUsersTable()
         return await db
           .select({ role: users.role })
           .from(users)
@@ -47,11 +50,15 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
     }),
 
   updateUserRole: (userId: string, role: string) =>
-    wrap(() => db.update(users).set({ role }).where(eq(users.id, userId))).pipe(Effect.asVoid),
+    wrap(() => {
+      const users = authUsersTable()
+      return db.update(users).set({ role }).where(eq(users.id, userId))
+    }).pipe(Effect.asVoid),
 
   getUserSessionToken: (userId: string) =>
     Effect.gen(function* () {
       const result = yield* wrap(async () => {
+        const sessions = authSessionsTable()
         return await db
           .select({ token: sessions.token })
           .from(sessions)

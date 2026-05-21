@@ -15,10 +15,28 @@ export const FileTransformImageActionSchema = Schema.Struct({
   type: Schema.Literal('file'),
   operator: Schema.Literal('transformImage'),
   props: Schema.Struct({
-    source: TemplateStringSchema.pipe(
-      Schema.annotations({
-        description: 'Storage key of the source image',
-      })
+    key: Schema.optional(
+      TemplateStringSchema.pipe(
+        Schema.annotations({
+          description: 'Storage key of the source image',
+        })
+      )
+    ),
+
+    source: Schema.optional(
+      TemplateStringSchema.pipe(
+        Schema.annotations({
+          description: 'Storage key of the source image',
+        })
+      )
+    ),
+
+    operation: Schema.optional(
+      Schema.Literal('resize', 'crop', 'convert').pipe(
+        Schema.annotations({
+          description: 'Transformation operation: resize, crop, or convert',
+        })
+      )
     ),
 
     width: Schema.optional(
@@ -41,10 +59,38 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    x: Schema.optional(
+      Schema.Number.pipe(
+        Schema.nonNegative(),
+        Schema.int(),
+        Schema.annotations({
+          description: 'Crop region X offset in pixels (operation: crop)',
+        })
+      )
+    ),
+
+    y: Schema.optional(
+      Schema.Number.pipe(
+        Schema.nonNegative(),
+        Schema.int(),
+        Schema.annotations({
+          description: 'Crop region Y offset in pixels (operation: crop)',
+        })
+      )
+    ),
+
     fit: Schema.optional(
       Schema.Literal('cover', 'contain', 'fill', 'inside', 'outside').pipe(
         Schema.annotations({
           description: 'Resize fit strategy (default: cover)',
+        })
+      )
+    ),
+
+    outputFormat: Schema.optional(
+      Schema.Literal('jpeg', 'png', 'webp', 'avif').pipe(
+        Schema.annotations({
+          description: 'Output image format (operation: convert)',
         })
       )
     ),
@@ -80,7 +126,11 @@ export const FileTransformImageActionSchema = Schema.Struct({
     ),
 
     destination: DestinationPropSchema,
-  }),
+  }).pipe(
+    Schema.filter((props) => (props.key ?? props.source) !== undefined, {
+      message: () => 'transformImage requires `key` (or `source`)',
+    })
+  ),
 }).pipe(
   Schema.annotations({
     identifier: 'FileTransformImageAction',

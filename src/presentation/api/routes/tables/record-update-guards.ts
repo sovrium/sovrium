@@ -70,14 +70,12 @@ export function validateUpdateForbiddenFields(
   const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
   const attempted = forbiddenFields.filter((field) => !SYSTEM_PROTECTED_FIELDS.has(field))
   if (attempted.length === 0) return undefined
-  const firstForbiddenField = attempted[0]!
   return c.json(
     {
       success: false,
-      message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-      code: 'FORBIDDEN',
-      field: firstForbiddenField,
+      message: 'Resource not found',
+      code: 'NOT_FOUND',
     },
-    403
+    404
   )
 }

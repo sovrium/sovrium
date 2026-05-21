@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { cn } from '@/presentation/islands/lib/cn'
 import type { SaveStatus } from '../hooks/use-inline-editing'
 import type { ReactElement } from 'react'
 
@@ -25,11 +26,11 @@ function statusLabel(status: SaveStatus): string {
 function statusColorClass(status: SaveStatus): string {
   switch (status) {
     case 'saving':
-      return 'text-gray-500'
+      return 'text-fg-muted'
     case 'saved':
-      return 'text-green-600'
+      return 'text-success-fg'
     case 'error':
-      return 'text-red-600'
+      return 'text-error-fg'
     case 'idle':
       return ''
   }
@@ -51,9 +52,11 @@ export function SaveStatusIndicator({
       role="status"
       data-save-indicator
       data-save-status={status}
-      className={`inline-flex items-center text-xs font-medium ${statusColorClass(status)} ${
-        className ?? ''
-      }`}
+      className={cn(
+        'inline-flex items-center text-xs font-medium',
+        statusColorClass(status),
+        className
+      )}
     >
       {statusLabel(status)}
     </span>

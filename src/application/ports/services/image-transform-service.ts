@@ -19,6 +19,23 @@ export interface CropRegion {
   readonly h: number
 }
 
+export type ImageOutputFormat = 'jpeg' | 'png' | 'webp' | 'avif'
+
+export interface ImageTransformOptions {
+  readonly operation: 'resize' | 'crop' | 'noop'
+  readonly width?: number
+  readonly height?: number
+  readonly x?: number
+  readonly y?: number
+  readonly outputFormat?: ImageOutputFormat
+  readonly quality?: number
+}
+
+export interface ImageTransformResult {
+  readonly bytes: Uint8Array
+  readonly contentType: string
+}
+
 export class ImageTransformService extends Context.Tag('ImageTransformService')<
   ImageTransformService,
   {
@@ -39,5 +56,9 @@ export class ImageTransformService extends Context.Tag('ImageTransformService')<
       input: Uint8Array,
       size: number
     ) => Effect.Effect<Uint8Array, ImageTransformError>
+    readonly transform: (
+      input: Uint8Array,
+      options: ImageTransformOptions
+    ) => Effect.Effect<ImageTransformResult, never>
   }
 >() {}

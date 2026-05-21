@@ -15,6 +15,7 @@ import {
   sovriumMigrationLog,
   sovriumSchemaChecksum,
 } from '../drizzle/schema'
+import { qualifiedSystemTable, systemObjectExistsSql, nowSqlLiteral } from '../sql/dialect-ddl'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { escapeSqlString } from '../sql/sql-utils'
 import type { App } from '@/domain/models/app'
@@ -25,13 +26,21 @@ export type {
   SovriumSchemaChecksum,
 } from '../drizzle/schema'
 
-const MIGRATION_HISTORY_TABLE = `system.${getTableName(sovriumMigrationHistory)}`
-const MIGRATION_LOG_TABLE = `system.${getTableName(sovriumMigrationLog)}`
-const SCHEMA_CHECKSUM_TABLE = `system.${getTableName(sovriumSchemaChecksum)}`
+const MIGRATION_HISTORY_TABLE = qualifiedSystemTable(getTableName(sovriumMigrationHistory))
+const MIGRATION_LOG_TABLE = qualifiedSystemTable(getTableName(sovriumMigrationLog))
+const SCHEMA_CHECKSUM_TABLE = qualifiedSystemTable(getTableName(sovriumSchemaChecksum))
 
 const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } => ({
   tables: app.tables ?? [],
 })
+
+const normalizeStoredSchema = (
+  value: unknown
+): { readonly tables: readonly object[] } | undefined => {
+  if (value === null || value === undefined) return undefined
+  const parsed = typeof value === 'string' ? (JSON.parse(value) as unknown) : value
+  return parsed as { readonly tables: readonly object[] }
+}
 
 const sortObjectKeys = (obj: unknown): unknown => {
   if (obj === null || obj === undefined) return obj
@@ -127,12 +136,13 @@ export const storeSchemaChecksum = (
     )
     logInfo(`[storeSchemaChecksum] DEBUG - Generated checksum: ${checksum}`)
 
+    const now = nowSqlLiteral()
     const escapedSchema = escapeSqlString(fullSchemaJson)
     const upsertSQL = `
       INSERT INTO ${SCHEMA_CHECKSUM_TABLE} (id, checksum, schema, updated_at)
-      VALUES ('singleton', '${checksum}', '${escapedSchema}', NOW())
+      VALUES ('singleton', '${checksum}', '${escapedSchema}', ${now})
       ON CONFLICT (id)
-      DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = NOW()
+      DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = ${now}
     `
     yield* executeSQL(tx, upsertSQL)
     logInfo('[storeSchemaChecksum] Schema checksum stored successfully')
@@ -152,7 +162,9 @@ export const getPreviousSchema = (
       return undefined
     }
 
-    const schemaData = (result[0] as { schema: { tables: readonly object[] } } | undefined)?.schema
+    const schemaData = normalizeStoredSchema(
+      (result[0] as { schema?: unknown } | undefined)?.schema
+    )
     logInfo('[getPreviousSchema] Previous schema retrieved successfully')
     return schemaData
   })
@@ -163,13 +175,7 @@ export const getStoredChecksum = (
   Effect.gen(function* () {
     logInfo('[getStoredChecksum] Retrieving stored checksum...')
 
-    const tableExistsSQL = `
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables
-        WHERE table_schema = 'system' AND table_name = 'schema_checksum'
-      ) as exists
-    `
-    const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
+    const tableExistsResult = yield* executeSQL(tx, systemObjectExistsSql('schema_checksum'))
     const tableExists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists
 
     if (!tableExists) {
@@ -192,13 +198,7 @@ export const getStoredChecksum = (
 
 const checksumTableExists = (tx: TransactionLike): Effect.Effect<boolean, SQLExecutionError> =>
   Effect.gen(function* () {
-    const tableExistsSQL = `
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables
-        WHERE table_schema = 'system' AND table_name = 'schema_checksum'
-      ) as exists
-    `
-    const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
+    const tableExistsResult = yield* executeSQL(tx, systemObjectExistsSql('schema_checksum'))
     return (tableExistsResult[0] as { exists: boolean } | undefined)?.exists ?? false
   })
 
@@ -216,7 +216,12 @@ const getStoredChecksumData = (
       return undefined
     }
 
-    return result[0] as { checksum: string; schema: { tables: readonly object[] } } | undefined
+    const row = result[0] as { checksum: string; schema?: unknown } | undefined
+    if (!row) return undefined
+
+    const schema = normalizeStoredSchema(row.schema)
+    if (!schema) return undefined
+    return { checksum: row.checksum, schema }
   })
 
 export const validateStoredChecksum = (

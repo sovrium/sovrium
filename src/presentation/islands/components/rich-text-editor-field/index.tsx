@@ -105,7 +105,7 @@ export function RichTextEditorField({
     return (
       <div
         data-character-count
-        className="border-t px-3 py-1 text-xs text-gray-400"
+        className="text-fg-subtle border-t px-3 py-1 text-xs"
       >
         {display}/{maxLength}
       </div>
@@ -142,7 +142,7 @@ export function RichTextEditorField({
         {placeholder && isEmpty && (
           <div
             data-rich-text-placeholder
-            className="pointer-events-none absolute top-12 left-3 text-gray-400"
+            className="text-fg-subtle pointer-events-none absolute top-12 left-3"
           >
             {placeholder}
           </div>
@@ -156,7 +156,7 @@ export function RichTextEditorField({
           <div
             role="alert"
             data-form-error={name}
-            className="border-t px-3 py-1 text-xs text-red-600"
+            className="text-error-fg border-t px-3 py-1 text-xs"
           >
             Content exceeds maximum of {maxLength} characters
           </div>

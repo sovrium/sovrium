@@ -8,6 +8,9 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db, SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
+import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../shared/error-handling'
@@ -22,9 +25,10 @@ async function validateRecordsForDelete(
 ): Promise<void> {
   const validationResults = await Promise.all(
     recordIds.map(async (recordId) => {
-      const checkResult = (await tx.execute(
+      const checkResult = await executeRaw(
+        tx,
         sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-      )) as readonly Record<string, unknown>[]
+      )
 
       if (checkResult.length === 0) {
         return { recordId, error: 'not found' }
@@ -59,12 +63,7 @@ function checkSoftDeleteSupport(
   tableName: string
 ): Effect.Effect<boolean, SessionContextError> {
   return Effect.tryPromise({
-    try: async () => {
-      const columnCheck = (await tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-      )) as readonly Record<string, unknown>[]
-      return columnCheck.length > 0
-    },
+    try: () => columnExists(tx, tableName, 'deleted_at'),
     catch: (error) => new SessionContextError('Failed to check deleted_at column', error),
   })
 }
@@ -74,12 +73,7 @@ function checkDeletedBySupport(
   tableName: string
 ): Effect.Effect<boolean, SessionContextError> {
   return Effect.tryPromise({
-    try: async () => {
-      const columnCheck = (await tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
-      )) as readonly Record<string, unknown>[]
-      return columnCheck.length > 0
-    },
+    try: () => columnExists(tx, tableName, 'deleted_by'),
     catch: (error) => new SessionContextError('Failed to check deleted_by column', error),
   })
 }
@@ -107,11 +101,11 @@ function executeDeleteQuery(
         ? sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
         : params.hasSoftDelete
           ? params.hasDeletedBy
-            ? sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${params.userId} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
-            : sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+            ? sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()}, deleted_by = ${params.userId} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+            : sql`UPDATE ${tableIdent} SET deleted_at = ${nowExpr()} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
           : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
 
-      const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
+      const result = await executeRaw(tx, query)
       return result.length
     },
     catch: (error) =>

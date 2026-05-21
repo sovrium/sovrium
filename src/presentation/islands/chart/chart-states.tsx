@@ -11,18 +11,18 @@ import type { ReactElement } from 'react'
 export function ChartLoading(): ReactElement {
   return (
     <div
-      className="w-full rounded-lg border border-gray-200 bg-white p-4"
+      className="border-border bg-bg-raised w-full rounded-lg border p-4"
       data-component="chart"
       data-chart-state="loading"
       role="status"
       aria-label="Loading chart..."
     >
-      <div className="mb-3 h-4 w-32 animate-pulse rounded bg-gray-200" />
+      <div className="bg-bg-subtle mb-3 h-4 w-32 animate-pulse rounded" />
       <div className="flex h-48 items-end gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={`chart-skeleton-${String(i)}`}
-            className="flex-1 animate-pulse rounded-t bg-gray-200"
+            className="bg-bg-subtle flex-1 animate-pulse rounded-t"
           />
         ))}
       </div>
@@ -33,7 +33,7 @@ export function ChartLoading(): ReactElement {
 export function ChartError({ error }: { readonly error: unknown }): ReactElement {
   return (
     <div
-      className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
       data-component="chart"
       data-chart-state="error"
       role="alert"
@@ -46,7 +46,7 @@ export function ChartError({ error }: { readonly error: unknown }): ReactElement
 export function ChartEmpty({ message }: { readonly message: string | undefined }): ReactElement {
   return (
     <div
-      className="rounded border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500"
+      className="border-border bg-bg-subtle text-fg-muted rounded border p-6 text-center text-sm"
       data-component="chart"
       data-chart-state="empty"
     >
@@ -58,7 +58,7 @@ export function ChartEmpty({ message }: { readonly message: string | undefined }
 export function ChartMissingTable(): ReactElement {
   return (
     <div
-      className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
       data-component="chart"
       data-chart-state="missing-table"
       role="alert"
@@ -71,7 +71,7 @@ export function ChartMissingTable(): ReactElement {
 export function ChartMissingAxes(): ReactElement {
   return (
     <div
-      className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
       data-component="chart"
       data-chart-state="missing-axes"
       role="alert"

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   isFormulaVolatile,
   getFormulaFieldsNeedingTrigger,
@@ -12,7 +13,7 @@ import {
   translateFormulaToPostgres,
 } from '../formula/formula-utils'
 import { isAutoTimestampField, isFieldNotNull, shouldUseSerial } from './sql-field-predicates'
-import { mapFieldTypeToPostgres, mapFormulaResultTypeToPostgres } from './sql-type-mappings'
+import { mapFieldTypeToDialect, mapFormulaResultTypeToDialect } from './sql-type-mappings'
 import { escapeSqlString } from './sql-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -26,8 +27,14 @@ const formatDefaultValue = (defaultValue: unknown): string => {
   return `'${escapeSqlString(String(defaultValue))}'`
 }
 
-const generateSerialColumn = (fieldName: string, isPrimaryKey: boolean = false): string =>
-  isPrimaryKey ? `${fieldName} SERIAL PRIMARY KEY` : `${fieldName} SERIAL NOT NULL`
+const generateSerialColumn = (fieldName: string, isPrimaryKey: boolean = false): string => {
+  if (isSqliteRuntime()) {
+    return isPrimaryKey
+      ? `${fieldName} INTEGER PRIMARY KEY AUTOINCREMENT`
+      : `${fieldName} INTEGER NOT NULL`
+  }
+  return isPrimaryKey ? `${fieldName} SERIAL PRIMARY KEY` : `${fieldName} SERIAL NOT NULL`
+}
 
 const generateNotNullConstraint = (
   field: Fields[number],
@@ -38,6 +45,9 @@ const generateNotNullConstraint = (
 }
 
 const formatArrayDefault = (defaultValue: readonly unknown[]): string => {
+  if (isSqliteRuntime()) {
+    return ` DEFAULT '${escapeSqlString(JSON.stringify(defaultValue))}'`
+  }
   const arrayValues = defaultValue.map((val) => `'${escapeSqlString(String(val))}'`).join(', ')
   return ` DEFAULT ARRAY[${arrayValues}]`
 }
@@ -47,10 +57,12 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
     return ' DEFAULT CURRENT_DATE'
   }
   if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
-    return ' DEFAULT NOW()'
+    return isSqliteRuntime() ? ' DEFAULT CURRENT_TIMESTAMP' : ' DEFAULT NOW()'
   }
   if (field.type === 'duration' && typeof defaultValue === 'number') {
-    return ` DEFAULT INTERVAL '${defaultValue} seconds'`
+    return isSqliteRuntime()
+      ? ` DEFAULT ${defaultValue}`
+      : ` DEFAULT INTERVAL '${defaultValue} seconds'`
   }
   if (Array.isArray(defaultValue)) {
     return formatArrayDefault(defaultValue)
@@ -68,7 +80,7 @@ const generateDefaultClause = (field: Fields[number]): string => {
   }
 
   if (field.type === 'ai-tag') {
-    return " DEFAULT '[]'::jsonb"
+    return isSqliteRuntime() ? " DEFAULT '[]'" : " DEFAULT '[]'::jsonb"
   }
 
   if ('default' in field && field.default !== undefined) {
@@ -89,8 +101,12 @@ const generateFormulaColumn = (
 ): string => {
   const baseResultType =
     'resultType' in field && field.resultType
-      ? mapFormulaResultTypeToPostgres(field.resultType)
+      ? mapFormulaResultTypeToDialect(field.resultType)
       : 'TEXT'
+
+  if (isSqliteRuntime()) {
+    return `${field.name} ${baseResultType}`
+  }
 
   const resultType =
     isFormulaReturningArray(field.formula) && !baseResultType.endsWith('[]')
@@ -121,7 +137,7 @@ export const generateColumnDefinition = (
     return generateFormulaColumn(field, allFields)
   }
 
-  const columnType = mapFieldTypeToPostgres(field)
+  const columnType = mapFieldTypeToDialect(field)
   const notNull = generateNotNullConstraint(field, isPrimaryKey, hasAuthConfig)
   const defaultValue = generateDefaultClause(field)
   return `${field.name} ${columnType}${notNull}${defaultValue}`

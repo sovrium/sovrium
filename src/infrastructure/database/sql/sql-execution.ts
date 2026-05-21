@@ -6,6 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 export interface TransactionLike {
   readonly unsafe: (sql: string) => Promise<readonly unknown[]>
@@ -83,9 +84,22 @@ export const tableExists = (
   tx: TransactionLike,
   tableName: string
 ): Effect.Effect<boolean, SQLExecutionError> =>
-  executeSQL(
-    tx,
-    `
+  isSqliteRuntime()
+    ?
+      executeSQL(
+        tx,
+        `
+        SELECT EXISTS (
+          SELECT 1
+          FROM sqlite_master
+          WHERE type = 'table'
+            AND name = '${tableName}'
+        ) as "exists"
+      `
+      ).pipe(Effect.map((result) => Boolean((result as readonly TableExistsResult[])[0]?.exists)))
+    : executeSQL(
+        tx,
+        `
     SELECT EXISTS (
       SELECT 1
       FROM information_schema.tables
@@ -93,15 +107,47 @@ export const tableExists = (
         AND table_schema = 'public'
     ) as exists
   `
-  ).pipe(Effect.map((result) => (result as readonly TableExistsResult[])[0]?.exists ?? false))
+      ).pipe(Effect.map((result) => (result as readonly TableExistsResult[])[0]?.exists ?? false))
 
-export const getExistingColumns = (
+type ExistingColumnEntry = {
+  dataType: string
+  isNullable: string
+  columnDefault: string | null
+}
+
+const getExistingColumnsSqlite = (
   tx: TransactionLike,
   tableName: string
-): Effect.Effect<
-  ReadonlyMap<string, { dataType: string; isNullable: string; columnDefault: string | null }>,
-  SQLExecutionError
-> =>
+): Effect.Effect<ReadonlyMap<string, ExistingColumnEntry>, SQLExecutionError> =>
+  executeSQL(
+    tx,
+    `SELECT name AS column_name, type AS data_type, "notnull", dflt_value
+     FROM pragma_table_info('${tableName}')`
+  ).pipe(
+    Effect.map((result) => {
+      const rows = result as readonly {
+        column_name: string
+        data_type: string
+        notnull: number
+        dflt_value: string | null
+      }[]
+      return new Map(
+        rows.map((row) => [
+          row.column_name,
+          {
+            dataType: row.data_type,
+            isNullable: row.notnull === 0 ? 'YES' : 'NO',
+            columnDefault: row.dflt_value,
+          },
+        ])
+      )
+    })
+  )
+
+const getExistingColumnsPostgres = (
+  tx: TransactionLike,
+  tableName: string
+): Effect.Effect<ReadonlyMap<string, ExistingColumnEntry>, SQLExecutionError> =>
   executeSQL(
     tx,
     `
@@ -126,40 +172,82 @@ export const getExistingColumns = (
     })
   )
 
+export const getExistingColumns = (
+  tx: TransactionLike,
+  tableName: string
+): Effect.Effect<ReadonlyMap<string, ExistingColumnEntry>, SQLExecutionError> =>
+  isSqliteRuntime()
+    ? getExistingColumnsSqlite(tx, tableName)
+    : getExistingColumnsPostgres(tx, tableName)
+
 export const getExistingTableNames = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  executeSQL(
-    tx,
-    `
+  isSqliteRuntime()
+    ?
+      executeSQL(
+        tx,
+        `
+        SELECT name AS tablename
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name NOT LIKE 'sqlite_%'
+      `
+      ).pipe(
+        Effect.map((result) => (result as readonly TableNameResult[]).map((row) => row.tablename))
+      )
+    : executeSQL(
+        tx,
+        `
     SELECT tablename
     FROM pg_tables
     WHERE schemaname = 'public'
   `
-  ).pipe(Effect.map((result) => (result as readonly TableNameResult[]).map((row) => row.tablename)))
+      ).pipe(
+        Effect.map((result) => (result as readonly TableNameResult[]).map((row) => row.tablename))
+      )
 
 export const getExistingViews = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  executeSQL(
-    tx,
-    `
+  isSqliteRuntime()
+    ?
+      executeSQL(
+        tx,
+        `
+        SELECT name AS viewname
+        FROM sqlite_master
+        WHERE type = 'view'
+      `
+      ).pipe(
+        Effect.map((result) => (result as readonly ViewNameResult[]).map((row) => row.viewname))
+      )
+    : executeSQL(
+        tx,
+        `
     SELECT viewname
     FROM pg_views
     WHERE schemaname = 'public'
   `
-  ).pipe(Effect.map((result) => (result as readonly ViewNameResult[]).map((row) => row.viewname)))
+      ).pipe(
+        Effect.map((result) => (result as readonly ViewNameResult[]).map((row) => row.viewname))
+      )
 
 export const getExistingMaterializedViews = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
-  executeSQL(
-    tx,
-    `
+  isSqliteRuntime()
+    ?
+      Effect.succeed([])
+    : executeSQL(
+        tx,
+        `
     SELECT matviewname
     FROM pg_matviews
     WHERE schemaname = 'public'
   `
-  ).pipe(
-    Effect.map((result) => (result as readonly MatViewNameResult[]).map((row) => row.matviewname))
-  )
+      ).pipe(
+        Effect.map((result) =>
+          (result as readonly MatViewNameResult[]).map((row) => row.matviewname)
+        )
+      )

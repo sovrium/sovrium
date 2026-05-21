@@ -15,12 +15,18 @@ import {
 import {
   compileCSSNativeFree,
   MINIMAL_FALLBACK_CSS,
+  resolveNativeFreeCandidates,
 } from '@/infrastructure/css/native-free-compiler'
 import { generateAnimationStyles } from '@/infrastructure/css/styles/animation-styles-generator'
 import {
   generateComponentsLayer,
   generateUtilitiesLayer,
 } from '@/infrastructure/css/styles/component-layer-generators'
+import {
+  NEUTRAL_FLOOR_LAYER,
+  V1_ALIAS_BRIDGE,
+  V1_TOKEN_LAYER,
+} from '@/infrastructure/css/theme/default-theme-layer'
 import {
   generateThemeBorderRadius,
   generateThemeBreakpoints,
@@ -54,7 +60,7 @@ function generateThemeCSS(theme?: Theme): string {
 
   if (themeTokens.length === 0) return ''
 
-  return `@theme {\n${themeTokens.join('\n')}\n  }`
+  return `@theme static {\n${themeTokens.join('\n')}\n  }`
 }
 
 const STATIC_IMPORTS = `@import 'tailwindcss';
@@ -62,7 +68,13 @@ const STATIC_IMPORTS = `@import 'tailwindcss';
     /*---break---
      */
     @custom-variant dark (&:is(.dark *));
-    @theme {
+    /* @theme static (not plain @theme) so the full red palette is ALWAYS
+       emitted to :root by BOTH compile engines. The pure-JS native-free engine
+       (binary path) keeps every declared token, while real oxide tree-shakes a
+       plain @theme block down to only candidate-referenced tokens — making the
+       binary CSS emit reds the dev CSS dropped (CLI-BINARY-CSS-006). static
+       opts both engines out of tree-shaking so they stay equivalent. */
+    @theme static {
       --color-red-50: #fef2f2;
       --color-red-100: #fee2e2;
       --color-red-200: #fecaca;
@@ -78,15 +90,22 @@ const STATIC_IMPORTS = `@import 'tailwindcss';
 
 const FINAL_BASE_LAYER = ''
 
+function buildDefaultLayer(theme?: Theme): string {
+  const tokenLayer = theme?.baseline === 'replace' ? NEUTRAL_FLOOR_LAYER : V1_TOKEN_LAYER
+  return `${tokenLayer}\n\n  ${V1_ALIAS_BRIDGE}`
+}
+
 function buildSourceCSS(theme?: Theme): string {
   const themeCSS = generateThemeCSS(theme)
   const animationCSS = generateAnimationStyles(theme?.animations, theme)
+  const defaultLayerCSS = buildDefaultLayer(theme)
   const baseLayerCSS = generateBaseLayer(theme)
   const componentsLayerCSS = generateComponentsLayer(theme)
   const utilitiesLayerCSS = generateUtilitiesLayer()
 
   return [
     STATIC_IMPORTS,
+    defaultLayerCSS,
     baseLayerCSS,
     componentsLayerCSS,
     utilitiesLayerCSS,
@@ -133,6 +152,14 @@ const processWithPostCSS = async (sourceCSS: string): Promise<PostcssResult> => 
   return Promise.race([compilationPromise, createCompilationTimeout()])
 }
 
+const makeScanlessSource = (sourceCSS: string, app?: App): string => {
+  const candidates = resolveNativeFreeCandidates(app)
+  return sourceCSS.replace(
+    "@import 'tailwindcss';",
+    `@import 'tailwindcss' source(none);\n    @source inline("${candidates.join(' ')}");`
+  )
+}
+
 const logCompilationError = (error: unknown, sourceCSS: string): CSSCompilationError => {
   logError('CSS Compilation Error Details', error)
   logDebug(`Error type: ${error instanceof Error ? error.constructor.name : typeof error}`)
@@ -172,7 +199,7 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
     }
 
     const result = yield* Effect.tryPromise({
-      try: () => processWithPostCSS(sourceCSS),
+      try: () => processWithPostCSS(makeScanlessSource(sourceCSS, app)),
       catch: (error) => logCompilationError(error, sourceCSS),
     })
 

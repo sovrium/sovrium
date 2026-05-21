@@ -10,14 +10,17 @@ import { sql } from 'drizzle-orm'
 import { type Context } from 'hono'
 import { db } from '@/infrastructure/database'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import { setLiveApp } from '@/infrastructure/server/route-setup/live-app-store'
 import {
   insertVersion,
   readActiveVersionNumber,
+  readActiveVersionSnapshot,
   readAllVersionRows,
   readLatestDraft,
   readVersionRow,
   writeDraft,
 } from '@/infrastructure/server/route-setup/schema-persistence'
+import { runPublishMigration } from '@/infrastructure/server/route-setup/schema-publish-migration'
 import { validateSnapshot } from '@/infrastructure/server/route-setup/schema-validation'
 import type { McpCaller } from '@/infrastructure/server/route-setup/mcp/auth'
 
@@ -171,12 +174,27 @@ const handleDraftPublish = async (input: SchemaToolCallInput): Promise<Response>
     })
   }
   const message = typeof input.args['message'] === 'string' ? input.args['message'] : ''
+
+  const previousSnapshot = await readActiveVersionSnapshot()
+  const migration = await runPublishMigration(previousSnapshot, draft.snapshot)
+  if (!migration.ok) {
+    return errorResult(input, {
+      code: 'MIGRATION_ERROR',
+      message: `Live schema migration failed — publish aborted: ${migration.message}`,
+    })
+  }
+
   const newVersion = await insertVersion({
     snapshot: draft.snapshot,
     message,
     userId: input.caller.userId ?? 'mcp-system',
+    source: 'mcp',
   })
-  return successResult(input, { activeVersion: newVersion })
+  setLiveApp(draft.snapshot as { readonly name: string; readonly [key: string]: unknown })
+  return successResult(input, {
+    activeVersion: newVersion,
+    migration: { applied: migration.result.applied, deferred: migration.result.deferred },
+  })
 }
 
 const handleTablesCreate = async (input: SchemaToolCallInput): Promise<Response> => {

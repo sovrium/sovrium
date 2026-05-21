@@ -60,11 +60,10 @@ function createHandleGetBucketFile(app: App) {
       return c.json(
         {
           success: false,
-          error: 'Forbidden',
-          message: 'A signed URL or authentication is required for this file',
-          code: 'FORBIDDEN',
+          message: 'Resource not found',
+          code: 'NOT_FOUND',
         },
-        403
+        404
       )
     }
 

@@ -5,41 +5,51 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isRelationshipField, isUserField } from '../sql/sql-generators'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+const indexTableRef = (sanitized: string): string =>
+  isSqliteRuntime() ? sanitized : `public.${sanitized}`
+
 const generateStandardIndexes = (table: Table): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
+  const sqlite = isSqliteRuntime()
   return table.fields
     .filter(
       (field): field is Fields[number] & { indexed: true } => 'indexed' in field && !!field.indexed
     )
-    .map((field) => {
+    .flatMap((field) => {
+      const needsGin = field.type === 'array' || field.type === 'json'
+      const needsGist = field.type === 'geolocation'
+      if (sqlite && (needsGin || needsGist)) return []
       const indexSuffix = field.type === 'status' ? 'status' : field.name
       const indexName = `idx_${sanitized}_${indexSuffix}`
-      const indexType =
-        field.type === 'array' || field.type === 'json'
-          ? 'USING gin'
-          : field.type === 'geolocation'
-            ? 'USING gist'
-            : 'USING btree'
-      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} ${indexType} (${field.name})`
+      if (sqlite) {
+        return [`CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${field.name})`]
+      }
+      const indexType = needsGin ? 'USING gin' : needsGist ? 'USING gist' : 'USING btree'
+      return [
+        `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} ${indexType} (${field.name})`,
+      ]
     })
 }
 
 const generateAutonumberIndexes = (table: Table): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
+  const tableRef = indexTableRef(sanitized)
   return table.fields
     .filter((field) => field.type === 'autonumber')
     .map((field) => {
       const indexName = `idx_${sanitized}_${field.name}_unique`
-      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} (${field.name})`
+      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${tableRef} (${field.name})`
     })
 }
 
 const generateGeolocationConstraints = (table: Table): readonly string[] => {
+  if (isSqliteRuntime()) return []
   const sanitized = sanitizeTableName(table.name)
   return table.fields
     .filter(
@@ -53,6 +63,7 @@ const generateGeolocationConstraints = (table: Table): readonly string[] => {
 }
 
 const generateFullTextSearchIndexes = (table: Table): readonly string[] => {
+  if (isSqliteRuntime()) return []
   const sanitized = sanitizeTableName(table.name)
   return table.fields
     .filter(
@@ -67,12 +78,13 @@ const generateFullTextSearchIndexes = (table: Table): readonly string[] => {
 
 const generateCustomIndexes = (table: Table): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
+  const tableRef = indexTableRef(sanitized)
   return (
     table.indexes?.map((index) => {
       const uniqueClause = index.unique ? 'UNIQUE ' : ''
       const fields = index.fields.join(', ')
       const whereClause = 'where' in index && index.where ? ` WHERE ${index.where}` : ''
-      return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${sanitized} (${fields})${whereClause}`
+      return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON ${tableRef} (${fields})${whereClause}`
     }) ?? []
   )
 }
@@ -80,11 +92,20 @@ const generateCustomIndexes = (table: Table): readonly string[] => {
 const generateDeletedAtIndex = (table: Table): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
   const indexName = `idx_${sanitized}_deleted_at`
-  return [`CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (deleted_at)`]
+  return isSqliteRuntime()
+    ? [`CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (deleted_at)`]
+    : [`CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (deleted_at)`]
 }
 
 const generateForeignKeyIndexes = (table: Table): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
+  const sqlite = isSqliteRuntime()
+  const fkIndexSql = (fieldName: string): string => {
+    const indexName = `idx_${sanitized}_${fieldName}_fk`
+    return sqlite
+      ? `CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${fieldName})`
+      : `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (${fieldName})`
+  }
   const relationshipIndexes = table.fields
     .filter(isRelationshipField)
     .filter((field) => {
@@ -93,15 +114,9 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
         (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
       )
     })
-    .map((field) => {
-      const indexName = `idx_${sanitized}_${field.name}_fk`
-      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (${field.name})`
-    })
+    .map((field) => fkIndexSql(field.name))
 
-  const userFieldIndexes = table.fields.filter(isUserField).map((field) => {
-    const indexName = `idx_${sanitized}_${field.name}_fk`
-    return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (${field.name})`
-  })
+  const userFieldIndexes = table.fields.filter(isUserField).map((field) => fkIndexSql(field.name))
 
   return [...relationshipIndexes, ...userFieldIndexes]
 }

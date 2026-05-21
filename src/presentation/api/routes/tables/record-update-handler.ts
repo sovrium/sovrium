@@ -15,6 +15,7 @@ import {
   provideTableWithNotificationsAndAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
+import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
@@ -83,20 +84,15 @@ export function checkTableUpdatePermissionWithRole(
   const table = app.tables?.find((t) => t.name === tableName)
 
   if (!hasUpdatePermission(table, userRole, app.tables)) {
-    const message =
-      userRole === 'viewer'
-        ? 'You do not have permission to perform this action'
-        : 'You do not have permission to update records in this table'
-
     return {
       allowed: false,
       response: c.json(
         {
           success: false,
-          message,
-          code: 'FORBIDDEN',
+          message: 'Resource not found',
+          code: 'NOT_FOUND',
         },
-        403
+        404
       ),
     }
   }
@@ -141,10 +137,10 @@ export async function handleNoAllowedFields(config: {
     return c.json(
       {
         success: false,
-        message: `You do not have permission to modify any of the specified fields: ${attemptedForbiddenFields.join(', ')}`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 
@@ -201,6 +197,7 @@ async function executeUpdateNoTrigger(config: {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
   await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
+  publishUpdateChange({ appId: app.name, tableName, recordId, updateResult, oldRecord })
   if (oldRecord) {
     const replacedKeys = collectReplacedAttachmentKeys(
       oldRecord,
@@ -318,7 +315,9 @@ async function executeUpdateWithRecordTrigger(config: {
   if (!updateResult || Object.keys(updateResult).length === 0) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
-  await fireUpdateWebhooks(app, tableName, updateResult, result.right.previous ?? undefined)
+  const oldRecord = result.right.previous ?? undefined
+  await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
+  publishUpdateChange({ appId: app.name, tableName, recordId, updateResult, oldRecord })
   return c.json(updateResult, 200)
 }
 
@@ -352,6 +351,23 @@ async function fireUpdateWebhooks(
   })
 }
 
+function publishUpdateChange(params: {
+  readonly appId: string
+  readonly tableName: string
+  readonly recordId: string
+  readonly updateResult: Record<string, unknown>
+  readonly oldRecord: Record<string, unknown> | undefined
+}): void {
+  publishRecordChange({
+    appId: params.appId,
+    tableName: params.tableName,
+    event: 'update',
+    recordId: params.recordId,
+    record: extractRecordFields(params.updateResult),
+    oldRecord: params.oldRecord,
+  })
+}
+
 async function handleUpdateError(config: {
   session: Session
   tableName: string
@@ -375,10 +391,10 @@ async function handleUpdateError(config: {
       return c.json(
         {
           success: false,
-          message: 'You do not have permission to update this record',
-          code: 'FORBIDDEN',
+          message: 'Resource not found',
+          code: 'NOT_FOUND',
         },
-        403
+        404
       )
     }
 

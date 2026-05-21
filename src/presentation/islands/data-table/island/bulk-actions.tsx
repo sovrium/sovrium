@@ -44,14 +44,14 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-gray-200 bg-blue-50 px-3 py-2">
-      <span className="text-sm text-gray-700">{selectedCount} selected</span>
+    <div className="border-border bg-primary-subtle flex items-center gap-2 border-b px-3 py-2">
+      <span className="text-fg text-sm">{selectedCount} selected</span>
       {!confirmAction &&
         bulkActions.map((action, i) => (
           <button
             key={i}
             type="button"
-            className="rounded bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200"
+            className="bg-bg-subtle hover:bg-bg-subtle rounded px-3 py-1 text-sm"
             onClick={() => {
               if (action.confirm) {
                 setConfirmAction(action)
@@ -64,11 +64,11 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           </button>
         ))}
       {confirmAction && confirmAction.confirm && (
-        <div className="ml-2 rounded border border-yellow-300 bg-yellow-50 px-3 py-1 text-sm">
+        <div className="border-warning-border bg-warning-bg ml-2 rounded border px-3 py-1 text-sm">
           {confirmAction.confirm.replace('{count}', String(selectedCount))}
           <button
             type="button"
-            className="ml-2 font-medium text-green-700 hover:underline"
+            className="text-success-fg ml-2 font-medium hover:underline"
             onClick={() => {
               onExecute(confirmAction)
               setConfirmAction(undefined)
@@ -78,7 +78,7 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           </button>
           <button
             type="button"
-            className="ml-2 text-blue-600 hover:underline"
+            className="text-primary ml-2 hover:underline"
             onClick={() => setConfirmAction(undefined)}
           >
             Cancel

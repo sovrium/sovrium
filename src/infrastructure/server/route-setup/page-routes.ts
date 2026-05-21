@@ -5,9 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
+import { parseEcoPageCache } from '@/domain/models/env/eco-page-cache'
+import { computeAppRenderChecksum } from '@/domain/services/app-render-checksum'
+import { isRenderablePathCacheable } from '@/domain/services/page-cacheability'
 import { logError } from '@/infrastructure/logging/logger'
+import {
+  getCachedPage,
+  getPageCacheKey,
+  setCachedPage,
+} from '@/infrastructure/server/cache/page-cache-service'
 import {
   detectLanguageIfEnabled,
   validateLanguageSubdirectory,
@@ -64,8 +73,18 @@ function resolveObjectResult(
   return undefined
 }
 
+type CacheStatus = 'hit' | 'miss' | 'bypass'
+
+interface PageRequestContext {
+  readonly detectedLanguage?: string
+  readonly session?: SessionInfo
+  readonly cookies?: Readonly<Record<string, string>>
+  readonly previewMode?: boolean
+}
+
 function sendResolved(
   resolved: ReturnType<typeof resolvePageResult>,
+  cacheStatus: CacheStatus,
   c: Context
 ): Response | undefined {
   if (!resolved) return undefined
@@ -73,7 +92,42 @@ function sendResolved(
   if ('unauthorized' in resolved) {
     return c.text('Unauthorized', 401)
   }
-  return c.html(resolved.html)
+  return c.html(resolved.html, 200, {
+    'X-Render-Cache': cacheStatus,
+    'Cache-Control': cacheStatus === 'bypass' ? 'private, no-cache' : 'public, max-age=300',
+  })
+}
+
+async function renderWithCache(
+  config: HonoAppConfig,
+  path: string,
+  reqCtx: PageRequestContext,
+  c: Context
+): Promise<Response | undefined> {
+  const { app, renderPage } = config
+
+  const cacheUsable =
+    parseEcoPageCache(process.env) === 'on' &&
+    reqCtx.session === undefined &&
+    reqCtx.previewMode !== true &&
+    isRenderablePathCacheable(app, path)
+
+  if (!cacheUsable) {
+    return sendResolved(resolvePageResult(await renderPage(app, path, reqCtx)), 'bypass', c)
+  }
+
+  const cacheKey = getPageCacheKey(computeAppRenderChecksum(app), path, reqCtx.detectedLanguage)
+  const cached = await Effect.runPromise(getCachedPage(cacheKey))
+  if (cached !== undefined) {
+    return sendResolved({ html: cached.html }, 'hit', c)
+  }
+
+  const resolved = resolvePageResult(await renderPage(app, path, reqCtx))
+  if (resolved !== undefined && 'html' in resolved) {
+    await Effect.runPromise(setCachedPage(cacheKey, { html: resolved.html, timestamp: Date.now() }))
+    return sendResolved(resolved, 'miss', c)
+  }
+  return sendResolved(resolved, 'bypass', c)
 }
 
 async function extractSession(
@@ -95,7 +149,7 @@ function resolvePreviewMode(
 }
 
 export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
-  const { app, renderPage, renderErrorPage } = config
+  const { app, renderErrorPage } = config
 
   return honoApp.get('/', async (c) => {
     try {
@@ -105,8 +159,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       const reqCtx = { session, cookies, previewMode }
 
       if (!app.languages || app.languages.detectBrowser === false) {
-        const resolved = resolvePageResult(await renderPage(app, '/', reqCtx))
-        return sendResolved(resolved, c) ?? c.html('')
+        return (await renderWithCache(config, '/', reqCtx, c)) ?? c.html('')
       }
 
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
@@ -116,8 +169,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
         return c.redirect(`/${targetLanguage}/`, 302)
       }
 
-      const resolved = resolvePageResult(await renderPage(app, '/', reqCtx))
-      return sendResolved(resolved, c) ?? c.html('')
+      return (await renderWithCache(config, '/', reqCtx, c)) ?? c.html('')
     } catch (error) {
       logError('[SERVER] GET / → 500 Error rendering homepage', error)
       return c.html(await renderErrorPage(app), 500)
@@ -126,7 +178,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
 }
 
 function handleLanguageHomepageRoute(config: HonoAppConfig) {
-  const { app, renderPage, renderNotFoundPage, renderErrorPage } = config
+  const { app, renderNotFoundPage, renderErrorPage } = config
   return async (c: Readonly<Context>) => {
     try {
       const { path } = c.req
@@ -134,10 +186,10 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       const cookies = getCookie(c)
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
       const previewMode = resolvePreviewMode(c, session)
-      const exact = sendResolved(
-        resolvePageResult(
-          await renderPage(app, path, { detectedLanguage, session, cookies, previewMode })
-        ),
+      const exact = await renderWithCache(
+        config,
+        path,
+        { detectedLanguage, session, cookies, previewMode },
         c
       )
       if (exact) return exact
@@ -145,15 +197,10 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       if (!urlLanguage) {
         return c.html(await renderNotFoundPage(app, detectedLanguage), 404)
       }
-      const lang = sendResolved(
-        resolvePageResult(
-          await renderPage(app, '/', {
-            detectedLanguage: urlLanguage,
-            session,
-            cookies,
-            previewMode,
-          })
-        ),
+      const lang = await renderWithCache(
+        config,
+        '/',
+        { detectedLanguage: urlLanguage, session, cookies, previewMode },
         c
       )
       return lang ?? c.html('')
@@ -166,7 +213,7 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
 }
 
 function handleLanguagePageRoute(config: HonoAppConfig) {
-  const { app, renderPage, renderNotFoundPage, renderErrorPage } = config
+  const { app, renderNotFoundPage, renderErrorPage } = config
   return async (c: Readonly<Context>) => {
     const { path } = c.req
     const session = await extractSession(config, c.req.raw.headers)
@@ -174,10 +221,10 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
     const previewMode = resolvePreviewMode(c, session)
     try {
-      const exact = sendResolved(
-        resolvePageResult(
-          await renderPage(app, path, { detectedLanguage, session, cookies, previewMode })
-        ),
+      const exact = await renderWithCache(
+        config,
+        path,
+        { detectedLanguage, session, cookies, previewMode },
         c
       )
       if (exact) return exact
@@ -186,15 +233,10 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
         return c.html(await renderNotFoundPage(app, detectedLanguage), 404)
       }
       const pathWithoutLang = path.replace(`/${urlLanguage}`, '') || '/'
-      const lang = sendResolved(
-        resolvePageResult(
-          await renderPage(app, pathWithoutLang, {
-            detectedLanguage: urlLanguage,
-            session,
-            cookies,
-            previewMode,
-          })
-        ),
+      const lang = await renderWithCache(
+        config,
+        pathWithoutLang,
+        { detectedLanguage: urlLanguage, session, cookies, previewMode },
         c
       )
       return lang ?? c.html(await renderNotFoundPage(app, urlLanguage), 404)
@@ -218,7 +260,7 @@ export function setupDynamicPageRoutes(
   honoApp: Readonly<Hono>,
   config: HonoAppConfig
 ): Readonly<Hono> {
-  const { app, renderPage, renderNotFoundPage } = config
+  const { app, renderNotFoundPage } = config
 
   return honoApp.get('*', async (c) => {
     const { path } = c.req
@@ -226,10 +268,10 @@ export function setupDynamicPageRoutes(
     const cookies = getCookie(c)
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
     const previewMode = resolvePreviewMode(c, session)
-    const response = sendResolved(
-      resolvePageResult(
-        await renderPage(app, path, { detectedLanguage, session, cookies, previewMode })
-      ),
+    const response = await renderWithCache(
+      config,
+      path,
+      { detectedLanguage, session, cookies, previewMode },
       c
     )
     return response ?? c.html(await renderNotFoundPage(app, detectedLanguage), 404)

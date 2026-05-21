@@ -49,46 +49,56 @@ const validationErrorHook = (result: { success: boolean }, c: Context) => {
 }
 
 
-export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
+export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return honoApp
     .get('/api/tables/:tableId/records', zValidator('query', listRecordsQuerySchema), (c) =>
-      handleListRecords(c, app)
+      handleListRecords(c, resolveApp())
     )
-    .get('/api/tables/:tableId/trash', (c) => handleListTrash(c, app))
-    .post('/api/tables/:tableId/records/bulk-delete', (c) => handleFormBulkDelete(c, app))
-    .post('/api/tables/:tableId/records/bulk-update', (c) => handleFormBulkUpdate(c, app))
+    .get('/api/tables/:tableId/trash', (c) => handleListTrash(c, resolveApp()))
+    .post('/api/tables/:tableId/records/bulk-delete', (c) => handleFormBulkDelete(c, resolveApp()))
+    .post('/api/tables/:tableId/records/bulk-update', (c) => handleFormBulkUpdate(c, resolveApp()))
     .post('/api/tables/:tableId/records', zValidator('json', createRecordRequestSchema), (c) =>
-      handleCreateRecord(c, app)
+      handleCreateRecord(c, resolveApp())
     )
-    .get('/api/tables/:tableId/subscribe/sse', (c) => handleSubscribe(c, app))
-    .get('/api/tables/:tableId/subscribe', (c) => handleSubscribe(c, app))
-    .get('/api/tables/:tableId/records/:recordId', (c) => handleGetRecord(c, app))
+    .get('/api/tables/:tableId/subscribe/sse', (c) => handleSubscribe(c, resolveApp()))
+    .get('/api/tables/:tableId/subscribe', (c) => handleSubscribe(c, resolveApp()))
+    .get('/api/tables/:tableId/records/:recordId', (c) => handleGetRecord(c, resolveApp()))
     .patch(
       '/api/tables/:tableId/records/:recordId',
       zValidator('json', updateRecordRequestSchema),
-      (c) => handleUpdateRecord(c, app)
+      (c) => handleUpdateRecord(c, resolveApp())
     )
-    .post('/api/tables/:tableId/records/:recordId/update', (c) => handleFormUpdateRecord(c, app))
-    .delete('/api/tables/:tableId/records/:recordId', (c) => handleDeleteRecord(c, app))
-    .post('/api/tables/:tableId/records/:recordId/delete', (c) => handleFormDeleteRecord(c, app))
-    .post('/api/tables/:tableId/records/:recordId/restore', (c) => handleRestoreRecord(c, app))
-    .get('/api/tables/:tableId/records/:recordId/history', (c) => handleGetRecordHistory(c, app))
-    .get('/api/tables/:tableId/records/:recordId/comments', (c) => handleListComments(c, app))
+    .post('/api/tables/:tableId/records/:recordId/update', (c) =>
+      handleFormUpdateRecord(c, resolveApp())
+    )
+    .delete('/api/tables/:tableId/records/:recordId', (c) => handleDeleteRecord(c, resolveApp()))
+    .post('/api/tables/:tableId/records/:recordId/delete', (c) =>
+      handleFormDeleteRecord(c, resolveApp())
+    )
+    .post('/api/tables/:tableId/records/:recordId/restore', (c) =>
+      handleRestoreRecord(c, resolveApp())
+    )
+    .get('/api/tables/:tableId/records/:recordId/history', (c) =>
+      handleGetRecordHistory(c, resolveApp())
+    )
+    .get('/api/tables/:tableId/records/:recordId/comments', (c) =>
+      handleListComments(c, resolveApp())
+    )
     .post(
       '/api/tables/:tableId/records/:recordId/comments',
       zValidator('json', createCommentRequestSchema, validationErrorHook),
-      (c) => handleCreateComment(c, app)
+      (c) => handleCreateComment(c, resolveApp())
     )
     .get('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
-      handleGetComment(c, app)
+      handleGetComment(c, resolveApp())
     )
     .patch(
       '/api/tables/:tableId/records/:recordId/comments/:commentId',
       zValidator('json', updateCommentRequestSchema, validationErrorHook),
-      (c) => handleUpdateComment(c, app)
+      (c) => handleUpdateComment(c, resolveApp())
     )
     .delete('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
-      handleDeleteComment(c, app)
+      handleDeleteComment(c, resolveApp())
     )
 }
 

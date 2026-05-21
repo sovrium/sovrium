@@ -8,12 +8,61 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import {
+  configVersionResponseSchema,
+  type ConfigVersionResponse,
+} from '@/domain/models/api/admin/config/version'
+import {
   storageStatusResponseSchema,
   type StorageStatusResponse,
 } from '@/domain/models/api/admin/storage/status'
+import { resolveRuntimeLabel } from '@/domain/models/env/database-dialect'
 import { parseStorageEnvConfig } from '@/domain/models/env/storage'
+import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import type { Context, Hono } from 'hono'
+
+const PROCESS_STARTED_AT: string = new Date().toISOString()
+
+const buildVersion = async (): Promise<string> => {
+  try {
+    const pkg = (await Bun.file(resolvePackagePath('package.json')).json()) as {
+      version?: string
+    }
+    return typeof pkg.version === 'string' && pkg.version.length > 0 ? pkg.version : '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+}
+
+const buildCommit = (): string => {
+  const sha = process.env['SOVRIUM_COMMIT_SHA']
+  return typeof sha === 'string' && /^[0-9a-f]{7,40}$/.test(sha) ? sha : 'unknown'
+}
+
+async function buildConfigVersionResponse(): Promise<ConfigVersionResponse> {
+  return {
+    version: await buildVersion(),
+    commit: buildCommit(),
+    runtime: resolveRuntimeLabel(),
+    nodeVersion: Bun.version,
+    startedAt: PROCESS_STARTED_AT,
+  }
+}
+
+async function handleGetConfigVersion(c: Context): Promise<Response> {
+  const response = await buildConfigVersionResponse()
+
+  const parsed = configVersionResponseSchema.safeParse(response)
+  if (!parsed.success) {
+    return c.json(
+      { success: false, message: 'Failed to build version info', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  c.header('Cache-Control', 'no-store')
+  return c.json(parsed.data, 200)
+}
 
 function buildStorageStatusResponse(): StorageStatusResponse {
   const config = parseStorageEnvConfig()
@@ -82,5 +131,6 @@ export function chainAdminRoutes<T extends Hono>(honoApp: T): T {
   return honoApp
     .get('/api/admin/storage/status', handleGetStorageStatus)
     .get('/api/admin/buckets/quota', handleGetBucketsQuota)
+    .get('/api/admin/config/version', handleGetConfigVersion)
     .on('DELETE', '/api/admin/storage/transform-cache', handleDeleteTransformCache) as T
 }

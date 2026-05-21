@@ -21,13 +21,13 @@ import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
-export function chainViewRoutesMethods<T extends Hono>(honoApp: T, app: App) {
+export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return honoApp
     .get('/api/tables/:tableId/views', async (c) => {
       const { tableId, userRole } = getTableContext(c)
 
       const program = Effect.gen(function* () {
-        const result = yield* listViewsProgram(tableId, app, userRole)
+        const result = yield* listViewsProgram(tableId, resolveApp(), userRole)
         return result
       })
 
@@ -36,7 +36,7 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     .get('/api/tables/:tableId/views/:viewId', async (c) =>
       runEffect(
         c,
-        getViewProgram(c.req.param('tableId'), c.req.param('viewId'), app),
+        getViewProgram(c.req.param('tableId'), c.req.param('viewId'), resolveApp()),
         getViewResponseSchema
       )
     )
@@ -44,7 +44,13 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       const { session, tableId, userRole } = getTableContext(c)
       const viewId = c.req.param('viewId')
 
-      const program = getViewRecordsProgram({ tableId, viewId, app, userRole, session })
+      const program = getViewRecordsProgram({
+        tableId,
+        viewId,
+        app: resolveApp(),
+        userRole,
+        session,
+      })
 
       return runEffect(c, provideTableLive(program), getViewRecordsResponseSchema)
     })

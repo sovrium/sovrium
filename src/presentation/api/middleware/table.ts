@@ -38,7 +38,7 @@ export type ContextWithTableAndRole = Context & {
 }
 
 
-export function validateTable(app: App) {
+export function validateTable(appOrResolver: App | (() => App)) {
   return async (c: Context, next: Next) => {
     const tableId = c.req.param('tableId')
 
@@ -49,6 +49,7 @@ export function validateTable(app: App) {
       )
     }
 
+    const app = typeof appOrResolver === 'function' ? appOrResolver() : appOrResolver
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
 
     if (!table) {

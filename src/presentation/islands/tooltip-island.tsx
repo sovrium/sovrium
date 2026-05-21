@@ -47,9 +47,9 @@ export default function TooltipIsland({
             side={floatingSide}
             sideOffset={6}
           >
-            <Tooltip.Popup className="rounded-md bg-gray-900 px-3 py-1.5 text-xs text-white shadow-md transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
+            <Tooltip.Popup className="bg-fg text-bg rounded-md px-3 py-1.5 text-xs shadow-md transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
               {tooltipContent}
-              <Tooltip.Arrow className="text-gray-900">
+              <Tooltip.Arrow className="text-fg">
                 <svg
                   width="10"
                   height="5"

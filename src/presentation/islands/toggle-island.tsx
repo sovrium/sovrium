@@ -6,6 +6,7 @@
  */
 
 import { Toggle } from '@base-ui/react/toggle'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface ToggleIslandProps {
@@ -37,14 +38,19 @@ export default function ToggleIsland({
 }: ToggleIslandProps): ReactElement {
   const variantClass =
     variant === 'outline'
-      ? 'border border-gray-300 bg-white data-[pressed]:bg-gray-100 data-[pressed]:border-gray-400'
-      : 'bg-gray-100 data-[pressed]:bg-gray-200'
+      ? 'border border-border bg-bg-raised text-fg data-[pressed]:bg-primary-subtle data-[pressed]:border-border-strong'
+      : 'bg-bg-subtle text-fg data-[pressed]:bg-primary-subtle'
 
   return (
     <Toggle
       defaultPressed={pressed}
       disabled={disabled}
-      className={`inline-flex items-center justify-center rounded-md font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 ${variantClass} ${SIZE_CLASSES[size]} ${className ?? ''}`}
+      className={cn(
+        'inline-flex items-center justify-center rounded-md font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+        variantClass,
+        SIZE_CLASSES[size],
+        className
+      )}
       id={id}
       data-testid={testId}
       aria-label={label}

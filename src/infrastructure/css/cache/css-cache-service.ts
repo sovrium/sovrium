@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mkdir } from 'node:fs/promises'
 import { Data, Effect, Ref, pipe } from 'effect'
 import type { Theme } from '@/domain/models/app/theme'
 
@@ -40,7 +41,6 @@ export const writePrecompiledCSS = (css: string): Effect.Effect<string, Precompi
     const dir = cssPath.substring(0, cssPath.lastIndexOf('/'))
     yield* Effect.tryPromise({
       try: async () => {
-        const { mkdir } = await import('node:fs/promises')
         await mkdir(dir, { recursive: true })
         await Bun.write(cssPath, css)
       },

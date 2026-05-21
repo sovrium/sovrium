@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database/drizzle'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 
 export async function checkForExistingRecords(
   tableName: string,
@@ -28,9 +29,10 @@ export async function checkForExistingRecords(
   if (mergeConditions.length === 0) return false
 
   const whereClause = sql.join(mergeConditions, sql` OR `)
-  const existingRecords = (await db.execute(
+  const existingRecords = await executeRaw(
+    db,
     sql`SELECT COUNT(*) as count FROM ${sql.identifier(tableName)} WHERE ${whereClause}`
-  )) as readonly Record<string, unknown>[]
+  )
 
   const firstRecord = existingRecords[0]
   return firstRecord !== undefined && Number(firstRecord.count) > 0

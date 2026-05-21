@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db, SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
@@ -21,9 +22,10 @@ async function validateAndFilterRecordsForRestore(
 ): Promise<readonly string[]> {
   const validationResults = await Promise.all(
     recordIds.map(async (recordId) => {
-      const checkResult = (await tx.execute(
+      const checkResult = await executeRaw(
+        tx,
         sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-      )) as readonly Record<string, unknown>[]
+      )
 
       if (checkResult.length === 0) return { recordId, error: 'not found', isDeleted: false }
 
@@ -68,9 +70,10 @@ function executeRestoreQuery(
         recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
       )
-      const result = (await tx.execute(
+      const result = await executeRaw(
+        tx,
         sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams}) RETURNING *`
-      )) as readonly Record<string, unknown>[]
+      )
       return result
     },
     catch: (error) => new SessionContextError(`Failed to restore records in ${tableName}`, error),

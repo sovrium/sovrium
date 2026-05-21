@@ -177,15 +177,8 @@ export const findAppTable = (app: App, tableName: string): Table | undefined =>
 const NOT_FOUND_BODY = (c: Context): Response =>
   c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
-const FORBIDDEN_BODY = (c: Context, action: 'update' | 'delete' | 'restore'): Response =>
-  c.json(
-    {
-      success: false,
-      message: `You do not have permission to ${action} records in this table`,
-      code: 'FORBIDDEN',
-    },
-    403
-  )
+const FORBIDDEN_BODY = (c: Context, _action: 'update' | 'delete' | 'restore'): Response =>
+  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
 interface FormGateInput {
   readonly c: Context

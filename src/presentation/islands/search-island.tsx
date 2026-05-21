@@ -47,13 +47,13 @@ export default function SearchIsland({
         onChange={(e) => setInputValue(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="w-full rounded-md border border-gray-300 py-2 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        className="border-border bg-bg-raised text-fg focus:border-focus-ring focus:ring-focus-ring w-full rounded-md border py-2 pr-8 pl-3 text-sm focus:ring-1 focus:outline-none"
       />
       {inputValue && (
         <button
           type="button"
           onClick={() => setInputValue('')}
-          className="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          className="text-fg-subtle hover:text-fg-muted absolute top-1/2 right-2 -translate-y-1/2"
           aria-label="Clear search"
         >
           ×

@@ -104,10 +104,10 @@ function manualTriggerErrorResponse(c: Context, error: RunAutomationError) {
     return c.json(
       {
         success: false,
-        message: `This automation requires the '${error.required}' role`,
-        code: 'FORBIDDEN',
+        message: 'Automation not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
   if (error._tag === 'AutomationRegistrySeedError') {

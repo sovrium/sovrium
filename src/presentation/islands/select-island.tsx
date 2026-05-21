@@ -7,6 +7,7 @@
 
 import { Combobox } from '@base-ui/react/combobox'
 import { Select } from '@base-ui/react/select'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface OptionItem {
@@ -73,10 +74,10 @@ function SelectOption({ option }: { readonly option: OptionItem }): ReactElement
     <Select.Item
       value={option.value}
       disabled={option.disabled}
-      className="flex cursor-pointer items-center px-3 py-2 text-sm text-gray-900 outline-none data-[disabled]:cursor-not-allowed data-[disabled]:text-gray-400 data-[highlighted]:bg-gray-100"
+      className="text-fg data-[disabled]:text-fg-subtle data-[highlighted]:bg-bg-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
     >
       <Select.ItemText>{option.label}</Select.ItemText>
-      <Select.ItemIndicator className="ml-auto text-blue-600">
+      <Select.ItemIndicator className="text-primary ml-auto">
         <CheckMark />
       </Select.ItemIndicator>
     </Select.Item>
@@ -89,10 +90,10 @@ function ComboboxItemRenderer(item: OptionItem): ReactElement {
       key={item.value}
       value={item}
       disabled={item.disabled}
-      className="flex cursor-pointer items-center px-3 py-2 text-sm text-gray-900 outline-none data-[disabled]:cursor-not-allowed data-[disabled]:text-gray-400 data-[highlighted]:bg-gray-100"
+      className="text-fg data-[disabled]:text-fg-subtle data-[highlighted]:bg-bg-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
     >
       {item.label}
-      <Combobox.ItemIndicator className="ml-auto text-blue-600">
+      <Combobox.ItemIndicator className="text-primary ml-auto">
         <CheckMark />
       </Combobox.ItemIndicator>
     </Combobox.Item>
@@ -103,8 +104,8 @@ function ComboboxPopupContent(): ReactElement {
   return (
     <Combobox.Portal>
       <Combobox.Positioner sideOffset={4}>
-        <Combobox.Popup className="max-h-60 overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
-          <Combobox.Empty className="px-3 py-2 text-sm text-gray-500">No results</Combobox.Empty>
+        <Combobox.Popup className="border-border bg-bg-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
+          <Combobox.Empty className="text-fg-muted px-3 py-2 text-sm">No results</Combobox.Empty>
           <Combobox.List>{(item: OptionItem) => ComboboxItemRenderer(item)}</Combobox.List>
         </Combobox.Popup>
       </Combobox.Positioner>
@@ -126,26 +127,26 @@ function SearchableSelect({
   const triggerLabel = label ? `Open ${label}` : 'Open options'
 
   return (
-    <div className={className}>
+    <div className={cn(className)}>
       <Combobox.Root
         items={items}
         defaultValue={defaultItem}
         disabled={disabled}
       >
         {label && (
-          <Combobox.Label className="mb-1 block text-sm font-medium text-gray-700">
+          <Combobox.Label className="text-fg mb-1 block text-sm font-medium">
             {label}
           </Combobox.Label>
         )}
-        <Combobox.InputGroup className="flex w-full items-center rounded-md border border-gray-300 bg-white shadow-sm transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
+        <Combobox.InputGroup className="border-border bg-bg-raised focus-within:border-primary focus-within:ring-focus-ring flex w-full items-center rounded-md border shadow-sm transition-colors focus-within:ring-1 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
           <Combobox.Input
             placeholder={placeholder ?? 'Select...'}
             aria-label={label}
-            className="flex-1 bg-transparent px-3 py-2 text-sm outline-none"
+            className="text-fg flex-1 bg-transparent px-3 py-2 text-sm outline-none"
           />
           <Combobox.Trigger
             aria-label={triggerLabel}
-            className="px-2 text-gray-400"
+            className="text-fg-subtle px-2"
           >
             <ChevronDown />
           </Combobox.Trigger>
@@ -167,19 +168,17 @@ function PlainSelect({
   const items = options ?? []
   const valueLabelMap = new Map(items.map((o) => [o.value, o.label]))
   return (
-    <div className={className}>
+    <div className={cn(className)}>
       <Select.Root
         items={items}
         defaultValue={defaultValue}
         disabled={disabled}
       >
         {label && (
-          <Select.Label className="mb-1 block text-sm font-medium text-gray-700">
-            {label}
-          </Select.Label>
+          <Select.Label className="text-fg mb-1 block text-sm font-medium">{label}</Select.Label>
         )}
 
-        <Select.Trigger className="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[open]:border-blue-500 data-[open]:ring-1 data-[open]:ring-blue-500">
+        <Select.Trigger className="border-border bg-bg-raised text-fg data-[open]:border-primary data-[open]:ring-focus-ring flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm shadow-sm transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[open]:ring-1">
           <Select.Value placeholder={placeholder ?? 'Select...'}>
             {(value: string | null) =>
               value === null || value === undefined
@@ -187,14 +186,14 @@ function PlainSelect({
                 : (valueLabelMap.get(value) ?? value)
             }
           </Select.Value>
-          <Select.Icon className="ml-2 text-gray-400">
+          <Select.Icon className="text-fg-subtle ml-2">
             <ChevronDown />
           </Select.Icon>
         </Select.Trigger>
 
         <Select.Portal>
           <Select.Positioner sideOffset={4}>
-            <Select.Popup className="max-h-60 overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+            <Select.Popup className="border-border bg-bg-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
               <Select.List>
                 {options?.map((option) => (
                   <SelectOption

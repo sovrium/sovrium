@@ -15,6 +15,14 @@ import { ShadowsConfigSchema } from './shadows'
 import { SpacingConfigSchema } from './spacing'
 
 export const ThemeSchema = Schema.Struct({
+  baseline: Schema.optional(
+    Schema.Literal('extend', 'replace').annotations({
+      title: 'Theme Baseline',
+      description:
+        "Extend Sovrium's v1 default look ('extend', default) or replace it with a neutral floor ('replace').",
+    })
+  ),
+
   colors: Schema.optional(ColorsConfigSchema),
 
   darkColors: Schema.optional(ColorsConfigSchema),

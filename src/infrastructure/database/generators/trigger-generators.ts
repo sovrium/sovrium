@@ -5,10 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 
+
 export const generateCreatedAtTriggers = (table: Table): readonly string[] => {
+  if (isSqliteRuntime()) return []
+
   const createdAtFields = table.fields.filter((field) => field.type === 'created-at')
   const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
 
@@ -54,6 +58,8 @@ EXECUTE FUNCTION ${preventFunctionName}()`,
 }
 
 export const generateAutonumberTriggers = (table: Table): readonly string[] => {
+  if (isSqliteRuntime()) return []
+
   const autonumberFields = table.fields.filter((field) => field.type === 'autonumber')
 
   if (autonumberFields.length === 0) return []
@@ -80,6 +86,8 @@ EXECUTE FUNCTION ${triggerFunctionName}()`,
 }
 
 export const generateUpdatedByTriggers = (table: Table): readonly string[] => {
+  if (isSqliteRuntime()) return []
+
   const updatedByFields = table.fields.filter((field) => field.type === 'updated-by')
 
   if (updatedByFields.length === 0) return []
@@ -107,6 +115,21 @@ export const generateUpdatedAtTriggers = (table: Table): readonly string[] => {
   if (fieldNames.length === 0) return []
 
   const sanitized = sanitizeTableName(table.name)
+
+  if (isSqliteRuntime()) {
+    const triggerName = `a_trigger_${sanitized}_updated_at`
+    const setClause = fieldNames.map((name) => `${name} = CURRENT_TIMESTAMP`).join(', ')
+    return [
+      `DROP TRIGGER IF EXISTS ${triggerName}`,
+      `CREATE TRIGGER ${triggerName}
+AFTER UPDATE ON ${sanitized}
+FOR EACH ROW
+BEGIN
+  UPDATE ${sanitized} SET ${setClause} WHERE rowid = NEW.rowid;
+END`,
+    ]
+  }
+
   const triggerFunctionName = `update_${sanitized}_updated_at`
   const triggerName = `a_trigger_${sanitized}_updated_at`
 

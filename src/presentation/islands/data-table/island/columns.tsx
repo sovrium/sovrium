@@ -53,18 +53,26 @@ export interface BuildColumnsOptions {
   readonly tableFields?: readonly string[]
   readonly groupByField?: string
   readonly onActionClick?: RowActionHandler
+  readonly autoColumnsEditable?: boolean
 }
 
 export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecord>[] {
-  const { columnConfig, records, selectionConfig, tableFields, groupByField, onActionClick } =
-    options
+  const {
+    columnConfig,
+    records,
+    selectionConfig,
+    tableFields,
+    groupByField,
+    onActionClick,
+    autoColumnsEditable,
+  } = options
 
   const baseColumns: ColumnDef<TableRecord>[] =
     columnConfig && columnConfig.length > 0
       ? [...mapColumnsToColumnDefs(columnConfig, groupByField, onActionClick)]
       : tableFields && tableFields.length > 0
-        ? [...autoGenerateColumnsFromFields(tableFields, groupByField)]
-        : [...autoGenerateColumns(records, groupByField)]
+        ? [...autoGenerateColumnsFromFields(tableFields, groupByField, autoColumnsEditable)]
+        : [...autoGenerateColumns(records, groupByField, autoColumnsEditable)]
 
   const selectionEnabled =
     selectionConfig?.mode === 'single' || selectionConfig?.mode === 'multiple'

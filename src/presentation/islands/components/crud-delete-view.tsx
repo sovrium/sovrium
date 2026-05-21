@@ -7,6 +7,7 @@
 
 
 import { useState } from 'react'
+import { cn } from '@/presentation/islands/lib/cn'
 
 interface FormState {
   readonly error?: string
@@ -64,7 +65,7 @@ function DeleteWrapper({
 }) {
   return (
     <div
-      className={className}
+      className={cn(className)}
       id={id}
       data-testid={testId}
     >

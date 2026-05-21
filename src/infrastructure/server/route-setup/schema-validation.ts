@@ -8,7 +8,7 @@
 
 import { Either, Schema } from 'effect'
 import { ArrayFormatter } from 'effect/ParseResult'
-import { AppSchema } from '@/domain/models/app'
+import { AppSchema, type App } from '@/domain/models/app'
 
 export interface ValidationError {
   readonly field: string
@@ -30,4 +30,9 @@ export const validateSnapshot = (snapshot: unknown): ValidationResult => {
     return { field: pointer, path: pointer, message: issue.message }
   })
   return { valid: false, errors }
+}
+
+export const decodeSnapshotToApp = (snapshot: unknown): App | undefined => {
+  const result = Schema.decodeUnknownEither(AppSchema)(snapshot)
+  return Either.isRight(result) ? result.right : undefined
 }

@@ -47,7 +47,7 @@ export function SearchToolbar({ search, value, onChange }: SearchToolbarProps) {
       placeholder={search.placeholder ?? 'Search...'}
       value={localValue}
       onChange={onInputChange}
-      className="w-full max-w-sm rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      className="border-border focus:border-primary focus:ring-focus-ring w-full max-w-sm rounded border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
       aria-label={search.placeholder ?? 'Search'}
     />
   )
@@ -120,7 +120,7 @@ export function DataTableToolbarBar({
       data-toolbar
       data-testid="data-table-toolbar"
       aria-hidden={importDialogOpen || undefined}
-      className="flex items-center gap-2 border-b border-gray-200 p-3"
+      className="border-border flex items-center gap-2 border-b p-3"
     >
       {showSearch && searchConfig && (
         <SearchToolbar
@@ -133,14 +133,14 @@ export function DataTableToolbarBar({
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
-          className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+          className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
           onClick={onOpenImportDialog}
         >
           Import
         </button>
         <button
           type="button"
-          className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+          className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
           aria-label="Filter"
           onClick={onOpenFilterOverlay}
         >
@@ -149,7 +149,7 @@ export function DataTableToolbarBar({
         <div className="relative">
           <button
             type="button"
-            className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
             aria-label="Columns"
             onClick={onToggleColumnsMenu}
           >
@@ -160,7 +160,7 @@ export function DataTableToolbarBar({
         {selectionConfig?.mode === 'multiple' && (
           <button
             type="button"
-            className="rounded border px-3 py-1 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Export selected"
             disabled={selectedCount === 0}
             onClick={onExportSelectedClick}
@@ -171,7 +171,7 @@ export function DataTableToolbarBar({
         <div className="relative">
           <button
             type="button"
-            className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
             aria-label="Export"
             aria-haspopup="true"
             aria-expanded={exportMenuOpen}
@@ -191,7 +191,7 @@ export function DataTableToolbarBar({
         {toolbarConfig?.refresh && (
           <button
             type="button"
-            className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
             aria-label="Refresh"
             onClick={onRefresh}
           >
@@ -201,7 +201,7 @@ export function DataTableToolbarBar({
         {toolbarConfig?.density && (
           <button
             type="button"
-            className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
             aria-label="Density"
             onClick={onToggleDensity}
           >

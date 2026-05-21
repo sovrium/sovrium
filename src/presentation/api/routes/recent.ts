@@ -8,6 +8,8 @@
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { userRecentItems } from '@/infrastructure/database/drizzle/schema/favorites'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   filterLiveEntities,
   parseEntityMutationBody,
@@ -94,12 +96,16 @@ const handleAdd = async (c: Context) => {
     tableId: input.tableName,
   })
 
-  await db.execute(
+  const offsetClause = isSqliteRuntime()
+    ? sql`LIMIT -1 OFFSET ${MAX_RECENT_ITEMS}`
+    : sql`OFFSET ${MAX_RECENT_ITEMS}`
+  await executeRaw(
+    db,
     sql`DELETE FROM ${userRecentItems} WHERE id IN (
       SELECT id FROM ${userRecentItems}
       WHERE user_id = ${session.userId}
       ORDER BY viewed_at DESC
-      OFFSET ${MAX_RECENT_ITEMS}
+      ${offsetClause}
     )`
   )
 

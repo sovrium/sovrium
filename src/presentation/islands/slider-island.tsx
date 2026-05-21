@@ -7,6 +7,7 @@
 
 import { Slider } from '@base-ui/react/slider'
 import { useCallback, useState } from 'react'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface SliderIslandProps {
@@ -45,14 +46,14 @@ export default function SliderIsland({
 
   return (
     <div
-      className={className}
+      className={cn(className)}
       id={id}
       data-testid={testId}
     >
       {label && (
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-900">{label}</span>
-          {showValue && <span className="text-sm text-gray-600">{value}</span>}
+          <span className="text-fg text-sm font-medium">{label}</span>
+          {showValue && <span className="text-fg-muted text-sm">{value}</span>}
         </div>
       )}
       <Slider.Root
@@ -64,9 +65,9 @@ export default function SliderIsland({
         onValueChange={handleValueChange}
         className="relative flex w-full touch-none items-center"
       >
-        <Slider.Track className="relative h-1.5 w-full grow rounded-full bg-gray-200">
-          <Slider.Indicator className="absolute h-full rounded-full bg-blue-600" />
-          <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-blue-600 bg-white shadow-sm transition-colors hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50" />
+        <Slider.Track className="bg-bg-subtle relative h-1.5 w-full grow rounded-full">
+          <Slider.Indicator className="bg-primary absolute h-full rounded-full" />
+          <Slider.Thumb className="border-primary bg-bg-raised hover:bg-primary-subtle focus-visible:ring-focus-ring block h-4 w-4 rounded-full border-2 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50" />
         </Slider.Track>
       </Slider.Root>
     </div>

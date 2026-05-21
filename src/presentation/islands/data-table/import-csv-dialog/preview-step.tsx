@@ -20,7 +20,7 @@ export function PreviewStep({ preview }: PreviewStepProps) {
             {preview.headers.map((header, i) => (
               <th
                 key={i}
-                className="border border-gray-200 bg-gray-50 px-3 py-2 text-left font-medium text-gray-700"
+                className="border-border bg-bg-subtle text-fg border px-3 py-2 text-left font-medium"
               >
                 {header}
               </th>
@@ -33,7 +33,7 @@ export function PreviewStep({ preview }: PreviewStepProps) {
               {row.map((cell, ci) => (
                 <td
                   key={ci}
-                  className="border border-gray-200 px-3 py-2 text-gray-900"
+                  className="border-border text-fg border px-3 py-2"
                 >
                   {cell}
                 </td>

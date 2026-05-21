@@ -45,7 +45,7 @@ export default function ScrollAreaIsland({
           orientation="vertical"
           className="flex w-2 touch-none p-0.5 opacity-0 transition-opacity hover:opacity-100 data-[hovering]:opacity-100 data-[scrolling]:opacity-100"
         >
-          <ScrollArea.Thumb className="flex-1 rounded-full bg-gray-400" />
+          <ScrollArea.Thumb className="bg-border-strong flex-1 rounded-full" />
         </ScrollArea.Scrollbar>
       )}
 
@@ -54,7 +54,7 @@ export default function ScrollAreaIsland({
           orientation="horizontal"
           className="flex h-2 touch-none p-0.5 opacity-0 transition-opacity hover:opacity-100 data-[hovering]:opacity-100 data-[scrolling]:opacity-100"
         >
-          <ScrollArea.Thumb className="flex-1 rounded-full bg-gray-400" />
+          <ScrollArea.Thumb className="bg-border-strong flex-1 rounded-full" />
         </ScrollArea.Scrollbar>
       )}
     </ScrollArea.Root>

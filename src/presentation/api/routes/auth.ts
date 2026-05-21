@@ -6,7 +6,12 @@
  */
 
 import { setSignedCookie } from 'hono/cookie'
-import { forbidden, unauthorized, validationError } from '@/presentation/api/utils/auth-helpers'
+import {
+  forbidden,
+  notFound,
+  unauthorized,
+  validationError,
+} from '@/presentation/api/utils/auth-helpers'
 import type { Context, Hono } from 'hono'
 
 
@@ -95,7 +100,7 @@ const authorizeAdminCaller = async (
   const { getUserRole } = await import('@/application/use-cases/tables/user-role')
   const callerRole = await getUserRole(callerSession.session.userId)
   if (callerRole !== 'admin') {
-    return forbidden(c, 'Admin access required')
+    return notFound(c)
   }
 
   return undefined

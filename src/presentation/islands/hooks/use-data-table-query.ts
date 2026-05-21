@@ -24,7 +24,13 @@ interface UseDataTableQueryParams {
   readonly globalFilter: string
   readonly dataSourceFilter?: readonly DataFilter[]
   readonly dataSourceSort?: readonly DataSort[]
+  readonly refreshMode?: 'none' | 'poll' | 'realtime'
+  readonly pollIntervalMs?: number
 }
+
+const DEFAULT_POLL_INTERVAL_MS = 30_000
+
+const REALTIME_FALLBACK_POLL_MS = 3000
 
 
 const apiClient = createRecordsClient(typeof window !== 'undefined' ? window.location.origin : '')
@@ -56,8 +62,67 @@ function buildDataSourceSortParam(sort: readonly DataSort[] | undefined): string
 }
 
 
+interface FetchQuery {
+  readonly table: string
+  readonly pagination: PaginationState
+  readonly sortParam?: string
+  readonly globalFilter: string
+  readonly filterParam?: string
+}
+
+async function fetchTableRecords({
+  table,
+  pagination,
+  sortParam,
+  globalFilter,
+  filterParam,
+}: FetchQuery): Promise<FetchResult> {
+  const query = {
+    page: String(pagination.pageIndex + 1),
+    ...(pagination.pageSize && { limit: String(pagination.pageSize) }),
+    ...(sortParam && { sort: sortParam }),
+    ...(globalFilter && { q: globalFilter }),
+    ...(filterParam && { filter: filterParam }),
+  }
+
+  const res = await apiClient.api.tables[':tableId'].records.$get({
+    param: { tableId: table },
+    query,
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Failed to fetch records: ${res.status} ${body}`)
+  }
+
+  const json = (await res.json()) as {
+    records?: readonly (TableRecord & { fields?: TableRecord })[]
+    total?: number
+    pagination?: { total?: number }
+  }
+  const rawRecords = json.records ?? []
+  const flatRecords: readonly TableRecord[] = rawRecords.map((r) => {
+    const { fields, ...rest } = r
+    return { ...rest, ...(fields ?? {}) }
+  })
+  return {
+    records: flatRecords,
+    total: json.total ?? json.pagination?.total ?? rawRecords.length,
+  }
+}
+
+
 export function useDataTableQuery(params: UseDataTableQueryParams) {
-  const { table, pagination, sorting, globalFilter, dataSourceFilter, dataSourceSort } = params
+  const {
+    table,
+    pagination,
+    sorting,
+    globalFilter,
+    dataSourceFilter,
+    dataSourceSort,
+    refreshMode,
+    pollIntervalMs,
+  } = params
 
   const userSortParam =
     sorting.length > 0
@@ -70,42 +135,18 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
 
   const queryKey = ['table-records', table, pagination, sortParam, globalFilter, filterParam]
 
+  const refetchInterval =
+    refreshMode === 'poll'
+      ? (pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS)
+      : refreshMode === 'realtime'
+        ? REALTIME_FALLBACK_POLL_MS
+        : false
+
   const result = useQuery({
     queryKey,
-    queryFn: async (): Promise<FetchResult> => {
-      const query = {
-        page: String(pagination.pageIndex + 1),
-        ...(pagination.pageSize && { limit: String(pagination.pageSize) }),
-        ...(sortParam && { sort: sortParam }),
-        ...(globalFilter && { q: globalFilter }),
-        ...(filterParam && { filter: filterParam }),
-      }
-
-      const res = await apiClient.api.tables[':tableId'].records.$get({
-        param: { tableId: table },
-        query,
-      })
-
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(`Failed to fetch records: ${res.status} ${body}`)
-      }
-
-      const json = (await res.json()) as {
-        records?: readonly (TableRecord & { fields?: TableRecord })[]
-        total?: number
-        pagination?: { total?: number }
-      }
-      const rawRecords = json.records ?? []
-      const flatRecords: readonly TableRecord[] = rawRecords.map((r) => {
-        const { fields, ...rest } = r
-        return { ...rest, ...(fields ?? {}) }
-      })
-      return {
-        records: flatRecords,
-        total: json.total ?? json.pagination?.total ?? rawRecords.length,
-      }
-    },
+    refetchInterval,
+    queryFn: (): Promise<FetchResult> =>
+      fetchTableRecords({ table, pagination, sortParam, globalFilter, filterParam }),
   })
 
   return { ...result, queryKey }

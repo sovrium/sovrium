@@ -14,10 +14,20 @@ export const FileExtractTextActionSchema = Schema.Struct({
   type: Schema.Literal('file'),
   operator: Schema.Literal('extractText'),
   props: Schema.Struct({
-    source: TemplateStringSchema.pipe(
-      Schema.annotations({
-        description: 'Storage key of the file to extract text from',
-      })
+    key: Schema.optional(
+      TemplateStringSchema.pipe(
+        Schema.annotations({
+          description: 'Storage key of the file to extract text from',
+        })
+      )
+    ),
+
+    source: Schema.optional(
+      TemplateStringSchema.pipe(
+        Schema.annotations({
+          description: 'Storage key of the file to extract text from',
+        })
+      )
     ),
 
     format: Schema.optional(
@@ -27,7 +37,11 @@ export const FileExtractTextActionSchema = Schema.Struct({
         })
       )
     ),
-  }),
+  }).pipe(
+    Schema.filter((props) => (props.key ?? props.source) !== undefined, {
+      message: () => 'extractText requires `key` (or `source`)',
+    })
+  ),
 }).pipe(
   Schema.annotations({
     identifier: 'FileExtractTextAction',

@@ -33,13 +33,13 @@ export function KanbanColumn({
       ref={setNodeRef}
       data-column={column.value}
       className={`flex w-72 shrink-0 flex-col gap-2 rounded-lg border ${
-        isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50'
+        isOver ? 'border-primary bg-primary-subtle' : 'border-border bg-bg-subtle'
       } p-3 transition-colors`}
     >
-      <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-        <h3 className="text-sm font-semibold text-gray-700">{column.value}</h3>
+      <div className="border-border flex items-center justify-between border-b pb-2">
+        <h3 className="text-fg text-sm font-semibold">{column.value}</h3>
         <span
-          className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700"
+          className="bg-bg-subtle text-fg rounded-full px-2 py-0.5 text-xs font-medium"
           aria-label={`${column.records.length} records`}
         >
           {column.records.length}
@@ -51,7 +51,7 @@ export function KanbanColumn({
       >
         <div className="flex min-h-[2.5rem] flex-col gap-2">
           {column.records.length === 0 ? (
-            <div className="rounded border border-dashed border-gray-300 bg-white px-3 py-4 text-center text-xs text-gray-500">
+            <div className="border-border bg-bg-raised text-fg-muted rounded border border-dashed px-3 py-4 text-center text-xs">
               {emptyMessage ?? 'No records'}
             </div>
           ) : (

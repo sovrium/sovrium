@@ -6,6 +6,7 @@
  */
 
 import { Checkbox } from '@base-ui/react/checkbox'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface CheckboxIslandProps {
@@ -70,7 +71,11 @@ export default function CheckboxIsland({
 }: CheckboxIslandProps): ReactElement {
   return (
     <label
-      className={`inline-flex items-center gap-2 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${className ?? ''}`}
+      className={cn(
+        'inline-flex items-center gap-2',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+        className
+      )}
       id={id}
       data-testid={testId}
     >
@@ -80,13 +85,13 @@ export default function CheckboxIsland({
         disabled={disabled}
         name={name}
         value={value}
-        className="flex h-4 w-4 items-center justify-center rounded border border-gray-300 bg-white transition-colors data-[checked]:border-blue-600 data-[checked]:bg-blue-600 data-[indeterminate]:border-blue-600 data-[indeterminate]:bg-blue-600"
+        className="border-border bg-bg-raised data-[checked]:border-primary data-[checked]:bg-primary data-[indeterminate]:border-primary data-[indeterminate]:bg-primary flex h-4 w-4 items-center justify-center rounded border transition-colors"
       >
-        <Checkbox.Indicator className="text-white">
+        <Checkbox.Indicator className="text-primary-fg">
           {indeterminate ? <IndeterminateIcon /> : <CheckIcon />}
         </Checkbox.Indicator>
       </Checkbox.Root>
-      {label && <span className="text-sm text-gray-900">{label}</span>}
+      {label && <span className="text-fg text-sm">{label}</span>}
     </label>
   )
 }

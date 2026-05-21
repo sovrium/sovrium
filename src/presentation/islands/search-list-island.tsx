@@ -193,7 +193,7 @@ export default function SearchListIsland({
         placeholder={placeholder}
         aria-label={placeholder}
         data-search-input="true"
-        className="mb-2 w-full rounded-md border border-gray-300 py-2 pr-3 pl-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        className="border-border bg-bg-raised text-fg focus:border-focus-ring focus:ring-focus-ring mb-2 w-full rounded-md border py-2 pr-3 pl-3 text-sm focus:ring-1 focus:outline-none"
       />
       <ul>
         {filteredRecords.map((record, i) => (

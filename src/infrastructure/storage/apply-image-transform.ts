@@ -5,9 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import sharp from 'sharp'
 import { DEFAULT_QUALITY } from '@/domain/services/image-transform-params'
 import type { TransformFormat, TransformParams } from '@/domain/services/image-transform-params'
+import type SharpNamespace from 'sharp'
+
+type Sharp = typeof SharpNamespace
+
+const loadSharp = async (): Promise<Sharp> => {
+  const mod = await import('sharp')
+  return mod.default
+}
 
 type OutputFormat = 'webp' | 'avif' | 'jpeg' | 'png'
 
@@ -35,13 +42,13 @@ const focalToGravity = (x: number, y: number): string => {
   return `${vertical} ${horizontal}`
 }
 
-const cropToSharpPosition = (params: TransformParams): string | number => {
-  const { crop } = params
+const cropToSharpPosition = (config: RunPipelineConfig): string | number => {
+  const { crop } = config.params
   switch (crop.kind) {
     case 'entropy':
-      return sharp.strategy.entropy
+      return config.sharp.strategy.entropy
     case 'attention':
-      return sharp.strategy.attention
+      return config.sharp.strategy.attention
     case 'focal':
       return focalToGravity(crop.x, crop.y)
     case 'center':
@@ -62,8 +69,9 @@ const resolveOutputFormat = (
   return undefined
 }
 
-const resizeOptions = (params: TransformParams): Readonly<sharp.ResizeOptions> => {
-  const position = params.fit === 'cover' ? cropToSharpPosition(params) : undefined
+const resizeOptions = (config: RunPipelineConfig): Readonly<SharpNamespace.ResizeOptions> => {
+  const { params } = config
+  const position = params.fit === 'cover' ? cropToSharpPosition(config) : undefined
   return {
     ...(params.width !== undefined && { width: params.width }),
     ...(params.height !== undefined && { height: params.height }),
@@ -81,13 +89,17 @@ export const resolveTransformOutputFormat = (
 
 const resolveQuality = (params: TransformParams): number => params.quality ?? DEFAULT_QUALITY
 
-const runPipeline = async (
-  input: Uint8Array,
-  params: TransformParams,
-  outputFormat: OutputFormat | undefined,
+type RunPipelineConfig = Readonly<{
+  sharp: Sharp
+  input: Uint8Array
+  params: TransformParams
+  outputFormat: OutputFormat | undefined
   needsResize: boolean
-): Promise<Buffer> => {
-  const resized = needsResize ? sharp(input).resize(resizeOptions(params)) : sharp(input)
+}>
+
+const runPipeline = async (config: RunPipelineConfig): Promise<Buffer> => {
+  const { sharp, input, params, outputFormat, needsResize } = config
+  const resized = needsResize ? sharp(input).resize(resizeOptions(config)) : sharp(input)
   const quality = resolveQuality(params)
   switch (outputFormat) {
     case 'webp':
@@ -116,7 +128,8 @@ export const applyImageTransform = async (
   }
 
   try {
-    const result = await runPipeline(input, params, outputFormat, needsResize)
+    const sharp = await loadSharp()
+    const result = await runPipeline({ sharp, input, params, outputFormat, needsResize })
     return {
       bytes: new Uint8Array(result),
       ...(outputFormat !== undefined && { format: outputFormat }),

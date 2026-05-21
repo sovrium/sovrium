@@ -20,6 +20,7 @@ import {
   provideTableWithNotificationsAndAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
+import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
@@ -51,6 +52,17 @@ function fireDeleteWebhooks(
       event: 'delete',
       record,
     })
+  ).pipe(
+    Effect.tap(() =>
+      Effect.sync(() =>
+        publishRecordChange({
+          appId: app.name,
+          tableName,
+          event: 'delete',
+          recordId: (record['id'] as string | number | undefined) ?? '',
+        })
+      )
+    )
   )
 }
 
@@ -161,14 +173,7 @@ const NOT_FOUND_RESPONSE = (c: Context) =>
   c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
 const FORBIDDEN_DELETE_RESPONSE = (c: Context) =>
-  c.json(
-    {
-      success: false,
-      message: 'You do not have permission to delete records in this table',
-      code: 'FORBIDDEN',
-    },
-    403
-  )
+  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
 interface DeleteGateInput {
   readonly c: Context
@@ -357,10 +362,10 @@ export async function handleDeleteRecord(c: Context, app: App) {
       return c.json(
         {
           success: false,
-          message: 'Only admins can permanently delete records',
-          code: 'FORBIDDEN',
+          message: 'Resource not found',
+          code: 'NOT_FOUND',
         },
-        403
+        404
       )
     }
     return executePermanentDelete({
@@ -402,10 +407,10 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
     return c.json(
       {
         success: false,
-        message: 'You do not have permission to delete records in this table',
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 
@@ -455,10 +460,10 @@ export async function handleRestoreRecord(c: Context, app: App) {
     return c.json(
       {
         success: false,
-        message: 'You do not have permission to restore records in this table',
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 

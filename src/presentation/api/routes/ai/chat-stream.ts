@@ -6,23 +6,30 @@
  */
 
 
-import { Data, Duration, Effect, Stream } from 'effect'
+import { Data, Duration, Effect, Exit, Option, Scope, Sink, Stream } from 'effect'
 import { AiService, type ChatChunk } from '@/application/ports/services/ai-service'
 import { persistTurnDurably } from '@/presentation/api/routes/ai/chat-durable-memory'
 import { provideAiLive } from '@/presentation/api/routes/ai/effect-runner'
+import {
+  runEffectSse,
+  type EncodedChunk,
+  type SseTerminationReason,
+} from '@/presentation/api/utils/effect-sse'
 import type { Context } from 'hono'
 
-export const encodeSseEvent = (chunk: ChatChunk): string => {
+export const encodeChatChunk = (chunk: ChatChunk): EncodedChunk => {
   if (chunk.type === 'done') {
-    return 'data: [DONE]\n\n'
+    return { kind: 'terminal' }
   }
-  const payload = {
-    object: 'chat.completion.chunk',
-    choices: [
-      { index: 0, delta: { content: chunk.delta }, finish_reason: null },
-    ],
+  return {
+    kind: 'data',
+    payload: {
+      object: 'chat.completion.chunk',
+      choices: [
+        { index: 0, delta: { content: chunk.delta }, finish_reason: null },
+      ],
+    },
   }
-  return `data: ${JSON.stringify(payload)}\n\n`
 }
 
 const resolveStreamTimeoutMs = (
@@ -38,78 +45,114 @@ class StreamTimeout extends Data.TaggedError('StreamTimeout')<{
   readonly timeoutMs: number
 }> {}
 
+class EmptyProviderStream extends Data.TaggedError('EmptyProviderStream')<Record<string, never>> {}
+
 export interface StreamTurnInput {
   readonly message: string
   readonly sessionId: string
   readonly userId: string
 }
 
-const collectStreamChunks = (message: string) => {
-  const timeoutMs = resolveStreamTimeoutMs()
-  const collect = Effect.gen(function* () {
-    const ai = yield* AiService
-    return yield* Stream.runCollect(
-      ai.chatStream({ messages: [{ role: 'user', content: message }] })
-    )
-  })
-  const program =
-    timeoutMs === undefined
-      ? collect
-      : collect.pipe(
-          Effect.timeoutFail({
-            duration: Duration.millis(timeoutMs),
-            onTimeout: () => new StreamTimeout({ timeoutMs }),
-          })
-        )
-  return Effect.runPromise(program.pipe(provideAiLive, Effect.either))
-}
-
-const sseResponse = (chunks: ReadonlyArray<ChatChunk>): Response => {
-  const encoder = new TextEncoder()
-  const encodedChunks = chunks.map((chunk) => encoder.encode(encodeSseEvent(chunk)))
-  const trailing = chunks.every((ch) => ch.type !== 'done')
-    ? [encoder.encode('data: [DONE]\n\n')]
-    : []
-  const allEncoded = [...encodedChunks, ...trailing]
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      allEncoded.forEach((bytes) => controller.enqueue(bytes))
-      controller.close()
-    },
-  })
-  return new Response(body, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    },
-  })
+const mapPreflightError = (c: Readonly<Context>, err: unknown): Response => {
+  const tagged = err as { readonly _tag?: string; readonly message?: string }
+  if (tagged._tag === 'StreamTimeout') {
+    return c.json({ error: 'The AI service timed out. Please try again.' }, 504)
+  }
+  if (tagged._tag === 'AiConfigError') {
+    return c.json({ error: tagged.message ?? 'AI service not configured' }, 503)
+  }
+  if (tagged._tag === 'EmptyProviderStream') {
+    return c.json({ error: 'AI service returned an empty stream' }, 502)
+  }
+  return c.json({ error: tagged.message ?? 'AI provider error' }, 502)
 }
 
 export const buildStreamResponse = async (
   c: Readonly<Context>,
   input: StreamTurnInput
 ): Promise<Response> => {
-  const result = await collectStreamChunks(input.message)
+  const timeoutMs = resolveStreamTimeoutMs()
+
+  const scope = await Effect.runPromise(Scope.make())
+
+  const peelEffect = Effect.gen(function* () {
+    const ai = yield* AiService
+    const source = ai.chatStream({ messages: [{ role: 'user', content: input.message }] })
+    return yield* Stream.peel(source, Sink.head<ChatChunk>())
+  })
+
+  const withScope = Scope.extend(peelEffect, scope)
+  const provided = provideAiLive(withScope)
+  const withTimeout =
+    timeoutMs === undefined
+      ? provided
+      : provided.pipe(
+          Effect.timeoutFail({
+            duration: Duration.millis(timeoutMs),
+            onTimeout: () => new StreamTimeout({ timeoutMs }),
+          })
+        )
+  const result = await Effect.runPromise(Effect.either(withTimeout))
 
   if (result._tag === 'Left') {
-    const err = result.left
-    if (err._tag === 'StreamTimeout') {
-      return c.json({ error: 'The AI service timed out. Please try again.' }, 504)
-    }
-    if (err._tag === 'AiConfigError') {
-      return c.json({ error: err.message }, 503)
-    }
-    return c.json({ error: err.message }, 502)
+    await Effect.runPromise(Scope.close(scope, Exit.void))
+    return mapPreflightError(c, result.left)
   }
 
-  const chunks = Array.from(result.right)
-  const assembled = chunks
-    .filter((ch): ch is Extract<ChatChunk, { type: 'content' }> => ch.type === 'content')
-    .map((ch) => ch.delta)
-    .join('')
-  await persistTurnDurably(input.userId, input.sessionId, input.message, assembled)
-  return sseResponse(chunks)
+  const [headOpt, rest] = result.right
+  if (Option.isNone(headOpt)) {
+    await Effect.runPromise(Scope.close(scope, Exit.void))
+    return mapPreflightError(c, new EmptyProviderStream({}))
+  }
+
+  const head = headOpt.value
+  const accumulator = buildPersistAccumulator(head)
+  const instrumented = Stream.tap(rest, accumulator.tap)
+  const prepended = Stream.concat(Stream.succeed(head), instrumented)
+
+  return runEffectSse(c, prepended, encodeChatChunk, {
+    onTerminate: buildOnTerminate(scope, input, accumulator.snapshot),
+  })
+}
+
+const buildPersistAccumulator = (
+  head: ChatChunk
+): {
+  readonly tap: (chunk: ChatChunk) => Effect.Effect<void>
+  readonly snapshot: () => { readonly assembled: string; readonly sawDone: boolean }
+} => {
+  let assembled = head.type === 'content' ? head.delta : ''
+  let sawDone = head.type === 'done'
+  return {
+    tap: (chunk) =>
+      Effect.sync(() => {
+        if (chunk.type === 'content') {
+          assembled += chunk.delta
+        } else if (chunk.type === 'done') {
+          sawDone = true
+        }
+      }),
+    snapshot: () => ({ assembled, sawDone }),
+  }
+}
+
+const buildOnTerminate = (
+  scope: Scope.CloseableScope,
+  input: StreamTurnInput,
+  snapshot: () => { readonly assembled: string; readonly sawDone: boolean }
+): ((reason: SseTerminationReason) => Promise<void>) => {
+  return async (reason) => {
+    await Effect.runPromise(Scope.close(scope, Exit.void)).catch((err) => {
+      console.error('[chat-stream] scope close failed', err)
+    })
+
+    if (reason !== 'completed') return
+    const { assembled, sawDone } = snapshot()
+    if (!sawDone) return
+    await persistTurnDurably(input.userId, input.sessionId, input.message, assembled).catch(
+      (err) => {
+        console.error('[chat-stream] persistTurnDurably failed', err)
+      }
+    )
+  }
 }

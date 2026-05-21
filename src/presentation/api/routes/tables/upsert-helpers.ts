@@ -46,17 +46,15 @@ export function checkFieldPermissions(config: {
     .filter((fields) => fields.length > 0)
 
   if (allForbiddenFields.length > 0) {
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    const firstForbiddenField = uniqueForbiddenFields[0]
     return {
       allowed: false,
       response: c.json(
         {
           success: false,
-          message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-          code: 'FORBIDDEN',
+          message: 'Resource not found',
+          code: 'NOT_FOUND',
         },
-        403
+        404
       ),
     }
   }
@@ -84,10 +82,10 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
       response: c.json(
         {
           success: false,
-          message: 'You do not have permission to update records in this table',
-          code: 'FORBIDDEN',
+          message: 'Not found',
+          code: 'NOT_FOUND',
         },
-        403
+        404
       ),
     }
   }
@@ -221,14 +219,14 @@ export function applyReadFiltering<E, R>(config: {
   )
 }
 
-function createForbiddenFieldResponse(c: Context, forbiddenField: string): Response {
+function createForbiddenFieldResponse(c: Context, _forbiddenField: string): Response {
   return c.json(
     {
       success: false,
-      message: `Cannot write to field '${forbiddenField}': insufficient permissions`,
-      code: 'FORBIDDEN',
+      message: 'Resource not found',
+      code: 'NOT_FOUND',
     },
-    403
+    404
   )
 }
 

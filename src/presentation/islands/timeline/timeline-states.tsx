@@ -11,17 +11,17 @@ import type { ReactElement } from 'react'
 export function TimelineLoading(): ReactElement {
   return (
     <div
-      className="w-full rounded-lg border border-gray-200 bg-white p-4"
+      className="border-border bg-bg-raised w-full rounded-lg border p-4"
       data-component="data-timeline"
       data-timeline-state="loading"
       role="status"
       aria-label="Loading timeline..."
     >
-      <div className="mb-3 h-4 w-40 animate-pulse rounded bg-gray-200" />
+      <div className="bg-bg-subtle mb-3 h-4 w-40 animate-pulse rounded" />
       <div className="space-y-2">
-        <div className="h-6 w-3/4 animate-pulse rounded bg-gray-200" />
-        <div className="h-6 w-1/2 animate-pulse rounded bg-gray-200" />
-        <div className="h-6 w-2/3 animate-pulse rounded bg-gray-200" />
+        <div className="bg-bg-subtle h-6 w-3/4 animate-pulse rounded" />
+        <div className="bg-bg-subtle h-6 w-1/2 animate-pulse rounded" />
+        <div className="bg-bg-subtle h-6 w-2/3 animate-pulse rounded" />
       </div>
     </div>
   )
@@ -30,7 +30,7 @@ export function TimelineLoading(): ReactElement {
 export function TimelineError({ error }: { readonly error: unknown }): ReactElement {
   return (
     <div
-      className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
       data-component="data-timeline"
       data-timeline-state="error"
       role="alert"
@@ -43,7 +43,7 @@ export function TimelineError({ error }: { readonly error: unknown }): ReactElem
 export function TimelineMissingTable(): ReactElement {
   return (
     <div
-      className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
       data-component="data-timeline"
       data-timeline-state="missing-table"
       role="alert"
@@ -56,7 +56,7 @@ export function TimelineMissingTable(): ReactElement {
 export function TimelineMissingStartField(): ReactElement {
   return (
     <div
-      className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
       data-component="data-timeline"
       data-timeline-state="missing-start-field"
       role="alert"
@@ -69,7 +69,7 @@ export function TimelineMissingStartField(): ReactElement {
 export function TimelineEmpty({ message }: { readonly message?: string }): ReactElement {
   return (
     <div
-      className="rounded border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500"
+      className="border-border bg-bg-subtle text-fg-muted rounded border p-6 text-center text-sm"
       data-component="data-timeline"
       data-timeline-state="empty"
       role="status"

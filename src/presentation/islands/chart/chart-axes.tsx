@@ -23,14 +23,14 @@ function AxisBaselines({
         x2={0}
         y1={0}
         y2={innerHeight}
-        stroke="#6b7280"
+        stroke="var(--color-border)"
       />
       <line
         x1={0}
         x2={innerWidth}
         y1={innerHeight}
         y2={innerHeight}
-        stroke="#6b7280"
+        stroke="var(--color-border)"
       />
     </>
   )
@@ -50,7 +50,7 @@ function XTickLabel({
       x={x}
       y={y}
       fontSize={11}
-      fill="#374151"
+      fill="var(--color-fg-muted)"
       textAnchor="middle"
     >
       {label}

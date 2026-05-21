@@ -21,6 +21,7 @@ export const KNOWN_FIELD_TYPES = [
   'barcode',
   'button',
   'checkbox',
+  'code',
   'color',
   'count',
   'created-at',

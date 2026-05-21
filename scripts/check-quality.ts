@@ -142,11 +142,14 @@ const findTestFile = (filePath: string) =>
     return null
   })
 
+const NODE_HEAP_ENV = { NODE_OPTIONS: '--max-old-space-size=12288' } as const
+
 const runCheck = (
   name: string,
   command: readonly string[],
   timeoutMs: number = 60_000,
-  acceptExitCodes: readonly number[] = []
+  acceptExitCodes: readonly number[] = [],
+  extraEnv: Record<string, string> = {}
 ) =>
   Effect.gen(function* () {
     const cmd = yield* CommandService
@@ -154,29 +157,36 @@ const runCheck = (
 
     yield* progress(`${name}...`)
 
-    const result = yield* cmd.spawn(command, { timeout: timeoutMs, throwOnError: false }).pipe(
-      Effect.catchTag('CommandTimeoutError', (_) =>
-        Effect.succeed({
-          exitCode: 1,
-          stdout: '',
-          stderr: `${name} timed out after ${timeoutMs}ms`,
-        })
-      ),
-      Effect.catchTag('CommandSpawnError', (e) =>
-        Effect.succeed({
-          exitCode: 1,
-          stdout: '',
-          stderr: e.cause ? String(e.cause) : `Failed to spawn command`,
-        })
-      ),
-      Effect.catchTag('CommandFailedError', (e) =>
-        Effect.succeed({
-          exitCode: e.exitCode,
-          stdout: e.stdout,
-          stderr: e.stderr,
-        })
+    const childEnv =
+      Object.keys(extraEnv).length > 0
+        ? { ...(process.env as Record<string, string>), ...extraEnv }
+        : undefined
+
+    const result = yield* cmd
+      .spawn(command, { timeout: timeoutMs, throwOnError: false, env: childEnv })
+      .pipe(
+        Effect.catchTag('CommandTimeoutError', (_) =>
+          Effect.succeed({
+            exitCode: 1,
+            stdout: '',
+            stderr: `${name} timed out after ${timeoutMs}ms`,
+          })
+        ),
+        Effect.catchTag('CommandSpawnError', (e) =>
+          Effect.succeed({
+            exitCode: 1,
+            stdout: '',
+            stderr: e.cause ? String(e.cause) : `Failed to spawn command`,
+          })
+        ),
+        Effect.catchTag('CommandFailedError', (e) =>
+          Effect.succeed({
+            exitCode: e.exitCode,
+            stdout: e.stdout,
+            stderr: e.stderr,
+          })
+        )
       )
-    )
 
     const duration = Date.now() - startTime
     const isSuccess = result.exitCode === 0 || acceptExitCodes.includes(result.exitCode)
@@ -203,32 +213,43 @@ const runCheck = (
 const TSC_REAL_ERROR_REGEX = /\): error TS\d+:/
 const hasRealTypeErrors = (stdout: string): boolean => TSC_REAL_ERROR_REGEX.test(stdout)
 
-const runTypeScriptCheck = (command: readonly string[], timeoutMs: number = 60_000) =>
+const runTypeScriptCheck = (
+  command: readonly string[],
+  timeoutMs: number = 60_000,
+  extraEnv: Record<string, string> = {}
+) =>
   Effect.gen(function* () {
     const cmd = yield* CommandService
     const startTime = Date.now()
 
     yield* progress('TypeScript...')
 
-    const result = yield* cmd.spawn(command, { timeout: timeoutMs, throwOnError: false }).pipe(
-      Effect.catchTag('CommandTimeoutError', () =>
-        Effect.succeed({
-          exitCode: 1,
-          stdout: '',
-          stderr: `TypeScript timed out after ${timeoutMs}ms`,
-        })
-      ),
-      Effect.catchTag('CommandSpawnError', (e) =>
-        Effect.succeed({
-          exitCode: 1,
-          stdout: '',
-          stderr: e.cause ? String(e.cause) : 'Failed to spawn command',
-        })
-      ),
-      Effect.catchTag('CommandFailedError', (e) =>
-        Effect.succeed({ exitCode: e.exitCode, stdout: e.stdout, stderr: e.stderr })
+    const childEnv =
+      Object.keys(extraEnv).length > 0
+        ? { ...(process.env as Record<string, string>), ...extraEnv }
+        : undefined
+
+    const result = yield* cmd
+      .spawn(command, { timeout: timeoutMs, throwOnError: false, env: childEnv })
+      .pipe(
+        Effect.catchTag('CommandTimeoutError', () =>
+          Effect.succeed({
+            exitCode: 1,
+            stdout: '',
+            stderr: `TypeScript timed out after ${timeoutMs}ms`,
+          })
+        ),
+        Effect.catchTag('CommandSpawnError', (e) =>
+          Effect.succeed({
+            exitCode: 1,
+            stdout: '',
+            stderr: e.cause ? String(e.cause) : 'Failed to spawn command',
+          })
+        ),
+        Effect.catchTag('CommandFailedError', (e) =>
+          Effect.succeed({ exitCode: e.exitCode, stdout: e.stdout, stderr: e.stderr })
+        )
       )
-    )
 
     const duration = Date.now() - startTime
     const isSuccess = result.exitCode === 0 || !hasRealTypeErrors(result.stdout)
@@ -290,11 +311,11 @@ const runFileChecks = (filePath: string, options: QualityOptions) =>
           'content',
         ]
     const fileTscCmd = options.noCache
-      ? ['bunx', 'tsc', '--noEmit']
-      : ['bunx', 'tsc', '--noEmit', '--incremental']
+      ? ['bunx', 'tsc', '--noEmit', '--incremental', 'false']
+      : ['bunx', 'tsc', '--noEmit']
     const checks = [
-      runCheck('ESLint', fileEslintCmd, 300_000),
-      runTypeScriptCheck(fileTscCmd, 60_000),
+      runCheck('ESLint', fileEslintCmd, 300_000, [], NODE_HEAP_ENV),
+      runTypeScriptCheck(fileTscCmd, 60_000, NODE_HEAP_ENV),
     ]
 
     const testFile = yield* findTestFile(filePath)
@@ -524,7 +545,7 @@ const runFullChecks = (options: QualityOptions) =>
           '--cache-strategy',
           'content',
         ]
-    const eslintResult = yield* runCheck('ESLint', eslintCmd, 300_000)
+    const eslintResult = yield* runCheck('ESLint', eslintCmd, 300_000, [], NODE_HEAP_ENV)
     results.push(eslintResult)
     if (!eslintResult.success) {
       yield* logError('\n⚠️  Stopping checks due to ESLint failure (fail-fast mode)')
@@ -565,9 +586,9 @@ const runFullChecks = (options: QualityOptions) =>
     }
 
     const tscCmd = options.noCache
-      ? ['bunx', 'tsc', '--noEmit']
-      : ['bunx', 'tsc', '--noEmit', '--incremental']
-    const tscResult = yield* runTypeScriptCheck(tscCmd, 60_000)
+      ? ['bunx', 'tsc', '--noEmit', '--incremental', 'false']
+      : ['bunx', 'tsc', '--noEmit']
+    const tscResult = yield* runTypeScriptCheck(tscCmd, 60_000, NODE_HEAP_ENV)
     results.push(tscResult)
     if (!tscResult.success) {
       yield* logError('\n⚠️  Stopping checks due to TypeScript failure (fail-fast mode)')

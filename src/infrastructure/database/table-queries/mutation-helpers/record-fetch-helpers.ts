@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { SessionContextError } from '@/domain/errors'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
 export async function fetchRecordById(
@@ -16,9 +17,10 @@ export async function fetchRecordById(
   recordId: string
 ): Promise<Record<string, unknown> | undefined> {
   try {
-    const result = (await tx.execute(
+    const result = await executeRaw(
+      tx,
       sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
-    )) as readonly Record<string, unknown>[]
+    )
     return result[0]
   } catch (error) {
     throw new SessionContextError(`Failed to fetch record ${recordId}`, error)
@@ -32,9 +34,10 @@ export function fetchRecordByIdEffect(
 ): Effect.Effect<Record<string, unknown> | undefined, never> {
   return Effect.tryPromise({
     try: async () => {
-      const result = (await tx.execute(
+      const result = await executeRaw(
+        tx,
         sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
-      )) as readonly Record<string, unknown>[]
+      )
       return result[0]
     },
     catch: () => undefined,
@@ -52,9 +55,10 @@ export function fetchRecordsByIds(
         recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
       )
-      const result = (await tx.execute(
+      const result = await executeRaw(
+        tx,
         sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id IN (${idParams})`
-      )) as readonly Record<string, unknown>[]
+      )
       return result
     },
     catch: (error) => new SessionContextError('Failed to fetch records before operation', error),

@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   getExistingTableNames,
   executeSQLStatements,
@@ -15,6 +16,19 @@ import {
 import { PROTECTED_SYSTEM_TABLES } from './constants'
 import { detectTableRenames } from './rename-detection'
 import type { Table } from '@/domain/models/app/tables'
+
+const isProtectedTable = (tableName: string): boolean => {
+  if (PROTECTED_SYSTEM_TABLES.has(tableName)) return true
+  if (isSqliteRuntime()) {
+    return (
+      tableName.startsWith('auth_') || tableName.startsWith('system_') || tableName === 'audit_log'
+    )
+  }
+  return false
+}
+
+const dropTableStatement = (tableName: string): string =>
+  isSqliteRuntime() ? `DROP TABLE ${tableName}` : `DROP TABLE ${tableName} CASCADE`
 
 export const renameTablesIfNeeded = (
   tx: TransactionLike,
@@ -41,9 +55,9 @@ export const dropObsoleteTables = (
     const existingTableNames = yield* getExistingTableNames(tx)
     const schemaTableNames = new Set(tables.map((table) => table.name))
     const tablesToDrop = existingTableNames.filter(
-      (tableName) => !schemaTableNames.has(tableName) && !PROTECTED_SYSTEM_TABLES.has(tableName)
+      (tableName) => !schemaTableNames.has(tableName) && !isProtectedTable(tableName)
     )
 
-    const dropStatements = tablesToDrop.map((tableName) => `DROP TABLE ${tableName} CASCADE`)
+    const dropStatements = tablesToDrop.map(dropTableStatement)
     yield* executeSQLStatements(tx, dropStatements)
   })

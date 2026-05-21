@@ -26,11 +26,11 @@ interface KpiCardProps {
 }
 
 const THRESHOLD_COLOR_CLASS: Record<string, string> = {
-  red: 'text-red-600',
-  green: 'text-green-600',
-  yellow: 'text-yellow-600',
-  blue: 'text-blue-600',
-  gray: 'text-gray-600',
+  red: 'text-error-fg',
+  green: 'text-success-fg',
+  yellow: 'text-warning-fg',
+  blue: 'text-primary',
+  gray: 'text-fg-muted',
 }
 
 function kebabToPascalCase(name: string): string {
@@ -53,10 +53,10 @@ function resolveLucideIcon(
 }
 
 const TREND_COLOR_CLASS: Record<NonNullable<KpiTrendConfig['color']>, string> = {
-  green: 'text-green-600',
-  red: 'text-red-600',
-  yellow: 'text-yellow-600',
-  gray: 'text-gray-500',
+  green: 'text-success-fg',
+  red: 'text-error-fg',
+  yellow: 'text-warning-fg',
+  gray: 'text-fg-muted',
 }
 
 const TREND_DIRECTION_ARROW: Record<NonNullable<KpiTrendConfig['direction']>, string> = {
@@ -90,20 +90,20 @@ export function KpiCard({
 }: KpiCardProps): ReactElement {
   const Icon = resolveLucideIcon(icon)
   const valueColorClass = thresholdColor
-    ? (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-gray-900')
-    : 'text-gray-900'
+    ? (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-fg')
+    : 'text-fg'
 
   return (
     <div
       data-component="kpi"
       data-kpi-state="ready"
-      className="flex flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+      className="border-border bg-bg-raised flex flex-col rounded-lg border p-4 shadow-sm"
     >
       <div className="flex items-center gap-2">
         {Icon && (
           <span
             data-role="kpi-icon"
-            className="text-gray-400"
+            className="text-fg-subtle"
           >
             <Icon
               width={20}
@@ -115,7 +115,7 @@ export function KpiCard({
         {label && (
           <span
             data-role="kpi-label"
-            className="text-sm font-medium text-gray-500"
+            className="text-fg-muted text-sm font-medium"
           >
             {label}
           </span>

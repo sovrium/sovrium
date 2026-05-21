@@ -54,7 +54,7 @@ export function KpiSparkline({ series }: KpiSparklineProps): ReactElement {
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
-          className="text-blue-500"
+          className="text-primary"
           strokeLinecap="round"
           strokeLinejoin="round"
         />

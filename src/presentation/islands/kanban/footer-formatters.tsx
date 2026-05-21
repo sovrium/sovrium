@@ -48,7 +48,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="relative-date"
-          className="text-xs text-gray-500"
+          className="text-fg-muted text-xs"
         >
           {formatRelativeDate(value)}
         </span>
@@ -57,7 +57,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="short-date"
-          className="text-xs text-gray-500"
+          className="text-fg-muted text-xs"
         >
           {formatShortDate(value)}
         </span>
@@ -66,10 +66,10 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="avatar"
-          className="inline-flex items-center gap-1.5 text-xs text-gray-700"
+          className="text-fg inline-flex items-center gap-1.5 text-xs"
         >
           <span
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700"
+            className="bg-primary-subtle text-primary-subtle-fg inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium"
             aria-hidden="true"
           >
             {avatarInitials(String(value))}
@@ -81,7 +81,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="badge"
-          className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+          className="bg-bg-subtle text-fg inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
         >
           {String(value)}
         </span>
@@ -91,7 +91,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="text"
-          className="text-xs text-gray-700"
+          className="text-fg text-xs"
         >
           {String(value)}
         </span>

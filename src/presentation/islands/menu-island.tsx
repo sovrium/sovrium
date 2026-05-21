@@ -55,26 +55,26 @@ export default function MenuIsland({
           align={floatingAlign}
           sideOffset={4}
         >
-          <Menu.Popup className="min-w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Menu.Popup className="border-border bg-bg-overlay text-fg min-w-48 rounded-md border py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             {menuItems.map((item, index) =>
               item.separator ? (
                 <Menu.Separator
                   key={`sep-${index}`}
-                  className="my-1 h-px bg-gray-200"
+                  className="bg-border my-1 h-px"
                 />
               ) : (
                 <Menu.Item
                   key={`item-${index}`}
                   disabled={item.disabled}
-                  className={`flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[highlighted]:bg-gray-100 ${
+                  className={`data-[highlighted]:bg-bg-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 ${
                     item.variant === 'destructive'
-                      ? 'text-red-600 data-[highlighted]:bg-red-50'
-                      : 'text-gray-900'
+                      ? 'text-error-fg data-[highlighted]:bg-error-bg'
+                      : 'text-fg'
                   }`}
                 >
                   <span className="flex-1">{item.label}</span>
                   {item.shortcut && (
-                    <span className="ml-4 text-xs text-gray-400">{item.shortcut}</span>
+                    <span className="text-fg-subtle ml-4 text-xs">{item.shortcut}</span>
                   )}
                 </Menu.Item>
               )

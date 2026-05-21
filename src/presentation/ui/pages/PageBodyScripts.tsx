@@ -11,6 +11,7 @@ import {
   renderScriptTag,
   renderWindowConfig,
 } from '@/presentation/scripts/script-renderers'
+import { isSchemaAuthoredComponent } from '@/presentation/utils/synthesized-component-types'
 import { buildPageMetadataI18n } from './PageMetadataI18n'
 import type { GroupedScripts } from './PageScripts'
 import type { Languages } from '@/domain/models/app/languages'
@@ -116,8 +117,10 @@ function ScrollAnimationScript({
   readonly page: Page
   readonly theme: Theme | undefined
 }): ReactElement | undefined {
-  const needsAnimation =
-    (page.components && page.components.length > 0) || theme?.animations?.scaleUp
+  const hasAuthoredComponents = (page.components ?? []).some((item) =>
+    isSchemaAuthoredComponent(item.type)
+  )
+  const needsAnimation = hasAuthoredComponents || theme?.animations?.scaleUp
   if (!needsAnimation) return undefined
   return (
     <script

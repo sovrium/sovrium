@@ -205,7 +205,7 @@ export const completeTriggerTurn = async (
 
   if (trigger.kind === 'forbidden') {
     await recordChatActivity({ action: 'ai.chat.error', actorName: input.actorName })
-    return c.json({ error: trigger.message }, 403)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
   const { reply } = trigger

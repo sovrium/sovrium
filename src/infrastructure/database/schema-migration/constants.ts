@@ -20,6 +20,7 @@ export const PROTECTED_SYSTEM_TABLES = new Set([
   'system.migration_history',
   'system.migration_log',
   'system.schema_checksum',
+  '__drizzle_migrations',
   'system.activity_logs',
   'system.record_comments',
   'system.automation_definitions',

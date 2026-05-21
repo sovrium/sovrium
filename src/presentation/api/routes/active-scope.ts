@@ -28,8 +28,8 @@ const respondNotFound = (c: ContextLike) =>
 const respondUnauthorized = (c: ContextLike) =>
   c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
 
-const respondForbidden = (c: ContextLike, message: string) =>
-  c.json({ success: false, message, code: 'FORBIDDEN' }, 403)
+const respondForbidden = (c: ContextLike, _message: string) =>
+  c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
 const respondBadRequest = (c: ContextLike, message: string) =>
   c.json({ success: false, message, code: 'BAD_REQUEST' }, 400)

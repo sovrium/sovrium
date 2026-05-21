@@ -1,3 +1,7 @@
+## [0.5.0](https://git.sovrium.com/sovrium/sovrium/compare/v0.4.10...v0.5.0) (2026-05-21)
+
+Release 0.5.0
+
 ## [0.4.10](https://git.sovrium.com/sovrium/sovrium/compare/v0.4.9...v0.4.10) (2026-05-18)
 
 Release 0.4.10

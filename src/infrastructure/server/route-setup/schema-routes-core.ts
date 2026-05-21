@@ -70,7 +70,7 @@ export interface ErrorBody {
 
 export const jsonError = (
   c: Readonly<Context>,
-  status: 400 | 401 | 403 | 404 | 409,
+  status: 400 | 401 | 403 | 404 | 409 | 500,
   body: ErrorBody
 ): Response =>
   c.json(

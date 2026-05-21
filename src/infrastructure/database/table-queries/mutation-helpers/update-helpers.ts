@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { validateColumnName } from '../shared/validation'
 
@@ -42,9 +43,10 @@ export async function executeRecordUpdateCRUD(
   setClause: Readonly<ReturnType<typeof sql.join>>
 ): Promise<Record<string, unknown>> {
   try {
-    const result = (await tx.execute(
+    const result = await executeRaw(
+      tx,
       sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
-    )) as readonly Record<string, unknown>[]
+    )
 
     if (result.length === 0) {
       throw new Error(`Record not found or access denied`)

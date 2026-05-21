@@ -55,10 +55,10 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
     return c.json(
       {
         success: false,
-        message: error.message,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 

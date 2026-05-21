@@ -6,6 +6,7 @@
  */
 
 import { Tabs } from '@base-ui/react/tabs'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface TabItem {
@@ -38,15 +39,15 @@ export default function TabsIsland({
     <Tabs.Root
       defaultValue={defaultValue}
       orientation={tabsOrientation}
-      className={className}
+      className={cn(className)}
       id={id}
       data-testid={testId}
     >
       <Tabs.List
         className={`flex ${
           tabsOrientation === 'vertical'
-            ? 'flex-col border-r border-gray-200'
-            : 'border-b border-gray-200'
+            ? 'border-border flex-col border-r'
+            : 'border-border border-b'
         }`}
       >
         {items.map((tab) => (
@@ -54,19 +55,19 @@ export default function TabsIsland({
             key={tab.id}
             value={tab.id}
             disabled={tab.disabled}
-            className="px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[selected]:border-b-2 data-[selected]:border-blue-600 data-[selected]:text-blue-600"
+            className="text-fg-muted hover:text-fg data-[selected]:border-primary data-[selected]:text-primary px-4 py-2 text-sm font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[selected]:border-b-2"
           >
             {tab.label}
           </Tabs.Tab>
         ))}
-        <Tabs.Indicator className="absolute bottom-0 h-0.5 bg-blue-600 transition-all duration-200" />
+        <Tabs.Indicator className="bg-primary absolute bottom-0 h-0.5 transition-all duration-200" />
       </Tabs.List>
 
       {items.map((tab) => (
         <Tabs.Panel
           key={tab.id}
           value={tab.id}
-          className="p-4 text-sm text-gray-700"
+          className="text-fg p-4 text-sm"
         >
           {tab.content}
         </Tabs.Panel>

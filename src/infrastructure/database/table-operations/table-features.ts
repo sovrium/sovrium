@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { createVolatileFormulaTriggers } from '../formula/formula-trigger-generators'
 import { generateAiCategorizeTriggers } from '../generators/ai-categorize-triggers'
 import { generateAiExtractTriggers } from '../generators/ai-extract-triggers'
@@ -31,6 +32,26 @@ import {
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 
+const advancedTriggerEffects = (
+  tx: TransactionLike,
+  physicalTable: Table,
+  physicalTableName: string
+): ReadonlyArray<Effect.Effect<void, SQLExecutionError>> => {
+  if (isSqliteRuntime()) return []
+  return [
+    executeSQLStatements(tx, generateAiCategorizeTriggers(physicalTable)),
+    executeSQLStatements(tx, generateAiSummaryTriggers(physicalTable)),
+    executeSQLStatements(tx, generateAiTagTriggers(physicalTable)),
+    executeSQLStatements(tx, generateAiTranslateTriggers(physicalTable)),
+    executeSQLStatements(tx, generateAiExtractTriggers(physicalTable)),
+    executeSQLStatements(tx, generateAiSentimentTriggers(physicalTable)),
+    executeSQLStatements(tx, generateAiGenerateTriggers(physicalTable)),
+    Effect.promise(() =>
+      createVolatileFormulaTriggers(tx, physicalTableName, physicalTable.fields)
+    ),
+  ]
+}
+
 export const applyTableFeatures = (
   tx: TransactionLike,
   table: Table
@@ -48,14 +69,7 @@ export const applyTableFeatures = (
         executeSQLStatements(tx, generateAutonumberTriggers(physicalTable)),
         executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable)),
         executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiCategorizeTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiSummaryTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiTagTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiTranslateTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiExtractTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiSentimentTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiGenerateTriggers(physicalTable)),
-        Effect.promise(() => createVolatileFormulaTriggers(tx, physicalTableName, table.fields)),
+        ...advancedTriggerEffects(tx, physicalTable, physicalTableName),
       ],
       { concurrency: 'unbounded' }
     )
@@ -77,14 +91,7 @@ export const applyTableFeaturesWithoutIndexes = (
         executeSQLStatements(tx, generateAutonumberTriggers(physicalTable)),
         executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable)),
         executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiCategorizeTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiSummaryTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiTagTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiTranslateTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiExtractTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiSentimentTriggers(physicalTable)),
-        executeSQLStatements(tx, generateAiGenerateTriggers(physicalTable)),
-        Effect.promise(() => createVolatileFormulaTriggers(tx, physicalTableName, table.fields)),
+        ...advancedTriggerEffects(tx, physicalTable, physicalTableName),
       ],
       { concurrency: 'unbounded' }
     )

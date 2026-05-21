@@ -111,6 +111,69 @@ function renderFileSkeleton(field: SkeletonFieldDef, multiple: boolean): ReactEl
   )
 }
 
+function attachmentNameFromKey(key: string): string {
+  return (
+    key.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i)?.[1] ?? key
+  )
+}
+
+function attachmentNameFromEntry(entry: unknown): string | undefined {
+  if (typeof entry === 'string') return attachmentNameFromKey(entry)
+  if (typeof entry === 'object' && entry !== null) {
+    const { name } = entry as Record<string, unknown>
+    return typeof name === 'string' ? name : undefined
+  }
+  return undefined
+}
+
+function attachmentFilenames(rawValue: unknown): readonly string[] {
+  if (typeof rawValue === 'object' && rawValue !== null) {
+    const list = Array.isArray(rawValue) ? rawValue : [rawValue]
+    return list.map(attachmentNameFromEntry).filter((n): n is string => n !== undefined)
+  }
+  if (typeof rawValue !== 'string') return []
+  const trimmed = rawValue.trim()
+  if (!trimmed) return []
+  try {
+    const parsed = JSON.parse(trimmed) as unknown
+    const list = Array.isArray(parsed) ? parsed : [parsed]
+    return list.map(attachmentNameFromEntry).filter((n): n is string => n !== undefined)
+  } catch {
+    return [attachmentNameFromKey(trimmed)]
+  }
+}
+
+function renderUpdateFileSkeleton(
+  field: SkeletonFieldDef,
+  multiple: boolean,
+  currentValue: unknown
+): ReactElement {
+  const names = attachmentFilenames(currentValue)
+  return (
+    <label key={field.name}>
+      {labelText(field)}
+      <input
+        type="file"
+        name={field.name}
+        {...(multiple && { multiple: true })}
+        {...(field.accept !== undefined && { accept: field.accept })}
+      />
+      {names.length > 0 && (
+        <ul data-existing-attachments={field.name}>
+          {names.map((name, index) => (
+            <li
+              key={`${name}-${index}`}
+              data-file-name={name}
+            >
+              <span>{name}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </label>
+  )
+}
+
 function renderHiddenSkeleton(field: SkeletonFieldDef): ReactElement {
   return (
     <input
@@ -226,7 +289,9 @@ export function renderUpdateSkeletonField(
   const currentValue = String(record[field.name] ?? '')
   if (field.hidden) return renderUpdateHiddenSkeleton(field, currentValue)
   if (field.type === 'rich-text') return renderUpdateRichTextSkeleton(field, currentValue)
-  if (field.type === 'single-attachment') return renderFileSkeleton(field, false)
-  if (field.type === 'multiple-attachments') return renderFileSkeleton(field, true)
+  if (field.type === 'single-attachment')
+    return renderUpdateFileSkeleton(field, false, record[field.name])
+  if (field.type === 'multiple-attachments')
+    return renderUpdateFileSkeleton(field, true, record[field.name])
   return renderUpdateInputSkeleton(field, currentValue)
 }

@@ -18,11 +18,15 @@ export const AppDraftSchema = Schema.Struct({
   Schema.annotations({
     identifier: 'AppDraft',
     title: 'App Draft (mutable working copy)',
-    description: 'Singleton-per-app draft. baseVersion enables optimistic concurrency on publish.',
+    description:
+      'Singleton-per-app draft. baseVersion enables optimistic concurrency on publish and is the staleness anchor (DEC-023).',
   })
 )
 
 export type AppDraft = typeof AppDraftSchema.Type
+
+export const isDraftStale = (draft: AppDraft, activeVersionNumber: number): boolean =>
+  draft.baseVersion !== activeVersionNumber
 
 
 export const DraftMutationResultSchema = Schema.Struct({
@@ -45,3 +49,19 @@ export class DraftBaseVersionMismatchError extends Data.TaggedError(
   readonly expected: number
   readonly actual: number
 }> {}
+
+
+export const RebaseResultSchema = Schema.Struct({
+  draft: AppDraftSchema,
+  previousBaseVersion: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)),
+  rebasedToVersion: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)),
+}).pipe(
+  Schema.annotations({
+    identifier: 'RebaseResult',
+    title: 'Draft rebase result',
+    description:
+      'Returned by POST /draft/rebase: the rebased draft plus the version numbers it moved between.',
+  })
+)
+
+export type RebaseResult = typeof RebaseResultSchema.Type

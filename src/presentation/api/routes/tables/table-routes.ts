@@ -77,21 +77,23 @@ async function handleGetPermissions(c: Context, app: App) {
   return runEffect(c, program)
 }
 
-export function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
+export function chainTableRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return honoApp
-    .get('/api/tables', (c) => handleListTables(c, app))
-    .get('/api/tables/:tableId', (c) => handleGetTable(c, app))
-    .get('/api/tables/:tableId/permissions', (c) => handleGetPermissions(c, app))
-    .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, app))
+    .get('/api/tables', (c) => handleListTables(c, resolveApp()))
+    .get('/api/tables/:tableId', (c) => handleGetTable(c, resolveApp()))
+    .get('/api/tables/:tableId/permissions', (c) => handleGetPermissions(c, resolveApp()))
+    .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, resolveApp()))
     .get('/api/tables/:tableId/webhooks/:webhookName/deliveries', (c) =>
-      handleListDeliveries(c, app)
+      handleListDeliveries(c, resolveApp())
     )
     .get('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId', (c) =>
-      handleGetDelivery(c, app)
+      handleGetDelivery(c, resolveApp())
     )
     .post('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId/retry', (c) =>
-      handleRetryDelivery(c, app)
+      handleRetryDelivery(c, resolveApp())
     )
-    .post('/api/tables/:tableId/webhooks/:webhookName/test', (c) => handleTestWebhook(c, app))
-    .get('/api/tables/:tableId/export', (c) => handleExportTableCsv(c, app))
+    .post('/api/tables/:tableId/webhooks/:webhookName/test', (c) =>
+      handleTestWebhook(c, resolveApp())
+    )
+    .get('/api/tables/:tableId/export', (c) => handleExportTableCsv(c, resolveApp()))
 }

@@ -8,6 +8,7 @@
 import { ImportCsvDialog } from '../import-csv-dialog'
 import { SaveStatusIndicator } from '../save-status-indicator'
 import { BulkActionBar } from './bulk-actions'
+import { ConflictToast } from './conflict-toast'
 import { FilterOverlay } from './filter-overlay'
 import { PaginationControls } from './pagination'
 import { TableContent } from './table-content'
@@ -20,6 +21,8 @@ import type {
   SaveStatus,
   SaveTarget,
 } from '../../hooks/use-inline-editing'
+import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
+import type { RealtimeConnectionState } from '../../hooks/use-realtime-subscription'
 import type { TableRecord } from '../../shared/types'
 import type { InlineAutoSave } from '../body'
 import type {
@@ -71,6 +74,9 @@ interface DataTableViewProps {
   readonly onRefresh: () => void
   readonly onToggleDensity: () => void
   readonly onBulkExecute: (action: DataTableBulkAction) => void
+  readonly conflict?: DetectedConflict
+  readonly onDismissConflict?: () => void
+  readonly connectionStatus?: RealtimeConnectionState
   readonly ui: ReturnType<typeof useDataTableUiState>
 }
 
@@ -112,6 +118,9 @@ export function DataTableView({
   onRefresh,
   onToggleDensity,
   onBulkExecute,
+  conflict,
+  onDismissConflict,
+  connectionStatus,
   ui,
 }: DataTableViewProps) {
   const showToolbar = true
@@ -127,11 +136,12 @@ export function DataTableView({
   return (
     <div
       ref={containerRef}
-      className="w-full overflow-hidden rounded-lg border border-gray-200 bg-white"
+      className="w-full overflow-hidden"
+      data-connection-status={connectionStatus}
     >
       {showToastIndicator && indicatorStatus !== 'idle' && (
         <div className="pointer-events-none fixed right-4 bottom-4 z-50">
-          <div className="rounded-md border border-gray-200 bg-white px-3 py-2 shadow-lg">
+          <div className="border-border bg-bg-overlay rounded-md border px-3 py-2 shadow-lg">
             <SaveStatusIndicator status={indicatorStatus} />
           </div>
         </div>
@@ -140,10 +150,17 @@ export function DataTableView({
         <div
           role="alert"
           data-save-status="error"
-          className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700"
+          className="border-error-border bg-error-bg text-error-fg border-b px-4 py-2 text-sm"
         >
           Error saving changes: {saveError}
         </div>
+      )}
+      {conflict && onDismissConflict && (
+        <ConflictToast
+          key={conflict.token}
+          conflict={conflict}
+          onDismiss={onDismissConflict}
+        />
       )}
       {showToolbar && (
         <DataTableToolbarBar
@@ -171,7 +188,7 @@ export function DataTableView({
         />
       )}
       {!showToolbar && showSearch && searchConfig && (
-        <div className="border-b border-gray-200 p-3">
+        <div className="border-border border-b p-3">
           <SearchToolbar
             search={searchConfig}
             value={globalFilter}

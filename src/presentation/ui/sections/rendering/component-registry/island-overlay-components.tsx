@@ -39,7 +39,7 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
         style={HIDDEN_STYLE}
       >
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="bg-fg/50 fixed inset-0 z-50 flex items-center justify-center p-4"
           data-backdrop
         >
           <div
@@ -47,12 +47,12 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
             aria-modal="true"
             aria-labelledby={id ? `modal-title-${id}` : undefined}
             tabIndex={-1}
-            className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+            className="bg-bg-overlay text-fg relative w-full max-w-md rounded-lg p-6 shadow-xl"
           >
             {title && (
               <h2
                 id={id ? `modal-title-${id}` : undefined}
-                className="mb-4 text-xl font-semibold text-gray-900"
+                className="text-fg mb-4 text-xl font-semibold"
               >
                 {title}
               </h2>
@@ -61,7 +61,7 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
               type="button"
               aria-label="Close modal"
               data-modal-close
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              className="text-fg-subtle hover:text-fg-muted absolute top-4 right-4"
             >
               ✕
             </button>

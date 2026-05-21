@@ -10,9 +10,11 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createAuthMiddleware, APIError } from 'better-auth/api'
 import { openAPI } from 'better-auth/plugins'
 import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { stripHtmlToText } from '@/domain/utils/html-sanitization'
 import { resolvePasswordPolicy } from '@/domain/utils/password-policy'
 import { db } from '@/infrastructure/database'
+import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
 import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import { createEmailHandlers } from './email-handlers'
 import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
@@ -60,7 +62,7 @@ export const buildSocialProviders = (authConfig?: Auth) => {
   )
 }
 
-const drizzleSchema = {
+const drizzleSchemaPg = {
   user: users,
   session: sessions,
   account: accounts,
@@ -76,6 +78,31 @@ const drizzleSchema = {
   oauthAccessToken: oauthAccessTokens,
   oauthRefreshToken: oauthRefreshTokens,
   oauthConsent: oauthConsents,
+}
+
+const drizzleSchemaSqlite = {
+  user: authSchemaSqlite.users,
+  session: authSchemaSqlite.sessions,
+  account: authSchemaSqlite.accounts,
+  verification: authSchemaSqlite.verifications,
+  twoFactor: authSchemaSqlite.twoFactors,
+  organization: authSchemaSqlite.organizations,
+  member: authSchemaSqlite.members,
+  invitation: authSchemaSqlite.invitations,
+  team: authSchemaSqlite.teams,
+  teamMember: authSchemaSqlite.teamMembers,
+  jwks: authSchemaSqlite.jwks,
+  oauthClient: authSchemaSqlite.oauthClients,
+  oauthAccessToken: authSchemaSqlite.oauthAccessTokens,
+  oauthRefreshToken: authSchemaSqlite.oauthRefreshTokens,
+  oauthConsent: authSchemaSqlite.oauthConsents,
+}
+
+function buildAuthDatabaseAdapter() {
+  const { dialect } = parseDatabaseDialectConfig()
+  return dialect === 'postgres'
+    ? drizzleAdapter(db, { provider: 'pg', usePlural: false, schema: drizzleSchemaPg })
+    : drizzleAdapter(db, { provider: 'sqlite', usePlural: false, schema: drizzleSchemaSqlite })
 }
 
 export const buildAuthPlugins = (
@@ -292,11 +319,7 @@ export function createAuthInstance(
   return betterAuth({
     secret: process.env.AUTH_SECRET,
     baseURL,
-    database: drizzleAdapter(db, {
-      provider: 'pg',
-      usePlural: false,
-      schema: drizzleSchema,
-    }),
+    database: buildAuthDatabaseAdapter(),
     trustedOrigins: [baseURL],
     advanced: buildAdvancedConfig(),
     emailAndPassword: emailAndPasswordConfig,

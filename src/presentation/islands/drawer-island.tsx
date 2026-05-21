@@ -7,6 +7,7 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useState } from 'react'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface DrawerIslandProps {
@@ -45,12 +46,10 @@ function DrawerHeader({
 }): ReactElement | undefined {
   if (!title && !description) return undefined
   return (
-    <div className="border-b border-gray-200 p-4">
-      {title && (
-        <Dialog.Title className="text-lg font-semibold text-gray-900">{title}</Dialog.Title>
-      )}
+    <div className="border-border border-b p-4">
+      {title && <Dialog.Title className="text-fg text-lg font-semibold">{title}</Dialog.Title>}
       {description && (
-        <Dialog.Description className="mt-1 text-sm text-gray-600">
+        <Dialog.Description className="text-fg-muted mt-1 text-sm">
           {description}
         </Dialog.Description>
       )}
@@ -86,9 +85,12 @@ export default function DrawerIsland({
       onOpenChange={setOpen}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Dialog.Backdrop className="bg-scrim/50 fixed inset-0 z-40 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Popup
-          className={`fixed z-50 bg-white shadow-xl transition-transform duration-300 ${SIDE_CLASSES[drawerSide]} ${sizeClass} ${className ?? ''}`}
+          className={cn(
+            `bg-bg-overlay text-fg fixed z-50 shadow-xl transition-transform duration-300 ${SIDE_CLASSES[drawerSide]} ${sizeClass}`,
+            className
+          )}
           id={id}
           data-testid={testId}
         >
@@ -102,7 +104,7 @@ export default function DrawerIsland({
                 <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
               )}
             </div>
-            <Dialog.Close className="absolute top-4 right-4 text-gray-400 transition-colors hover:text-gray-600">
+            <Dialog.Close className="text-fg-subtle hover:text-fg-muted absolute top-4 right-4 transition-colors">
               ✕
             </Dialog.Close>
           </div>

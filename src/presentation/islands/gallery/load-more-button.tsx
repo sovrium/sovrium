@@ -17,7 +17,7 @@ export function LoadMoreButton({ onClick }: LoadMoreButtonProps): ReactElement {
       <button
         type="button"
         onClick={onClick}
-        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        className="border-border bg-bg-raised text-fg hover:bg-bg-subtle rounded-md border px-4 py-2 text-sm font-medium"
       >
         Load More
       </button>

@@ -15,9 +15,31 @@ export const appVersionListItemResponseSchema = z.object({
     .int()
     .positive()
     .describe('Monotonic version number assigned at publish time (>= 1)'),
-  checksum: z.string().min(1).describe('Stable hash of the version snapshot for cache validation'),
+  checksum: z
+    .string()
+    .min(1)
+    .describe(
+      'SHA-256 of the snapshot canonical JSON — self-contained, not a parent-linked chain, so pruning never corrupts a retained row'
+    ),
   createdAt: z.iso.datetime().describe('ISO 8601 publish timestamp'),
-  createdByUserId: z.string().min(1).describe('Better Auth user id of the publisher'),
+  createdByUserId: z
+    .string()
+    .min(1)
+    .describe(
+      "Better Auth user id of the publisher, or the sentinel 'system' for config-file / env / CLI-sourced rows"
+    ),
+  source: z
+    .enum(['config-file', 'env', 'api', 'mcp', 'restore'])
+    .describe(
+      'The transport that produced this version row (DEC-023): config-file | env | api | mcp | restore'
+    ),
+  fileChecksum: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'SHA-256 of the normalized parsed AppSchema of the source file/remote document. Present only on config-file / env rows; absent for api / mcp / restore rows'
+    ),
   message: z.string().describe('Operator-supplied publish message (may be empty)'),
   restoredFromVersion: z
     .number()

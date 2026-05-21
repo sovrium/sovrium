@@ -254,13 +254,13 @@ Legend: ✅ stable &nbsp;·&nbsp; 🚧 in progress &nbsp;·&nbsp; 🔭 planned.
 
 ### Data & API
 
-| Status | Domain                 | What you get                                                                                                                                             |
-| :----: | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   ✅   | **Tables**             | **50 field types** across 9 families — text, numeric, date/time, selection, user, relational (lookups, rollups, counts), media, formulas, and AI fields. |
-|   ✅   | **Views**              | Saved table views with filtering, sorting, grouping, and per-role permissions. SQL views and JSON-config views.                                          |
-|   ✅   | **Automatic REST API** | Every table gets a CRUD API — filter, sort, paginate, and track changes. No endpoint code to write.                                                      |
-|   🚧   | **Records UI**         | Data tables, forms, kanban boards, calendars, and galleries bound directly to your tables.                                                               |
-|   ✅   | **Migrations**         | Schema evolution with checksum validation and a startup conflict check (Git-like fast-forward / conflict detection).                                     |
+| Status | Domain                 | What you get                                                                                                                                                                  |
+| :----: | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Tables**             | **52 field types** across 9 families — text, numeric, date/time, selection, special, system, attachment, advanced (formulas, lookups, rollups, relationships), and AI fields. |
+|   ✅   | **Views**              | Saved table views with filtering, sorting, grouping, and per-role permissions. SQL views and JSON-config views.                                                               |
+|   ✅   | **Automatic REST API** | Every table gets a CRUD API — filter, sort, paginate, and track changes. No endpoint code to write.                                                                           |
+|   🚧   | **Records UI**         | Data tables, forms, kanban boards, calendars, and galleries bound directly to your tables — plus runtime views, CSV import/export, and undo/redo.                             |
+|   ✅   | **Migrations**         | Schema evolution with checksum validation and a startup conflict check (Git-like fast-forward / conflict detection).                                                          |
 
 ### Authentication & access
 
@@ -282,13 +282,13 @@ Legend: ✅ stable &nbsp;·&nbsp; 🚧 in progress &nbsp;·&nbsp; 🔭 planned.
 
 ### Logic & intelligence
 
-| Status | Domain            | What you get                                                                                                                |
-| :----: | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
-|   ✅   | **Automations**   | Triggers (webhook, schedule, record, form, auth) and 20+ action types (HTTP, email, code, AI, approvals, branching, loops). |
-|   ✅   | **AI & agents**   | AI computed fields, conversational chat over your data, RAG pipelines, AI agents, and MCP integration — all declarative.    |
-|   ✅   | **Analytics**     | Privacy-first, cookie-free page analytics — views, visitors, referrers, campaigns, and a unified events model.              |
-|   🔭   | **Notifications** | In-app inbox and email digests with per-user preferences and `@mention` delivery.                                           |
-|   🔭   | **Admin Space**   | A `/admin` console for managing tables, pages, automations, users, and theme — a self-service "wp-admin" for your app.      |
+| Status | Domain            | What you get                                                                                                                                                  |
+| :----: | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Automations**   | Triggers (webhook, schedule, record, form, auth) and 20+ action types (HTTP, email, code, AI, approvals, branching, loops).                                   |
+|   🚧   | **AI & agents**   | AI computed fields, conversational chat over your data, RAG pipelines, AI agents, and MCP integration — all declarative, with `local-first` provider routing. |
+|   ✅   | **Analytics**     | Privacy-first, cookie-free page analytics — views, visitors, referrers, campaigns, and a unified events model.                                                |
+|   🚧   | **Notifications** | In-app inbox and email digests with per-user preferences and `@mention` delivery.                                                                             |
+|   🔭   | **Admin Space**   | A `/admin` console for managing tables, pages, automations, users, and theme — a self-service "wp-admin" for your app.                                        |
 
 ### Storage & developer experience
 
@@ -516,8 +516,8 @@ More runnable examples live in [`examples/`](examples/).
 
 [Bun](https://bun.sh) · [Hono](https://hono.dev) ·
 [Drizzle ORM](https://orm.drizzle.team) · [Effect](https://effect.website) ·
-[React 19](https://react.dev) · [Tailwind CSS 4](https://tailwindcss.com) ·
-[Better Auth](https://better-auth.com)
+[React 19](https://react.dev) · [Base UI](https://base-ui.com) ·
+[Tailwind CSS 4](https://tailwindcss.com) · [Better Auth](https://better-auth.com)
 
 </details>
 
@@ -539,10 +539,13 @@ Every issue is read and triaged.
 
 Sovrium is under **active development**. Core domains — tables, the automatic
 REST API, authentication, RBAC, theming, internationalization, automations,
-AI, analytics, and the CLI — are stable today. Pages, forms, buckets,
-notifications, and the Admin Space are progressing.
+analytics, account & GDPR, the security baseline, and the CLI — are stable
+today. Pages, forms, buckets, AI & agents, notifications, and the Admin Space
+are progressing.
 
-Every feature is backed by an extensive end-to-end test suite before it ships.
+Every feature is backed by an extensive end-to-end test suite before it ships
+— at the time of writing, 80% of ~6,300 specs are passing with a 93% quality
+score (see [SPEC-PROGRESS.md](SPEC-PROGRESS.md) for the live report).
 
 ---
 
@@ -558,7 +561,7 @@ Every feature is backed by an extensive end-to-end test suite before it ships.
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **May 18, 2030**. Commercial hosting licenses:
+**Apache 2.0** on **May 21, 2030**. Commercial hosting licenses:
 license@sovrium.com.
 
 ---

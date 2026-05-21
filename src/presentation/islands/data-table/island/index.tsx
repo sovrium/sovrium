@@ -30,6 +30,8 @@ interface DataTableIslandProps {
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
+    readonly refreshMode?: 'none' | 'poll' | 'realtime'
+    readonly pollIntervalMs?: number
   }
   readonly columns?: readonly DataTableColumn[]
   readonly pagination?: DataTablePagination
@@ -55,7 +57,7 @@ function ErrorBanner({ error }: { readonly error: unknown }) {
   return (
     <div
       role="alert"
-      className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+      className="border-error-border bg-error-bg text-error-fg rounded border p-4 text-sm"
     >
       Failed to load data: {error instanceof Error ? error.message : 'Unknown error'}
     </div>
@@ -143,6 +145,9 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         onRefresh={setup.handleRefresh}
         onToggleDensity={setup.toggleDensity}
         onBulkExecute={setup.onBulkExecute}
+        conflict={setup.conflict}
+        onDismissConflict={setup.dismissConflict}
+        connectionStatus={setup.connectionStatus}
         ui={setup.ui}
       />
     </>

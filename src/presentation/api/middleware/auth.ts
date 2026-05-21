@@ -154,11 +154,10 @@ async function requireAdminHandler(c: ContextWithSession, next: Next) {
     return c.json(
       {
         success: false,
-        error: 'Forbidden',
-        message: 'Admin access required',
-        code: 'FORBIDDEN',
+        message: 'Not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 

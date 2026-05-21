@@ -46,7 +46,7 @@ function extractFormValues(el: HTMLElement): Record<string, string> {
     'input[name], textarea[name], select[name]'
   )
   const entries = Array.from(inputs)
-    .filter((input) => input.type !== 'hidden')
+    .filter((input) => input.type !== 'hidden' && input.type !== 'file')
     .map((input) => [input.name, input.value] as const)
   return Object.fromEntries(entries)
 }
@@ -64,8 +64,7 @@ function mountIslands(): void {
     const props = parseIslandProps(el.dataset.islandProps)
     if (!props) return
 
-    const hasServerData = (props as Record<string, unknown>).record !== undefined
-    const initialValues = hasServerData ? {} : extractFormValues(el)
+    const initialValues = extractFormValues(el)
     const mergedProps = Object.keys(initialValues).length > 0 ? { ...props, initialValues } : props
 
     const fallbackHtml = el.innerHTML

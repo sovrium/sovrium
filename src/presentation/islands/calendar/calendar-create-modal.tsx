@@ -72,13 +72,13 @@ function CalendarCreateForm({
       onSubmit={handleSubmit}
       className="space-y-4"
     >
-      <label className="block text-sm font-medium text-gray-700">
+      <label className="text-fg block text-sm font-medium">
         <span>Title</span>
         <input
           type="text"
           name="title"
           required
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+          className="border-border bg-bg-raised text-fg focus:border-focus-ring focus:ring-focus-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:ring-1 focus:outline-none"
         />
       </label>
       {dateField && clickedDate && (
@@ -92,13 +92,13 @@ function CalendarCreateForm({
         <button
           type="button"
           onClick={onClose}
-          className="rounded border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="border-border text-fg hover:bg-bg-subtle rounded border px-3 py-2 text-sm font-medium"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-3 py-2 text-sm font-medium"
         >
           Create
         </button>
@@ -119,7 +119,7 @@ export function CalendarCreateModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="bg-scrim/50 fixed inset-0 z-40"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -130,10 +130,10 @@ export function CalendarCreateModal({
         data-modal="create-event"
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <div className="bg-bg-raised w-full max-w-md rounded-lg p-6 shadow-xl">
           <h2
             id="calendar-create-modal-title"
-            className="mb-4 text-lg font-semibold text-gray-900"
+            className="text-fg mb-4 text-lg font-semibold"
           >
             Create {tableName}
           </h2>

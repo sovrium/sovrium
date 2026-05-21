@@ -25,7 +25,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-sm"
+        className="border-border flex items-center gap-1 rounded border px-2 py-1 text-sm"
       >
         {label}
         <span aria-hidden="true">▾</span>
@@ -33,7 +33,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
       {open && (
         <ul
           role="listbox"
-          className="absolute top-full left-0 z-10 mt-1 rounded border border-gray-200 bg-white shadow-lg"
+          className="border-border bg-bg-overlay absolute top-full left-0 z-10 mt-1 rounded border shadow-lg"
         >
           <li
             role="option"
@@ -42,7 +42,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
               onChange(undefined)
               setOpen(false)
             }}
-            className="cursor-pointer px-3 py-2 text-sm hover:bg-gray-50"
+            className="hover:bg-bg-subtle cursor-pointer px-3 py-2 text-sm"
           >
             Skip
           </li>
@@ -55,7 +55,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
                 onChange(field)
                 setOpen(false)
               }}
-              className="cursor-pointer px-3 py-2 text-sm hover:bg-gray-50"
+              className="hover:bg-bg-subtle cursor-pointer px-3 py-2 text-sm"
             >
               {field}
             </li>

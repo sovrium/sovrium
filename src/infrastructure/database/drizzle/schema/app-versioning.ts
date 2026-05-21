@@ -17,6 +17,8 @@ export const sovriumAppVersions = systemSchema.table('sovrium_app_versions', {
   checksum: text('checksum').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   createdByUserId: text('created_by_user_id').notNull(),
+  source: text('source').notNull().default('config-file'),
+  fileChecksum: text('file_checksum'),
   message: text('message').notNull().default(''),
   restoredFromVersion: integer('restored_from_version'),
 })

@@ -127,10 +127,26 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
   return c.body(null, 204)
 }
 
-async function handleOverview(c: Context, appName: string): Promise<Response> {
+function analyticsAccessDenied(c: Context): Response {
+  return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+}
+
+async function requireAdminSession(c: Context): Promise<Response | undefined> {
   const session = getSessionContext(c)
   if (!session) {
     return unauthorized(c)
+  }
+  const role = await getUserRole(session.userId)
+  if (role !== 'admin') {
+    return analyticsAccessDenied(c)
+  }
+  return undefined
+}
+
+async function handleOverview(c: Context, appName: string): Promise<Response> {
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
   }
 
   const params = parseAnalyticsQuery(c, appName)
@@ -165,9 +181,9 @@ async function handleOverview(c: Context, appName: string): Promise<Response> {
 }
 
 async function handlePages(c: Context, appName: string): Promise<Response> {
-  const session = getSessionContext(c)
-  if (!session) {
-    return unauthorized(c)
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
   }
 
   const params = parseAnalyticsQuery(c, appName)
@@ -198,9 +214,9 @@ async function handlePages(c: Context, appName: string): Promise<Response> {
 }
 
 async function handleReferrers(c: Context, appName: string): Promise<Response> {
-  const session = getSessionContext(c)
-  if (!session) {
-    return unauthorized(c)
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
   }
 
   const params = parseAnalyticsQuery(c, appName)
@@ -234,9 +250,9 @@ async function handleReferrers(c: Context, appName: string): Promise<Response> {
 }
 
 async function handleDevices(c: Context, appName: string): Promise<Response> {
-  const session = getSessionContext(c)
-  if (!session) {
-    return unauthorized(c)
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
   }
 
   const params = parseAnalyticsQuery(c, appName)
@@ -371,9 +387,9 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
 }
 
 async function handleCampaigns(c: Context, appName: string): Promise<Response> {
-  const session = getSessionContext(c)
-  if (!session) {
-    return unauthorized(c)
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
   }
 
   const params = parseAnalyticsQuery(c, appName)

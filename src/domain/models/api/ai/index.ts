@@ -8,3 +8,4 @@
 export * from './chat'
 export * from './conversations'
 export * from './rag'
+export * from './search'

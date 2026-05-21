@@ -21,25 +21,25 @@ export function PreviewMappingHeader({
   onMappingChange,
 }: PreviewMappingHeaderProps) {
   return (
-    <thead className="bg-gray-50">
+    <thead className="bg-bg-subtle">
       <tr>
         {headers.map((header, columnIndex) => {
           const mapping = mappings[columnIndex] ?? SKIP_VALUE
           return (
             <th
               key={`${header}-${columnIndex}`}
-              className="px-3 py-2 text-left font-medium text-gray-700"
+              className="text-fg px-3 py-2 text-left font-medium"
             >
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500">{header}</span>
-                <span className="text-xs font-semibold text-gray-900">
+                <span className="text-fg-muted text-xs">{header}</span>
+                <span className="text-fg text-xs font-semibold">
                   {mapping === SKIP_VALUE ? 'Skip this column' : mapping}
                 </span>
                 <select
                   aria-label={`Map column ${header}`}
                   value={mapping}
                   onChange={(event) => onMappingChange(columnIndex, event.currentTarget.value)}
-                  className="rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="border-border rounded border px-2 py-1 text-sm"
                 >
                   <option value={SKIP_VALUE}>Skip this column</option>
                   {tableFields.map((field) => (

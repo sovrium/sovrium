@@ -16,6 +16,7 @@ import { AutomationStateRepositoryLive } from '@/infrastructure/database/reposit
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connection-token-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
+import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transform-live'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 
 export const AutomationRuntimeLayer = Layer.mergeAll(
@@ -29,6 +30,7 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   PackageResolverLive,
   AiServiceLive,
   StorageServiceLive,
+  ImageTransformServiceLive,
   AnalyticsRepositoryLive
 )
 

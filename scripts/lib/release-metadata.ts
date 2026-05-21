@@ -87,7 +87,7 @@ function stampLicense(content: string, cd: ChangeDate): { content: string; count
 function stampReadme(content: string, cd: ChangeDate): { content: string; count: number } {
   let count = 0
   const out = content.replace(
-    /(\*\*Apache 2\.0\*\* on )[A-Z][a-z]+ \d{1,2}, (?:\*\*)?\d{4}(?:\*\*)?/,
+    /(\*\*Apache 2\.0\*\* on )(?:\*\*)?[A-Z][a-z]+ \d{1,2}, (?:\*\*)?\d{4}(?:\*\*)?/,
     (_match, lead: string) => {
       count += 1
       return `${lead}**${cd.prose}**`

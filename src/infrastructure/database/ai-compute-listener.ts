@@ -11,6 +11,7 @@ import { Client } from 'pg'
 import { AiService } from '@/application/ports/services/ai-service'
 import { AiLive } from '@/infrastructure/ai/layer'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { isSqliteRuntime } from './unsupported-in-sqlite'
 
 interface AiComputePayload {
   readonly kind?: 'categorize' | 'summary' | 'translate' | 'extract' | 'sentiment' | 'generate'
@@ -36,6 +37,11 @@ export class AiComputeListener {
   constructor(private readonly databaseUrl: string) {}
 
   async start(): Promise<void> {
+    if (isSqliteRuntime()) {
+      logDebug('[ai-compute] listener disabled — requires PostgreSQL (SQLite runtime)')
+      return
+    }
+
     const client = new Client({ connectionString: this.databaseUrl })
     await client.connect()
     this.client = client

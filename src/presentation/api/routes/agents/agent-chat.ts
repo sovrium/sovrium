@@ -6,6 +6,7 @@
  */
 
 
+import { buildChatToolDefinitions, type ChatToolDefinition } from '@/domain/services/ai-chat-tools'
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
 import { resolveAgentModel, resolveAgentTemperature } from './agent-ai-config'
 import { postChatCompletion } from './openai-chat-fetch'
@@ -44,6 +45,23 @@ const buildAgentSystemPrompt = (app: App, agent: Agent): string => {
   return [resolvedPrompt, tableContext].filter((part) => part.trim().length > 0).join('\n\n')
 }
 
+const buildAgentChatTools = (app: App, agent: Agent): ReadonlyArray<ChatToolDefinition> => {
+  const tables = app.tables ?? []
+  const readableTables = tables.filter((table) =>
+    hasReadPermission(
+      table as { name: string; permissions?: { read?: unknown } },
+      agent.role,
+      tables as readonly { name: string }[]
+    )
+  )
+  const allowlist = agent.tools?.tables
+  const allowedReadableTables =
+    allowlist === undefined
+      ? readableTables
+      : readableTables.filter((table) => allowlist.includes(table.name))
+  return buildChatToolDefinitions(allowedReadableTables.map((table) => ({ name: table.name })))
+}
+
 const DEFAULT_TEMPERATURE = 0.7
 
 interface ChatCompletionResponse {
@@ -58,6 +76,7 @@ interface AgentProviderCall {
   readonly agent: Agent
   readonly systemPrompt: string
   readonly message: string
+  readonly tools: ReadonlyArray<ChatToolDefinition>
 }
 
 const extractReply = (payload: ChatCompletionResponse | undefined): string => {
@@ -68,7 +87,7 @@ const extractReply = (payload: ChatCompletionResponse | undefined): string => {
 type AgentProviderOutcome = { readonly ok: true; readonly reply: string } | { readonly ok: false }
 
 const callAgentProvider = async (call: AgentProviderCall): Promise<AgentProviderOutcome> => {
-  const { baseUrl, apiKey, agent, systemPrompt, message } = call
+  const { baseUrl, apiKey, agent, systemPrompt, message, tools } = call
   const body: Record<string, unknown> = {
     model: resolveAgentModel(agent),
     messages: [
@@ -77,6 +96,7 @@ const callAgentProvider = async (call: AgentProviderCall): Promise<AgentProvider
     ],
     temperature: resolveAgentTemperature(agent, DEFAULT_TEMPERATURE),
     ...(agent.maxTokens !== undefined && { max_tokens: agent.maxTokens }),
+    ...(tools.length > 0 && { tools }),
   }
 
   const response = await postChatCompletion({ baseUrl, apiKey }, body)
@@ -117,12 +137,14 @@ export const handleAgentChat = async (
   }
 
   const systemPrompt = buildAgentSystemPrompt(app, agent)
+  const tools = buildAgentChatTools(app, agent)
   const outcome = await callAgentProvider({
     baseUrl,
     apiKey,
     agent,
     systemPrompt,
     message: req.message,
+    tools,
   })
 
   if (!outcome.ok) {

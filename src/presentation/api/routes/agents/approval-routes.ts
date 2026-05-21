@@ -338,7 +338,7 @@ const handleDecision =
         {
           error: `Role level ${approverLevel.toString()} is insufficient to decide on an agent with role level ${agentLevel.toString()}.`,
         },
-        403
+        404
       )
     }
 

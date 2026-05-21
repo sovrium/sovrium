@@ -143,15 +143,13 @@ export function checkDefaultFields(
 
 export function checkFieldWritePermissions(forbiddenFields: readonly string[], c: Context) {
   if (forbiddenFields.length > 0) {
-    const firstForbiddenField = forbiddenFields[0]
     return c.json(
       {
         success: false,
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        code: 'FORBIDDEN',
-        field: firstForbiddenField,
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
   return undefined

@@ -50,7 +50,7 @@ export function DuplicateStep({
   const showUniqueField = duplicateStrategy === 'skip' || duplicateStrategy === 'overwrite'
   return (
     <div className="space-y-3">
-      <p className="mb-4 text-sm text-gray-600">How should duplicate records be handled?</p>
+      <p className="text-fg-muted mb-4 text-sm">How should duplicate records be handled?</p>
       <StrategyRadio
         value="skip"
         current={duplicateStrategy}
@@ -73,7 +73,7 @@ export function DuplicateStep({
         <div className="mt-3 flex items-center gap-2">
           <label
             htmlFor="csv-import-unique-field"
-            className="text-sm font-medium text-gray-700"
+            className="text-fg text-sm font-medium"
           >
             Unique field
           </label>
@@ -82,7 +82,7 @@ export function DuplicateStep({
             aria-label="Unique field"
             value={uniqueField ?? ''}
             onChange={(e) => setUniqueField(e.target.value || undefined)}
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
+            className="border-border rounded border px-2 py-1 text-sm"
           >
             <option value="">Select a field…</option>
             {tableFields?.map((field) => (

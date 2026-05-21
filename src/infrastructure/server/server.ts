@@ -9,10 +9,13 @@ import { readFileSync, rmSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { Effect, Config } from 'effect'
 import { Hono } from 'hono'
+import { websocket } from 'hono/bun'
 import { requestId } from 'hono/request-id'
 import { AiService } from '@/application/ports/services/ai-service'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { filterAgentKnowledgeTables } from '@/domain/services/rag-knowledge-access'
 import { AiLive } from '@/infrastructure/ai/layer'
 import { runSyncAgentUsers } from '@/infrastructure/auth/agent-user-sync'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -32,6 +35,7 @@ import {
   type AuthConfigRequiredForUserFields,
   type SchemaInitializationError,
 } from '@/infrastructure/database/schema/schema-initializer'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getEmailConfigFromEffect } from '@/infrastructure/email/email-config'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import {
@@ -66,6 +70,10 @@ import {
 } from '@/infrastructure/server/route-setup/page-routes'
 import { setupSchemaRoutes } from '@/infrastructure/server/route-setup/schema-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
+import {
+  collectStoragePhases,
+  collectAiListenerPhases,
+} from '@/infrastructure/server/startup-degradation-phases'
 import { validateStoragePublicAccessEnv } from '@/infrastructure/server/validate-storage-public-access-env'
 import { validateTransformPresetEnv } from '@/infrastructure/server/validate-transform-preset-env'
 import { warnIfInsecureEnv } from '@/infrastructure/utils/env'
@@ -73,6 +81,7 @@ import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import type { ServerInstance } from '@/application/models/server'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
+import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import type { SessionInfo } from '@/domain/types/session-info'
 import type {
   DatabaseConnectionError,
@@ -80,7 +89,6 @@ import type {
 } from '@/infrastructure/database/drizzle/migrate'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
-import type { Server } from 'bun'
 
 export interface ServerConfig {
   readonly app: App
@@ -221,26 +229,21 @@ const getDatabaseUrl = (): Effect.Effect<string, never> =>
     Effect.catchAll(() => Effect.succeed(''))
   )
 
-const runMigrationsIfConfigured = (
-  databaseUrl: string
-): Effect.Effect<
-  void,
-  DatabaseConnectionError | MigrationError | SchemaInitializationError,
-  never
-> => (databaseUrl ? runMigrations(databaseUrl) : Effect.void)
+const buildBunServeOptions = (honoApp: Readonly<Hono>, port: number, hostname: string) => ({
+  port,
+  hostname,
+  fetch: (request: Request, server: unknown): Response | Promise<Response> =>
+    honoApp.fetch(request, { server }),
+  websocket,
+})
 
 const startBunServer = (
   honoApp: Readonly<Hono>,
   port: number,
   hostname: string
-): Effect.Effect<Server<undefined>, ServerCreationError, never> =>
+): Effect.Effect<ReturnType<typeof Bun.serve>, ServerCreationError, never> =>
   Effect.try({
-    try: () =>
-      Bun.serve({
-        port,
-        hostname,
-        fetch: honoApp.fetch,
-      }),
+    try: () => Bun.serve(buildBunServeOptions(honoApp, port, hostname)),
     catch: (error) => new ServerCreationError(error),
   }).pipe(
     Effect.catchIf(
@@ -255,12 +258,7 @@ const startBunServer = (
       },
       () =>
         Effect.try({
-          try: () =>
-            Bun.serve({
-              port: 0,
-              hostname,
-              fetch: honoApp.fetch,
-            }),
+          try: () => Bun.serve(buildBunServeOptions(honoApp, 0, hostname)),
           catch: (error) => new ServerCreationError(error),
         })
     )
@@ -281,6 +279,7 @@ const resolveAiComputeListener = (
 ): Effect.Effect<Readonly<AiComputeListener> | undefined, never> =>
   Effect.gen(function* () {
     if (!databaseUrl) return undefined
+    if (isSqliteRuntime()) return undefined
     const tables = app.tables ?? []
     const hasAiComputeField = tables.some((table) =>
       table.fields.some((field) => isAiComputeFieldType(field.type))
@@ -309,28 +308,24 @@ const startAiComputeListenerIfNeeded = (
     )
   })
 
-const collectStoragePhases = (databaseUrl: string): readonly StartupPhase[] => {
-  const storageProvider = process.env.STORAGE_PROVIDER ?? ''
-  if (databaseUrl || storageProvider !== '') return []
-  return [
-    {
-      label: 'Storage: Not configured (attachment fields will be disabled)',
-      type: 'warning' as const,
-    },
-  ]
-}
+const databaseStartupLabel = (config: DatabaseDialectConfig): string =>
+  config.dialect === 'sqlite' ? `Database: SQLite (${config.path})` : 'Database: PostgreSQL'
+
+const filterRagKnowledgeByRole = (app: App) =>
+  (app.agents ?? []).map((agent) => filterAgentKnowledgeTables(agent, app.tables ?? []))
 
 const runDatabaseStartup = (
   app: App,
-  databaseUrl: string
+  dialectConfig: DatabaseDialectConfig
 ): Effect.Effect<
   readonly StartupPhase[],
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   | DatabaseConnectionError
   | MigrationError
-> =>
-  runMigrationsIfConfigured(databaseUrl).pipe(
+> => {
+  const ragDatabaseUrl = dialectConfig.dialect === 'postgres' ? dialectConfig.databaseUrl : ''
+  return runMigrations(dialectConfig).pipe(
     Effect.flatMap(() => initializeSchema(app)),
     Effect.flatMap(() =>
       Effect.promise(() => runSeedAllConnectionDefinitions({ connections: app.connections }))
@@ -339,11 +334,14 @@ const runDatabaseStartup = (
       Effect.promise(() => runSyncAgentUsers({ agents: app.agents, hasAuth: !!app.auth }))
     ),
     Effect.flatMap(() => Effect.promise(() => runOrgTeamSeeding(app))),
-    Effect.flatMap(() => Effect.promise(() => runRagKnowledgeStartup(app.agents, databaseUrl))),
+    Effect.flatMap(() =>
+      Effect.promise(() => runRagKnowledgeStartup(filterRagKnowledgeByRole(app), ragDatabaseUrl))
+    ),
     Effect.map((): readonly StartupPhase[] => [
-      { label: 'Database connected', type: 'success' as const },
+      { label: databaseStartupLabel(dialectConfig), type: 'success' as const },
     ])
   )
+}
 
 const collectInfraPhases = (
   app: App
@@ -358,9 +356,8 @@ const collectInfraPhases = (
 > =>
   Effect.gen(function* () {
     const databaseUrl = yield* getDatabaseUrl()
-    const databasePhases: readonly StartupPhase[] = !databaseUrl
-      ? [{ label: 'DATABASE_URL not set (skipping database)', type: 'warning' as const }]
-      : yield* runDatabaseStartup(app, databaseUrl)
+    const dialectConfig = parseDatabaseDialectConfig()
+    const databasePhases: readonly StartupPhase[] = yield* runDatabaseStartup(app, dialectConfig)
 
     const smtpPhases: readonly StartupPhase[] =
       app.auth && getEmailConfigFromEffect().usingMailpitFallback
@@ -372,7 +369,9 @@ const collectInfraPhases = (
           ]
         : []
 
-    const storagePhases = collectStoragePhases(databaseUrl)
+    const storagePhases = collectStoragePhases()
+
+    const aiListenerPhases = collectAiListenerPhases(app)
 
     const cssResult = yield* compileCSS(app)
     const cssSizeKB = Math.round(cssResult.css.length / 1024)
@@ -383,7 +382,7 @@ const collectInfraPhases = (
     const aiComputeListener = yield* startAiComputeListenerIfNeeded(app, databaseUrl)
 
     return {
-      phases: [...databasePhases, ...smtpPhases, ...storagePhases],
+      phases: [...databasePhases, ...smtpPhases, ...storagePhases, ...aiListenerPhases],
       cssSizeKB,
       cssLabel,
       aiComputeListener,

@@ -6,16 +6,13 @@
  */
 
 import { createRoute, type RouteConfig } from '@hono/zod-openapi'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import type { Context, MiddlewareHandler, Next } from 'hono'
 
 export type SovriumRuntime = 'postgres' | 'sqlite'
 
 export function getCurrentRuntime(): SovriumRuntime {
-  const url = process.env.DATABASE_URL ?? ''
-  if (url.startsWith('sqlite:') || url.startsWith('file:')) {
-    return 'sqlite'
-  }
-  return 'postgres'
+  return parseDatabaseDialectConfig().dialect
 }
 
 export interface AdminRouteConfig<P extends string = string> extends RouteConfig {

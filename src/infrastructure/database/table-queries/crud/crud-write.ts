@@ -13,6 +13,8 @@ import {
   UniqueConstraintViolationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import {
   injectCreateAuthorship,
   injectUpdateAuthorship,
@@ -59,9 +61,10 @@ async function executeCreateRecordTx(
     .map(([key]) => key)
   const arrayColumnTypes = await lookupArrayColumnTypes(tx, tableName, arrayColumnNames)
   const { columnsClause, valuesClause } = buildInsertClauses(fieldsWithAuthorship, arrayColumnTypes)
-  const insertResult = (await tx.execute(
+  const insertResult = await executeRaw(
+    tx,
     sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
-  )) as readonly Record<string, unknown>[]
+  )
   return insertResult[0] ?? {}
 }
 
@@ -334,12 +337,7 @@ export function restoreRecord(
             return { _error: 'not_deleted' } as Record<string, unknown>
           }
 
-          const deletedByCheck = await typedExecute(
-            tx,
-            sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
-          )
-
-          const hasDeletedBy = deletedByCheck.length > 0
+          const hasDeletedBy = await columnExists(tx, tableName, 'deleted_by')
 
           const result = hasDeletedBy
             ? await typedExecute(

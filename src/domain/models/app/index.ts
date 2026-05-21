@@ -26,7 +26,7 @@ import { NameSchema } from './name'
 import { NotificationSchema } from './notifications'
 import { validateAllPageAccessGroups } from './page-access-validation'
 import { PagesSchema } from './pages'
-import { validateAllRoleReferences } from './role-validation'
+import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
 import { AppScriptsSchema } from './scripts'
 import { validateAllTablePermissionGroups } from './table-permission-validation'
 import { TablesSchema } from './tables'
@@ -121,6 +121,8 @@ export const AppSchema = Schema.Struct({
   }),
   Schema.filter((app) => {
     if (!app.auth) return true
+    const tableError = validateTableRoleReferences(app)
+    if (tableError !== true) return tableError
     return validateAllRoleReferences(app)
   }),
   Schema.filter((app) => {

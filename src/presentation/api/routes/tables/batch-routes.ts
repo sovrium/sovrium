@@ -66,10 +66,10 @@ async function handleBatchRestore(c: Context, _app: App) {
     return c.json(
       {
         success: false,
-        message: 'You do not have permission to restore records in this table',
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 
@@ -111,7 +111,7 @@ async function resolveBatchMutationAuth(input: {
   readonly canonicalCheck: () => boolean
   readonly forbiddenAction: 'update' | 'delete'
 }): Promise<Response | undefined> {
-  const { c, tableName, userRole, session, table, ids, op, canonicalCheck, forbiddenAction } = input
+  const { c, tableName, userRole, session, table, ids, op, canonicalCheck } = input
   const guard = await resolveGuardForTable(session, userRole, table)
 
   if (guard) {
@@ -129,10 +129,10 @@ async function resolveBatchMutationAuth(input: {
     return c.json(
       {
         success: false,
-        message: `You do not have permission to ${forbiddenAction} records in this table`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
   return undefined
@@ -381,16 +381,18 @@ async function handleUpsert(c: Context, app: App) {
   return runEffect(c, provideTableLive(filteredProgram), upsertRecordsResponseSchema)
 }
 
-export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
+export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return (
     honoApp
-      .post('/api/tables/:tableId/records/batch/restore', (c) => handleBatchRestore(c, app))
-      .post('/api/tables/:tableId/records/batch/delete', (c) => handleBatchDelete(c, app))
-      .post('/api/tables/:tableId/records/batch-delete', (c) => handleBatchDelete(c, app))
-      .post('/api/tables/:tableId/records/batch', (c) => handleBatchCreate(c, app))
-      .patch('/api/tables/:tableId/records/batch', (c) => handleBatchUpdate(c, app))
-      .delete('/api/tables/:tableId/records/batch', (c) => handleBatchDelete(c, app))
-      .post('/api/tables/:tableId/records/upsert', (c) => handleUpsert(c, app))
+      .post('/api/tables/:tableId/records/batch/restore', (c) =>
+        handleBatchRestore(c, resolveApp())
+      )
+      .post('/api/tables/:tableId/records/batch/delete', (c) => handleBatchDelete(c, resolveApp()))
+      .post('/api/tables/:tableId/records/batch-delete', (c) => handleBatchDelete(c, resolveApp()))
+      .post('/api/tables/:tableId/records/batch', (c) => handleBatchCreate(c, resolveApp()))
+      .patch('/api/tables/:tableId/records/batch', (c) => handleBatchUpdate(c, resolveApp()))
+      .delete('/api/tables/:tableId/records/batch', (c) => handleBatchDelete(c, resolveApp()))
+      .post('/api/tables/:tableId/records/upsert', (c) => handleUpsert(c, resolveApp()))
   )
 }
 

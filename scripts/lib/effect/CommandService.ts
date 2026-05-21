@@ -6,6 +6,7 @@
  */
 
 import { execSync as nodeExecSync } from 'node:child_process'
+import { appendFile } from 'node:fs/promises'
 import { spawn as bunSpawn } from 'bun'
 import * as Context from 'effect/Context'
 import * as Data from 'effect/Data'
@@ -277,10 +278,7 @@ export const CommandServiceLive = Layer.succeed(
         const githubOutput = process.env.GITHUB_OUTPUT
         if (githubOutput) {
           yield* Effect.tryPromise({
-            try: async () => {
-              const { appendFile } = await import('node:fs/promises')
-              await appendFile(githubOutput, `${name}=${result.stdout}\n`)
-            },
+            try: () => appendFile(githubOutput, `${name}=${result.stdout}\n`),
             catch: (error) =>
               new CommandFailedError({
                 command: `write to GITHUB_OUTPUT`,

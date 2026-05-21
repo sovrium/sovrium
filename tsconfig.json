@@ -14,6 +14,12 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
 
+    // Incremental type checking — persist the dependency graph to a fixed,
+    // gitignored cache so warm `typecheck`/`quality` runs only re-check changed
+    // files. node_modules is already gitignored, so the cache survives cleans.
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsc/tsconfig.tsbuildinfo",
+
     // Explicit type declarations (required in TS 6 — types defaults to [])
     "types": ["bun", "node", "react-dom", "nodemailer", "pg"],
 
@@ -43,5 +49,11 @@
       }
     ]
   },
-  "exclude": ["node_modules", "dist", "tmp", "vendor"]
+  // Bound the typecheck program to the three source roots only. Without an
+  // explicit `include`, tsc defaults to "every .ts under the project root minus
+  // exclude", silently pulling in stray files (examples/, packages/types — which
+  // has its own tsconfig + build:types). Dependents that override `include`
+  // (tsconfig.build.json → ["src"], tsconfig.eslint.json → []) are unaffected.
+  "include": ["src", "specs", "scripts"],
+  "exclude": ["node_modules", "dist", "tmp", "vendor", "design-system", "docs"]
 }

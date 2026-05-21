@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { cn } from '@/presentation/islands/lib/cn'
 import { type FieldDef, labelOf } from '../components/crud-form/fields'
 import { type SuccessPageConfig } from './types'
 
@@ -66,7 +67,7 @@ export function SuccessPage(props: {
   return (
     <div
       data-success-page
-      className={className}
+      className={cn(className)}
       id={id}
       data-testid={testId}
     >

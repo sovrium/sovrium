@@ -44,7 +44,7 @@ export function TableContent(props: TableContentProps) {
   return (
     <div className="overflow-x-auto">
       <table
-        className="min-w-full divide-y divide-gray-200"
+        className="divide-border min-w-full divide-y"
         data-striped={String(striped)}
         data-row-height={currentRowHeight}
       >

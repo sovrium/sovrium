@@ -5,11 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { COMMAND_PALETTE_RUNTIME_DOM } from './command-palette-runtime-dom'
+
 export const COMMAND_PALETTE_RUNTIME = `(function () {
-  var overlay = document.querySelector('[data-command-palette]');
-  if (!overlay) return;
-  var input = overlay.querySelector('[data-command-palette-input]');
-  var results = overlay.querySelector('[data-command-palette-results]');
   var configEl = document.querySelector('[data-command-palette-config]');
   var config = { tables: [], pages: [] };
   try {
@@ -20,6 +18,14 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
   var debounceHandle = null;
   var activeIndex = -1;
 
+  // The overlay DOM is built lazily on first \`Cmd+K\` — see \`ensureOverlay\`.
+  // Pre-rendering it server-side would pollute generic page selectors in
+  // unrelated specs (\`page.locator('input')\` / \`locator('[role="dialog"]')\`
+  // would resolve the palette's search input / dialog and fail strict mode).
+  var overlay = null;
+  var input = null;
+  var results = null;
+${COMMAND_PALETTE_RUNTIME_DOM}
   function getJson(url) {
     try {
       var xhr = new XMLHttpRequest();
@@ -202,15 +208,9 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
     }
   }
 
-  function openCreateDialog(tableName) {
-    var dialog = document.querySelector('[data-create-record-dialog="' + tableName + '"]');
-    if (!dialog) return;
-    dialog.setAttribute('data-open', 'true');
-    // See \`openPalette\` — clear any \`hidden\` a global modal handler may set.
-    dialog.removeAttribute('hidden');
-    dialog.setAttribute('aria-hidden', 'false');
-    dialog.style.display = 'flex';
-  }
+  // \`ensureOverlay\`, \`closeCreateDialog\`, \`tableFields\`, \`buildCreateDialog\`
+  // and \`openCreateDialog\` are defined in the COMMAND_PALETTE_RUNTIME_DOM
+  // fragment spliced in above (they are hoisted into this shared closure).
 
   // Activate the given option element: navigate, open a creation dialog or
   // toggle dark mode depending on its \`data-command-action\` attribute.
@@ -252,13 +252,14 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
     }
   }
 
-  // Search view: quick actions filtered by query, then page matches in a
-  // "Pages" category section above the record matches, which live in a
-  // "Records" category section. Within "Records" the matches are grouped by
-  // table name, each group a role="group" section labelled with its table name.
+  // Search view: page matches in a "Pages" category section above the record
+  // matches, which live in a "Records" category section grouped by table name.
+  // Quick actions filtered by the query are rendered LAST — when a query is
+  // typed the user is most likely looking for an actual page/record match, so
+  // pressing ArrowDown once should highlight a content result, not the generic
+  // "Create new record in <table>" quick action (APP-COMMAND-PALETTE-004).
   function renderSearch(query) {
     clearResults();
-    renderQuickActions(query);
     var matches = getJson('/api/command-search?q=' + encodeURIComponent(query)) || [];
     if (!Array.isArray(matches)) return;
     var pageMatches = [];
@@ -311,6 +312,8 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
       }
       results.appendChild(recordsSection);
     }
+    // Quick actions render after content matches — see the function doc.
+    renderQuickActions(query);
   }
 
   function refresh() {
@@ -323,6 +326,7 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
   }
 
   function openPalette() {
+    ensureOverlay();
     overlay.setAttribute('data-open', 'true');
     // Clear any \`hidden\` attribute a global modal-lifecycle handler may have
     // stamped on this \`role="dialog"\` element — \`[hidden]\` carries a
@@ -339,6 +343,7 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
   }
 
   function closePalette() {
+    if (!overlay) return;
     overlay.setAttribute('data-open', 'false');
     overlay.style.display = 'none';
   }
@@ -347,14 +352,14 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
     var isToggle = (event.metaKey || event.ctrlKey) && (event.key === 'k' || event.key === 'K');
     if (isToggle) {
       event.preventDefault();
-      if (overlay.getAttribute('data-open') === 'true') {
+      if (overlay && overlay.getAttribute('data-open') === 'true') {
         closePalette();
       } else {
         openPalette();
       }
       return;
     }
-    if (overlay.getAttribute('data-open') !== 'true') return;
+    if (!overlay || overlay.getAttribute('data-open') !== 'true') return;
     if (event.key === 'Escape') {
       event.preventDefault();
       closePalette();
@@ -379,40 +384,13 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
     }
   });
 
-  input.addEventListener('input', function () {
-    if (debounceHandle !== null) clearTimeout(debounceHandle);
-    debounceHandle = setTimeout(refresh, 200);
-  });
-
-  // Clicking the dim backdrop (the overlay itself, outside the dialog panel)
-  // closes the palette without performing any action.
-  overlay.addEventListener('mousedown', function (event) {
-    if (event.target === overlay) {
-      closePalette();
-    }
-  });
-
-  function closeCreateDialog(dialog) {
-    dialog.setAttribute('data-open', 'false');
-    dialog.style.display = 'none';
-  }
-
-  // Wire each per-table creation dialog: close control + backdrop click.
-  var dialogs = document.querySelectorAll('[data-create-record-dialog]');
-  for (var d = 0; d < dialogs.length; d++) {
-    (function (dialog) {
-      var closeBtn = dialog.querySelector('[data-create-record-close]');
-      if (closeBtn) {
-        closeBtn.addEventListener('click', function () { closeCreateDialog(dialog); });
-      }
-      dialog.addEventListener('mousedown', function (event) {
-        if (event.target === dialog) closeCreateDialog(dialog);
-      });
-    })(dialogs[d]);
-  }
+  // The search-input \`input\` listener and the backdrop \`mousedown\` listener
+  // are wired inside \`ensureOverlay\` when the overlay DOM is first built.
 
   // Escape closes any open record-creation dialog (the dialog is layered
-  // above the palette and has its own dismissal lifecycle).
+  // above the palette and has its own dismissal lifecycle). Each dialog is
+  // built lazily by \`buildCreateDialog\` with its own close-button and
+  // backdrop-click handlers wired in at construction time.
   document.addEventListener('keydown', function (event) {
     if (event.key !== 'Escape') return;
     var open = document.querySelector('[data-create-record-dialog][data-open="true"]');

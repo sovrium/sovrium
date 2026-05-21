@@ -7,6 +7,7 @@
 
 import { Accordion } from '@base-ui/react/accordion'
 import { useMemo } from 'react'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface AccordionItem {
@@ -37,7 +38,7 @@ export default function AccordionIsland({
     <Accordion.Root
       defaultValue={defaultValue}
       multiple={accordionType === 'multiple'}
-      className={`divide-y divide-gray-200 rounded-lg border border-gray-200 ${className ?? ''}`}
+      className={cn('divide-border border-border divide-y rounded-lg border', className)}
       id={id}
       data-testid={testId}
     >
@@ -47,14 +48,14 @@ export default function AccordionIsland({
           value={item.id}
         >
           <Accordion.Header>
-            <Accordion.Trigger className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
+            <Accordion.Trigger className="text-fg hover:bg-bg-subtle flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
               {item.title}
               <svg
                 width="16"
                 height="16"
                 viewBox="0 0 16 16"
                 fill="none"
-                className="shrink-0 text-gray-500 transition-transform duration-200 data-[open]:rotate-180"
+                className="text-fg-muted shrink-0 transition-transform duration-200 data-[open]:rotate-180"
               >
                 <path
                   d="M4 6L8 10L12 6"
@@ -66,7 +67,7 @@ export default function AccordionIsland({
               </svg>
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Panel className="overflow-hidden px-4 pb-3 text-sm text-gray-600">
+          <Accordion.Panel className="text-fg-muted overflow-hidden px-4 pb-3 text-sm">
             {item.content}
           </Accordion.Panel>
         </Accordion.Item>

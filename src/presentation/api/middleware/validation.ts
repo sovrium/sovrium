@@ -87,10 +87,9 @@ export function formatValidationError(
   return c.json(
     {
       success: false,
-      message: error.message,
-      code: 'FORBIDDEN',
-      ...(error.field ? { field: error.field } : {}),
+      message: 'Resource not found',
+      code: 'NOT_FOUND',
     },
-    403
+    404
   )
 }

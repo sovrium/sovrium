@@ -37,7 +37,7 @@ export function PastePreviewDialog({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="bg-scrim/50 fixed inset-0 z-40"
         onClick={onCancel}
         aria-hidden="true"
       />
@@ -47,15 +47,15 @@ export function PastePreviewDialog({
         aria-labelledby="paste-preview-dialog-title"
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <div className="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg bg-white p-6 shadow-xl">
+        <div className="bg-bg-overlay flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg p-6 shadow-xl">
           <h2
             id="paste-preview-dialog-title"
-            className="mb-4 text-lg font-semibold text-gray-900"
+            className="text-fg mb-4 text-lg font-semibold"
           >
             Paste Preview
           </h2>
-          <div className="overflow-auto rounded border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <div className="border-border overflow-auto rounded border">
+            <table className="divide-border min-w-full divide-y text-sm">
               <PreviewMappingHeader
                 headers={parsed.headers}
                 mappings={mappings}

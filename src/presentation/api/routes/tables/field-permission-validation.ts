@@ -94,10 +94,10 @@ export function validateFilterParam(
     return c.json(
       {
         success: false,
-        message: `You do not have permission to perform this action. Cannot filter by field '${inaccessibleField}'`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 
@@ -164,10 +164,10 @@ export function validateGroupByParam(
     return c.json(
       {
         success: false,
-        message: `You do not have permission to perform this action. Cannot group by field '${fieldName}'`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 
@@ -199,10 +199,10 @@ export function validateAggregateParam(
     return c.json(
       {
         success: false,
-        message: `You do not have permission to perform this action. Cannot aggregate field '${inaccessibleField}'`,
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 

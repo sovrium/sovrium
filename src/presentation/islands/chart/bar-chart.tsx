@@ -82,7 +82,7 @@ function GridLines({
           x2={innerWidth}
           y1={yScale(t)}
           y2={yScale(t)}
-          stroke="#e5e7eb"
+          stroke="var(--color-border)"
           data-chart-gridline="true"
         />
       ))}
@@ -134,7 +134,7 @@ function XAxisLabels({
         x2={xScale.range()[1]}
         y1={innerHeight}
         y2={innerHeight}
-        stroke="#6b7280"
+        stroke="var(--color-border)"
       />
       {data.map((d) => {
         const x = (xScale(d.key) ?? 0) + bandwidth / 2
@@ -144,7 +144,7 @@ function XAxisLabels({
             x={x}
             y={innerHeight + 18}
             fontSize={11}
-            fill="#374151"
+            fill="var(--color-fg-muted)"
             textAnchor="middle"
           >
             {formatAxisLabel(d.key, axis?.format)}
@@ -157,7 +157,7 @@ function XAxisLabels({
           y={innerHeight + 44}
           fontSize={12}
           fontWeight={600}
-          fill="#111827"
+          fill="var(--color-fg)"
           textAnchor="middle"
           data-chart-axis-title="x"
         >
@@ -186,7 +186,7 @@ function YAxisLabels({
         x2={0}
         y1={0}
         y2={innerHeight}
-        stroke="#6b7280"
+        stroke="var(--color-border)"
       />
       {ticks.map((t) => (
         <text
@@ -194,7 +194,7 @@ function YAxisLabels({
           x={-8}
           y={yScale(t)}
           fontSize={11}
-          fill="#374151"
+          fill="var(--color-fg-muted)"
           textAnchor="end"
           dominantBaseline="central"
         >
@@ -207,7 +207,7 @@ function YAxisLabels({
           y={innerHeight / 2}
           fontSize={12}
           fontWeight={600}
-          fill="#111827"
+          fill="var(--color-fg)"
           textAnchor="middle"
           transform={`rotate(-90 ${String(-MARGIN.left + 14)} ${String(innerHeight / 2)})`}
           data-chart-axis-title="y"

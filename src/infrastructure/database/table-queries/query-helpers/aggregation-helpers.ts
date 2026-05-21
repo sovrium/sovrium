@@ -7,9 +7,19 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import {
+  columnExists,
+  getExistingColumnNames,
+} from '@/infrastructure/database/sql/dialect-introspection'
 import { generateSqlConditionFragment } from '../filter-operators'
 import { validateColumnName } from '../shared/validation'
+
+const countSelectClause = (): string =>
+  parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? 'CAST(COUNT(*) AS TEXT) as count'
+    : 'COUNT(*)::text as count'
 
 export function buildAggregationSelects(aggregate: {
   readonly count?: boolean
@@ -18,7 +28,7 @@ export function buildAggregationSelects(aggregate: {
   readonly min?: readonly string[]
   readonly max?: readonly string[]
 }): readonly string[] {
-  const countSelect = aggregate.count ? ['COUNT(*)::text as count'] : []
+  const countSelect = aggregate.count ? [countSelectClause()] : []
 
   const sumSelects =
     aggregate.sum?.map((field) => {
@@ -120,13 +130,7 @@ export function checkDeletedAtColumn(
   tableName: string
 ): Effect.Effect<boolean, SessionContextError> {
   return Effect.tryPromise({
-    try: async () => {
-      const columnCheck = (await tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-      )) as readonly Record<string, unknown>[]
-
-      return columnCheck.length > 0
-    },
+    try: () => columnExists(tx, tableName, 'deleted_at'),
     catch: (error) =>
       new SessionContextError(`Failed to check deleted_at column for ${tableName}`, error),
   })
@@ -252,12 +256,11 @@ export function checkAuthorshipColumns(
 > {
   return Effect.tryPromise({
     try: async () => {
-      const columnCheck = (await tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('created_by', 'updated_by', 'deleted_by')`
-      )) as readonly Record<string, unknown>[]
-
-      const columns = new Set(columnCheck.map((row) => row['column_name'] as string))
-
+      const columns = await getExistingColumnNames(tx, tableName, [
+        'created_by',
+        'updated_by',
+        'deleted_by',
+      ])
       return {
         hasCreatedBy: columns.has('created_by'),
         hasUpdatedBy: columns.has('updated_by'),

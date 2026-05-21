@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Data, Effect, Exit, Cause } from 'effect'
 import { ValidationError, type DrizzleTransaction } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { validateColumnName } from '../shared/validation'
 
 export class BatchValidationError extends Data.TaggedError('BatchValidationError')<{
@@ -63,9 +64,10 @@ export async function createSingleRecord(
   if (!clauses) return undefined
 
   try {
-    const result = (await tx.execute(
+    const result = await executeRaw(
+      tx,
       sql`INSERT INTO ${sql.identifier(tableName)} (${clauses.columnsClause}) VALUES (${clauses.valuesClause}) RETURNING *`
-    )) as readonly Record<string, unknown>[]
+    )
 
     return result[0] ?? undefined
   } catch (error) {
@@ -83,9 +85,10 @@ export function createSingleRecordInBatch(
       const clauses = buildInsertClauses(fields)
       if (!clauses) return undefined
 
-      const result = (await tx.execute(
+      const result = await executeRaw(
+        tx,
         sql`INSERT INTO ${sql.identifier(tableName)} (${clauses.columnsClause}) VALUES (${clauses.valuesClause}) RETURNING *`
-      )) as readonly Record<string, unknown>[]
+      )
 
       return result[0] ?? undefined
     },

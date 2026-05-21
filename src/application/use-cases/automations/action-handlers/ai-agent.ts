@@ -7,7 +7,9 @@
 
 
 import { Effect } from 'effect'
+import { AiEmbeddingRepository } from '@/application/ports/repositories/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
+import { AiEmbeddingRepositoryLive } from '@/infrastructure/database/repositories/ai-embedding-repository-live'
 import { aiErrorOutcome } from './ai'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -22,6 +24,53 @@ import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 
 const DEFAULT_MAX_STEPS = 10
+
+const DEFAULT_KNOWLEDGE_RETRIEVAL_LIMIT = 5
+
+const DEFAULT_KNOWLEDGE_SIMILARITY_THRESHOLD = 0.7
+
+const retrieveKnowledgeChunks = (input: {
+  readonly task: string
+  readonly agent: Agent
+}): Effect.Effect<
+  ReadonlyArray<{ readonly content: string; readonly sourceRef: string | null }>,
+  never,
+  AiService
+> =>
+  Effect.gen(function* () {
+    const memory = input.agent.memory?.knowledge
+    if (memory === undefined || memory.enabled !== true) return []
+    const limit = memory.retrievalLimit ?? DEFAULT_KNOWLEDGE_RETRIEVAL_LIMIT
+    const threshold = memory.similarityThreshold ?? DEFAULT_KNOWLEDGE_SIMILARITY_THRESHOLD
+    const sources = memory.sources ?? []
+
+    const ai = yield* AiService
+    const embedResult = yield* Effect.either(ai.embed({ text: input.task }))
+    if (embedResult._tag === 'Left') return []
+
+    const searchProgram = Effect.gen(function* () {
+      const repo = yield* AiEmbeddingRepository
+      return yield* repo.search({
+        embedding: embedResult.right.embedding,
+        agentName: undefined,
+        minSimilarity: threshold,
+        maxResults: limit,
+      })
+    }).pipe(
+      Effect.provide(AiEmbeddingRepositoryLive),
+      Effect.catchAll(() => Effect.succeed([] as ReadonlyArray<never>))
+    )
+    const results = yield* searchProgram
+
+    const filtered =
+      sources.length === 0
+        ? results
+        : results.filter((row) => {
+            const ref = row.sourceRef ?? ''
+            return sources.some((source) => ref.startsWith(`document:${source}/`))
+          })
+    return filtered.map((row) => ({ content: row.content, sourceRef: row.sourceRef }))
+  })
 
 const buildAgentSystemPrompt = (agent: Agent): string => {
   const { tools } = agent
@@ -192,6 +241,23 @@ const resolveAgentTask = (
   return { agent, task }
 }
 
+const composeSystemPrompt = (
+  agent: Readonly<Agent>,
+  knowledgeChunks: readonly { readonly content: string }[]
+): string => {
+  const knowledgeContext =
+    knowledgeChunks.length > 0
+      ? [
+          '',
+          'Relevant knowledge retrieved from your knowledge base:',
+          ...knowledgeChunks.map((chunk, idx) => `[${idx + 1}] ${chunk.content}`),
+        ].join('\n')
+      : ''
+  return [buildAgentSystemPrompt(agent), knowledgeContext]
+    .filter((part) => part.trim().length > 0)
+    .join('\n\n')
+}
+
 export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -199,9 +265,12 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
     if ('status' in resolved) return resolved
     const { agent, task } = resolved
 
+    const knowledgeChunks = yield* retrieveKnowledgeChunks({ task, agent })
+    const systemPrompt = composeSystemPrompt(agent, knowledgeChunks)
+
     const initial: AgentLoopState = {
       messages: [
-        { role: 'system', content: buildAgentSystemPrompt(agent) },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: task },
       ],
       stepsExecuted: 0,
@@ -224,7 +293,7 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
         result: outcome.lastReply?.content ?? '',
         toolsUsed: outcome.toolsUsed,
         stepsExecuted: outcome.stepsExecuted,
-        knowledgeUsed: 0,
+        knowledgeUsed: knowledgeChunks.length,
       },
     } as const
   })

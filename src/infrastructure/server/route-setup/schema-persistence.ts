@@ -9,6 +9,7 @@
 import { sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import type { AppVersionSource } from '@/domain/models/system/app-version'
 
 
 export type Snapshot = Record<string, unknown>
@@ -91,22 +92,28 @@ const insertVersionRow = async (input: {
   readonly snapshot: unknown
   readonly message: string
   readonly userId: string
+  readonly source: AppVersionSource
+  readonly fileChecksum?: string
   readonly restoredFromVersion?: number
 }): Promise<number> => {
   const snapJson = escapeSqlLiteral(JSON.stringify(input.snapshot))
   const message = escapeSqlLiteral(input.message)
   const userId = escapeSqlLiteral(input.userId)
+  const source = escapeSqlLiteral(input.source)
   const checksum = `sha256:${await sha256Hex(snapJson)}`
 
   const restored = input.restoredFromVersion
-  const columns = restored !== undefined ? 'restored_from_version' : ''
-  const values = restored !== undefined ? `${Math.floor(restored)}` : ''
-  const restoredColumn = columns !== '' ? `, ${columns}` : ''
-  const restoredValue = values !== '' ? `, ${values}` : ''
+  const restoredColumn = restored !== undefined ? ', restored_from_version' : ''
+  const restoredValue = restored !== undefined ? `, ${Math.floor(restored)}` : ''
+
+  const { fileChecksum } = input
+  const fileChecksumColumn = fileChecksum !== undefined ? ', file_checksum' : ''
+  const fileChecksumValue =
+    fileChecksum !== undefined ? `, '${escapeSqlLiteral(fileChecksum)}'` : ''
 
   const result = await db.execute(
     sql.raw(
-      `INSERT INTO system.sovrium_app_versions (version_number, snapshot, checksum, created_at, created_by_user_id, message${restoredColumn}) SELECT COALESCE(MAX(version_number), 0) + 1, '${snapJson}'::jsonb, '${checksum}', NOW(), '${userId}', '${message}'${restoredValue} FROM system.sovrium_app_versions RETURNING version_number`
+      `INSERT INTO system.sovrium_app_versions (version_number, snapshot, checksum, created_at, created_by_user_id, message, source${fileChecksumColumn}${restoredColumn}) SELECT COALESCE(MAX(version_number), 0) + 1, '${snapJson}'::jsonb, '${checksum}', NOW(), '${userId}', '${message}', '${source}'${fileChecksumValue}${restoredValue} FROM system.sovrium_app_versions RETURNING version_number`
     )
   )
   const row = extractRows(result)[0]
@@ -117,6 +124,8 @@ export const insertVersion = (input: {
   readonly snapshot: unknown
   readonly message: string
   readonly userId: string
+  readonly source: AppVersionSource
+  readonly fileChecksum?: string
 }): Promise<number> => insertVersionRow(input)
 
 export const insertRestoredVersion = (input: {
@@ -124,7 +133,7 @@ export const insertRestoredVersion = (input: {
   readonly message: string
   readonly userId: string
   readonly restoredFromVersion: number
-}): Promise<number> => insertVersionRow(input)
+}): Promise<number> => insertVersionRow({ ...input, source: 'restore' })
 
 
 export const readLatestDraft = async (): Promise<DraftRow | undefined> => {

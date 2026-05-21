@@ -61,6 +61,8 @@ const SINGLE_ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
   'single-attachment',
 ])
 
+const BOOLEAN_FIELD_TYPES: ReadonlySet<string> = new Set(['checkbox', 'boolean', 'bool'])
+
 function applyAttachmentDisplayName(value: RecordFieldValue): RecordFieldValue {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
   const attachment = value as Record<string, unknown>
@@ -88,6 +90,20 @@ const coerceNumericField = (
   if (!fieldType || !NUMERIC_FIELD_TYPES.has(fieldType)) return value
   const num = Number(value)
   return !isNaN(num) && isFinite(num) ? num : value
+}
+
+const coerceBooleanField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  const fieldType = getFieldType(app, tableName, fieldName)
+  if (!fieldType || !BOOLEAN_FIELD_TYPES.has(fieldType)) return value
+  if (value === null || typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') return value === '1' || value.toLowerCase() === 'true'
+  return value
 }
 
 const parseNumericString = (value: unknown, processedValue: RecordFieldValue): RecordFieldValue => {
@@ -125,7 +141,8 @@ function processRawField(
   app: App,
   tableName: string
 ): RecordFieldValue {
-  const coerced = coerceNumericField(key, value, app, tableName)
+  const numeric = coerceNumericField(key, value, app, tableName)
+  const coerced = coerceBooleanField(key, numeric, app, tableName)
   const fieldType = getFieldType(app, tableName, key)
   return fieldType && SINGLE_ATTACHMENT_FIELD_TYPES.has(fieldType)
     ? applyAttachmentDisplayName(coerced)

@@ -13,8 +13,9 @@ import {
   ValidationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { typedExecute } from '../shared/typed-execute'
 import { validateTableName, validateColumnName } from '../shared/validation'
 import { BatchValidationError, runEffectInTx, createSingleRecord } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -36,9 +37,10 @@ async function updateSingleRecord(
   })
   const setClause = sql.join(setExpressions, sql.raw(', '))
 
-  const result = (await tx.execute(
+  const result = await executeRaw(
+    tx,
     sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
-  )) as readonly Record<string, unknown>[]
+  )
 
   return result[0] ?? undefined
 }
@@ -63,9 +65,10 @@ function findExistingRecord(
 
   return Effect.tryPromise({
     try: async () => {
-      const result = (await tx.execute(
+      const result = await executeRaw(
+        tx,
         sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${whereClause} LIMIT 1`
-      )) as readonly Record<string, unknown>[]
+      )
       return result[0]
     },
     catch: (error) =>
@@ -213,19 +216,10 @@ async function validateRequiredFieldsInRecord(
   record: Readonly<Record<string, unknown>>,
   recordIndex: number
 ): Promise<readonly string[]> {
-  const schemaQuery = await typedExecute<{ column_name: string }>(
-    tx,
-    sql`
-      SELECT column_name, is_nullable, column_default
-      FROM information_schema.columns
-      WHERE table_name = ${tableName}
-        AND table_schema = 'public'
-        AND is_nullable = 'NO'
-        AND column_default IS NULL
-    `
-  )
-
-  const requiredFields = schemaQuery.map((row) => row.column_name)
+  const columns = await listTableColumns(tx, tableName)
+  const requiredFields = columns
+    .filter((col) => !col.isNullable && col.columnDefault === null)
+    .map((col) => col.name)
 
   const autoFields = new Set(['id', 'created_at', 'updated_at'])
 

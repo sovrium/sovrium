@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
 export const fieldTypeToPostgresMap: Record<string, string> = {
@@ -81,6 +82,50 @@ const formulaResultTypeMap: Record<string, string> = {
 export const mapFormulaResultTypeToPostgres = (resultType: string | undefined): string => {
   if (!resultType) return 'TEXT'
   return formulaResultTypeMap[resultType.toLowerCase()] ?? 'TEXT'
+}
+
+
+const postgresToSqliteTypeMap: Record<string, string> = {
+  TIMESTAMPTZ: 'TEXT',
+  TIMESTAMP: 'TEXT',
+  DATE: 'TEXT',
+  TIME: 'TEXT',
+  JSONB: 'TEXT',
+  JSON: 'TEXT',
+  SERIAL: 'INTEGER',
+  BIGSERIAL: 'INTEGER',
+  INTERVAL: 'INTEGER',
+  BOOLEAN: 'INTEGER',
+  POINT: 'TEXT',
+  GEOMETRY: 'TEXT',
+  GEOGRAPHY: 'TEXT',
+  TSVECTOR: 'TEXT',
+  VECTOR: 'TEXT',
+  UUID: 'TEXT',
+}
+
+export const mapPostgresTypeToSqlite = (postgresType: string): string => {
+  const upper = postgresType.toUpperCase().trim()
+
+  if (upper.endsWith('[]')) return 'TEXT'
+  if (upper.startsWith('VARCHAR') || upper.startsWith('CHAR')) return 'TEXT'
+  if (upper.startsWith('NUMERIC') || upper.startsWith('DECIMAL')) return 'NUMERIC'
+
+  return postgresToSqliteTypeMap[upper] ?? upper
+}
+
+export const mapFieldTypeToDialect = (field: Fields[number]): string => {
+  const postgresType = mapFieldTypeToPostgres(field)
+  return parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? mapPostgresTypeToSqlite(postgresType)
+    : postgresType
+}
+
+export const mapFormulaResultTypeToDialect = (resultType: string | undefined): string => {
+  const postgresType = mapFormulaResultTypeToPostgres(resultType)
+  return parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? mapPostgresTypeToSqlite(postgresType)
+    : postgresType
 }
 
 const NUMERIC_TYPES_WITH_PRECISION = new Set(['decimal', 'currency', 'percentage'])

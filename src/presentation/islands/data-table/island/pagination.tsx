@@ -64,9 +64,9 @@ export function PaginationControls({ table, total, pageSizeOptions }: Pagination
     <nav
       aria-label="pagination"
       data-pagination
-      className="flex items-center justify-between border-t border-gray-200 px-2 py-3"
+      className="border-border flex items-center justify-between border-t px-2 py-3"
     >
-      <span className="text-sm text-gray-600">{summary}</span>
+      <span className="text-fg-muted text-sm">{summary}</span>
       <div className="flex items-center gap-2">
         {pageSizeOptions && pageSizeOptions.length > 0 && (
           <PageSizeSelect

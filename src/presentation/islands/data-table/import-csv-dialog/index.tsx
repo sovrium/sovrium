@@ -104,7 +104,7 @@ export function ImportCsvDialog({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="bg-scrim/50 fixed inset-0 z-40"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -114,10 +114,10 @@ export function ImportCsvDialog({
         aria-labelledby="import-csv-dialog-title"
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+        <div className="bg-bg-overlay w-full max-w-2xl rounded-lg p-6 shadow-xl">
           <h2
             id="import-csv-dialog-title"
-            className="mb-4 text-lg font-semibold text-gray-900"
+            className="text-fg mb-4 text-lg font-semibold"
           >
             Import CSV
           </h2>

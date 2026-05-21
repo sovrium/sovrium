@@ -22,7 +22,7 @@ const AttachButton = (): ReactElement => (
     type="button"
     data-testid="chat-attach"
     aria-label="Attach file"
-    className="rounded border border-gray-300 px-2 py-2 text-sm text-gray-600 hover:bg-gray-50"
+    className="border-border text-fg-muted hover:bg-bg-subtle rounded border px-2 py-2 text-sm"
   >
     Attach
   </button>
@@ -63,7 +63,7 @@ export function ChatInputRow({
     <form
       data-ai-chat-form
       onSubmit={handleSubmit}
-      className="flex items-center gap-2 border-t border-gray-200 p-3"
+      className="border-border flex items-center gap-2 border-t p-3"
     >
       <label
         htmlFor="ai-chat-input"
@@ -82,14 +82,14 @@ export function ChatInputRow({
         onChange={handleChange}
         disabled={isSending}
         placeholder={placeholder}
-        className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
+        className="border-border flex-1 rounded border px-3 py-2 text-sm"
       />
       <button
         type="submit"
         data-ai-chat-send
         data-testid="chat-send"
         disabled={!canSend}
-        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
       >
         Send
       </button>

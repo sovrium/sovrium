@@ -33,28 +33,32 @@ function provideGuestContext() {
   return guestContextHandler
 }
 
-export function chainTableRoutes<T extends Hono<any, any, any>>(honoApp: T, app: App) {
+export function chainTableRoutes<T extends Hono<any, any, any>>(
+  honoApp: T,
+  app: App,
+  resolveApp: () => App = () => app
+) {
   const honoWithUserAccess = honoApp
-    .post('/api/tables/user_access/records', (c) => handleCreateUserAccessRecord(c, app))
-    .get('/api/tables/user_access/records', (c) => handleListUserAccessRecords(c, app))
+    .post('/api/tables/user_access/records', (c) => handleCreateUserAccessRecord(c, resolveApp()))
+    .get('/api/tables/user_access/records', (c) => handleListUserAccessRecords(c, resolveApp()))
 
   const honoWithMiddleware = app.auth
     ? honoWithUserAccess
-        .use('/api/tables/:tableId', validateTable(app))
+        .use('/api/tables/:tableId', validateTable(resolveApp))
         .use('/api/tables/:tableId', enrichUserRole())
-        .use('/api/tables/:tableId/*', validateTable(app))
+        .use('/api/tables/:tableId/*', validateTable(resolveApp))
         .use('/api/tables/:tableId/*', enrichUserRole())
     : honoWithUserAccess
-        .use('/api/tables/:tableId', validateTable(app))
+        .use('/api/tables/:tableId', validateTable(resolveApp))
         .use('/api/tables/:tableId', provideGuestContext())
-        .use('/api/tables/:tableId/*', validateTable(app))
+        .use('/api/tables/:tableId/*', validateTable(resolveApp))
         .use('/api/tables/:tableId/*', provideGuestContext())
 
   return chainViewRoutesMethods(
     chainRecordRoutesMethods(
-      chainBatchRoutesMethods(chainTableRoutesMethods(honoWithMiddleware, app), app),
-      app
+      chainBatchRoutesMethods(chainTableRoutesMethods(honoWithMiddleware, resolveApp), resolveApp),
+      resolveApp
     ),
-    app
+    resolveApp
   )
 }

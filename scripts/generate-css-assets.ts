@@ -14,6 +14,8 @@ const PROJECT_ROOT = join(import.meta.dir, '..')
 
 const SCAN_SOURCES = ['src', 'examples'] as const
 
+const GENERATED_OUTPUT_REL = 'infrastructure/css/generated-css-assets.ts'
+
 const COPYRIGHT_HEADER = `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES
  *
@@ -23,11 +25,18 @@ const COPYRIGHT_HEADER = `/**
 
 function scanCandidates(): readonly string[] {
   const scanner = new Scanner({
-    sources: SCAN_SOURCES.map((dir) => ({
-      base: join(PROJECT_ROOT, dir),
-      pattern: '**/*',
-      negated: false,
-    })),
+    sources: [
+      ...SCAN_SOURCES.map((dir) => ({
+        base: join(PROJECT_ROOT, dir),
+        pattern: '**/*.{ts,tsx}',
+        negated: false,
+      })),
+      {
+        base: join(PROJECT_ROOT, 'src'),
+        pattern: GENERATED_OUTPUT_REL,
+        negated: true,
+      },
+    ],
   })
   return [...new Set(scanner.scan())].toSorted()
 }
@@ -47,7 +56,9 @@ const twAnimateCss = readStylesheet('tw-animate-css/dist/tw-animate.css')
 
 const outPath = join(PROJECT_ROOT, 'src/infrastructure/css/generated-css-assets.ts')
 
-const fileContent = `${COPYRIGHT_HEADER}
+const fileContent = `// @ts-nocheck -- generated file: huge embedded string literals, never type-checked
+/* eslint-disable -- generated file: never linted (see eslint/base.config.ts) */
+${COPYRIGHT_HEADER}
 
 /**
  * GENERATED FILE — do not edit by hand.

@@ -3859,6 +3859,256 @@ async function findSpecFiles(dir: string): Promise<string[]> {
   return files.sort()
 }
 
+
+interface RegressionPlaceholderIssue {
+  readonly file: string
+  readonly line: number
+  readonly severity: 'warning'
+  readonly message: string
+}
+
+async function checkRegressionPlaceholders(
+  specFiles: readonly string[]
+): Promise<readonly RegressionPlaceholderIssue[]> {
+  const issues: RegressionPlaceholderIssue[] = []
+
+  const PLACEHOLDER_PATTERN = /\bexpect\s*\(\s*true\s*\)\s*\.\s*toBe\s*\(\s*true\s*\)\s*;?/
+
+  const MARKER_PATTERN = /^\s*\/\/\s*REGRESSION-SKIP-REASON:\s*\S/
+
+  const TEST_HEADER_PATTERN = /(?<![.\w])test(?:\.fixme|\.skip|\.describe|\.only)?\s*\(/
+
+  for (const filePath of specFiles) {
+    let content: string
+    try {
+      content = await readFile(filePath, 'utf-8')
+    } catch {
+      continue
+    }
+
+    if (!PLACEHOLDER_PATTERN.test(content)) continue
+
+    const lines = content.split('\n')
+    const relativePath = relative(SPECS_DIR, filePath)
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (line === undefined) continue
+      if (!PLACEHOLDER_PATTERN.test(line)) continue
+
+      let isInRegression = false
+      let foundHeader = false
+
+      for (let j = i - 1; j >= 0; j--) {
+        const candidate = lines[j]
+        if (candidate === undefined) continue
+        if (!TEST_HEADER_PATTERN.test(candidate)) continue
+
+        const slice = lines.slice(j, Math.min(j + 6, lines.length)).join('\n')
+        if (slice.includes('@regression')) {
+          isInRegression = true
+        }
+        foundHeader = true
+        break
+      }
+
+      if (!foundHeader || !isInRegression) continue
+
+      let prevNonBlankIdx = -1
+      for (let k = i - 1; k >= 0; k--) {
+        const candidate = lines[k]
+        if (candidate === undefined) continue
+        if (candidate.trim() === '') continue
+        prevNonBlankIdx = k
+        break
+      }
+
+      const prevLine = prevNonBlankIdx >= 0 ? lines[prevNonBlankIdx] : undefined
+      const hasValidMarker = prevLine !== undefined && MARKER_PATTERN.test(prevLine)
+
+      if (!hasValidMarker) {
+        issues.push({
+          file: relativePath,
+          line: i + 1,
+          severity: 'warning',
+          message:
+            'empty @regression step missing REGRESSION-SKIP-REASON marker — add `// REGRESSION-SKIP-REASON: <reason>` on the line immediately above',
+        })
+      }
+    }
+  }
+
+  return issues
+}
+
+
+interface AntiEnumerationIssue {
+  readonly file: string
+  readonly line: number
+  readonly severity: 'error'
+  readonly message: string
+}
+
+async function checkAntiEnumeration(
+  specFiles: readonly string[]
+): Promise<readonly AntiEnumerationIssue[]> {
+  const issues: AntiEnumerationIssue[] = []
+
+  const TO_BE_403 = /(?<!not)\.\s*toBe\s*\(\s*403\s*\)/
+  const ARRAY_403 = /\[\s*(?:\d+\s*,\s*)*403(?:\s*,\s*\d+)*\s*\]/
+
+  const ANNOTATION = /\/\/\s*403\s+OK\s*:/i
+
+  const TEST_HEADER_PATTERN = /(?<![.\w])test(?:\.fixme|\.skip|\.only)?\s*\(/
+
+  const TEST_STEP_PATTERN = /(?<![.\w])test\s*\.\s*step\s*\(/
+
+  const TEST_DESCRIBE_PATTERN = /(?<![.\w])test\s*\.\s*describe\s*\(/
+
+  const AUTH_FIXTURE_PATTERNS: readonly RegExp[] = [
+    /\bcreateAuthenticatedUser\s*\(/,
+    /\bcreateAuthenticatedOwner\s*\(/,
+    /\bcreateAuthenticatedMember\s*\(/,
+    /\bcreateAuthenticatedViewer\s*\(/,
+    /\bcreateAuthenticatedAdmin\s*\(/,
+    /\bcreateAuthenticated[A-Z][A-Za-z0-9]*\s*\(/,
+    /\bsignUp\s*\(/,
+    /\bsignIn\s*\(/,
+    /\bloginAs\s*\(/,
+    /Authorization\s*:\s*[`'"][^`'"]*\$\{/,
+  ]
+
+  for (const filePath of specFiles) {
+    let content: string
+    try {
+      content = await readFile(filePath, 'utf-8')
+    } catch {
+      continue
+    }
+
+    if (!TO_BE_403.test(content) && !ARRAY_403.test(content)) continue
+
+    const lines = content.split('\n')
+    const relativePath = relative(SPECS_DIR, filePath)
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (line === undefined) continue
+
+      const hasHit = TO_BE_403.test(line) || ARRAY_403.test(line)
+      if (!hasHit) continue
+
+      if (ANNOTATION.test(line)) continue
+
+      let prevNonBlankIdx = -1
+      for (let k = i - 1; k >= 0; k--) {
+        const candidate = lines[k]
+        if (candidate === undefined) continue
+        if (candidate.trim() === '') continue
+        prevNonBlankIdx = k
+        break
+      }
+      const prevLine = prevNonBlankIdx >= 0 ? lines[prevNonBlankIdx] : undefined
+      if (prevLine !== undefined && ANNOTATION.test(prevLine)) continue
+
+      let stepDepth = 0
+      let outerTestStart = -1
+      for (let j = i - 1; j >= 0; j--) {
+        const candidate = lines[j]
+        if (candidate === undefined) continue
+
+        if (TEST_DESCRIBE_PATTERN.test(candidate)) continue
+        if (TEST_STEP_PATTERN.test(candidate)) {
+          stepDepth++
+          continue
+        }
+        if (TEST_HEADER_PATTERN.test(candidate)) {
+          if (stepDepth > 0) {
+            stepDepth--
+            continue
+          }
+          outerTestStart = j
+          break
+        }
+      }
+      if (outerTestStart < 0) continue
+
+      const MAX_BODY_LINES = 400
+      let parenDepth = 0
+      let bodyEnd = Math.min(outerTestStart + MAX_BODY_LINES, lines.length - 1)
+      let seenFirstParen = false
+      let inString: string | null = null
+      let inSingleLineComment = false
+      let inMultiLineComment = false
+      bodyScan: for (let k = outerTestStart; k <= bodyEnd; k++) {
+        const candidate = lines[k]
+        if (candidate === undefined) break
+        inSingleLineComment = false
+        for (let c = 0; c < candidate.length; c++) {
+          const ch = candidate[c]
+          const next = candidate[c + 1]
+          const prev = c > 0 ? candidate[c - 1] : ''
+
+          if (inSingleLineComment) continue
+          if (inMultiLineComment) {
+            if (ch === '*' && next === '/') {
+              inMultiLineComment = false
+              c++
+            }
+            continue
+          }
+          if (inString !== null) {
+            if (ch === '\\' && next !== undefined) {
+              c++
+              continue
+            }
+            if (ch === inString) inString = null
+            continue
+          }
+          if (ch === '/' && next === '/') {
+            inSingleLineComment = true
+            continue
+          }
+          if (ch === '/' && next === '*') {
+            inMultiLineComment = true
+            c++
+            continue
+          }
+          if (ch === '"' || ch === "'" || ch === '`') {
+            inString = ch
+            continue
+          }
+          if (ch === '(') {
+            parenDepth++
+            seenFirstParen = true
+          } else if (ch === ')') {
+            parenDepth--
+            if (seenFirstParen && parenDepth === 0) {
+              bodyEnd = k
+              break bodyScan
+            }
+          }
+          void prev
+        }
+      }
+
+      const body = lines.slice(outerTestStart, bodyEnd + 1).join('\n')
+      const isAuthenticated = AUTH_FIXTURE_PATTERNS.some((p) => p.test(body))
+      if (!isAuthenticated) continue
+
+      issues.push({
+        file: relativePath,
+        line: i + 1,
+        severity: 'error',
+        message:
+          'authenticated test asserts 403 — S1 anti-enumeration requires 404 (or annotate the line above with `// 403 OK: <reason>` if intentional)',
+      })
+    }
+  }
+
+  return issues
+}
+
 function extractTests(content: string, _filePath: string): SpecTest[] {
   const tests: SpecTest[] = []
 
@@ -5564,6 +5814,8 @@ async function main() {
   const noError = args.includes('--no-error')
   const skipStories = args.includes('--skip-stories')
   const skipSchema = args.includes('--skip-schema')
+  const skipRegressionPlaceholders = args.includes('--skip-regression-placeholders')
+  const skipAntiEnumeration = args.includes('--skip-anti-enumeration')
 
   console.log('Analyzing spec files...')
   console.log('')
@@ -6173,6 +6425,46 @@ async function main() {
     console.log(`✅ Spec Tests passed (${totalTests} tests, ${qualityScore}% quality)`)
   }
 
+  let antiEnumerationIssues: readonly AntiEnumerationIssue[] = []
+  if (!skipAntiEnumeration) {
+    antiEnumerationIssues = await checkAntiEnumeration(specFiles)
+    if (antiEnumerationIssues.length > 0) {
+      console.log(
+        `❌ Anti-Enumeration (S1): ${antiEnumerationIssues.length} authenticated 403 assertion(s)`
+      )
+      for (const issue of antiEnumerationIssues.slice(0, 10)) {
+        console.log(`   ${issue.file}:${issue.line}: ${issue.message}`)
+      }
+      if (antiEnumerationIssues.length > 10) {
+        console.log(`   ... and ${antiEnumerationIssues.length - 10} more`)
+      }
+    } else {
+      console.log('✅ Anti-Enumeration (S1): no authenticated 403 assertions')
+    }
+  } else {
+    console.log('⏭️  Anti-Enumeration (S1) skipped (--skip-anti-enumeration)')
+  }
+
+  let regressionPlaceholderIssues: readonly RegressionPlaceholderIssue[] = []
+  if (!skipRegressionPlaceholders) {
+    regressionPlaceholderIssues = await checkRegressionPlaceholders(specFiles)
+    if (regressionPlaceholderIssues.length > 0) {
+      console.log(
+        `⚠️  Regression Placeholders: ${regressionPlaceholderIssues.length} unmarked empty @regression step(s)`
+      )
+      for (const issue of regressionPlaceholderIssues.slice(0, 10)) {
+        console.log(`   ${issue.file}:${issue.line}: ${issue.message}`)
+      }
+      if (regressionPlaceholderIssues.length > 10) {
+        console.log(`   ... and ${regressionPlaceholderIssues.length - 10} more`)
+      }
+    } else {
+      console.log('✅ Regression Placeholders: all empty steps justified')
+    }
+  } else {
+    console.log('⏭️  Regression Placeholders skipped (--skip-regression-placeholders)')
+  }
+
   if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
     console.log(
       `🔄 TDD Pipeline (${totalFixme} remaining, ${tddAutomation.totalFixed} fixed in 30d)`
@@ -6181,9 +6473,16 @@ async function main() {
     console.log('✅ TDD Pipeline (no remaining fixme)')
   }
 
-  const totalErrors = errorsWithDuplicates + storyValidationErrors + schemaStructureErrors
+  const regressionPlaceholderWarnings = regressionPlaceholderIssues.length
+  const antiEnumerationErrors = antiEnumerationIssues.length
+  const totalErrors =
+    errorsWithDuplicates + storyValidationErrors + schemaStructureErrors + antiEnumerationErrors
   const totalWarnings =
-    warningsWithDuplicates + storyValidationWarnings + orphanedCount + schemaStructureWarnings
+    warningsWithDuplicates +
+    storyValidationWarnings +
+    orphanedCount +
+    schemaStructureWarnings +
+    regressionPlaceholderWarnings
   const hasErrors = totalErrors > 0
   const hasWarnings = totalWarnings > 0
   const hasIssues = hasErrors || hasWarnings
@@ -6337,6 +6636,20 @@ async function main() {
           text: formatIssue(issue.type, f.relativePath, issue.line, issue.message),
         })
       }
+    }
+
+    for (const issue of antiEnumerationIssues) {
+      addToBucket(specBuckets, 'Anti-Enumeration (S1)', {
+        severity: issue.severity,
+        text: formatIssue(issue.severity, issue.file, issue.line, issue.message),
+      })
+    }
+
+    for (const issue of regressionPlaceholderIssues) {
+      addToBucket(specBuckets, 'Regression Placeholders', {
+        severity: issue.severity,
+        text: formatIssue(issue.severity, issue.file, issue.line, issue.message),
+      })
     }
 
     if (!skipStories) {

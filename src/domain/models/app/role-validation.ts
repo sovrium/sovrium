@@ -54,6 +54,15 @@ const validateTableRoles = (
     : undefined
 }
 
+export const validateTableRoleReferences = (app: {
+  readonly auth?: { readonly roles?: ReadonlyArray<{ readonly name: string }> }
+  readonly tables?: ReadonlyArray<{ readonly name: string; readonly permissions?: unknown }>
+}): string | true => {
+  if (!app.auth) return true
+  const { validRoles, validLabel } = buildValidRoles(app.auth)
+  return validateTableRoles(app.tables ?? [], validRoles, validLabel) ?? true
+}
+
 const validateBucketRoles = (
   buckets: ReadonlyArray<{ readonly name: string; readonly permissions?: unknown }>,
   validRoles: ReadonlySet<string>,

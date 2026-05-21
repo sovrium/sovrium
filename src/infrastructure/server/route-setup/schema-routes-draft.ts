@@ -14,6 +14,7 @@ import {
   readAllVersionRows,
   readVersionRow,
 } from './schema-persistence'
+import { runPublishMigration } from './schema-publish-migration'
 import {
   type DraftRow,
   type FieldError,
@@ -28,12 +29,30 @@ import {
   writeDraft,
 } from './schema-routes-core'
 import { type ValidationError, validateSnapshot } from './schema-validation'
+import type { SchemaMigrationResult } from '@/application/ports/services/schema-migrator'
 import type { App } from '@/domain/models/app'
 
 
 const toFieldErrors = (errors: ReadonlyArray<ValidationError>): ReadonlyArray<FieldError> =>
   errors.map((e) => ({ field: e.field, message: e.message }))
 
+
+const versionDetail = (row: Readonly<Record<string, unknown>>): Record<string, unknown> => {
+  const createdAt = row['created_at']
+  const restoredFromVersion = restoredFromVersionOf(row)
+  const fileChecksum = row['file_checksum']
+  return {
+    versionNumber: Number(row['version_number']),
+    snapshot: row['snapshot'],
+    checksum: String(row['checksum'] ?? ''),
+    createdAt: createdAt !== undefined ? String(createdAt) : new Date().toISOString(),
+    createdByUserId: String(row['created_by_user_id'] ?? ''),
+    source: sourceOf(row),
+    message: typeof row['message'] === 'string' ? row['message'] : '',
+    ...(typeof fileChecksum === 'string' && fileChecksum.length > 0 ? { fileChecksum } : {}),
+    ...(restoredFromVersion !== undefined ? { restoredFromVersion } : {}),
+  }
+}
 
 export const handleGetVersion = (
   c: Readonly<Context>,
@@ -55,20 +74,7 @@ export const handleGetVersion = (
         message: `version ${versionNumber} not found`,
       })
     }
-    const createdAt = row['created_at']
-    const restoredFromVersion = restoredFromVersionOf(row)
-    return c.json(
-      {
-        versionNumber: Number(row['version_number']),
-        snapshot: row['snapshot'],
-        checksum: String(row['checksum'] ?? ''),
-        createdAt: createdAt !== undefined ? String(createdAt) : new Date().toISOString(),
-        createdByUserId: String(row['created_by_user_id'] ?? ''),
-        message: typeof row['message'] === 'string' ? row['message'] : '',
-        ...(restoredFromVersion !== undefined ? { restoredFromVersion } : {}),
-      },
-      200
-    )
+    return c.json(versionDetail(row), 200)
   })
 
 
@@ -164,15 +170,24 @@ const restoredFromVersionOf = (row: Readonly<Record<string, unknown>>): number |
   return Number.isInteger(value) && value >= 1 ? value : undefined
 }
 
+const sourceOf = (row: Readonly<Record<string, unknown>>): string => {
+  const raw = row['source']
+  if (typeof raw !== 'string' || raw === '') return 'config-file'
+  return raw
+}
+
 const versionListItem = (row: Readonly<Record<string, unknown>>): Record<string, unknown> => {
   const createdAt = row['created_at']
   const restoredFromVersion = restoredFromVersionOf(row)
+  const fileChecksum = row['file_checksum']
   return {
     versionNumber: Number(row['version_number']),
     checksum: String(row['checksum'] ?? ''),
     createdAt: createdAt !== undefined ? String(createdAt) : new Date().toISOString(),
     createdByUserId: String(row['created_by_user_id'] ?? ''),
+    source: sourceOf(row),
     message: typeof row['message'] === 'string' ? row['message'] : '',
+    ...(typeof fileChecksum === 'string' && fileChecksum.length > 0 ? { fileChecksum } : {}),
     ...(restoredFromVersion !== undefined ? { restoredFromVersion } : {}),
   }
 }
@@ -201,8 +216,9 @@ const commitVersion = async (input: {
   readonly message: string
   readonly insert: () => Promise<number>
   readonly restoredFromVersion?: number
+  readonly migration?: SchemaMigrationResult
 }): Promise<Response> => {
-  const { c, snapshot, userId, message, insert, restoredFromVersion } = input
+  const { c, snapshot, userId, message, insert, restoredFromVersion, migration } = input
 
   const newVersionNumber = await insert()
   setLiveApp(snapshot as { readonly name: string; readonly [key: string]: unknown })
@@ -221,22 +237,42 @@ const commitVersion = async (input: {
           message,
           ...(restoredFromVersion !== undefined ? { restoredFromVersion } : {}),
         }
-  return c.json({ version, activeVersion: newVersionNumber }, 200)
+  return c.json(
+    {
+      version,
+      activeVersion: newVersionNumber,
+      ...(migration !== undefined
+        ? { migration: { applied: migration.applied, deferred: migration.deferred } }
+        : {}),
+    },
+    200
+  )
 }
 
-const commitPublish = (input: {
+const commitPublish = async (input: {
   readonly c: Readonly<Context>
   readonly draft: DraftRow
   readonly userId: string
   readonly message: string
 }): Promise<Response> => {
   const { c, draft, userId, message } = input
+
+  const previousSnapshot = await readActiveVersionSnapshot()
+  const migration = await runPublishMigration(previousSnapshot, draft.snapshot)
+  if (!migration.ok) {
+    return jsonError(c, 500, {
+      code: 'MIGRATION_ERROR',
+      message: `Live schema migration failed — publish aborted: ${migration.message}`,
+    })
+  }
+
   return commitVersion({
     c,
     snapshot: draft.snapshot,
     userId,
     message,
-    insert: () => insertVersion({ snapshot: draft.snapshot, message, userId }),
+    migration: migration.result,
+    insert: () => insertVersion({ snapshot: draft.snapshot, message, userId, source: 'api' }),
   })
 }
 

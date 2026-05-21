@@ -31,6 +31,10 @@ import type { App } from '@/domain/models/app'
 
 const PUBLIC_ADMIN_PATHS: ReadonlySet<string> = new Set(['/api/auth/admin/accept-invitation'])
 
+const ADMIN_ROLE_CHECK_EXEMPT_PATHS: ReadonlySet<string> = new Set([
+  '/api/auth/admin/stop-impersonating',
+])
+
 const applyAuthCheckMiddleware = (
   honoApp: Readonly<Hono>,
   authInstance: Readonly<ReturnType<typeof createAuthInstance>>
@@ -60,6 +64,34 @@ const applyAuthCheckMiddleware = (
         { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
         401
       )
+    }
+  })
+}
+
+const applyAdminRoleCheckMiddleware = (
+  honoApp: Readonly<Hono>,
+  authInstance: Readonly<ReturnType<typeof createAuthInstance>>
+): Readonly<Hono> => {
+  return honoApp.use('/api/auth/admin/*', async (c, next) => {
+    if (PUBLIC_ADMIN_PATHS.has(c.req.path) || ADMIN_ROLE_CHECK_EXEMPT_PATHS.has(c.req.path)) {
+      await next()
+      return
+    }
+
+    try {
+      const sessionResult = (await authInstance.api.getSession({
+        headers: c.req.raw.headers,
+      })) as { readonly user?: { readonly role?: string } } | null
+
+      const role = sessionResult?.user?.role
+      if (role !== 'admin') {
+        return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+      }
+
+      await next()
+    } catch (error) {
+      logError('[Admin Role Middleware] Session check error', error)
+      return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
     }
   })
 }
@@ -279,7 +311,9 @@ export function setupAuthRoutes(
 
   const appWithAuthCheck = applyAuthCheckMiddleware(honoApp, authInstance)
 
-  const appWithAdminRateLimit = applyRateLimitMiddleware(appWithAuthCheck)
+  const appWithAdminRoleCheck = applyAdminRoleCheckMiddleware(appWithAuthCheck, authInstance)
+
+  const appWithAdminRateLimit = applyRateLimitMiddleware(appWithAdminRoleCheck)
 
   const appWithAuthRateLimit = applyAuthRateLimitMiddleware(appWithAdminRateLimit)
 
@@ -331,6 +365,14 @@ export function setupAuthRoutes(
   )
 
   return appWithTeamRoutes.on(['POST', 'GET'], '/api/auth/*', async (c) => {
-    return authInstance.handler(c.req.raw)
+    const response = await authInstance.handler(c.req.raw)
+    if (response.status === 403 && isS1RewritablePath(c.req.path)) {
+      return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+    }
+    return response
   })
+}
+
+const isS1RewritablePath = (path: string): boolean => {
+  return path.startsWith('/api/auth/organization/') || path.startsWith('/api/auth/oauth2/')
 }

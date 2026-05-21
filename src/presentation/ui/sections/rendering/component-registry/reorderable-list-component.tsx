@@ -9,6 +9,38 @@ import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
 const REORDERABLE_LIST_RUNTIME = `(function () {
+  function showToast(message, variant) {
+    if (!message) return
+    var container = document.querySelector('[data-sonner-toaster]')
+    if (!container) {
+      container = document.createElement('div')
+      container.setAttribute('data-sonner-toaster', '')
+      container.setAttribute('role', 'status')
+      container.setAttribute('aria-live', 'polite')
+      container.style.position = 'fixed'
+      container.style.bottom = '16px'
+      container.style.right = '16px'
+      container.style.zIndex = '9999'
+      container.style.display = 'flex'
+      container.style.flexDirection = 'column'
+      container.style.gap = '8px'
+      document.body.appendChild(container)
+    }
+    var toast = document.createElement('div')
+    toast.setAttribute('data-toast', '')
+    if (variant) toast.setAttribute('data-variant', variant)
+    toast.textContent = message
+    container.appendChild(toast)
+  }
+
+  function handleReorder(list) {
+    var message = list.getAttribute('data-on-reorder-toast-message')
+    if (message) {
+      var variant = list.getAttribute('data-on-reorder-toast-variant') || undefined
+      showToast(message, variant)
+    }
+  }
+
   function setup(list) {
     if (list.getAttribute('data-reorderable-ready') === 'true') return
     list.setAttribute('data-reorderable-ready', 'true')
@@ -57,11 +89,13 @@ const REORDERABLE_LIST_RUNTIME = `(function () {
         move(item, 1)
         handle.focus()
         list.dispatchEvent(new CustomEvent('reorder', { bubbles: false }))
+        handleReorder(list)
       } else if (event.key === 'ArrowUp') {
         event.preventDefault()
         move(item, -1)
         handle.focus()
         list.dispatchEvent(new CustomEvent('reorder', { bubbles: false }))
+        handleReorder(list)
       }
     })
   }
@@ -100,6 +134,12 @@ interface RawListChild {
   readonly props?: { readonly id?: string }
 }
 
+interface RawReorderAction {
+  readonly type?: string
+  readonly message?: string
+  readonly variant?: string
+}
+
 export const reorderableListComponent: ComponentRenderer = ({ elementProps, component }) => {
   const rawChildren = ((component as { readonly children?: ReadonlyArray<unknown> } | undefined)
     ?.children ?? []) as ReadonlyArray<RawListChild>
@@ -116,10 +156,20 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
     </li>
   ))
 
+  const onReorder = (component as { readonly onReorder?: RawReorderAction } | undefined)?.onReorder
+  const toastAttrs: Record<string, string> =
+    onReorder?.type === 'toast' && typeof onReorder.message === 'string'
+      ? {
+          'data-on-reorder-toast-message': onReorder.message,
+          ...(onReorder.variant ? { 'data-on-reorder-toast-variant': onReorder.variant } : {}),
+        }
+      : {}
+
   return (
     <>
       <ul
         {...elementProps}
+        {...toastAttrs}
         data-reorderable-list="true"
       >
         {items}

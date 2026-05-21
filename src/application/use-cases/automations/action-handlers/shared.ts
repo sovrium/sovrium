@@ -13,6 +13,7 @@ import type { ConnectionRepository } from '@/application/ports/repositories/conn
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connection-token-repository'
 import type { TableRepository } from '@/application/ports/repositories/table-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
+import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
 import type { PackageResolver } from '@/infrastructure/automations/package-resolver'
@@ -73,6 +74,7 @@ export type ActionHandler = (
   | PackageResolver
   | AiService
   | StorageService
+  | ImageTransformService
   | AnalyticsRepository
 >
 

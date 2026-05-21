@@ -162,10 +162,10 @@ async function checkCreateCommentGate(
       response: c.json(
         {
           success: false,
-          message: 'You do not have permission to perform this action',
-          code: 'FORBIDDEN',
+          message: 'Resource not found',
+          code: 'NOT_FOUND',
         },
-        403
+        404
       ),
     }
   }
@@ -223,12 +223,6 @@ export async function handleCreateComment(c: Context, app: App) {
 
 function handleDeleteCommentError(c: Context, error: unknown) {
   if (isAuthorizationError(error)) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-
-    if (errorMessage.includes('Forbidden')) {
-      return c.json({ success: false, code: 'FORBIDDEN' }, 403)
-    }
-
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
@@ -274,10 +268,10 @@ export async function handleGetComment(c: Context, app: App) {
     return c.json(
       {
         success: false,
-        message: 'You do not have permission to perform this action',
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 
@@ -320,12 +314,6 @@ function validateUpdateCommentBody(body: unknown): { readonly content: string } 
 
 function handleUpdateCommentError(c: Context, error: unknown) {
   if (isAuthorizationError(error)) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-
-    if (errorMessage.includes('Forbidden')) {
-      return c.json({ success: false, code: 'FORBIDDEN' }, 403)
-    }
-
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
@@ -398,10 +386,10 @@ export async function handleListComments(c: Context, app: App) {
     return c.json(
       {
         success: false,
-        message: 'You do not have permission to perform this action',
-        code: 'FORBIDDEN',
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       },
-      403
+      404
     )
   }
 

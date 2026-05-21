@@ -49,7 +49,7 @@ function SelectEditor({
       role="combobox"
       defaultValue={String(value ?? '')}
       onChange={(e) => onSave(e.target.value)}
-      className="w-full rounded border border-blue-400 px-1 py-0.5 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
     >
       {options.map((opt) => (
         <option
@@ -235,7 +235,7 @@ function AutoSaveTextEditor(props: TextEditorProps): ReactElement {
       onChange={(e) => handleChange(e.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      className="w-full rounded border border-blue-400 px-1 py-0.5 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
     />
   )
 }
@@ -269,7 +269,7 @@ function ManualSaveTextEditor(props: TextEditorProps): ReactElement {
       onBlur={() => {
         if (!savingRef.current) onCancel()
       }}
-      className="w-full rounded border border-blue-400 px-1 py-0.5 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
     />
   )
 

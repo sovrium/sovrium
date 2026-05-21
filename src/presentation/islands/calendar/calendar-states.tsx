@@ -10,7 +10,7 @@ import type { ReactElement } from 'react'
 export function CalendarMissingDateField(): ReactElement {
   return (
     <div
-      className="rounded border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800"
+      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
       data-component="calendar"
     >
       Calendar is missing required <code>dateField</code> configuration.
@@ -21,23 +21,23 @@ export function CalendarMissingDateField(): ReactElement {
 export function CalendarLoading(): ReactElement {
   return (
     <div
-      className="w-full rounded-lg border border-gray-200 bg-white p-4"
+      className="border-border bg-bg-raised w-full rounded-lg border p-4"
       aria-label="Loading calendar..."
       role="status"
       data-component="calendar"
     >
       <div className="mb-3 flex items-center justify-between">
-        <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
+        <div className="bg-bg-subtle h-6 w-40 animate-pulse rounded" />
         <div className="flex gap-2">
-          <div className="h-8 w-20 animate-pulse rounded bg-gray-200" />
-          <div className="h-8 w-20 animate-pulse rounded bg-gray-200" />
+          <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
+          <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
         </div>
       </div>
       <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: 35 }).map((_, i) => (
           <div
             key={`calendar-skeleton-${String(i)}`}
-            className="h-16 animate-pulse rounded bg-gray-100"
+            className="bg-bg-subtle h-16 animate-pulse rounded"
           />
         ))}
       </div>
@@ -48,7 +48,7 @@ export function CalendarLoading(): ReactElement {
 export function CalendarError({ error }: { readonly error: unknown }): ReactElement {
   return (
     <div
-      className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
       role="alert"
       data-component="calendar"
     >

@@ -168,7 +168,7 @@ export function mapColumnsToColumnDefs(
             <button
               key={`action-${String(actionIndex)}`}
               type="button"
-              className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+              className="text-primary hover:bg-primary-subtle rounded px-2 py-1 text-xs disabled:opacity-50"
               data-action-type={action.action.type}
               disabled={!onActionClick}
               onClick={
@@ -190,7 +190,8 @@ export function mapColumnsToColumnDefs(
 
 export function autoGenerateColumns(
   records: readonly TableRecord[],
-  groupByField?: string
+  groupByField?: string,
+  editable?: boolean
 ): readonly ColumnDef<TableRecord>[] {
   const firstRecord = records[0]
   if (!firstRecord) return []
@@ -200,7 +201,7 @@ export function autoGenerateColumns(
         accessorKey: key,
         header: key,
         enableSorting: true,
-        meta: { field: key },
+        meta: { field: key, ...(editable === true && { editable: true }) },
         ...(groupByField && key === groupByField && { enableGrouping: true }),
       }) satisfies ColumnDef<TableRecord>
   )
@@ -208,7 +209,8 @@ export function autoGenerateColumns(
 
 export function autoGenerateColumnsFromFields(
   fields: readonly string[],
-  groupByField?: string
+  groupByField?: string,
+  editable?: boolean
 ): readonly ColumnDef<TableRecord>[] {
   return fields.map(
     (field) =>
@@ -216,7 +218,7 @@ export function autoGenerateColumnsFromFields(
         accessorKey: field,
         header: field,
         enableSorting: true,
-        meta: { field },
+        meta: { field, ...(editable === true && { editable: true }) },
         ...(groupByField && field === groupByField && { enableGrouping: true }),
       }) satisfies ColumnDef<TableRecord>
   )

@@ -200,11 +200,11 @@ async function validateListActivityRequest(
   const authorized = await isAuthorizedForUserIdFilter(sessionUserId, userIdFilter)
   if (!authorized) {
     return {
-      status: 403,
+      status: 404,
       body: {
         success: false,
-        message: 'Forbidden: cannot view other users activities',
-        code: 'FORBIDDEN',
+        message: 'Not found',
+        code: 'NOT_FOUND',
       },
     }
   }

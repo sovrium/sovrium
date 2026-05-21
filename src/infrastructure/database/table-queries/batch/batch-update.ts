@@ -13,6 +13,7 @@ import {
   type DrizzleTransaction,
   type SessionContextError,
 } from '@/infrastructure/database'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { fetchRecordByIdEffect } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
@@ -37,9 +38,10 @@ function executeRecordUpdate(
 ): Effect.Effect<Record<string, unknown> | undefined, ValidationError> {
   return Effect.tryPromise({
     try: async () => {
-      const result = (await tx.execute(
+      const result = await executeRaw(
+        tx,
         sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
-      )) as readonly Record<string, unknown>[]
+      )
       return result[0]
     },
     catch: (error) => {

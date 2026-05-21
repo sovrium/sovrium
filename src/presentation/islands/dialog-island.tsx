@@ -7,6 +7,7 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useState } from 'react'
+import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
 interface DialogIslandProps {
@@ -33,24 +34,26 @@ function DialogActions({
   readonly variant: 'default' | 'destructive'
 }): ReactElement {
   const confirmColorClass =
-    variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+    variant === 'destructive'
+      ? 'bg-error-solid text-error-solid-fg hover:opacity-90'
+      : 'bg-primary text-primary-fg hover:bg-primary-hover'
 
   return (
     <div className="flex justify-end gap-3">
       {isAlertDialog && (
-        <Dialog.Close className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+        <Dialog.Close className="border-border bg-bg text-fg hover:bg-bg-subtle rounded-md border px-4 py-2 text-sm font-medium transition-colors">
           {cancelLabel}
         </Dialog.Close>
       )}
 
       {confirmLabel ? (
         <Dialog.Close
-          className={`rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${confirmColorClass}`}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${confirmColorClass}`}
         >
           {confirmLabel}
         </Dialog.Close>
       ) : (
-        <Dialog.Close className="absolute top-4 right-4 text-gray-400 transition-colors hover:text-gray-600">
+        <Dialog.Close className="text-fg-subtle hover:text-fg-muted absolute top-4 right-4 transition-colors">
           <span
             className="sr-only"
             aria-hidden="true"
@@ -100,22 +103,20 @@ export default function DialogIsland({
       onOpenChange={setOpen}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Dialog.Backdrop className="bg-scrim/50 fixed inset-0 z-40 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
 
         <Dialog.Popup
-          className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${className ?? ''}`}
+          className={cn('fixed inset-0 z-50 flex items-center justify-center p-4', className)}
           id={id}
           data-testid={testId}
         >
-          <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl transition-all duration-200 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <div className="bg-bg-overlay text-fg relative w-full max-w-md rounded-lg p-6 shadow-xl transition-all duration-200 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             {title && (
-              <Dialog.Title className="mb-2 text-lg font-semibold text-gray-900">
-                {title}
-              </Dialog.Title>
+              <Dialog.Title className="text-fg mb-2 text-lg font-semibold">{title}</Dialog.Title>
             )}
 
             {description && (
-              <Dialog.Description className="mb-4 text-sm text-gray-600">
+              <Dialog.Description className="text-fg-muted mb-4 text-sm">
                 {description}
               </Dialog.Description>
             )}

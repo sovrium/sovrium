@@ -7,7 +7,7 @@
 
 import type { DrizzleDB } from './db-bun'
 
-export { db } from './db-bun'
+export { db, getDb, getPgDb } from './db-bun'
 export type { DrizzleDB } from './db-bun'
 
 export type DrizzleTransaction = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0]

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 
 export const StorageProviderType = Schema.Literal('s3', 'local', 'bytea')
 
@@ -73,6 +74,8 @@ export type StorageEnvConfig = Schema.Schema.Type<typeof StorageEnvSchema>
 export type S3StorageEnvConfig = Schema.Schema.Type<typeof S3StorageEnvSchema>
 export type LocalStorageEnvConfig = Schema.Schema.Type<typeof LocalStorageEnvSchema>
 
+export const DEFAULT_SQLITE_STORAGE_DIRECTORY = './uploads'
+
 export const STORAGE_TEMP_CLEANUP_AFTER_DEFAULT = 24 * 60 * 60 * 1000
 
 export const parseStorageTempCleanupAfter = (): number => {
@@ -136,8 +139,15 @@ export const parseStorageEnvConfig = (): StorageEnvConfig | undefined => {
     })
   }
 
-  if (!provider && process.env.DATABASE_URL) {
-    return { provider: 'bytea' as const }
+  if (!provider) {
+    const { dialect } = parseDatabaseDialectConfig()
+    if (dialect === 'postgres') {
+      return { provider: 'bytea' as const }
+    }
+    return Schema.decodeUnknownSync(LocalStorageEnvSchema)({
+      provider: 'local',
+      directory: process.env.STORAGE_LOCAL_DIRECTORY || DEFAULT_SQLITE_STORAGE_DIRECTORY,
+    })
   }
 
   return undefined

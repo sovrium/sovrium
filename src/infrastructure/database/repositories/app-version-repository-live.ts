@@ -14,22 +14,30 @@ import {
 import { db } from '@/infrastructure/database'
 import { sovriumAppVersions } from '@/infrastructure/database/drizzle/schema/app-versioning'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import type { AppVersion, AppVersionListItem } from '@/domain/models/system'
+import type { AppVersion, AppVersionListItem, AppVersionSource } from '@/domain/models/system'
 
 const wrap = makeDbWrap((cause) => new AppVersionDatabaseError({ cause }))
+
+const decodeSource = (raw: unknown): AppVersionSource =>
+  raw === 'config-file' || raw === 'env' || raw === 'api' || raw === 'mcp' || raw === 'restore'
+    ? raw
+    : 'config-file'
 
 const decodeRow = (row: Record<string, unknown>): AppVersion => {
   const restored = row['restoredFromVersion']
   const restoredFromVersion =
     typeof restored === 'number' ? restored : restored === undefined ? undefined : Number(restored)
 
+  const { fileChecksum } = row
   return {
     versionNumber: Number(row['versionNumber']),
     snapshot: row['snapshot'],
     checksum: String(row['checksum']),
     createdAt: row['createdAt'] as Date,
     createdByUserId: String(row['createdByUserId']),
+    source: decodeSource(row['source']),
     message: typeof row['message'] === 'string' ? (row['message'] as string) : '',
+    ...(typeof fileChecksum === 'string' && fileChecksum.length > 0 ? { fileChecksum } : {}),
     ...(restoredFromVersion !== undefined ? { restoredFromVersion } : {}),
   }
 }
@@ -39,12 +47,15 @@ const decodeListRow = (row: Record<string, unknown>): AppVersionListItem => {
   const restoredFromVersion =
     typeof restored === 'number' ? restored : restored === undefined ? undefined : Number(restored)
 
+  const { fileChecksum } = row
   return {
     versionNumber: Number(row['versionNumber']),
     checksum: String(row['checksum']),
     createdAt: row['createdAt'] as Date,
     createdByUserId: String(row['createdByUserId']),
+    source: decodeSource(row['source']),
     message: typeof row['message'] === 'string' ? (row['message'] as string) : '',
+    ...(typeof fileChecksum === 'string' && fileChecksum.length > 0 ? { fileChecksum } : {}),
     ...(restoredFromVersion !== undefined ? { restoredFromVersion } : {}),
   }
 }
@@ -53,14 +64,7 @@ export const AppVersionRepositoryLive = Layer.succeed(AppVersionRepository, {
   list: () =>
     wrap(async () => {
       const rows = await db
-        .select({
-          versionNumber: sovriumAppVersions.versionNumber,
-          checksum: sovriumAppVersions.checksum,
-          createdAt: sovriumAppVersions.createdAt,
-          createdByUserId: sovriumAppVersions.createdByUserId,
-          message: sovriumAppVersions.message,
-          restoredFromVersion: sovriumAppVersions.restoredFromVersion,
-        })
+        .select()
         .from(sovriumAppVersions)
         .orderBy(desc(sovriumAppVersions.versionNumber))
       return rows.map((row) => decodeListRow(row as Record<string, unknown>))
@@ -76,7 +80,15 @@ export const AppVersionRepositoryLive = Layer.succeed(AppVersionRepository, {
       return rows[0] !== undefined ? decodeRow(rows[0] as Record<string, unknown>) : undefined
     }),
 
-  create: ({ snapshot, checksum, createdByUserId, message, restoredFromVersion }) =>
+  create: ({
+    snapshot,
+    checksum,
+    createdByUserId,
+    source,
+    fileChecksum,
+    message,
+    restoredFromVersion,
+  }) =>
     wrap(async () => {
       const [row] = await db
         .insert(sovriumAppVersions)
@@ -84,9 +96,11 @@ export const AppVersionRepositoryLive = Layer.succeed(AppVersionRepository, {
           snapshot: snapshot as never,
           checksum,
           createdByUserId,
+          source,
           message,
+          ...(fileChecksum !== undefined ? { fileChecksum } : {}),
           ...(restoredFromVersion !== undefined ? { restoredFromVersion } : {}),
-        })
+        } as never)
         .returning()
       return decodeRow((row ?? {}) as Record<string, unknown>)
     }),

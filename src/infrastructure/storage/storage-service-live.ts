@@ -190,7 +190,7 @@ export const StorageServiceLive = Layer.effect(
       })
     }
 
-    if (!config && !process.env.DATABASE_URL) {
+    if (!config) {
       const notConfigured = (): StorageError =>
         new StorageError({
           cause:

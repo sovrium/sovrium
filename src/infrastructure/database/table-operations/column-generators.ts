@@ -5,13 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { SQLITE_ISO_NOW } from '@/infrastructure/database/sql/dialect-ddl'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { Table } from '@/domain/models/app/tables'
+
+const timestampDefaultClause = (): string =>
+  isSqliteRuntime() ? `DEFAULT (${SQLITE_ISO_NOW})` : 'DEFAULT CURRENT_TIMESTAMP'
+
+const SQLITE_UUID_DEFAULT = 'lower(hex(randomblob(16)))'
 
 export const generateIdColumn = (
   primaryKeyType: string | undefined,
   isPrimaryKey: boolean
 ): string => {
   const pkConstraint = isPrimaryKey ? ' PRIMARY KEY' : ''
+
+  if (isSqliteRuntime()) {
+    return `id TEXT NOT NULL DEFAULT (${SQLITE_UUID_DEFAULT})${pkConstraint}`
+  }
+
   if (primaryKeyType === 'uuid') {
     return `id UUID NOT NULL DEFAULT gen_random_uuid()${pkConstraint}`
   }
@@ -34,19 +46,25 @@ export const needsAutomaticIdColumn = (
   return !hasIdField && !hasNonIdPrimaryKey
 }
 
+const timestampColumnType = (): string => (isSqliteRuntime() ? 'TEXT' : 'TIMESTAMPTZ')
+
 export const generateCreatedAtColumn = (table: Table): readonly string[] => {
   const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
-  return !hasCreatedAtField ? ['created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP'] : []
+  return !hasCreatedAtField
+    ? [`created_at ${timestampColumnType()} NOT NULL ${timestampDefaultClause()}`]
+    : []
 }
 
 export const generateUpdatedAtColumn = (table: Table): readonly string[] => {
   const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
-  return !hasUpdatedAtField ? ['updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP'] : []
+  return !hasUpdatedAtField
+    ? [`updated_at ${timestampColumnType()} NOT NULL ${timestampDefaultClause()}`]
+    : []
 }
 
 export const generateDeletedAtColumn = (table: Table): readonly string[] => {
   const hasDeletedAtField = table.fields.some((field) => field.name === 'deleted_at')
-  return !hasDeletedAtField ? ['deleted_at TIMESTAMPTZ'] : []
+  return !hasDeletedAtField ? [`deleted_at ${timestampColumnType()}`] : []
 }
 
 export const generatePrimaryKeyConstraintIfNeeded = (

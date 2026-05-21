@@ -222,9 +222,9 @@ function componentNeedsIslands(s: Component): boolean {
   })
 }
 
-function pageNeedsIslands(components: Page['components']): boolean {
-  if (!components) return false
-  return components.some((s) => {
+function pageNeedsIslands(page: Page): boolean {
+  if (page.presence === true) return true
+  return (page.components ?? []).some((s) => {
     if ('component' in s || '$ref' in s) return false
     return componentNeedsIslands(s as Component)
   })
@@ -234,7 +234,7 @@ async function resolveIslandEntryFile(
   page: Page,
   islandBuilder?: IslandBuilder
 ): Promise<string | undefined> {
-  const needs = pageNeedsIslands(page.components)
+  const needs = pageNeedsIslands(page)
   if (!needs || !islandBuilder) return undefined
 
   try {

@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db } from '@/infrastructure/database'
+import { authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import {
   buildAggregationSelects,
   parseAggregationResult,
@@ -152,16 +153,17 @@ function buildAuthorshipJoins(
     readonly hasDeletedBy: boolean
   }
 ): Readonly<ReturnType<typeof sql>> {
+  const authUser = authUserTableRef()
   const queryWithCreatedBy = authorshipColumns.hasCreatedBy
-    ? sql`${baseQuery} LEFT JOIN auth.user created_by_user ON t.created_by = created_by_user.id`
+    ? sql`${baseQuery} LEFT JOIN ${authUser} created_by_user ON t.created_by = created_by_user.id`
     : baseQuery
 
   const queryWithUpdatedBy = authorshipColumns.hasUpdatedBy
-    ? sql`${queryWithCreatedBy} LEFT JOIN auth.user updated_by_user ON t.updated_by = updated_by_user.id`
+    ? sql`${queryWithCreatedBy} LEFT JOIN ${authUser} updated_by_user ON t.updated_by = updated_by_user.id`
     : queryWithCreatedBy
 
   const queryWithDeletedBy = authorshipColumns.hasDeletedBy
-    ? sql`${queryWithUpdatedBy} LEFT JOIN auth.user deleted_by_user ON t.deleted_by = deleted_by_user.id`
+    ? sql`${queryWithUpdatedBy} LEFT JOIN ${authUser} deleted_by_user ON t.deleted_by = deleted_by_user.id`
     : queryWithUpdatedBy
 
   return queryWithDeletedBy

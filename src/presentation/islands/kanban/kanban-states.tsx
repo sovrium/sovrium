@@ -9,7 +9,7 @@ import type { ReactElement } from 'react'
 
 export function KanbanMissingGroupBy(): ReactElement {
   return (
-    <div className="rounded border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+    <div className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm">
       Kanban board is missing required <code>kanbanGroupBy.field</code> configuration.
     </div>
   )
@@ -25,10 +25,10 @@ export function KanbanLoading(): ReactElement {
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={`kanban-loading-col-${String(i)}`}
-          className="flex w-72 shrink-0 flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3"
+          className="border-border bg-bg-subtle flex w-72 shrink-0 flex-col gap-2 rounded-lg border p-3"
         >
-          <div className="h-5 w-24 animate-pulse rounded bg-gray-200" />
-          <div className="h-20 animate-pulse rounded bg-white" />
+          <div className="bg-bg-subtle h-5 w-24 animate-pulse rounded" />
+          <div className="bg-bg-raised h-20 animate-pulse rounded" />
         </div>
       ))}
     </div>
@@ -38,7 +38,7 @@ export function KanbanLoading(): ReactElement {
 export function KanbanError({ error }: { readonly error: unknown }): ReactElement {
   return (
     <div
-      className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
       role="alert"
     >
       Failed to load kanban records: {error instanceof Error ? error.message : String(error)}

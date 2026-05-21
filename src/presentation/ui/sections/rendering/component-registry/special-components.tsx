@@ -210,7 +210,7 @@ export const specialComponents: Partial<Record<Component['type'], ComponentRende
 
   'speech-bubble': ({ elementProps, content, renderedChildren }) => {
     const base =
-      'bg-blue-100 border border-blue-300 px-4 py-3 text-sm rounded-tl-md rounded-tr-md rounded-br-md rounded-bl-none'
+      'bg-info-bg border border-info-border text-info-fg px-4 py-3 text-sm rounded-tl-md rounded-tr-md rounded-br-md rounded-bl-none'
     const extra = elementProps.className as string | undefined
     const className = extra ? `${base} ${extra}` : base
     return (

@@ -435,7 +435,7 @@ export function createHandleSign(app: App) {
     const userRole = session ? await getUserRole(session.userId) : undefined
 
     if (!canSign(bucket, operation, userRole)) {
-      return c.json({ success: false, error: 'Forbidden', code: 'FORBIDDEN' }, 403)
+      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
     return buildSignResponse(c, bucketName, operation, body)

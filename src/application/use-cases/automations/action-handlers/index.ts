@@ -40,6 +40,12 @@ import {
   handleFileUpload,
 } from './file'
 import {
+  handleFileCompress,
+  handleFileExtractText,
+  handleFileGeneratePdf,
+  handleFileTransformImage,
+} from './file-advanced'
+import {
   handleFileCopy,
   handleFileDelete,
   handleFileGetMetadata,
@@ -115,6 +121,10 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['file/copy', handleFileCopy],
   ['file/delete', handleFileDelete],
   ['file/signUrl', handleFileSignUrl],
+  ['file/compress', handleFileCompress],
+  ['file/extractText', handleFileExtractText],
+  ['file/transformImage', handleFileTransformImage],
+  ['file/generatePdf', handleFileGeneratePdf],
   ['http/request', handleHttpRequest],
   ['http/get', handleHttpGet],
   ['http/post', handleHttpPost],

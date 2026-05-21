@@ -214,18 +214,40 @@ export const NavigateActionSchema = Schema.Struct({
   description: 'Pure navigation action — no mutation side-effect',
 })
 
+export const ToastActionSchema = Schema.Struct({
+  type: Schema.Literal('toast'),
+  message: Schema.String.annotations({
+    description: 'Toast notification message. Supports $variable references.',
+  }),
+  variant: Schema.optional(ToastVariantSchema),
+  duration: Schema.optional(
+    Schema.Number.pipe(
+      Schema.int(),
+      Schema.greaterThan(0),
+      Schema.annotations({
+        description: 'Auto-dismiss duration in milliseconds (default: 5000)',
+        examples: [2000, 5000, 10_000],
+      })
+    )
+  ),
+}).annotations({
+  title: 'Toast Action',
+  description: 'Pure notification action — shows a transient toast with no side-effect',
+})
+
 export const ActionSchema = Schema.Union(
   AuthActionSchema,
   CrudActionSchema,
   AutomationActionSchema,
   FilterActionSchema,
-  NavigateActionSchema
+  NavigateActionSchema,
+  ToastActionSchema
 ).pipe(
   Schema.annotations({
     identifier: 'Action',
     title: 'Action',
     description:
-      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), filter (cross-component filtering), navigate (pure URL navigation).',
+      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), filter (cross-component filtering), navigate (pure URL navigation), toast (transient notification).',
   })
 )
 
@@ -235,6 +257,7 @@ export type CrudAction = Schema.Schema.Type<typeof CrudActionSchema>
 export type AutomationAction = Schema.Schema.Type<typeof AutomationActionSchema>
 export type FilterAction = Schema.Schema.Type<typeof FilterActionSchema>
 export type NavigateAction = Schema.Schema.Type<typeof NavigateActionSchema>
+export type ToastAction = Schema.Schema.Type<typeof ToastActionSchema>
 export type ActionResponse = Schema.Schema.Type<typeof ActionResponseSchema>
 export type ActionResponseType = Schema.Schema.Type<typeof ActionResponseTypeSchema>
 export type Toast = Schema.Schema.Type<typeof ToastSchema>

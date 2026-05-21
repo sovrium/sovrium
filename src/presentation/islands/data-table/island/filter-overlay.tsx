@@ -48,7 +48,7 @@ export function FilterOverlay({
             <button
               key={field}
               type="button"
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+              className="hover:bg-bg-subtle block w-full px-3 py-2 text-left text-sm"
               onClick={() => onFieldSelect(field)}
             >
               {field}
@@ -67,7 +67,7 @@ export function FilterOverlay({
             <button
               key={value}
               type="button"
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+              className="hover:bg-bg-subtle block w-full px-3 py-2 text-left text-sm"
               onClick={() => onValueSelect({ field: filterField!, value })}
             >
               {value}

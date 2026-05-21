@@ -30,16 +30,6 @@ export type FilterStructure =
 export const NOT_FOUND_RESPONSE = (c: Context): Response =>
   c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
-export const FORBIDDEN_RESPONSE = (c: Context): Response =>
-  c.json(
-    {
-      success: false,
-      message: 'You do not have permission to perform this action',
-      code: 'FORBIDDEN',
-    },
-    403
-  )
-
 export const EMPTY_LIST_RESPONSE = (c: Context): Response =>
   c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 } }, 200)
 
@@ -66,9 +56,9 @@ export function checkListReadGate(input: ReadGateInput): Response | undefined {
   if (guard) {
     return passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)
       ? undefined
-      : FORBIDDEN_RESPONSE(c)
+      : NOT_FOUND_RESPONSE(c)
   }
-  return checkRoleOnlyReadGate(input, FORBIDDEN_RESPONSE)
+  return checkRoleOnlyReadGate(input, NOT_FOUND_RESPONSE)
 }
 
 export function checkGetReadGate(input: ReadGateInput): Response | undefined {

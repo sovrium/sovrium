@@ -12,18 +12,18 @@ export const forbiddenCreateResponse = (c: Context): Response =>
   c.json(
     {
       success: false,
-      message: 'You do not have permission to create records in this table',
-      code: 'FORBIDDEN',
+      message: 'Resource not found',
+      code: 'NOT_FOUND',
     },
-    403
+    404
   )
 
 export const forbiddenCreateScopeResponse = (c: Context): Response =>
   c.json(
     {
       success: false,
-      message: 'You do not have permission to create records outside your scope',
-      code: 'FORBIDDEN',
+      message: 'Resource not found',
+      code: 'NOT_FOUND',
     },
-    403
+    404
   )

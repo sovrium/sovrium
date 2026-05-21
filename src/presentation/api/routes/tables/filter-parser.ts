@@ -23,14 +23,14 @@ export type ParseFilterResult =
   | { success: true; filter: FilterParameter }
   | { success: false; error: Response }
 
-const forbiddenFilterResponse = (c: Context, forbiddenField: string): Response =>
+const forbiddenFilterResponse = (c: Context, _forbiddenField: string): Response =>
   c.json(
     {
       success: false,
-      message: `Cannot filter by field: ${forbiddenField}`,
-      code: 'FORBIDDEN',
+      message: 'Resource not found',
+      code: 'NOT_FOUND',
     },
-    403
+    404
   )
 
 const checkFilterFieldPermissions = (config: {

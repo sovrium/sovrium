@@ -93,7 +93,7 @@ function TimelinePoint({
           style={{ backgroundColor: color ?? '#3b82f6' }}
           aria-hidden="true"
         />
-        <span className="text-xs font-medium text-gray-700">{item.label}</span>
+        <span className="text-fg text-xs font-medium">{item.label}</span>
       </div>
     </div>
   )
@@ -142,7 +142,7 @@ function TimeAxis({ bounds }: { readonly bounds: TimelineBounds }): ReactElement
   return (
     <div
       data-testid="time-axis"
-      className="mt-2 flex justify-between border-t border-gray-300 pt-1 text-xs text-gray-500"
+      className="border-border text-fg-muted mt-2 flex justify-between border-t pt-1 text-xs"
     >
       <span>{formatAxisTick(bounds.min)}</span>
       <span>{formatAxisTick(mid)}</span>
@@ -166,7 +166,7 @@ export function TimelineView({
   return (
     <div
       data-component="data-timeline"
-      className="w-full rounded-lg border border-gray-200 bg-white p-4"
+      className="border-border bg-bg-raised w-full rounded-lg border p-4"
     >
       <div className="space-y-3">
         {lanes.map((lane) =>
@@ -175,9 +175,9 @@ export function TimelineView({
               key={`lane-${lane.key}`}
               data-testid="timeline-swimlane"
               data-timeline-lane={lane.key}
-              className="rounded border border-gray-100 bg-gray-50/50 p-2"
+              className="border-border bg-bg-subtle rounded border p-2"
             >
-              <div className="mb-1 text-xs font-semibold text-gray-700">{lane.key}</div>
+              <div className="text-fg mb-1 text-xs font-semibold">{lane.key}</div>
               <TimelineRows
                 items={lane.items}
                 bounds={bounds}

@@ -49,13 +49,13 @@ export function ChartTooltip({
         width={w}
         height={h}
         rx={3}
-        fill="#111827"
+        fill="var(--color-fg)"
       />
       <text
         x={state.x}
         y={state.y - h / 2 - 8}
         fontSize={11}
-        fill="#ffffff"
+        fill="var(--color-bg)"
         textAnchor="middle"
         dominantBaseline="central"
       >

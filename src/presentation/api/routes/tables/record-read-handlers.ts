@@ -35,7 +35,7 @@ import {
   checkListReadGate,
   EMPTY_LIST_RESPONSE,
   enforceGetReadPredicate,
-  FORBIDDEN_RESPONSE,
+  NOT_FOUND_RESPONSE,
   type FilterStructure,
 } from './row-level-read-helpers'
 import { validateSortPermission } from './sort-validation'
@@ -51,7 +51,7 @@ function checkReadPermission(
   allTables?: App['tables']
 ) {
   if (!hasReadPermissionForRoles(table, effectiveRoles, allTables)) {
-    return FORBIDDEN_RESPONSE(c)
+    return NOT_FOUND_RESPONSE(c)
   }
   return undefined
 }

@@ -33,7 +33,7 @@ export function DialogFooter({
       {step === 'preview' && preview && (
         <button
           type="button"
-          className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm"
           onClick={onPreviewNext}
         >
           Next
@@ -43,14 +43,14 @@ export function DialogFooter({
         <>
           <button
             type="button"
-            className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+            className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm"
             onClick={onMappingNext}
           >
             Next
           </button>
           <button
             type="button"
-            className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+            className="border-border hover:bg-bg-subtle rounded border px-4 py-2 text-sm"
             disabled={isImporting}
             onClick={onImport}
           >
@@ -61,7 +61,7 @@ export function DialogFooter({
       {step === 'duplicate-handling' && !importResult && (
         <button
           type="button"
-          className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm"
           disabled={isImporting}
           onClick={onImport}
         >
@@ -70,7 +70,7 @@ export function DialogFooter({
       )}
       <button
         type="button"
-        className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+        className="border-border hover:bg-bg-subtle rounded border px-4 py-2 text-sm"
         onClick={onClose}
       >
         Cancel

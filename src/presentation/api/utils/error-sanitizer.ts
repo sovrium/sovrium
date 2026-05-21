@@ -91,9 +91,9 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
     case 'ForbiddenError':
     case 'ActivityLogForbiddenError':
       return {
-        error: 'Forbidden',
-        code: 'FORBIDDEN',
-        message: actualError.message,
+        error: 'Not Found',
+        code: 'NOT_FOUND',
+        message: 'Resource not found',
       }
     case 'ValidationError':
       return {

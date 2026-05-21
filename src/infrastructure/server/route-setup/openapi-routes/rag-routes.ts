@@ -8,6 +8,7 @@
 import { z } from '@hono/zod-openapi'
 import { errorResponseSchema } from '@/domain/models/api/_shared/error'
 import { ragRebuildRequestSchema, ragRebuildResponseSchema } from '@/domain/models/api/ai/rag'
+import { ragSearchRequestSchema, ragSearchResponseSchema } from '@/domain/models/api/ai/search'
 import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
@@ -48,16 +49,13 @@ export const ragGroup: StaticGroupSpec = {
         body: {
           content: {
             'application/json': {
-              schema: z.object({
-                query: z.string().describe('Search query text'),
-                agent: z.string().optional().describe('Restrict the search to this agent'),
-              }),
+              schema: ragSearchRequestSchema,
             },
           },
         },
       },
       responses: {
-        200: jsonResponse(z.unknown(), 'Search results'),
+        200: jsonResponse(ragSearchResponseSchema, 'Search results'),
         400: errorResponse('Query missing or blank'),
         401: errorResponse('Not authenticated'),
       },

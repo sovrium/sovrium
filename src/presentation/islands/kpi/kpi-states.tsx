@@ -11,14 +11,14 @@ import type { ReactElement } from 'react'
 export function KpiLoading(): ReactElement {
   return (
     <div
-      className="w-full rounded-lg border border-gray-200 bg-white p-4"
+      className="border-border bg-bg-raised w-full rounded-lg border p-4"
       data-component="kpi"
       data-kpi-state="loading"
       role="status"
       aria-label="Loading KPI..."
     >
-      <div className="mb-2 h-4 w-32 animate-pulse rounded bg-gray-200" />
-      <div className="h-8 w-24 animate-pulse rounded bg-gray-200" />
+      <div className="bg-bg-subtle mb-2 h-4 w-32 animate-pulse rounded" />
+      <div className="bg-bg-subtle h-8 w-24 animate-pulse rounded" />
     </div>
   )
 }
@@ -26,7 +26,7 @@ export function KpiLoading(): ReactElement {
 export function KpiError({ error }: { readonly error: unknown }): ReactElement {
   return (
     <div
-      className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
       data-component="kpi"
       data-kpi-state="error"
       role="alert"
@@ -39,7 +39,7 @@ export function KpiError({ error }: { readonly error: unknown }): ReactElement {
 export function KpiMissingTable(): ReactElement {
   return (
     <div
-      className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
       data-component="kpi"
       data-kpi-state="missing-table"
       role="alert"
