@@ -77,7 +77,7 @@ import {
 import { validateStoragePublicAccessEnv } from '@/infrastructure/server/validate-storage-public-access-env'
 import { validateTransformPresetEnv } from '@/infrastructure/server/validate-transform-preset-env'
 import { warnIfInsecureEnv } from '@/infrastructure/utils/env'
-import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
+import { getSovriumVersion } from '@/infrastructure/utils/version'
 import type { ServerInstance } from '@/application/models/server'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
@@ -265,13 +265,7 @@ const startBunServer = (
   )
 
 const getPackageVersion = (): Effect.Effect<string, never> =>
-  Effect.tryPromise({
-    try: async () => {
-      const pkg = (await Bun.file(resolvePackagePath('package.json')).json()) as { version: string }
-      return pkg.version
-    },
-    catch: () => '0.0.0',
-  }).pipe(Effect.catchAll(() => Effect.succeed('0.0.0')))
+  Effect.promise(() => getSovriumVersion())
 
 const resolveAiComputeListener = (
   app: App,

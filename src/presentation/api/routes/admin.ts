@@ -17,22 +17,13 @@ import {
 } from '@/domain/models/api/admin/storage/status'
 import { resolveRuntimeLabel } from '@/domain/models/env/database-dialect'
 import { parseStorageEnvConfig } from '@/domain/models/env/storage'
-import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
+import { getSovriumVersion } from '@/infrastructure/utils/version'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import type { Context, Hono } from 'hono'
 
 const PROCESS_STARTED_AT: string = new Date().toISOString()
 
-const buildVersion = async (): Promise<string> => {
-  try {
-    const pkg = (await Bun.file(resolvePackagePath('package.json')).json()) as {
-      version?: string
-    }
-    return typeof pkg.version === 'string' && pkg.version.length > 0 ? pkg.version : '0.0.0'
-  } catch {
-    return '0.0.0'
-  }
-}
+const buildVersion = (): Promise<string> => getSovriumVersion()
 
 const buildCommit = (): string => {
   const sha = process.env['SOVRIUM_COMMIT_SHA']

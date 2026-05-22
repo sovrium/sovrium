@@ -6,40 +6,24 @@
  */
 
 
-import { readdir, mkdir, copyFile } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { Effect, Console } from 'effect'
-import { agentsPath } from '@/infrastructure/utils/package-paths'
+import {
+  embeddedAgentNames,
+  embeddedAgentPath,
+} from '@/infrastructure/assets/embedded-static-assets'
 
-const handleAgentsListCommand = async (): Promise<void> => {
-  const agentsDir = agentsPath()
-  const dirExists = await Bun.file(join(agentsDir, '.'))
-    .exists()
-    .catch(() => false)
+const handleAgentsListCommand = (): void => {
+  const agents = embeddedAgentNames()
 
-  try {
-    const files = await readdir(agentsDir)
-    const agents = files
-      .filter((f) => f.endsWith('.md') && f !== 'README.md')
-      .map((f) => basename(f, '.md'))
-      .toSorted()
-
-    if (agents.length === 0) {
-      Effect.runSync(Console.log('No agent templates found.'))
-      return
-    }
-
-    Effect.runSync(Console.log('Available agent templates:\n'))
-
-    agents.forEach((agent) => Effect.runSync(Console.log(`  ${agent}`)))
-  } catch {
-    if (!dirExists) {
-      Effect.runSync(Console.error(`Error: Agents directory not found: ${agentsDir}`))
-    } else {
-      Effect.runSync(Console.error(`Error: Failed to read agents directory: ${agentsDir}`))
-    }
-    process.exit(1)
+  if (agents.length === 0) {
+    Effect.runSync(Console.log('No agent templates found.'))
+    return
   }
+
+  Effect.runSync(Console.log('Available agent templates:\n'))
+  agents.forEach((agent) => Effect.runSync(Console.log(`  ${agent}`)))
 }
 
 const handleAgentsInstallCommand = async (
@@ -56,11 +40,9 @@ const handleAgentsInstallCommand = async (
     process.exit(1)
   }
 
-  const agentsDir = agentsPath()
-  const sourceFile = join(agentsDir, `${agentName}.md`)
-  const sourceExists = await Bun.file(sourceFile).exists()
+  const sourceFile = embeddedAgentPath(agentName)
 
-  if (!sourceExists) {
+  if (sourceFile === undefined) {
     Effect.runSync(Console.error(`Error: Agent "${agentName}" not found`))
     process.exit(1)
   }
@@ -81,7 +63,7 @@ const handleAgentsInstallCommand = async (
     process.exit(1)
   }
 
-  await copyFile(sourceFile, destFile)
+  await Bun.write(destFile, Bun.file(sourceFile))
 
   Effect.runSync(Console.log(`Installed agent "${agentName}" to ${destFile}`))
 }
@@ -93,7 +75,7 @@ export const handleAgentsCommand = async (
   force = false
 ): Promise<void> => {
   if (subcommand === 'list') {
-    await handleAgentsListCommand()
+    handleAgentsListCommand()
     return
   }
 

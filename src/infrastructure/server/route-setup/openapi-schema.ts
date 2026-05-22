@@ -6,7 +6,7 @@
  */
 
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
+import { getSovriumVersion } from '@/infrastructure/utils/version'
 import {
   expandRoutesPerResource,
   registerStaticRoutes,
@@ -14,7 +14,7 @@ import {
 import { RESOURCE_GROUPS, STATIC_GROUPS, buildTags } from './openapi-routes/_shared/group-registry'
 import type { App } from '@/domain/models/app'
 
-const { version: APP_VERSION } = await Bun.file(resolvePackagePath('package.json')).json()
+const APP_VERSION = await getSovriumVersion()
 
 
 const createOpenApiApp = (appConfig?: App) => {
@@ -32,7 +32,7 @@ const buildDocument = (appConfig?: App) =>
     openapi: '3.1.0',
     info: {
       title: 'Sovrium API',
-      version: APP_VERSION as string,
+      version: APP_VERSION,
       description:
         'REST API specification for Sovrium application.\n\n' +
         '**Generated Schema**: This schema is automatically generated from the runtime implementation. ' +

@@ -25,6 +25,3 @@ export const clientScriptPath = (filename: string): string =>
     ? resolvePackagePath('dist', 'client-scripts', filename)
     : resolvePackagePath('src', 'presentation', 'scripts', 'client', filename)
 
-export const examplesPath = (): string => resolvePackagePath('examples')
-
-export const agentsPath = (): string => resolvePackagePath('agents')

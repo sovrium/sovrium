@@ -6,8 +6,9 @@
  */
 
 
-import { readFileSync, writeFileSync, rmSync, existsSync, mkdirSync, copyFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join, relative, dirname, posix } from 'node:path'
+import { buildRuntimeAssets } from './lib/runtime-assets'
 
 const PROJECT_ROOT = join(import.meta.dir, '..')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
@@ -40,7 +41,7 @@ function clean(): void {
 
 
 async function bundleJS(): Promise<void> {
-  const externals = getExternalDeps()
+  const externals = [...getExternalDeps(), '*/embedded-runtime-assets.generated']
 
   console.log('\n▸ Bundling dist/index.js')
   const libResult = await Bun.build({
@@ -132,65 +133,8 @@ function fixPathAliases(): void {
 
 async function copyRuntimeAssets(): Promise<void> {
   console.log('\n▸ Copying and building runtime assets')
-
-  const clientScriptsDir = join(DIST_DIR, 'client-scripts')
-  mkdirSync(clientScriptsDir, { recursive: true })
-
-  const clientScriptsSrc = join(SRC_DIR, 'presentation', 'scripts', 'client')
-  const scripts = ['scroll-animation.js', 'language-switcher.js', 'banner-dismiss.js']
-
-  for (const script of scripts) {
-    const src = join(clientScriptsSrc, script)
-    if (existsSync(src)) {
-      copyFileSync(src, join(clientScriptsDir, script))
-    }
-  }
-  console.log(`  Copied ${scripts.length} client script(s)`)
-
-  console.log('  Building client runtime bundle...')
-  const clientResult = await Bun.build({
-    entrypoints: [join(SRC_DIR, 'presentation', 'client.ts')],
-    outdir: DIST_DIR,
-    target: 'browser',
-    format: 'esm',
-    minify: true,
-    define: {
-      'process.env.NODE_ENV': '"production"',
-    },
-    naming: { entry: 'client-bundle.js' },
-  })
-  if (!clientResult.success) {
-    console.error('  ✗ Client bundle build failed:')
-    for (const log of clientResult.logs) console.error(log)
-    process.exit(1)
-  }
-  console.log('  Built dist/client-bundle.js')
-
-  console.log('  Building island entry bundle...')
-  const islandOutDir = join(DIST_DIR, 'island-chunks')
-  mkdirSync(islandOutDir, { recursive: true })
-
-  const islandResult = await Bun.build({
-    entrypoints: [join(SRC_DIR, 'presentation', 'islands', 'island-client.tsx')],
-    outdir: islandOutDir,
-    target: 'browser',
-    format: 'esm',
-    splitting: true,
-    minify: true,
-    define: {
-      'process.env.NODE_ENV': '"production"',
-    },
-    naming: {
-      entry: 'island-entry.js',
-      chunk: '[name]-[hash].js',
-    },
-  })
-  if (!islandResult.success) {
-    console.error('  ✗ Island bundle build failed:')
-    for (const log of islandResult.logs) console.error(log)
-    process.exit(1)
-  }
-  console.log(`  Built island entry + ${islandResult.outputs.length - 1} chunk(s)`)
+  await buildRuntimeAssets(DIST_DIR, SRC_DIR)
+  console.log('  Built client-bundle.js, island-chunks/, and copied client scripts')
 }
 
 

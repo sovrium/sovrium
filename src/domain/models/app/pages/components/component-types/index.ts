@@ -449,7 +449,7 @@ type InjectableFields = Record<string, any>
 export function buildComponentUnion(
   childrenField: InjectableFields,
   extraFields: InjectableFields = {}
-) {
+): Schema.Schema<any, any, never> {
   const branches = allComponents.map(([typeLiteral, fields]) => {
     const { ast } = typeLiteral
     const isContainer =

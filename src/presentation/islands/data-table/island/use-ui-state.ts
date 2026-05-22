@@ -7,7 +7,7 @@
 
 import { useCallback, useState } from 'react'
 
-interface ActiveFilter {
+export interface ActiveFilter {
   readonly field: string
   readonly value: string
 }

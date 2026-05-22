@@ -134,6 +134,17 @@ console.log(`Targets: ${targets.map((t) => t.name).join(', ')}`)
 
 run(['bun', 'run', 'scripts/generate-css-assets.ts'], 'Generate embedded CSS assets')
 
+run(
+  ['bun', 'run', 'scripts/generate-embedded-static-assets.ts'],
+  'Generate embedded static-asset manifest'
+)
+
+run(['bun', 'run', 'scripts/build-runtime-assets.ts'], 'Build client/island runtime assets')
+run(
+  ['bun', 'run', 'scripts/generate-embedded-runtime-assets.ts'],
+  'Generate embedded runtime-asset manifest'
+)
+
 for (const target of targets) {
   compileBinary(target, version)
 }

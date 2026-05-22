@@ -14,7 +14,9 @@ import { migrate as migratePg } from 'drizzle-orm/bun-sql/migrator'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
 import { migrate as migrateSqlite } from 'drizzle-orm/bun-sqlite/migrator'
 import { Effect, Data } from 'effect'
+import { materializeMigrations } from '@/infrastructure/assets/embedded-static-assets'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { isCompiled } from '@/infrastructure/utils/package-paths'
 import * as schema from './schema'
 import * as schemaSqlite from './schema-sqlite'
 import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
@@ -42,6 +44,11 @@ const findMigrationsFolder = (subdir: string): string => {
 
   return packageDir ? join(packageDir, folder) : cwdPath
 }
+
+const resolveMigrationsFolder = (dialect: 'pg' | 'sqlite'): Effect.Effect<string, never> =>
+  isCompiled
+    ? Effect.promise(() => materializeMigrations(dialect))
+    : Effect.sync(() => findMigrationsFolder(dialect === 'sqlite' ? 'sqlite' : ''))
 
 export class DatabaseConnectionError extends Data.TaggedError('DatabaseConnectionError')<{
   readonly message: string
@@ -78,8 +85,9 @@ const runPostgresMigrations = (
         }),
     })
 
+    const migrationsFolder = yield* resolveMigrationsFolder('pg')
     yield* Effect.tryPromise({
-      try: () => migratePg(db, { migrationsFolder: findMigrationsFolder('') }),
+      try: () => migratePg(db, { migrationsFolder }),
       catch: (error) =>
         new MigrationError({
           message: `Migration failed: ${String(error)}`,
@@ -114,8 +122,9 @@ const runSqliteMigrations = (
 
     const db = drizzleSqlite({ client, schema: schemaSqlite })
 
+    const migrationsFolder = yield* resolveMigrationsFolder('sqlite')
     yield* Effect.try({
-      try: () => migrateSqlite(db, { migrationsFolder: findMigrationsFolder('sqlite') }),
+      try: () => migrateSqlite(db, { migrationsFolder }),
       catch: (error) =>
         new MigrationError({
           message: `Migration failed: ${String(error)}`,

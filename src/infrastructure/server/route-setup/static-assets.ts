@@ -10,12 +10,14 @@ import { join } from 'node:path'
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
+import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import { logError, logDebug } from '@/infrastructure/logging/logger'
 import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import {
   clientScriptPath,
   isBundled,
+  isCompiled,
   resolvePackagePath,
 } from '@/infrastructure/utils/package-paths'
 import type { App } from '@/domain/models/app'
@@ -44,10 +46,14 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
   })
 }
 
-export function createJavaScriptHandler(scriptName: string, scriptPath: string) {
+export function createJavaScriptHandler(
+  scriptName: string,
+  scriptPath: string | (() => Promise<string>)
+) {
   return async (c: Readonly<Context>) => {
     try {
-      const file = Bun.file(scriptPath)
+      const path = typeof scriptPath === 'function' ? await scriptPath() : scriptPath
+      const file = Bun.file(path)
       const content = await file.text()
 
       return c.text(content, 200, {
@@ -91,6 +97,11 @@ const getClientBundle = (() => {
     if (cachedPromise) return cachedPromise
 
     cachedPromise = (async () => {
+      if (isCompiled) {
+        const assets = await getRuntimeAssets()
+        return Bun.file(assets.clientBundle).text()
+      }
+
       if (isBundled) {
         return Bun.file(resolvePackagePath('dist', 'client-bundle.js')).text()
       }
@@ -137,19 +148,24 @@ export function setupClientBundleRoute(honoApp: Readonly<Hono>): Readonly<Hono> 
   })
 }
 
+const clientScriptSource = (name: string): string | (() => Promise<string>) =>
+  isCompiled
+    ? () => getRuntimeAssets().then((a) => a.clientScripts[name] as string)
+    : clientScriptPath(name)
+
 export function setupJavaScriptRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   return honoApp
     .get(
       '/assets/language-switcher.js',
-      createJavaScriptHandler('language-switcher.js', clientScriptPath('language-switcher.js'))
+      createJavaScriptHandler('language-switcher.js', clientScriptSource('language-switcher.js'))
     )
     .get(
       '/assets/banner-dismiss.js',
-      createJavaScriptHandler('banner-dismiss.js', clientScriptPath('banner-dismiss.js'))
+      createJavaScriptHandler('banner-dismiss.js', clientScriptSource('banner-dismiss.js'))
     )
     .get(
       '/assets/scroll-animation.js',
-      createJavaScriptHandler('scroll-animation.js', clientScriptPath('scroll-animation.js'))
+      createJavaScriptHandler('scroll-animation.js', clientScriptSource('scroll-animation.js'))
     )
 }
 
@@ -187,8 +203,8 @@ export const buildIslands = (() => {
     if (cachedPromise) return cachedPromise
 
     cachedPromise = (async () => {
-      if (isBundled) {
-        logDebug('[ISLANDS] Using pre-built island entry from dist/')
+      if (isCompiled || isBundled) {
+        logDebug('[ISLANDS] Using pre-built island entry')
         return { entryFile: 'island-entry.js' }
       }
 
@@ -231,6 +247,21 @@ export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   return honoApp.get('/assets/islands/*', async (c) => {
     try {
       const relativePath = c.req.path.replace('/assets/islands/', '')
+
+      if (isCompiled) {
+        const assets = await getRuntimeAssets()
+        const embeddedPath = assets.islands[relativePath]
+        if (embeddedPath === undefined) return c.notFound()
+        return new Response(Bun.file(embeddedPath), {
+          headers: {
+            'Content-Type': 'application/javascript',
+            'Cache-Control': isProduction
+              ? 'public, max-age=31536000, immutable'
+              : getCacheControlHeader(),
+          },
+        })
+      }
+
       const filePath = join(ISLAND_OUT_DIR, relativePath)
       const file = Bun.file(filePath)
 

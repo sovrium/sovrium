@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mkdir, writeFile, copyFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { Effect, Console } from 'effect'
-import { examplesPath } from '@/infrastructure/utils/package-paths'
+import { embeddedExamplePath } from '@/infrastructure/assets/embedded-static-assets'
 
 const TEMPLATE_MAP: Readonly<Record<string, string>> = {
   blog: 'hello-world.yaml',
@@ -56,7 +56,7 @@ const writeScaffoldFiles = async (targetDir: string, appYamlContent: string): Pr
   return targetPath
 }
 
-const resolveTemplate = async (templateName: string): Promise<string> => {
+const resolveTemplate = (templateName: string): string => {
   const exampleFile = TEMPLATE_MAP[templateName]
   if (!exampleFile) {
     Effect.runSync(
@@ -68,10 +68,9 @@ const resolveTemplate = async (templateName: string): Promise<string> => {
     process.exit(1)
   }
 
-  const srcPath = join(examplesPath(), exampleFile)
-  const srcExists = await Bun.file(srcPath).exists()
-  if (!srcExists) {
-    Effect.runSync(Console.error(`Error: Template file not found: ${srcPath}`))
+  const srcPath = embeddedExamplePath(exampleFile)
+  if (srcPath === undefined) {
+    Effect.runSync(Console.error(`Error: Template file not found: ${exampleFile}`))
     process.exit(1)
   }
 
@@ -104,8 +103,8 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
   await mkdir(targetDir, { recursive: true })
 
   if (templateName) {
-    const srcPath = await resolveTemplate(templateName)
-    await copyFile(srcPath, targetPath)
+    const srcPath = resolveTemplate(templateName)
+    await Bun.write(targetPath, Bun.file(srcPath))
     await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(basename(targetDir)))
 
     Effect.runSync(Console.log(`Created ${targetPath} from template "${templateName}"`))
