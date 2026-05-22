@@ -10,10 +10,12 @@ import { logError } from '../logging'
 import type { EmailConfig } from './nodemailer'
 
 export interface EmailConfigResult {
-  readonly config: EmailConfig
-  readonly usingMailpitFallback: boolean
+  readonly configured: boolean
+  readonly config: EmailConfig | undefined
 }
 
+
+export const isEmailConfigured = (): boolean => Boolean(process.env.SMTP_HOST)
 
 const getEnvString = (key: string, defaultValue: string): string => process.env[key] ?? defaultValue
 
@@ -29,11 +31,11 @@ const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
 
 export const getEmailConfigFromEffect = (): EmailConfigResult => {
   const host = process.env.SMTP_HOST
-  const isProduction = isProductionEnv()
 
   if (host) {
     const port = getEnvNumber('SMTP_PORT', 587)
     return {
+      configured: true,
       config: {
         host,
         port,
@@ -47,28 +49,12 @@ export const getEmailConfigFromEffect = (): EmailConfigResult => {
           name: getEnvString('SMTP_FROM_NAME', 'Sovrium'),
         },
       },
-      usingMailpitFallback: false,
     }
   }
 
-  if (isProduction) {
+  if (isProductionEnv()) {
     logError('[EMAIL] SMTP_HOST not configured in production mode')
   }
 
-  return {
-    config: {
-      host: '127.0.0.1',
-      port: 1025,
-      secure: false,
-      auth: {
-        user: '',
-        pass: '',
-      },
-      from: {
-        email: getEnvString('SMTP_FROM', 'noreply@sovrium.local'),
-        name: getEnvString('SMTP_FROM_NAME', 'Sovrium (Dev)'),
-      },
-    },
-    usingMailpitFallback: true,
-  }
+  return { configured: false, config: undefined }
 }

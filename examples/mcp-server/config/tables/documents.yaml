@@ -1,0 +1,46 @@
+name: documents
+fields:
+  - name: title
+    type: single-line-text
+    required: true
+  - name: body
+    type: long-text
+  - name: tag
+    type: relationship
+    relatedTable: tags
+    relationType: many-to-one
+  - name: status
+    type: single-select
+    options:
+      - draft
+      - published
+      - archived
+  - name: created_by
+    type: created-by
+  - name: created_at
+    type: created-at
+  - name: updated_at
+    type: updated-at
+permissions:
+  read: authenticated
+  create:
+    - editor
+  update:
+    - editor
+  delete:
+    - editor
+aiAccess:
+  description: Knowledge-base documents the agent can browse and add to. Each document has a title, a long-form body, and an optional tag. Use list/get to discover existing content; use create to record new findings on behalf of the user.
+  operations:
+    - read
+    - list
+    - create
+  fieldExposure: whitelist
+  whitelistFields:
+    - title
+    - body
+    - tag
+    - status
+  annotations:
+    readOnly: false
+    idempotent: false

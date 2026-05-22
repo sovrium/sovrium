@@ -44,9 +44,10 @@ export const MarkdownSchema = Schema.Struct({
   ),
 
   layout: Schema.optional(
-    Schema.Literal('prose', 'docs', 'full').pipe(
+    Schema.Literal('prose', 'docs', 'full', 'none').pipe(
       Schema.annotations({
-        description: 'Layout mode: prose (article-width), docs (with sidebar), full (full-width)',
+        description:
+          'Layout mode: prose (article-width), docs (with sidebar), full (full-width), none (no wrapper)',
       })
     )
   ),

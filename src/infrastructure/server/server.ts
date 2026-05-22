@@ -14,6 +14,7 @@ import { requestId } from 'hono/request-id'
 import { AiService } from '@/application/ports/services/ai-service'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { appRequiresEmail } from '@/domain/models/app'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { filterAgentKnowledgeTables } from '@/domain/services/rag-knowledge-access'
 import { AiLive } from '@/infrastructure/ai/layer'
@@ -36,13 +37,13 @@ import {
   type SchemaInitializationError,
 } from '@/infrastructure/database/schema/schema-initializer'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { getEmailConfigFromEffect } from '@/infrastructure/email/email-config'
+import { isEmailConfigured } from '@/infrastructure/email/email-config'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import {
   logDebug,
   logError,
+  logWarning,
   renderStartupSummary,
-  formatDuration,
   type StartupPhase,
 } from '@/infrastructure/logging/logger'
 import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
@@ -52,6 +53,7 @@ import {
 } from '@/infrastructure/scheduling/register-cron-automations'
 import {
   computeConfigHash,
+  getLockFilePath,
   writeLockFile as writeLockFileToDisk,
 } from '@/infrastructure/server/lock-file'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
@@ -62,6 +64,7 @@ import {
   setupAuthRoutes,
 } from '@/infrastructure/server/route-setup/auth-routes'
 import { setupBootstrapRoutes } from '@/infrastructure/server/route-setup/bootstrap-routes'
+import { setupDevReloadRoute } from '@/infrastructure/server/route-setup/dev-reload-routes'
 import { setupMcpRoutes } from '@/infrastructure/server/route-setup/mcp/routes'
 import { setupOpenApiRoutes } from '@/infrastructure/server/route-setup/openapi-routes'
 import {
@@ -69,14 +72,16 @@ import {
   type HonoAppConfig,
 } from '@/infrastructure/server/route-setup/page-routes'
 import { setupSchemaRoutes } from '@/infrastructure/server/route-setup/schema-routes'
+import { setupSeoRoutes } from '@/infrastructure/server/route-setup/seo-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
 import {
   collectStoragePhases,
   collectAiListenerPhases,
+  buildStartupPhases,
+  databaseStartupLabel,
 } from '@/infrastructure/server/startup-degradation-phases'
 import { validateStoragePublicAccessEnv } from '@/infrastructure/server/validate-storage-public-access-env'
 import { validateTransformPresetEnv } from '@/infrastructure/server/validate-transform-preset-env'
-import { warnIfInsecureEnv } from '@/infrastructure/utils/env'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
 import type { ServerInstance } from '@/application/models/server'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -178,20 +183,25 @@ export function createHonoApp(
   const honoWithSchema = setupSchemaRoutes(honoWithBootstrap as Hono, app)
 
   const honoWithRoutes = setupPageRoutes(
-    setupStaticAssets(
-      setupMcpRoutes(
-        setupAuthRoutes(
-          setupAuthMiddleware(
-            setupOpenApiRoutes(createApiRoutes(app, honoWithSchema as Hono), app),
+    setupDevReloadRoute(
+      setupStaticAssets(
+        setupSeoRoutes(
+          setupMcpRoutes(
+            setupAuthRoutes(
+              setupAuthMiddleware(
+                setupOpenApiRoutes(createApiRoutes(app, honoWithSchema as Hono), app),
+                app
+              ),
+              app,
+              authInstance
+            ),
             app
           ),
-          app,
-          authInstance
+          app
         ),
-        app
-      ),
-      app,
-      config.publicDir
+        app,
+        config.publicDir
+      )
     ),
     configWithSession
   )
@@ -258,7 +268,10 @@ const startBunServer = (
       },
       () =>
         Effect.try({
-          try: () => Bun.serve(buildBunServeOptions(honoApp, 0, hostname)),
+          try: () => {
+            logWarning(`[SERVER] Port ${port} in use; using an OS-assigned port (see URL below).`)
+            return Bun.serve(buildBunServeOptions(honoApp, 0, hostname))
+          },
           catch: (error) => new ServerCreationError(error),
         })
     )
@@ -301,9 +314,6 @@ const startAiComputeListenerIfNeeded = (
         .catch(() => undefined)
     )
   })
-
-const databaseStartupLabel = (config: DatabaseDialectConfig): string =>
-  config.dialect === 'sqlite' ? `Database: SQLite (${config.path})` : 'Database: PostgreSQL'
 
 const filterRagKnowledgeByRole = (app: App) =>
   (app.agents ?? []).map((agent) => filterAgentKnowledgeTables(agent, app.tables ?? []))
@@ -354,10 +364,10 @@ const collectInfraPhases = (
     const databasePhases: readonly StartupPhase[] = yield* runDatabaseStartup(app, dialectConfig)
 
     const smtpPhases: readonly StartupPhase[] =
-      app.auth && getEmailConfigFromEffect().usingMailpitFallback
+      appRequiresEmail(app) && !isEmailConfigured()
         ? [
             {
-              label: 'SMTP not configured (using Mailpit at 127.0.0.1:1025)',
+              label: 'Email sending disabled — SMTP not configured (set SMTP_HOST to enable)',
               type: 'warning' as const,
             },
           ]
@@ -394,7 +404,7 @@ const writeLockFile = (
 
 const cleanupLockFileSync = (): void => {
   try {
-    const lockPath = `${process.env.SOVRIUM_LOCK_DIR || process.cwd()}/.sovrium.lock`
+    const lockPath = getLockFilePath()
     const raw = readFileSync(lockPath, 'utf-8')
     const data = JSON.parse(raw) as { pid: number }
     if (data.pid === process.pid) {
@@ -454,7 +464,6 @@ export const createServer = (
 > =>
   Effect.gen(function* () {
     const startTime = Date.now()
-    warnIfInsecureEnv()
     yield* validateTransformPresetEnv()
     yield* validateStoragePublicAccessEnv()
     const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
@@ -477,11 +486,7 @@ export const createServer = (
 
     const durationMs = Date.now() - startTime
 
-    const phases: readonly StartupPhase[] = [
-      ...infraPhases,
-      { label: cssLabel, type: 'success' },
-      { label: `Server ready in ${formatDuration(durationMs)}`, type: 'success' },
-    ]
+    const phases = buildStartupPhases({ infraPhases, cssLabel, durationMs })
 
     if (!config.silent) {
       yield* writeLockFile(server.port, configHash, configPath)

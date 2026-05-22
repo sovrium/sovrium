@@ -62,7 +62,7 @@ function LineAxes({
           x={p.x}
           y={innerHeight + 18}
           fontSize={11}
-          fill="var(--color-fg-muted)"
+          fill="var(--color-foreground-muted)"
           textAnchor="middle"
         >
           {p.key}

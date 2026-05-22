@@ -1,0 +1,4 @@
+name: language-switcher
+type: language-switcher
+props:
+  variant: dropdown

@@ -55,7 +55,7 @@ export default function TabsIsland({
             key={tab.id}
             value={tab.id}
             disabled={tab.disabled}
-            className="text-fg-muted hover:text-fg data-[selected]:border-primary data-[selected]:text-primary px-4 py-2 text-sm font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[selected]:border-b-2"
+            className="text-foreground-muted hover:text-foreground data-[selected]:border-primary data-[selected]:text-primary px-4 py-2 text-sm font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[selected]:border-b-2"
           >
             {tab.label}
           </Tabs.Tab>
@@ -67,7 +67,7 @@ export default function TabsIsland({
         <Tabs.Panel
           key={tab.id}
           value={tab.id}
-          className="text-fg p-4 text-sm"
+          className="text-foreground p-4 text-sm"
         >
           {tab.content}
         </Tabs.Panel>

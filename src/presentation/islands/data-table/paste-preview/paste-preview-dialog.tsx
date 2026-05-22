@@ -47,10 +47,10 @@ export function PastePreviewDialog({
         aria-labelledby="paste-preview-dialog-title"
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <div className="bg-bg-overlay flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg p-6 shadow-xl">
+        <div className="bg-background-overlay flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg p-6 shadow-xl">
           <h2
             id="paste-preview-dialog-title"
-            className="text-fg mb-4 text-lg font-semibold"
+            className="text-foreground mb-4 text-lg font-semibold"
           >
             Paste Preview
           </h2>

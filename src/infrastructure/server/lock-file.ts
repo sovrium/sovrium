@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readFile, writeFile, rm } from 'node:fs/promises'
+import { readFile, writeFile, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { defaultLockDir } from '@/domain/models/env/data-dir'
 
-const LOCK_FILE_NAME = '.sovrium.lock'
+const LOCK_FILE_NAME = 'lock'
 
-const getLockDir = (): string => process.env.SOVRIUM_LOCK_DIR || process.cwd()
+const getLockDir = (): string => process.env.SOVRIUM_LOCK_DIR || defaultLockDir()
 
 export interface LockFileData {
   readonly pid: number
@@ -25,9 +26,10 @@ export const computeConfigHash = (content: string): string => {
   return hasher.digest('hex').slice(0, 12)
 }
 
-const getLockFilePath = (): string => join(getLockDir(), LOCK_FILE_NAME)
+export const getLockFilePath = (): string => join(getLockDir(), LOCK_FILE_NAME)
 
 export const writeLockFile = async (data: LockFileData): Promise<void> => {
+  await mkdir(getLockDir(), { recursive: true })
   await writeFile(getLockFilePath(), JSON.stringify(data), 'utf-8')
 }
 

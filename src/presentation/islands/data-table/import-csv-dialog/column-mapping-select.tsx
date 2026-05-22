@@ -33,7 +33,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
       {open && (
         <ul
           role="listbox"
-          className="border-border bg-bg-overlay absolute top-full left-0 z-10 mt-1 rounded border shadow-lg"
+          className="border-border bg-background-overlay absolute top-full left-0 z-10 mt-1 rounded border shadow-lg"
         >
           <li
             role="option"
@@ -42,7 +42,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
               onChange(undefined)
               setOpen(false)
             }}
-            className="hover:bg-bg-subtle cursor-pointer px-3 py-2 text-sm"
+            className="hover:bg-background-subtle cursor-pointer px-3 py-2 text-sm"
           >
             Skip
           </li>
@@ -55,7 +55,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
                 onChange(field)
                 setOpen(false)
               }}
-              className="hover:bg-bg-subtle cursor-pointer px-3 py-2 text-sm"
+              className="hover:bg-background-subtle cursor-pointer px-3 py-2 text-sm"
             >
               {field}
             </li>

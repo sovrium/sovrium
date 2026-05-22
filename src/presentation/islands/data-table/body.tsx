@@ -70,7 +70,7 @@ function HeaderCell({
   return (
     <th
       key={header.id}
-      className={`${cellClass} text-fg-muted text-left text-xs font-medium tracking-wider uppercase ${
+      className={`${cellClass} text-foreground-muted text-left text-xs font-medium tracking-wider uppercase ${
         header.column.getCanSort() ? 'cursor-pointer select-none' : ''
       }`}
       onClick={header.column.getToggleSortingHandler()}
@@ -96,7 +96,7 @@ function HeaderCell({
 
 export function TableHeader({ headerGroups, cellClass }: TableHeaderProps): ReactElement {
   return (
-    <thead className="bg-bg-subtle">
+    <thead className="bg-background-subtle">
       {headerGroups.map((headerGroup) => (
         <tr key={headerGroup.id}>
           {headerGroup.headers.map((header) => (
@@ -203,7 +203,7 @@ function SkeletonRows({
   readonly cellClass: string
 }): ReactElement {
   return (
-    <tbody className="divide-border bg-bg-raised divide-y">
+    <tbody className="divide-border bg-background-raised divide-y">
       {Array.from({ length: 5 }).map((_, i) => (
         <tr key={`skeleton-${String(i)}`}>
           {allColumns.map((_, j) => (
@@ -211,7 +211,7 @@ function SkeletonRows({
               key={`skeleton-cell-${String(j)}`}
               className={cellClass}
             >
-              <div className="bg-bg-subtle h-4 w-3/4 animate-pulse rounded" />
+              <div className="bg-background-subtle h-4 w-3/4 animate-pulse rounded" />
             </td>
           ))}
         </tr>
@@ -241,7 +241,7 @@ function GroupedTableBodyRows({
   }
 
   return (
-    <tbody className="divide-border bg-bg-raised divide-y">
+    <tbody className="divide-border bg-background-raised divide-y">
       {}
       {rowModel.rows.map((row, rowIndex) => {
         if (row.getIsGrouped()) {
@@ -252,11 +252,11 @@ function GroupedTableBodyRows({
               data-group="true"
               data-group-value={row.groupingValue}
               role="row"
-              className="bg-bg-subtle hover:bg-bg-subtle"
+              className="bg-background-subtle hover:bg-background-subtle"
             >
               <td
                 colSpan={allColumns.length}
-                className={`${cellClass} ${borderClass} text-fg font-medium`}
+                className={`${cellClass} ${borderClass} text-foreground font-medium`}
               >
                 {String(row.groupingValue)} ({row.subRows.length})
               </td>
@@ -267,8 +267,8 @@ function GroupedTableBodyRows({
         return (
           <tr
             key={row.id}
-            className={`hover:bg-bg-subtle transition-colors ${
-              striped && rowIndex % 2 === 1 ? 'bg-bg-subtle' : ''
+            className={`hover:bg-background-subtle transition-colors ${
+              striped && rowIndex % 2 === 1 ? 'bg-background-subtle' : ''
             } ${row.getIsSelected() ? 'bg-primary-subtle' : ''}`}
             {...(row.getIsSelected() && { 'aria-selected': 'true' as const })}
             {...(selectionMode === 'single' && {
@@ -330,11 +330,11 @@ export function TableBodyRows({
 
   if (rows.length === 0) {
     return (
-      <tbody className="divide-border bg-bg-raised divide-y">
+      <tbody className="divide-border bg-background-raised divide-y">
         <tr>
           <td
             colSpan={allColumns.length}
-            className="text-fg-muted py-8 text-center text-sm"
+            className="text-foreground-muted py-8 text-center text-sm"
           >
             {emptyMessage}
           </td>
@@ -362,13 +362,13 @@ export function TableBodyRows({
   }
 
   return (
-    <tbody className="divide-border bg-bg-raised divide-y">
+    <tbody className="divide-border bg-background-raised divide-y">
       {rows.map((row, rowIndex) => (
         <tr
           key={row.id}
           data-row-id={String(row.original.id ?? row.id)}
-          className={`hover:bg-bg-subtle transition-colors ${
-            striped && rowIndex % 2 === 1 ? 'bg-bg-subtle' : ''
+          className={`hover:bg-background-subtle transition-colors ${
+            striped && rowIndex % 2 === 1 ? 'bg-background-subtle' : ''
           } ${row.getIsSelected() ? 'bg-primary-subtle' : ''}`}
           {...(row.getIsSelected() && { 'aria-selected': 'true' as const })}
           {...(selectionMode === 'single' && {
@@ -449,14 +449,14 @@ export function TableSummaryFooter({
     <tfoot data-summary="true">
       <tr
         role="row"
-        className="bg-bg-subtle font-medium"
+        className="bg-background-subtle font-medium"
       >
         {summary.map((item, i) => {
           const value = computeAggregate(records, item.field, item.function)
           return (
             <td
               key={`summary-${String(i)}`}
-              className={`${cellClass} text-fg whitespace-nowrap`}
+              className={`${cellClass} text-foreground whitespace-nowrap`}
             >
               {item.label ? `${item.label}: ` : ''}
               {value}

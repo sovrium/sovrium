@@ -122,14 +122,14 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
         {label && (
           <label
             htmlFor={containerId ? `${containerId}-select` : undefined}
-            className="text-fg mb-1 block text-sm font-medium"
+            className="text-foreground mb-1 block text-sm font-medium"
           >
             {label}
           </label>
         )}
         <select
           id={containerId ? `${containerId}-select` : undefined}
-          className="border-border bg-bg-raised text-fg focus:border-focus-ring focus:ring-focus-ring w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:ring-1 focus:outline-none"
+          className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:ring-1 focus:outline-none"
           defaultValue=""
         >
           <option
@@ -163,11 +163,11 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={`gallery-skeleton-${String(i)}`}
-              className="border-border bg-bg-raised flex flex-col gap-2 rounded-lg border p-3 shadow-sm"
+              className="border-border bg-background-raised flex flex-col gap-2 rounded-lg border p-3 shadow-sm"
             >
-              <div className="bg-bg-subtle h-32 w-full animate-pulse rounded" />
-              <div className="bg-bg-subtle h-5 w-3/4 animate-pulse rounded" />
-              <div className="bg-bg-subtle h-4 w-1/2 animate-pulse rounded" />
+              <div className="bg-background-subtle h-32 w-full animate-pulse rounded" />
+              <div className="bg-background-subtle h-5 w-3/4 animate-pulse rounded" />
+              <div className="bg-background-subtle h-4 w-1/2 animate-pulse rounded" />
             </div>
           ))}
         </div>
@@ -188,16 +188,16 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
       >
         {}
         <div
-          className="border-border bg-bg-raised w-full rounded-lg border p-4"
+          className="border-border bg-background-raised w-full rounded-lg border p-4"
           aria-label="Loading timeline..."
           role="status"
         >
-          <div className="bg-bg-subtle mb-3 h-4 w-40 animate-pulse rounded" />
+          <div className="bg-background-subtle mb-3 h-4 w-40 animate-pulse rounded" />
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={`timeline-skeleton-${String(i)}`}
-                className="bg-bg-subtle h-7 animate-pulse rounded"
+                className="bg-background-subtle h-7 animate-pulse rounded"
               />
             ))}
           </div>
@@ -218,12 +218,12 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
       >
         {}
         <div
-          className="border-border bg-bg-raised w-full rounded-lg border p-4"
+          className="border-border bg-background-raised w-full rounded-lg border p-4"
           aria-label="Loading KPI..."
           role="status"
         >
-          <div className="bg-bg-subtle mb-2 h-4 w-32 animate-pulse rounded" />
-          <div className="bg-bg-subtle h-8 w-24 animate-pulse rounded" />
+          <div className="bg-background-subtle mb-2 h-4 w-32 animate-pulse rounded" />
+          <div className="bg-background-subtle h-8 w-24 animate-pulse rounded" />
         </div>
       </div>
     )
@@ -249,11 +249,11 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={`kanban-skeleton-col-${String(i)}`}
-              className="border-border bg-bg-subtle flex w-72 shrink-0 flex-col gap-2 rounded-lg border p-3"
+              className="border-border bg-background-subtle flex w-72 shrink-0 flex-col gap-2 rounded-lg border p-3"
             >
-              <div className="bg-bg-subtle h-5 w-24 animate-pulse rounded" />
-              <div className="bg-bg-raised h-20 animate-pulse rounded" />
-              <div className="bg-bg-raised h-20 animate-pulse rounded" />
+              <div className="bg-background-subtle h-5 w-24 animate-pulse rounded" />
+              <div className="bg-background-raised h-20 animate-pulse rounded" />
+              <div className="bg-background-raised h-20 animate-pulse rounded" />
             </div>
           ))}
         </div>
@@ -272,7 +272,7 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
         data-component-type="data-table"
         id={elementProps.id as string | undefined}
         data-testid={elementProps['data-testid'] as string | undefined}
-        className="border-border bg-bg-raised w-full overflow-hidden rounded-lg border"
+        className="border-border bg-background-raised w-full overflow-hidden rounded-lg border"
       >
         {}
         <div
@@ -281,14 +281,14 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
         >
           {}
           <div className="border-border border-b p-3">
-            <div className="bg-bg-subtle h-9 w-64 animate-pulse rounded" />
+            <div className="bg-background-subtle h-9 w-64 animate-pulse rounded" />
           </div>
           {}
-          <div className="border-border bg-bg-subtle flex gap-4 border-b px-4 py-3">
-            <div className="bg-bg-subtle h-4 w-24 animate-pulse rounded" />
-            <div className="bg-bg-subtle h-4 w-32 animate-pulse rounded" />
-            <div className="bg-bg-subtle h-4 w-20 animate-pulse rounded" />
-            <div className="bg-bg-subtle h-4 w-28 animate-pulse rounded" />
+          <div className="border-border bg-background-subtle flex gap-4 border-b px-4 py-3">
+            <div className="bg-background-subtle h-4 w-24 animate-pulse rounded" />
+            <div className="bg-background-subtle h-4 w-32 animate-pulse rounded" />
+            <div className="bg-background-subtle h-4 w-20 animate-pulse rounded" />
+            <div className="bg-background-subtle h-4 w-28 animate-pulse rounded" />
           </div>
           {}
           {Array.from({ length: 5 }).map((_, i) => (
@@ -296,18 +296,18 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
               key={`skeleton-${String(i)}`}
               className="border-border flex gap-4 border-b px-4 py-3"
             >
-              <div className="bg-bg-subtle h-4 w-24 animate-pulse rounded" />
-              <div className="bg-bg-subtle h-4 w-32 animate-pulse rounded" />
-              <div className="bg-bg-subtle h-4 w-20 animate-pulse rounded" />
-              <div className="bg-bg-subtle h-4 w-28 animate-pulse rounded" />
+              <div className="bg-background-subtle h-4 w-24 animate-pulse rounded" />
+              <div className="bg-background-subtle h-4 w-32 animate-pulse rounded" />
+              <div className="bg-background-subtle h-4 w-20 animate-pulse rounded" />
+              <div className="bg-background-subtle h-4 w-28 animate-pulse rounded" />
             </div>
           ))}
           {}
           <div className="flex items-center justify-between px-4 py-3">
-            <div className="bg-bg-subtle h-4 w-24 animate-pulse rounded" />
+            <div className="bg-background-subtle h-4 w-24 animate-pulse rounded" />
             <div className="flex gap-2">
-              <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
-              <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
+              <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+              <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
             </div>
           </div>
         </div>

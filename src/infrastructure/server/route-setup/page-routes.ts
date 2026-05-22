@@ -21,7 +21,7 @@ import {
   detectLanguageIfEnabled,
   validateLanguageSubdirectory,
 } from '@/infrastructure/server/language-detection'
-import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
+import { isPageCacheDevBypassed, isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/types/session-info'
@@ -108,6 +108,7 @@ async function renderWithCache(
 
   const cacheUsable =
     parseEcoPageCache(process.env) === 'on' &&
+    !isPageCacheDevBypassed() &&
     reqCtx.session === undefined &&
     reqCtx.previewMode !== true &&
     isRenderablePathCacheable(app, path)

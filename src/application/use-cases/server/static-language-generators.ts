@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console, Schema, type Context } from 'effect'
+import { Effect, Schema, type Context } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { AppSchema } from '@/domain/models/app'
+import { logDebug } from '@/infrastructure/logging'
 import type { CSSCompilationError } from '@/application/ports/services/css-compiler'
 import type { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
 import type { ServerFactory as ServerFactoryService } from '@/application/ports/services/server-factory'
@@ -45,14 +46,14 @@ export const generateMultiLanguageFiles = (
   never
 > =>
   Effect.gen(function* () {
-    yield* Console.log(`🌍 Generating multi-language static site...`)
+    logDebug('Generating multi-language static site...')
     const supportedLanguages = validatedApp.languages!.supported
 
     const langFiles = yield* Effect.forEach(
       supportedLanguages,
       (lang) =>
         Effect.gen(function* () {
-          yield* Console.log(`📝 Generating pages for language: ${lang.code}...`)
+          logDebug(`Generating pages for language: ${lang.code}...`)
 
           const langApp = replaceAppTokens(validatedApp, lang.code)
 
@@ -89,7 +90,7 @@ export const generateMultiLanguageFiles = (
       { concurrency: 'unbounded' }
     )
 
-    yield* Console.log(`📝 Generating root index.html with default language...`)
+    logDebug('Generating root index.html with default language...')
     const defaultLang = validatedApp.languages!.default
     const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
     const validatedDefaultApp = yield* Schema.decodeUnknown(AppSchema)(defaultLangApp).pipe(
@@ -134,7 +135,7 @@ export const generateSingleLanguageFiles = (
   never
 > =>
   Effect.gen(function* () {
-    yield* Console.log('🏗️  Creating application instance...')
+    logDebug('Creating application instance...')
     const serverInstance = yield* serverFactory.create({
       app: validatedApp,
       port: 0,
@@ -150,7 +151,7 @@ export const generateSingleLanguageFiles = (
     const pagePaths =
       validatedApp.pages?.filter((page) => !page.path.startsWith('/_')).map((page) => page.path) ||
       []
-    yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
+    logDebug(`Generating static HTML files for ${pagePaths.length} pages...`)
     const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
       outputDir,
       pagePaths,

@@ -155,6 +155,22 @@ const handlePostCreation = (
     }
   })
 
+export const createAdminAccount = (
+  app: App,
+  config: AdminBootstrapConfig
+): Effect.Effect<
+  { readonly alreadyExists: boolean; readonly userId?: string },
+  InvalidEmailError | WeakPasswordError | DatabaseError | AuthDatabaseError,
+  Auth | AuthRepository
+> =>
+  Effect.gen(function* () {
+    yield* validateBootstrapConfig(config)
+    const auth = yield* Auth
+    const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
+    const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
+    return yield* createAdminUser(auth, config, requireEmailVerification)
+  })
+
 export const bootstrapAdmin = (
   app: App
 ): Effect.Effect<

@@ -6,11 +6,15 @@
  */
 
 import { type ReactElement } from 'react'
+import { DocsPrevNext } from '@/presentation/ui/pages/markdown/DocsPrevNext'
+import { DocsSidebarNav } from '@/presentation/ui/pages/markdown/DocsSidebarNav'
 import type { ResolvedMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
 
-const LAYOUT_CLASSES: Readonly<Record<ResolvedMarkdownPage['layout'], string>> = {
+const ARTICLE_LAYOUT_CLASSES: Readonly<
+  Record<Exclude<ResolvedMarkdownPage['layout'], 'none'>, string>
+> = {
   prose: 'prose prose-slate mx-auto max-w-3xl px-4 py-12',
-  docs: 'prose prose-slate max-w-none px-4 py-12',
+  docs: 'prose prose-slate max-w-none flex-1 px-4 py-12',
   full: 'w-full px-4 py-12',
 } as const
 
@@ -44,26 +48,71 @@ const renderToc = (markdown: ResolvedMarkdownPage): Readonly<ReactElement> | und
   )
 }
 
-export function MarkdownArticle({ markdown }: MarkdownArticleProps): Readonly<ReactElement> {
-  const wrapperClass = LAYOUT_CLASSES[markdown.layout]
-  const tocElement = renderToc(markdown)
-  const sidebar = markdown.tocPosition === 'sidebar' ? tocElement : undefined
-  const inlineToc = markdown.tocPosition === 'sidebar' ? undefined : tocElement
-  const article = (
+function renderRawMarkdown(markdown: ResolvedMarkdownPage): Readonly<ReactElement> {
+  return (
+    <div
+      data-component="markdown"
+      data-layout="none"
+      dangerouslySetInnerHTML={buildHtmlContainer(markdown.html)}
+    />
+  )
+}
+
+function renderArticle(
+  markdown: ResolvedMarkdownPage,
+  inlineToc: Readonly<ReactElement> | undefined,
+  layout: Exclude<ResolvedMarkdownPage['layout'], 'none'>
+): Readonly<ReactElement> {
+  const wrapperClass = ARTICLE_LAYOUT_CLASSES[layout]
+  return (
     <article
       data-component="markdown"
-      data-layout={markdown.layout}
+      data-layout={layout}
       className={wrapperClass}
     >
       {inlineToc}
       {}
       <div dangerouslySetInnerHTML={buildHtmlContainer(markdown.html)} />
+      {layout === 'docs' && markdown.collectionNav && (
+        <DocsPrevNext
+          previous={markdown.collectionNav.previous}
+          next={markdown.collectionNav.next}
+        />
+      )}
     </article>
   )
-  if (sidebar !== undefined) {
+}
+
+function renderDocsLayout(
+  markdown: ResolvedMarkdownPage,
+  article: Readonly<ReactElement>,
+  sidebar: Readonly<ReactElement> | undefined
+): Readonly<ReactElement> {
+  if (markdown.collectionNav === undefined) return article
+  return (
+    <div className="mx-auto flex max-w-7xl gap-8 px-4 py-12">
+      <DocsSidebarNav nav={markdown.collectionNav} />
+      <div className="flex-1">
+        {sidebar}
+        {article}
+      </div>
+    </div>
+  )
+}
+
+export function MarkdownArticle({ markdown }: MarkdownArticleProps): Readonly<ReactElement> {
+  if (markdown.layout === 'none') return renderRawMarkdown(markdown)
+  const tocElement = renderToc(markdown)
+  const sidebarToc = markdown.tocPosition === 'sidebar' ? tocElement : undefined
+  const inlineToc = markdown.tocPosition === 'sidebar' ? undefined : tocElement
+  const article = renderArticle(markdown, inlineToc, markdown.layout)
+  if (markdown.layout === 'docs') {
+    return renderDocsLayout(markdown, article, sidebarToc)
+  }
+  if (sidebarToc !== undefined) {
     return (
       <div className="mx-auto flex max-w-7xl gap-8 px-4 py-12">
-        {sidebar}
+        {sidebarToc}
         <div className="flex-1">{article}</div>
       </div>
     )

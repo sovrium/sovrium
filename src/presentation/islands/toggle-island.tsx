@@ -38,8 +38,8 @@ export default function ToggleIsland({
 }: ToggleIslandProps): ReactElement {
   const variantClass =
     variant === 'outline'
-      ? 'border border-border bg-bg-raised text-fg data-[pressed]:bg-primary-subtle data-[pressed]:border-border-strong'
-      : 'bg-bg-subtle text-fg data-[pressed]:bg-primary-subtle'
+      ? 'border border-border bg-background-raised text-foreground data-[pressed]:bg-primary-subtle data-[pressed]:border-border-strong'
+      : 'bg-background-subtle text-foreground data-[pressed]:bg-primary-subtle'
 
   return (
     <Toggle

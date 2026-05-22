@@ -74,7 +74,7 @@ function SelectOption({ option }: { readonly option: OptionItem }): ReactElement
     <Select.Item
       value={option.value}
       disabled={option.disabled}
-      className="text-fg data-[disabled]:text-fg-subtle data-[highlighted]:bg-bg-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
+      className="text-foreground data-[disabled]:text-foreground-subtle data-[highlighted]:bg-background-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
     >
       <Select.ItemText>{option.label}</Select.ItemText>
       <Select.ItemIndicator className="text-primary ml-auto">
@@ -90,7 +90,7 @@ function ComboboxItemRenderer(item: OptionItem): ReactElement {
       key={item.value}
       value={item}
       disabled={item.disabled}
-      className="text-fg data-[disabled]:text-fg-subtle data-[highlighted]:bg-bg-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
+      className="text-foreground data-[disabled]:text-foreground-subtle data-[highlighted]:bg-background-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
     >
       {item.label}
       <Combobox.ItemIndicator className="text-primary ml-auto">
@@ -104,8 +104,10 @@ function ComboboxPopupContent(): ReactElement {
   return (
     <Combobox.Portal>
       <Combobox.Positioner sideOffset={4}>
-        <Combobox.Popup className="border-border bg-bg-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
-          <Combobox.Empty className="text-fg-muted px-3 py-2 text-sm">No results</Combobox.Empty>
+        <Combobox.Popup className="border-border bg-background-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
+          <Combobox.Empty className="text-foreground-muted px-3 py-2 text-sm">
+            No results
+          </Combobox.Empty>
           <Combobox.List>{(item: OptionItem) => ComboboxItemRenderer(item)}</Combobox.List>
         </Combobox.Popup>
       </Combobox.Positioner>
@@ -134,19 +136,19 @@ function SearchableSelect({
         disabled={disabled}
       >
         {label && (
-          <Combobox.Label className="text-fg mb-1 block text-sm font-medium">
+          <Combobox.Label className="text-foreground mb-1 block text-sm font-medium">
             {label}
           </Combobox.Label>
         )}
-        <Combobox.InputGroup className="border-border bg-bg-raised focus-within:border-primary focus-within:ring-focus-ring flex w-full items-center rounded-md border shadow-sm transition-colors focus-within:ring-1 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
+        <Combobox.InputGroup className="border-border bg-background-raised focus-within:border-primary focus-within:ring-focus-ring flex w-full items-center rounded-md border shadow-sm transition-colors focus-within:ring-1 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
           <Combobox.Input
             placeholder={placeholder ?? 'Select...'}
             aria-label={label}
-            className="text-fg flex-1 bg-transparent px-3 py-2 text-sm outline-none"
+            className="text-foreground flex-1 bg-transparent px-3 py-2 text-sm outline-none"
           />
           <Combobox.Trigger
             aria-label={triggerLabel}
-            className="text-fg-subtle px-2"
+            className="text-foreground-subtle px-2"
           >
             <ChevronDown />
           </Combobox.Trigger>
@@ -175,10 +177,12 @@ function PlainSelect({
         disabled={disabled}
       >
         {label && (
-          <Select.Label className="text-fg mb-1 block text-sm font-medium">{label}</Select.Label>
+          <Select.Label className="text-foreground mb-1 block text-sm font-medium">
+            {label}
+          </Select.Label>
         )}
 
-        <Select.Trigger className="border-border bg-bg-raised text-fg data-[open]:border-primary data-[open]:ring-focus-ring flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm shadow-sm transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[open]:ring-1">
+        <Select.Trigger className="border-border bg-background-raised text-foreground data-[open]:border-primary data-[open]:ring-focus-ring flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm shadow-sm transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[open]:ring-1">
           <Select.Value placeholder={placeholder ?? 'Select...'}>
             {(value: string | null) =>
               value === null || value === undefined
@@ -186,14 +190,14 @@ function PlainSelect({
                 : (valueLabelMap.get(value) ?? value)
             }
           </Select.Value>
-          <Select.Icon className="text-fg-subtle ml-2">
+          <Select.Icon className="text-foreground-subtle ml-2">
             <ChevronDown />
           </Select.Icon>
         </Select.Trigger>
 
         <Select.Portal>
           <Select.Positioner sideOffset={4}>
-            <Select.Popup className="border-border bg-bg-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
+            <Select.Popup className="border-border bg-background-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
               <Select.List>
                 {options?.map((option) => (
                   <SelectOption

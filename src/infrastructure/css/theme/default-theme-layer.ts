@@ -25,13 +25,13 @@ const CANONICAL_COLOR_UTILITIES = [
   'text-neutral-950',
   'border-neutral-200',
   'border-neutral-300',
-  'bg-bg',
-  'bg-bg-subtle',
-  'bg-bg-raised',
-  'bg-bg-overlay',
-  'bg-fg',
-  'text-bg',
-  'text-bg-overlay',
+  'bg-background',
+  'bg-background-subtle',
+  'bg-background-raised',
+  'bg-background-overlay',
+  'bg-foreground',
+  'text-background',
+  'text-background-overlay',
   'bg-scrim',
   'bg-scrim/50',
   'border-border',
@@ -40,12 +40,12 @@ const CANONICAL_COLOR_UTILITIES = [
   'divide-border',
   'bg-border',
   'bg-border-strong',
-  'text-fg',
-  'text-fg-muted',
-  'text-fg-subtle',
-  'text-fg-disabled',
-  'text-fg-inverse',
-  'text-fg-humane',
+  'text-foreground',
+  'text-foreground-muted',
+  'text-foreground-subtle',
+  'text-foreground-disabled',
+  'text-foreground-inverse',
+  'text-foreground-humane',
   'bg-primary',
   'bg-primary-hover',
   'bg-primary-active',
@@ -98,10 +98,10 @@ const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     --color-neutral-950: var(--sv-neutral-950);
 
     /* Surface roles */
-    --color-bg: var(--sv-bg);
-    --color-bg-subtle: var(--sv-bg-subtle);
-    --color-bg-raised: var(--sv-bg-raised);
-    --color-bg-overlay: var(--sv-bg-overlay);
+    --color-background: var(--sv-bg);
+    --color-background-subtle: var(--sv-bg-subtle);
+    --color-background-raised: var(--sv-bg-raised);
+    --color-background-overlay: var(--sv-bg-overlay);
     --color-scrim: var(--sv-scrim);
 
     /* Border roles */
@@ -110,12 +110,12 @@ const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     --color-border-inverse: var(--sv-border-inverse);
 
     /* Foreground roles */
-    --color-fg: var(--sv-fg);
-    --color-fg-muted: var(--sv-fg-muted);
-    --color-fg-subtle: var(--sv-fg-subtle);
-    --color-fg-disabled: var(--sv-fg-disabled);
-    --color-fg-inverse: var(--sv-fg-inverse);
-    --color-fg-humane: var(--sv-fg-humane);
+    --color-foreground: var(--sv-fg);
+    --color-foreground-muted: var(--sv-fg-muted);
+    --color-foreground-subtle: var(--sv-fg-subtle);
+    --color-foreground-disabled: var(--sv-fg-disabled);
+    --color-foreground-inverse: var(--sv-fg-inverse);
+    --color-foreground-humane: var(--sv-fg-humane);
 
     /* Primary */
     --color-primary: var(--sv-primary);
@@ -312,7 +312,7 @@ const V1_ROOT_LIGHT = `:root {
 
     /* Scrim — mode-invariant dark modal backdrop. Pinned to the darkest ramp
        step and intentionally NOT overridden in the dark cascade, so it stays a
-       dark veil in both light and dark modes (unlike bg-fg/50, which inverts). */
+       dark veil in both light and dark modes (unlike bg-foreground/50, which inverts). */
     --sv-scrim: var(--sv-neutral-950);
   }`
 
@@ -408,12 +408,18 @@ export const V1_ALIAS_BRIDGE = `:root {
     --sv-border-strong: var(--sv-neutral-300);
     --sv-border-inverse: var(--sv-neutral-900);
 
-    /* Foreground roles */
-    --sv-fg: var(--color-foreground, var(--color-text, var(--sv-neutral-950)));
+    /* Foreground roles.
+       --sv-fg uses the neutral default directly (no var(--color-foreground, ...)
+       self-reference) to avoid the --color-foreground to --sv-fg to
+       --color-foreground custom-property CYCLE that resolved tooltip
+       backgrounds to transparent in zero-config (see border/primary notes
+       above). Author override of --color-foreground reaches every
+       bg-foreground/text-foreground utility directly via the registration. */
+    --sv-fg: var(--sv-neutral-950);
     --sv-fg-muted: var(--color-muted-foreground, var(--sv-neutral-600));
     /* fg-subtle/-disabled/-inverse use the neutral default directly to avoid
-       the --color-fg-* to --sv-fg-* to --color-fg-* cycle (see border note
-       above). Author override still flows through --color-fg-*. */
+       the --color-foreground-* to --sv-fg-* to --color-foreground-* cycle (see border note
+       above). Author override still flows through --color-foreground-*. */
     --sv-fg-subtle: var(--sv-neutral-500);
     --sv-fg-disabled: var(--sv-neutral-400);
     --sv-fg-inverse: var(--sv-neutral-50);

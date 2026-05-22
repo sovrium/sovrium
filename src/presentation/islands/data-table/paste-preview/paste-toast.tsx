@@ -16,7 +16,7 @@ export function PasteToast({ created, isUndoing, onUndo }: PasteToastProps) {
     <div
       role="status"
       aria-live="polite"
-      className="bg-fg text-bg fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg px-4 py-3 text-sm shadow-lg"
+      className="bg-foreground text-background fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg px-4 py-3 text-sm shadow-lg"
     >
       <span>{created} records created</span>
       <button

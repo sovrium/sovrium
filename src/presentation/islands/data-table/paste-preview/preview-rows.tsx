@@ -16,7 +16,7 @@ interface PreviewRowsProps {
 
 function PreviewCell({ value, mismatch }: { readonly value: string; readonly mismatch: boolean }) {
   if (!mismatch) {
-    return <td className="text-fg px-3 py-2">{value}</td>
+    return <td className="text-foreground px-3 py-2">{value}</td>
   }
   return (
     <td
@@ -26,7 +26,7 @@ function PreviewCell({ value, mismatch }: { readonly value: string; readonly mis
       {value}
       <span
         role="tooltip"
-        className="bg-fg text-bg pointer-events-none absolute top-full left-1/2 z-10 -translate-x-1/2 rounded px-2 py-1 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100"
+        className="bg-foreground text-background pointer-events-none absolute top-full left-1/2 z-10 -translate-x-1/2 rounded px-2 py-1 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100"
       >
         {TYPE_MISMATCH_MESSAGE}
       </span>

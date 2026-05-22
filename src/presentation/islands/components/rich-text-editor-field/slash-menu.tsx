@@ -24,10 +24,10 @@ export function SlashMenu({ state, items }: SlashMenuProps) {
     <div
       data-slash-menu
       role="listbox"
-      className="border-border bg-bg-overlay absolute z-10 rounded border p-1 text-sm shadow-md"
+      className="border-border bg-background-overlay absolute z-10 rounded border p-1 text-sm shadow-md"
     >
       {matches.length === 0 ? (
-        <div className="text-fg-subtle px-2 py-1">No matches</div>
+        <div className="text-foreground-subtle px-2 py-1">No matches</div>
       ) : (
         matches.map((it) => (
           <div
@@ -35,7 +35,7 @@ export function SlashMenu({ state, items }: SlashMenuProps) {
             role="option"
             aria-selected="false"
             data-slash-menu-item={it.token}
-            className="hover:bg-bg-subtle cursor-pointer px-2 py-1"
+            className="hover:bg-background-subtle cursor-pointer px-2 py-1"
           >
             {it.label}
           </div>

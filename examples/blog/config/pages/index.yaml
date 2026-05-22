@@ -1,0 +1,54 @@
+name: blog-index
+path: /blog
+meta:
+  title: Blog
+  description: Latest articles and writing
+components:
+  - type: container
+    element: section
+    props:
+      className: py-16 px-6
+      style:
+        backgroundColor: '#fafaf9'
+    children:
+      - type: container
+        props:
+          className: max-w-3xl mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-5xl font-bold mb-4
+              style:
+                color: '#18181b'
+            content: Blog
+          - type: text
+            element: p
+            props:
+              className: text-lg mb-12
+              style:
+                color: '#52525b'
+            content: Thoughts, essays, and notes on building things.
+
+          - type: data-table
+            dataSource:
+              table: posts
+              filter:
+                - field: status
+                  operator: eq
+                  value: published
+              sort:
+                - field: published_at
+                  direction: desc
+            columns:
+              - field: title
+                label: Title
+              - field: published_at
+                label: Published
+              - field: author
+                label: Author
+              - field: tags
+                label: Tags
+            pagination:
+              pageSize: 10
+            emptyMessage: No published posts yet.

@@ -103,7 +103,7 @@ function HeroDefaultContent({
       }}
     >
       <h1
-        className="text-fg"
+        className="text-foreground"
         style={{
           fontFamily: themeTokens.fonts.title.family,
           fontWeight: themeTokens.fonts.title.weight,
@@ -229,7 +229,7 @@ function HeroWithButton({
   return (
     <section
       data-testid={testId}
-      className="bg-bg"
+      className="bg-background"
       style={buildHeroSectionStyle(themeTokens)}
     >
       <button
@@ -280,7 +280,9 @@ export function Hero({
     children && (Array.isArray(children) ? children.length > 0 : Boolean(children))
   const renderedContent = hasChildren ? children : <HeroDefaultContent themeTokens={themeTokens} />
   const shouldAnimateFadeInUp = hasFadeInUpAnimation(theme)
-  const sectionClassName = shouldAnimateFadeInUp ? 'bg-bg animate-fadeInUp' : 'bg-bg'
+  const sectionClassName = shouldAnimateFadeInUp
+    ? 'bg-background animate-fadeInUp'
+    : 'bg-background'
 
   return (
     <section

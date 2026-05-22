@@ -9,6 +9,7 @@ import { Schema } from 'effect'
 import { AnimationsConfigSchema } from './animations'
 import { BorderRadiusConfigSchema } from './border-radius'
 import { BreakpointsConfigSchema } from './breakpoints'
+import { CodeBlockConfigSchema } from './code-block'
 import { ColorsConfigSchema } from './colors'
 import { FontsConfigSchema } from './fonts'
 import { ShadowsConfigSchema } from './shadows'
@@ -33,6 +34,8 @@ export const ThemeSchema = Schema.Struct({
   breakpoints: Schema.optional(BreakpointsConfigSchema),
   shadows: Schema.optional(ShadowsConfigSchema),
   borderRadius: Schema.optional(BorderRadiusConfigSchema),
+
+  codeBlock: Schema.optional(CodeBlockConfigSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'Theme',
@@ -46,6 +49,7 @@ export type Theme = Schema.Schema.Type<typeof ThemeSchema>
 export * from './animations'
 export * from './border-radius'
 export * from './breakpoints'
+export * from './code-block'
 export * from './colors'
 export * from './fonts'
 export * from './shadows'

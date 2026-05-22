@@ -57,7 +57,7 @@ const resolveAiChatProps = (
 const renderDisabledBody = (): ReactElement => (
   <div
     role="status"
-    className="flex flex-1 items-center justify-center p-6 text-sm text-fg-muted"
+    className="text-foreground-muted flex flex-1 items-center justify-center p-6 text-sm"
   >
     AI chat is not configured and is currently unavailable.
   </div>
@@ -72,13 +72,13 @@ const renderSkeletonBody = ({ placeholder, allowAttachments }: AiChatProps): Rea
       role="log"
       aria-label="Chat messages"
       aria-live="polite"
-      className="chat-messages flex-1 overflow-y-auto p-4 text-sm text-fg-muted"
+      className="chat-messages text-foreground-muted flex-1 overflow-y-auto p-4 text-sm"
     />
 
     {}
     <form
       data-ai-chat-form
-      className="flex items-center gap-2 border-t border-border p-3"
+      className="border-border flex items-center gap-2 border-t p-3"
     >
       <label
         htmlFor="ai-chat-input"
@@ -91,7 +91,7 @@ const renderSkeletonBody = ({ placeholder, allowAttachments }: AiChatProps): Rea
           type="button"
           data-testid="chat-attach"
           aria-label="Attach file"
-          className="rounded border border-border px-2 py-2 text-sm text-fg-muted"
+          className="border-border text-foreground-muted rounded border px-2 py-2 text-sm"
         >
           Attach
         </button>
@@ -103,14 +103,14 @@ const renderSkeletonBody = ({ placeholder, allowAttachments }: AiChatProps): Rea
         type="text"
         name="message"
         placeholder={placeholder}
-        className="flex-1 rounded border border-border px-3 py-2 text-sm"
+        className="border-border flex-1 rounded border px-3 py-2 text-sm"
       />
       <button
         type="submit"
         data-ai-chat-send
         data-testid="chat-send"
         disabled
-        className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-fg disabled:cursor-not-allowed disabled:opacity-50"
+        className="bg-primary text-primary-fg rounded px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
       >
         Send
       </button>
@@ -132,7 +132,7 @@ export const aiChatComponent: ComponentRenderer = ({ elementProps, rawProps }) =
       data-testid={testId}
       data-agent={agent}
       data-allowed-tables={allowedTables !== undefined ? JSON.stringify(allowedTables) : undefined}
-      className="ai-chat-container flex flex-col rounded-lg border border-border bg-bg-raised"
+      className="ai-chat-container border-border bg-background-raised flex flex-col rounded-lg border"
       style={{ height: `${chatHeight}px` }}
     >
       {disabled ? renderDisabledBody() : renderSkeletonBody(resolved)}

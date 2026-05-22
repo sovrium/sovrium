@@ -20,7 +20,7 @@ export function UploadStep({ noDataError, onFileChange }: UploadStepProps) {
   }
   return (
     <div className="border-border rounded-lg border-2 border-dashed p-8 text-center">
-      <p className="text-fg-muted mb-4 text-sm">Drag and drop a CSV file here</p>
+      <p className="text-foreground-muted mb-4 text-sm">Drag and drop a CSV file here</p>
       <label className="cursor-pointer">
         <input
           type="file"

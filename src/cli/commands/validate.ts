@@ -96,14 +96,17 @@ const detectUnknownFieldTypes = async (
     return []
   }
 
-  const sourceFile = refSources.get('tables')
-  const sourceLabel = sourceFile ? basename(sourceFile) : undefined
+  const bulkSourceFile = refSources.get('tables')
+  const bulkSourceLabel = bulkSourceFile ? basename(bulkSourceFile) : undefined
 
-  return tables.flatMap((table: Record<string, unknown>) => {
+  return tables.flatMap((table: Record<string, unknown>, index: number) => {
     const { fields } = table
     if (!Array.isArray(fields)) {
       return []
     }
+
+    const perIndexSourceFile = refSources.get(`tables[${index}]`)
+    const sourceLabel = perIndexSourceFile ? basename(perIndexSourceFile) : bulkSourceLabel
 
     return fields
       .filter(

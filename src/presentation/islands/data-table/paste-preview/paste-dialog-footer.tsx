@@ -17,7 +17,7 @@ export function PasteDialogFooter({ isPasting, onPaste, onCancel }: PasteDialogF
       <button
         type="button"
         onClick={onCancel}
-        className="border-border text-fg hover:bg-bg-subtle rounded border px-4 py-2 text-sm"
+        className="border-border text-foreground hover:bg-background-subtle rounded border px-4 py-2 text-sm"
       >
         Cancel
       </button>

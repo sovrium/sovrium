@@ -11,14 +11,14 @@ import type { ReactElement } from 'react'
 export function KpiLoading(): ReactElement {
   return (
     <div
-      className="border-border bg-bg-raised w-full rounded-lg border p-4"
+      className="border-border bg-background-raised w-full rounded-lg border p-4"
       data-component="kpi"
       data-kpi-state="loading"
       role="status"
       aria-label="Loading KPI..."
     >
-      <div className="bg-bg-subtle mb-2 h-4 w-32 animate-pulse rounded" />
-      <div className="bg-bg-subtle h-8 w-24 animate-pulse rounded" />
+      <div className="bg-background-subtle mb-2 h-4 w-32 animate-pulse rounded" />
+      <div className="bg-background-subtle h-8 w-24 animate-pulse rounded" />
     </div>
   )
 }

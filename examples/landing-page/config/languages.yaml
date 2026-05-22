@@ -1,0 +1,133 @@
+default: en
+supported:
+  - code: en
+    locale: en-US
+    label: English
+    direction: ltr
+    flag: '🇺🇸'
+  - code: fr
+    locale: fr-FR
+    label: Français
+    direction: ltr
+    flag: '🇫🇷'
+fallback: en
+detectBrowser: true
+persistSelection: true
+translations:
+  en:
+    nav.home: Home
+    nav.features: Features
+    nav.pricing: Pricing
+    nav.contact: Contact
+
+    hero.badge: Now in Public Beta
+    hero.title: Build Your Next App with Sovrium
+    hero.subtitle: A modern, configuration-driven platform for rapid application development
+    hero.cta.primary: Get Started
+    hero.cta.secondary: Learn More
+    hero.stats.apps: Apps Built
+    hero.stats.developers: Developers
+    hero.stats.uptime: Uptime
+
+    features.title: Why Choose Sovrium?
+    features.subtitle: Everything you need to build modern applications
+
+    feature.1.title: Declarative Configuration
+    feature.1.description: Define your entire application using simple JSON schemas. No complex build setups or configuration files.
+    feature.1.icon: "\U0001F4CB"
+
+    feature.2.title: Type-Safe by Default
+    feature.2.description: Full TypeScript support out of the box. Catch errors at compile-time, not runtime.
+    feature.2.icon: "\U0001F512"
+
+    feature.3.title: Reactive & Fast
+    feature.3.description: Built on modern reactive patterns. Your app stays fast and responsive as it grows.
+    feature.3.icon: '⚡'
+
+    howItWorks.badge: How It Works
+    howItWorks.title: From Idea to Production in Minutes
+    howItWorks.subtitle: Three simple steps to launch your application
+
+    step.1.number: '1'
+    step.1.title: Define Your Schema
+    step.1.description: Describe your data models, relationships, and business rules in a simple JSON format.
+
+    step.2.number: '2'
+    step.2.title: Customize & Extend
+    step.2.description: Add custom logic, integrations, and branding. Everything is fully customizable.
+
+    step.3.number: '3'
+    step.3.title: Deploy & Scale
+    step.3.description: Push to production with one command. Scale automatically as your users grow.
+
+    cta.title: Ready to get started?
+    cta.subtitle: Join thousands of developers building with Sovrium
+    cta.button: Start Building Now
+    cta.note: No credit card required
+
+    footer.copyright: '© 2025 Sovrium'
+    footer.rights: All rights reserved
+    footer.product: Product
+    footer.resources: Resources
+    footer.company: Company
+    footer.madeWith: Made with
+    footer.inFrance: in France
+
+  fr:
+    nav.home: Accueil
+    nav.features: Fonctionnalités
+    nav.pricing: Tarifs
+    nav.contact: Contact
+
+    hero.badge: Maintenant en Bêta Publique
+    hero.title: Créez votre prochaine application avec Sovrium
+    hero.subtitle: Une plateforme moderne pilotée par configuration pour le développement d'applications rapide
+    hero.cta.primary: Commencer
+    hero.cta.secondary: En savoir plus
+    hero.stats.apps: Apps Créées
+    hero.stats.developers: Développeurs
+    hero.stats.uptime: Disponibilité
+
+    features.title: Pourquoi choisir Sovrium?
+    features.subtitle: Tout ce dont vous avez besoin pour créer des applications modernes
+
+    feature.1.title: Configuration déclarative
+    feature.1.description: Définissez votre application entière en utilisant des schémas JSON simples. Pas de configurations complexes.
+    feature.1.icon: "\U0001F4CB"
+
+    feature.2.title: Type-safe par défaut
+    feature.2.description: Support TypeScript complet dès le départ. Détectez les erreurs à la compilation.
+    feature.2.icon: "\U0001F512"
+
+    feature.3.title: Réactif et rapide
+    feature.3.description: Construit sur des patterns réactifs modernes. Votre app reste rapide en grandissant.
+    feature.3.icon: '⚡'
+
+    howItWorks.badge: Comment Ça Marche
+    howItWorks.title: De l'Idée à la Production en Minutes
+    howItWorks.subtitle: Trois étapes simples pour lancer votre application
+
+    step.1.number: '1'
+    step.1.title: Définissez Votre Schéma
+    step.1.description: Décrivez vos modèles de données, relations et règles métier en format JSON simple.
+
+    step.2.number: '2'
+    step.2.title: Personnalisez & Étendez
+    step.2.description: Ajoutez logique personnalisée, intégrations et branding. Tout est personnalisable.
+
+    step.3.number: '3'
+    step.3.title: Déployez & Scalez
+    step.3.description: Passez en production en une commande. Scalez automatiquement avec vos utilisateurs.
+
+    cta.title: Prêt à commencer?
+    cta.subtitle: Rejoignez des milliers de développeurs construisant avec Sovrium
+    cta.button: Commencer maintenant
+    cta.note: Aucune carte de crédit requise
+
+    footer.copyright: '© 2025 Sovrium'
+    footer.rights: Tous droits réservés
+    footer.product: Produit
+    footer.resources: Ressources
+    footer.company: Entreprise
+    footer.madeWith: Fait avec
+    footer.inFrance: en France

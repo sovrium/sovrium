@@ -26,7 +26,7 @@ function statusLabel(status: SaveStatus): string {
 function statusColorClass(status: SaveStatus): string {
   switch (status) {
     case 'saving':
-      return 'text-fg-muted'
+      return 'text-foreground-muted'
     case 'saved':
       return 'text-success-fg'
     case 'error':

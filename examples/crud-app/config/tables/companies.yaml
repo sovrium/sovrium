@@ -1,0 +1,23 @@
+id: 1
+name: companies
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: industry
+    type: single-select
+    options:
+      - Technology
+      - Finance
+      - Healthcare
+      - Education
+      - Retail
+      - Other
+  - id: 3
+    name: website
+    type: url
+  - id: 4
+    name: notes
+    type: long-text

@@ -6,16 +6,19 @@
  */
 
 
-import { Console, Effect, Schema, Either } from 'effect'
+import { Effect, Schema, Either } from 'effect'
 import { TreeFormatter } from 'effect/ParseResult'
+import { createAdminAccount } from '@/application/use-cases/auth/bootstrap-admin'
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { normalizeAppConfig } from '@/application/use-cases/server/normalize-app-config'
 import { startServer } from '@/application/use-cases/server/start-server'
 import { AppSchema } from '@/domain/models/app'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { generateAppJsonSchema as generateSchema } from '@/domain/services/json-schema'
 import { warnForConfig } from '@/infrastructure/coming-soon'
+import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
-import { formatRuntimeError } from '@/infrastructure/logging'
+import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
 import { withGracefulShutdown } from '@/infrastructure/server/lifecycle'
 import type { ServerInstance } from '@/application/models/server'
 import type {
@@ -78,10 +81,9 @@ export const build = async (
     Effect.runSync(warnForConfig(validatedApp))
 
     const program = Effect.gen(function* () {
-      yield* Console.log('Generating static site...')
+      logDebug('Generating static site...')
       const result = yield* generateStaticUseCase(app, options)
-      yield* Console.log(`✅ Static site generated to ${result.outputDir}`)
-      yield* Console.log(`   Generated ${result.files.length} files`)
+      logDebug(`Static site generated to ${result.outputDir} (${result.files.length} files)`)
       return result
     }).pipe(Effect.provide(createStaticBuildLayer()))
 
@@ -93,6 +95,64 @@ export const build = async (
         `If this looks like a bug, please open an issue:\n` +
         `  https://github.com/sovrium/sovrium/issues/new`
     )
+  }
+}
+
+export interface CreateAdminCredentials {
+  readonly email: string
+  readonly password: string
+  readonly name?: string
+}
+
+export type CreateAdminResult =
+  | { readonly ok: true; readonly created: boolean; readonly email: string }
+  | { readonly ok: false; readonly message: string }
+
+export const createAdmin = async (
+  app: AppConfig,
+  credentials: CreateAdminCredentials
+): Promise<CreateAdminResult> => {
+  try {
+    const normalizedApp = normalizeAppConfig(app)
+    const validatedApp = Schema.decodeUnknownSync(AppSchema)(normalizedApp)
+
+    if (!validatedApp.auth) {
+      return {
+        ok: false,
+        message:
+          'Auth is not configured for this app. Add an `auth:` block to your config before creating an admin.',
+      }
+    }
+
+    const program = Effect.gen(function* () {
+      yield* runMigrations(parseDatabaseDialectConfig())
+      return yield* createAdminAccount(validatedApp, {
+        email: credentials.email,
+        password: credentials.password,
+        name: credentials.name ?? 'Administrator',
+      })
+    }).pipe(Effect.provide(createAppLayer(validatedApp.auth)), Effect.either)
+
+    const result = await Effect.runPromise(program)
+
+    if (Either.isRight(result)) {
+      return { ok: true, created: !result.right.alreadyExists, email: credentials.email }
+    }
+
+    const error = result.left
+    const message =
+      error._tag === 'InvalidEmailError'
+        ? `Invalid email address: ${error.email}`
+        : error._tag === 'WeakPasswordError'
+          ? error.message
+          : error._tag === 'DatabaseError'
+            ? error.cause instanceof Error
+              ? error.cause.message
+              : String(error.cause)
+            : formatRuntimeError(error)
+    return { ok: false, message }
+  } catch (error) {
+    return { ok: false, message: formatRuntimeError(error) }
   }
 }
 

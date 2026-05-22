@@ -41,7 +41,7 @@ function DialogActions({
   return (
     <div className="flex justify-end gap-3">
       {isAlertDialog && (
-        <Dialog.Close className="border-border bg-bg text-fg hover:bg-bg-subtle rounded-md border px-4 py-2 text-sm font-medium transition-colors">
+        <Dialog.Close className="border-border bg-background text-foreground hover:bg-background-subtle rounded-md border px-4 py-2 text-sm font-medium transition-colors">
           {cancelLabel}
         </Dialog.Close>
       )}
@@ -53,7 +53,7 @@ function DialogActions({
           {confirmLabel}
         </Dialog.Close>
       ) : (
-        <Dialog.Close className="text-fg-subtle hover:text-fg-muted absolute top-4 right-4 transition-colors">
+        <Dialog.Close className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors">
           <span
             className="sr-only"
             aria-hidden="true"
@@ -110,13 +110,15 @@ export default function DialogIsland({
           id={id}
           data-testid={testId}
         >
-          <div className="bg-bg-overlay text-fg relative w-full max-w-md rounded-lg p-6 shadow-xl transition-all duration-200 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <div className="bg-background-overlay text-foreground relative w-full max-w-md rounded-lg p-6 shadow-xl transition-all duration-200 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             {title && (
-              <Dialog.Title className="text-fg mb-2 text-lg font-semibold">{title}</Dialog.Title>
+              <Dialog.Title className="text-foreground mb-2 text-lg font-semibold">
+                {title}
+              </Dialog.Title>
             )}
 
             {description && (
-              <Dialog.Description className="text-fg-muted mb-4 text-sm">
+              <Dialog.Description className="text-foreground-muted mb-4 text-sm">
                 {description}
               </Dialog.Description>
             )}

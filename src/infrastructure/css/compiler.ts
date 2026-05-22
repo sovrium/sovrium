@@ -7,8 +7,8 @@
 
 import { Effect } from 'effect'
 import {
+  getCSSCacheKey,
   getOrComputeCachedCSS,
-  getThemeCacheKey,
   loadPrecompiledCSS,
   type CompiledCSS,
 } from '@/infrastructure/css/cache/css-cache-service'
@@ -22,6 +22,7 @@ import {
   generateComponentsLayer,
   generateUtilitiesLayer,
 } from '@/infrastructure/css/styles/component-layer-generators'
+import { generateCodeBlockStyles } from '@/infrastructure/css/theme/code-block-styles-generator'
 import {
   NEUTRAL_FLOOR_LAYER,
   V1_ALIAS_BRIDGE,
@@ -38,7 +39,7 @@ import {
 import { generateBaseLayer } from '@/infrastructure/css/theme/theme-layer-generators'
 import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import { logDebug, logError, logWarning } from '@/infrastructure/logging/logger'
-import { isProduction as checkIsProduction } from '@/infrastructure/utils/env'
+import { isDevCacheDisabled, isProduction as checkIsProduction } from '@/infrastructure/utils/env'
 import { isCompiled } from '@/infrastructure/utils/package-paths'
 import type { App } from '@/domain/models/app'
 import type { Theme } from '@/domain/models/app/theme'
@@ -102,6 +103,7 @@ function buildSourceCSS(theme?: Theme): string {
   const baseLayerCSS = generateBaseLayer(theme)
   const componentsLayerCSS = generateComponentsLayer(theme)
   const utilitiesLayerCSS = generateUtilitiesLayer()
+  const codeBlockCSS = generateCodeBlockStyles(theme)
 
   return [
     STATIC_IMPORTS,
@@ -113,6 +115,8 @@ function buildSourceCSS(theme?: Theme): string {
     themeCSS,
     '/*---break---\n     */',
     animationCSS,
+    '/*---break---\n     */',
+    codeBlockCSS,
     '/*---break---\n     */',
     FINAL_BASE_LAYER,
   ]
@@ -214,7 +218,7 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
 export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
     const theme = app?.theme
-    const cacheKey = getThemeCacheKey(theme)
+    const cacheKey = getCSSCacheKey(theme, resolveNativeFreeCandidates(app))
 
     if (isProduction) {
       const result = yield* getOrComputeCachedCSS(
@@ -233,6 +237,17 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
         })
       )
       return result
+    }
+
+    if (isDevCacheDisabled()) {
+      if (!theme && process.env.SOVRIUM_CSS_FILE) {
+        const precompiled = yield* loadPrecompiledCSS()
+        if (precompiled) {
+          logDebug('[CSS] Loaded from pre-compiled file (dev, cache bypassed)')
+          return precompiled
+        }
+      }
+      return yield* compileCSSRaw(app)
     }
 
     const result = yield* getOrComputeCachedCSS(

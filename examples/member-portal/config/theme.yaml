@@ -1,0 +1,7 @@
+colors:
+  primary: '#0891b2'
+  background: '#ffffff'
+  text: '#0f172a'
+  text-secondary: '#475569'
+  border: '#e2e8f0'
+  muted: '#f1f5f9'

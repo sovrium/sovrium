@@ -1,0 +1,31 @@
+name: tags
+fields:
+  - name: name
+    type: single-line-text
+    required: true
+  - name: color
+    type: single-select
+    options:
+      - gray
+      - blue
+      - green
+      - red
+  - name: created_at
+    type: created-at
+permissions:
+  read: authenticated
+  create:
+    - editor
+  update:
+    - editor
+  delete:
+    - editor
+aiAccess:
+  description: Topical tags used to categorize documents. Use this when you need to filter or group documents by subject.
+  operations:
+    - read
+    - list
+  fieldExposure: permissioned
+  annotations:
+    readOnly: true
+    idempotent: true

@@ -7,6 +7,7 @@
 
 import * as path from 'node:path'
 import { Schema } from 'effect'
+import { defaultSqliteDbPath } from './data-dir'
 
 export const DatabaseDialectType = Schema.Literal('postgres', 'sqlite')
 
@@ -33,7 +34,7 @@ export const SqliteDialectSchema = Schema.Struct({
     Schema.minLength(1),
     Schema.annotations({
       description: 'Resolved SQLite database file path, or ":memory:"',
-      examples: ['./sovrium.db', ':memory:'],
+      examples: ['./database.db', ':memory:'],
     })
   ),
 })
@@ -43,8 +44,6 @@ export const DatabaseDialectSchema = Schema.Union(PostgresDialectSchema, SqliteD
 export type DatabaseDialectConfig = Schema.Schema.Type<typeof DatabaseDialectSchema>
 export type PostgresDialectConfig = Schema.Schema.Type<typeof PostgresDialectSchema>
 export type SqliteDialectConfig = Schema.Schema.Type<typeof SqliteDialectSchema>
-
-export const DEFAULT_SQLITE_PATH = './sovrium.db'
 
 export const SQLITE_MEMORY_PATH = ':memory:'
 
@@ -58,14 +57,14 @@ const parseSqliteUrl = (raw: string): string => {
     throw new Error(
       `Unsupported DATABASE_URL scheme: "${raw}". Use postgres://, postgresql://, ` +
         `file:, sqlite:, or :memory:. A bare filesystem path is not accepted — ` +
-        `prefix it with file: (e.g. file:./sovrium.db).`
+        `prefix it with file: (e.g. file:./database.db).`
     )
   }
 
   const strippedPath = raw.slice(match[0].length)
   if (strippedPath === '') {
     throw new Error(
-      `Empty path in DATABASE_URL: "${raw}". Provide a file path (e.g. file:./sovrium.db).`
+      `Empty path in DATABASE_URL: "${raw}". Provide a file path (e.g. file:./database.db).`
     )
   }
   return path.resolve(strippedPath)
@@ -84,7 +83,7 @@ export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
   if (!databaseUrl) {
     return Schema.decodeUnknownSync(SqliteDialectSchema)({
       dialect: 'sqlite',
-      path: path.resolve(DEFAULT_SQLITE_PATH),
+      path: defaultSqliteDbPath(),
     })
   }
 

@@ -1,0 +1,22 @@
+name: mcp-server-example
+version: 1.0.0
+description: A headless Sovrium app that exposes tables to an LLM client via MCP
+
+# This is a HEADLESS app — no `pages` array. The MCP protocol is the only surface.
+#
+# Per-entity MCP exposure is declared via `aiAccess` on each table. The MCP server
+# itself is activated by the operator via environment variables (NOT in schema):
+#
+#   MCP_ENABLED=true
+#   MCP_TRANSPORT=streamable-http
+#   MCP_AUTH_STRATEGY=oauth
+#
+# Schema author declares intent; operator activates. See config/mcp.yaml for the
+# operator-facing manifest of what tools this app will expose once MCP_ENABLED=true.
+
+auth:
+  $ref: ./config/auth.yaml
+
+tables:
+  - $ref: ./config/tables/tags.yaml
+  - $ref: ./config/tables/documents.yaml

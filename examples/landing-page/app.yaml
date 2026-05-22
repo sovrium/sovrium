@@ -1,0 +1,19 @@
+name: sovrium-landing
+version: 1.0.0
+description: Build apps faster with configuration-driven development
+
+languages:
+  $ref: ./config/languages.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+components:
+  - $ref: ./config/components/hero-section.yaml
+  - $ref: ./config/components/feature-card.yaml
+  - $ref: ./config/components/step-card.yaml
+  - $ref: ./config/components/cta-button.yaml
+  - $ref: ./config/components/language-switcher.yaml
+
+pages:
+  - $ref: ./config/pages/home.yaml

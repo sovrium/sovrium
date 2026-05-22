@@ -48,7 +48,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="relative-date"
-          className="text-fg-muted text-xs"
+          className="text-foreground-muted text-xs"
         >
           {formatRelativeDate(value)}
         </span>
@@ -57,7 +57,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="short-date"
-          className="text-fg-muted text-xs"
+          className="text-foreground-muted text-xs"
         >
           {formatShortDate(value)}
         </span>
@@ -66,7 +66,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="avatar"
-          className="text-fg inline-flex items-center gap-1.5 text-xs"
+          className="text-foreground inline-flex items-center gap-1.5 text-xs"
         >
           <span
             className="bg-primary-subtle text-primary-subtle-fg inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium"
@@ -81,7 +81,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="badge"
-          className="bg-bg-subtle text-fg inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+          className="bg-background-subtle text-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
         >
           {String(value)}
         </span>
@@ -91,7 +91,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="text"
-          className="text-fg text-xs"
+          className="text-foreground text-xs"
         >
           {String(value)}
         </span>

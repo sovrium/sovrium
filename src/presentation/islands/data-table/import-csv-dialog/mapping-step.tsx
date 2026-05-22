@@ -36,8 +36,8 @@ function MappingRow({
       onMouseEnter={() => onMouseEnter(index)}
       onMouseLeave={onMouseLeave}
     >
-      <span className="text-fg text-sm font-medium">{mapping.csvColumn}</span>
-      {mapping.tableField !== undefined && <span className="text-fg-subtle">→</span>}
+      <span className="text-foreground text-sm font-medium">{mapping.csvColumn}</span>
+      {mapping.tableField !== undefined && <span className="text-foreground-subtle">→</span>}
       <ColumnMappingSelect
         value={mapping.tableField}
         tableFields={tableFields}
@@ -46,13 +46,13 @@ function MappingRow({
       {hovered && sampleValues.length > 0 && (
         <div
           role="tooltip"
-          className="border-border bg-bg-overlay absolute top-0 left-full z-20 ml-2 min-w-max rounded border p-2 shadow-lg"
+          className="border-border bg-background-overlay absolute top-0 left-full z-20 ml-2 min-w-max rounded border p-2 shadow-lg"
         >
-          <p className="text-fg-muted mb-1 text-xs font-medium">Sample values:</p>
+          <p className="text-foreground-muted mb-1 text-xs font-medium">Sample values:</p>
           {sampleValues.slice(0, 3).map((val, vi) => (
             <p
               key={vi}
-              className="text-fg text-xs"
+              className="text-foreground text-xs"
             >
               {val}
             </p>
@@ -86,7 +86,7 @@ export function MappingStep({
 }: MappingStepProps) {
   return (
     <div className="space-y-2">
-      <p className="text-fg-muted mb-4 text-sm">Column mapping</p>
+      <p className="text-foreground-muted mb-4 text-sm">Column mapping</p>
       {editableMappings.map((mapping, i) => {
         const sampleValues = (preview?.rows ?? [])
           .map((row) => row[i])

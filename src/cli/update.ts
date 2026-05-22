@@ -72,7 +72,7 @@ const isNewerVersion = (current: string, latest: string): boolean => {
 }
 
 const packageManagerUpdateCommand = (method: InstallMethod): readonly string[] | undefined => {
-  if (method === 'homebrew') return ['brew', 'upgrade', 'sovrium']
+  if (method === 'homebrew') return ['brew', 'upgrade', 'sovrium/tap/sovrium']
   if (method === 'scoop') return ['powershell', '-NoProfile', '-Command', 'scoop update sovrium']
   return undefined
 }

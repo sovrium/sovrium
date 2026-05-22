@@ -35,15 +35,15 @@ export function buildBadgeBorderRadius(theme?: Theme): string {
 }
 
 export function buildCardClasses(): string {
-  return 'rounded-lg border border-border bg-bg-raised text-fg p-6 shadow-sm'
+  return 'rounded-lg border border-border bg-background-raised text-foreground p-6 shadow-sm'
 }
 
 export function buildBadgeClasses(): string {
-  return 'border border-border bg-bg-subtle text-fg-muted px-2 py-1 text-xs font-medium'
+  return 'border border-border bg-background-subtle text-foreground-muted px-2 py-1 text-xs font-medium'
 }
 
 export function buildInputClasses(): string {
-  return 'border border-border bg-bg text-fg focus:ring-2 focus:ring-focus-ring focus:ring-offset-2'
+  return 'border border-border bg-background text-foreground focus:ring-2 focus:ring-focus-ring focus:ring-offset-2'
 }
 
 export function buildModalClasses(): {
@@ -52,7 +52,7 @@ export function buildModalClasses(): {
 } {
   return {
     overlay: 'fixed inset-0 bg-scrim/50 backdrop-blur-sm',
-    content: 'bg-bg-overlay text-fg border border-border rounded-lg shadow-lg',
+    content: 'bg-background-overlay text-foreground border border-border rounded-lg shadow-lg',
   }
 }
 
@@ -71,15 +71,15 @@ export function buildAlertClasses(): {
 }
 
 export function buildToastClasses(): string {
-  return 'bg-bg-raised text-fg border border-border shadow-lg rounded-lg p-4'
+  return 'bg-background-raised text-foreground border border-border shadow-lg rounded-lg p-4'
 }
 
 export function buildNavClasses(): string {
-  return 'bg-bg border-b border-border'
+  return 'bg-background border-b border-border'
 }
 
 export function buildSidebarClasses(): string {
-  return 'bg-bg-raised border-r border-border'
+  return 'bg-background-raised border-r border-border'
 }
 
 export function buildDataTableClasses(): {
@@ -87,8 +87,8 @@ export function buildDataTableClasses(): {
   readonly rowHover: string
 } {
   return {
-    header: 'bg-bg-subtle text-fg-muted',
-    rowHover: 'bg-bg-subtle/50',
+    header: 'bg-background-subtle text-foreground-muted',
+    rowHover: 'bg-background-subtle/50',
   }
 }
 
@@ -98,13 +98,16 @@ export function buildButtonVariantClasses(): {
   readonly outline: string
   readonly ghost: string
   readonly link: string
+  readonly fab: string
 } {
   return {
     secondary: 'bg-primary-subtle text-primary-subtle-fg hover:bg-primary-subtle/80',
     destructive: 'bg-error-solid text-error-solid-fg hover:bg-error-solid/90',
-    outline: 'border border-border bg-bg hover:bg-bg-subtle hover:text-fg-muted',
-    ghost: 'bg-transparent text-fg hover:bg-bg-subtle hover:text-fg-muted',
+    outline:
+      'border border-border bg-background hover:bg-background-subtle hover:text-foreground-muted',
+    ghost: 'bg-transparent text-foreground hover:bg-background-subtle hover:text-foreground-muted',
     link: 'text-primary underline-offset-4 hover:underline',
+    fab: 'rounded-full h-14 w-14 p-0 shadow-lg',
   }
 }
 
@@ -116,7 +119,7 @@ export function buildBadgeVariantClasses(): {
   return {
     secondary: 'bg-primary-subtle text-primary-subtle-fg',
     destructive: 'bg-error-solid text-error-solid-fg',
-    outline: 'border border-border text-fg bg-transparent',
+    outline: 'border border-border text-foreground bg-transparent',
   }
 }
 
@@ -134,6 +137,7 @@ function generateButtonAndBadgeRules(): string {
       .btn-outline { @apply ${btnVariants.outline}; }
       .btn-ghost { @apply ${btnVariants.ghost}; }
       .btn-link { @apply ${btnVariants.link}; }
+      .btn-fab { @apply ${btnVariants.fab}; }
       .btn-sm { @apply py-1 px-3 text-sm; }
       .btn-lg { @apply py-3 px-6; }
       .btn-icon { @apply p-0 h-9 w-9; }

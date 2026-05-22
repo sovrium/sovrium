@@ -1,0 +1,9 @@
+name: cta-button
+type: button
+props:
+  data-component: cta-button
+  className: px-8 py-4 bg-white text-primary rounded-xl font-semibold hover:bg-gray-50 transition-colors shadow-lg
+  style:
+    backgroundColor: '#ffffff'
+    color: '#3b82f6'
+content: $label

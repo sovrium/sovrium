@@ -1,0 +1,40 @@
+name: hero-section
+type: container
+props:
+  data-component: hero-section
+  className: text-center max-w-4xl mx-auto
+children:
+  - type: text
+    element: h1
+    props:
+      className: text-5xl font-bold mb-6
+    content: $title
+  - type: text
+    element: p
+    props:
+      className: text-xl text-gray-600 mb-8
+    content: $subtitle
+  - type: container
+    props:
+      className: flex gap-4 justify-center
+    children:
+      - type: button
+        props:
+          className: px-6 py-3 rounded-lg transition-colors font-semibold
+          style:
+            backgroundColor: '#3b82f6'
+            color: '#ffffff'
+        interactions:
+          hover:
+            backgroundColor: '#2563eb'
+        content: $ctaPrimary
+      - type: button
+        props:
+          className: px-6 py-3 rounded-lg transition-colors font-semibold
+          style:
+            borderWidth: 2px
+            borderStyle: solid
+            borderColor: '#3b82f6'
+            color: '#3b82f6'
+            backgroundColor: transparent
+        content: $ctaSecondary

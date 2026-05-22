@@ -22,7 +22,7 @@ const AttachButton = (): ReactElement => (
     type="button"
     data-testid="chat-attach"
     aria-label="Attach file"
-    className="border-border text-fg-muted hover:bg-bg-subtle rounded border px-2 py-2 text-sm"
+    className="border-border text-foreground-muted hover:bg-background-subtle rounded border px-2 py-2 text-sm"
   >
     Attach
   </button>

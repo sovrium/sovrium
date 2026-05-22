@@ -17,16 +17,14 @@ import {
   readLockFile,
   removeLockFile,
 } from '@/infrastructure/server/lock-file'
+import { readPublicDirEnv } from './option-parsing'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, reloadServer } from './utils'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
 
 const parseStartOptions = (): StartOptions => {
   const port = Bun.env.PORT
   const hostname = Bun.env.HOSTNAME
-
-  if (!port && !hostname) {
-    return {}
-  }
+  const publicDir = readPublicDirEnv()
 
   const parsedPort = port ? parseInt(port, 10) : undefined
   if (parsedPort !== undefined && (isNaN(parsedPort) || parsedPort < 0 || parsedPort > 65_535)) {
@@ -41,16 +39,26 @@ const parseStartOptions = (): StartOptions => {
   return {
     ...(parsedPort !== undefined && { port: parsedPort }),
     ...(hostname && { hostname }),
+    ...(publicDir && { publicDir }),
   }
 }
 
-export const handleStartCommand = async (filePath?: string, watchMode = false): Promise<void> => {
+export const handleStartCommand = async (
+  filePath?: string,
+  watchMode = false,
+  publicDir?: string
+): Promise<void> => {
   const { start } = await lazyImportIndex()
   const { logDebug } = await lazyImportLogger()
   const { parseAppSchema } = await lazyImportCli()
 
   const app = await parseAppSchema('start', filePath)
-  const options = parseStartOptions()
+  const envOptions = parseStartOptions()
+  const resolvedPublicDir = publicDir || envOptions.publicDir
+  const options: StartOptions = {
+    ...envOptions,
+    ...(resolvedPublicDir && { publicDir: resolvedPublicDir }),
+  }
 
   const configContent = filePath ? await readFile(filePath, 'utf-8') : JSON.stringify(app)
   const configHash = computeConfigHash(configContent)
@@ -76,6 +84,7 @@ export const handleStartCommand = async (filePath?: string, watchMode = false): 
   if (filePath) logDebug(`[CLI] Config: ${filePath}`)
   if (options.port) logDebug(`[CLI] Port: ${options.port}`)
   if (options.hostname) logDebug(`[CLI] Hostname: ${options.hostname}`)
+  if (options.publicDir) logDebug(`[CLI] Public directory: ${options.publicDir}`)
   if (watchMode) logDebug(`[CLI] Watch mode: enabled`)
 
   const server = await start(app, { ...options, configHash, configPath }).catch((error) => {

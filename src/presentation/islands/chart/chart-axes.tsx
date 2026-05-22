@@ -50,7 +50,7 @@ function XTickLabel({
       x={x}
       y={y}
       fontSize={11}
-      fill="var(--color-fg-muted)"
+      fill="var(--color-foreground-muted)"
       textAnchor="middle"
     >
       {label}

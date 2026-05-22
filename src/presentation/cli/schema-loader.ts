@@ -56,11 +56,11 @@ export const loadSchemaFromFile = async (
   try {
     return await loadFromFile(filePath)
   } catch (error) {
+    const formatLabel = format === 'json' ? 'JSON' : format === 'yaml' ? 'YAML' : 'TypeScript'
+    const verb = format === 'typescript' ? 'load' : 'parse'
     Effect.runSync(
       Effect.gen(function* () {
-        yield* Console.error(
-          `Error: Failed to parse ${format === 'json' ? 'JSON' : 'YAML'} file: ${filePath}`
-        )
+        yield* Console.error(`Error: Failed to ${verb} ${formatLabel} file: ${filePath}`)
         yield* Console.error('')
         yield* Console.error('Details:', error instanceof Error ? error.message : String(error))
       })

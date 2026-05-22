@@ -33,7 +33,10 @@ export interface ParsedArgs {
   readonly agentName?: string
   readonly appName?: string
   readonly forceFlag: boolean
+  readonly skipAgent: boolean
   readonly publicDir?: string
+  readonly positionalArg?: string
+  readonly password?: string
 }
 
 const hasFlag = (argv: readonly string[], long: string, short: string): boolean =>
@@ -44,7 +47,16 @@ const getFlagValue = (argv: readonly string[], flag: string): string | undefined
   return index !== -1 ? argv[index + 1] : undefined
 }
 
-const FLAG_VALUE_OPTIONS = ['--output', '--template', '--target', '--publicDir', '--name'] as const
+const FLAG_VALUE_OPTIONS = [
+  '--output',
+  '--template',
+  '--target',
+  '--publicDir',
+  '--name',
+  '--password',
+] as const
+
+const NOUN_VERB_COMMANDS = ['agents', 'admin', 'secret'] as const
 
 const extractNonFlagArgs = (argv: readonly string[]): readonly string[] =>
   argv.filter(
@@ -55,57 +67,101 @@ const extractNonFlagArgs = (argv: readonly string[]): readonly string[] =>
 
 const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
   if (hasFlag(argv, '--help', '-h')) {
-    return { command: '--help', configFile: undefined, watchMode: false, forceFlag: false }
+    return {
+      command: '--help',
+      configFile: undefined,
+      watchMode: false,
+      forceFlag: false,
+      skipAgent: false,
+    }
   }
   if (hasFlag(argv, '--version', '-v')) {
-    return { command: '--version', configFile: undefined, watchMode: false, forceFlag: false }
+    return {
+      command: '--version',
+      configFile: undefined,
+      watchMode: false,
+      forceFlag: false,
+      skipAgent: false,
+    }
   }
   return undefined
+}
+
+interface ParsedFlags {
+  readonly watchMode: boolean
+  readonly forceFlag: boolean
+  readonly skipAgent: boolean
+  readonly outputPath: string | undefined
+  readonly templateName: string | undefined
+  readonly targetPath: string | undefined
+  readonly publicDir: string | undefined
+  readonly appName: string | undefined
+  readonly password: string | undefined
+}
+
+const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
+  watchMode: hasFlag(argv, '--watch', '-w'),
+  forceFlag: argv.includes('--force'),
+  skipAgent: argv.includes('--no-agent'),
+  outputPath: getFlagValue(argv, '--output'),
+  templateName: getFlagValue(argv, '--template'),
+  targetPath: getFlagValue(argv, '--target'),
+  publicDir: getFlagValue(argv, '--publicDir'),
+  appName: getFlagValue(argv, '--name'),
+  password: getFlagValue(argv, '--password'),
+})
+
+const buildStandardResult = (
+  command: string,
+  configFile: string | undefined,
+  flags: ParsedFlags,
+  nonFlagArgs: readonly string[]
+): ParsedArgs => {
+  const isNounVerb = NOUN_VERB_COMMANDS.includes(command as (typeof NOUN_VERB_COMMANDS)[number])
+  const subcommand = isNounVerb ? nonFlagArgs[1] : undefined
+  const agentName = command === 'agents' ? nonFlagArgs[2] : undefined
+  const positionalArg = command === 'agents' ? undefined : isNounVerb ? nonFlagArgs[2] : undefined
+
+  return {
+    command,
+    configFile,
+    watchMode: flags.watchMode,
+    outputPath: flags.outputPath,
+    templateName: flags.templateName,
+    subcommand,
+    targetPath: flags.targetPath,
+    agentName,
+    appName: flags.appName,
+    forceFlag: flags.forceFlag,
+    skipAgent: flags.skipAgent,
+    publicDir: flags.publicDir,
+    positionalArg,
+    password: flags.password,
+  }
 }
 
 export const parseArgs = (argv: readonly string[]): ParsedArgs => {
   const earlyExit = detectEarlyExit(argv)
   if (earlyExit) return earlyExit
 
-  const watchMode = hasFlag(argv, '--watch', '-w')
-  const forceFlag = argv.includes('--force')
-  const outputPath = getFlagValue(argv, '--output')
-  const templateName = getFlagValue(argv, '--template')
-  const targetPath = getFlagValue(argv, '--target')
-  const publicDir = getFlagValue(argv, '--publicDir')
-  const appName = getFlagValue(argv, '--name')
-
+  const flags = parseAllFlags(argv)
   const nonFlagArgs = extractNonFlagArgs(argv)
   const command = nonFlagArgs[0] || 'start'
-  const configFile = nonFlagArgs[1]
+  const configFile = command === 'admin' ? nonFlagArgs[3] : nonFlagArgs[1]
 
   if (isConfigFile(command)) {
     return {
       command: 'start',
       configFile: command,
-      watchMode,
-      outputPath,
-      templateName,
-      appName,
-      forceFlag,
-      publicDir,
+      watchMode: flags.watchMode,
+      outputPath: flags.outputPath,
+      templateName: flags.templateName,
+      appName: flags.appName,
+      forceFlag: flags.forceFlag,
+      skipAgent: flags.skipAgent,
+      publicDir: flags.publicDir,
     }
   }
 
-  const subcommand = command === 'agents' ? nonFlagArgs[1] : undefined
-  const agentName = command === 'agents' ? nonFlagArgs[2] : undefined
-
-  return {
-    command,
-    configFile,
-    watchMode,
-    outputPath,
-    templateName,
-    subcommand,
-    targetPath,
-    agentName,
-    appName,
-    forceFlag,
-    publicDir,
-  }
+  return buildStandardResult(command, configFile, flags, nonFlagArgs)
 }

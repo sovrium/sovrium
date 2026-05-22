@@ -24,7 +24,7 @@ export interface EmailConfig {
   }
 }
 
-export function getEmailConfig(): EmailConfig {
+export function getEmailConfig(): EmailConfig | undefined {
   return getEmailConfigFromEffect().config
 }
 
@@ -42,33 +42,34 @@ export function createTransporter(
 let _config: EmailConfig | undefined
 let _transporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | undefined
 
-function getLazyConfig(): EmailConfig {
+function getLazyConfig(): EmailConfig | undefined {
   if (!_config) {
     _config = getEmailConfig()
   }
   return _config
 }
 
-export function getTransporter(): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
+export function getTransporter():
+  | nodemailer.Transporter<SMTPTransport.SentMessageInfo>
+  | undefined {
+  const config = getLazyConfig()
+  if (!config) return undefined
   if (!_transporter) {
-    _transporter = createTransporter(getLazyConfig())
+    _transporter = createTransporter(config)
   }
   return _transporter
 }
 
-export const transporter = new Proxy({} as nodemailer.Transporter<SMTPTransport.SentMessageInfo>, {
-  get(_target, prop, receiver) {
-    return Reflect.get(getTransporter(), prop, receiver)
-  },
-})
-
 export function getDefaultFrom(): string {
-  const { email, name } = getLazyConfig().from
+  const email = process.env.SMTP_FROM ?? 'noreply@sovrium.com'
+  const name = process.env.SMTP_FROM_NAME ?? 'Sovrium'
   return `"${name}" <${email}>`
 }
 
 export type SendMailOptions = Mail.Options
 
 export async function verifyConnection(): Promise<boolean> {
-  return getTransporter().verify()
+  const transporter = getTransporter()
+  if (!transporter) return false
+  return transporter.verify()
 }

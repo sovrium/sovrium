@@ -35,7 +35,9 @@ export function Toolbar({ editor, items, onImageButtonClick }: ToolbarProps) {
             aria-label={def.ariaLabel}
             onClick={onClick}
             className={`rounded px-2 py-1 text-xs font-medium ${
-              active ? 'bg-bg-subtle text-fg' : 'text-fg-muted hover:bg-bg-subtle'
+              active
+                ? 'bg-background-subtle text-foreground'
+                : 'text-foreground-muted hover:bg-background-subtle'
             }`}
           >
             {def.label}

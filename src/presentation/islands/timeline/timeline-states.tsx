@@ -11,17 +11,17 @@ import type { ReactElement } from 'react'
 export function TimelineLoading(): ReactElement {
   return (
     <div
-      className="border-border bg-bg-raised w-full rounded-lg border p-4"
+      className="border-border bg-background-raised w-full rounded-lg border p-4"
       data-component="data-timeline"
       data-timeline-state="loading"
       role="status"
       aria-label="Loading timeline..."
     >
-      <div className="bg-bg-subtle mb-3 h-4 w-40 animate-pulse rounded" />
+      <div className="bg-background-subtle mb-3 h-4 w-40 animate-pulse rounded" />
       <div className="space-y-2">
-        <div className="bg-bg-subtle h-6 w-3/4 animate-pulse rounded" />
-        <div className="bg-bg-subtle h-6 w-1/2 animate-pulse rounded" />
-        <div className="bg-bg-subtle h-6 w-2/3 animate-pulse rounded" />
+        <div className="bg-background-subtle h-6 w-3/4 animate-pulse rounded" />
+        <div className="bg-background-subtle h-6 w-1/2 animate-pulse rounded" />
+        <div className="bg-background-subtle h-6 w-2/3 animate-pulse rounded" />
       </div>
     </div>
   )
@@ -69,7 +69,7 @@ export function TimelineMissingStartField(): ReactElement {
 export function TimelineEmpty({ message }: { readonly message?: string }): ReactElement {
   return (
     <div
-      className="border-border bg-bg-subtle text-fg-muted rounded border p-6 text-center text-sm"
+      className="border-border bg-background-subtle text-foreground-muted rounded border p-6 text-center text-sm"
       data-component="data-timeline"
       data-timeline-state="empty"
       role="status"

@@ -33,13 +33,13 @@ export function KanbanColumn({
       ref={setNodeRef}
       data-column={column.value}
       className={`flex w-72 shrink-0 flex-col gap-2 rounded-lg border ${
-        isOver ? 'border-primary bg-primary-subtle' : 'border-border bg-bg-subtle'
+        isOver ? 'border-primary bg-primary-subtle' : 'border-border bg-background-subtle'
       } p-3 transition-colors`}
     >
       <div className="border-border flex items-center justify-between border-b pb-2">
-        <h3 className="text-fg text-sm font-semibold">{column.value}</h3>
+        <h3 className="text-foreground text-sm font-semibold">{column.value}</h3>
         <span
-          className="bg-bg-subtle text-fg rounded-full px-2 py-0.5 text-xs font-medium"
+          className="bg-background-subtle text-foreground rounded-full px-2 py-0.5 text-xs font-medium"
           aria-label={`${column.records.length} records`}
         >
           {column.records.length}
@@ -51,7 +51,7 @@ export function KanbanColumn({
       >
         <div className="flex min-h-[2.5rem] flex-col gap-2">
           {column.records.length === 0 ? (
-            <div className="border-border bg-bg-raised text-fg-muted rounded border border-dashed px-3 py-4 text-center text-xs">
+            <div className="border-border bg-background-raised text-foreground-muted rounded border border-dashed px-3 py-4 text-center text-xs">
               {emptyMessage ?? 'No records'}
             </div>
           ) : (

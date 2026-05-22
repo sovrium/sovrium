@@ -13,7 +13,7 @@ import { generateTrackingScript } from '@/infrastructure/analytics/tracking-scri
 import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import { logError, logDebug } from '@/infrastructure/logging/logger'
-import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
+import { isDevCacheDisabled, isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import {
   clientScriptPath,
   isBundled,
@@ -90,45 +90,47 @@ export function setupAnalyticsScriptRoute(honoApp: Readonly<Hono>, app: App): Re
   })
 }
 
-const getClientBundle = (() => {
-  let cachedPromise: Promise<string> | undefined
-
-  return (): Promise<string> => {
-    if (cachedPromise) return cachedPromise
-
-    cachedPromise = (async () => {
-      if (isCompiled) {
-        const assets = await getRuntimeAssets()
-        return Bun.file(assets.clientBundle).text()
-      }
-
-      if (isBundled) {
-        return Bun.file(resolvePackagePath('dist', 'client-bundle.js')).text()
-      }
-
-      const entrypoint = resolvePackagePath('src', 'presentation', 'client.ts')
-      const result = await Bun.build({
-        entrypoints: [entrypoint],
-        target: 'browser',
-        minify: isProduction,
-        format: 'esm',
-      })
-
-      if (!result.success) {
-        const errors = result.logs.map((log) => log.message).join('\n')
-        throw new Error(`Client bundle build failed:\n${errors}`)
-      }
-
-      const output = result.outputs[0]
-      if (!output) {
-        throw new Error('Client bundle build produced no output')
-      }
-
-      return output.text()
-    })()
-
-    return cachedPromise
+const memoizeUnlessDev = <T>(build: () => Promise<T>): (() => Promise<T>) => {
+  let cachedPromise: Promise<T> | undefined
+  return (): Promise<T> => {
+    if (!isCompiled && !isBundled && isDevCacheDisabled()) return build()
+    return (cachedPromise ??= build())
   }
+}
+
+const getClientBundle = (() => {
+  const build = async (): Promise<string> => {
+    if (isCompiled) {
+      const assets = await getRuntimeAssets()
+      return Bun.file(assets.clientBundle).text()
+    }
+
+    if (isBundled) {
+      return Bun.file(resolvePackagePath('dist', 'client-bundle.js')).text()
+    }
+
+    const entrypoint = resolvePackagePath('src', 'presentation', 'client.ts')
+    const result = await Bun.build({
+      entrypoints: [entrypoint],
+      target: 'browser',
+      minify: isProduction,
+      format: 'esm',
+    })
+
+    if (!result.success) {
+      const errors = result.logs.map((log) => log.message).join('\n')
+      throw new Error(`Client bundle build failed:\n${errors}`)
+    }
+
+    const output = result.outputs[0]
+    if (!output) {
+      throw new Error('Client bundle build produced no output')
+    }
+
+    return output.text()
+  }
+
+  return memoizeUnlessDev(build)
 })()
 
 export function setupClientBundleRoute(honoApp: Readonly<Hono>): Readonly<Hono> {
@@ -197,50 +199,44 @@ export interface IslandBuildResult {
 }
 
 export const buildIslands = (() => {
-  let cachedPromise: Promise<IslandBuildResult> | undefined
+  const build = async (): Promise<IslandBuildResult> => {
+    if (isCompiled || isBundled) {
+      logDebug('[ISLANDS] Using pre-built island entry')
+      return { entryFile: 'island-entry.js' }
+    }
 
-  return (): Promise<IslandBuildResult> => {
-    if (cachedPromise) return cachedPromise
+    const entrypoint = resolvePackagePath('src', 'presentation', 'islands', 'island-client.tsx')
 
-    cachedPromise = (async () => {
-      if (isCompiled || isBundled) {
-        logDebug('[ISLANDS] Using pre-built island entry')
-        return { entryFile: 'island-entry.js' }
-      }
+    const result = await Bun.build({
+      entrypoints: [entrypoint],
+      outdir: ISLAND_OUT_DIR,
+      target: 'browser',
+      format: 'esm',
+      splitting: true,
+      minify: isProduction,
+      naming: {
+        entry: '[name]-[hash].js',
+        chunk: 'chunks/[name]-[hash].js',
+      },
+    })
 
-      const entrypoint = resolvePackagePath('src', 'presentation', 'islands', 'island-client.tsx')
+    if (!result.success) {
+      const errors = result.logs.map((log) => log.message).join('\n')
+      throw new Error(`Island bundle build failed:\n${errors}`)
+    }
 
-      const result = await Bun.build({
-        entrypoints: [entrypoint],
-        outdir: ISLAND_OUT_DIR,
-        target: 'browser',
-        format: 'esm',
-        splitting: true,
-        minify: isProduction,
-        naming: {
-          entry: '[name]-[hash].js',
-          chunk: 'chunks/[name]-[hash].js',
-        },
-      })
+    const entry = result.outputs.find((o) => o.kind === 'entry-point')
+    if (!entry) {
+      throw new Error('Island bundle build produced no entry-point output')
+    }
 
-      if (!result.success) {
-        const errors = result.logs.map((log) => log.message).join('\n')
-        throw new Error(`Island bundle build failed:\n${errors}`)
-      }
+    const entryFile = entry.path.replace(ISLAND_OUT_DIR + '/', '')
+    logDebug(`[ISLANDS] Built entry: ${entryFile} (${result.outputs.length} outputs)`)
 
-      const entry = result.outputs.find((o) => o.kind === 'entry-point')
-      if (!entry) {
-        throw new Error('Island bundle build produced no entry-point output')
-      }
-
-      const entryFile = entry.path.replace(ISLAND_OUT_DIR + '/', '')
-      logDebug(`[ISLANDS] Built entry: ${entryFile} (${result.outputs.length} outputs)`)
-
-      return { entryFile }
-    })()
-
-    return cachedPromise
+    return { entryFile }
   }
+
+  return memoizeUnlessDev(build)
 })()
 
 export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {

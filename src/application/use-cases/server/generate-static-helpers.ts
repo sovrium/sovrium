@@ -7,9 +7,10 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { Effect, Console } from 'effect'
+import { Effect } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
 import { copyDirectory } from '@/infrastructure/filesystem/copy-directory'
+import { logDebug } from '@/infrastructure/logging'
 import {
   formatHtmlWithPrettier,
   generateClientHydrationScript,
@@ -43,7 +44,7 @@ export interface PathModuleLike {
 
 export function writeCssFile(outputDir: string, css: string, fs: FileSystemLike) {
   return Effect.gen(function* () {
-    yield* Console.log('🎨 Writing compiled CSS...')
+    logDebug('Writing compiled CSS...')
 
     yield* Effect.tryPromise({
       try: () => fs.mkdir(`${outputDir}/assets`, { recursive: true }),
@@ -71,7 +72,7 @@ export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: 
   return Effect.if(enabled, {
     onTrue: () =>
       Effect.gen(function* () {
-        yield* Console.log('💧 Generating client-side hydration script...')
+        logDebug('Generating client-side hydration script...')
         const clientJS = generateClientHydrationScript()
         yield* Effect.tryPromise({
           try: () => fs.writeFile(`${outputDir}/assets/client.js`, clientJS, 'utf-8'),
@@ -91,7 +92,7 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
   return Effect.if(publicDir !== undefined, {
     onTrue: () =>
       Effect.gen(function* () {
-        yield* Console.log(`📁 Copying assets from ${publicDir}...`)
+        logDebug(`Copying assets from ${publicDir}...`)
         return yield* copyDirectory(publicDir!, outputDir)
       }),
     onFalse: () => Effect.succeed([] as readonly string[]),
@@ -105,7 +106,7 @@ export function formatHtmlFiles(
   path: PathModuleLike
 ) {
   return Effect.gen(function* () {
-    yield* Console.log('📝 Formatting HTML files with Prettier...')
+    logDebug('Formatting HTML files with Prettier...')
 
     yield* Effect.forEach(
       generatedFiles.filter((f) => f.endsWith('.html') && !f.endsWith('.js.html')),
@@ -198,7 +199,7 @@ export function generateSitemapFile(
   return Effect.if(options.generateSitemap ?? false, {
     onTrue: () =>
       Effect.gen(function* () {
-        yield* Console.log('🗺️  Generating sitemap.xml...')
+        logDebug('Generating sitemap.xml...')
         const pages = app.pages || []
         const languages = app.languages && options.languages ? options.languages : undefined
         const hreflangConfig = buildHreflangConfig(app, options)
@@ -231,7 +232,7 @@ export function generateRobotsFile(
   return Effect.if(options.generateRobotsTxt ?? false, {
     onTrue: () =>
       Effect.gen(function* () {
-        yield* Console.log('🤖 Generating robots.txt...')
+        logDebug('Generating robots.txt...')
         const pages = app.pages || []
         const robots = generateRobotsContent(
           pages,
@@ -261,7 +262,7 @@ export function generateGitHubPagesFiles(
     const nojekyllFiles = yield* Effect.if(options.deployment === 'github-pages', {
       onTrue: () =>
         Effect.gen(function* () {
-          yield* Console.log('📄 Creating .nojekyll file for GitHub Pages...')
+          logDebug('Creating .nojekyll file for GitHub Pages...')
           yield* Effect.tryPromise({
             try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
             catch: (error) =>
@@ -283,7 +284,7 @@ export function generateGitHubPagesFiles(
         onTrue: () =>
           Effect.gen(function* () {
             const domain = new URL(options.baseUrl!).hostname
-            yield* Console.log(`📄 Creating CNAME file for custom domain: ${domain}...`)
+            logDebug(`Creating CNAME file for custom domain: ${domain}...`)
             yield* Effect.tryPromise({
               try: () => fs.writeFile(`${outputDir}/CNAME`, domain, 'utf-8'),
               catch: (error) =>

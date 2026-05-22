@@ -1,0 +1,10 @@
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8
+  - type: magicLink
+    expirationMinutes: 15
+defaultRole: member
+roles:
+  - name: board
+    description: Elected board members — moderate posts and manage the community
+    level: 60

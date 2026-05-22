@@ -407,7 +407,7 @@ jobs:
       - name: Generate formula
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          bun run scripts/update-homebrew-formula.ts \
+          bun run scripts/build/update-homebrew-formula.ts \
             --version "${VERSION}" \
             --output sovrium.rb
 
@@ -468,7 +468,7 @@ jobs:
       - name: Generate Scoop manifest
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          bun run scripts/update-scoop-manifest.ts \
+          bun run scripts/build/update-scoop-manifest.ts \
             --version "${VERSION}" \
             --output sovrium.json
 

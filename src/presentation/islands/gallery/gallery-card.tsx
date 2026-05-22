@@ -52,7 +52,7 @@ function GalleryCardDefault({ record }: { readonly record: TableRecord }): React
     (record.name as string | undefined) ??
     (record.label as string | undefined) ??
     String(record.id ?? '')
-  return <p className="text-fg text-sm font-medium">{title}</p>
+  return <p className="text-foreground text-sm font-medium">{title}</p>
 }
 
 function GalleryCardBody({
@@ -111,7 +111,7 @@ function HoverOverlayButton({
     <button
       type="button"
       onClick={handleClick}
-      className="bg-bg-raised text-fg hover:bg-bg-subtle rounded-md px-4 py-2 text-sm font-medium shadow-sm"
+      className="bg-background-raised text-foreground hover:bg-background-subtle rounded-md px-4 py-2 text-sm font-medium shadow-sm"
     >
       {content}
     </button>
@@ -215,7 +215,7 @@ export function GalleryCardView({
       onClick={onClick}
       onKeyDown={onKeyDown}
       {...navigateProps}
-      className={`group border-border bg-bg-raised relative overflow-hidden rounded-lg border shadow-sm transition-colors ${cursorClass}`}
+      className={`group border-border bg-background-raised relative overflow-hidden rounded-lg border shadow-sm transition-colors ${cursorClass}`}
     >
       <CardBody
         card={card}

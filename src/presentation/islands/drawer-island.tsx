@@ -47,9 +47,11 @@ function DrawerHeader({
   if (!title && !description) return undefined
   return (
     <div className="border-border border-b p-4">
-      {title && <Dialog.Title className="text-fg text-lg font-semibold">{title}</Dialog.Title>}
+      {title && (
+        <Dialog.Title className="text-foreground text-lg font-semibold">{title}</Dialog.Title>
+      )}
       {description && (
-        <Dialog.Description className="text-fg-muted mt-1 text-sm">
+        <Dialog.Description className="text-foreground-muted mt-1 text-sm">
           {description}
         </Dialog.Description>
       )}
@@ -88,7 +90,7 @@ export default function DrawerIsland({
         <Dialog.Backdrop className="bg-scrim/50 fixed inset-0 z-40 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Popup
           className={cn(
-            `bg-bg-overlay text-fg fixed z-50 shadow-xl transition-transform duration-300 ${SIDE_CLASSES[drawerSide]} ${sizeClass}`,
+            `bg-background-overlay text-foreground fixed z-50 shadow-xl transition-transform duration-300 ${SIDE_CLASSES[drawerSide]} ${sizeClass}`,
             className
           )}
           id={id}
@@ -104,7 +106,7 @@ export default function DrawerIsland({
                 <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
               )}
             </div>
-            <Dialog.Close className="text-fg-subtle hover:text-fg-muted absolute top-4 right-4 transition-colors">
+            <Dialog.Close className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors">
               ✕
             </Dialog.Close>
           </div>

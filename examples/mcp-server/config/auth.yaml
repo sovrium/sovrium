@@ -1,0 +1,6 @@
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 12
+roles:
+  - name: editor
+    description: Can read and create documents/tags via MCP tools (the built-in `viewer` role is read-only by default)

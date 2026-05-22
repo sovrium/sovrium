@@ -1,0 +1,10 @@
+name: task-api
+version: 1.0.0
+description: Headless API for task management
+
+auth:
+  $ref: ./config/auth.yaml
+
+tables:
+  - $ref: ./config/tables/projects.yaml
+  - $ref: ./config/tables/tasks.yaml

@@ -85,13 +85,13 @@ export default function CheckboxIsland({
         disabled={disabled}
         name={name}
         value={value}
-        className="border-border bg-bg-raised data-[checked]:border-primary data-[checked]:bg-primary data-[indeterminate]:border-primary data-[indeterminate]:bg-primary flex h-4 w-4 items-center justify-center rounded border transition-colors"
+        className="border-border bg-background-raised data-[checked]:border-primary data-[checked]:bg-primary data-[indeterminate]:border-primary data-[indeterminate]:bg-primary flex h-4 w-4 items-center justify-center rounded border transition-colors"
       >
         <Checkbox.Indicator className="text-primary-fg">
           {indeterminate ? <IndeterminateIcon /> : <CheckIcon />}
         </Checkbox.Indicator>
       </Checkbox.Root>
-      {label && <span className="text-fg text-sm">{label}</span>}
+      {label && <span className="text-foreground text-sm">{label}</span>}
     </label>
   )
 }

@@ -83,6 +83,12 @@ export const getThemeCacheKey = (theme?: Theme): string => {
   return JSON.stringify(normalized ?? {})
 }
 
+export const getCSSCacheKey = (theme?: Theme, candidates: readonly string[] = []): string => {
+  const themeKey = getThemeCacheKey(theme)
+  const candidateKey = JSON.stringify(candidates.toSorted())
+  return `${themeKey}::${candidateKey}`
+}
+
 export const getCachedCSS = (cacheKey: string): Effect.Effect<CompiledCSS | undefined, never> =>
   pipe(
     Ref.get(cssCache),

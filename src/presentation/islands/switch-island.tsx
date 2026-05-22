@@ -52,13 +52,13 @@ export default function SwitchIsland({
         defaultChecked={checked}
         disabled={disabled}
         name={name}
-        className={`bg-bg-subtle data-[checked]:bg-primary relative inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 ${sizeClass.track}`}
+        className={`bg-background-subtle data-[checked]:bg-primary relative inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 ${sizeClass.track}`}
       >
         <Switch.Thumb
-          className={`bg-bg-raised pointer-events-none block rounded-full shadow-sm transition-transform duration-200 ${sizeClass.thumb}`}
+          className={`bg-background-raised pointer-events-none block rounded-full shadow-sm transition-transform duration-200 ${sizeClass.thumb}`}
         />
       </Switch.Root>
-      {label && <span className="text-fg text-sm">{label}</span>}
+      {label && <span className="text-foreground text-sm">{label}</span>}
     </label>
   )
 }

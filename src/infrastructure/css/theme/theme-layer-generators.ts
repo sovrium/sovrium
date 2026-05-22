@@ -35,16 +35,35 @@ export function extractTitleFontProperties(theme?: Theme): TitleFontConfig | und
 
 export function buildBodyClasses(hasBodyFont: boolean): readonly string[] {
   const fontClass = hasBodyFont ? 'font-body' : 'font-sans'
-  return [fontClass, 'antialiased', 'text-fg']
+  return [fontClass, 'antialiased', 'text-foreground']
 }
 
 export function buildHeadingClasses(hasTitleFont: boolean): readonly string[] {
   const fontClass = hasTitleFont ? 'font-title' : 'font-sans'
-  return [fontClass, 'font-semibold', 'tracking-tight', 'text-fg']
+  return [fontClass, 'font-semibold', 'tracking-tight', 'text-foreground']
 }
 
 export function buildLinkClasses(): readonly string[] {
   return ['transition-colors', 'text-primary', 'hover:text-primary-hover']
+}
+
+export function buildFocusVisibleClasses(): readonly string[] {
+  return ['ring-2', 'ring-focus-ring', 'ring-offset-2', 'outline-none']
+}
+
+export function buildHeadingSizeClasses(): Readonly<Record<string, string>> {
+  return {
+    h1: 'text-4xl',
+    h2: 'text-3xl',
+    h3: 'text-2xl',
+    h4: 'text-xl',
+    h5: 'text-lg',
+    h6: 'text-base',
+  }
+}
+
+export function buildParagraphClasses(): readonly string[] {
+  return ['text-base', 'text-foreground', 'leading-relaxed']
 }
 
 export function buildHeadingStyleProperties(titleFont?: TitleFontConfig): readonly string[] {
@@ -86,6 +105,9 @@ export function generateBaseLayer(theme?: Theme): string {
   const bodyClasses = buildBodyClasses(fontFlags.hasBodyFont)
   const headingClasses = buildHeadingClasses(fontFlags.hasTitleFont)
   const linkClasses = buildLinkClasses()
+  const focusVisibleClasses = buildFocusVisibleClasses()
+  const paragraphClasses = buildParagraphClasses()
+  const headingSizes = buildHeadingSizeClasses()
 
   const titleFont = extractTitleFontProperties(theme)
   const headingStyleProps = buildHeadingStyleProperties(titleFont)
@@ -105,8 +127,25 @@ export function generateBaseLayer(theme?: Theme): string {
         ${headingStyles}
       }
 
+      h1 { @apply ${headingSizes['h1']}; }
+      h2 { @apply ${headingSizes['h2']}; }
+      h3 { @apply ${headingSizes['h3']}; }
+      h4 { @apply ${headingSizes['h4']}; }
+      h5 { @apply ${headingSizes['h5']}; }
+      h6 { @apply ${headingSizes['h6']}; }
+
+      p {
+        @apply ${paragraphClasses.join(' ')};
+      }
+
       a {
         @apply ${linkClasses.join(' ')};
+      }
+
+      button:focus-visible,
+      a:focus-visible,
+      [role="button"]:focus-visible {
+        @apply ${focusVisibleClasses.join(' ')};
       }
     }`
 }

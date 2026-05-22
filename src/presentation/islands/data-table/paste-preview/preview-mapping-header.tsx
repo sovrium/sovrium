@@ -21,18 +21,18 @@ export function PreviewMappingHeader({
   onMappingChange,
 }: PreviewMappingHeaderProps) {
   return (
-    <thead className="bg-bg-subtle">
+    <thead className="bg-background-subtle">
       <tr>
         {headers.map((header, columnIndex) => {
           const mapping = mappings[columnIndex] ?? SKIP_VALUE
           return (
             <th
               key={`${header}-${columnIndex}`}
-              className="text-fg px-3 py-2 text-left font-medium"
+              className="text-foreground px-3 py-2 text-left font-medium"
             >
               <div className="flex flex-col gap-1">
-                <span className="text-fg-muted text-xs">{header}</span>
-                <span className="text-fg text-xs font-semibold">
+                <span className="text-foreground-muted text-xs">{header}</span>
+                <span className="text-foreground text-xs font-semibold">
                   {mapping === SKIP_VALUE ? 'Skip this column' : mapping}
                 </span>
                 <select

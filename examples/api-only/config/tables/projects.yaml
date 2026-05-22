@@ -1,0 +1,21 @@
+id: 1
+name: projects
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: description
+    type: long-text
+  - id: 3
+    name: status
+    type: single-select
+    options:
+      - Planning
+      - Active
+      - Completed
+      - Archived
+  - id: 4
+    name: created_by
+    type: created-by

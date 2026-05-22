@@ -54,17 +54,19 @@ export default function PopoverIsland({
           align={floatingAlign}
           sideOffset={8}
         >
-          <Popover.Popup className="border-border bg-bg-overlay text-fg w-72 rounded-lg border p-4 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Popover.Popup className="border-border bg-background-overlay text-foreground w-72 rounded-lg border p-4 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             {title && (
-              <Popover.Title className="text-fg mb-1 text-sm font-semibold">{title}</Popover.Title>
+              <Popover.Title className="text-foreground mb-1 text-sm font-semibold">
+                {title}
+              </Popover.Title>
             )}
             {description && (
-              <Popover.Description className="text-fg-muted mb-3 text-sm">
+              <Popover.Description className="text-foreground-muted mb-3 text-sm">
                 {description}
               </Popover.Description>
             )}
             {childrenHtml && <SSRSkeletonDiv html={childrenHtml} />}
-            <Popover.Arrow className="text-bg-overlay">
+            <Popover.Arrow className="text-background-overlay">
               <svg
                 width="12"
                 height="6"

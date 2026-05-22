@@ -63,7 +63,7 @@ function resolveCardData(card: KanbanCard | undefined, record: TableRecord): Car
 function buildCardClassName(navigatePath: string | undefined, draggableEnabled: boolean): string {
   const navClass = navigatePath ? 'cursor-pointer hover:border-primary' : ''
   const dragClass = draggableEnabled ? 'cursor-grab active:cursor-grabbing' : ''
-  return `overflow-hidden rounded-md border border-border bg-bg-raised shadow-sm ${navClass} ${dragClass}`
+  return `overflow-hidden rounded-md border border-border bg-background-raised shadow-sm ${navClass} ${dragClass}`
 }
 
 function renderCardContent(

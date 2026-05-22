@@ -1,0 +1,29 @@
+id: 2
+name: contacts
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: email
+    type: email
+    required: true
+  - id: 3
+    name: phone
+    type: phone-number
+  - id: 4
+    name: company
+    type: relationship
+    relatedTable: companies
+    relationType: many-to-one
+  - id: 5
+    name: status
+    type: single-select
+    options:
+      - Lead
+      - Active
+      - Inactive
+  - id: 6
+    name: created_by
+    type: created-by

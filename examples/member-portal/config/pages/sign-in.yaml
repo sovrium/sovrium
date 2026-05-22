@@ -1,0 +1,84 @@
+name: sign-in
+path: /sign-in
+meta:
+  title: Sign In
+  description: Sign in to the member portal
+components:
+  - type: container
+    element: section
+    props:
+      className: py-16 px-6 min-h-screen
+      style:
+        backgroundColor: '#f8fafc'
+    children:
+      - type: container
+        props:
+          className: max-w-md mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-2 text-center
+              style:
+                color: '#0f172a'
+            content: Welcome back
+          - type: text
+            element: p
+            props:
+              className: text-center mb-8
+              style:
+                color: '#475569'
+            content: Sign in to access the member portal.
+
+          # Magic-link form — passwordless, primary option
+          - type: container
+            props:
+              className: p-6 rounded-xl border mb-4
+              style:
+                backgroundColor: '#ffffff'
+                borderColor: '#e2e8f0'
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold mb-3
+                content: Sign in with a magic link
+              - type: text
+                element: p
+                props:
+                  className: text-sm mb-4
+                  style:
+                    color: '#475569'
+                content: We'll email you a one-tap sign-in link. No password needed.
+              - type: form
+                props:
+                  id: magic-link-form
+                action:
+                  type: auth
+                  method: login
+                  strategy: magicLink
+                  onSuccess:
+                    navigate: /portal
+
+          # Email + password form — fallback option
+          - type: container
+            props:
+              className: p-6 rounded-xl border
+              style:
+                backgroundColor: '#ffffff'
+                borderColor: '#e2e8f0'
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold mb-3
+                content: Or sign in with a password
+              - type: form
+                props:
+                  id: password-sign-in-form
+                action:
+                  type: auth
+                  method: login
+                  strategy: email
+                  onSuccess:
+                    navigate: /portal

@@ -18,7 +18,7 @@ export function ColumnsMenu({
   return (
     <div
       role="menu"
-      className="border-border bg-bg-overlay absolute top-full right-0 z-10 mt-1 min-w-max rounded border p-2 shadow-lg"
+      className="border-border bg-background-overlay absolute top-full right-0 z-10 mt-1 min-w-max rounded border p-2 shadow-lg"
     >
       {table
         .getAllColumns()
@@ -26,7 +26,7 @@ export function ColumnsMenu({
         .map((col) => (
           <label
             key={col.id}
-            className="hover:bg-bg-subtle flex cursor-pointer items-center gap-2 px-2 py-1 text-sm"
+            className="hover:bg-background-subtle flex cursor-pointer items-center gap-2 px-2 py-1 text-sm"
           >
             <input
               type="checkbox"
@@ -56,13 +56,13 @@ export function ExportMenu({
   return (
     <div
       role="menu"
-      className="border-border bg-bg-overlay absolute top-full right-0 z-10 mt-1 rounded border shadow-lg"
+      className="border-border bg-background-overlay absolute top-full right-0 z-10 mt-1 rounded border shadow-lg"
     >
       <a
         href={buildCsvExportHref(tableName, table, activeFilter)}
         download
         role="menuitem"
-        className="hover:bg-bg-subtle block w-full px-4 py-2 text-left text-sm"
+        className="hover:bg-background-subtle block w-full px-4 py-2 text-left text-sm"
         onClick={onClose}
       >
         Export as CSV
@@ -71,7 +71,7 @@ export function ExportMenu({
         href={buildJsonExportHref(tableName, activeFilter)}
         download
         role="menuitem"
-        className="hover:bg-bg-subtle block w-full px-4 py-2 text-left text-sm"
+        className="hover:bg-background-subtle block w-full px-4 py-2 text-left text-sm"
         onClick={onClose}
       >
         Export as JSON

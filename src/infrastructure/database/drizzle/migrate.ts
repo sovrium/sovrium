@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { existsSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, mkdirSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { SQL } from 'bun'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
@@ -103,7 +103,10 @@ const runSqliteMigrations = (
 ): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
     const client = yield* Effect.try({
-      try: () => new BunSqlite(path, { create: true }),
+      try: () => {
+        if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
+        return new BunSqlite(path, { create: true })
+      },
       catch: (error) =>
         new DatabaseConnectionError({
           message: `SQLite database open failed: ${String(error)}`,

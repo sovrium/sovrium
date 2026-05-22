@@ -9,11 +9,11 @@
 import { extendTailwindMerge } from 'tailwind-merge'
 
 const CANONICAL_BG = [
-  'bg-bg',
-  'bg-bg-subtle',
-  'bg-bg-raised',
-  'bg-bg-overlay',
-  'bg-fg',
+  'bg-background',
+  'bg-background-subtle',
+  'bg-background-raised',
+  'bg-background-overlay',
+  'bg-foreground',
   'bg-border',
   'bg-border-strong',
   'bg-scrim',
@@ -35,14 +35,14 @@ const CANONICAL_BG = [
 ] as const
 
 const CANONICAL_TEXT = [
-  'text-bg',
-  'text-bg-overlay',
-  'text-fg',
-  'text-fg-muted',
-  'text-fg-subtle',
-  'text-fg-disabled',
-  'text-fg-inverse',
-  'text-fg-humane',
+  'text-background',
+  'text-background-overlay',
+  'text-foreground',
+  'text-foreground-muted',
+  'text-foreground-subtle',
+  'text-foreground-disabled',
+  'text-foreground-inverse',
+  'text-foreground-humane',
   'text-primary',
   'text-primary-fg',
   'text-primary-subtle-fg',

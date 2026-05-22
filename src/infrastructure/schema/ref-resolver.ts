@@ -49,11 +49,24 @@ export const collectRefSources = (data: unknown, baseDir: string): ReadonlyMap<s
   }
 
   const obj = data as Record<string, unknown>
-  const entries = Object.entries(obj)
-    .filter(([, value]) => isRefObject(value))
-    .map(
-      ([key, value]) => [key, resolve(baseDir, (value as { readonly $ref: string }).$ref)] as const
-    )
+  const entries: ReadonlyArray<readonly [string, string]> = Object.entries(obj).flatMap(
+    ([key, value]) => {
+      if (isRefObject(value)) {
+        return [[key, resolve(baseDir, value.$ref)] as const]
+      }
+
+      if (Array.isArray(value)) {
+        return value.flatMap((item, index): ReadonlyArray<readonly [string, string]> => {
+          if (isRefObject(item)) {
+            return [[`${key}[${index}]`, resolve(baseDir, item.$ref)] as const]
+          }
+          return []
+        })
+      }
+
+      return []
+    }
+  )
 
   return new Map(entries)
 }
@@ -65,6 +78,19 @@ export const resolveRefs = async (
 ): Promise<unknown> => {
   if (data === null || data === undefined || typeof data !== 'object') {
     return data
+  }
+
+  if (isRefObject(data)) {
+    const refPath = resolve(baseDir, data.$ref)
+
+    if (visited.has(refPath)) {
+      throw new Error(`Circular $ref detected: ${refPath}`)
+    }
+
+    const newVisited = new Set([...visited, refPath])
+    const loaded = await loadReferencedFile(refPath)
+    const refDir = dirname(refPath)
+    return resolveRefs(loaded, refDir, newVisited)
   }
 
   if (Array.isArray(data)) {

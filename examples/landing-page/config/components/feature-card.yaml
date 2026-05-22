@@ -1,0 +1,20 @@
+name: feature-card
+type: container
+props:
+  data-component: feature-card
+  className: p-6 border rounded-xl bg-white hover:shadow-lg transition-shadow
+children:
+  - type: container
+    props:
+      className: text-4xl mb-4
+    content: $icon
+  - type: text
+    element: h3
+    props:
+      className: text-xl font-semibold mb-2
+    content: $title
+  - type: text
+    element: p
+    props:
+      className: text-gray-600
+    content: $description

@@ -35,22 +35,22 @@ export const islandCalendarComponent: ComponentRenderer = ({ elementProps }) => 
     >
       {}
       <div
-        className="border-border bg-bg-raised w-full rounded-lg border p-4"
+        className="border-border bg-background-raised w-full rounded-lg border p-4"
         aria-label="Loading calendar..."
         role="status"
       >
         <div className="mb-3 flex items-center justify-between">
-          <div className="bg-bg-subtle h-6 w-40 animate-pulse rounded" />
+          <div className="bg-background-subtle h-6 w-40 animate-pulse rounded" />
           <div className="flex gap-2">
-            <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
-            <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
+            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
           </div>
         </div>
         <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: 35 }).map((_, i) => (
             <div
               key={`calendar-skeleton-${String(i)}`}
-              className="bg-bg-subtle h-16 animate-pulse rounded"
+              className="bg-background-subtle h-16 animate-pulse rounded"
             />
           ))}
         </div>

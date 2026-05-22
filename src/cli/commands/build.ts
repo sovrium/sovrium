@@ -6,12 +6,11 @@
  */
 
 import { dirname, join } from 'node:path'
-import { Effect, Console } from 'effect'
-import { lazyImportIndex, lazyImportCli } from './utils'
+import { Effect } from 'effect'
+import { parseBooleanEnv, readPublicDirEnv } from './option-parsing'
+import { lazyImportIndex, lazyImportCli, lazyImportLogger } from './utils'
 import type { GenerateStaticOptions } from '@/application/use-cases/server/generate-static'
-
-const parseBooleanEnv = (value: string | undefined): boolean | undefined =>
-  value === 'true' ? true : value === 'false' ? false : undefined
+import type { StartupPhase } from '@/infrastructure/logging/logger'
 
 const parseBuildOptions = (): GenerateStaticOptions => {
   const envVars = {
@@ -26,7 +25,7 @@ const parseBuildOptions = (): GenerateStaticOptions => {
     hydration: parseBooleanEnv(Bun.env.SOVRIUM_HYDRATION),
     generateManifest: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_MANIFEST),
     bundleOptimization: Bun.env.SOVRIUM_BUNDLE_OPTIMIZATION as 'split' | 'none' | undefined,
-    publicDir: Bun.env.SOVRIUM_PUBLIC_DIR,
+    publicDir: readPublicDirEnv(),
   }
 
   const options = [
@@ -51,9 +50,31 @@ const parseBuildOptions = (): GenerateStaticOptions => {
   return options
 }
 
+const buildBuildPhases = (summary: {
+  readonly mode: 'development' | 'production'
+  readonly languages: readonly string[]
+  readonly fileCount: number
+  readonly durationLabel: string
+}): readonly StartupPhase[] => {
+  const fileWord = summary.fileCount === 1 ? 'file' : 'files'
+  return [
+    { label: `Mode: ${summary.mode}`, type: 'success' as const },
+    ...(summary.languages.length > 0
+      ? [{ label: `Languages: ${summary.languages.join(', ')}`, type: 'success' as const }]
+      : []),
+    { label: 'CSS compiled', type: 'success' as const },
+    {
+      label: `Generated ${summary.fileCount} ${fileWord} in ${summary.durationLabel}`,
+      type: 'success' as const,
+    },
+  ]
+}
+
 export const handleBuildCommand = async (filePath?: string, publicDir?: string): Promise<void> => {
   const { build } = await lazyImportIndex()
   const { parseAppSchema } = await lazyImportCli()
+  const { renderBuildSummary, formatDuration, logError } = await lazyImportLogger()
+  const { getSovriumVersion } = await import('@/infrastructure/utils/version')
 
   const app = await parseAppSchema('build', filePath)
   const envOptions = parseBuildOptions()
@@ -63,20 +84,22 @@ export const handleBuildCommand = async (filePath?: string, publicDir?: string):
     outputDir: publicDir || envOptions.outputDir || defaultOutputDir,
   }
 
-  Effect.runSync(
-    Effect.gen(function* () {
-      yield* Console.log('Building static site from CLI...')
-      yield* Console.log(`App: ${app.name}${app.description ? ` - ${app.description}` : ''}`)
-      if (filePath) yield* Console.log(`Config: ${filePath}`)
-      if (options.outputDir) yield* Console.log(`Output directory: ${options.outputDir}`)
-      if (options.baseUrl) yield* Console.log(`Base URL: ${options.baseUrl}`)
-      if (options.deployment) yield* Console.log(`Deployment: ${options.deployment}`)
-      yield* Console.log('')
-    })
-  )
-
-  await build(app, options).catch((error) => {
-    Effect.runSync(Console.error('Failed to build static site:', error))
+  const startedAt = Date.now()
+  const result = await build(app, options).catch((error) => {
+    logError('Failed to build static site', error)
     process.exit(1)
   })
+  const durationMs = Date.now() - startedAt
+
+  const version = await getSovriumVersion()
+  const mode = process.env['NODE_ENV'] === 'production' ? 'production' : 'development'
+  const languages = app.languages?.supported.map((lang) => lang.code) ?? []
+  const phases = buildBuildPhases({
+    mode,
+    languages,
+    fileCount: result.files.length,
+    durationLabel: formatDuration(durationMs),
+  })
+
+  Effect.runSync(renderBuildSummary({ version, phases, outputDir: result.outputDir }))
 }

@@ -1,0 +1,30 @@
+# MCP Server Manifest (documentation only — not a schema field)
+# ==============================================================
+#
+# Sovrium has NO top-level `mcp:` schema block. MCP exposure is declared
+# per-entity via `aiAccess` (see config/tables/*.yaml) and activated by the
+# operator via environment variables. This file documents what an LLM client
+# will see after the operator sets MCP_ENABLED=true.
+#
+# Operator activation:
+#   MCP_ENABLED=true
+#   MCP_TRANSPORT=streamable-http   # or "stdio" for local clients
+#   MCP_AUTH_STRATEGY=oauth         # LLM client authenticates as a Sovrium user
+#
+# Tools the MCP server will expose (derived from aiAccess declarations):
+#
+#   mcp-server-example_documents_list      # read-only, idempotent
+#   mcp-server-example_documents_get       # read-only, idempotent
+#   mcp-server-example_documents_create    # write, requires `editor` role
+#   mcp-server-example_tags_list           # read-only, idempotent
+#   mcp-server-example_tags_get            # read-only, idempotent
+#
+# Notes for schema authors:
+#   - Read-only by default. Each table opts INTO write operations explicitly
+#     via `aiAccess.operations` (omit `create`/`update`/`delete` to keep it
+#     read-only).
+#   - Field exposure defaults to `permissioned` (respects per-role RBAC).
+#     Use `fieldExposure: whitelist` + `whitelistFields: [...]` when you need
+#     a narrower projection than the role's read permissions.
+#   - The `description` on each aiAccess block is the single biggest UX lever
+#     for steering LLM behavior — write it for the LLM, not for humans.

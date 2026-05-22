@@ -133,14 +133,14 @@ export function DataTableToolbarBar({
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
-          className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
+          className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
           onClick={onOpenImportDialog}
         >
           Import
         </button>
         <button
           type="button"
-          className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
+          className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
           aria-label="Filter"
           onClick={onOpenFilterOverlay}
         >
@@ -149,7 +149,7 @@ export function DataTableToolbarBar({
         <div className="relative">
           <button
             type="button"
-            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
+            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
             aria-label="Columns"
             onClick={onToggleColumnsMenu}
           >
@@ -160,7 +160,7 @@ export function DataTableToolbarBar({
         {selectionConfig?.mode === 'multiple' && (
           <button
             type="button"
-            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Export selected"
             disabled={selectedCount === 0}
             onClick={onExportSelectedClick}
@@ -171,7 +171,7 @@ export function DataTableToolbarBar({
         <div className="relative">
           <button
             type="button"
-            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
+            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
             aria-label="Export"
             aria-haspopup="true"
             aria-expanded={exportMenuOpen}
@@ -191,7 +191,7 @@ export function DataTableToolbarBar({
         {toolbarConfig?.refresh && (
           <button
             type="button"
-            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
+            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
             aria-label="Refresh"
             onClick={onRefresh}
           >
@@ -201,7 +201,7 @@ export function DataTableToolbarBar({
         {toolbarConfig?.density && (
           <button
             type="button"
-            className="hover:bg-bg-subtle rounded border px-3 py-1 text-sm"
+            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
             aria-label="Density"
             onClick={onToggleDensity}
           >

@@ -54,7 +54,7 @@ export default function ToggleGroupIsland({
           key={item.id}
           value={item.id}
           disabled={item.disabled}
-          className="border-border text-fg-muted data-[pressed]:bg-primary-subtle data-[pressed]:text-fg border-r px-3 py-2 text-sm font-medium transition-colors last:border-r-0 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className="border-border text-foreground-muted data-[pressed]:bg-primary-subtle data-[pressed]:text-foreground border-r px-3 py-2 text-sm font-medium transition-colors last:border-r-0 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           {item.label}
         </Toggle>

@@ -33,6 +33,38 @@ const ContentDirSortSchema = Schema.Struct({
   })
 )
 
+const ContentDirNavSchema = Schema.Struct({
+  enabled: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotations({ description: 'Enable a docs sidebar derived from the collection files' })
+    )
+  ),
+
+  groupBy: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description: 'Frontmatter field used to group sidebar entries (e.g., category)',
+      })
+    )
+  ),
+
+  labelFrom: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description: 'Frontmatter field used as the sidebar link label (e.g., title)',
+      })
+    )
+  ),
+}).pipe(
+  Schema.annotations({
+    identifier: 'ContentDirNav',
+    title: 'Content Directory Navigation',
+    description: 'Sidebar navigation configuration derived from a content directory collection',
+  })
+)
+
 export const ContentDirSchema = Schema.Struct({
   directory: Schema.String.pipe(
     Schema.minLength(1),
@@ -61,6 +93,8 @@ export const ContentDirSchema = Schema.Struct({
       })
     )
   ),
+
+  nav: Schema.optional(ContentDirNavSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'ContentDir',

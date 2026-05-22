@@ -19,6 +19,7 @@ import {
 } from '@/application/ports/services/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
 import { writePrecompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
+import { logDebug } from '@/infrastructure/logging'
 import {
   fs,
   path,
@@ -77,7 +78,7 @@ function validateAppSchema(app: unknown): Effect.Effect<App, AppValidationError,
         return { ...baseApp, pages: rawApp.pages as App['pages'] }
       })
     : Effect.gen(function* () {
-        yield* Console.log('🔍 Validating app schema...')
+        logDebug('Validating app schema...')
         return yield* Schema.decodeUnknown(AppSchema)(app).pipe(
           Effect.mapError((error) => new AppValidationError(error))
         )
@@ -122,7 +123,7 @@ function generateCssFile(
   fs: FileSystemLike
 ) {
   return Effect.gen(function* () {
-    yield* Console.log('🎨 Getting compiled CSS...')
+    logDebug('Getting compiled CSS...')
     const { css } = yield* cssCompiler.compile(app)
 
     const cssFile = yield* writeCssFile(outputDir, css, fs)
@@ -133,7 +134,7 @@ function generateCssFile(
       )
     )
     if (precompiledPath) {
-      yield* Console.log(`📦 Pre-compiled CSS written to ${precompiledPath}`)
+      logDebug(`Pre-compiled CSS written to ${precompiledPath}`)
     }
 
     return cssFile
@@ -223,7 +224,7 @@ export const generateStatic = (
 
     const allFiles = [...generatedFiles, ...supportingFiles] as readonly string[]
 
-    yield* Console.log(`✅ Generated ${allFiles.length} files to ${outputDir}`)
+    logDebug(`Generated ${allFiles.length} files to ${outputDir}`)
 
     return {
       outputDir,

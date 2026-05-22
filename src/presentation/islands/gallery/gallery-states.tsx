@@ -25,11 +25,11 @@ export function GalleryLoading(): ReactElement {
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={`gallery-loading-card-${String(i)}`}
-          className="border-border bg-bg-raised flex flex-col gap-2 rounded-lg border p-3 shadow-sm"
+          className="border-border bg-background-raised flex flex-col gap-2 rounded-lg border p-3 shadow-sm"
         >
-          <div className="bg-bg-subtle h-32 w-full animate-pulse rounded" />
-          <div className="bg-bg-subtle h-5 w-3/4 animate-pulse rounded" />
-          <div className="bg-bg-subtle h-4 w-1/2 animate-pulse rounded" />
+          <div className="bg-background-subtle h-32 w-full animate-pulse rounded" />
+          <div className="bg-background-subtle h-5 w-3/4 animate-pulse rounded" />
+          <div className="bg-background-subtle h-4 w-1/2 animate-pulse rounded" />
         </div>
       ))}
     </div>
@@ -50,7 +50,7 @@ export function GalleryError({ error }: { readonly error: unknown }): ReactEleme
 export function GalleryEmpty({ message }: { readonly message: string | undefined }): ReactElement {
   return (
     <div
-      className="border-border bg-bg-subtle text-fg-muted rounded border p-6 text-center text-sm"
+      className="border-border bg-background-subtle text-foreground-muted rounded border p-6 text-center text-sm"
       data-component="gallery"
       data-empty="true"
     >

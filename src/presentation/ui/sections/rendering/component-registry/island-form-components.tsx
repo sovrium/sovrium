@@ -111,7 +111,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-testid={elementProps['data-testid'] as string | undefined}
       >
         <select
-          className="border-border bg-bg-raised text-fg w-full rounded-md border px-3 py-2 text-sm shadow-sm"
+          className="border-border bg-background-raised text-foreground w-full rounded-md border px-3 py-2 text-sm shadow-sm"
           disabled
         >
           <option>{(rawProps?.placeholder as string) ?? 'Loading...'}</option>
@@ -136,10 +136,10 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
       >
         <div className="divide-border border-border divide-y rounded-lg border">
           <div className="px-4 py-3">
-            <div className="bg-bg-subtle h-5 w-48 animate-pulse rounded" />
+            <div className="bg-background-subtle h-5 w-48 animate-pulse rounded" />
           </div>
           <div className="px-4 py-3">
-            <div className="bg-bg-subtle h-5 w-40 animate-pulse rounded" />
+            <div className="bg-background-subtle h-5 w-40 animate-pulse rounded" />
           </div>
         </div>
       </div>
@@ -163,13 +163,13 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
       >
         <div className="border-border border-b">
           <div className="flex gap-4 px-4">
-            <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
-            <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
-            <div className="bg-bg-subtle h-8 w-20 animate-pulse rounded" />
+            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
           </div>
         </div>
         <div className="p-4">
-          <div className="bg-bg-subtle h-24 animate-pulse rounded" />
+          <div className="bg-background-subtle h-24 animate-pulse rounded" />
         </div>
       </div>
     )
@@ -213,8 +213,8 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-testid={elementProps['data-testid'] as string | undefined}
       >
         <fieldset className="flex flex-col gap-2">
-          <div className="bg-bg-subtle h-5 w-32 animate-pulse rounded" />
-          <div className="bg-bg-subtle h-5 w-28 animate-pulse rounded" />
+          <div className="bg-background-subtle h-5 w-32 animate-pulse rounded" />
+          <div className="bg-background-subtle h-5 w-28 animate-pulse rounded" />
         </fieldset>
       </div>
     )
@@ -237,7 +237,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-testid={elementProps['data-testid'] as string | undefined}
       >
         <label className="inline-flex items-center gap-2">
-          <div className="bg-bg-subtle h-5 w-9 animate-pulse rounded-full" />
+          <div className="bg-background-subtle h-5 w-9 animate-pulse rounded-full" />
           <span className="text-sm">{(rawProps?.content as string) ?? ''}</span>
         </label>
       </div>
@@ -262,7 +262,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <div className="bg-bg-subtle h-1.5 w-full rounded-full">
+        <div className="bg-background-subtle h-1.5 w-full rounded-full">
           <div className="bg-primary h-full w-1/2 rounded-full" />
         </div>
       </div>
@@ -288,7 +288,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         <button
           type="button"
           disabled
-          className="bg-bg-subtle text-fg rounded-md px-3 py-2 text-sm"
+          className="bg-background-subtle text-foreground rounded-md px-3 py-2 text-sm"
         >
           {(rawProps?.content as string) ?? 'Toggle'}
         </button>
@@ -312,8 +312,8 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-testid={elementProps['data-testid'] as string | undefined}
       >
         <div className="border-border inline-flex rounded-md border">
-          <div className="bg-bg-subtle h-9 w-16 animate-pulse" />
-          <div className="bg-bg-subtle h-9 w-16 animate-pulse" />
+          <div className="bg-background-subtle h-9 w-16 animate-pulse" />
+          <div className="bg-background-subtle h-9 w-16 animate-pulse" />
         </div>
       </div>
     )
@@ -331,8 +331,8 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
           role="menubar"
           className="border-border flex rounded-md border"
         >
-          <div className="bg-bg-subtle h-8 w-16 animate-pulse rounded" />
-          <div className="bg-bg-subtle h-8 w-16 animate-pulse rounded" />
+          <div className="bg-background-subtle h-8 w-16 animate-pulse rounded" />
+          <div className="bg-background-subtle h-8 w-16 animate-pulse rounded" />
         </div>
       </div>
     )
@@ -374,7 +374,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
             )
           })
         ) : (
-          <div className="bg-bg-subtle h-8 w-60 animate-pulse rounded" />
+          <div className="bg-background-subtle h-8 w-60 animate-pulse rounded" />
         )}
       </nav>
     )
@@ -393,7 +393,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-testid={elementProps['data-testid'] as string | undefined}
         style={{ maxHeight: (rawProps?.scrollAreaHeight as string) ?? '400px', overflow: 'hidden' }}
       >
-        <div className="bg-bg-subtle h-full animate-pulse" />
+        <div className="bg-background-subtle h-full animate-pulse" />
       </div>
     )
   },

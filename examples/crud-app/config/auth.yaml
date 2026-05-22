@@ -1,0 +1,3 @@
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

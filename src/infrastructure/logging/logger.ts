@@ -117,12 +117,19 @@ export const formatDuration = (ms: number): string =>
   ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 
 export const renderStartupSummary = (summary: StartupSummary): Effect.Effect<void> =>
+  renderSummary({ version: summary.version, phases: summary.phases, footer: summary.url })
+
+const renderSummary = (params: {
+  readonly version: string
+  readonly phases: readonly StartupPhase[]
+  readonly footer: string
+}): Effect.Effect<void> =>
   Effect.gen(function* () {
-    const warnings = summary.phases.filter((p) => p.type === 'warning')
-    const successes = summary.phases.filter((p) => p.type === 'success')
+    const warnings = params.phases.filter((p) => p.type === 'warning')
+    const successes = params.phases.filter((p) => p.type === 'success')
 
     yield* Console.log('')
-    yield* Console.log(`  Sovrium v${summary.version}`)
+    yield* Console.log(`  Sovrium v${params.version}`)
 
     if (warnings.length > 0) {
       yield* Console.log('')
@@ -135,6 +142,15 @@ export const renderStartupSummary = (summary: StartupSummary): Effect.Effect<voi
     }
 
     yield* Console.log('')
-    yield* Console.log(`  \u2192 ${summary.url}`)
+    yield* Console.log(`  \u2192 ${params.footer}`)
     yield* Console.log('')
   })
+
+export interface BuildSummary {
+  readonly version: string
+  readonly phases: readonly StartupPhase[]
+  readonly outputDir: string
+}
+
+export const renderBuildSummary = (summary: BuildSummary): Effect.Effect<void> =>
+  renderSummary({ version: summary.version, phases: summary.phases, footer: summary.outputDir })

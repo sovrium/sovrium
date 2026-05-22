@@ -45,7 +45,7 @@ export default function RadioIsland({
       id={id}
       data-testid={testId}
     >
-      {label && <legend className="text-fg mb-2 text-sm font-medium">{label}</legend>}
+      {label && <legend className="text-foreground mb-2 text-sm font-medium">{label}</legend>}
       <RadioGroup
         defaultValue={defaultValue}
         disabled={disabled}
@@ -62,11 +62,11 @@ export default function RadioIsland({
             <Radio.Root
               value={option.value}
               disabled={option.disabled}
-              className="border-border bg-bg-raised data-[checked]:border-primary flex h-4 w-4 items-center justify-center rounded-full border transition-colors"
+              className="border-border bg-background-raised data-[checked]:border-primary flex h-4 w-4 items-center justify-center rounded-full border transition-colors"
             >
               <Radio.Indicator className="bg-primary h-2 w-2 rounded-full" />
             </Radio.Root>
-            <span className="text-fg">{option.label}</span>
+            <span className="text-foreground">{option.label}</span>
           </label>
         ))}
       </RadioGroup>

@@ -413,7 +413,7 @@ export async function renderPageByPath(
   const [resolvedSidebar, islandEntryFile, markdownPayload] = await Promise.all([
     resolvePageSidebar(page.layout?.sidebar, app, { session, cookies, db: db ?? noopDb }),
     resolveIslandEntryFile(page, islandBuilder),
-    resolveMarkdownPage(page, routeParams),
+    resolveMarkdownPage(page, routeParams, app, detectedLanguage),
   ])
   return renderPageHtml({
     app,

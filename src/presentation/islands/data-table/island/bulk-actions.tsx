@@ -45,13 +45,13 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
 
   return (
     <div className="border-border bg-primary-subtle flex items-center gap-2 border-b px-3 py-2">
-      <span className="text-fg text-sm">{selectedCount} selected</span>
+      <span className="text-foreground text-sm">{selectedCount} selected</span>
       {!confirmAction &&
         bulkActions.map((action, i) => (
           <button
             key={i}
             type="button"
-            className="bg-bg-subtle hover:bg-bg-subtle rounded px-3 py-1 text-sm"
+            className="bg-background-subtle hover:bg-background-subtle rounded px-3 py-1 text-sm"
             onClick={() => {
               if (action.confirm) {
                 setConfirmAction(action)

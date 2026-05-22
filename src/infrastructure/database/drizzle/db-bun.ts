@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
@@ -27,6 +29,9 @@ const buildClient = (): DrizzleDB => {
     return drizzlePg({ connection: { url: config.databaseUrl }, schema: schemaPg })
   }
 
+  if (config.path !== ':memory:') {
+    mkdirSync(dirname(config.path), { recursive: true })
+  }
   const client = new BunSqlite(config.path, { create: true })
   client.exec('PRAGMA foreign_keys = ON')
   client.exec('PRAGMA journal_mode = WAL')

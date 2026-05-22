@@ -144,7 +144,7 @@ function XAxisLabels({
             x={x}
             y={innerHeight + 18}
             fontSize={11}
-            fill="var(--color-fg-muted)"
+            fill="var(--color-foreground-muted)"
             textAnchor="middle"
           >
             {formatAxisLabel(d.key, axis?.format)}
@@ -157,7 +157,7 @@ function XAxisLabels({
           y={innerHeight + 44}
           fontSize={12}
           fontWeight={600}
-          fill="var(--color-fg)"
+          fill="var(--color-foreground)"
           textAnchor="middle"
           data-chart-axis-title="x"
         >
@@ -194,7 +194,7 @@ function YAxisLabels({
           x={-8}
           y={yScale(t)}
           fontSize={11}
-          fill="var(--color-fg-muted)"
+          fill="var(--color-foreground-muted)"
           textAnchor="end"
           dominantBaseline="central"
         >
@@ -207,7 +207,7 @@ function YAxisLabels({
           y={innerHeight / 2}
           fontSize={12}
           fontWeight={600}
-          fill="var(--color-fg)"
+          fill="var(--color-foreground)"
           textAnchor="middle"
           transform={`rotate(-90 ${String(-MARGIN.left + 14)} ${String(innerHeight / 2)})`}
           data-chart-axis-title="y"

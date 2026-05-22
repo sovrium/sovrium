@@ -61,14 +61,73 @@ Specialized for building full CRUD applications that connect data to UI.
 - Set up authenticated workflows (sign in/out, protected pages)
 - Design navigation between list, detail, create, and edit views
 
+### `portal-editor`
+
+Specialized for dual-UX applications combining public marketing pages with an auth-gated member portal.
+
+**Scope**: `pages` (public + protected) + `auth` (magic-link + email) + role-gated section visibility
+
+**Use when you need to**:
+
+- Build a community / membership site with both public and member-only zones
+- Choreograph the public-to-private transition (sign-in redirects, post-auth landing)
+- Render different sections of a single page based on the current user's role
+- Set up magic-link authentication for low-friction member sign-in
+- Model member-scoped data (e.g. posts each member owns)
+
+### `mcp-editor`
+
+Specialized for headless MCP servers that expose Sovrium tables to LLM clients.
+
+**Scope**: per-entity `aiAccess` declarations on `tables` / `automations` / `actions`
+
+**Use when you need to**:
+
+- Expose specific tables to an LLM as MCP tools (`list`, `get`, `search`, `create`)
+- Decide which fields are readable (allowlist) vs scoped-by-user vs hidden
+- Pick the right `aiAccess.operations` and `fieldExposure` strategy for each entity
+- Annotate tools with `readOnly` / `idempotent` flags for LLM safety
+- Understand which operator env vars activate the MCP server (`MCP_ENABLED`, `MCP_TRANSPORT`, …)
+
+### `blog-editor`
+
+Specialized for content sites with posts, taxonomies, and dynamic detail routes.
+
+**Scope**: `tables` (posts, tags, authors) + `pages` (index + dynamic `:slug` detail) + rich-text + many-to-many
+
+**Use when you need to**:
+
+- Model posts with slug uniqueness, draft/published lifecycle, and rich-text bodies
+- Wire up many-to-many `posts ↔ tags` relationships
+- Set up an index page with sort/filter over published posts
+- Configure a dynamic detail route (`/blog/:slug`) that binds `$record.*` references
+- Tune theme tokens for long-form reading (line-height, content column width)
+
 ## Installation
 
-### Option 1: CLI Install (Recommended)
+### Option 1: Bundled with `sovrium init` (Recommended)
+
+When you scaffold a project with `sovrium init --template <name>`, the paired editor agent is installed automatically into `.claude/agents/`. See `examples/README.md` for the template ↔ agent pairing table.
+
+```bash
+# Both the example yaml tree AND .claude/agents/crud-editor.md land in my-app/
+sovrium init my-app --template crud-app
+
+# Opt out of the agent install
+sovrium init my-app --template crud-app --no-agent
+```
+
+### Option 2: Ad-hoc CLI Install
+
+Add an agent to an existing project, or install one that isn't paired with your template:
 
 ```bash
 sovrium agents install website-editor
 sovrium agents install api-editor
 sovrium agents install crud-editor
+sovrium agents install portal-editor
+sovrium agents install mcp-editor
+sovrium agents install blog-editor
 ```
 
 This copies the agent template into your project's `.claude/agents/` directory.

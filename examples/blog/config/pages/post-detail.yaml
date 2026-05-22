@@ -1,0 +1,71 @@
+name: post-detail
+path: /blog/:slug
+collection:
+  table: posts
+  slugField: slug
+  filter:
+    - field: status
+      operator: eq
+      value: published
+meta:
+  title: '$record.title'
+  description: '$record.excerpt'
+components:
+  - type: container
+    element: section
+    props:
+      className: py-16 px-6
+      style:
+        backgroundColor: '#ffffff'
+    children:
+      - type: container
+        props:
+          className: max-w-2xl mx-auto
+        children:
+          - type: link
+            props:
+              href: /blog
+              className: text-sm mb-8 inline-block
+              style:
+                color: '#7c3aed'
+            content: ← Back to all posts
+
+          - type: text
+            element: h1
+            props:
+              className: text-4xl font-bold mb-6
+              style:
+                color: '#18181b'
+                lineHeight: '1.15'
+                letterSpacing: '-0.02em'
+            content: '$record.title'
+
+          - type: container
+            props:
+              className: flex items-center gap-3 mb-10 text-sm
+              style:
+                color: '#71717a'
+            children:
+              - type: text
+                element: span
+                content: 'By $record.author'
+              - type: text
+                element: span
+                content: '·'
+              - type: text
+                element: span
+                content: '$record.published_at'
+
+          - type: container
+            element: article
+            props:
+              className: prose prose-lg max-w-none
+              style:
+                color: '#18181b'
+                fontFamily: Lora, Georgia, serif
+                fontSize: '19px'
+                lineHeight: '1.75'
+            children:
+              - type: text
+                element: pre
+                content: '$record.body'

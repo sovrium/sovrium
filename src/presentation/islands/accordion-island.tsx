@@ -48,14 +48,14 @@ export default function AccordionIsland({
           value={item.id}
         >
           <Accordion.Header>
-            <Accordion.Trigger className="text-fg hover:bg-bg-subtle flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
+            <Accordion.Trigger className="text-foreground hover:bg-background-subtle flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
               {item.title}
               <svg
                 width="16"
                 height="16"
                 viewBox="0 0 16 16"
                 fill="none"
-                className="text-fg-muted shrink-0 transition-transform duration-200 data-[open]:rotate-180"
+                className="text-foreground-muted shrink-0 transition-transform duration-200 data-[open]:rotate-180"
               >
                 <path
                   d="M4 6L8 10L12 6"
@@ -67,7 +67,7 @@ export default function AccordionIsland({
               </svg>
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Panel className="text-fg-muted overflow-hidden px-4 pb-3 text-sm">
+          <Accordion.Panel className="text-foreground-muted overflow-hidden px-4 pb-3 text-sm">
             {item.content}
           </Accordion.Panel>
         </Accordion.Item>

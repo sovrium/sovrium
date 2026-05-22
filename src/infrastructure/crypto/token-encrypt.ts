@@ -19,15 +19,18 @@ const resolveMasterKey = (): Buffer => {
   if (typeof envKey === 'string' && envKey.length > 0) {
     return scryptSync(envKey, KEY_SALT, KEY_LEN)
   }
-  if (process.env['NODE_ENV'] === 'production') {
+  const nodeEnv = process.env['NODE_ENV']
+  if (nodeEnv === 'production') {
     throw new Error(
       'SOVRIUM_ENCRYPTION_KEY is required in production. ' +
         'Generate a strong random value (e.g. `openssl rand -base64 32`) and set it in the deployment environment.'
     )
   }
-  console.warn(
-    '[crypto] SOVRIUM_ENCRYPTION_KEY not set; using deterministic dev fallback. Do NOT run this configuration in production.'
-  )
+  if (nodeEnv !== undefined && nodeEnv !== '' && nodeEnv !== 'development') {
+    console.warn(
+      '[crypto] SOVRIUM_ENCRYPTION_KEY not set; using deterministic dev fallback. Do NOT run this configuration in production.'
+    )
+  }
   return scryptSync(DEV_KEY_FALLBACK, KEY_SALT, KEY_LEN)
 }
 

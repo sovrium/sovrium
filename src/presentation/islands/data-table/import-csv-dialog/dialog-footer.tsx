@@ -50,7 +50,7 @@ export function DialogFooter({
           </button>
           <button
             type="button"
-            className="border-border hover:bg-bg-subtle rounded border px-4 py-2 text-sm"
+            className="border-border hover:bg-background-subtle rounded border px-4 py-2 text-sm"
             disabled={isImporting}
             onClick={onImport}
           >
@@ -70,7 +70,7 @@ export function DialogFooter({
       )}
       <button
         type="button"
-        className="border-border hover:bg-bg-subtle rounded border px-4 py-2 text-sm"
+        className="border-border hover:bg-background-subtle rounded border px-4 py-2 text-sm"
         onClick={onClose}
       >
         Cancel

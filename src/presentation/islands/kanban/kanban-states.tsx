@@ -25,10 +25,10 @@ export function KanbanLoading(): ReactElement {
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={`kanban-loading-col-${String(i)}`}
-          className="border-border bg-bg-subtle flex w-72 shrink-0 flex-col gap-2 rounded-lg border p-3"
+          className="border-border bg-background-subtle flex w-72 shrink-0 flex-col gap-2 rounded-lg border p-3"
         >
-          <div className="bg-bg-subtle h-5 w-24 animate-pulse rounded" />
-          <div className="bg-bg-raised h-20 animate-pulse rounded" />
+          <div className="bg-background-subtle h-5 w-24 animate-pulse rounded" />
+          <div className="bg-background-raised h-20 animate-pulse rounded" />
         </div>
       ))}
     </div>

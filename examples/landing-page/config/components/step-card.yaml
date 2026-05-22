@@ -1,0 +1,29 @@
+name: step-card
+type: container
+props:
+  data-component: step-card
+  className: text-center
+children:
+  - type: container
+    props:
+      className: w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4
+      style:
+        backgroundColor: '#3b82f6'
+        color: '#ffffff'
+        width: 4rem
+        height: 4rem
+        borderRadius: 9999px
+        display: flex
+        alignItems: center
+        justifyContent: center
+    content: $number
+  - type: text
+    element: h3
+    props:
+      className: text-xl font-semibold mb-2
+    content: $title
+  - type: text
+    element: p
+    props:
+      className: text-gray-600
+    content: $description

@@ -1,0 +1,66 @@
+id: 3
+name: posts
+fields:
+  - id: 1
+    name: title
+    type: single-line-text
+    required: true
+  - id: 2
+    name: slug
+    type: single-line-text
+    required: true
+    unique: true
+    indexed: true
+  - id: 3
+    name: excerpt
+    type: long-text
+  - id: 4
+    name: body
+    type: rich-text
+    required: true
+    fullTextSearch: true
+    toolbar:
+      - bold
+      - italic
+      - link
+      - heading
+      - list
+      - blockquote
+      - code-block
+      - image
+    placeholder: Write your post...
+  - id: 5
+    name: cover_image
+    type: single-attachment
+  - id: 6
+    name: status
+    type: single-select
+    required: true
+    options:
+      - draft
+      - published
+  - id: 7
+    name: published_at
+    type: datetime
+    indexed: true
+  - id: 8
+    name: author
+    type: relationship
+    relatedTable: authors
+    relationType: many-to-one
+    displayField: name
+    onDelete: restrict
+  - id: 9
+    name: tags
+    type: relationship
+    relatedTable: tags
+    relationType: many-to-many
+    displayField: name
+    reciprocalField: posts
+    allowMultiple: true
+  - id: 10
+    name: created_at
+    type: created-at
+  - id: 11
+    name: updated_at
+    type: updated-at

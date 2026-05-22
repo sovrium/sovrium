@@ -50,4 +50,10 @@ export const embeddedAgentNames = (): readonly string[] =>
 
 export const embeddedAgentPath = (name: string): string | undefined => AGENTS[`${name}.md`]
 
-export const embeddedExamplePath = (filename: string): string | undefined => EXAMPLES[filename]
+export const embeddedExampleDir = (name: string): Readonly<Record<string, string>> => {
+  const prefix = `${name}/`
+  const entries: ReadonlyArray<readonly [string, string]> = Object.entries(EXAMPLES).flatMap(
+    ([key, path]) => (key.startsWith(prefix) ? [[key.slice(prefix.length), path] as const] : [])
+  )
+  return Object.fromEntries(entries)
+}

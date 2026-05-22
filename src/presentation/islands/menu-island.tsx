@@ -55,7 +55,7 @@ export default function MenuIsland({
           align={floatingAlign}
           sideOffset={4}
         >
-          <Menu.Popup className="border-border bg-bg-overlay text-fg min-w-48 rounded-md border py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Menu.Popup className="border-border bg-background-overlay text-foreground min-w-48 rounded-md border py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             {menuItems.map((item, index) =>
               item.separator ? (
                 <Menu.Separator
@@ -66,15 +66,15 @@ export default function MenuIsland({
                 <Menu.Item
                   key={`item-${index}`}
                   disabled={item.disabled}
-                  className={`data-[highlighted]:bg-bg-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 ${
+                  className={`data-[highlighted]:bg-background-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 ${
                     item.variant === 'destructive'
                       ? 'text-error-fg data-[highlighted]:bg-error-bg'
-                      : 'text-fg'
+                      : 'text-foreground'
                   }`}
                 >
                   <span className="flex-1">{item.label}</span>
                   {item.shortcut && (
-                    <span className="text-fg-subtle ml-4 text-xs">{item.shortcut}</span>
+                    <span className="text-foreground-subtle ml-4 text-xs">{item.shortcut}</span>
                   )}
                 </Menu.Item>
               )

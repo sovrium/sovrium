@@ -17,7 +17,7 @@ export function KanbanCardDefault({ record }: { readonly record: TableRecord }):
     (record.name as string | undefined) ??
     (record.label as string | undefined) ??
     String(record.id ?? '')
-  return <p className="text-fg text-sm font-medium">{title}</p>
+  return <p className="text-foreground text-sm font-medium">{title}</p>
 }
 
 export function KanbanCardBody({

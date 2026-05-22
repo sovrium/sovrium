@@ -38,7 +38,7 @@ function ChevronDown(): ReactElement {
       height="12"
       viewBox="0 0 12 12"
       fill="none"
-      className="text-fg-muted"
+      className="text-foreground-muted"
     >
       <path
         d="M3 4.5L6 7.5L9 4.5"
@@ -60,7 +60,7 @@ function NavDropdown({
 }): ReactElement {
   return (
     <Menu.Root key={`nav-${index}`}>
-      <Menu.Trigger className="text-fg hover:bg-bg-subtle hover:text-fg inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+      <Menu.Trigger className="text-foreground hover:bg-background-subtle hover:text-foreground inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors">
         {item.label}
         <ChevronDown />
       </Menu.Trigger>
@@ -70,16 +70,16 @@ function NavDropdown({
           align="start"
           sideOffset={4}
         >
-          <Menu.Popup className="border-border bg-bg-overlay text-fg w-80 rounded-lg border p-2 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Menu.Popup className="border-border bg-background-overlay text-foreground w-80 rounded-lg border p-2 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
             {item.children?.map((child, childIndex) => (
               <Menu.LinkItem
                 key={`child-${childIndex}`}
                 href={child.href ?? '#'}
-                className="data-[highlighted]:bg-bg-subtle flex flex-col rounded-md px-3 py-2 text-sm transition-colors outline-none"
+                className="data-[highlighted]:bg-background-subtle flex flex-col rounded-md px-3 py-2 text-sm transition-colors outline-none"
               >
-                <span className="text-fg font-medium">{child.label}</span>
+                <span className="text-foreground font-medium">{child.label}</span>
                 {child.description && (
-                  <span className="text-fg-muted mt-0.5 text-xs">{child.description}</span>
+                  <span className="text-foreground-muted mt-0.5 text-xs">{child.description}</span>
                 )}
               </Menu.LinkItem>
             ))}
@@ -113,7 +113,7 @@ export default function NavMenuIsland({
           <a
             key={`nav-${index}`}
             href={item.href ?? '#'}
-            className="text-fg hover:bg-bg-subtle hover:text-fg rounded-md px-3 py-2 text-sm font-medium transition-colors"
+            className="text-foreground hover:bg-background-subtle hover:text-foreground rounded-md px-3 py-2 text-sm font-medium transition-colors"
           >
             {item.label}
           </a>

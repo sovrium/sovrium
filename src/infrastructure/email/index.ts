@@ -7,7 +7,7 @@
 
 
 export {
-  transporter,
+  getTransporter,
   getDefaultFrom,
   getEmailConfig,
   createTransporter,

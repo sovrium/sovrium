@@ -11,18 +11,18 @@ import type { ReactElement } from 'react'
 export function ChartLoading(): ReactElement {
   return (
     <div
-      className="border-border bg-bg-raised w-full rounded-lg border p-4"
+      className="border-border bg-background-raised w-full rounded-lg border p-4"
       data-component="chart"
       data-chart-state="loading"
       role="status"
       aria-label="Loading chart..."
     >
-      <div className="bg-bg-subtle mb-3 h-4 w-32 animate-pulse rounded" />
+      <div className="bg-background-subtle mb-3 h-4 w-32 animate-pulse rounded" />
       <div className="flex h-48 items-end gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={`chart-skeleton-${String(i)}`}
-            className="bg-bg-subtle flex-1 animate-pulse rounded-t"
+            className="bg-background-subtle flex-1 animate-pulse rounded-t"
           />
         ))}
       </div>
@@ -46,7 +46,7 @@ export function ChartError({ error }: { readonly error: unknown }): ReactElement
 export function ChartEmpty({ message }: { readonly message: string | undefined }): ReactElement {
   return (
     <div
-      className="border-border bg-bg-subtle text-fg-muted rounded border p-6 text-center text-sm"
+      className="border-border bg-background-subtle text-foreground-muted rounded border p-6 text-center text-sm"
       data-component="chart"
       data-chart-state="empty"
     >

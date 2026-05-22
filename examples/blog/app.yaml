@@ -1,0 +1,15 @@
+name: blog
+version: 1.0.0
+description: A content-first blog with rich-text posts, tags, and authors
+
+tables:
+  - $ref: ./config/tables/authors.yaml
+  - $ref: ./config/tables/tags.yaml
+  - $ref: ./config/tables/posts.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+pages:
+  - $ref: ./config/pages/index.yaml
+  - $ref: ./config/pages/post-detail.yaml

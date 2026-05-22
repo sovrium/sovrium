@@ -106,7 +106,7 @@ export function renderFileUpload(config: RenderFileUploadConfig): ReactElement {
     >
       <label
         htmlFor={inputId}
-        className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="border-border bg-background text-foreground hover:bg-background-subtle inline-flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
         aria-disabled={disabled ? 'true' : undefined}
       >
         {}

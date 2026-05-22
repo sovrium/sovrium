@@ -16,10 +16,14 @@ function patternToRegex(pattern: string): Readonly<RegExp> {
   const regexPattern = pattern
     .split('/')
     .map((segment, index, segments) => {
+      const isLast = index === segments.length - 1
+      if (segment.startsWith(':') && segment.endsWith('*') && isLast) {
+        return '(.+)'
+      }
       if (segment.startsWith(':')) {
         return '([^/]+)'
       }
-      if (segment === '*' && index === segments.length - 1) {
+      if (segment === '*' && isLast) {
         return '.*'
       }
       return segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -33,7 +37,10 @@ function extractParamNames(pattern: string): readonly string[] {
   return pattern
     .split('/')
     .filter((segment) => segment.startsWith(':'))
-    .map((segment) => segment.slice(1))
+    .map((segment) => {
+      const body = segment.slice(1)
+      return body.endsWith('*') ? body.slice(0, -1) : body
+    })
 }
 
 export function matchRoute(pattern: string, urlPath: string): RouteMatch {

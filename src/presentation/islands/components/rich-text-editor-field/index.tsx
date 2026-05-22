@@ -105,7 +105,7 @@ export function RichTextEditorField({
     return (
       <div
         data-character-count
-        className="text-fg-subtle border-t px-3 py-1 text-xs"
+        className="text-foreground-subtle border-t px-3 py-1 text-xs"
       >
         {display}/{maxLength}
       </div>
@@ -142,7 +142,7 @@ export function RichTextEditorField({
         {placeholder && isEmpty && (
           <div
             data-rich-text-placeholder
-            className="text-fg-subtle pointer-events-none absolute top-12 left-3"
+            className="text-foreground-subtle pointer-events-none absolute top-12 left-3"
           >
             {placeholder}
           </div>

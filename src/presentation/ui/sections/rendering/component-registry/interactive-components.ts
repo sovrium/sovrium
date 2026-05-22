@@ -20,17 +20,29 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     tables,
     routeParams,
     component,
-  }) =>
-    Renderers.renderButton({
-      props: elementProps,
+  }) => {
+    const c = (component ?? {}) as Record<string, unknown>
+    const variant = c['variant'] as string | undefined
+    const size = c['size'] as string | undefined
+    const loading = c['loading'] as boolean | undefined
+
+    const variantClass = variant && variant !== 'default' ? `btn-${variant}` : ''
+    const sizeClass = size && size !== 'md' ? `btn-${size}` : ''
+    const btnClasses = ['btn', variantClass, sizeClass].filter(Boolean).join(' ')
+    const authorClassName = elementProps.className as string | undefined
+    const mergedClassName = authorClassName ? `${btnClasses} ${authorClassName}` : btnClasses
+
+    return Renderers.renderButton({
+      props: { ...elementProps, className: mergedClassName },
       content,
       children: renderedChildren,
       interactions,
       action,
       tables,
       routeParams,
-      loading: (component as { loading?: boolean } | undefined)?.loading,
-    }),
+      loading,
+    })
+  },
 
   link: ({ elementProps, content, renderedChildren }) =>
     Renderers.renderLink(elementProps, content, renderedChildren),

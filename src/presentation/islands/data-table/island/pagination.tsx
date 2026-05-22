@@ -66,7 +66,7 @@ export function PaginationControls({ table, total, pageSizeOptions }: Pagination
       data-pagination
       className="border-border flex items-center justify-between border-t px-2 py-3"
     >
-      <span className="text-fg-muted text-sm">{summary}</span>
+      <span className="text-foreground-muted text-sm">{summary}</span>
       <div className="flex items-center gap-2">
         {pageSizeOptions && pageSizeOptions.length > 0 && (
           <PageSizeSelect

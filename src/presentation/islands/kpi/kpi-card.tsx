@@ -30,7 +30,7 @@ const THRESHOLD_COLOR_CLASS: Record<string, string> = {
   green: 'text-success-fg',
   yellow: 'text-warning-fg',
   blue: 'text-primary',
-  gray: 'text-fg-muted',
+  gray: 'text-foreground-muted',
 }
 
 function kebabToPascalCase(name: string): string {
@@ -56,7 +56,7 @@ const TREND_COLOR_CLASS: Record<NonNullable<KpiTrendConfig['color']>, string> = 
   green: 'text-success-fg',
   red: 'text-error-fg',
   yellow: 'text-warning-fg',
-  gray: 'text-fg-muted',
+  gray: 'text-foreground-muted',
 }
 
 const TREND_DIRECTION_ARROW: Record<NonNullable<KpiTrendConfig['direction']>, string> = {
@@ -90,20 +90,20 @@ export function KpiCard({
 }: KpiCardProps): ReactElement {
   const Icon = resolveLucideIcon(icon)
   const valueColorClass = thresholdColor
-    ? (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-fg')
-    : 'text-fg'
+    ? (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-foreground')
+    : 'text-foreground'
 
   return (
     <div
       data-component="kpi"
       data-kpi-state="ready"
-      className="border-border bg-bg-raised flex flex-col rounded-lg border p-4 shadow-sm"
+      className="border-border bg-background-raised flex flex-col rounded-lg border p-4 shadow-sm"
     >
       <div className="flex items-center gap-2">
         {Icon && (
           <span
             data-role="kpi-icon"
-            className="text-fg-subtle"
+            className="text-foreground-subtle"
           >
             <Icon
               width={20}
@@ -115,7 +115,7 @@ export function KpiCard({
         {label && (
           <span
             data-role="kpi-label"
-            className="text-fg-muted text-sm font-medium"
+            className="text-foreground-muted text-sm font-medium"
           >
             {label}
           </span>

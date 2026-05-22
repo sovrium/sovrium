@@ -114,10 +114,10 @@ export function ImportCsvDialog({
         aria-labelledby="import-csv-dialog-title"
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <div className="bg-bg-overlay w-full max-w-2xl rounded-lg p-6 shadow-xl">
+        <div className="bg-background-overlay w-full max-w-2xl rounded-lg p-6 shadow-xl">
           <h2
             id="import-csv-dialog-title"
-            className="text-fg mb-4 text-lg font-semibold"
+            className="text-foreground mb-4 text-lg font-semibold"
           >
             Import CSV
           </h2>

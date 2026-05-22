@@ -1,0 +1,17 @@
+name: crm-app
+version: 1.0.0
+description: A simple CRM with contacts and companies
+
+auth:
+  $ref: ./config/auth.yaml
+
+tables:
+  - $ref: ./config/tables/companies.yaml
+  - $ref: ./config/tables/contacts.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+pages:
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/home.yaml

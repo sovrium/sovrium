@@ -6,7 +6,9 @@
  */
 
 import { Context, Effect, Layer, Data } from 'effect'
-import { transporter, getDefaultFrom, type SendMailOptions } from './nodemailer'
+import { logWarning } from '../logging'
+import { isEmailConfigured } from './email-config'
+import { getTransporter, getDefaultFrom, type SendMailOptions } from './nodemailer'
 
 export class EmailError extends Data.TaggedError('EmailError')<{
   readonly message: string
@@ -17,6 +19,24 @@ export class EmailConnectionError extends Data.TaggedError('EmailConnectionError
   readonly message: string
   readonly cause?: unknown
 }> {}
+
+const EMAIL_DISABLED_MESSAGE_ID = 'noop:email-disabled'
+
+async function deliver(options: Readonly<SendMailOptions>): Promise<string> {
+  if (!isEmailConfigured()) {
+    logWarning(
+      `[EMAIL] Email sending disabled (SMTP not configured) — skipped sending to "${String(
+        options.to ?? 'unknown'
+      )}" with subject "${String(options.subject ?? '')}"`
+    )
+    return EMAIL_DISABLED_MESSAGE_ID
+  }
+
+  const transporter = getTransporter()
+  if (!transporter) return EMAIL_DISABLED_MESSAGE_ID
+  const info = await transporter.sendMail(options)
+  return info.messageId
+}
 
 export interface EmailService {
   readonly send: (options: Readonly<SendMailOptions>) => Effect.Effect<string, EmailError>
@@ -35,10 +55,7 @@ export const EmailLive = Layer.succeed(
   Email.of({
     send: (options) =>
       Effect.tryPromise({
-        try: async () => {
-          const info = await transporter.sendMail(options)
-          return info.messageId
-        },
+        try: () => deliver(options),
         catch: (error) =>
           new EmailError({
             message: `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
@@ -48,13 +65,7 @@ export const EmailLive = Layer.succeed(
 
     sendWithDefaultFrom: (options) =>
       Effect.tryPromise({
-        try: async () => {
-          const info = await transporter.sendMail({
-            from: getDefaultFrom(),
-            ...options,
-          })
-          return info.messageId
-        },
+        try: () => deliver({ from: getDefaultFrom(), ...options }),
         catch: (error) =>
           new EmailError({
             message: `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
@@ -64,7 +75,11 @@ export const EmailLive = Layer.succeed(
 
     verifyConnection: () =>
       Effect.tryPromise({
-        try: () => transporter.verify(),
+        try: async () => {
+          const transporter = getTransporter()
+          if (!transporter) return false
+          return transporter.verify()
+        },
         catch: (error) =>
           new EmailConnectionError({
             message: `SMTP connection failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -75,14 +90,9 @@ export const EmailLive = Layer.succeed(
 )
 
 export async function sendEmail(options: Readonly<Omit<SendMailOptions, 'from'>>): Promise<string> {
-  const info = await transporter.sendMail({
-    from: getDefaultFrom(),
-    ...options,
-  })
-  return info.messageId
+  return deliver({ from: getDefaultFrom(), ...options })
 }
 
 export async function sendEmailWithOptions(options: Readonly<SendMailOptions>): Promise<string> {
-  const info = await transporter.sendMail(options)
-  return info.messageId
+  return deliver(options)
 }

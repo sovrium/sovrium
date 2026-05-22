@@ -8,10 +8,18 @@
 import { isAbsolute, resolve } from 'node:path'
 import {
   filterTocHeadings,
-  renderMarkdownToHtml,
+  splitFrontmatter,
   type MarkdownHeading,
   type RenderedMarkdown,
 } from '@/domain/services/markdown-renderer'
+import { matchesContentDirFilter } from '@/domain/utils/content-dir-filter'
+import { sanitizeRichTextHTML } from '@/domain/utils/html-sanitization'
+import { renderMarkdownToHtml } from '@/infrastructure/markdown/markdown-it-renderer'
+import { highlightCodeBlocks } from '@/infrastructure/markdown/shiki-highlighter'
+import { listContentDir, type CollectionNavData } from '@/presentation/rendering/content-dir-lister'
+import { spliceMarkdownDirectives } from '@/presentation/rendering/markdown-directives'
+import { resolveMarkdownTranslations } from '@/presentation/rendering/markdown-i18n'
+import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 import type { Markdown } from '@/domain/models/app/pages/markdown'
@@ -19,10 +27,11 @@ import type { Markdown } from '@/domain/models/app/pages/markdown'
 
 export interface ResolvedMarkdownPage {
   readonly html: string
-  readonly layout: 'prose' | 'docs' | 'full'
+  readonly layout: 'prose' | 'docs' | 'full' | 'none'
   readonly tocHeadings?: readonly MarkdownHeading[]
   readonly tocPosition?: 'top' | 'sidebar'
   readonly frontmatter: Readonly<Record<string, string>>
+  readonly collectionNav?: CollectionNavData
 }
 
 const DEFAULT_LAYOUT = 'prose' as const
@@ -87,22 +96,6 @@ const deriveContentDirSlug = (
 const hasContentDirFilter = (contentDir: ContentDir): boolean =>
   contentDir.filter !== undefined && Object.keys(contentDir.filter).length > 0
 
-const matchesContentDirFilter = (
-  contentDir: ContentDir,
-  frontmatter: Readonly<Record<string, string>>
-): boolean => {
-  const { filter } = contentDir
-  if (filter === undefined) return true
-  return Object.entries(filter).every(([key, expected]) => {
-    const actual = frontmatter[key]
-    if (typeof expected === 'boolean') {
-      const actualIsTrue = actual === 'true'
-      return expected === actualIsTrue
-    }
-    return actual === String(expected)
-  })
-}
-
 type ContentDirOutcome =
   | { readonly kind: 'no-source' }
   | { readonly kind: 'excluded' }
@@ -130,8 +123,8 @@ const loadContentDirSource = async (
   }
 
   if (filterActive) {
-    const probe = renderMarkdownToHtml(fileContent)
-    if (!matchesContentDirFilter(contentDir, probe.frontmatter)) {
+    const { frontmatter } = splitFrontmatter(fileContent)
+    if (!matchesContentDirFilter(contentDir.filter, frontmatter)) {
       return { kind: 'excluded' }
     }
   }
@@ -160,9 +153,43 @@ const hasNoMarkdownTrigger = (
 ): boolean =>
   contentDirOutcome.kind === 'no-source' && !page.markdown && pageSourceFile === undefined
 
+const composeMarkdownHtml = async (
+  rendered: ReturnType<typeof renderMarkdownToHtml>,
+  app: App | undefined
+): Promise<string> => {
+  const codeBlockTheme = app?.theme?.codeBlock?.theme
+  const highlightedHtml = await highlightCodeBlocks(
+    rendered.html,
+    rendered.codeBlocks,
+    codeBlockTheme
+  )
+  const sanitizedHtml = sanitizeRichTextHTML(highlightedHtml)
+  return spliceMarkdownDirectives(sanitizedHtml, rendered.directives, app?.theme)
+}
+
+const localiseMarkdownSource = (
+  source: string,
+  app: App | undefined,
+  currentLang: string | undefined
+): string =>
+  resolveMarkdownTranslations(source, currentLang ?? app?.languages?.default, app?.languages)
+
+const buildCollectionNav = async (
+  page: Page,
+  routeParams: Readonly<Record<string, string>>
+): Promise<CollectionNavData | undefined> => {
+  const { contentDir } = page
+  if (contentDir === undefined) return undefined
+  if (contentDir.nav?.enabled !== true) return undefined
+  const currentSlug = deriveContentDirSlug(contentDir, routeParams)
+  return listContentDir(contentDir, page.path, currentSlug)
+}
+
 export const resolveMarkdownPage = async (
   page: Page,
-  routeParams: Readonly<Record<string, string>> = {}
+  routeParams: Readonly<Record<string, string>> = {},
+  app?: App,
+  currentLang?: string
 ): Promise<ResolvedMarkdownPage | undefined> => {
   const pageSourceFile = derivePageSourceFile(page)
   const contentDirOutcome = await loadContentDirSource(page, routeParams)
@@ -170,16 +197,20 @@ export const resolveMarkdownPage = async (
   if (hasNoMarkdownTrigger(contentDirOutcome, page, pageSourceFile)) return undefined
   const markdown: Markdown = page.markdown ?? {}
   const source = await pickMarkdownSource(contentDirOutcome, markdown, pageSourceFile)
-  const rendered = renderMarkdownToHtml(source)
+  const localisedSource = localiseMarkdownSource(source, app, currentLang)
+  const rendered = renderMarkdownToHtml(localisedSource)
+  const composedHtml = await composeMarkdownHtml(rendered, app)
   const toc = buildToc(rendered, markdown.toc)
   const layout = markdown.layout ?? DEFAULT_LAYOUT
+  const collectionNav = await buildCollectionNav(page, routeParams)
   return {
-    html: rendered.html,
+    html: composedHtml,
     layout,
     ...(toc !== undefined && {
       tocHeadings: toc.headings,
       tocPosition: toc.position,
     }),
     frontmatter: rendered.frontmatter,
+    ...(collectionNav !== undefined && { collectionNav }),
   }
 }

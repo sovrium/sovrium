@@ -1,0 +1,29 @@
+id: 2
+name: posts
+fields:
+  - id: 1
+    name: title
+    type: single-line-text
+    required: true
+  - id: 2
+    name: body
+    type: long-text
+    required: true
+  - id: 3
+    name: status
+    type: single-select
+    options:
+      - draft
+      - published
+      - archived
+  - id: 4
+    name: author
+    type: relationship
+    relatedTable: members
+    relationType: many-to-one
+  - id: 5
+    name: created_by
+    type: created-by
+  - id: 6
+    name: created_at
+    type: created-at

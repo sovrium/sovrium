@@ -31,7 +31,7 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
       role="log"
       aria-label="Chat messages"
       aria-live="polite"
-      className="chat-messages text-fg-muted flex-1 space-y-2 overflow-y-auto p-4 text-sm"
+      className="chat-messages text-foreground-muted flex-1 space-y-2 overflow-y-auto p-4 text-sm"
       style={{ minHeight: `${chatHeight}px` }}
     >
       {messages.map((message, index) => (
@@ -42,7 +42,7 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
           className={
             message.role === 'user'
               ? 'bg-primary text-primary-fg ml-auto w-fit max-w-[80%] rounded-lg px-3 py-2 break-words'
-              : 'bg-bg-subtle text-fg mr-auto w-fit max-w-[80%] rounded-lg px-3 py-2 break-words'
+              : 'bg-background-subtle text-foreground mr-auto w-fit max-w-[80%] rounded-lg px-3 py-2 break-words'
           }
         >
           {message.content}
@@ -53,7 +53,7 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
           data-testid="chat-loading"
           role="status"
           aria-label="Assistant is responding"
-          className="bg-bg-subtle mr-auto flex w-fit gap-1 rounded-lg px-3 py-2"
+          className="bg-background-subtle mr-auto flex w-fit gap-1 rounded-lg px-3 py-2"
         >
           <span className="bg-border-strong h-2 w-2 animate-bounce rounded-full" />
           <span className="bg-border-strong h-2 w-2 animate-bounce rounded-full [animation-delay:150ms]" />

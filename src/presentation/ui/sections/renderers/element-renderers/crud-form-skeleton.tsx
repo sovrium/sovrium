@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/utils/html-sanitization'
+import { CrudFieldShell } from './crud-field-shell'
 
 type SingleSelectField = { options?: readonly string[] }
 
@@ -34,14 +35,12 @@ const TYPED_INPUT_MAP: Record<string, string> = {
   phone: 'tel',
 }
 
-function labelText(field: SkeletonFieldDef): string {
-  return field.displayLabel ?? field.name
-}
-
 function renderCodeSkeleton(field: SkeletonFieldDef): ReactElement {
   return (
-    <label key={field.name}>
-      {labelText(field)}
+    <CrudFieldShell
+      key={field.name}
+      field={field}
+    >
       <pre>
         <code>
           <textarea
@@ -50,20 +49,20 @@ function renderCodeSkeleton(field: SkeletonFieldDef): ReactElement {
           />
         </code>
       </pre>
-    </label>
+    </CrudFieldShell>
   )
 }
 
 function renderRichTextSkeleton(field: SkeletonFieldDef): ReactElement {
   return (
-    <label
+    <CrudFieldShell
       key={field.name}
+      field={field}
       data-rich-text-field={field.name}
     >
-      {labelText(field)}
       <div className="rounded border">
         <div
-          className="min-h-[6em] w-full p-3 text-gray-400"
+          className="text-foreground-muted min-h-[6em] w-full p-3"
           aria-hidden="true"
         >
           {field.placeholder ?? ''}
@@ -73,15 +72,17 @@ function renderRichTextSkeleton(field: SkeletonFieldDef): ReactElement {
         type="hidden"
         name={field.name}
       />
-    </label>
+    </CrudFieldShell>
   )
 }
 
 function renderSelectSkeleton(field: SkeletonFieldDef): ReactElement {
   const options = (field as unknown as SingleSelectField).options ?? []
   return (
-    <label key={field.name}>
-      {labelText(field)}
+    <CrudFieldShell
+      key={field.name}
+      field={field}
+    >
       <select name={field.name}>
         <option value="">Select...</option>
         {options.map((opt) => (
@@ -93,21 +94,23 @@ function renderSelectSkeleton(field: SkeletonFieldDef): ReactElement {
           </option>
         ))}
       </select>
-    </label>
+    </CrudFieldShell>
   )
 }
 
 function renderFileSkeleton(field: SkeletonFieldDef, multiple: boolean): ReactElement {
   return (
-    <label key={field.name}>
-      {labelText(field)}
+    <CrudFieldShell
+      key={field.name}
+      field={field}
+    >
       <input
         type="file"
         name={field.name}
         {...(multiple && { multiple: true })}
         {...(field.accept !== undefined && { accept: field.accept })}
       />
-    </label>
+    </CrudFieldShell>
   )
 }
 
@@ -150,8 +153,10 @@ function renderUpdateFileSkeleton(
 ): ReactElement {
   const names = attachmentFilenames(currentValue)
   return (
-    <label key={field.name}>
-      {labelText(field)}
+    <CrudFieldShell
+      key={field.name}
+      field={field}
+    >
       <input
         type="file"
         name={field.name}
@@ -170,7 +175,7 @@ function renderUpdateFileSkeleton(
           ))}
         </ul>
       )}
-    </label>
+    </CrudFieldShell>
   )
 }
 
@@ -188,8 +193,10 @@ function renderHiddenSkeleton(field: SkeletonFieldDef): ReactElement {
 function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
   const inputType = TYPED_INPUT_MAP[field.type] ?? 'text'
   return (
-    <label key={field.name}>
-      {labelText(field)}
+    <CrudFieldShell
+      key={field.name}
+      field={field}
+    >
       <input
         type={inputType}
         name={field.name}
@@ -201,7 +208,7 @@ function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
           defaultValue: String(field.defaultValue),
         })}
       />
-    </label>
+    </CrudFieldShell>
   )
 }
 
@@ -234,11 +241,11 @@ export function renderSkeletonField(field: SkeletonFieldDef): ReactElement {
 function renderUpdateRichTextSkeleton(field: SkeletonFieldDef, currentValue: string): ReactElement {
   const sanitized = sanitizeRichTextHTML(currentValue)
   return (
-    <label
+    <CrudFieldShell
       key={field.name}
+      field={field}
       data-rich-text-field={field.name}
     >
-      {labelText(field)}
       <div
         className="min-h-[6em] rounded border p-3"
         aria-hidden="true"
@@ -249,7 +256,7 @@ function renderUpdateRichTextSkeleton(field: SkeletonFieldDef, currentValue: str
         name={field.name}
         defaultValue={sanitized}
       />
-    </label>
+    </CrudFieldShell>
   )
 }
 
@@ -267,8 +274,10 @@ function renderUpdateHiddenSkeleton(field: SkeletonFieldDef, currentValue: strin
 function renderUpdateInputSkeleton(field: SkeletonFieldDef, currentValue: string): ReactElement {
   const inputType = TYPED_INPUT_MAP[field.type] ?? 'text'
   return (
-    <label key={field.name}>
-      {labelText(field)}
+    <CrudFieldShell
+      key={field.name}
+      field={field}
+    >
       <input
         type={inputType}
         name={field.name}
@@ -278,7 +287,7 @@ function renderUpdateInputSkeleton(field: SkeletonFieldDef, currentValue: string
         {...(field.readOnly && { readOnly: true })}
         {...(field.disabled && { disabled: true })}
       />
-    </label>
+    </CrudFieldShell>
   )
 }
 

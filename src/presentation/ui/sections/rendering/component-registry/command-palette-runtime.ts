@@ -327,6 +327,11 @@ ${COMMAND_PALETTE_RUNTIME_DOM}
 
   function openPalette() {
     ensureOverlay();
+    // The overlay closure is cached at first \`ensureOverlay()\` (the early-return
+    // guard prevents rebuild on every open). If a navigation, a teleport, or a
+    // host page replaced <body>, the cached node may be detached — re-attach
+    // defensively so subsequent Cmd+K events still surface the palette.
+    if (!overlay.isConnected) document.body.appendChild(overlay);
     overlay.setAttribute('data-open', 'true');
     // Clear any \`hidden\` attribute a global modal-lifecycle handler may have
     // stamped on this \`role="dialog"\` element — \`[hidden]\` carries a
