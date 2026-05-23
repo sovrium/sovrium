@@ -148,7 +148,7 @@ jobs:
       # release (publish jobs depend on this job succeeding).
       - name: Smoke test - binary serves compiled CSS
         run: |
-          PORT=3210 ./sovrium-darwin-arm64 start examples/landing-page.yaml &
+          PORT=3210 ./sovrium-darwin-arm64 start examples/landing-page/app.yaml &
           SERVER_PID=$!
           CSS=""
           for _ in $(seq 1 30); do
@@ -231,7 +231,7 @@ jobs:
       - name: Smoke test - binary serves compiled CSS
         if: matrix.target == 'linux-x64'
         run: |
-          PORT=3210 ./sovrium-linux-x64 start examples/landing-page.yaml &
+          PORT=3210 ./sovrium-linux-x64 start examples/landing-page/app.yaml &
           SERVER_PID=$!
           CSS=""
           for _ in $(seq 1 30); do

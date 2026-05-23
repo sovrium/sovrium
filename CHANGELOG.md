@@ -1,3 +1,9 @@
+## [0.6.1](https://github.com/sovrium/sovrium/compare/v0.6.0...v0.6.1) (2026-05-22)
+
+### Bug Fixes
+
+- **release**: repoint binary smoke-tests to per-template app.yaml
+
 ## [0.6.0](https://github.com/sovrium/sovrium/compare/v0.5.3...v0.6.0) (2026-05-22)
 
 ### Features
