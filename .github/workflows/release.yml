@@ -381,9 +381,13 @@ jobs:
           fi
 
   # ── Update Homebrew tap formula ─────────────────────────────
+  # Depends on publish-release: update-homebrew-formula.ts fetches each
+  # binary's .sha256 over plain HTTPS, and GitHub serves 404 on public
+  # download URLs while a release is still a draft. By the time we run,
+  # publish-release has flipped --draft=false so the URLs are servable.
   update-homebrew:
     name: Update Homebrew Formula
-    needs: [build-binary-macos, build-binary-linux, aggregate-checksums]
+    needs: [publish-release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -442,9 +446,10 @@ jobs:
           git push
 
   # ── Update Scoop bucket for Windows ─────────────────────────
+  # See update-homebrew for the publish-release dependency rationale.
   update-scoop:
     name: Update Scoop Manifest
-    needs: [build-binary-windows, aggregate-checksums]
+    needs: [publish-release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -563,13 +568,15 @@ jobs:
   # and must NOT gate publication — hence `if: always()`.
   publish-release:
     name: Publish GitHub Release
+    # Runs as soon as all binary archives + the aggregate checksums file
+    # are uploaded so the release is non-draft *before* update-homebrew /
+    # update-scoop fire — those jobs fetch .sha256 assets over plain HTTPS
+    # and GitHub serves 404 on draft assets to unauthenticated clients.
     needs:
       - build-binary-macos
       - build-binary-linux
       - build-binary-windows
       - aggregate-checksums
-      - update-homebrew
-      - update-scoop
     if: always()
     runs-on: ubuntu-latest
     steps:

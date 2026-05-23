@@ -1,3 +1,13 @@
+## [0.6.2](https://github.com/sovrium/sovrium/compare/v0.6.1...v0.6.2) (2026-05-23)
+
+### Bug Fixes
+
+- **release**: undraft GitHub Release before Homebrew/Scoop tap updates
+
+### Tests
+
+- **cli, records-api**: deflake watch-dev-port + presence-awareness selector
+
 ## [0.6.1](https://github.com/sovrium/sovrium/compare/v0.6.0...v0.6.1) (2026-05-22)
 
 ### Bug Fixes
