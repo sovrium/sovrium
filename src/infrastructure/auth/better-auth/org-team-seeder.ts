@@ -8,8 +8,12 @@
 
 import { eq } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
+import {
+  authMembersTable,
+  authOrganizationsTable,
+  authTeamsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { logDebug } from '@/infrastructure/logging/logger'
-import { members, organizations, teams } from './schema'
 import type { App } from '@/domain/models/app'
 
 export const SOVRIUM_ORGANIZATION_ID = 'sovrium-org'
@@ -18,6 +22,7 @@ export const SOVRIUM_ORGANIZATION_SLUG = 'sovrium'
 const generateId = (): string => crypto.randomUUID()
 
 export const ensureOrganization = async (appName: string): Promise<string> => {
+  const organizations = authOrganizationsTable()
   const existing = await db
     .select({ id: organizations.id })
     .from(organizations)
@@ -43,6 +48,7 @@ export const ensureOrganization = async (appName: string): Promise<string> => {
 export const ensureTeamsFromGroups = async (groupNames: readonly string[]): Promise<void> => {
   if (groupNames.length === 0) return
 
+  const teams = authTeamsTable()
   const existing = await db
     .select({ name: teams.name })
     .from(teams)
@@ -71,6 +77,7 @@ export const ensureTeamsFromGroups = async (groupNames: readonly string[]): Prom
 }
 
 export const ensureMembership = async (userId: string): Promise<void> => {
+  const members = authMembersTable()
   const alreadyMember = await db
     .select({ id: members.id })
     .from(members)

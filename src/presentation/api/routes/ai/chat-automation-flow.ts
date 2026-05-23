@@ -126,10 +126,17 @@ const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurn
   })
   const outcome = await Effect.runPromise(Effect.either(provideAutomationRuntime(program)))
   if (outcome._tag === 'Left') {
+    console.error(`[ai] automation "${name}" run failed (engine error)`, outcome.left)
     return errorToResult(outcome.left, name)
   }
 
   const status = toActionStatus(outcome.right.status)
+  if (status === 'failed') {
+    console.error(
+      `[ai] automation "${name}" run failed (runId=${outcome.right.runId})`,
+      outcome.right.error ?? '(no error captured)'
+    )
+  }
   const reply = composeTriggerReply(aiReply, name, status)
   const action: ChatAction = {
     type: 'automation',

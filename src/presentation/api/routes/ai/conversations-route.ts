@@ -30,6 +30,7 @@ const handleListConversations = async (c: Readonly<Context>): Promise<Response> 
     listUserConversations({ userId }).pipe(provideAiMemoryRepoLive, Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[ai] list-conversations failed', result.left)
     return c.json({ error: 'Failed to load conversations.' }, 500)
   }
   const conversations = result.right.map((conv) => ({
@@ -55,6 +56,7 @@ const handleGetConversation = async (c: Readonly<Context>): Promise<Response> =>
     loadChatHistory({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[ai] get-conversation failed', result.left)
     return c.json({ error: 'Failed to load conversation.' }, 500)
   }
   if (result.right.length === 0) {
@@ -82,6 +84,7 @@ const handleDeleteConversation = async (c: Readonly<Context>): Promise<Response>
     deleteUserConversation({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[ai] delete-conversation failed', result.left)
     return c.json({ error: 'Failed to delete conversation.' }, 500)
   }
   return c.json({ deleted: true, sessionId }, 200)

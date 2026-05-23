@@ -7,8 +7,11 @@
 
 import { eq } from 'drizzle-orm'
 import { type Context } from 'hono'
-import { oauthAccessTokens, users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import {
+  authOauthAccessTokensTable,
+  authUsersTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import type { McpAuthStrategy } from '@/domain/models/env/mcp'
 
 
@@ -67,6 +70,8 @@ const resolveStaticTokenRole = (
 
 const resolveOauthCaller = async (token: string): Promise<McpCaller | undefined> => {
   try {
+    const oauthAccessTokens = authOauthAccessTokensTable()
+    const users = authUsersTable()
     const hashed = await hashAccessToken(token)
     const rows = await db
       .select({ userId: oauthAccessTokens.userId, expiresAt: oauthAccessTokens.expiresAt })

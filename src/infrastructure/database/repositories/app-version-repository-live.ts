@@ -12,9 +12,13 @@ import {
   AppVersionRepository,
 } from '@/application/ports/repositories/app-version-repository'
 import { db } from '@/infrastructure/database'
-import { sovriumAppVersions } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { sovriumAppVersions as sovriumAppVersionsPg } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { sovriumAppVersions as sovriumAppVersionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/app-versioning'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import type { AppVersion, AppVersionListItem, AppVersionSource } from '@/domain/models/system'
+
+const sovriumAppVersions = resolveDialectSchema(sovriumAppVersionsPg, sovriumAppVersionsSqlite)
 
 const wrap = makeDbWrap((cause) => new AppVersionDatabaseError({ cause }))
 

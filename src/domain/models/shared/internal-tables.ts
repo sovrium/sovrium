@@ -248,13 +248,6 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   },
   {
     schema: 'system',
-    name: 'share_links',
-    denylistFields: ['passwordHash'],
-    description:
-      'Anonymous page share tokens with optional password protection. The password hash is denylisted.',
-  },
-  {
-    schema: 'system',
     name: 'user_access',
     denylistFields: [],
     description:

@@ -5,10 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { readFileSync } from 'node:fs'
+import { basename } from 'node:path'
 import { Effect, Layer } from 'effect'
 import ts from 'typescript'
+import { TS_LIB_FILES as RAW_TS_LIB_FILES } from './embedded-ts-lib-types.generated'
 import { TSValidationError } from './errors'
 import { TypeScriptValidator } from './service'
+
+const TS_LIB_FILES = RAW_TS_LIB_FILES as unknown as Readonly<Record<string, string>>
+
+let TS_LIB_CONTENTS_CACHE: Map<string, string> | undefined
+
+const getTsLibContents = (): ReadonlyMap<string, string> => {
+  TS_LIB_CONTENTS_CACHE ??= new Map(
+    Object.entries(TS_LIB_FILES).map(([name, path]) => [name, readFileSync(path, 'utf-8')])
+  )
+  return TS_LIB_CONTENTS_CACHE
+}
 
 const CODE_CONTEXT_PRELUDE = `export {};
 interface CodeContext {
@@ -136,6 +150,12 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   isolatedDeclarations: false,
 }
 
+const lookupTsLibContent = (fileName: string): string | undefined => {
+  const base = basename(fileName)
+  if (!base.startsWith('lib.') || !base.endsWith('.d.ts')) return undefined
+  return getTsLibContents().get(base)
+}
+
 const buildVirtualHost = (files: ReadonlyArray<VirtualFile>): ts.CompilerHost => {
   const fileMap: ReadonlyMap<string, string> = new Map(files.map((f) => [f.path, f.content]))
   const realHost = ts.createCompilerHost(COMPILER_OPTIONS, true)
@@ -146,10 +166,18 @@ const buildVirtualHost = (files: ReadonlyArray<VirtualFile>): ts.CompilerHost =>
       if (virtual !== undefined) {
         return ts.createSourceFile(fileName, virtual, languageVersion, true)
       }
+      const libContent = lookupTsLibContent(fileName)
+      if (libContent !== undefined) {
+        return ts.createSourceFile(fileName, libContent, languageVersion, true)
+      }
       return realHost.getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile)
     },
-    fileExists: (fileName) => fileMap.has(fileName) || realHost.fileExists(fileName),
-    readFile: (fileName) => fileMap.get(fileName) ?? realHost.readFile(fileName),
+    fileExists: (fileName) =>
+      fileMap.has(fileName) ||
+      lookupTsLibContent(fileName) !== undefined ||
+      realHost.fileExists(fileName),
+    readFile: (fileName) =>
+      fileMap.get(fileName) ?? lookupTsLibContent(fileName) ?? realHost.readFile(fileName),
     writeFile: () => undefined,
     getCanonicalFileName: (fileName) => fileName,
     useCaseSensitiveFileNames: () => true,

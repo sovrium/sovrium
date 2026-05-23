@@ -13,12 +13,14 @@ import { RecordCreateActionSchema } from './create'
 import { RecordDeleteActionSchema } from './delete'
 import { RecordReadActionSchema } from './read'
 import { RecordUpdateActionSchema } from './update'
+import { RecordUpsertActionSchema } from './upsert'
 
 export const RecordActionSchema = Schema.Union(
   RecordCreateActionSchema,
   RecordReadActionSchema,
   RecordUpdateActionSchema,
   RecordDeleteActionSchema,
+  RecordUpsertActionSchema,
   RecordBatchCreateActionSchema,
   RecordBatchUpdateActionSchema,
   RecordBatchDeleteActionSchema
@@ -39,3 +41,4 @@ export * from './create'
 export * from './delete'
 export * from './read'
 export * from './update'
+export * from './upsert'

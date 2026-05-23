@@ -15,6 +15,20 @@
       "when": 1779208741299,
       "tag": "0001_brave_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779543469820,
+      "tag": "0002_normal_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779548810894,
+      "tag": "0003_safe_lake",
+      "breakpoints": true
     }
   ]
 }

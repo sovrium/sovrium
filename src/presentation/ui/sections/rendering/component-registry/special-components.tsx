@@ -94,33 +94,71 @@ interface ListPaginationProps {
   readonly paginationStyle: string | undefined
 }
 
-function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement {
-  const islandProps = JSON.stringify({
+interface ListDisplayProps {
+  readonly itemTemplate?: Record<string, unknown>
+  readonly emptyMessage?: string
+  readonly loadMore?: string
+  readonly highlight?: boolean
+}
+
+function parseListDisplay(raw: unknown): ListDisplayProps | undefined {
+  return typeof raw === 'string' ? (JSON.parse(raw) as ListDisplayProps) : undefined
+}
+
+function buildSearchIslandProps(
+  elementProps: Record<string, unknown>,
+  listDisplay: ListDisplayProps | undefined,
+  records: readonly unknown[],
+  bindTo: string | undefined
+): string {
+  return JSON.stringify({
     id: elementProps['id'] as string | undefined,
-    records: JSON.parse((elementProps['_searchRecords'] as string) ?? '[]'),
+    records,
     searchFields: JSON.parse((elementProps['_searchFields'] as string) ?? '[]'),
     debounceMs: elementProps['_searchDebounceMs'] as number | undefined,
     limit: elementProps['_searchLimit'] as number | undefined,
     childTemplate: JSON.parse((elementProps['_searchChildTemplate'] as string) ?? '[]'),
+    itemTemplate: listDisplay?.itemTemplate,
+    emptyMessage: listDisplay?.emptyMessage,
+    loadMore: listDisplay?.loadMore,
+    highlight: listDisplay?.highlight,
+    bindTo,
     'data-testid': elementProps['data-testid'] as string | undefined,
   })
+}
+
+function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement {
+  const listDisplay = parseListDisplay(elementProps['_listDisplay'])
+  const records = JSON.parse(
+    (elementProps['_searchRecords'] as string) ?? '[]'
+  ) as readonly unknown[]
+  const emptyMessage = listDisplay?.emptyMessage
+  const bindTo = elementProps['_searchBindTo'] as string | undefined
+  const islandProps = buildSearchIslandProps(elementProps, listDisplay, records, bindTo)
   return (
     <div
       id={elementProps['id'] as string | undefined}
       data-island="search-list"
+      data-component="list"
       data-island-props={islandProps}
     >
       {}
       {}
       {}
-      <input
-        type="search"
-        placeholder="Search..."
-        aria-label="Search..."
-        disabled={true}
-        style={SEARCH_INPUT_STYLE}
-      />
-      <ul />
+      {}
+      {bindTo ? undefined : (
+        <input
+          type="search"
+          placeholder="Search..."
+          aria-label="Search..."
+          disabled={true}
+          style={SEARCH_INPUT_STYLE}
+        />
+      )}
+      {}
+      {}
+      {}
+      {records.length === 0 && emptyMessage ? <p>{emptyMessage}</p> : <ul />}
     </div>
   )
 }

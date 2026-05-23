@@ -12,10 +12,18 @@ import {
   AnalyticsDatabaseError,
 } from '@/application/ports/repositories/analytics-repository'
 import { db } from '@/infrastructure/database'
-import { analyticsEvents } from '@/infrastructure/database/drizzle/schema/analytics-events'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'
+import { analyticsEvents as analyticsEventsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/analytics-events'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import {
+  dateTruncTimeBucket,
+  jsonExtractPath,
+} from '@/infrastructure/database/sql/dialect-sql-helpers'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import type { AnalyticsQueryParams } from '@/application/ports/repositories/analytics-repository'
+
+const analyticsEvents = resolveDialectSchema(analyticsEventsPg, analyticsEventsSqlite)
 
 const wrap = makeDbWrap((error) => new AnalyticsDatabaseError({ cause: error }))
 
@@ -26,14 +34,16 @@ const pageViewWhereClause = (params: AnalyticsQueryParams) =>
     between(analyticsEvents.timestamp, params.from, params.to)
   )
 
-const granularityToInterval = (granularity: string): string => {
-  const map: Record<string, string> = {
-    hour: 'hour',
-    day: 'day',
-    week: 'week',
-    month: 'month',
+const narrowGranularity = (granularity: string): 'hour' | 'day' | 'week' | 'month' => {
+  if (
+    granularity === 'hour' ||
+    granularity === 'day' ||
+    granularity === 'week' ||
+    granularity === 'month'
+  ) {
+    return granularity
   }
-  return map[granularity] ?? 'day'
+  return 'day'
 }
 
 const computePercentages = (
@@ -51,21 +61,15 @@ const computePercentages = (
 export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
   recordEvent: (input) =>
     wrap(async () => {
-      const eventNameClause = input.eventName ? sql`${input.eventName}` : sql.raw('NULL')
-      const orgIdClause = input.orgId ? sql`${input.orgId}` : sql.raw('NULL')
-      await db.execute(
-        sql`INSERT INTO system.analytics_events
-              (app_name, event_type, event_name, org_id, visitor_hash, session_hash, properties)
-              VALUES (
-                ${input.appName},
-                ${input.eventType},
-                ${eventNameClause},
-                ${orgIdClause},
-                ${input.visitorHash},
-                ${input.sessionHash},
-                ${jsonbLiteral(input.properties ?? {})}
-              )`
-      )
+      await db.insert(analyticsEvents).values({
+        appName: input.appName,
+        eventType: input.eventType,
+        eventName: input.eventName ?? undefined,
+        orgId: input.orgId ?? undefined,
+        visitorHash: input.visitorHash,
+        sessionHash: input.sessionHash,
+        properties: jsonbLiteral(input.properties ?? {}) as never,
+      })
     }),
 
   recordPageView: (input) =>
@@ -88,17 +92,13 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         screenWidth: input.screenWidth,
         screenHeight: input.screenHeight,
       }
-      await db.execute(
-        sql`INSERT INTO system.analytics_events
-              (app_name, event_type, visitor_hash, session_hash, properties)
-              VALUES (
-                ${input.appName},
-                'page_view',
-                ${input.visitorHash},
-                ${input.sessionHash},
-                ${jsonbLiteral(properties)}
-              )`
-      )
+      await db.insert(analyticsEvents).values({
+        appName: input.appName,
+        eventType: 'page_view',
+        visitorHash: input.visitorHash,
+        sessionHash: input.sessionHash,
+        properties: jsonbLiteral(properties) as never,
+      })
     }),
 
   getSummary: (params) =>
@@ -122,21 +122,19 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
 
   getTimeSeries: (params) =>
     wrap(async () => {
-      const interval = granularityToInterval(params.granularity)
+      const bucket = narrowGranularity(params.granularity)
+      const periodExpr = dateTruncTimeBucket(analyticsEvents.timestamp, bucket)
       const rows = await db
         .select({
-          period:
-            sql<string>`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsEvents.timestamp})::text`.as(
-              'period'
-            ),
+          period: sql<string>`${periodExpr}`.as('period'),
           pageViews: count(),
           uniqueVisitors: countDistinct(analyticsEvents.visitorHash),
           sessions: countDistinct(analyticsEvents.sessionHash),
         })
         .from(analyticsEvents)
         .where(pageViewWhereClause(params))
-        .groupBy(sql`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsEvents.timestamp})`)
-        .orderBy(sql`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsEvents.timestamp})`)
+        .groupBy(periodExpr)
+        .orderBy(periodExpr)
 
       return rows.map((row) => ({
         period: row.period,
@@ -148,15 +146,16 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
 
   getTopPages: (params) =>
     wrap(async () => {
+      const pathExpr = jsonExtractPath(analyticsEvents.properties, 'path')
       const rows = await db
         .select({
-          path: sql<string>`${analyticsEvents.properties}->>'path'`.as('path'),
+          path: sql<string>`${pathExpr}`.as('path'),
           pageViews: count(),
           uniqueVisitors: countDistinct(analyticsEvents.visitorHash),
         })
         .from(analyticsEvents)
         .where(pageViewWhereClause(params))
-        .groupBy(sql`${analyticsEvents.properties}->>'path'`)
+        .groupBy(pathExpr)
         .orderBy(sql`count(*) DESC`)
 
       return rows.map((row) => ({
@@ -168,9 +167,11 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
 
   getTopReferrers: (params) =>
     wrap(async () => {
+      const refDomain = jsonExtractPath(analyticsEvents.properties, 'referrerDomain')
+      const utmCampaign = jsonExtractPath(analyticsEvents.properties, 'utmCampaign')
       const rows = await db
         .select({
-          domain: sql<string | null>`${analyticsEvents.properties}->>'referrerDomain'`.as('domain'),
+          domain: sql<string | null>`${refDomain}`.as('domain'),
           pageViews: count(),
           uniqueVisitors: countDistinct(analyticsEvents.visitorHash),
         })
@@ -179,15 +180,12 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
           and(
             pageViewWhereClause(params),
             or(
-              sql`${analyticsEvents.properties}->>'referrerDomain' IS NOT NULL`,
-              and(
-                sql`${analyticsEvents.properties}->>'referrerDomain' IS NULL`,
-                sql`${analyticsEvents.properties}->>'utmCampaign' IS NULL`
-              )
+              sql`${refDomain} IS NOT NULL`,
+              and(sql`${refDomain} IS NULL`, sql`${utmCampaign} IS NULL`)
             )
           )
         )
-        .groupBy(sql`${analyticsEvents.properties}->>'referrerDomain'`)
+        .groupBy(refDomain)
         .orderBy(sql`count(*) DESC`)
 
       return rows.map((row) => ({
@@ -200,35 +198,38 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
   getDevices: (params) =>
     wrap(async () => {
       const condition = pageViewWhereClause(params)
+      const deviceExpr = jsonExtractPath(analyticsEvents.properties, 'deviceType')
+      const browserExpr = jsonExtractPath(analyticsEvents.properties, 'browserName')
+      const osExpr = jsonExtractPath(analyticsEvents.properties, 'osName')
 
       const deviceRows = await db
         .select({
-          name: sql<string | null>`${analyticsEvents.properties}->>'deviceType'`.as('name'),
+          name: sql<string | null>`${deviceExpr}`.as('name'),
           count: count(),
         })
         .from(analyticsEvents)
         .where(condition)
-        .groupBy(sql`${analyticsEvents.properties}->>'deviceType'`)
+        .groupBy(deviceExpr)
         .orderBy(sql`count(*) DESC`)
 
       const browserRows = await db
         .select({
-          name: sql<string | null>`${analyticsEvents.properties}->>'browserName'`.as('name'),
+          name: sql<string | null>`${browserExpr}`.as('name'),
           count: count(),
         })
         .from(analyticsEvents)
         .where(condition)
-        .groupBy(sql`${analyticsEvents.properties}->>'browserName'`)
+        .groupBy(browserExpr)
         .orderBy(sql`count(*) DESC`)
 
       const osRows = await db
         .select({
-          name: sql<string | null>`${analyticsEvents.properties}->>'osName'`.as('name'),
+          name: sql<string | null>`${osExpr}`.as('name'),
           count: count(),
         })
         .from(analyticsEvents)
         .where(condition)
-        .groupBy(sql`${analyticsEvents.properties}->>'osName'`)
+        .groupBy(osExpr)
         .orderBy(sql`count(*) DESC`)
 
       return {
@@ -240,13 +241,14 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
 
   getCampaigns: (params) =>
     wrap(async () => {
+      const sourceExpr = jsonExtractPath(analyticsEvents.properties, 'utmSource')
+      const mediumExpr = jsonExtractPath(analyticsEvents.properties, 'utmMedium')
+      const campaignExpr = jsonExtractPath(analyticsEvents.properties, 'utmCampaign')
       const rows = await db
         .select({
-          source: sql<string | null>`${analyticsEvents.properties}->>'utmSource'`.as('source'),
-          medium: sql<string | null>`${analyticsEvents.properties}->>'utmMedium'`.as('medium'),
-          campaign: sql<string | null>`${analyticsEvents.properties}->>'utmCampaign'`.as(
-            'campaign'
-          ),
+          source: sql<string | null>`${sourceExpr}`.as('source'),
+          medium: sql<string | null>`${mediumExpr}`.as('medium'),
+          campaign: sql<string | null>`${campaignExpr}`.as('campaign'),
           pageViews: count(),
           uniqueVisitors: countDistinct(analyticsEvents.visitorHash),
         })
@@ -254,14 +256,10 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .where(
           and(
             pageViewWhereClause(params),
-            sql`(${analyticsEvents.properties}->>'utmSource' IS NOT NULL OR ${analyticsEvents.properties}->>'utmMedium' IS NOT NULL OR ${analyticsEvents.properties}->>'utmCampaign' IS NOT NULL)`
+            sql`(${sourceExpr} IS NOT NULL OR ${mediumExpr} IS NOT NULL OR ${campaignExpr} IS NOT NULL)`
           )
         )
-        .groupBy(
-          sql`${analyticsEvents.properties}->>'utmSource'`,
-          sql`${analyticsEvents.properties}->>'utmMedium'`,
-          sql`${analyticsEvents.properties}->>'utmCampaign'`
-        )
+        .groupBy(sourceExpr, mediumExpr, campaignExpr)
         .orderBy(sql`count(*) DESC`)
 
       return rows.map((row) => ({

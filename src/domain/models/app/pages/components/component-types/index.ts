@@ -27,12 +27,7 @@ import {
   SearchInputTypeLiteral,
   searchInputFields,
 } from './content'
-import {
-  CustomReactTypeLiteral,
-  customReactFields,
-  CustomHtmlTypeLiteral,
-  customHtmlFields,
-} from './custom'
+import { CustomHtmlTypeLiteral, customHtmlFields } from './custom'
 import {
   DataTableTypeLiteral,
   dataTableFields,
@@ -166,6 +161,8 @@ import {
 import {
   AlertDialogTypeLiteral,
   alertDialogFields,
+  DialogTypeLiteral,
+  dialogFields,
   DrawerTypeLiteral,
   drawerFields,
   PopoverTypeLiteral,
@@ -186,10 +183,6 @@ import {
   numberInputFields,
   TimePickerTypeLiteral,
   timePickerFields,
-  TagsTypeLiteral,
-  tagsFields,
-  AvatarGroupTypeLiteral,
-  avatarGroupFields,
   StatusIndicatorTypeLiteral,
   statusIndicatorFields,
   ReorderableListTypeLiteral,
@@ -270,6 +263,7 @@ const allComponents = [
   [PaginationTypeLiteral, paginationFields],
   [NotificationBellTypeLiteral, notificationBellFields],
   [AlertDialogTypeLiteral, alertDialogFields],
+  [DialogTypeLiteral, dialogFields],
   [DrawerTypeLiteral, drawerFields],
   [PopoverTypeLiteral, popoverFields],
   [TooltipTypeLiteral, tooltipFields],
@@ -294,15 +288,12 @@ const allComponents = [
   [WizardTypeLiteral, wizardFields],
   [NumberInputTypeLiteral, numberInputFields],
   [TimePickerTypeLiteral, timePickerFields],
-  [TagsTypeLiteral, tagsFields],
-  [AvatarGroupTypeLiteral, avatarGroupFields],
   [StatusIndicatorTypeLiteral, statusIndicatorFields],
   [ReorderableListTypeLiteral, reorderableListFields],
   [LanguageSwitcherTypeLiteral, languageSwitcherFields],
   [DividerTypeLiteral, dividerFields],
   [SpacerTypeLiteral, spacerFields],
   [AiChatTypeLiteral, aiChatFields],
-  [CustomReactTypeLiteral, customReactFields],
   [CustomHtmlTypeLiteral, customHtmlFields],
 ] as const
 
@@ -361,6 +352,7 @@ export const ComponentTypeSchema = Schema.Union(
   PaginationTypeLiteral,
   NotificationBellTypeLiteral,
   AlertDialogTypeLiteral,
+  DialogTypeLiteral,
   DrawerTypeLiteral,
   PopoverTypeLiteral,
   TooltipTypeLiteral,
@@ -385,15 +377,12 @@ export const ComponentTypeSchema = Schema.Union(
   WizardTypeLiteral,
   NumberInputTypeLiteral,
   TimePickerTypeLiteral,
-  TagsTypeLiteral,
-  AvatarGroupTypeLiteral,
   StatusIndicatorTypeLiteral,
   ReorderableListTypeLiteral,
   LanguageSwitcherTypeLiteral,
   DividerTypeLiteral,
   SpacerTypeLiteral,
   AiChatTypeLiteral,
-  CustomReactTypeLiteral,
   CustomHtmlTypeLiteral
 ).annotations({
   title: 'Component Type',
@@ -423,6 +412,7 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   'list',
   'field',
   'alert-dialog',
+  'dialog',
   'drawer',
   'popover',
   'tooltip',

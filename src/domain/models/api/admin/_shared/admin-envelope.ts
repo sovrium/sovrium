@@ -11,17 +11,10 @@ import { actorSchema } from './actor'
 
 export const adminEnvelopeSchema = z
   .object({
-    auditTrailCount: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Number of audit-log entries that reference this resource as their `resource.id`. Read this before drilling into `/api/admin/audit-log?resourceId=...` to skip rows with no trail.'
-      ),
     lastModifiedBy: actorSchema
       .nullable()
       .describe(
-        'Canonical actor block for the most recent mutation against this resource. Null when the resource has not been mutated since creation (creation actor is logged on the audit trail, not echoed here).'
+        'Canonical actor block for the most recent mutation against this resource. Null when the resource has not been mutated since creation.'
       ),
     deletedAt: z.iso
       .datetime()

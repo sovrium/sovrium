@@ -145,6 +145,11 @@ run(
   'Generate embedded runtime-asset manifest'
 )
 
+run(
+  ['bun', 'run', 'scripts/build/generate-embedded-ts-lib-types.ts'],
+  'Generate embedded TypeScript lib.*.d.ts manifest'
+)
+
 for (const target of targets) {
   compileBinary(target, version)
 }

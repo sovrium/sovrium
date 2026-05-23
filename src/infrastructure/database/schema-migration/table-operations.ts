@@ -20,9 +20,7 @@ import type { Table } from '@/domain/models/app/tables'
 const isProtectedTable = (tableName: string): boolean => {
   if (PROTECTED_SYSTEM_TABLES.has(tableName)) return true
   if (isSqliteRuntime()) {
-    return (
-      tableName.startsWith('auth_') || tableName.startsWith('system_') || tableName === 'audit_log'
-    )
+    return tableName.startsWith('auth_') || tableName.startsWith('system_')
   }
   return false
 }

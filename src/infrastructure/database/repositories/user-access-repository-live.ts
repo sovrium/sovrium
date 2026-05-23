@@ -13,8 +13,12 @@ import {
   type UserAccessRow,
 } from '@/application/ports/repositories/user-access-repository'
 import { db } from '@/infrastructure/database'
-import { userAccess } from '@/infrastructure/database/drizzle/schema/user-access'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { userAccess as userAccessPg } from '@/infrastructure/database/drizzle/schema/user-access'
+import { userAccess as userAccessSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/user-access'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
 
 const wrap = makeDbWrap((cause) => new UserAccessDatabaseError({ cause }))
 

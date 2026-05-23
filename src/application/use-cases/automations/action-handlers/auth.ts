@@ -10,11 +10,12 @@ import { eq } from 'drizzle-orm'
 import { Data, Effect } from 'effect'
 import { BUILT_IN_ROLES } from '@/domain/models/app/auth/roles'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { App } from '@/domain/models/app'
+import type { users } from '@/infrastructure/auth/better-auth/schema'
 
 const knownRoleNames = (app: App): ReadonlySet<string> => {
   const custom = app.auth?.roles?.map((r) => r.name) ?? []
@@ -22,14 +23,15 @@ const knownRoleNames = (app: App): ReadonlySet<string> => {
 }
 
 const userExists = (userId: string): Effect.Effect<boolean> =>
-  Effect.promise(() =>
-    db
+  Effect.promise(() => {
+    const users = authUsersTable()
+    return db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.id, userId))
       .then((rows) => rows.length > 0)
       .catch(() => false)
-  )
+  })
 
 const requireExistingUser = (
   userId: string,
@@ -56,14 +58,15 @@ const updateUserRow = (
   userId: string,
   patch: Readonly<Partial<typeof users.$inferInsert>>
 ): Effect.Effect<void> =>
-  Effect.promise(() =>
-    db
+  Effect.promise(() => {
+    const users = authUsersTable()
+    return db
       .update(users)
       .set(patch)
       .where(eq(users.id, userId))
       .then(() => undefined)
       .catch(() => undefined)
-  )
+  })
 
 export const handleAuthAssignRole: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {

@@ -6,8 +6,11 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { users, verifications } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import {
+  authUsersTable,
+  authVerificationsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { sendEmail } from '@/infrastructure/email/email-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { Auth } from '@/domain/models/app/auth'
@@ -49,6 +52,7 @@ const createPlaceholderUser = async (
   name: string,
   role: string
 ): Promise<string> => {
+  const users = authUsersTable()
   const userId = crypto.randomUUID()
   const now = new Date()
   await db
@@ -58,6 +62,7 @@ const createPlaceholderUser = async (
 }
 
 const storeInvitationToken = async (userId: string, expiryMs: number): Promise<string> => {
+  const verifications = authVerificationsTable()
   const token = generateToken()
   const now = new Date()
   await db.insert(verifications).values({
@@ -146,6 +151,7 @@ export const handleInviteUser = async (
     )
   }
 
+  const users = authUsersTable()
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email))
   if (existing.length > 0) {
     return c.json(

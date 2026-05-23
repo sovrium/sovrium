@@ -67,8 +67,10 @@ import { handleLoopEach } from './loop'
 import {
   handleRecordBatchCreate,
   handleRecordCreate,
+  handleRecordDelete,
   handleRecordRead,
   handleRecordUpdate,
+  handleRecordUpsert,
 } from './record'
 import {
   handleStateDelete,
@@ -110,6 +112,8 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['record/create', handleRecordCreate],
   ['record/read', handleRecordRead],
   ['record/update', handleRecordUpdate],
+  ['record/delete', handleRecordDelete],
+  ['record/upsert', handleRecordUpsert],
   ['record/batchCreate', handleRecordBatchCreate],
   ['file/upload', handleFileUpload],
   ['file/download', handleFileDownload],

@@ -17,9 +17,13 @@ import {
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import { decryptToken, encryptToken } from '@/infrastructure/crypto/token-encrypt'
 import { db } from '@/infrastructure/database'
-import { connectionTokens } from '@/infrastructure/database/drizzle/schema/connection'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { connectionTokens as connectionTokensPg } from '@/infrastructure/database/drizzle/schema/connection'
+import { connectionTokens as connectionTokensSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/connection'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { isProduction } from '@/infrastructure/utils/env'
+
+const connectionTokens = resolveDialectSchema(connectionTokensPg, connectionTokensSqlite)
 
 const wrap = makeDbWrap((cause) => new ConnectionTokenDatabaseError({ cause }))
 

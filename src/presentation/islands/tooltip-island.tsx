@@ -13,6 +13,7 @@ interface TooltipIslandProps {
   readonly floatingSide?: 'top' | 'right' | 'bottom' | 'left'
   readonly tooltipDelay?: number
   readonly childrenHtml?: string
+  readonly triggerId?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -23,17 +24,21 @@ export default function TooltipIsland({
   floatingSide = 'top',
   tooltipDelay = 600,
   childrenHtml,
+  triggerId,
   className,
   id,
   'data-testid': testId,
 }: TooltipIslandProps): ReactElement {
+  const triggerElementId = childrenHtml ? id : (triggerId ?? id)
   return (
-    <Tooltip.Provider>
-      <Tooltip.Root>
+    <Tooltip.Provider
+      delay={tooltipDelay}
+      closeDelay={0}
+    >
+      <Tooltip.Root disableHoverablePopup>
         <Tooltip.Trigger
-          delay={tooltipDelay}
           className={className}
-          id={id}
+          id={triggerElementId}
           data-testid={testId}
         >
           {childrenHtml ? (

@@ -323,7 +323,8 @@ function buildSearchProps(
   component: Component,
   records: readonly Record<string, unknown>[]
 ): Record<string, unknown> {
-  const { searchFields, debounceMs, limit } = component.dataSource ?? {}
+  const { searchFields, debounceMs, limit, bindTo } = component.dataSource ?? {}
+  const { listDisplay } = component as { listDisplay?: unknown }
   return {
     ...(component.props ?? {}),
     _searchMode: true,
@@ -332,6 +333,8 @@ function buildSearchProps(
     _searchDebounceMs: debounceMs ?? 0,
     _searchLimit: limit ?? 0,
     _searchChildTemplate: JSON.stringify(component.children ?? []),
+    ...(bindTo !== undefined ? { _searchBindTo: bindTo } : {}),
+    ...(listDisplay !== undefined ? { _listDisplay: JSON.stringify(listDisplay) } : {}),
   }
 }
 

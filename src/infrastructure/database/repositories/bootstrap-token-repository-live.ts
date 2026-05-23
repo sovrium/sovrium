@@ -18,8 +18,15 @@ import {
   type BootstrapToken,
 } from '@/domain/models/system'
 import { db } from '@/infrastructure/database'
-import { sovriumBootstrapTokens } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { sovriumBootstrapTokens as sovriumBootstrapTokensPg } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { sovriumBootstrapTokens as sovriumBootstrapTokensSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/app-versioning'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+const sovriumBootstrapTokens = resolveDialectSchema(
+  sovriumBootstrapTokensPg,
+  sovriumBootstrapTokensSqlite
+)
 
 const wrap = makeDbWrap((cause) => new BootstrapTokenDatabaseError({ cause }))
 

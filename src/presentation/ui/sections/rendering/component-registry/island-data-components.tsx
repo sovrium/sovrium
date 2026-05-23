@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { renderComponentSearchBar } from './component-search-bar'
 import { islandCalendarComponent } from './island-calendar-component'
 import { islandChartComponent } from './island-chart-component'
 import type { ComponentRenderer } from '../component-dispatch-config'
@@ -240,6 +241,7 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
         data-component-type="kanban"
         data-testid={elementProps['data-testid'] as string | undefined}
       >
+        {renderComponentSearchBar(elementProps.search)}
         {}
         <div
           className="flex w-full gap-4 overflow-x-auto p-2"

@@ -11,7 +11,10 @@ import { favoritesButtonComponent } from './favorites-button-component'
 import { interactiveComponents } from './interactive-components'
 import { islandComponents } from './island-components'
 import { mediaComponents } from './media-components'
+import { navigationComponents } from './navigation-components'
+import { progressComponent } from './progress-component'
 import { reorderableListComponent } from './reorderable-list-component'
+import { skeletonComponent } from './skeleton-component'
 import { specialComponents } from './special-components'
 import { structuralComponents } from './structural-components'
 import { textComponents } from './text-components'
@@ -24,8 +27,11 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   ...mediaComponents,
   ...interactiveComponents,
   ...specialComponents,
+  ...navigationComponents,
   ...islandComponents,
   'ai-chat': aiChatComponent,
+  progress: progressComponent,
+  skeleton: skeletonComponent,
   'reorderable-list': reorderableListComponent,
   'favorites-button': favoritesButtonComponent,
   'command-palette': commandPaletteComponent,

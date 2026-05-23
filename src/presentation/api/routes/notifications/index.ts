@@ -61,6 +61,7 @@ async function handleListInbox(c: Context) {
     ).pipe(Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] list-inbox failed', result.left)
     return c.json({ success: false, message: 'Failed to load notifications' }, 500)
   }
 
@@ -89,6 +90,7 @@ async function handleMarkRead(c: Context) {
     ).pipe(Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] mark-read failed', result.left)
     return c.json({ success: false, message: 'Failed to mark as read' }, 500)
   }
   if (!result.right.ok) {
@@ -107,6 +109,7 @@ async function handleMarkAllRead(c: Context) {
     )
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] mark-all-read failed', result.left)
     return c.json({ success: false, message: 'Failed to mark all as read' }, 500)
   }
   return c.json({ success: true }, 200)
@@ -126,6 +129,7 @@ async function handleDismiss(c: Context) {
     ).pipe(Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] dismiss failed', result.left)
     return c.json({ success: false, message: 'Failed to dismiss' }, 500)
   }
   if (!result.right.ok) {
@@ -144,6 +148,7 @@ async function handleGetPreferences(c: Context, app: App) {
     )
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] get-preferences failed', result.left)
     return c.json({ success: false, message: 'Failed to load preferences' }, 500)
   }
   return c.json(result.right, 200)
@@ -166,6 +171,7 @@ async function handlePatchPreferences(c: Context) {
     )
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] update-preferences failed', result.left)
     return c.json({ success: false, message: 'Failed to update preferences' }, 500)
   }
   return c.json({ success: true }, 200)
@@ -195,6 +201,7 @@ async function handleCreateSubscription(c: Context) {
     ).pipe(Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] create-subscription failed', result.left)
     return c.json({ success: false, message: 'Failed to create subscription' }, 500)
   }
   return c.json(
@@ -223,6 +230,7 @@ async function handleDeleteSubscription(c: Context) {
     ).pipe(Effect.either)
   )
   if (result._tag === 'Left') {
+    console.error('[notifications] delete-subscription failed', result.left)
     return c.json({ success: false, message: 'Failed to delete subscription' }, 500)
   }
   if (!result.right) {

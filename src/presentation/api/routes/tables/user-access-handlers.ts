@@ -65,8 +65,9 @@ const respondValidationError = (c: ContextLike, message: string, field?: string)
     400
   )
 
-const respondServerError = (c: ContextLike, error: unknown) =>
-  c.json(
+const respondServerError = (c: ContextLike, error: unknown) => {
+  console.error('[tables] user-access handler failed', error)
+  return c.json(
     {
       success: false,
       message: error instanceof Error ? error.message : 'Internal server error',
@@ -74,6 +75,7 @@ const respondServerError = (c: ContextLike, error: unknown) =>
     },
     500
   )
+}
 
 interface ValidatedRow {
   readonly user_id: string

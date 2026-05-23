@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+
 import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connection-token-repository'
@@ -18,6 +19,7 @@ import { requireSession, unauthorized } from '@/presentation/api/utils/auth-help
 import { provideConnectionLive } from './effect-runner'
 import { connectionError } from './error-envelopes'
 import { requireAuthCodeFields, type OAuth2AuthCodeProps, type OAuth2Props } from './oauth2-props'
+import { RESERVED_AUTH_PARAMS, RESERVED_TOKEN_PARAMS, applyExtraParamsExcludingReserved } from './oauth2-reserved-params'
 import { handleListUsers } from './users-handler'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -82,11 +84,7 @@ const buildAuthorizeUrl = (
   if (props.audience !== undefined && props.audience !== '') {
     url.searchParams.set('audience', props.audience)
   }
-  if (props.extraAuthParams !== undefined) {
-    Object.entries(props.extraAuthParams).forEach(([key, value]) => {
-      url.searchParams.set(key, value)
-    })
-  }
+  applyExtraParamsExcludingReserved(url.searchParams, props.extraAuthParams, RESERVED_AUTH_PARAMS)
   return url.toString()
 }
 
@@ -138,7 +136,10 @@ async function handleAuthorize(c: Context, app: App) {
     })
   })
   const saveResult = await Effect.runPromise(provideConnectionLive(saveProgram).pipe(Effect.either))
-  if (saveResult._tag === 'Left') return connectionError(c, 500, 'state_save_failed')
+  if (saveResult._tag === 'Left') {
+    console.error('[connections] state save failed', saveResult.left)
+    return connectionError(c, 500, 'state_save_failed')
+  }
 
   return c.redirect(buildAuthorizeUrl(props, state, codeVerifier), 302)
 }
@@ -167,11 +168,7 @@ const buildTokenExchangeBody = (
   if (props.audience !== undefined && props.audience !== '') {
     body.set('audience', props.audience)
   }
-  if (props.extraTokenParams !== undefined) {
-    Object.entries(props.extraTokenParams).forEach(([key, value]) => {
-      body.set(key, value)
-    })
-  }
+  applyExtraParamsExcludingReserved(body, props.extraTokenParams, RESERVED_TOKEN_PARAMS)
   return body
 }
 
@@ -285,6 +282,7 @@ const resolveCallbackContext = async (
     provideConnectionLive(consumeProgram).pipe(Effect.either)
   )
   if (consumeResult._tag === 'Left') {
+    console.error('[connections] state consume failed', consumeResult.left)
     return { response: connectionError(c, 500, 'state_consume_failed') }
   }
   const stateEntry = consumeResult.right
@@ -339,7 +337,10 @@ async function handleCallback(c: Context, app: App) {
       })
     ).pipe(Effect.either)
   )
-  if (result._tag === 'Left') return connectionError(c, 500, 'token_persistence_failed')
+  if (result._tag === 'Left') {
+    console.error('[connections] token persistence failed', result.left)
+    return connectionError(c, 500, 'token_persistence_failed')
+  }
   return c.json({ success: true, connectionId: result.right }, 200)
 }
 
@@ -391,7 +392,10 @@ async function handleStatus(c: Context, app: App) {
   const result = await Effect.runPromise(
     provideConnectionLive(statusLookupProgram({ name, userId: session.userId })).pipe(Effect.either)
   )
-  if (result._tag === 'Left') return connectionError(c, 500, 'status_lookup_failed')
+  if (result._tag === 'Left') {
+    console.error('[connections] status lookup failed', result.left)
+    return connectionError(c, 500, 'status_lookup_failed')
+  }
   const { connected, expiresAt } = result.right
   const status = deriveStatus(connected, expiresAt)
   return c.json(
@@ -436,6 +440,7 @@ async function handleDisconnect(c: Context, app: App) {
 
   const result = await Effect.runPromise(provideConnectionLive(program).pipe(Effect.either))
   if (result._tag === 'Left') {
+    console.error('[connections] disconnect failed', result.left)
     return connectionError(c, 500, 'disconnect_failed')
   }
   return c.json({ success: true, deleted: result.right }, 200)

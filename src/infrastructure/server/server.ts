@@ -65,6 +65,7 @@ import {
 } from '@/infrastructure/server/route-setup/auth-routes'
 import { setupBootstrapRoutes } from '@/infrastructure/server/route-setup/bootstrap-routes'
 import { setupDevReloadRoute } from '@/infrastructure/server/route-setup/dev-reload-routes'
+import { composeConfigHeader } from '@/infrastructure/server/route-setup/drift-posture'
 import { setupMcpRoutes } from '@/infrastructure/server/route-setup/mcp/routes'
 import { setupOpenApiRoutes } from '@/infrastructure/server/route-setup/openapi-routes'
 import {
@@ -154,7 +155,7 @@ export function createHonoApp(
   if (currentConfigHash) {
     honoApp.use('*', async (c, next) => {
       await next()
-      c.header('X-Sovrium-Config', currentConfigHash)
+      c.header('X-Sovrium-Config', await composeConfigHeader(currentConfigHash))
     })
   }
 

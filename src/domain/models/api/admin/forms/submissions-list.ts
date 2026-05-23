@@ -37,7 +37,7 @@ export const formSubmissionSchema = z
       .record(z.string(), z.unknown())
       .optional()
       .describe(
-        'Field values submitted by the form. Present ONLY when the detail endpoint is called with `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has admin role. Absent on list responses, on detail without reveal, on operator/auditor reveals, and when the env var is unset/false. ADR-012 D7.'
+        'Field values submitted by the form. Present ONLY when the detail endpoint is called with `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has admin role. Absent on list responses, on detail without reveal, on operator reveals, and when the env var is unset/false. ADR-012 D7.'
       ),
   })
   .openapi('FormSubmission')

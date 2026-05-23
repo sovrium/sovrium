@@ -12,9 +12,16 @@ import {
   PreviewSessionRepository,
 } from '@/application/ports/repositories/preview-session-repository'
 import { db } from '@/infrastructure/database'
-import { sovriumPreviewSessions } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { sovriumPreviewSessions as sovriumPreviewSessionsPg } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { sovriumPreviewSessions as sovriumPreviewSessionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/app-versioning'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import type { PreviewSession, PreviewSessionStatus } from '@/domain/models/system'
+
+const sovriumPreviewSessions = resolveDialectSchema(
+  sovriumPreviewSessionsPg,
+  sovriumPreviewSessionsSqlite
+)
 
 const wrap = makeDbWrap((cause) => new PreviewSessionDatabaseError({ cause }))
 

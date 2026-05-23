@@ -12,12 +12,23 @@ import {
   AiMemoryRepository,
 } from '@/application/ports/repositories/ai-memory-repository'
 import { db } from '@/infrastructure/database'
-import { aiConversations, aiMessages } from '@/infrastructure/database/drizzle/schema/ai'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  aiConversations as aiConversationsPg,
+  aiMessages as aiMessagesPg,
+} from '@/infrastructure/database/drizzle/schema/ai'
+import {
+  aiConversations as aiConversationsSqlite,
+  aiMessages as aiMessagesSqlite,
+} from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import type {
   AiMemoryConversationSummary,
   AiMemoryMessage,
 } from '@/application/ports/repositories/ai-memory-repository'
+
+const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
+const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
 
 const wrap = makeDbWrap((cause) => new AiMemoryDatabaseError({ cause }))
 

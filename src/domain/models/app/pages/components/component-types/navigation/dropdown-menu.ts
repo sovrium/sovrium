@@ -17,6 +17,11 @@ export const dropdownMenuFields = {
   ...coreFields,
   ...visibilityFields,
   ...i18nFields,
+  triggerLabel: Schema.optional(
+    Schema.String.annotations({
+      description: 'Text displayed on the trigger button. Defaults to "Menu" if omitted.',
+    })
+  ),
   menuItems: Schema.optional(
     Schema.Array(MenuItemSchema).pipe(
       Schema.minItems(1),

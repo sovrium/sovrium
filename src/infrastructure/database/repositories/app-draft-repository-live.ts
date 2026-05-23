@@ -12,9 +12,13 @@ import {
   AppDraftRepository,
 } from '@/application/ports/repositories/app-draft-repository'
 import { db } from '@/infrastructure/database'
-import { sovriumAppDrafts } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { sovriumAppDrafts as sovriumAppDraftsPg } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { sovriumAppDrafts as sovriumAppDraftsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/app-versioning'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import type { AppDraft } from '@/domain/models/system'
+
+const sovriumAppDrafts = resolveDialectSchema(sovriumAppDraftsPg, sovriumAppDraftsSqlite)
 
 const wrap = makeDbWrap((cause) => new AppDraftDatabaseError({ cause }))
 

@@ -48,10 +48,9 @@ const byRoleSchema = z
   .object({
     admin: z.number().int().nonnegative().describe('Users holding the `admin` role.'),
     operator: z.number().int().nonnegative().describe('Users holding the `operator` role.'),
-    auditor: z.number().int().nonnegative().describe('Users holding the `auditor` role.'),
     member: z.number().int().nonnegative().describe('Users holding the `member` role.'),
   })
-  .describe('Per-role count breakdown. The sum across all four roles equals `totals.users`.')
+  .describe('Per-role count breakdown. The sum across all three roles equals `totals.users`.')
 
 export const usersOverviewResponseSchema = z
   .object({
@@ -62,7 +61,7 @@ export const usersOverviewResponseSchema = z
           .int()
           .nonnegative()
           .describe(
-            'Total live users in the auth.user table (excluding soft-deleted rows). Equals `by_role.admin + by_role.operator + by_role.auditor + by_role.member` per the single-role-per-user invariant.'
+            'Total live users in the auth.user table (excluding soft-deleted rows). Equals `by_role.admin + by_role.operator + by_role.member` per the single-role-per-user invariant.'
           ),
         active_24h: z
           .number()

@@ -10,7 +10,7 @@ import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { hasPermission } from '@/domain/models/shared/permissions'
-import { inferMimeFromKey } from '@/domain/utils/mime-types'
+import { inferMimeFromKey, isImageKey } from '@/domain/utils/mime-types'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
@@ -311,6 +311,21 @@ export function createHandleSignedUpload(app: App) {
   }
 }
 
+function stripUuidPrefix(key: string): string {
+  const match = key.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i)
+  return match?.[1] ?? key
+}
+
+function buildSignedContentDisposition(path: string): string {
+  const disposition = isImageKey(path) ? 'inline' : 'attachment'
+  const segments = stripUuidPrefix(path).split('/')
+  const filename = segments.at(-1) ?? path
+  if (/^[\x20-\x7E]*$/.test(filename)) {
+    return `${disposition}; filename="${filename}"`
+  }
+  return `${disposition}; filename*=UTF-8''${encodeURIComponent(filename)}`
+}
+
 async function streamSignedDownload(c: Context, path: string): Promise<Response> {
   const result = await downloadFromStorage(path)
   if (result._tag === 'Left') {
@@ -330,6 +345,7 @@ async function streamSignedDownload(c: Context, path: string): Promise<Response>
     status: 200,
     headers: {
       'Content-Type': inferMimeFromKey(path),
+      'Content-Disposition': buildSignedContentDisposition(path),
       'X-Content-Type-Options': 'nosniff',
     },
   })
@@ -432,7 +448,11 @@ export function createHandleSign(app: App) {
     const operation = body.operation === 'upload' ? 'upload' : 'download'
 
     const session = getSessionContext(c)
-    const userRole = session ? await getUserRole(session.userId) : undefined
+    if (!session) {
+      return c.json({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }, 401)
+    }
+
+    const userRole = await getUserRole(session.userId)
 
     if (!canSign(bucket, operation, userRole)) {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)

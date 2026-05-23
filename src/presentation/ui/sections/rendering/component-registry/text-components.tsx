@@ -19,6 +19,48 @@ const HEADING_LEVELS: Record<string, number> = {
 }
 
 export const textComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
+  code: ({ elementProps, content, renderedChildren }) => {
+    const language = elementProps['language'] as string | undefined
+    const lineNumbers = elementProps['lineNumbers'] as boolean | undefined
+    const {
+      'data-testid': dataTestId,
+      language: _l,
+      'data-language': _dl,
+      lineNumbers: _ln,
+      'data-line-numbers': _dln,
+      className,
+      ...rest
+    } = elementProps as Record<string, unknown>
+    const cn = className as string | undefined
+    const preClass = cn ? `${cn} font-mono` : 'font-mono'
+    const codeClass = language ? `language-${language}` : undefined
+    return (
+      <div className="relative">
+        <pre
+          {...rest}
+          className={preClass}
+          data-testid={dataTestId as string | undefined}
+          data-line-numbers={lineNumbers ? 'true' : undefined}
+        >
+          <code
+            className={codeClass}
+            data-language={language}
+          >
+            {content ?? renderedChildren}
+          </code>
+        </pre>
+        <button
+          type="button"
+          aria-label="Copy code to clipboard"
+          data-copy-code="true"
+          className="bg-background absolute top-2 right-2 rounded border px-2 py-1 text-xs"
+        >
+          Copy
+        </button>
+      </div>
+    )
+  },
+
   text: ({ elementProps, content, renderedChildren, component }) => {
     const element = (component as Record<string, unknown> | undefined)?.element as
       | string

@@ -5,17 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import React, { useCallback, useState } from 'react'
-
-
-type ChildTemplate = readonly (ChildNode | string)[]
-
-interface ChildNode {
-  readonly type: string
-  readonly props?: Record<string, unknown>
-  readonly content?: string
-  readonly children?: ChildTemplate
-}
+import React, { useCallback, useEffect, useState } from 'react'
+import {
+  renderResultsBody,
+  substituteRecordVars,
+  type ChildTemplate,
+  type ItemTemplate,
+} from './search-list-renderers'
 
 interface SearchListIslandProps {
   readonly id?: string
@@ -24,89 +20,14 @@ interface SearchListIslandProps {
   readonly debounceMs?: number
   readonly limit?: number
   readonly childTemplate: ChildTemplate
+  readonly itemTemplate?: ItemTemplate
+  readonly emptyMessage?: string
+  readonly highlight?: boolean
+  readonly bindTo?: string
   readonly placeholder?: string
   readonly className?: string
   readonly 'data-testid'?: string
 }
-
-
-function substituteRecordVars(text: string, record: Record<string, unknown>): string {
-  return text.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_, fieldName: string) => {
-    const value = record[fieldName]
-    return value !== undefined ? String(value) : ''
-  })
-}
-
-function substituteChildProps(
-  props: Record<string, unknown> | undefined,
-  record: Record<string, unknown>
-): Record<string, unknown> | undefined {
-  if (!props) return props
-  return Object.fromEntries(
-    Object.entries(props).map(([key, value]) => [
-      key,
-      typeof value === 'string' ? substituteRecordVars(value, record) : value,
-    ])
-  )
-}
-
-function substituteChildTemplate(
-  template: ChildTemplate,
-  record: Record<string, unknown>
-): ChildTemplate {
-  return template.map((child) => {
-    if (typeof child === 'string') return substituteRecordVars(child, record)
-    return {
-      ...child,
-      props: substituteChildProps(child.props, record),
-      content:
-        typeof child.content === 'string'
-          ? substituteRecordVars(child.content, record)
-          : child.content,
-      children: child.children ? substituteChildTemplate(child.children, record) : child.children,
-    }
-  })
-}
-
-
-const TYPE_TO_TAG: Record<string, string> = {
-  text: 'span',
-  container: 'div',
-  card: 'div',
-  list: 'ul',
-  li: 'li',
-  link: 'a',
-  button: 'button',
-  image: 'img',
-  hero: 'div',
-}
-
-
-function renderChild(child: ChildNode | string, key: string): React.ReactNode {
-  if (typeof child === 'string') return child
-
-  const { type: schemaType, props = {}, content, children } = child
-  const type = TYPE_TO_TAG[schemaType] ?? schemaType
-  const {
-    id,
-    className,
-    'data-testid': testid,
-    ...rest
-  } = props as {
-    id?: string
-    className?: string
-    'data-testid'?: string
-    [key: string]: unknown
-  }
-
-  const renderedChildren = children
-    ? children.map((c, i) => renderChild(c, `${key}-${i}`))
-    : undefined
-  const inner = content ?? renderedChildren ?? undefined
-
-  return React.createElement(type, { key, id, className, 'data-testid': testid, ...rest }, inner)
-}
-
 
 function extractTemplateText(template: ChildTemplate, record: Record<string, unknown>): string {
   return template
@@ -135,6 +56,7 @@ function recordMatchesQuery(
   })
   if (!fieldMatch) return false
 
+  if (childTemplate.length === 0) return true
   const renderedText = extractTemplateText(childTemplate, record)
   return renderedText.toLowerCase().includes(lowerQuery)
 }
@@ -155,6 +77,37 @@ function filterRecords(options: FilterOptions): readonly Record<string, unknown>
   return limit > 0 ? matched.slice(0, limit) : matched
 }
 
+interface SearchBoxProps {
+  readonly value: string
+  readonly placeholder: string
+  readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+function SearchBox({ value, placeholder, onChange }: SearchBoxProps) {
+  return (
+    <input
+      type="search"
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      aria-label={placeholder}
+      data-search-input="true"
+      className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring mb-2 w-full rounded-md border py-2 pr-3 pl-3 text-sm focus:ring-1 focus:outline-none"
+    />
+  )
+}
+
+function useBoundQuery(bindTo: string | undefined, setQuery: (value: string) => void): void {
+  useEffect(() => {
+    if (!bindTo) return undefined
+    const container = document.getElementById(bindTo)
+    const input = container?.querySelector('input') ?? document.querySelector(`#${bindTo} input`)
+    if (!input) return undefined
+    const onInput = (e: Event) => setQuery((e.target as HTMLInputElement).value)
+    input.addEventListener('input', onInput)
+    return () => input.removeEventListener('input', onInput)
+  }, [bindTo, setQuery])
+}
 
 export default function SearchListIsland({
   records,
@@ -162,6 +115,9 @@ export default function SearchListIsland({
   debounceMs: _debounceMs = 0,
   limit = 0,
   childTemplate,
+  itemTemplate,
+  emptyMessage,
+  bindTo,
   placeholder = 'Search...',
   className,
   'data-testid': testid,
@@ -173,6 +129,8 @@ export default function SearchListIsland({
     []
   )
 
+  useBoundQuery(bindTo, setInputValue)
+
   const filteredRecords = filterRecords({
     records,
     query: inputValue,
@@ -181,30 +139,26 @@ export default function SearchListIsland({
     childTemplate,
   })
 
+  const results = renderResultsBody({
+    records: filteredRecords,
+    emptyMessage,
+    itemTemplate,
+    childTemplate,
+  })
+
   return (
     <div
       className={className}
       data-testid={testid}
     >
-      <input
-        type="search"
-        value={inputValue}
-        onChange={handleInputChange}
-        placeholder={placeholder}
-        aria-label={placeholder}
-        data-search-input="true"
-        className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring mb-2 w-full rounded-md border py-2 pr-3 pl-3 text-sm focus:ring-1 focus:outline-none"
-      />
-      <ul>
-        {filteredRecords.map((record, i) => (
-          <li key={i}>
-            {childTemplate.map((child, j) => {
-              const substituted = substituteChildTemplate([child], record)[0]
-              return substituted ? renderChild(substituted, `${i}-${j}`) : undefined
-            })}
-          </li>
-        ))}
-      </ul>
+      {bindTo ? undefined : (
+        <SearchBox
+          value={inputValue}
+          placeholder={placeholder}
+          onChange={handleInputChange}
+        />
+      )}
+      {results}
     </div>
   )
 }

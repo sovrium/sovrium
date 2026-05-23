@@ -6,7 +6,6 @@
  */
 
 export * from './_shared'
-export * from './audit-log'
 export * from './automations'
 export * from './buckets'
 export * from './config'

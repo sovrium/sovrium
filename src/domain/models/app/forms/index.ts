@@ -18,7 +18,6 @@ import { FormOnErrorSchema } from './on-error'
 import { FormOnSuccessSchema } from './on-success'
 import { FormPathSchema } from './path'
 import { PrefillSchema } from './prefill'
-import { ShareOptionsSchema } from './share'
 import { FormStepSchema } from './steps'
 import { SubmitToSchema } from './submit-to'
 import { SubmitterOptionsSchema } from './submitter'
@@ -62,7 +61,6 @@ export const FormSchema = Schema.Struct({
   submitter: Schema.optional(SubmitterOptionsSchema),
   onSuccess: Schema.optional(FormOnSuccessSchema),
   onError: Schema.optional(FormOnErrorSchema),
-  share: Schema.optional(ShareOptionsSchema),
 }).annotations({
   identifier: 'Form',
   title: 'Form',
@@ -96,7 +94,6 @@ export * from './on-error'
 export * from './on-success'
 export * from './path'
 export * from './prefill'
-export * from './share'
 export * from './steps'
 export * from './submit-to'
 export * from './submitter'

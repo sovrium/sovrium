@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { renderComponentSearchBar } from './component-search-bar'
 import type { ComponentRenderer } from '../component-dispatch-config'
 
 function extractCalendarProps(elementProps: Record<string, unknown>): Record<string, unknown> {
@@ -18,6 +19,7 @@ function extractCalendarProps(elementProps: Record<string, unknown>): Record<str
     maxEventsPerDay: elementProps.maxEventsPerDay,
     calendarEvent: elementProps.calendarEvent,
     calendarInteraction: elementProps.calendarInteraction,
+    search: elementProps.search,
   }
 }
 
@@ -33,6 +35,7 @@ export const islandCalendarComponent: ComponentRenderer = ({ elementProps }) => 
       data-component-type="calendar"
       data-testid={elementProps['data-testid'] as string | undefined}
     >
+      {renderComponentSearchBar(elementProps.search)}
       {}
       <div
         className="border-border bg-background-raised w-full rounded-lg border p-4"

@@ -51,6 +51,31 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
   return <Element {...elementProps}>{content || children}</Element>
 }
 
+export type StatusBadgeConfig = {
+  readonly props: ElementProps
+  readonly dotClassName: string
+  readonly label: string | undefined
+}
+
+export function renderStatusBadge(config: StatusBadgeConfig): ReactElement {
+  const { props, dotClassName, label } = config
+  const authorClassName = props.className
+  const wrapperClassName =
+    typeof authorClassName === 'string' && authorClassName.length > 0
+      ? `inline-flex items-center gap-1.5 ${authorClassName}`
+      : 'inline-flex items-center gap-1.5'
+  const wrapperProps = { ...props, className: wrapperClassName }
+  return (
+    <span {...wrapperProps}>
+      <span
+        data-status-dot
+        className={dotClassName}
+      />
+      {label === undefined ? undefined : <span>{label}</span>}
+    </span>
+  )
+}
+
 export function renderHeading(
   level: 1 | 2 | 3 | 4 | 5 | 6,
   props: ElementProps,

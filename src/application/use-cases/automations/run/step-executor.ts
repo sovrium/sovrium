@@ -224,6 +224,16 @@ const foldStepOutput = (
       }
     : { actions: acc.actions, lastOutput: acc.lastOutput }
 
+const buildStepsResultView = (
+  actions: Readonly<Record<string, Record<string, unknown>>>
+): Readonly<Record<string, Record<string, unknown>>> =>
+  Object.fromEntries(
+    Object.entries(actions).map(([name, output]) => [
+      name,
+      'result' in output ? output : { ...output, result: output },
+    ])
+  )
+
 const resolveFailureRunStatus = (outcome: ActionOutcome): 'failure' | 'exhausted' => {
   const exhausted = outcome.output?.['exhausted']
   return exhausted === true ? 'exhausted' : 'failure'
@@ -301,9 +311,10 @@ export const executeStep = (
   Effect.gen(function* () {
     const props = rawAction['props'] ?? {}
     const isCode = String(rawAction['type'] ?? '') === 'code'
+    const stepsView = buildStepsResultView(acc.actions)
     const stepTemplateContext = isCode
       ? ctx.templateContext
-      : { ...ctx.templateContext, steps: acc.actions }
+      : { ...ctx.templateContext, ...stepsView, steps: stepsView }
     const subst = isCode ? props : resolveTriggerInValue(props, stepTemplateContext)
     const resolvedProps = resolveEnvInValue(subst, ctx.envLookup) as Record<string, unknown>
     const handler =

@@ -58,6 +58,7 @@ const routeSchemaTool = (suffix: string, input: SchemaToolCallInput): Promise<Re
   if (suffix === 'schema_draft_validate') return handleDraftValidate(input)
   if (suffix === 'schema_draft_replace') return handleDraftReplace(input)
   if (suffix === 'schema_draft_publish') return handleDraftPublish(input)
+  if (suffix === 'schema_draft_rebase') return handleDraftRebase(input)
   if (suffix === 'schema_draft_tables_create') return handleTablesCreate(input)
 
   return Promise.resolve(
@@ -195,6 +196,26 @@ const handleDraftPublish = async (input: SchemaToolCallInput): Promise<Response>
     activeVersion: newVersion,
     migration: { applied: migration.result.applied, deferred: migration.result.deferred },
   })
+}
+
+const handleDraftRebase = async (input: SchemaToolCallInput): Promise<Response> => {
+  const draft = await readLatestDraft()
+  if (draft === undefined) {
+    return errorResult(input, { code: 'NOT_FOUND', message: 'no draft exists' })
+  }
+  const activeVersion = await readActiveVersionNumber()
+  const previousBaseVersion = draft.baseVersion
+  return writeDraft({
+    snapshot: draft.snapshot,
+    baseVersion: activeVersion,
+    userId: input.caller.userId ?? 'mcp-system',
+  }).then(() =>
+    successResult(input, {
+      previousBaseVersion,
+      rebasedToVersion: activeVersion,
+      draft: { snapshot: draft.snapshot, baseVersion: activeVersion },
+    })
+  )
 }
 
 const handleTablesCreate = async (input: SchemaToolCallInput): Promise<Response> => {

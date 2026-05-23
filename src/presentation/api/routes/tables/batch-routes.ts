@@ -319,11 +319,15 @@ async function handleBatchDelete(c: Context, app: App) {
 
   const permanent = result.data.permanent === true || c.req.query('permanent') === 'true'
 
-  return runEffect(
-    c,
-    provideTableLive(batchDeleteProgram(session, tableName, result.data.ids, permanent)),
-    batchDeleteRecordsResponseSchema
+  const tappedProgram = batchDeleteProgram(session, tableName, result.data.ids, permanent).pipe(
+    Effect.tapError((error) =>
+      Effect.sync(() => {
+        console.error(`[tables] batch ${permanent ? 'hard-' : 'soft-'}delete failed`, error)
+      })
+    )
   )
+
+  return runEffect(c, provideTableLive(tappedProgram), batchDeleteRecordsResponseSchema)
 }
 
 async function handleUpsert(c: Context, app: App) {

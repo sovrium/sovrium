@@ -95,6 +95,7 @@ export const buildStreamResponse = async (
   const result = await Effect.runPromise(Effect.either(withTimeout))
 
   if (result._tag === 'Left') {
+    console.error('[ai] chat-stream pre-flight failed', result.left)
     await Effect.runPromise(Scope.close(scope, Exit.void))
     return mapPreflightError(c, result.left)
   }

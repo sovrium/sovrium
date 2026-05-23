@@ -12,7 +12,7 @@ export const actorTypeSchema = z
   .describe('Class of subject that produced the audited action')
 
 export const actorRoleSchema = z
-  .enum(['admin', 'operator', 'auditor', 'system'])
+  .enum(['admin', 'operator', 'system'])
   .describe('RBAC role bound to the actor at the moment the action was emitted')
 
 export const actorSchema = z

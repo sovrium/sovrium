@@ -7,9 +7,9 @@
 
 import { sql, eq } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -84,12 +84,14 @@ export function getUserById(config: {
   const { userId } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise({
-      try: () =>
-        db
+      try: () => {
+        const users = authUsersTable()
+        return db
           .select({ id: users.id, role: users.role })
           .from(users)
           .where(eq(users.id, userId))
-          .limit(1),
+          .limit(1)
+      },
       catch: (error) => new SessionContextError('Failed to get user', error),
     })
 

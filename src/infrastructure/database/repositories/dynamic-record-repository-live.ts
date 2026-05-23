@@ -16,6 +16,10 @@ import {
 import { db } from '@/infrastructure/database'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { generateSqlConditionFragment } from '@/infrastructure/database/table-queries/filter-operators'
+import {
+  castToFloat,
+  countAsIntSelectClause,
+} from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
 
 const wrap = makeDbWrap((cause) => new DynamicRecordError({ cause }))
 
@@ -27,7 +31,7 @@ const whereClause = (filter: DynamicRecordFilter | undefined) =>
 export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository, {
   count: (input) =>
     wrap(async () => {
-      const query = sql`SELECT COUNT(*)::int AS count FROM ${sql.identifier(
+      const query = sql`SELECT ${countAsIntSelectClause()} AS count FROM ${sql.identifier(
         input.table
       )}${whereClause(input.filter)}`
       const result = (await db.execute(query)) as unknown as ReadonlyArray<{
@@ -40,8 +44,8 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
     wrap(async () => {
       const aggExpr =
         input.fn === 'AVG'
-          ? sql`AVG(${sql.identifier(input.column)})::float`
-          : sql`SUM(${sql.identifier(input.column)})::float`
+          ? castToFloat(sql`AVG(${sql.identifier(input.column)})`)
+          : castToFloat(sql`SUM(${sql.identifier(input.column)})`)
       const query = sql`SELECT ${aggExpr} AS value FROM ${sql.identifier(
         input.table
       )}${whereClause(input.filter)}`

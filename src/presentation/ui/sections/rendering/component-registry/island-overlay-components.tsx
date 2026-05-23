@@ -5,23 +5,86 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { renderToStaticMarkup } from 'react-dom/server'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { ReactElement } from 'react'
 
 const HIDDEN_STYLE = { display: 'none' } as const
 
+function splitPopoverChildren(
+  component: Component | undefined,
+  renderedChildren: readonly ReactElement[]
+): { readonly triggerLabel: string; readonly triggerId?: string; readonly childrenHtml: string } {
+  const childDefs = (component as { children?: readonly { props?: Record<string, unknown> }[] })
+    ?.children
+  const triggerProps = childDefs?.[0]?.props
+  const triggerLabel =
+    (triggerProps?.['label'] as string | undefined) ??
+    (triggerProps?.['text'] as string | undefined) ??
+    'Open'
+  const triggerId = triggerProps?.['id'] as string | undefined
+  const contentChildren = renderedChildren.slice(1)
+  const childrenHtml = contentChildren.map((c) => renderToStaticMarkup(c)).join('')
+  return { triggerLabel, triggerId, childrenHtml }
+}
+
+function pickAlertField(
+  comp: Record<string, unknown>,
+  rawProps: Record<string, unknown> | undefined,
+  key: string,
+  fallback?: unknown
+): unknown {
+  return comp[key] ?? rawProps?.[key] ?? fallback
+}
+
 function buildAlertDialogProps(
   rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>
+  elementProps: Record<string, unknown>,
+  component: Component | undefined
 ) {
+  const comp = (component ?? {}) as Record<string, unknown>
+  const contentText = typeof comp['content'] === 'string' ? (comp['content'] as string) : undefined
   return {
     title: rawProps?.title,
-    description: rawProps?.description,
-    cancelLabel: rawProps?.cancelLabel ?? 'Cancel',
-    confirmLabel: rawProps?.confirmLabel ?? 'Continue',
+    description: contentText ?? rawProps?.description,
+    cancelLabel: pickAlertField(comp, rawProps, 'cancelLabel', 'Cancel'),
+    confirmLabel: pickAlertField(comp, rawProps, 'confirmLabel', 'Continue'),
     variant: rawProps?.variant ?? 'default',
     className: elementProps.className,
     id: elementProps.id,
+    'data-testid': elementProps['data-testid'],
+  }
+}
+
+function pickCompField<T>(
+  comp: Record<string, unknown> | undefined,
+  rawProps: Record<string, unknown> | undefined,
+  key: string
+): T | undefined {
+  return (comp?.[key] as T | undefined) ?? (rawProps?.[key] as T | undefined)
+}
+
+function buildTooltipProps(
+  rawProps: Record<string, unknown> | undefined,
+  elementProps: Record<string, unknown>,
+  component: Component | undefined,
+  renderedChildren: readonly ReactElement[]
+) {
+  const comp = component as Record<string, unknown> | undefined
+  const compChildren = comp?.['children'] as
+    | readonly { props?: Record<string, unknown> }[]
+    | undefined
+  const triggerProps = compChildren?.[0]?.props
+  const childrenHtml = renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
+  return {
+    tooltipContent: pickCompField<string>(comp, rawProps, 'tooltipContent'),
+    floatingSide: pickCompField<string>(comp, rawProps, 'floatingSide'),
+    tooltipDelay: pickCompField<number>(comp, rawProps, 'tooltipDelay'),
+    triggerId: triggerProps?.['id'] as string | undefined,
+    childrenHtml,
+    className: elementProps['className'],
+    id: elementProps['id'],
     'data-testid': elementProps['data-testid'],
   }
 }
@@ -71,13 +134,15 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  dialog: ({ rawProps, elementProps }) => {
+  dialog: ({ rawProps, elementProps, renderedChildren }) => {
+    const childrenHtml = renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
     const dialogProps = {
       title: rawProps?.title,
       description: rawProps?.description,
       cancelLabel: rawProps?.cancelLabel,
       confirmLabel: rawProps?.confirmLabel,
       variant: rawProps?.variant,
+      childrenHtml,
       className: elementProps.className,
       id: elementProps.id,
       'data-testid': elementProps['data-testid'],
@@ -102,8 +167,8 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  'alert-dialog': ({ rawProps, elementProps }) => {
-    const dialogProps = buildAlertDialogProps(rawProps, elementProps)
+  'alert-dialog': ({ rawProps, elementProps, component }) => {
+    const dialogProps = buildAlertDialogProps(rawProps, elementProps, component)
     const propsJson = JSON.stringify(dialogProps)
 
     return (
@@ -124,15 +189,8 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  tooltip: ({ rawProps, elementProps }) => {
-    const props = {
-      tooltipContent: rawProps?.tooltipContent,
-      floatingSide: rawProps?.floatingSide,
-      tooltipDelay: rawProps?.tooltipDelay,
-      className: elementProps.className,
-      id: elementProps.id,
-      'data-testid': elementProps['data-testid'],
-    }
+  tooltip: ({ rawProps, elementProps, component, renderedChildren }) => {
+    const props = buildTooltipProps(rawProps, elementProps, component, renderedChildren)
     return (
       <div
         data-island="tooltip"
@@ -144,12 +202,20 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  popover: ({ rawProps, elementProps }) => {
+  popover: ({ rawProps, elementProps, component, renderedChildren }) => {
+    const { triggerLabel, triggerId, childrenHtml } = splitPopoverChildren(
+      component,
+      renderedChildren
+    )
+    const comp = component as { floatingSide?: string; floatingAlign?: string } | undefined
     const props = {
       title: rawProps?.title,
       description: rawProps?.description,
-      floatingSide: rawProps?.floatingSide,
-      floatingAlign: rawProps?.floatingAlign,
+      floatingSide: comp?.floatingSide,
+      floatingAlign: comp?.floatingAlign,
+      triggerLabel,
+      triggerId,
+      childrenHtml,
       className: elementProps.className,
       id: elementProps.id,
       'data-testid': elementProps['data-testid'],
@@ -162,10 +228,11 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
       >
         <button
           type="button"
+          id={triggerId}
           disabled
           className="rounded-md border px-3 py-2 text-sm"
         >
-          Open
+          {triggerLabel}
         </button>
       </div>
     )
@@ -199,10 +266,12 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
   },
 
   'dropdown-menu': ({ rawProps, elementProps }) => {
+    const triggerLabel = typeof rawProps?.triggerLabel === 'string' ? rawProps.triggerLabel : 'Menu'
     const props = {
       menuItems: rawProps?.menuItems,
       floatingSide: rawProps?.floatingSide,
       floatingAlign: rawProps?.floatingAlign,
+      triggerLabel,
       className: elementProps.className,
       id: elementProps.id,
       'data-testid': elementProps['data-testid'],
@@ -216,9 +285,10 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
         <button
           type="button"
           disabled
+          id={elementProps.id as string | undefined}
           className="rounded-md border px-3 py-2 text-sm"
         >
-          Menu
+          {triggerLabel}
         </button>
       </div>
     )

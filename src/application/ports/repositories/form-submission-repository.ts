@@ -41,12 +41,31 @@ export class FormSubmissionRepository extends Context.Tag('FormSubmissionReposit
       readonly formName: string
       readonly formId: number
       readonly status: string
+      readonly statusReason?: string
       readonly data: Record<string, unknown>
       readonly linkedRecordTable?: string
       readonly linkedRecordId?: string
       readonly ipAddress?: string
       readonly userAgent?: string
+      readonly submitterUserId?: string
     }) => Effect.Effect<TopLevelFormSubmissionRow, FormSubmissionDatabaseError>
+    readonly countByFormNameAndStatus: (input: {
+      readonly formName: string
+      readonly statuses: readonly string[]
+    }) => Effect.Effect<number, FormSubmissionDatabaseError>
+    readonly reserveTopLevelSlot: (input: {
+      readonly formName: string
+      readonly formId: number
+      readonly status: string
+      readonly data: Record<string, unknown>
+      readonly maxSubmissions: number
+      readonly countStatuses: readonly string[]
+      readonly linkedRecordTable?: string
+      readonly linkedRecordId?: string
+      readonly ipAddress?: string
+      readonly userAgent?: string
+      readonly submitterUserId?: string
+    }) => Effect.Effect<TopLevelFormSubmissionRow | undefined, FormSubmissionDatabaseError>
     readonly updateStatus: (input: {
       readonly id: string
       readonly status: string

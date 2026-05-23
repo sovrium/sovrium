@@ -7,14 +7,21 @@
 
 import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
-import { recordComments } from '@/infrastructure/database/drizzle/schema/record-comments'
+import {
+  authUsersTable,
+  resolveDialectSchema,
+} from '@/infrastructure/database/drizzle/dialect-schema'
+import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
+import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
 import { wrapDatabaseError } from '../shared/error-handling'
 import { extractUserFromRow } from '../shared/user-join-helpers'
+import { castToInt } from './aggregation-helpers'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
 function activeCommentById(commentId: string) {
   return and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt))
@@ -147,23 +154,27 @@ type CommentQueryRow = {
   readonly userImage: string | null
 }
 
-const commentSelectFields = {
-  id: recordComments.id,
-  tableId: recordComments.tableId,
-  recordId: recordComments.recordId,
-  userId: recordComments.userId,
-  parentId: recordComments.parentId,
-  content: recordComments.content,
-  createdAt: recordComments.createdAt,
-  updatedAt: recordComments.updatedAt,
-  userName: users.name,
-  userEmail: users.email,
-  userImage: users.image,
+const buildCommentSelectFields = () => {
+  const users = authUsersTable()
+  return {
+    id: recordComments.id,
+    tableId: recordComments.tableId,
+    recordId: recordComments.recordId,
+    userId: recordComments.userId,
+    parentId: recordComments.parentId,
+    content: recordComments.content,
+    createdAt: recordComments.createdAt,
+    updatedAt: recordComments.updatedAt,
+    userName: users.name,
+    userEmail: users.email,
+    userImage: users.image,
+  }
 }
 
 function executeCommentQuery(commentId: string) {
+  const users = authUsersTable()
   return db
-    .select(commentSelectFields)
+    .select(buildCommentSelectFields())
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
     .where(activeCommentById(commentId))
@@ -271,8 +282,9 @@ export function getCommentForAuth(config: {
 }
 
 function buildCommentsQuery(recordId: string) {
+  const users = authUsersTable()
   return db
-    .select(commentSelectFields)
+    .select(buildCommentSelectFields())
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
     .where(activeCommentsByRecordId(recordId))
@@ -348,7 +360,7 @@ export function getCommentsCount(config: {
     const result = yield* Effect.tryPromise<Array<{ count: number }>, SessionContextError>({
       try: () =>
         db
-          .select({ count: sql<number>`count(*)::int` })
+          .select({ count: castToInt(sql`COUNT(*)`) })
           .from(recordComments)
           .where(activeCommentsByRecordId(recordId)),
       catch: (error) => new SessionContextError('Failed to count comments', error),

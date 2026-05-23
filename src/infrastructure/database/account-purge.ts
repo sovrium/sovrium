@@ -61,11 +61,6 @@ export async function purgeAccount(
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('account')} WHERE user_id = ${userId}`)
 
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('user')} WHERE id = ${userId}`)
-
-    await executeRaw(
-      tx,
-      sql`INSERT INTO audit_log (action, actor_id) VALUES ('account.deletion.completed', ${userId})`
-    )
   })
 
   logInfo(`[account-purge] Hard-deleted account ${userId}`)

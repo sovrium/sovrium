@@ -19,4 +19,6 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'select',
   'dialog',
   'alert-dialog',
+  'popover',
+  'tooltip',
 ])

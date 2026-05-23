@@ -107,6 +107,13 @@ const SCHEMA_TOOL_SPECS: ReadonlyArray<{
     },
   },
   {
+    suffix: 'schema_draft_rebase',
+    description:
+      'Re-point the draft baseVersion to the active version (clears staleness, no merge).',
+    readOnly: false,
+    inputSchema: EMPTY_INPUT,
+  },
+  {
     suffix: 'schema_draft_tables_create',
     description: 'Add a new table to the draft schema.',
     readOnly: false,

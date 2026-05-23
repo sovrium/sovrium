@@ -13,6 +13,7 @@ import {
   handleListVersions,
   handlePublishDraft,
   handlePutDraft,
+  handleRebaseDraft,
   handleRestoreVersion,
   handleValidateDraft,
 } from './schema-routes-draft'
@@ -30,6 +31,8 @@ import {
   handleAuthStrategyDelete,
   handleSchemaApiDisabled,
   handleSchemaStatus,
+  handleSchemaDiff,
+  handleSchemaExport,
   PAGES,
 } from './schema-routes-handlers'
 import { handlePreviewStart, handlePreviewStatus, handlePreviewStop } from './schema-routes-preview'
@@ -51,6 +54,14 @@ export const setupSchemaRoutes = <T extends Hono>(honoApp: T, app: Readonly<App>
   honoApp
     .get('/api/admin/schema/status', gated(handleSchemaStatus))
     .get(
+      '/api/admin/schema/diff',
+      gated((c) => handleSchemaDiff(c, app))
+    )
+    .get(
+      '/api/admin/schema/export',
+      gated((c) => handleSchemaExport(c, app))
+    )
+    .get(
       '/api/admin/schema/draft',
       gated((c) => handleGetDraft(c, app))
     )
@@ -69,6 +80,10 @@ export const setupSchemaRoutes = <T extends Hono>(honoApp: T, app: Readonly<App>
     .post(
       '/api/admin/schema/draft/publish',
       gated((c) => handlePublishDraft(c, app))
+    )
+    .post(
+      '/api/admin/schema/draft/rebase',
+      gated((c) => handleRebaseDraft(c, app))
     )
     .get(
       '/api/admin/schema/draft/preview',

@@ -10,9 +10,9 @@ export {
   renderHTMLElement,
   renderHeading,
   renderTextElement,
-  type ElementProps,
-  type HTMLElementConfig,
+  renderStatusBadge,
 } from './html-element-renderer'
+export type { ElementProps, HTMLElementConfig, StatusBadgeConfig } from './html-element-renderer'
 
 export { renderContent, renderParagraph, renderCode, renderPre } from './text-content-renderers'
 

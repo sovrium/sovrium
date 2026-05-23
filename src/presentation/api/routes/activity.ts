@@ -105,6 +105,7 @@ async function handleGetActivityById(c: Context) {
       return c.json({ success: false, message: 'Activity not found', code: 'NOT_FOUND' }, 404)
     }
 
+    console.error('[activity] get-by-id failed', error)
     return c.json(
       { success: false, message: 'Failed to fetch activity', code: 'DATABASE_ERROR' },
       500

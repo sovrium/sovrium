@@ -388,6 +388,7 @@ function RenderDirectComponent({
             emptyColumnMessage: substitutedComponent.emptyColumnMessage,
             colorField: substitutedComponent.colorField,
             columnOptions: kanbanColumnOptions,
+            search: substitutedComponent.search,
           }
         : type === 'calendar'
           ? {
@@ -401,6 +402,7 @@ function RenderDirectComponent({
               maxEventsPerDay: substitutedComponent.maxEventsPerDay,
               calendarEvent: substitutedComponent.calendarEvent,
               calendarInteraction: substitutedComponent.calendarInteraction,
+              search: substitutedComponent.search,
             }
           : type === 'gallery'
             ? {

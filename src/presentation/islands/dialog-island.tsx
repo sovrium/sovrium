@@ -6,9 +6,29 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
+
+const ALERT_DIALOG_BLOCKED_REASONS = new Set([
+  'escape-key',
+  'close-watcher',
+  'outside-press',
+  'focus-out',
+])
+
+function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean) => void): void {
+  useEffect(() => {
+    if (!id) return
+    const handler = (event: Event): void => {
+      const target = event.target as HTMLElement | null
+      const trigger = target?.closest(`[data-click-modal="${id}"]`)
+      if (trigger) setOpen(true)
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [id, setOpen])
+}
 
 interface DialogIslandProps {
   readonly title?: string
@@ -82,6 +102,65 @@ function SSRSkeletonDiv({
   )
 }
 
+interface DialogPopupBodyProps {
+  readonly isAlertDialog: boolean
+  readonly title?: string
+  readonly description?: string
+  readonly cancelLabel: string
+  readonly confirmLabel?: string
+  readonly variant: 'default' | 'destructive'
+  readonly className?: string
+  readonly id?: string
+  readonly testId?: string
+  readonly childrenHtml?: string
+}
+
+function DialogPopupBody({
+  isAlertDialog,
+  title,
+  description,
+  cancelLabel,
+  confirmLabel,
+  variant,
+  className,
+  id,
+  testId,
+  childrenHtml,
+}: DialogPopupBodyProps): ReactElement {
+  return (
+    <Dialog.Popup
+      role={isAlertDialog ? 'alertdialog' : 'dialog'}
+      className={cn(
+        'bg-background-overlay text-foreground fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg p-6 shadow-xl transition-all duration-200 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0',
+        className
+      )}
+      id={id}
+      data-testid={testId}
+    >
+      {title && (
+        <Dialog.Title className="text-foreground mb-2 text-lg font-semibold">{title}</Dialog.Title>
+      )}
+      {description && (
+        <Dialog.Description className="text-foreground-muted mb-4 text-sm">
+          {description}
+        </Dialog.Description>
+      )}
+      {childrenHtml && (
+        <SSRSkeletonDiv
+          html={childrenHtml}
+          className="mb-4"
+        />
+      )}
+      <DialogActions
+        isAlertDialog={isAlertDialog}
+        cancelLabel={cancelLabel}
+        confirmLabel={confirmLabel}
+        variant={variant}
+      />
+    </Dialog.Popup>
+  )
+}
+
 export default function DialogIsland({
   title,
   description,
@@ -96,48 +175,45 @@ export default function DialogIsland({
   const isAlertDialog = variant === 'destructive' || confirmLabel !== undefined
   const [open, setOpen] = useState(true)
 
+  useExternalOpenTrigger(id, setOpen)
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean, eventDetails: { reason?: string } | undefined): void => {
+      if (
+        isAlertDialog &&
+        eventDetails?.reason &&
+        ALERT_DIALOG_BLOCKED_REASONS.has(eventDetails.reason)
+      ) {
+        return
+      }
+      setOpen(nextOpen)
+    },
+    [isAlertDialog]
+  )
+
   return (
     <Dialog.Root
       modal
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="bg-scrim/50 fixed inset-0 z-40 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-
-        <Dialog.Popup
-          className={cn('fixed inset-0 z-50 flex items-center justify-center p-4', className)}
+        <Dialog.Backdrop
+          data-overlay
+          className="bg-scrim/50 fixed inset-0 z-40 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
+        />
+        <DialogPopupBody
+          isAlertDialog={isAlertDialog}
+          title={title}
+          description={description}
+          cancelLabel={cancelLabel}
+          confirmLabel={confirmLabel}
+          variant={variant}
+          className={className}
           id={id}
-          data-testid={testId}
-        >
-          <div className="bg-background-overlay text-foreground relative w-full max-w-md rounded-lg p-6 shadow-xl transition-all duration-200 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
-            {title && (
-              <Dialog.Title className="text-foreground mb-2 text-lg font-semibold">
-                {title}
-              </Dialog.Title>
-            )}
-
-            {description && (
-              <Dialog.Description className="text-foreground-muted mb-4 text-sm">
-                {description}
-              </Dialog.Description>
-            )}
-
-            {childrenHtml && (
-              <SSRSkeletonDiv
-                html={childrenHtml}
-                className="mb-4"
-              />
-            )}
-
-            <DialogActions
-              isAlertDialog={isAlertDialog}
-              cancelLabel={cancelLabel}
-              confirmLabel={confirmLabel}
-              variant={variant}
-            />
-          </div>
-        </Dialog.Popup>
+          testId={testId}
+          childrenHtml={childrenHtml}
+        />
       </Dialog.Portal>
     </Dialog.Root>
   )

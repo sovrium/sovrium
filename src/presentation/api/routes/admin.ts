@@ -105,6 +105,7 @@ async function handleGetBucketsQuota(c: Context): Promise<Response> {
 
   const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
   if (result._tag === 'Left') {
+    console.error('[admin] storage-quota lookup failed', result.left)
     return c.json(
       { success: false, error: 'Failed to retrieve storage quota', code: 'STORAGE_ERROR' },
       500

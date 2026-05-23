@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveSitemapChangefreq, resolveSitemapPriority } from '@/domain/services/sitemap-builder'
 import type { Page } from '@/domain/models/app'
 
 export interface HreflangConfig {
@@ -55,8 +56,8 @@ const buildUrlEntry = (
   page: Page,
   hreflangSection: string
 ): string => {
-  const priority = page.meta?.priority ?? 0.5
-  const changefreq = page.meta?.changefreq ?? 'monthly'
+  const priority = resolveSitemapPriority(page)
+  const changefreq = resolveSitemapChangefreq(page)
   return `  <url>
     <loc>${loc}</loc>${hreflangSection}
     <lastmod>${lastmod}</lastmod>
@@ -70,7 +71,9 @@ export const generateSitemapContent = (
   baseUrl: string,
   options?: { readonly languages?: readonly string[]; readonly hreflangConfig?: HreflangConfig }
 ): string => {
-  const indexablePages = pages.filter((page) => !page.meta?.noindex && !page.path.startsWith('/_'))
+  const indexablePages = pages.filter(
+    (page) => !page.meta?.noindex && !page.path.startsWith('/_') && page.sitemap !== false
+  )
   const lastmod = new Date().toISOString().split('T')[0] ?? ''
   const languages = options?.languages
   const hreflangConfig = options?.hreflangConfig

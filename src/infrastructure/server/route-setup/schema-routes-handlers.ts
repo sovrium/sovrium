@@ -8,8 +8,9 @@
 
 import { count } from 'drizzle-orm'
 import { type Context } from 'hono'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { resolveDriftPosture } from '@/infrastructure/server/route-setup/drift-posture'
 import {
   type FamilyConfig,
   type FieldError,
@@ -328,6 +329,7 @@ export const handleSchemaApiDisabled = (c: Readonly<Context>): Response =>
 const isSchemaBootstrapMode = async (): Promise<boolean> => {
   if (process.env.AUTH_ADMIN_EMAIL) return false
   try {
+    const users = authUsersTable()
     const rows = await db.select({ value: count() }).from(users)
     return Number(rows[0]?.value ?? 0) === 0
   } catch {
@@ -344,6 +346,8 @@ export const handleSchemaStatus = async (c: Readonly<Context>): Promise<Response
   const draftSnapshot = draft?.snapshot ?? activeSnapshot ?? {}
   const draftBaseVersion = draft?.baseVersion ?? activeVersion
   const draftDirty = JSON.stringify(draftSnapshot) !== JSON.stringify(activeSnapshot ?? {})
+  const draftStale = draft !== undefined && draftBaseVersion !== activeVersion
+  const drift = await resolveDriftPosture()
 
   return c.json(
     {
@@ -352,8 +356,79 @@ export const handleSchemaStatus = async (c: Readonly<Context>): Promise<Response
       activeVersion,
       draftDirty,
       draftBaseVersion,
+      draftStale,
+      driftStatus: drift.driftStatus,
+      ...(drift.source !== undefined ? { source: drift.source } : {}),
+      ...(drift.fileChecksum !== undefined ? { fileChecksum: drift.fileChecksum } : {}),
       previewActive: false,
     },
     200
   )
 }
+
+
+
+const topLevelKeysOf = (snapshot: Readonly<Record<string, unknown>>): ReadonlySet<string> =>
+  new Set(Object.keys(snapshot))
+
+const findFileAncestorSnapshot = (
+  rows: ReadonlyArray<Record<string, unknown>>
+): Record<string, unknown> | undefined => {
+  const fileRow = rows.find((r) => {
+    const s = r['source']
+    return s === 'config-file' || s === 'env' || s === undefined || s === null
+  })
+  const snapshot = fileRow?.['snapshot']
+  return typeof snapshot === 'object' && snapshot !== null
+    ? (snapshot as Record<string, unknown>)
+    : undefined
+}
+
+const computeChangedPaths = (
+  live: Readonly<Record<string, unknown>>,
+  file: Readonly<Record<string, unknown>>
+): ReadonlyArray<{ readonly path: string }> => {
+  const liveKeys = topLevelKeysOf(live)
+  const fileKeys = topLevelKeysOf(file)
+  const allKeys = new Set([...liveKeys, ...fileKeys])
+  return Array.from(allKeys)
+    .filter((key) => {
+      const inLive = liveKeys.has(key)
+      const inFile = fileKeys.has(key)
+      if (inLive !== inFile) return true
+      return JSON.stringify(live[key]) !== JSON.stringify(file[key])
+    })
+    .map((path) => ({ path }))
+}
+
+export const handleSchemaDiff = (c: Readonly<Context>, app: Readonly<App>): Promise<Response> =>
+  withAdmin(c, app, async () => {
+    const drift = await resolveDriftPosture()
+    if (drift.driftStatus === 'in-sync') {
+      return c.json({ driftStatus: drift.driftStatus, changes: [] }, 200)
+    }
+    const { readAllVersionRows } = await import('./schema-persistence')
+    const rows = await readAllVersionRows()
+    const liveSnapshot =
+      rows[0] && typeof rows[0]['snapshot'] === 'object' && rows[0]['snapshot'] !== null
+        ? (rows[0]['snapshot'] as Record<string, unknown>)
+        : {}
+    const fileSnapshot = findFileAncestorSnapshot(rows) ?? {}
+    const changes = computeChangedPaths(liveSnapshot, fileSnapshot)
+    return c.json({ driftStatus: drift.driftStatus, changes }, 200)
+  })
+
+
+const snapshotToYaml = (snapshot: Readonly<Record<string, unknown>>): string =>
+  JSON.stringify(snapshot, null, 2) + '\n'
+
+export const handleSchemaExport = (c: Readonly<Context>, app: Readonly<App>): Promise<Response> =>
+  withAdmin(c, app, async () => {
+    const snapshot = await readActiveVersionSnapshot()
+    if (snapshot === undefined) {
+      return c.text('No active version', 404)
+    }
+    return c.body(snapshotToYaml(snapshot), 200, {
+      'Content-Type': 'application/yaml; charset=utf-8',
+    })
+  })

@@ -11,16 +11,24 @@ import {
   ActivityLogRepository,
   ActivityLogDatabaseError,
 } from '@/application/ports/repositories/activity-log-repository'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
-import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
+import {
+  authUsersTable,
+  resolveDialectSchema,
+} from '@/infrastructure/database/drizzle/dialect-schema'
+import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
+import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { dateIntervalAgo } from '@/infrastructure/database/sql/dialect-sql-helpers'
+
+const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
 const wrap = makeDbWrap((error) => new ActivityLogDatabaseError({ cause: error }))
 
 export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
   listAll: () =>
     wrap(async () => {
+      const users = authUsersTable()
       const rows = await db
         .select({
           id: activityLogs.id,
@@ -39,7 +47,7 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
         })
         .from(activityLogs)
         .leftJoin(users, eq(activityLogs.userId, users.id))
-        .where(gte(activityLogs.createdAt, sql`NOW() - INTERVAL '1 year'`))
+        .where(gte(activityLogs.createdAt, dateIntervalAgo(1, 'year')))
         .orderBy(sql`(${activityLogs.userId} IS NULL) DESC`, desc(activityLogs.createdAt))
 
       return rows.map((row) => ({

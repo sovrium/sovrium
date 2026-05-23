@@ -8,8 +8,11 @@
 
 import { eq } from 'drizzle-orm'
 import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
-import { teamMembers, teams } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import {
+  authTeamMembersTable,
+  authTeamsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 
 export type UserGroupsService = {
   readonly getUserGroups: (userId: string) => Promise<readonly string[]>
@@ -23,6 +26,8 @@ export async function getUserGroups(
     return service.getUserGroups(userId)
   }
 
+  const teams = authTeamsTable()
+  const teamMembers = authTeamMembersTable()
   try {
     const rows = await db
       .select({ name: teams.name })

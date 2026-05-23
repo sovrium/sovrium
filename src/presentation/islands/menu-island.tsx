@@ -22,6 +22,7 @@ interface MenuIslandProps {
   readonly floatingSide?: 'top' | 'right' | 'bottom' | 'left'
   readonly floatingAlign?: 'start' | 'center' | 'end'
   readonly triggerHtml?: string
+  readonly triggerLabel?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -32,6 +33,7 @@ export default function MenuIsland({
   floatingSide = 'bottom',
   floatingAlign = 'start',
   triggerHtml,
+  triggerLabel,
   className,
   id,
   'data-testid': testId,
@@ -46,7 +48,7 @@ export default function MenuIsland({
         {triggerHtml ? (
           <span dangerouslySetInnerHTML={{ __html: triggerHtml }} />
         ) : (
-          <span>Menu</span>
+          <span>{triggerLabel ?? 'Menu'}</span>
         )}
       </Menu.Trigger>
       <Menu.Portal>

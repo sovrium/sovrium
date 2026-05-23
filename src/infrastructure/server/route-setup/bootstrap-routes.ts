@@ -10,8 +10,8 @@ import { count } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import { type Hono, type Context } from 'hono'
 import { claimBootstrapToken } from '@/application/use-cases/auth/bootstrap-token'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
 import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/bootstrap-token-repository-live'
 import { logError } from '@/infrastructure/logging/logger'
@@ -26,6 +26,7 @@ interface ClaimRequestBody {
 const isBootstrapMode = async (): Promise<boolean> => {
   if (process.env.AUTH_ADMIN_EMAIL) return false
   try {
+    const users = authUsersTable()
     const rows = await db.select({ value: count() }).from(users)
     const userCount = Number(rows[0]?.value ?? 0)
     return userCount === 0

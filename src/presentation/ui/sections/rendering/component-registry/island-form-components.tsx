@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { renderToStaticMarkup } from 'react-dom/server'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -380,10 +381,21 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
     )
   },
 
-  'scroll-area': ({ rawProps, elementProps }) => {
+  'scroll-area': ({ rawProps, elementProps, component, renderedChildren }) => {
+    const c = asRecord(component)
+    const scrollAreaHeight = pickFromComponent(c, rawProps, 'scrollAreaHeight') as
+      | string
+      | undefined
+    const scrollOrientation = pickFromComponent(c, rawProps, 'scrollOrientation') as
+      | 'vertical'
+      | 'horizontal'
+      | 'both'
+      | undefined
+    const childrenHtml = renderedChildren.map((child) => renderToStaticMarkup(child)).join('')
     const props = {
-      scrollAreaHeight: rawProps?.scrollAreaHeight,
-      scrollOrientation: rawProps?.scrollOrientation,
+      scrollAreaHeight,
+      scrollOrientation,
+      childrenHtml,
       ...baseProps(elementProps),
     }
     return (
@@ -391,10 +403,11 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-island="scroll-area"
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
-        style={{ maxHeight: (rawProps?.scrollAreaHeight as string) ?? '400px', overflow: 'hidden' }}
-      >
-        <div className="bg-background-subtle h-full animate-pulse" />
-      </div>
+        style={{ maxHeight: scrollAreaHeight ?? '400px', overflow: 'auto' }}
+        id={elementProps.id as string | undefined}
+        className={elementProps.className as string | undefined}
+        dangerouslySetInnerHTML={{ __html: childrenHtml }}
+      />
     )
   },
 }

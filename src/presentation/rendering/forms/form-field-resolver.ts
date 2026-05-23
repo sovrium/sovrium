@@ -15,14 +15,33 @@ import type { TableBoundField } from '@/domain/models/app/forms/fields/table-bou
 import type { Languages } from '@/domain/models/app/languages'
 import type { Table } from '@/domain/models/app/tables'
 
+function resolveActiveLang(languages: Languages, requestedLang: string | undefined): string {
+  if (requestedLang === undefined || requestedLang === '') {
+    return languages.default
+  }
+  const supported = languages.supported ?? []
+  const isSupported = supported.some(
+    (entry) => entry.code === requestedLang || entry.locale === requestedLang
+  )
+  if (isSupported) return requestedLang
+  return languages.fallback ?? languages.default
+}
+
+export function resolveDocumentLang(languages: Languages | undefined, activeLang?: string): string {
+  if (!languages) return 'en'
+  return resolveActiveLang(languages, activeLang)
+}
+
 function resolveText(
   value: string | undefined,
   languages: Languages | undefined,
-  fallback: string
+  fallback: string,
+  activeLang?: string
 ): string {
   if (value === undefined) return fallback
   if (languages === undefined) return value
-  return resolveTranslationPattern(value, languages.default, languages)
+  const lang = resolveActiveLang(languages, activeLang)
+  return resolveTranslationPattern(value, lang, languages)
 }
 
 const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
@@ -64,30 +83,32 @@ function inputTypeForStandalone(inputType: string): string {
 
 const resolveSignatureField = (
   field: Readonly<SignatureField>,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  activeLang?: string
 ): ResolvedFormField => ({
   name: field.name,
   inputElement: 'signature',
   htmlInputType: 'signature',
-  label: resolveText(field.label, languages, field.name),
-  placeholder: resolveText(field.placeholder, languages, ''),
-  helpText: resolveText(field.helpText, languages, ''),
+  label: resolveText(field.label, languages, field.name, activeLang),
+  placeholder: resolveText(field.placeholder, languages, '', activeLang),
+  helpText: resolveText(field.helpText, languages, '', activeLang),
   required: field.required ?? false,
   hidden: field.hidden ?? false,
 })
 
 const resolveStandaloneField = (
   field: Readonly<StandaloneField>,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  activeLang?: string
 ): ResolvedFormField => {
   const inputType = inputTypeForStandalone(field.inputType)
   return {
     name: field.name,
     inputElement: inputType,
     htmlInputType: inputType,
-    label: resolveText(field.label, languages, field.name),
-    placeholder: resolveText(field.placeholder, languages, ''),
-    helpText: resolveText(field.helpText, languages, ''),
+    label: resolveText(field.label, languages, field.name, activeLang),
+    placeholder: resolveText(field.placeholder, languages, '', activeLang),
+    helpText: resolveText(field.helpText, languages, '', activeLang),
     required: field.required ?? false,
     hidden: field.hidden ?? false,
     ...(field.options
@@ -147,7 +168,8 @@ function fileUploadOverlay(
 const resolveTableField = (
   field: Readonly<TableBoundField>,
   table: Readonly<Table> | undefined,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  activeLang?: string
 ): ResolvedFormField => {
   const column = table?.fields.find((tableField) => tableField.name === field.column)
   const elementType = column ? inputTypeForTableField(column) : 'text'
@@ -155,9 +177,9 @@ const resolveTableField = (
     name: field.column,
     inputElement: elementType,
     htmlInputType: elementType,
-    label: resolveText(field.label, languages, field.column),
-    placeholder: resolveText(field.placeholder, languages, ''),
-    helpText: resolveText(field.helpText, languages, ''),
+    label: resolveText(field.label, languages, field.column, activeLang),
+    placeholder: resolveText(field.placeholder, languages, '', activeLang),
+    helpText: resolveText(field.helpText, languages, '', activeLang),
     required: field.required ?? column?.required ?? false,
     hidden: field.hidden ?? false,
     ...fileUploadOverlay(field, column),
@@ -167,24 +189,26 @@ const resolveTableField = (
 function resolveField(
   field: Readonly<FormField>,
   table: Readonly<Table> | undefined,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  activeLang?: string
 ): ResolvedFormField | undefined {
   if (field.kind === 'section' || field.kind === 'calculation') return undefined
-  if (field.kind === 'signature') return resolveSignatureField(field, languages)
-  if (field.kind === 'standalone') return resolveStandaloneField(field, languages)
-  return resolveTableField(field, table, languages)
+  if (field.kind === 'signature') return resolveSignatureField(field, languages, activeLang)
+  if (field.kind === 'standalone') return resolveStandaloneField(field, languages, activeLang)
+  return resolveTableField(field, table, languages, activeLang)
 }
 
 export function resolveAllFields(
   app: Readonly<App>,
-  form: Readonly<Form>
+  form: Readonly<Form>,
+  activeLang?: string
 ): ReadonlyArray<ResolvedFormField> {
   const table =
     form.submitTo.table !== undefined
       ? app.tables?.find((candidate) => candidate.name === form.submitTo.table)
       : undefined
   return form.fields
-    .map((field) => resolveField(field, table, app.languages))
+    .map((field) => resolveField(field, table, app.languages, activeLang))
     .filter((field): field is ResolvedFormField => field !== undefined)
 }
 

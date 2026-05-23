@@ -7,8 +7,8 @@
 
 
 import { eq } from 'drizzle-orm'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database/drizzle'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 
 export interface PresenceUserMetadata {
   readonly name: string
@@ -17,6 +17,7 @@ export interface PresenceUserMetadata {
 
 export const resolvePresenceUser = async (userId: string): Promise<PresenceUserMetadata> => {
   try {
+    const users = authUsersTable()
     const rows = await db
       .select({ name: users.name, image: users.image })
       .from(users)

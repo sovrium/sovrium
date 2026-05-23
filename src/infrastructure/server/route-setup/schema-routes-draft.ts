@@ -316,6 +316,38 @@ export const handlePublishDraft = (c: Readonly<Context>, app: Readonly<App>): Pr
   })
 
 
+export const handleRebaseDraft = (c: Readonly<Context>, app: Readonly<App>): Promise<Response> =>
+  withAdmin(c, app, async (caller) => {
+    const draft = await readLatestDraft()
+    if (draft === undefined) {
+      return jsonError(c, 404, { code: 'NOT_FOUND', message: 'no draft exists' })
+    }
+
+    const activeVersion = await readActiveVersionNumber()
+    const previousBaseVersion = draft.baseVersion
+
+    const activeSnapshot = await writeDraft({
+      snapshot: draft.snapshot,
+      baseVersion: activeVersion,
+      userId: caller.userId,
+    }).then(() => readActiveVersionSnapshot())
+    const rebased: DraftRow = {
+      snapshot: draft.snapshot,
+      baseVersion: activeVersion,
+      updatedAt: new Date().toISOString(),
+      updatedByUserId: caller.userId,
+    }
+    return c.json(
+      {
+        previousBaseVersion,
+        rebasedToVersion: activeVersion,
+        draft: draftEnvelope(rebased, activeSnapshot),
+      },
+      200
+    )
+  })
+
+
 const commitRestore = (input: {
   readonly c: Readonly<Context>
   readonly snapshot: Snapshot

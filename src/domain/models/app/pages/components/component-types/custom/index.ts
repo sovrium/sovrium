@@ -5,5 +5,4 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export { CustomReactTypeLiteral, customReactFields } from './custom-react'
 export { CustomHtmlTypeLiteral, customHtmlFields } from './custom-html'

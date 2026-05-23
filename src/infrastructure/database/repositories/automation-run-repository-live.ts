@@ -17,12 +17,26 @@ import {
   type PersistedStep,
 } from '@/application/ports/repositories/automation-run-repository'
 import { db } from '@/infrastructure/database'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
-  automationDefinitions,
-  automationRuns,
-  automationRunSteps,
+  automationDefinitions as automationDefinitionsPg,
+  automationRuns as automationRunsPg,
+  automationRunSteps as automationRunStepsPg,
 } from '@/infrastructure/database/drizzle/schema/automation'
+import {
+  automationDefinitions as automationDefinitionsSqlite,
+  automationRuns as automationRunsSqlite,
+  automationRunSteps as automationRunStepsSqlite,
+} from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { castToInt } from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
+
+const automationDefinitions = resolveDialectSchema(
+  automationDefinitionsPg,
+  automationDefinitionsSqlite
+)
+const automationRuns = resolveDialectSchema(automationRunsPg, automationRunsSqlite)
+const automationRunSteps = resolveDialectSchema(automationRunStepsPg, automationRunStepsSqlite)
 
 const wrap = makeDbWrap((cause) => new AutomationRunDatabaseError({ cause }))
 
@@ -107,7 +121,7 @@ const listAllRuns = async (
   const whereClause = filters.length === 0 ? undefined : and(...filters)
 
   const countQuery = db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({ value: castToInt(sql`COUNT(*)`) })
     .from(automationRuns)
     .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
   const countRows = await (whereClause === undefined ? countQuery : countQuery.where(whereClause))

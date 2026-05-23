@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, count, eq, gt, isNull } from 'drizzle-orm'
+import { and, count, eq, gt, inArray, isNull, sql } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   FormSubmissionDatabaseError,
@@ -15,6 +15,7 @@ import { db } from '@/infrastructure/database'
 import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { TopLevelFormSubmissionRow } from '@/application/ports/repositories/form-submission-repository'
 import type { formSubmissions } from '@/infrastructure/database/drizzle/schema/form-submissions'
 
@@ -24,11 +25,13 @@ interface TopLevelInsertInput {
   readonly formName: string
   readonly formId: number
   readonly status: string
+  readonly statusReason?: string
   readonly data: Record<string, unknown>
   readonly linkedRecordTable?: string
   readonly linkedRecordId?: string
   readonly ipAddress?: string
   readonly userAgent?: string
+  readonly submitterUserId?: string
 }
 
 const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
@@ -36,10 +39,12 @@ const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
   formId: input.formId,
   status: input.status,
   data: jsonbLiteral(input.data),
+  ...(input.statusReason !== undefined ? { statusReason: input.statusReason } : {}),
   ...(input.linkedRecordTable !== undefined ? { linkedRecordTable: input.linkedRecordTable } : {}),
   ...(input.linkedRecordId !== undefined ? { linkedRecordId: input.linkedRecordId } : {}),
   ...(input.ipAddress !== undefined ? { ipAddress: input.ipAddress } : {}),
   ...(input.userAgent !== undefined ? { userAgent: input.userAgent } : {}),
+  ...(input.submitterUserId !== undefined ? { submitterUserId: input.submitterUserId } : {}),
 })
 
 const shapeTopLevelRow = (
@@ -66,6 +71,62 @@ const shapeTopLevelRow = (
     linkedRecordTable: row.linkedRecordTable ?? null,
     linkedRecordId: row.linkedRecordId ?? null,
   }
+}
+
+type ReserveInput = Readonly<
+  TopLevelInsertInput & {
+    readonly maxSubmissions: number
+    readonly countStatuses: readonly string[]
+  }
+>
+
+const buildStatusListFragment = (statuses: readonly string[]) =>
+  statuses.length > 0
+    ? sql.join(
+        statuses.map((s) => sql`${s}`),
+        sql.raw(', ')
+      )
+    : sql.raw(`''`)
+
+const reserveInsertSql = (input: ReserveInput) => {
+  const statusList = buildStatusListFragment(input.countStatuses)
+  const linkedTable =
+    input.linkedRecordTable === undefined ? sql.raw('NULL') : sql`${input.linkedRecordTable}`
+  const linkedId =
+    input.linkedRecordId === undefined ? sql.raw('NULL') : sql`${input.linkedRecordId}`
+  const ip = input.ipAddress === undefined ? sql.raw('NULL') : sql`${input.ipAddress}`
+  const ua = input.userAgent === undefined ? sql.raw('NULL') : sql`${input.userAgent}`
+  const submitter =
+    input.submitterUserId === undefined ? sql.raw('NULL') : sql`${input.submitterUserId}`
+  return sql`INSERT INTO system.form_submissions
+          (form_name, form_id, status, data, linked_record_table, linked_record_id, ip_address, user_agent, submitter_user_id)
+        SELECT ${input.formName}, ${input.formId}, ${input.status}, ${jsonbLiteral(input.data)},
+               ${linkedTable}, ${linkedId}, ${ip}, ${ua}, ${submitter}
+        WHERE (
+          SELECT COUNT(*) FROM system.form_submissions
+          WHERE form_name = ${input.formName}
+            AND status IN (${statusList})
+            AND deleted_at IS NULL
+        ) < ${input.maxSubmissions}
+        RETURNING *`
+}
+
+const reserveSlotRaw = async (
+  input: ReserveInput
+): Promise<typeof formSubmissions.$inferSelect | undefined> => {
+  if (isSqliteRuntime()) {
+    const rows = (await db.execute(reserveInsertSql(input))) as unknown as ReadonlyArray<
+      typeof formSubmissions.$inferSelect
+    >
+    return rows[0]
+  }
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.formName}, 0))`)
+    const rows = (await tx.execute(reserveInsertSql(input))) as unknown as ReadonlyArray<
+      typeof formSubmissions.$inferSelect
+    >
+    return rows[0]
+  })
 }
 
 export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionRepository, {
@@ -109,6 +170,29 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
         .values(buildTopLevelInsertValues(input))
         .returning()
       return shapeTopLevelRow(row, input)
+    }),
+
+  countByFormNameAndStatus: ({ formName, statuses }) =>
+    wrap(async () => {
+      if (statuses.length === 0) return 0
+      const submissions = formSubmissionsTable()
+      const [row] = await db
+        .select({ size: count() })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.formName, formName),
+            inArray(submissions.status, [...statuses]),
+            isNull(submissions.deletedAt)
+          )
+        )
+      return Number(row?.size ?? 0)
+    }),
+
+  reserveTopLevelSlot: (input) =>
+    wrap(async () => {
+      const row = await reserveSlotRaw(input)
+      return row === undefined ? undefined : shapeTopLevelRow(row, input)
     }),
 
   updateStatus: ({ id, status, statusReason }) =>

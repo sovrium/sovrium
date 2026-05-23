@@ -6,9 +6,27 @@
  */
 
 import * as Renderers from '../../renderers/element-renderers'
+import { renderStatusBadge } from '../../renderers/element-renderers/html-element-renderer'
 import { convertBadgeProps } from '../component-registry-helpers'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
+
+function resolveStatusDotColorClass(value: unknown): string {
+  switch (value) {
+    case 'green':
+      return 'bg-success-solid'
+    case 'red':
+      return 'bg-error-solid'
+    case 'amber':
+    case 'yellow':
+      return 'bg-warning-solid'
+    case 'blue':
+      return 'bg-info-solid'
+    case 'gray':
+    default:
+      return 'bg-neutral-600'
+  }
+}
 
 export const interactiveComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
   button: ({
@@ -110,8 +128,26 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
   icon: ({ elementProps, renderedChildren }) =>
     Renderers.renderIcon(elementProps, renderedChildren),
 
-  badge: ({ elementProps, content, renderedChildren, interactions }) => {
+  badge: ({ elementProps, content, renderedChildren, interactions, component }) => {
     const badgeProps = convertBadgeProps(elementProps)
+
+    const variant = (component as { variant?: unknown } | undefined)?.variant
+    if (variant === 'status') {
+      const status = (component as { status?: unknown } | undefined)?.status
+      const statusColor = (component as { statusColor?: unknown } | undefined)?.statusColor
+      const pulse = (component as { pulse?: unknown } | undefined)?.pulse === true
+      const dotColorClass = resolveStatusDotColorClass(statusColor)
+      const dotClassName = pulse
+        ? `inline-block h-2 w-2 rounded-full ${dotColorClass} animate-pulse`
+        : `inline-block h-2 w-2 rounded-full ${dotColorClass}`
+      const statusLabel = typeof status === 'string' ? status : undefined
+      return renderStatusBadge({
+        props: badgeProps,
+        dotClassName,
+        label: statusLabel,
+      })
+    }
+
     return Renderers.renderHTMLElement({
       type: 'span',
       props: badgeProps,

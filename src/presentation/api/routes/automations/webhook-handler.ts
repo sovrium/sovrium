@@ -286,6 +286,7 @@ const dispatchSync = async (
   const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
   if (result._tag === 'Left') {
     if (result.left._tag === 'AutomationRegistrySeedError') {
+      console.error('[automation] webhook dispatch failed: registry seed error', result.left)
       return c.json({ error: 'internal_error' }, 500)
     }
     return c.json({ error: 'not_found' }, 404)

@@ -12,8 +12,12 @@ import {
   ConnectionRepository,
 } from '@/application/ports/repositories/connection-repository'
 import { db } from '@/infrastructure/database'
-import { connections } from '@/infrastructure/database/drizzle/schema/connection'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { connections as connectionsPg } from '@/infrastructure/database/drizzle/schema/connection'
+import { connections as connectionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/connection'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+const connections = resolveDialectSchema(connectionsPg, connectionsSqlite)
 
 const wrap = makeDbWrap((cause) => new ConnectionDatabaseError({ cause }))
 

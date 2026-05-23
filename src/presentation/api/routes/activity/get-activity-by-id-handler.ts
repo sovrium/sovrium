@@ -42,6 +42,7 @@ export async function getActivityByIdHandler(c: Context) {
       )
     }
 
+    console.error('[activity] get-by-id handler failed', error)
     return c.json(
       {
         success: false,

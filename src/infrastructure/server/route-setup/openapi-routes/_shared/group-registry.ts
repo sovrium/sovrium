@@ -25,7 +25,6 @@ import { mcpGroup } from '../mcp-routes'
 import { notificationGroup } from '../notifications-routes'
 import { ragGroup } from '../rag-routes'
 import { recordsGroupSpec } from '../record-routes'
-import { shareLinkGroup } from '../share-links-routes'
 import { tableCollectionGroup, tableGroupSpec } from '../table-routes'
 import { viewGroupSpec } from '../view-routes'
 import type { ResourceGroupSpec, StaticGroupSpec } from './route-spec'
@@ -60,7 +59,6 @@ export const STATIC_GROUPS: readonly StaticGroupSpec[] = [
   automationCollectionGroup,
   adminGroup,
   agentCollectionGroup,
-  shareLinkGroup,
   aiFactsGroup,
   mcpGroup,
   activeScopeGroup,

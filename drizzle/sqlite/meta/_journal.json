@@ -15,6 +15,20 @@
       "when": 1779208689760,
       "tag": "0001_eager_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779543471173,
+      "tag": "0002_reflective_senator_kelly",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779548812258,
+      "tag": "0003_panoramic_vermin",
+      "breakpoints": true
     }
   ]
 }

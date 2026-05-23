@@ -7,13 +7,20 @@
 
 import { eq, and, asc, gte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
-import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
+import {
+  authUsersTable,
+  resolveDialectSchema,
+} from '@/infrastructure/database/drizzle/dialect-schema'
+import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
+import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { extractUserFromRow } from '../shared/user-join-helpers'
+import { castToInt } from './aggregation-helpers'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
 function buildActivityWhereCondition(tableName: string, recordId: string) {
   const now = new Date()
@@ -61,8 +68,9 @@ export function getRecordHistory(config: {
     try: async () => {
       const whereCondition = buildActivityWhereCondition(tableName, recordId)
 
+      const users = authUsersTable()
       const countResult = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: castToInt(sql`COUNT(*)`) })
         .from(activityLogs)
         .where(whereCondition)
       const total = countResult[0]?.count ?? 0

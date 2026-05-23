@@ -68,3 +68,18 @@ export const AppVersionListItemSchema = Schema.Struct({
 )
 
 export type AppVersionListItem = typeof AppVersionListItemSchema.Type
+
+
+export type DriftStatus = 'in-sync' | 'drifted-from-file' | 'file-ahead'
+
+export const computeDriftStatus = (
+  activeSource: AppVersionSource | undefined,
+  fileLaunchedAncestorExists: boolean,
+  fileAhead: boolean
+): DriftStatus => {
+  if (fileAhead) return 'file-ahead'
+  if (activeSource === undefined || activeSource === 'config-file' || activeSource === 'env') {
+    return 'in-sync'
+  }
+  return fileLaunchedAncestorExists ? 'drifted-from-file' : 'in-sync'
+}

@@ -15,6 +15,23 @@ import { visibilityFields } from '../modules/visibility'
 
 export const BadgeTypeLiteral = Schema.Literal('badge')
 
+export const BadgeModeSchema = Schema.Literal('status').annotations({
+  title: 'Badge Mode',
+  description: 'Specialized rendering mode for badge (e.g. status indicator)',
+})
+
+export const StatusDotColorSchema = Schema.Literal(
+  'green',
+  'red',
+  'amber',
+  'yellow',
+  'blue',
+  'gray'
+).annotations({
+  title: 'Status Dot Color',
+  description: 'Color token for the status-indicator dot',
+})
+
 export const badgeFields = {
   ...coreFields,
   ...contentFields,
@@ -22,4 +39,16 @@ export const badgeFields = {
   ...visibilityFields,
   ...i18nFields,
   badgeVariant: Schema.optional(BadgeVariantSchema),
+  variant: Schema.optional(BadgeModeSchema),
+  status: Schema.optional(
+    Schema.String.annotations({
+      description: 'Status label text displayed next to the dot (variant: status)',
+    })
+  ),
+  statusColor: Schema.optional(StatusDotColorSchema),
+  pulse: Schema.optional(
+    Schema.Boolean.annotations({
+      description: 'Enable pulsing animation on the status dot (variant: status)',
+    })
+  ),
 } as const

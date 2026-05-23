@@ -12,9 +12,13 @@ import {
   AiFactsRepository,
 } from '@/application/ports/repositories/ai-facts-repository'
 import { db } from '@/infrastructure/database'
-import { aiFacts } from '@/infrastructure/database/drizzle/schema/ai'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { aiFacts as aiFactsPg } from '@/infrastructure/database/drizzle/schema/ai'
+import { aiFacts as aiFactsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import type { AiFact } from '@/application/ports/repositories/ai-facts-repository'
+
+const aiFacts = resolveDialectSchema(aiFactsPg, aiFactsSqlite)
 
 const wrap = makeDbWrap((cause) => new AiFactsDatabaseError({ cause }))
 

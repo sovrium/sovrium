@@ -14,6 +14,8 @@ interface PopoverIslandProps {
   readonly floatingSide?: 'top' | 'right' | 'bottom' | 'left'
   readonly floatingAlign?: 'start' | 'center' | 'end'
   readonly triggerHtml?: string
+  readonly triggerLabel?: string
+  readonly triggerId?: string
   readonly childrenHtml?: string
   readonly className?: string
   readonly id?: string
@@ -34,6 +36,8 @@ export default function PopoverIsland({
   floatingSide = 'bottom',
   floatingAlign = 'center',
   triggerHtml,
+  triggerLabel,
+  triggerId,
   childrenHtml,
   className,
   id,
@@ -43,10 +47,14 @@ export default function PopoverIsland({
     <Popover.Root>
       <Popover.Trigger
         className={className}
-        id={id}
+        id={triggerId ?? id}
         data-testid={testId}
       >
-        {triggerHtml ? <SSRSkeletonSpan html={triggerHtml} /> : <span>Open</span>}
+        {triggerHtml ? (
+          <SSRSkeletonSpan html={triggerHtml} />
+        ) : (
+          <span>{triggerLabel ?? 'Open'}</span>
+        )}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner

@@ -227,43 +227,6 @@ export const AlertVariantSchema = Schema.Literal(
 })
 
 
-export const TagItemSchema = Schema.Struct({
-  label: Schema.String.annotations({
-    description: 'Display text for the tag',
-  }),
-  color: Schema.optional(
-    Schema.String.annotations({
-      description: 'Color for the tag background (CSS color or theme token name)',
-    })
-  ),
-  removable: Schema.optional(
-    Schema.Boolean.annotations({
-      description: 'If true, shows a remove button on the tag',
-    })
-  ),
-}).annotations({
-  title: 'Tag Item',
-  description: 'A single tag/chip in a tags component',
-})
-
-
-export const AvatarItemSchema = Schema.Struct({
-  src: Schema.String.annotations({
-    description: 'URL to the avatar image',
-  }),
-  alt: Schema.String.annotations({
-    description: 'Alt text for the avatar image (screen reader accessible)',
-  }),
-  fallback: Schema.optional(
-    Schema.String.annotations({
-      description: 'Fallback text (e.g. initials) when the image cannot be loaded',
-    })
-  ),
-}).annotations({
-  title: 'Avatar Item',
-  description: 'A single avatar in an avatar group',
-})
-
 
 export const TimeFormatSchema = Schema.Literal('12h', '24h').annotations({
   title: 'Time Format',
@@ -314,7 +277,5 @@ export type BadgeVariant = Schema.Schema.Type<typeof BadgeVariantSchema>
 export type AlertVariant = Schema.Schema.Type<typeof AlertVariantSchema>
 export type FloatingSide = Schema.Schema.Type<typeof FloatingSideSchema>
 export type FloatingAlign = Schema.Schema.Type<typeof FloatingAlignSchema>
-export type TagItem = Schema.Schema.Type<typeof TagItemSchema>
-export type AvatarItem = Schema.Schema.Type<typeof AvatarItemSchema>
 export type TimeFormat = Schema.Schema.Type<typeof TimeFormatSchema>
 export type ProgressVariant = Schema.Schema.Type<typeof ProgressVariantSchema>

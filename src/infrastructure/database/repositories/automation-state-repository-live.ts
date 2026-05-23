@@ -12,8 +12,12 @@ import {
   AutomationStateRepository,
 } from '@/application/ports/repositories/automation-state-repository'
 import { db } from '@/infrastructure/database'
-import { automationState } from '@/infrastructure/database/drizzle/schema/automation-state'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { automationState as automationStatePg } from '@/infrastructure/database/drizzle/schema/automation-state'
+import { automationState as automationStateSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation-state'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+const automationState = resolveDialectSchema(automationStatePg, automationStateSqlite)
 
 const wrap = makeDbWrap((cause) => new AutomationStateDatabaseError({ cause }))
 

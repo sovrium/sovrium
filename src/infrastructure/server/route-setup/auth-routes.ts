@@ -14,8 +14,11 @@ import { type Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
-import { oauthAccessTokens, oauthClients } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import {
+  authOauthAccessTokensTable,
+  authOauthClientsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { logError } from '@/infrastructure/logging/logger'
 import { chainAdminInvitationRoutes } from './admin-invitation-routes'
 import {
@@ -259,6 +262,7 @@ const setupOauthPublicClientIntrospect = (
       )
     }
 
+    const oauthClients = authOauthClientsTable()
     const clientRows = await db
       .select()
       .from(oauthClients)
@@ -272,6 +276,7 @@ const setupOauthPublicClientIntrospect = (
       )
     }
 
+    const oauthAccessTokens = authOauthAccessTokensTable()
     const tokenRows = await db
       .select()
       .from(oauthAccessTokens)

@@ -9,7 +9,10 @@ import { Data, Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/form-submission-repository'
 import { buildGuestSession } from '@/application/use-cases/automations/build-guest-session'
 import { triggerFormSubmissionAutomations } from '@/application/use-cases/automations/trigger-form-submission'
+import { checkHoneypot } from '@/application/use-cases/forms/submit-form-honeypot'
 import { createRecordProgram } from '@/application/use-cases/tables/programs'
+import { collectFieldsInHiddenGroups } from '@/domain/models/shared/field-groups-flow'
+import { evaluateAvailabilityWindow } from '@/domain/models/shared/form-availability-flow'
 import {
   buildConditionValueMap,
   fieldSubmitIdentifier,
@@ -21,6 +24,10 @@ import { collectFieldsInSkippedSteps } from '@/domain/models/shared/multi-step-f
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
+const CAP_COUNTED_STATUSES = ['received', 'processing', 'done'] as const
+
+export { FormHoneypotTrippedError } from '@/application/use-cases/forms/submit-form-honeypot'
+
 export class FormNotFoundError extends Data.TaggedError('FormNotFoundError')<{
   readonly formName: string
 }> {}
@@ -28,6 +35,19 @@ export class FormNotFoundError extends Data.TaggedError('FormNotFoundError')<{
 export class FormFieldRequiredError extends Data.TaggedError('FormFieldRequiredError')<{
   readonly fieldName: string
   readonly message: string
+}> {}
+
+export class FormNotYetOpenError extends Data.TaggedError('FormNotYetOpenError')<{
+  readonly opensAt: string
+}> {}
+
+export class FormClosedError extends Data.TaggedError('FormClosedError')<{
+  readonly closedAt: string
+}> {}
+
+export class FormSubmissionLimitError extends Data.TaggedError('FormSubmissionLimitError')<{
+  readonly maxSubmissions: number
+  readonly currentCount: number
 }> {}
 
 export interface SubmitFormResult {
@@ -40,12 +60,14 @@ export const findFormByName = (app: Readonly<App>, name: string): Form | undefin
 
 const checkFormRequiredFields = (
   form: Readonly<Form>,
-  body: Readonly<Record<string, unknown>>
+  body: Readonly<Record<string, unknown>>,
+  hiddenGroupFields: ReadonlySet<string>
 ): Effect.Effect<void, FormFieldRequiredError, never> => {
   const values = buildConditionValueMap(form, body)
   const offending = form.fields.find((field) => {
     const identifier = fieldSubmitIdentifier(field)
     if (identifier === undefined) return false
+    if (hiddenGroupFields.has(identifier)) return false
     if (!isFieldVisible(field, values)) return false
     if (!isFieldRequired(field, values)) return false
     if (!(identifier in body)) return true
@@ -85,6 +107,23 @@ const stripSkippedStepFields = (
   const skipped = collectFieldsInSkippedSteps(form, values)
   if (skipped.size === 0) return { ...body }
   return Object.fromEntries(Object.entries(body).filter(([key]) => !skipped.has(key)))
+}
+
+const hiddenGroupFieldSet = (
+  form: Readonly<Form>,
+  body: Readonly<Record<string, unknown>>
+): ReadonlySet<string> => {
+  if (form.fieldGroups === undefined || form.fieldGroups.length === 0) return new Set<string>()
+  const values = buildConditionValueMap(form, body)
+  return collectFieldsInHiddenGroups(form, values)
+}
+
+const stripHiddenGroupFields = (
+  body: Readonly<Record<string, unknown>>,
+  hidden: ReadonlySet<string>
+): Record<string, unknown> => {
+  if (hidden.size === 0) return { ...body }
+  return Object.fromEntries(Object.entries(body).filter(([key]) => !hidden.has(key)))
 }
 
 const applyMapping = (
@@ -175,6 +214,7 @@ interface SubmitFormConfig {
   readonly userAgent?: string
   readonly query?: Readonly<Record<string, string>>
   readonly processEnv?: Readonly<Record<string, string | undefined>>
+  readonly submitterUserId?: string
 }
 
 const coerceLinkedRecordId = (
@@ -193,9 +233,10 @@ const writeLedgerRow = (input: {
   readonly linkedRecordId: string | undefined
   readonly ipAddress: string | undefined
   readonly userAgent: string | undefined
+  readonly submitterUserId: string | undefined
 }) =>
   Effect.gen(function* () {
-    const { form, mapped, linkedRecordId, ipAddress, userAgent } = input
+    const { form, mapped, linkedRecordId, ipAddress, userAgent, submitterUserId } = input
     if (form.submitTo.storeSubmission === false) return undefined
     const repo = yield* FormSubmissionRepository
     const ledger = yield* repo.createTopLevel({
@@ -207,8 +248,42 @@ const writeLedgerRow = (input: {
       ...(linkedRecordId !== undefined ? { linkedRecordId } : {}),
       ...(ipAddress !== undefined ? { ipAddress } : {}),
       ...(userAgent !== undefined ? { userAgent } : {}),
+      ...(submitterUserId !== undefined ? { submitterUserId } : {}),
     })
     return ledger.id
+  })
+
+const reserveLedgerSlot = (input: {
+  readonly form: Readonly<Form>
+  readonly mapped: Readonly<Record<string, unknown>>
+  readonly maxSubmissions: number
+  readonly ipAddress: string | undefined
+  readonly userAgent: string | undefined
+  readonly submitterUserId: string | undefined
+}) =>
+  Effect.gen(function* () {
+    const { form, mapped, maxSubmissions, ipAddress, userAgent, submitterUserId } = input
+    const repo = yield* FormSubmissionRepository
+    const reserved = yield* repo.reserveTopLevelSlot({
+      formName: form.name,
+      formId: form.id,
+      status: 'received',
+      data: mapped,
+      maxSubmissions,
+      countStatuses: CAP_COUNTED_STATUSES,
+      ...(form.submitTo.table !== undefined ? { linkedRecordTable: form.submitTo.table } : {}),
+      ...(ipAddress !== undefined ? { ipAddress } : {}),
+      ...(userAgent !== undefined ? { userAgent } : {}),
+      ...(submitterUserId !== undefined ? { submitterUserId } : {}),
+    })
+    if (reserved === undefined) {
+      const currentCount = yield* repo.countByFormNameAndStatus({
+        formName: form.name,
+        statuses: CAP_COUNTED_STATUSES,
+      })
+      return yield* new FormSubmissionLimitError({ maxSubmissions, currentCount })
+    }
+    return reserved.id
   })
 
 const buildLinkedRecord = (
@@ -222,26 +297,60 @@ const buildLinkedRecord = (
   return { table: form.submitTo.table, id: linkedRecordId ?? '' }
 }
 
-export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
+const checkAvailabilityWindow = (
+  form: Readonly<Form>
+): Effect.Effect<void, FormNotYetOpenError | FormClosedError, never> => {
+  const windowState = evaluateAvailabilityWindow(form.availability, Date.now())
+  if (windowState.kind === 'not-yet-open') {
+    return Effect.fail(new FormNotYetOpenError({ opensAt: windowState.opensAt }))
+  }
+  if (windowState.kind === 'closed') {
+    return Effect.fail(new FormClosedError({ closedAt: windowState.closedAt }))
+  }
+  return Effect.void
+}
+
+const processSubmissionBody = (
+  form: Readonly<Form>,
+  body: Readonly<Record<string, unknown>>,
+  query: Readonly<Record<string, string>>
+): Effect.Effect<Record<string, unknown>, FormFieldRequiredError, never> =>
   Effect.gen(function* () {
-    const { app, formName, body, ipAddress, userAgent, processEnv, query } = config
-    const form = findFormByName(app, formName)
-    if (form === undefined) {
-      return yield* new FormNotFoundError({ formName })
-    }
-
-    const withDefaults = applyFieldDefaults(body, form, query ?? {})
-
+    const withDefaults = applyFieldDefaults(body, form, query)
     const fieldVisibilityFiltered = stripHiddenFields(form, withDefaults)
+    const stepFiltered = stripSkippedStepFields(form, fieldVisibilityFiltered)
+    const hiddenGroupFields = hiddenGroupFieldSet(form, stepFiltered)
+    const visibilityFiltered = stripHiddenGroupFields(stepFiltered, hiddenGroupFields)
+    yield* checkFormRequiredFields(form, visibilityFiltered, hiddenGroupFields)
+    return applyMapping(filterDeclaredFields(visibilityFiltered, form), form.submitTo.mapping)
+  })
 
-    const visibilityFiltered = stripSkippedStepFields(form, fieldVisibilityFiltered)
+interface PersistOutcome {
+  readonly submissionId: string | undefined
+  readonly linkedRecordPresent: boolean
+  readonly linkedRecordId: string | undefined
+}
 
-    yield* checkFormRequiredFields(form, visibilityFiltered)
-
-    const mapped = applyMapping(
-      filterDeclaredFields(visibilityFiltered, form),
-      form.submitTo.mapping
-    )
+const persistSubmission = (input: {
+  readonly form: Readonly<Form>
+  readonly mapped: Readonly<Record<string, unknown>>
+  readonly ipAddress: string | undefined
+  readonly userAgent: string | undefined
+  readonly submitterUserId: string | undefined
+}) =>
+  Effect.gen(function* () {
+    const { form, mapped, ipAddress, userAgent, submitterUserId } = input
+    const cappedSubmissionId =
+      form.availability?.maxSubmissions !== undefined
+        ? yield* reserveLedgerSlot({
+            form,
+            mapped,
+            maxSubmissions: form.availability.maxSubmissions,
+            ipAddress,
+            userAgent,
+            submitterUserId,
+          })
+        : undefined
 
     const linkedRecord =
       form.submitTo.table !== undefined
@@ -251,15 +360,46 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
             fields: filterTableBoundFields(mapped, form),
           })
         : undefined
-
     const linkedRecordId = coerceLinkedRecordId(linkedRecord)
 
-    const submissionId = yield* writeLedgerRow({
+    const submissionId =
+      cappedSubmissionId ??
+      (yield* writeLedgerRow({
+        form,
+        mapped,
+        linkedRecordId,
+        ipAddress,
+        userAgent,
+        submitterUserId,
+      }))
+
+    return {
+      submissionId,
+      linkedRecordPresent: linkedRecord !== undefined,
+      linkedRecordId,
+    } satisfies PersistOutcome
+  })
+
+export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
+  Effect.gen(function* () {
+    const { app, formName, body, ipAddress, userAgent, processEnv, query, submitterUserId } = config
+    const form = findFormByName(app, formName)
+    if (form === undefined) {
+      return yield* new FormNotFoundError({ formName })
+    }
+
+    yield* checkAvailabilityWindow(form)
+
+    yield* checkHoneypot({ form, body, ipAddress, userAgent })
+
+    const mapped = yield* processSubmissionBody(form, body, query ?? {})
+
+    const { submissionId, linkedRecordPresent, linkedRecordId } = yield* persistSubmission({
       form,
       mapped,
-      linkedRecordId,
       ipAddress,
       userAgent,
+      submitterUserId,
     })
 
     yield* triggerFormSubmissionAutomations({
@@ -268,7 +408,7 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       submissionData: mapped,
       submissionId: submissionId ?? null,
       formId: form.id,
-      linkedRecord: buildLinkedRecord(form, linkedRecord !== undefined, linkedRecordId),
+      linkedRecord: buildLinkedRecord(form, linkedRecordPresent, linkedRecordId),
       processEnv: processEnv ?? {},
     })
 

@@ -15,6 +15,8 @@ import {
 import { sanitizeTableName } from '@/domain/utils/table-naming'
 import { db } from '@/infrastructure/database'
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge'
+import { authTableRef } from '@/infrastructure/database/drizzle/dialect-schema'
+import { executeRaw, executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
@@ -173,28 +175,31 @@ async function handleExport(c: Context, app: App): Promise<Response> {
   if (session === undefined) return unauthorized(c)
   const { userId } = session
 
-  const userRows = (await db.execute(
+  const userRows = await executeRawTyped<UserRow>(
+    db,
     sql`SELECT id, email, name, image, email_verified AS "emailVerified",
                role, created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM auth.user WHERE id = ${userId}`
-  )) as unknown as readonly UserRow[]
+        FROM ${authTableRef('user')} WHERE id = ${userId}`
+  )
 
   const user = userRows[0]
   if (user === undefined) return unauthorized(c)
 
-  const sessionRows = (await db.execute(
+  const sessionRows = await executeRawTyped<SessionRow>(
+    db,
     sql`SELECT id, user_id AS "userId", expires_at AS "expiresAt",
                ip_address AS "ipAddress", user_agent AS "userAgent",
                created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM auth.session WHERE user_id = ${userId}`
-  )) as unknown as readonly SessionRow[]
+        FROM ${authTableRef('session')} WHERE user_id = ${userId}`
+  )
 
-  const accountRows = (await db.execute(
+  const accountRows = await executeRawTyped<AccountRow>(
+    db,
     sql`SELECT id, user_id AS "userId", provider_id AS "providerId",
                account_id AS "accountId", scope,
                created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM auth.account WHERE user_id = ${userId}`
-  )) as unknown as readonly AccountRow[]
+        FROM ${authTableRef('account')} WHERE user_id = ${userId}`
+  )
 
   const authoredRecords = await collectAuthoredRecords(userId, app.tables ?? [])
 
@@ -220,21 +225,21 @@ async function handleDelete(c: Context): Promise<Response> {
   }
 
   if ('cancel' in parsed.data) {
-    await db.execute(sql`UPDATE auth.user SET "scheduledErasureAt" = NULL WHERE id = ${userId}`)
+    await executeRaw(
+      db,
+      sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = NULL WHERE id = ${userId}`
+    )
     return c.json(accountDeleteCancelledResponseSchema.parse({ status: 'cancelled' }), 200)
   }
 
   const scheduledErasureAt = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000)
 
   await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`UPDATE auth.user SET "scheduledErasureAt" = ${scheduledErasureAt} WHERE id = ${userId}`
+    await executeRaw(
+      tx,
+      sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = ${scheduledErasureAt} WHERE id = ${userId}`
     )
-    await tx.execute(sql`DELETE FROM auth.session WHERE user_id = ${userId}`)
-    await tx.execute(
-      sql`INSERT INTO audit_log (action, actor_id)
-          VALUES ('account.deletion.scheduled', ${userId})`
-    )
+    await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
   })
 
   return c.json(

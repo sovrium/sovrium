@@ -171,6 +171,7 @@ async function handleOverview(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
+    console.error('[analytics] overview query failed', result.left)
     return c.json(
       { success: false, message: 'Failed to query analytics', code: 'INTERNAL_ERROR' },
       500
@@ -207,6 +208,7 @@ async function handlePages(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
+    console.error('[analytics] pages query failed', result.left)
     return c.json({ success: false, message: 'Failed to query pages', code: 'INTERNAL_ERROR' }, 500)
   }
 
@@ -240,6 +242,7 @@ async function handleReferrers(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
+    console.error('[analytics] referrers query failed', result.left)
     return c.json(
       { success: false, message: 'Failed to query referrers', code: 'INTERNAL_ERROR' },
       500
@@ -276,6 +279,7 @@ async function handleDevices(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
+    console.error('[analytics] devices query failed', result.left)
     return c.json(
       { success: false, message: 'Failed to query devices', code: 'INTERNAL_ERROR' },
       500
@@ -365,6 +369,7 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
+    console.error('[analytics] events query failed', result.left)
     return c.json(
       { success: false, message: 'Failed to query events', code: 'INTERNAL_ERROR' },
       500
@@ -413,6 +418,7 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
+    console.error('[analytics] campaigns query failed', result.left)
     return c.json(
       { success: false, message: 'Failed to query campaigns', code: 'INTERNAL_ERROR' },
       500

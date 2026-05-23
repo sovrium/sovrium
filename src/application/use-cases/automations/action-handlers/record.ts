@@ -7,7 +7,11 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/table-repository'
-import { createRecordProgram, updateRecordProgram } from '@/application/use-cases/tables/programs'
+import {
+  createRecordProgram,
+  deleteRecordProgram,
+  updateRecordProgram,
+} from '@/application/use-cases/tables/programs'
 import { buildGuestSession } from '../build-guest-session'
 import {
   buildRunContextView,
@@ -164,6 +168,100 @@ export const handleRecordUpdate: ActionHandler = (action, _app, _automation) =>
       return { status: 'failure', error: message } as const
     }
     return { status: 'success' } as const
+  })
+
+const upsertCreate = (
+  tableName: string,
+  data: Readonly<Record<string, unknown>>
+): Effect.Effect<ActionOutcome, never, TableRepository> =>
+  Effect.gen(function* () {
+    const created = yield* Effect.either(
+      createRecordProgram({ session: buildGuestSession(), tableName, fields: data })
+    )
+    return created._tag === 'Left'
+      ? failureFromError(created.left)
+      : ({ status: 'success', output: { operation: 'created' } } as const)
+  })
+
+const upsertUpdate = (
+  tableName: string,
+  matchedIds: readonly string[],
+  data: Readonly<Record<string, unknown>>
+): Effect.Effect<ActionOutcome, never, TableRepository> =>
+  Effect.gen(function* () {
+    const session = buildGuestSession()
+    const updates = yield* Effect.either(
+      Effect.forEach(
+        matchedIds,
+        (recordId) => updateRecordProgram(session, tableName, recordId, { fields: data }),
+        { discard: true }
+      )
+    )
+    return updates._tag === 'Left'
+      ? failureFromError(updates.left)
+      : ({ status: 'success', output: { operation: 'updated' } } as const)
+  })
+
+export const handleRecordUpsert: ActionHandler = (action, _app, _automation) =>
+  Effect.gen(function* () {
+    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
+    const tableName = stringProp(props, 'table')
+    const data = recordProp(props, 'data') ?? recordProp(props, 'fields') ?? {}
+
+    if (!tableName) {
+      return { status: 'failure', error: 'record.upsert requires a table name' } as const
+    }
+
+    const idProp = stringProp(props, 'id')
+    const idFastPath = idProp !== '' ? idProp : extractIdFromFilter(props['filter'])
+    const matchedIds: readonly string[] = idFastPath
+      ? [idFastPath]
+      : yield* resolveIdsByFilter(tableName, props['filter'])
+
+    return matchedIds.length === 0
+      ? yield* upsertCreate(tableName, data)
+      : yield* upsertUpdate(tableName, matchedIds, data)
+  })
+
+export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
+  Effect.gen(function* () {
+    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
+    const tableName = stringProp(props, 'table')
+    if (!tableName) {
+      return { status: 'failure', error: 'record.delete requires a table name' } as const
+    }
+
+    if (
+      toQueryFilter(props['filter']) === undefined &&
+      extractIdFromFilter(props['filter']) === undefined
+    ) {
+      return {
+        status: 'failure',
+        error: 'record.delete requires a filter with at least one condition',
+      } as const
+    }
+
+    const idFastPath = extractIdFromFilter(props['filter'])
+    const idsToDelete: readonly string[] = idFastPath
+      ? [idFastPath]
+      : yield* resolveIdsByFilter(tableName, props['filter'])
+
+    if (idsToDelete.length === 0) {
+      return { status: 'success', output: { deletedCount: 0 } } as const
+    }
+
+    const session = buildGuestSession()
+    const deletes = yield* Effect.either(
+      Effect.forEach(idsToDelete, (recordId) => deleteRecordProgram(session, tableName, recordId), {
+        discard: true,
+      })
+    )
+    if (deletes._tag === 'Left') {
+      const err = deletes.left
+      const message = err instanceof Error ? err.message : String(err)
+      return { status: 'failure', error: message } as const
+    }
+    return { status: 'success', output: { deletedCount: idsToDelete.length } } as const
   })
 
 const resolveIdsByFilter = (

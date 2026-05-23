@@ -80,7 +80,10 @@ export async function handleListUsers(c: Context, app: App) {
   })
 
   const result = await Effect.runPromise(provideConnectionLive(program).pipe(Effect.either))
-  if (result._tag === 'Left') return connectionError(c, 500, 'list_users_failed')
+  if (result._tag === 'Left') {
+    console.error('[connections] list users failed', result.left)
+    return connectionError(c, 500, 'list_users_failed')
+  }
   const memberEntries = await dropAdminUsers(result.right)
   const users = memberEntries.map((entry) => ({
     userId: entry.userId,

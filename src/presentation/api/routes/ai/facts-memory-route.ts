@@ -97,6 +97,7 @@ const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Respo
     )
   )
   if (result._tag === 'Left') {
+    console.error('[ai] recall-facts failed', result.left)
     return c.json({ error: 'Failed to recall facts.' }, 500)
   }
   const facts = result.right.map((f) => ({

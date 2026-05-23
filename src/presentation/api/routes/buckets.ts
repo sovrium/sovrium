@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { isFilePublic, resolveStoragePublicAccess } from '@/domain/models/env/storage-public-access'
@@ -167,6 +168,9 @@ async function produceTransformResponse(
     const { cause } = result.left as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
     const isNotFound = isNotFoundError(cause)
+    if (!isNotFound) {
+      console.error('[buckets] download (transform path) failed', result.left)
+    }
     return c.json(
       {
         success: false,
@@ -358,6 +362,7 @@ async function persistUpload(c: Context, file: File, explicitPath?: string): Pro
   if (result._tag === 'Left') {
     const { cause } = result.left as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
+    console.error('[buckets] upload failed', result.left)
     return c.json(
       { success: false, error: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
       500
@@ -432,6 +437,9 @@ function createHandleDeleteBucketFile(app: App) {
       const { cause } = result.left as { readonly cause?: unknown }
       const isNotFound = isNotFoundError(cause)
       const message = cause instanceof Error ? cause.message : String(cause)
+      if (!isNotFound) {
+        console.error('[buckets] delete failed', result.left)
+      }
       return c.json(
         {
           success: false,

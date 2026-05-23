@@ -11,8 +11,12 @@ import {
   AiActivityLogRepository,
 } from '@/application/ports/repositories/ai-activity-log-repository'
 import { db } from '@/infrastructure/database'
-import { aiActivityLogs } from '@/infrastructure/database/drizzle/schema/ai'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { aiActivityLogs as aiActivityLogsPg } from '@/infrastructure/database/drizzle/schema/ai'
+import { aiActivityLogs as aiActivityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+const aiActivityLogs = resolveDialectSchema(aiActivityLogsPg, aiActivityLogsSqlite)
 
 const wrap = makeDbWrap((cause) => new AiActivityLogDatabaseError({ cause }))
 

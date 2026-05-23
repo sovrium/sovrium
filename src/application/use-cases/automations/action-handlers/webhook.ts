@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createHmac } from 'node:crypto'
 import { Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/utils/timeouts'
 import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
@@ -41,8 +42,19 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: bodyResult.left.message } as const
     }
 
-    return yield* Effect.promise(() => sendWebhook(url, method, merged.headers, bodyResult.right))
+    const secret = stringProp(props, 'secret')
+    const signedHeaders =
+      secret !== ''
+        ? { ...merged.headers, 'X-Webhook-Signature': signBody(bodyResult.right, secret) }
+        : merged.headers
+
+    return yield* Effect.promise(() => sendWebhook(url, method, signedHeaders, bodyResult.right))
   })
+
+const signBody = (body: string | undefined, secret: string): string =>
+  `sha256=${createHmac('sha256', secret)
+    .update(body ?? '')
+    .digest('hex')}`
 
 export const handleWebhookResponse: ActionHandler = (action) =>
   Effect.sync(() => {

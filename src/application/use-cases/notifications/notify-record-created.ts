@@ -10,8 +10,8 @@ import { Data, Effect } from 'effect'
 import { NotificationSubscriptionRepository } from '@/application/ports/repositories/notification-subscription-repository'
 import { NotificationService } from '@/application/ports/services/notification-service'
 import { sanitizeRichTextHTML, stripHtmlToText } from '@/domain/utils/html-sanitization'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { sendEmailWithOptions } from '@/infrastructure/email/email-service'
 import type { App } from '@/domain/models/app'
 
@@ -83,6 +83,7 @@ class NotificationEmailSendError extends Data.TaggedError('NotificationEmailSend
 const lookupUserEmail = Effect.fn('lookupUserEmail')(function* (userId: string) {
   return yield* Effect.tryPromise({
     try: async () => {
+      const users = authUsersTable()
       const rows = await db
         .select({ email: users.email, name: users.name })
         .from(users)

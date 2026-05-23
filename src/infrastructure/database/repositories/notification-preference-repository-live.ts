@@ -12,8 +12,15 @@ import {
   NotificationPreferenceRepository,
 } from '@/application/ports/repositories/notification-preference-repository'
 import { db } from '@/infrastructure/database'
-import { notificationPreferences } from '@/infrastructure/database/drizzle/schema/notification'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { notificationPreferences as notificationPreferencesPg } from '@/infrastructure/database/drizzle/schema/notification'
+import { notificationPreferences as notificationPreferencesSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/notification'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+const notificationPreferences = resolveDialectSchema(
+  notificationPreferencesPg,
+  notificationPreferencesSqlite
+)
 
 const wrap = makeDbWrap((cause) => new NotificationPreferenceDatabaseError({ cause }))
 

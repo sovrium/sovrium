@@ -21,6 +21,21 @@ const countSelectClause = (): string =>
     ? 'CAST(COUNT(*) AS TEXT) as count'
     : 'COUNT(*)::text as count'
 
+export const countAsIntSelectClause = (): SQL<number> =>
+  parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? sql<number>`CAST(COUNT(*) AS INTEGER)`
+    : sql<number>`count(*)::int`
+
+export const castToInt = (expr: SQL): SQL<number> =>
+  parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? sql<number>`CAST((${expr}) AS INTEGER)`
+    : sql<number>`(${expr})::int`
+
+export const castToFloat = (expr: SQL): SQL<number> =>
+  parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? sql<number>`CAST((${expr}) AS REAL)`
+    : sql<number>`(${expr})::float`
+
 export function buildAggregationSelects(aggregate: {
   readonly count?: boolean
   readonly sum?: readonly string[]

@@ -56,11 +56,77 @@ export function renderHeroImage(props: ElementProps): ReactElement {
   )
 }
 
+interface VideoTrack {
+  readonly src: string
+  readonly kind?: string
+  readonly srclang?: string
+  readonly label?: string
+}
+
+function toEmbedUrl(src: string | undefined): string | undefined {
+  if (!src) return undefined
+  const youtubeWatch = src.match(/youtube\.com\/watch\?v=([\w-]+)/)
+  if (youtubeWatch) return `https://www.youtube.com/embed/${youtubeWatch[1]}`
+  const youtubeShort = src.match(/youtu\.be\/([\w-]+)/)
+  if (youtubeShort) return `https://www.youtube.com/embed/${youtubeShort[1]}`
+  const vimeo = src.match(/vimeo\.com\/(\d+)/)
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
+  return undefined
+}
+
 export function renderVideo(
   props: ElementProps,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <video {...props}>{children}</video>
+  const {
+    autoplay,
+    aspectRatio: _ar,
+    tracks,
+    sources: _sources,
+    src,
+    ...rest
+  } = props as {
+    autoplay?: boolean
+    aspectRatio?: string
+    tracks?: readonly VideoTrack[]
+    sources?: unknown
+    src?: string
+    [key: string]: unknown
+  }
+
+  const embedUrl = toEmbedUrl(src)
+  if (embedUrl) {
+    return (
+      <iframe
+        {...rest}
+        src={embedUrl}
+        title={(rest['title'] as string | undefined) ?? 'Video'}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    )
+  }
+
+  const trackChildren = tracks?.map((track, i) => (
+    <track
+      key={i}
+      src={track.src}
+      kind={track.kind}
+      srcLang={track.srclang}
+      label={track.label}
+    />
+  ))
+
+  return (
+    <video
+      {...rest}
+      src={src}
+      autoPlay={autoplay}
+    >
+      {trackChildren}
+      {children}
+    </video>
+  )
 }
 
 export function renderAudio(

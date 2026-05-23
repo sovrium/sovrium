@@ -42,7 +42,6 @@ import { chainFavoriteRoutes } from '@/presentation/api/routes/favorites'
 import { chainNotificationRoutes } from '@/presentation/api/routes/notifications'
 import { chainRealtimeRoutes } from '@/presentation/api/routes/realtime'
 import { chainRecentRoutes } from '@/presentation/api/routes/recent'
-import { chainShareLinkRoutes } from '@/presentation/api/routes/share-links'
 import {
   extractClientIp,
   isTablesRateLimitExceeded,
@@ -281,6 +280,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/automations', requireAuth())
         .use('/api/buckets/*', authMiddleware(auth))
         .use('/api/connections/*', authMiddleware(auth))
+        .use('/forms/*', authMiddleware(auth))
+        .use('/api/forms/*', authMiddleware(auth))
         .use('/api/session/active-scope/:tableSlug', authMiddleware(auth))
         .use('/api/ai/chat', authMiddleware(auth))
         .use('/api/ai/chat', requireAuth())
@@ -336,9 +337,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   const honoWithConnections = chainConnectionRoutes(honoWithNotifications, app)
 
-  const honoWithShareLinks = chainShareLinkRoutes(honoWithConnections, app)
 
-  const honoWithBuckets = chainBucketRoutes(honoWithShareLinks, app)
+  const honoWithBuckets = chainBucketRoutes(honoWithConnections, app)
 
   const honoWithForms = chainFormRoutes(honoWithBuckets, app, FormRenderers)
 

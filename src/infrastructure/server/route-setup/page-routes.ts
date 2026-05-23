@@ -11,6 +11,7 @@ import { getCookie } from 'hono/cookie'
 import { parseEcoPageCache } from '@/domain/models/env/eco-page-cache'
 import { computeAppRenderChecksum } from '@/domain/services/app-render-checksum'
 import { isRenderablePathCacheable } from '@/domain/services/page-cacheability'
+import { buildRobotsTxt, buildSitemapXml } from '@/domain/services/sitemap-builder'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   getCachedPage,
@@ -304,6 +305,34 @@ export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig
   })
 }
 
+export function setupSitemapRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
+  const { app } = config
+
+  return honoApp.get('/sitemap.xml', (c) => {
+    const url = new URL(c.req.url)
+    const baseUrl = `${url.protocol}//${url.host}`
+    const xml = buildSitemapXml(app.pages ?? [], baseUrl)
+    return c.body(xml, 200, {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+    })
+  })
+}
+
+export function setupRobotsRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
+  const { app } = config
+
+  return honoApp.get('/robots.txt', (c) => {
+    const url = new URL(c.req.url)
+    const baseUrl = `${url.protocol}//${url.host}`
+    const body = buildRobotsTxt(app.pages ?? [], baseUrl)
+    return c.body(body, 200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+    })
+  })
+}
+
 export function setupTestErrorRoute(
   honoApp: Readonly<Hono>,
   config: HonoAppConfig
@@ -322,7 +351,16 @@ export function setupTestErrorRoute(
 export function setupPageRoutes(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
   return setupDynamicPageRoutes(
     setupLanguageRoutes(
-      setupRssFeedRoute(setupTestErrorRoute(setupHomepageRoute(honoApp, config), config), config),
+      setupRobotsRoute(
+        setupSitemapRoute(
+          setupRssFeedRoute(
+            setupTestErrorRoute(setupHomepageRoute(honoApp, config), config),
+            config
+          ),
+          config
+        ),
+        config
+      ),
       config
     ),
     config

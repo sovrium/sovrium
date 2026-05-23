@@ -10,9 +10,19 @@ import { revalidateInlinePrefillParent } from '@/application/use-cases/forms/inl
 import {
   findFormByName,
   submitFormProgram,
+  FormClosedError,
   FormFieldRequiredError,
+  FormHoneypotTrippedError,
   FormNotFoundError,
+  FormNotYetOpenError,
+  FormSubmissionLimitError,
 } from '@/application/use-cases/forms/submit-form'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import {
+  evaluateFormAccess,
+  type FormAccessDecision,
+} from '@/domain/models/shared/form-access-flow'
+import { evaluateAvailabilityWindow } from '@/domain/models/shared/form-availability-flow'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
 import { provideFormsLive } from '@/presentation/api/routes/forms/effect-runner'
 import {
@@ -23,18 +33,40 @@ import {
   handleGetStepFragment,
   handlePostStepAdvance,
 } from '@/presentation/api/routes/forms/step-handlers'
+import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { Context, Hono } from 'hono'
 
+export interface FormPrefillContext {
+  readonly query: Readonly<Record<string, string>>
+  readonly user?: Readonly<Record<string, unknown>>
+}
+
 export interface FormRenderers {
-  readonly renderForm: (app: Readonly<App>, form: Readonly<Form>) => string
-  readonly renderEmbed: (app: Readonly<App>, form: Readonly<Form>) => string
+  readonly renderForm: (
+    app: Readonly<App>,
+    form: Readonly<Form>,
+    activeLang?: string,
+    prefillCtx?: FormPrefillContext
+  ) => string
+  readonly renderEmbed: (
+    app: Readonly<App>,
+    form: Readonly<Form>,
+    activeLang?: string,
+    prefillCtx?: FormPrefillContext
+  ) => string
   readonly renderStepFragment: (
     app: Readonly<App>,
     form: Readonly<Form>,
     stepId: string,
     draftValues: Readonly<Record<string, unknown>>
+  ) => string
+  readonly renderClosedForm: (
+    app: Readonly<App>,
+    form: Readonly<Form>,
+    reason: 'not-yet-open' | 'closed',
+    opensAt?: string
   ) => string
 }
 
@@ -46,29 +78,59 @@ function extractClientIp(c: Context): string | undefined {
   return c.req.header('x-real-ip') ?? undefined
 }
 
-function handleGetForm(
-  c: Context,
-  app: App,
-  renderers: FormRenderers
-): Response | Promise<Response> {
-  const name = c.req.param('name')
-  if (!name) return c.notFound()
-  const form = findFormByName(app, name)
-  if (!form) return c.notFound()
-  return c.html(renderers.renderForm(app, form))
+function renderFormUnauthorizedHtml(formName: string, require: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>401 — authentication required</title></head><body><main class="form-access-denied" data-status="401"><p>Form "${formName}" requires ${require} access.</p></main></body></html>`
 }
 
-function handleGetFormEmbed(
-  c: Context,
-  app: App,
-  renderers: FormRenderers
-): Response | Promise<Response> {
+async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Promise<Response> {
   const name = c.req.param('name')
   if (!name) return c.notFound()
   const form = findFormByName(app, name)
   if (!form) return c.notFound()
-  return c.html(renderers.renderEmbed(app, form))
+  const { decision } = await evaluateFormAccessForRequest(c, form)
+  if (decision.kind === 'unauthorized') {
+    return c.html(renderFormUnauthorizedHtml(form.name, decision.require), 401)
+  }
+  if (decision.kind === 'not-found') return c.notFound()
+  const activeLang = c.req.query('lang')
+  const windowState = evaluateAvailabilityWindow(form.availability, Date.now())
+  if (windowState.kind === 'not-yet-open') {
+    return c.html(renderers.renderClosedForm(app, form, 'not-yet-open', windowState.opensAt))
+  }
+  if (windowState.kind === 'closed') {
+    return c.html(renderers.renderClosedForm(app, form, 'closed'))
+  }
+  return c.html(renderers.renderForm(app, form, activeLang, buildPrefillContext(c)))
 }
+
+function buildPrefillContext(c: Context): FormPrefillContext {
+  const query = c.req.query() as Record<string, string>
+  const session = getSessionContext(c)
+  const user = session ? { id: session.userId } : undefined
+  return user ? { query, user } : { query }
+}
+
+async function resolveFormSession(
+  c: Context
+): Promise<{ readonly userId: string; readonly role: string } | undefined> {
+  const session = getSessionContext(c)
+  if (!session) return undefined
+  const role = await getUserRole(session.userId)
+  return { userId: session.userId, role }
+}
+
+async function evaluateFormAccessForRequest(
+  c: Context,
+  form: Readonly<Form>
+): Promise<{
+  readonly decision: FormAccessDecision
+  readonly session: { readonly userId: string; readonly role: string } | undefined
+}> {
+  const session = await resolveFormSession(c)
+  const decision = evaluateFormAccess(form.access?.require, session)
+  return { decision, session }
+}
+
 
 async function readSubmissionBody(c: Context): Promise<Record<string, unknown>> {
   const contentType = c.req.header('content-type') ?? ''
@@ -138,10 +200,35 @@ function respondValidation400(
   return c.html(renderSubmissionErrorHtml(message, '400 — validation failed'), 400)
 }
 
+function respondAvailability403(c: Context, failure: unknown): Response | undefined {
+  if (failure instanceof FormHoneypotTrippedError) {
+    return c.json({ error: 'invalid request' }, 400)
+  }
+  if (failure instanceof FormNotYetOpenError) {
+    return c.json({ error: 'form not yet open', opensAt: failure.opensAt }, 403)
+  }
+  if (failure instanceof FormClosedError) {
+    return c.json({ error: 'form closed', closedAt: failure.closedAt }, 403)
+  }
+  if (failure instanceof FormSubmissionLimitError) {
+    return c.json(
+      {
+        error: 'submission limit reached',
+        maxSubmissions: failure.maxSubmissions,
+        currentCount: failure.currentCount,
+      },
+      403
+    )
+  }
+  return undefined
+}
+
 function respondSubmissionFailure(c: Context, isJsonClient: boolean, failure: unknown): Response {
   if (failure instanceof FormNotFoundError) {
     return c.json({ error: 'form_not_found' }, 404)
   }
+  const structured = respondAvailability403(c, failure)
+  if (structured !== undefined) return structured
   if (failure instanceof FormFieldRequiredError) {
     return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
   }
@@ -186,6 +273,15 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   const form = findFormByName(app, name)
   if (!form) return c.json({ error: 'form_not_found' }, 404)
 
+  const { decision, session } = await evaluateFormAccessForRequest(c, form)
+  if (decision.kind === 'unauthorized') {
+    return c.json(
+      { error: 'authentication required', form: form.name, require: decision.require },
+      401
+    )
+  }
+  if (decision.kind === 'not-found') return c.json({ error: 'form_not_found' }, 404)
+
   const rawBody = await readSubmissionBody(c)
   const uploadResult = await Effect.runPromise(
     provideFormsLive(transformMultipartFiles(app, form, rawBody)).pipe(Effect.either)
@@ -214,6 +310,7 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
     formName: name,
     body: uploadResult.right,
     isJsonClient,
+    ...(session !== undefined ? { submitterUserId: session.userId } : {}),
   })
 }
 
@@ -223,10 +320,11 @@ interface RunSubmitProgramConfig {
   readonly formName: string
   readonly body: Record<string, unknown>
   readonly isJsonClient: boolean
+  readonly submitterUserId?: string
 }
 
 async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promise<Response> {
-  const { c, app, formName, body, isJsonClient } = config
+  const { c, app, formName, body, isJsonClient, submitterUserId } = config
   const ipAddress = extractClientIp(c)
   const userAgent = c.req.header('user-agent')
   const query = c.req.query() as Record<string, string>
@@ -238,6 +336,7 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
     processEnv: process.env,
     ...(ipAddress !== undefined ? { ipAddress } : {}),
     ...(userAgent !== undefined ? { userAgent } : {}),
+    ...(submitterUserId !== undefined ? { submitterUserId } : {}),
   })
   const result = await Effect.runPromise(provideFormsLive(program).pipe(Effect.either))
   if (result._tag === 'Left') {
@@ -253,7 +352,6 @@ export function chainFormRoutes<T extends Hono>(
 ): T {
   const forms = app.forms ?? []
   const withCanonical = honoApp
-    .get('/forms/:name/embed', (c) => handleGetFormEmbed(c, app, renderers))
     .get('/forms/:name', (c) => handleGetForm(c, app, renderers))
     .post('/api/forms/:name/submissions', (c) => handlePostSubmission(c, app))
     .post('/api/forms/:name/steps/:stepId/advance', (c) => handlePostStepAdvance(c, app))
@@ -268,7 +366,8 @@ export function chainFormRoutes<T extends Hono>(
     return acc.get(form.path, (c) => {
       const resolved = findFormByName(app, form.name)
       if (!resolved) return c.notFound()
-      return c.html(renderers.renderForm(app, resolved))
+      const activeLang = c.req.query('lang')
+      return c.html(renderers.renderForm(app, resolved, activeLang, buildPrefillContext(c)))
     }) as T
   }, withCanonical as T)
 }

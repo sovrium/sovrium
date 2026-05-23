@@ -8,8 +8,8 @@
 
 import { eq } from 'drizzle-orm'
 import { Data, Effect } from 'effect'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { sendEmail } from '@/infrastructure/email/email-service'
 import { logDebug } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
@@ -50,6 +50,7 @@ const renderFailureEmail = (
 const loadAdminEmails = (): Effect.Effect<readonly string[], never> =>
   Effect.tryPromise({
     try: async () => {
+      const users = authUsersTable()
       const rows = await db
         .select({ email: users.email })
         .from(users)

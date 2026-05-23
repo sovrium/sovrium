@@ -12,12 +12,26 @@ import {
   AutomationDigestRepository,
 } from '@/application/ports/repositories/automation-digest-repository'
 import { db } from '@/infrastructure/database'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
-  automationDigestBuckets,
-  automationDigestItems,
+  automationDigestBuckets as automationDigestBucketsPg,
+  automationDigestItems as automationDigestItemsPg,
 } from '@/infrastructure/database/drizzle/schema/automation-digest'
+import {
+  automationDigestBuckets as automationDigestBucketsSqlite,
+  automationDigestItems as automationDigestItemsSqlite,
+} from '@/infrastructure/database/drizzle/schema-sqlite/automation-digest'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
+
+const automationDigestBuckets = resolveDialectSchema(
+  automationDigestBucketsPg,
+  automationDigestBucketsSqlite
+)
+const automationDigestItems = resolveDialectSchema(
+  automationDigestItemsPg,
+  automationDigestItemsSqlite
+)
 
 const wrap = makeDbWrap((cause) => new AutomationDigestDatabaseError({ cause }))
 

@@ -9,8 +9,12 @@
 import { and, eq } from 'drizzle-orm'
 import { type Hono } from 'hono'
 import { SOVRIUM_ORGANIZATION_ID } from '@/infrastructure/auth/better-auth/org-team-seeder'
-import { members, teamMembers, teams } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
+import {
+  authMembersTable,
+  authTeamMembersTable,
+  authTeamsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 
@@ -71,6 +75,7 @@ const handleGetTeam = async (
     return c.json({ message: 'teamId query parameter is required' }, 400)
   }
 
+  const teams = authTeamsTable()
   const rows = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1)
   const team = rows[0]
   if (!team || team.organizationId !== SOVRIUM_ORGANIZATION_ID) {
@@ -80,6 +85,7 @@ const handleGetTeam = async (
 }
 
 const isOrganizationManager = async (userId: string): Promise<boolean> => {
+  const members = authMembersTable()
   const rows = await db
     .select({ role: members.role })
     .from(members)
@@ -112,6 +118,7 @@ const handleListTeamMembers = async (
   const teamId = c.req.query('teamId')
   if (!teamId) return enveloped
 
+  const teamMembers = authTeamMembersTable()
   const rows = await db
     .select({
       id: teamMembers.id,
@@ -129,6 +136,7 @@ const resolveMaxMembers = async (teamId: string, app: App): Promise<number | und
   const groups = app.auth?.groups ?? []
   if (groups.length === 0) return undefined
 
+  const teams = authTeamsTable()
   const rows = await db
     .select({ name: teams.name })
     .from(teams)
@@ -144,6 +152,7 @@ const capacityExceededLimit = async (teamId: string, app: App): Promise<number |
   const maxMembers = await resolveMaxMembers(teamId, app)
   if (maxMembers === undefined) return undefined
 
+  const teamMembers = authTeamMembersTable()
   const currentCount = (
     await db.select({ id: teamMembers.id }).from(teamMembers).where(eq(teamMembers.teamId, teamId))
   ).length
@@ -156,6 +165,7 @@ const isExistingTeamMember = async (
   userId: string | undefined
 ): Promise<boolean> => {
   if (teamId === undefined || userId === undefined) return false
+  const teamMembers = authTeamMembersTable()
   const rows = await db
     .select({ id: teamMembers.id })
     .from(teamMembers)
