@@ -569,7 +569,7 @@ score (see [SPEC-PROGRESS.md](SPEC-PROGRESS.md) for the live report).
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **May 23, 2030**. Commercial hosting licenses:
+**Apache 2.0** on **May 24, 2030**. Commercial hosting licenses:
 license@sovrium.com.
 
 ---

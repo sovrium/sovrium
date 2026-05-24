@@ -40,7 +40,7 @@ import { generateBaseLayer } from '@/infrastructure/css/theme/theme-layer-genera
 import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import { logDebug, logError, logWarning } from '@/infrastructure/logging/logger'
 import { isDevCacheDisabled, isProduction as checkIsProduction } from '@/infrastructure/utils/env'
-import { isCompiled } from '@/infrastructure/utils/package-paths'
+import { isCompiled, SOVRIUM_PACKAGE_ROOT } from '@/infrastructure/utils/package-paths'
 import type { App } from '@/domain/models/app'
 import type { Theme } from '@/domain/models/app/theme'
 import type { AcceptedPlugin, Result as PostcssResult } from 'postcss'
@@ -149,7 +149,7 @@ const processWithPostCSS = async (sourceCSS: string): Promise<PostcssResult> => 
 
   const processor = postcss([tailwindcss() as AcceptedPlugin])
   const compilationPromise = processor.process(sourceCSS, {
-    from: process.cwd() + '/src/styles/global.css',
+    from: SOVRIUM_PACKAGE_ROOT + '/src/styles/global.css',
     to: undefined,
   })
 

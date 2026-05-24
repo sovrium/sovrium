@@ -23,7 +23,6 @@ import { EnvVarsSchema } from './env'
 import { FormsSchema } from './forms'
 import { LanguagesSchema } from './languages'
 import { NameSchema } from './name'
-import { NotificationSchema } from './notifications'
 import { validateAllPageAccessGroups } from './page-access-validation'
 import { PagesSchema } from './pages'
 import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
@@ -67,8 +66,6 @@ export const AppSchema = Schema.Struct({
   agents: Schema.optional(AgentsSchema),
 
   buckets: Schema.optional(BucketsSchema),
-
-  notifications: Schema.optional(NotificationSchema),
 
   scripts: Schema.optional(AppScriptsSchema),
 }).pipe(
@@ -350,15 +347,6 @@ export const AppSchema = Schema.Struct({
     return true
   }),
   Schema.filter((app) => {
-    if (!app.notifications?.recordSubscriptions || !app.tables) return true
-
-    const tableNames = new Set(app.tables.map((t) => t.name))
-    const invalid = app.notifications.recordSubscriptions.find((sub) => !tableNames.has(sub.table))
-    return invalid
-      ? `Notification recordSubscription references table '${invalid.table}' which does not exist`
-      : true
-  }),
-  Schema.filter((app) => {
     if (!app.automations) return true
 
     const collectAllActions = (actions: ReadonlyArray<Action>): ReadonlyArray<Action> => {
@@ -404,17 +392,6 @@ export const AppSchema = Schema.Struct({
       return `Automation '${agentError.automation}' action '${agentError.action.name}' references agent '${agentError.action.props.agent}' which does not exist. Available agents: ${available}`
     }
 
-    return true
-  }),
-  Schema.filter((app) => {
-    if (!app.automations) return true
-
-    const hasNotificationAction = app.automations.some((a) =>
-      a.actions.some((action) => action.type === 'notification')
-    )
-    if (hasNotificationAction && !app.notifications) {
-      return 'Notification actions require notifications configuration to be enabled'
-    }
     return true
   }),
   Schema.filter((app) => {
@@ -497,7 +474,6 @@ export * from './description'
 export * from './env'
 export * from './languages'
 export * from './name'
-export * from './notifications'
 export * from './auth'
 export * from './pages'
 export * from './requires-email'

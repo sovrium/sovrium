@@ -25,7 +25,6 @@ import { LoopActionSchema } from './loop'
 import { PathActionSchema } from './path'
 import { RecordActionSchema } from './record'
 import { ActionRefSchema } from './ref'
-import { SendNotificationActionSchema } from './send-notification'
 import { StateActionSchema } from './state'
 import { WebhookActionSchema } from './webhook'
 import type { ConditionGroup } from '../conditions'
@@ -285,18 +284,6 @@ export type Action =
         readonly timeout?: string
         readonly onTimeout?: 'approve' | 'reject' | 'escalate'
         readonly notifyVia?: 'email' | 'webhook' | 'both'
-      }>)
-  | (ActionBase & {
-      readonly type: 'notification'
-      readonly operator: 'send'
-    } & Props<{
-        readonly template: string
-        readonly target: {
-          readonly users?: readonly string[]
-          readonly roles?: readonly string[]
-          readonly all?: boolean
-        }
-        readonly variables?: { readonly [key: string]: unknown }
       }>)
   | (ActionBase & {
       readonly type: 'record'
@@ -646,7 +633,6 @@ export const ActionSchema: Schema.Schema<Action, unknown> = Schema.Union(
   AutomationActionSchema,
   AiActionSchema,
   ApprovalActionSchema,
-  SendNotificationActionSchema,
   FileActionSchema,
   DataActionSchema,
   StateActionSchema,
@@ -683,6 +669,5 @@ export * from './loop'
 export * from './path'
 export * from './record'
 export * from './ref'
-export * from './send-notification'
 export * from './state'
 export * from './webhook'

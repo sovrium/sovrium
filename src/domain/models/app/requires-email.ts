@@ -46,9 +46,6 @@ export const appRequiresEmail = (app: App): boolean => {
   if (hasStrategy(app.auth, 'emailAndPassword')) return true
   if (hasStrategy(app.auth, 'magicLink')) return true
 
-  const hasEmailChannel = app.notifications?.channels?.some((c) => c.type === 'email') ?? false
-  if (hasEmailChannel) return true
-
   const hasEmailAction =
     app.automations?.some((automation) =>
       collectActionTypes(automation.actions).includes('email')

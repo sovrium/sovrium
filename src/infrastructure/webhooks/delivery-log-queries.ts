@@ -96,7 +96,7 @@ export const listDeliveries = async (
     SELECT id, webhook_name, table_name, event, url, status, http_status,
            attempt_count, error, response_body, duration_ms,
            requested_at, completed_at, payload, request_headers
-    FROM public._webhook_deliveries
+    FROM _webhook_deliveries
     WHERE table_name = ${tableName} AND webhook_name = ${webhookName}${cursorClause}${statusClause}
     ORDER BY id DESC
     LIMIT ${limit}
@@ -105,12 +105,12 @@ export const listDeliveries = async (
   const deliveries = rows.map(mapRow)
 
   const countResult = await getDb().execute(sql`
-    SELECT COUNT(*)::int AS count
-    FROM public._webhook_deliveries
+    SELECT COUNT(*) AS count
+    FROM _webhook_deliveries
     WHERE table_name = ${tableName} AND webhook_name = ${webhookName}${statusClause}
   `)
   const countRow = rowsOf<{ count: number }>(countResult)[0]
-  const totalCount = countRow?.count ?? 0
+  const totalCount = Number(countRow?.count ?? 0)
 
   const lastRow = rows[rows.length - 1]
   const nextCursor =
@@ -131,7 +131,7 @@ export const getDelivery = async (input: {
     SELECT id, webhook_name, table_name, event, url, status, http_status,
            attempt_count, error, response_body, duration_ms,
            requested_at, completed_at, payload, request_headers
-    FROM public._webhook_deliveries
+    FROM _webhook_deliveries
     WHERE id = ${deliveryId}
       AND table_name = ${tableName}
       AND webhook_name = ${webhookName}

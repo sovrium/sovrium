@@ -102,7 +102,6 @@ export const resourceFamilySchema = z.enum([
   'automations',
   'agents',
   'buckets',
-  'notifications',
   'scripts',
 ])
 

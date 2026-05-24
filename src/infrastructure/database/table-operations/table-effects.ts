@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/utils/sql-formatting'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   shouldUseView,
   generateLookupViewSQL,
@@ -102,7 +103,8 @@ export const createLookupViewsEffect = (
     if (shouldUseView(table)) {
       const createViewSQL = generateLookupViewSQL(table, allTables)
       if (createViewSQL) {
-        yield* executeSQL(tx, `DROP TABLE IF EXISTS ${table.name} CASCADE`)
+        const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
+        yield* executeSQL(tx, `DROP TABLE IF EXISTS ${table.name}${cascadeSuffix}`)
 
         yield* executeSQL(tx, createViewSQL)
 
@@ -119,10 +121,11 @@ const dropExistingView = (
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const quotedId = quoteSqlIdentifier(viewIdStr)
+    const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
     if (view.materialized) {
-      yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${quotedId} CASCADE`)
+      yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${quotedId}${cascadeSuffix}`)
     } else {
-      yield* executeSQL(tx, `DROP VIEW IF EXISTS ${quotedId} CASCADE`)
+      yield* executeSQL(tx, `DROP VIEW IF EXISTS ${quotedId}${cascadeSuffix}`)
     }
   })
 

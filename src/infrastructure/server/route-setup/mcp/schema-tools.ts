@@ -114,6 +114,13 @@ const SCHEMA_TOOL_SPECS: ReadonlyArray<{
     inputSchema: EMPTY_INPUT,
   },
   {
+    suffix: 'schema_diff',
+    description:
+      'Preview live-vs-file schema drift: returns driftStatus + changed top-level paths.',
+    readOnly: true,
+    inputSchema: EMPTY_INPUT,
+  },
+  {
     suffix: 'schema_draft_tables_create',
     description: 'Add a new table to the draft schema.',
     readOnly: false,
@@ -146,17 +153,48 @@ const SCHEMA_TOOL_SPECS: ReadonlyArray<{
   },
 ]
 
+const PER_RESOURCE_FAMILIES = [
+  'tables',
+  'pages',
+  'auth_strategies',
+  'forms',
+  'automations',
+  'connections',
+  'theme',
+  'languages',
+  'components',
+  'actions',
+  'agents',
+  'buckets',
+  'notifications',
+  'scripts',
+  'env',
+] as const
+
+const PER_RESOURCE_OPS = ['create', 'update', 'delete'] as const
+
+const buildFamilyTool = (appName: string, family: string, op: string): CompiledTool => ({
+  name: `${appName}_schema_draft_${family}_${op}`,
+  description: `${op} a ${family} entry in the draft schema`,
+  inputSchema: { type: 'object', properties: {} },
+  annotations: { ...DESTRUCTIVE },
+})
+
 export const compileSchemaTools = (
   appName: string,
   schemaEditEnabled: boolean
 ): ReadonlyArray<CompiledTool> => {
   if (!schemaEditEnabled) return []
-  return SCHEMA_TOOL_SPECS.map((spec) => ({
+  const baseTools = SCHEMA_TOOL_SPECS.map((spec) => ({
     name: `${appName}_${spec.suffix}`,
     description: spec.description,
     inputSchema: spec.inputSchema,
     annotations: spec.readOnly ? { ...READ_ONLY } : { ...DESTRUCTIVE },
   }))
+  const familyTools = PER_RESOURCE_FAMILIES.flatMap((family) =>
+    PER_RESOURCE_OPS.map((op) => buildFamilyTool(appName, family, op))
+  ).filter((tool) => tool.name !== `${appName}_schema_draft_tables_create`)
+  return [...baseTools, ...familyTools]
 }
 
 export const isSchemaEditEnabled = (env: Readonly<NodeJS.ProcessEnv>): boolean =>

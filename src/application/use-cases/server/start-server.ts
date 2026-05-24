@@ -31,6 +31,7 @@ import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/bootstrap-token-repository-live'
 import { Logger } from '@/infrastructure/logging/logger'
+import { seedConfigFileVersionIfChanged } from '@/infrastructure/server/route-setup/config-file-seeder'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { ServerInstance } from '@/application/models/server'
 import type { AuthRepository } from '@/application/ports/repositories/auth-repository'
@@ -203,6 +204,8 @@ export const startServer = (
     const logger = yield* Logger
 
     yield* runMigrations(parseDatabaseDialectConfig())
+
+    yield* Effect.promise(() => seedConfigFileVersionIfChanged(validatedApp))
 
     yield* bootstrapAdminAndToken(validatedApp, logger)
 

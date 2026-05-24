@@ -7,7 +7,6 @@
 
 import { Effect } from 'effect'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
-import { notifyRecordCreated } from '@/application/use-cases/notifications/notify-record-created'
 import {
   hasCreatePermissionForRoles,
   hasReadPermissionForRoles,
@@ -24,7 +23,7 @@ import {
 } from '@/domain/models/api/tables/records'
 import { createRecordResponseSchema } from '@/domain/models/api/tables/tables'
 import {
-  provideTableWithNotificationsAndAutomationsLive,
+  provideTableWithAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
 import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
@@ -194,14 +193,6 @@ function buildCreateRecordProgram(input: {
   return createRecordProgram({ session, tableName, fields, app, userRole }).pipe(
     Effect.tap((record) => publishInsertChange(app.name, tableName, record)),
     Effect.tap((record) =>
-      notifyRecordCreated({
-        app,
-        creatorUserId: session.userId,
-        tableName,
-        recordId: String(record.id),
-      })
-    ),
-    Effect.tap((record) =>
       triggerRecordEventAutomations({
         app,
         tableName,
@@ -254,7 +245,7 @@ export async function handleCreateRecord(c: Context, app: App) {
 
   return await runEffect(
     c,
-    provideTableWithNotificationsAndAutomationsLive(
+    provideTableWithAutomationsLive(
       buildCreateRecordProgram({
         session,
         tableName,

@@ -80,7 +80,7 @@ const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined>
   const { status, durationMs, requestedAt, completedAt } = input
   const p = toNullableParams(input)
   const result = await getDb().execute(sql`
-    INSERT INTO public._webhook_deliveries
+    INSERT INTO _webhook_deliveries
       (webhook_name, table_name, event, url, payload, request_headers, status,
        http_status, attempt_count, retry_strategy, error, response_body,
        duration_ms, requested_at, completed_at, is_test)
@@ -89,8 +89,8 @@ const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined>
       ${tableName},
       ${event},
       ${url},
-      ${JSON.stringify(payload)}::jsonb,
-      ${JSON.stringify(requestHeaders)}::jsonb,
+      ${JSON.stringify(payload)},
+      ${JSON.stringify(requestHeaders)},
       ${status},
       ${p.httpStatus},
       ${p.attemptCount},
@@ -98,8 +98,8 @@ const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined>
       ${p.error},
       ${p.responseBody},
       ${Math.round(durationMs)},
-      ${requestedAt}::timestamptz,
-      ${completedAt}::timestamptz,
+      ${requestedAt},
+      ${completedAt},
       ${p.isTest}
     )
     RETURNING id

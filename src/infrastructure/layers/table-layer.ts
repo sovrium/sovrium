@@ -15,15 +15,11 @@ import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connection-token-repository-live'
 import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/user-access-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
-import { NotificationsLive } from '@/infrastructure/notifications/layer'
 
 export { checkForExistingRecords } from '@/infrastructure/database/table-queries/query-helpers/check-existing-records'
 
-const TableWithNotificationsLive = Layer.mergeAll(TableLive, NotificationsLive)
-
-const TableWithNotificationsAndAutomationsLive = Layer.mergeAll(
+const TableWithAutomationsLive = Layer.mergeAll(
   TableLive,
-  NotificationsLive,
   AutomationRepositoryLive,
   AutomationRunRepositoryLive,
   AutomationStateRepositoryLive,
@@ -59,18 +55,8 @@ export function provideTableLive<A, E, R>(
   return Effect.provide(program, TableLive) as Effect.Effect<A, E, never>
 }
 
-export function provideTableWithNotificationsLive<A, E, R>(
+export function provideTableWithAutomationsLive<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {
-  return Effect.provide(program, TableWithNotificationsLive) as Effect.Effect<A, E, never>
-}
-
-export function provideTableWithNotificationsAndAutomationsLive<A, E, R>(
-  program: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, never> {
-  return Effect.provide(program, TableWithNotificationsAndAutomationsLive) as Effect.Effect<
-    A,
-    E,
-    never
-  >
+  return Effect.provide(program, TableWithAutomationsLive) as Effect.Effect<A, E, never>
 }

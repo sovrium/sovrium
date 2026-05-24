@@ -8,6 +8,10 @@
 
 import { sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
+import {
+  nowEpochMsSqlLiteral,
+  qualifiedSystemTable,
+} from '@/infrastructure/database/sql/dialect-ddl'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import type { AppVersionSource } from '@/domain/models/system/app-version'
 
@@ -29,7 +33,7 @@ export const readActiveVersionNumber = async (): Promise<number> => {
   try {
     const result = await db.execute(
       sql.raw(
-        'SELECT version_number FROM system.sovrium_app_versions ORDER BY version_number DESC LIMIT 1'
+        `SELECT version_number FROM ${qualifiedSystemTable('sovrium_app_versions')} ORDER BY version_number DESC LIMIT 1`
       )
     )
     const rows = extractRows(result)
@@ -43,7 +47,7 @@ export const readActiveVersionSnapshot = async (): Promise<Snapshot | undefined>
   try {
     const result = await db.execute(
       sql.raw(
-        'SELECT snapshot FROM system.sovrium_app_versions ORDER BY version_number DESC LIMIT 1'
+        `SELECT snapshot FROM ${qualifiedSystemTable('sovrium_app_versions')} ORDER BY version_number DESC LIMIT 1`
       )
     )
     const row = extractRows(result)[0]
@@ -58,7 +62,9 @@ export const readActiveVersionSnapshot = async (): Promise<Snapshot | undefined>
 export const readAllVersionRows = async (): Promise<ReadonlyArray<Record<string, unknown>>> => {
   try {
     const result = await db.execute(
-      sql.raw('SELECT * FROM system.sovrium_app_versions ORDER BY version_number DESC')
+      sql.raw(
+        `SELECT * FROM ${qualifiedSystemTable('sovrium_app_versions')} ORDER BY version_number DESC`
+      )
     )
     return extractRows(result)
   } catch {
@@ -72,7 +78,7 @@ export const readVersionRow = async (
   try {
     const result = await db.execute(
       sql.raw(
-        `SELECT * FROM system.sovrium_app_versions WHERE version_number = ${Math.floor(versionNumber)} LIMIT 1`
+        `SELECT * FROM ${qualifiedSystemTable('sovrium_app_versions')} WHERE version_number = ${Math.floor(versionNumber)} LIMIT 1`
       )
     )
     return extractRows(result)[0]
@@ -111,9 +117,10 @@ const insertVersionRow = async (input: {
   const fileChecksumValue =
     fileChecksum !== undefined ? `, '${escapeSqlLiteral(fileChecksum)}'` : ''
 
+  const versionsTable = qualifiedSystemTable('sovrium_app_versions')
   const result = await db.execute(
     sql.raw(
-      `INSERT INTO system.sovrium_app_versions (version_number, snapshot, checksum, created_at, created_by_user_id, message, source${fileChecksumColumn}${restoredColumn}) SELECT COALESCE(MAX(version_number), 0) + 1, '${snapJson}'::jsonb, '${checksum}', NOW(), '${userId}', '${message}', '${source}'${fileChecksumValue}${restoredValue} FROM system.sovrium_app_versions RETURNING version_number`
+      `INSERT INTO ${versionsTable} (version_number, snapshot, checksum, created_at, created_by_user_id, message, source${fileChecksumColumn}${restoredColumn}) SELECT COALESCE(MAX(version_number), 0) + 1, '${snapJson}', '${checksum}', ${nowEpochMsSqlLiteral()}, '${userId}', '${message}', '${source}'${fileChecksumValue}${restoredValue} FROM ${versionsTable} RETURNING version_number`
     )
   )
   const row = extractRows(result)[0]
@@ -140,7 +147,7 @@ export const readLatestDraft = async (): Promise<DraftRow | undefined> => {
   try {
     const result = await db.execute(
       sql.raw(
-        'SELECT snapshot, base_version, updated_at, updated_by_user_id FROM system.sovrium_app_drafts ORDER BY updated_at DESC LIMIT 1'
+        `SELECT snapshot, base_version, updated_at, updated_by_user_id FROM ${qualifiedSystemTable('sovrium_app_drafts')} ORDER BY updated_at DESC LIMIT 1`
       )
     )
     const row = extractRows(result)[0]
@@ -164,12 +171,13 @@ export const writeDraft = (input: {
 }): Promise<void> => {
   const snapJson = escapeSqlLiteral(JSON.stringify(input.snapshot))
   const userId = escapeSqlLiteral(input.userId)
+  const draftsTable = qualifiedSystemTable('sovrium_app_drafts')
   return db
-    .execute(sql.raw('DELETE FROM system.sovrium_app_drafts'))
+    .execute(sql.raw(`DELETE FROM ${draftsTable}`))
     .then(() =>
       db.execute(
         sql.raw(
-          `INSERT INTO system.sovrium_app_drafts (id, snapshot, base_version, updated_at, updated_by_user_id) VALUES ('singleton', '${snapJson}'::jsonb, ${Math.floor(input.baseVersion)}, NOW(), '${userId}')`
+          `INSERT INTO ${draftsTable} (id, snapshot, base_version, updated_at, updated_by_user_id) VALUES ('singleton', '${snapJson}', ${Math.floor(input.baseVersion)}, ${nowEpochMsSqlLiteral()}, '${userId}')`
         )
       )
     )

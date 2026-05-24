@@ -51,6 +51,9 @@ export const runSqliteSchemaTransaction = async (
 export const qualifiedSystemTable = (bareName: string): string =>
   isSqliteRuntime() ? `system_${bareName}` : `system.${bareName}`
 
+export const qualifiedAuthTable = (bareName: string): string =>
+  isSqliteRuntime() ? `auth_${bareName}` : `auth.${bareName}`
+
 export const systemObjectExistsSql = (bareName: string): string =>
   isSqliteRuntime()
     ? `SELECT EXISTS (
@@ -65,3 +68,21 @@ export const systemObjectExistsSql = (bareName: string): string =>
 export const SQLITE_ISO_NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')"
 
 export const nowSqlLiteral = (): string => (isSqliteRuntime() ? SQLITE_ISO_NOW : 'NOW()')
+
+export const nowEpochMsSqlLiteral = (): string =>
+  isSqliteRuntime() ? "(CAST(strftime('%s','now') AS INTEGER) * 1000)" : 'NOW()'
+
+const castToText = (expr: string): string =>
+  isSqliteRuntime() ? `CAST(${expr} AS TEXT)` : `${expr}::TEXT`
+
+export const stringAggExpression = (
+  expression: string,
+  separator: string,
+  orderByExpression?: string
+): string => {
+  const sortClause = orderByExpression ? ` ORDER BY ${orderByExpression}` : ''
+  if (isSqliteRuntime()) {
+    return `group_concat(${castToText(expression)}${sortClause}, '${separator}')`
+  }
+  return `STRING_AGG(${castToText(expression)}, '${separator}'${sortClause})`
+}

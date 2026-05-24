@@ -16,6 +16,7 @@ import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-
 import { automationState as automationStatePg } from '@/infrastructure/database/drizzle/schema/automation-state'
 import { automationState as automationStateSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation-state'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 const automationState = resolveDialectSchema(automationStatePg, automationStateSqlite)
 
@@ -83,6 +84,10 @@ export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateReposi
 
   increment: ({ automationId, key, amount }) =>
     wrap(async () => {
+      const incrementExpr = isSqliteRuntime()
+        ? sql`(CAST(json_extract(${automationState.value}, '$') AS REAL) + ${amount})`
+        : sql`(((${automationState.value} #>> '{}')::numeric) + ${amount})::text::jsonb`
+
       const rows = await db
         .insert(automationState)
         .values({
@@ -93,7 +98,7 @@ export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateReposi
         .onConflictDoUpdate({
           target: [automationState.automationId, automationState.key],
           set: {
-            value: sql`(((${automationState.value} #>> '{}')::numeric) + ${amount})::text::jsonb`,
+            value: incrementExpr,
             updatedAt: new Date(),
           },
         })

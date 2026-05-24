@@ -9,7 +9,6 @@ export const COMING_SOON_SCHEMA_NAMES: ReadonlySet<string> = new Set([
   'CommentsComponentSchema',
   'CommentsConfigSchema',
   'FormAnalyticsSchema',
-  'NotificationSchema',
 ])
 
 export const COMING_SOON_DISCRIMINATORS: ReadonlyMap<string, ReadonlySet<string>> = new Map([

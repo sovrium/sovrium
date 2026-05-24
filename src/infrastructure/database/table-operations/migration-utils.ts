@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
@@ -91,12 +92,15 @@ const finalizeTableRecreation = (
   tempTableName: string
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    yield* executeSQL(tx, `DROP TABLE ${physicalTableName} CASCADE`)
+    const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
+    yield* executeSQL(tx, `DROP TABLE ${physicalTableName}${cascadeSuffix}`)
     yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${physicalTableName}`)
-    yield* executeSQL(
-      tx,
-      `DO $$ BEGIN ALTER TABLE ${physicalTableName} RENAME CONSTRAINT ${tempTableName}_pkey TO ${physicalTableName}_pkey; EXCEPTION WHEN undefined_object THEN NULL; END $$`
-    )
+    if (!isSqliteRuntime()) {
+      yield* executeSQL(
+        tx,
+        `DO $$ BEGIN ALTER TABLE ${physicalTableName} RENAME CONSTRAINT ${tempTableName}_pkey TO ${physicalTableName}_pkey; EXCEPTION WHEN undefined_object THEN NULL; END $$`
+      )
+    }
   })
 
 export const recreateTableWithDataEffect = (

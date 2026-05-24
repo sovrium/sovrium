@@ -132,7 +132,6 @@ export async function* parseSseChunks(
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let state: ReaderState = { buffer: '', model: defaultModel }
-  let sawDone = false
 
   try {
     while (true) {
@@ -140,16 +139,9 @@ export async function* parseSseChunks(
       if (step === undefined) break
       ;({ state } = step)
       for (const chunk of step.chunks) yield chunk
-      if (step.done) {
-        sawDone = true
-        return
-      }
+      if (step.done) return
     }
   } finally {
     releaseReader(reader)
-  }
-
-  if (!sawDone) {
-    yield { type: 'done', model: state.model }
   }
 }

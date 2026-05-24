@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { stringAggExpression } from '../sql/dialect-ddl'
 import { toSingular, generateJunctionTableName } from '../sql/sql-generators'
 import { buildWhereClause } from './lookup-view-helpers'
 import type { ViewFilterCondition } from '@/domain/models/app/tables/views/filters'
@@ -48,7 +49,7 @@ export const generateReverseLookupExpression = (config: LookupExpressionConfig):
   const whereClause = whereConditions.join(' AND ')
 
   return `(
-    SELECT STRING_AGG(${alias}.${relatedField}::TEXT, ', ' ORDER BY ${alias}.${relatedField})
+    SELECT ${stringAggExpression(`${alias}.${relatedField}`, ', ', `${alias}.${relatedField}`)}
     FROM ${relatedTable} AS ${alias}
     WHERE ${whereClause}
   ) AS ${lookupName}`
@@ -70,7 +71,7 @@ export const generateManyToManyLookupExpression = (config: ManyToManyLookupConfi
   const whereClause = whereConditions.join(' AND ')
 
   return `(
-    SELECT STRING_AGG(${alias}.${relatedField}::TEXT, ', ' ORDER BY ${alias}.${relatedField})
+    SELECT ${stringAggExpression(`${alias}.${relatedField}`, ', ', `${alias}.${relatedField}`)}
     FROM ${junctionTable} AS ${junctionAlias}
     INNER JOIN ${relatedTable} AS ${alias} ON ${joinCondition}
     WHERE ${whereClause}

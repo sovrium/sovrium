@@ -26,7 +26,7 @@ export function buildTrashFilters(
       case 'notEquals':
         return sql`${query} AND ${fieldIdentifier} != ${value}`
       case 'contains':
-        return sql`${query} AND ${fieldIdentifier} ILIKE ${'%' + String(value) + '%'}`
+        return sql`${query} AND LOWER(${fieldIdentifier}) LIKE LOWER(${'%' + String(value) + '%'})`
       case 'greaterThan':
         return sql`${query} AND ${fieldIdentifier} > ${value}`
       case 'lessThan':

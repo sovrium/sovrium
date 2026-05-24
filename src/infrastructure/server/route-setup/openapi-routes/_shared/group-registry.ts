@@ -22,7 +22,6 @@ import { connectionGroupSpec } from '../connections-routes'
 import { formGroupSpec } from '../forms-routes'
 import { healthGroup } from '../health-routes'
 import { mcpGroup } from '../mcp-routes'
-import { notificationGroup } from '../notifications-routes'
 import { ragGroup } from '../rag-routes'
 import { recordsGroupSpec } from '../record-routes'
 import { tableCollectionGroup, tableGroupSpec } from '../table-routes'
@@ -55,7 +54,6 @@ export const STATIC_GROUPS: readonly StaticGroupSpec[] = [
   aiChatGroup,
   aiConversationGroup,
   ragGroup,
-  notificationGroup,
   automationCollectionGroup,
   adminGroup,
   agentCollectionGroup,

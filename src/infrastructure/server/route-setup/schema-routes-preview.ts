@@ -64,13 +64,13 @@ interface LivePreview {
 
 const previewStore = new Map<'current', LivePreview>()
 
-const getPreview = (): LivePreview | undefined => previewStore.get('current')
+export const getPreview = (): LivePreview | undefined => previewStore.get('current')
 
 const setPreview = (preview: LivePreview): void => {
   previewStore.set('current', preview)
 }
 
-const clearPreview = (): void => {
+export const clearPreview = (): void => {
   previewStore.delete('current')
 }
 
@@ -111,7 +111,7 @@ const insertPreviewRow = (input: {
   )
 }
 
-const markStatus = (previewId: string, status: PreviewStatus): Promise<unknown> =>
+export const markStatus = (previewId: string, status: PreviewStatus): Promise<unknown> =>
   db.execute(
     sql.raw(
       `UPDATE system.sovrium_preview_sessions SET status = '${status}' WHERE preview_id = '${escapeSqlLiteral(previewId)}'`
@@ -119,7 +119,7 @@ const markStatus = (previewId: string, status: PreviewStatus): Promise<unknown> 
   )
 
 
-const teardownPreview = async (preview: Readonly<LivePreview>): Promise<void> => {
+export const teardownPreview = async (preview: Readonly<LivePreview>): Promise<void> => {
   try {
     preview.process.kill('SIGKILL')
   } catch {
@@ -173,7 +173,7 @@ const DEFAULT_TTL_MINUTES = 30
 const MIN_TTL_MINUTES = 1
 const MAX_TTL_MINUTES = 1440
 
-const clampTtlMinutes = (raw: unknown): number => {
+export const clampTtlMinutes = (raw: unknown): number => {
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return DEFAULT_TTL_MINUTES
   const rounded = Math.round(raw)
   return Math.min(MAX_TTL_MINUTES, Math.max(MIN_TTL_MINUTES, rounded))
@@ -202,7 +202,7 @@ const spawnPreviewServer = async (input: {
 }
 
 
-const launchPreview = async (input: {
+export const launchPreview = async (input: {
   readonly draftSnapshot: unknown
   readonly createdByUserId: string
   readonly ttlMinutes: number

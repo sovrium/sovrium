@@ -97,8 +97,12 @@ jobs:
 
       # No NODE_AUTH_TOKEN: trusted publishing authenticates via the OIDC
       # token. --provenance is omitted because trusted publishing implies it.
+      # `--tag latest` is explicit because the v1.0.0 → v0.7.0 rollback left
+      # npm's `latest` dist-tag pinned to the higher (dead) version, and npm
+      # refuses implicit-`latest` assignment when the new version is lower.
+      # Drop the flag once project version is again > 1.0.0.
       - name: Publish @sovrium/types to npm
-        run: cd packages/types && npm publish --access public
+        run: cd packages/types && npm publish --access public --tag latest
 
   # ── Build macOS binaries on native runners ──────────────────
   build-binary-macos:

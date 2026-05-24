@@ -140,24 +140,6 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   },
   {
     schema: 'system',
-    name: 'notifications',
-    denylistFields: [],
-    description: 'In-app notification inbox (read/dismissed state per user).',
-  },
-  {
-    schema: 'system',
-    name: 'notification_preferences',
-    denylistFields: [],
-    description: 'Per-user notification channel preferences.',
-  },
-  {
-    schema: 'system',
-    name: 'notification_subscriptions',
-    denylistFields: [],
-    description: 'Record-level subscriptions tracking which users follow which records.',
-  },
-  {
-    schema: 'system',
     name: 'file_storage_metadata',
     denylistFields: [],
     description:

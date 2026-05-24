@@ -39,7 +39,6 @@ import {
 import { chainCommandSearchRoutes } from '@/presentation/api/routes/command-search'
 import { chainConnectionRoutes } from '@/presentation/api/routes/connections'
 import { chainFavoriteRoutes } from '@/presentation/api/routes/favorites'
-import { chainNotificationRoutes } from '@/presentation/api/routes/notifications'
 import { chainRealtimeRoutes } from '@/presentation/api/routes/realtime'
 import { chainRecentRoutes } from '@/presentation/api/routes/recent'
 import {
@@ -333,9 +332,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   const honoWithAutomations = chainAutomationRoutes(honoWithAnalytics, app)
 
-  const honoWithNotifications = chainNotificationRoutes(honoWithAutomations, app)
-
-  const honoWithConnections = chainConnectionRoutes(honoWithNotifications, app)
+  const honoWithConnections = chainConnectionRoutes(honoWithAutomations, app)
 
 
   const honoWithBuckets = chainBucketRoutes(honoWithConnections, app)

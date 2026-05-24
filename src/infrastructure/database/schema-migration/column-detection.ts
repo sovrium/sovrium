@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
 import { shouldCreateDatabaseColumn } from '../table-queries/shared/field-utils'
 import {
@@ -203,8 +204,9 @@ export const buildColumnStatements = (options: {
   readonly allFields: readonly Fields[number][]
 }): { readonly dropStatements: readonly string[]; readonly addStatements: readonly string[] } => {
   const { tableName, columnsToDrop, columnsToAdd, primaryKeyFields, allFields } = options
+  const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
   const dropStatements = columnsToDrop.map(
-    (columnName) => `ALTER TABLE ${tableName} DROP COLUMN ${columnName} CASCADE`
+    (columnName) => `ALTER TABLE ${tableName} DROP COLUMN ${columnName}${cascadeSuffix}`
   )
   const addStatements = columnsToAdd.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)

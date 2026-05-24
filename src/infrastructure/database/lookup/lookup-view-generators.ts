@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   generateReverseLookupExpression,
@@ -324,7 +325,7 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
     ...countExpressions,
   ].join(',\n    ')
 
-  return `CREATE OR REPLACE VIEW ${sanitized} AS
+  return `${isSqliteRuntime() ? 'CREATE VIEW' : 'CREATE OR REPLACE VIEW'} ${sanitized} AS
   SELECT
     ${selectClause}
   FROM ${sanitized}_base AS base
@@ -338,6 +339,9 @@ export const shouldUseView = (table: Table): boolean =>
 
 export const generateLookupViewTriggers = (table: Table): readonly string[] => {
   if (!shouldUseView(table)) {
+    return []
+  }
+  if (isSqliteRuntime()) {
     return []
   }
 

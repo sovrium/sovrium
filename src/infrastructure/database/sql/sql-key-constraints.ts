@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { qualifiedAuthTable } from './dialect-ddl'
 import { isRelationshipField, isUserField, shouldUseSerial } from './sql-field-predicates'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -95,7 +96,7 @@ export const generateForeignKeyConstraints = (
 ): readonly string[] => {
   const userFieldConstraints = fields.filter(isUserField).map((field) => {
     const constraintName = `${tableName}_${field.name}_fkey`
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES auth.user(id)`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${qualifiedAuthTable('user')}(id)`
   })
 
   const relationshipFieldConstraints = fields

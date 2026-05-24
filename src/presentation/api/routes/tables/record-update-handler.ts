@@ -12,7 +12,7 @@ import { hasUpdatePermission } from '@/application/use-cases/tables/permissions/
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
 import {
-  provideTableWithNotificationsAndAutomationsLive,
+  provideTableWithAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
 import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
@@ -303,9 +303,7 @@ async function executeUpdateWithRecordTrigger(config: {
     )
   )
 
-  const result = await Effect.runPromise(
-    Effect.either(provideTableWithNotificationsAndAutomationsLive(program))
-  )
+  const result = await Effect.runPromise(Effect.either(provideTableWithAutomationsLive(program)))
 
   if (result._tag === 'Left') {
     return handleUpdateError({ session, tableName, recordId, error: result.left, c })

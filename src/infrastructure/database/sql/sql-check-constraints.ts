@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { escapeSqlString } from './sql-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -14,10 +15,11 @@ export const generateArrayConstraints = (fields: readonly Fields[number][]): rea
       (field): field is Fields[number] & { type: 'array'; maxItems: number } =>
         field.type === 'array' && 'maxItems' in field && typeof field.maxItems === 'number'
     )
-    .map(
-      (field) =>
-        `CONSTRAINT check_${field.name}_max_items CHECK (array_length(${field.name}, 1) IS NULL OR array_length(${field.name}, 1) <= ${field.maxItems})`
-    )
+    .map((field) => {
+      const lengthFn = isSqliteRuntime() ? 'json_array_length' : 'array_length'
+      const callArgs = isSqliteRuntime() ? `(${field.name})` : `(${field.name}, 1)`
+      return `CONSTRAINT check_${field.name}_max_items CHECK (${lengthFn}${callArgs} IS NULL OR ${lengthFn}${callArgs} <= ${field.maxItems})`
+    })
 
 export const generateMultipleAttachmentsConstraints = (
   fields: readonly Fields[number][]
@@ -29,10 +31,10 @@ export const generateMultipleAttachmentsConstraints = (
         'maxFiles' in field &&
         typeof field.maxFiles === 'number'
     )
-    .map(
-      (field) =>
-        `CONSTRAINT check_${field.name}_max_files CHECK (jsonb_array_length(${field.name}) IS NULL OR jsonb_array_length(${field.name}) <= ${field.maxFiles})`
-    )
+    .map((field) => {
+      const lengthFn = isSqliteRuntime() ? 'json_array_length' : 'jsonb_array_length'
+      return `CONSTRAINT check_${field.name}_max_files CHECK (${lengthFn}(${field.name}) IS NULL OR ${lengthFn}(${field.name}) <= ${field.maxFiles})`
+    })
 
 export const generateNumericConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
@@ -128,13 +130,19 @@ export const generateRichTextConstraints = (fields: readonly Fields[number][]): 
       return `CONSTRAINT ${constraintName} CHECK (LENGTH(${field.name}) <= ${field.maxLength})`
     })
 
-const barcodeFormatPatterns: Record<string, string> = {
+const barcodeFormatPgPatterns: Record<string, string> = {
   'EAN-13': '^[0-9]{13}$',
   'EAN-8': '^[0-9]{8}$',
   'UPC-A': '^[0-9]{12}$',
   'UPC-E': '^[0-9]{6,8}$',
   'CODE-128': '^[\\x00-\\x7F]+$',
   'CODE-39': '^[A-Z0-9\\-\\.\\$\\/\\+\\%\\ ]+$',
+}
+
+const barcodeFormatSqliteGlobs: Record<string, string | undefined> = {
+  'EAN-13': '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]',
+  'EAN-8': '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]',
+  'UPC-A': '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]',
 }
 
 export const generateBarcodeConstraints = (fields: readonly Fields[number][]): readonly string[] =>
@@ -144,11 +152,17 @@ export const generateBarcodeConstraints = (fields: readonly Fields[number][]): r
         field.type === 'barcode' && 'format' in field && typeof field.format === 'string'
     )
     .map((field) => {
-      const pattern = barcodeFormatPatterns[field.format]
-      if (!pattern) {
-        return ''
-      }
       const constraintName = `check_${field.name}_format`
+      if (isSqliteRuntime()) {
+        if (!(field.format in barcodeFormatPgPatterns)) return ''
+        const glob = barcodeFormatSqliteGlobs[field.format]
+        if (glob !== undefined) {
+          return `CONSTRAINT ${constraintName} CHECK (${field.name} GLOB '${glob}')`
+        }
+        return `CONSTRAINT ${constraintName} CHECK (LENGTH(${field.name}) > 0)`
+      }
+      const pattern = barcodeFormatPgPatterns[field.format]
+      if (!pattern) return ''
       return `CONSTRAINT ${constraintName} CHECK (${field.name} ~ '${pattern}')`
     })
     .filter((constraint) => constraint !== '')
@@ -158,6 +172,9 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
     .filter((field): field is Fields[number] & { type: 'color' } => field.type === 'color')
     .map((field) => {
       const constraintName = `check_${field.name}_format`
+      if (isSqliteRuntime()) {
+        return `CONSTRAINT ${constraintName} CHECK (${field.name} GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]')`
+      }
       return `CONSTRAINT ${constraintName} CHECK (${field.name} ~ '^#[0-9a-fA-F]{6}$')`
     })
 
@@ -169,10 +186,13 @@ export const generateMultiSelectConstraints = (
       (field): field is Fields[number] & { type: 'multi-select'; options: readonly string[] } =>
         field.type === 'multi-select' && 'options' in field && Array.isArray(field.options)
     )
-    .map((field) => {
+    .flatMap((field) => {
+      if (isSqliteRuntime()) return []
       const escapedOptions = field.options.map((opt) => `'${escapeSqlString(opt)}'`).join(', ')
       const constraintName = `check_${field.name}_options`
-      return `CONSTRAINT ${constraintName} CHECK (${field.name} <@ ARRAY[${escapedOptions}]::text[])`
+      return [
+        `CONSTRAINT ${constraintName} CHECK (${field.name} <@ ARRAY[${escapedOptions}]::text[])`,
+      ]
     })
 
 export const generateCustomCheckConstraints = (

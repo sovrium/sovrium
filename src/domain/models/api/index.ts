@@ -24,8 +24,6 @@ export * from './connections'
 
 export * from './health'
 
-export * from './notifications'
-
 export * from './realtime'
 
 export * from './tables'

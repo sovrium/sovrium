@@ -155,8 +155,6 @@ import {
   navigationMenuFields,
   PaginationTypeLiteral,
   paginationFields,
-  NotificationBellTypeLiteral,
-  notificationBellFields,
 } from './navigation'
 import {
   AlertDialogTypeLiteral,
@@ -261,7 +259,6 @@ const allComponents = [
   [MenubarTypeLiteral, menubarFields],
   [NavigationMenuTypeLiteral, navigationMenuFields],
   [PaginationTypeLiteral, paginationFields],
-  [NotificationBellTypeLiteral, notificationBellFields],
   [AlertDialogTypeLiteral, alertDialogFields],
   [DialogTypeLiteral, dialogFields],
   [DrawerTypeLiteral, drawerFields],
@@ -350,7 +347,6 @@ export const ComponentTypeSchema = Schema.Union(
   MenubarTypeLiteral,
   NavigationMenuTypeLiteral,
   PaginationTypeLiteral,
-  NotificationBellTypeLiteral,
   AlertDialogTypeLiteral,
   DialogTypeLiteral,
   DrawerTypeLiteral,

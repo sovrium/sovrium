@@ -91,7 +91,7 @@ const searchTable = async (
   const pattern = `%${query}%`
 
   const predicate = sql.join(
-    textColumns.map((column) => sql`${sql.identifier(column)} ILIKE ${pattern}`),
+    textColumns.map((column) => sql`LOWER(${sql.identifier(column)}) LIKE LOWER(${pattern})`),
     sql` OR `
   )
   const labelExpr = sql.join(

@@ -9,6 +9,7 @@ import { renderToString } from 'react-dom/server'
 import { resolveLandingPath } from '@/domain/services/landing-resolver'
 import { checkPageAccess, type AccessDecision } from '@/domain/services/page-access-check'
 import { findMatchingRoute } from '@/domain/utils/route-matcher'
+import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import {
   extractSessionTimeout,
   shouldInjectAnalytics,
@@ -171,15 +172,13 @@ const buildCommandPaletteComponent = (app: App): Component => {
     .map((page) => ({
       name: page.name,
       path: page.path,
-      title:
-        typeof page.meta?.title === 'string' && page.meta.title.length > 0
-          ? page.meta.title
-          : page.name,
+      title: resolveTranslationPattern(
+        page.meta?.title && page.meta.title.length > 0 ? page.meta.title : page.name,
+        app.languages?.default ?? 'en',
+        app.languages
+      ),
     }))
-  return {
-    type: 'command-palette',
-    props: { pages: navigablePages },
-  } as unknown as Component
+  return { type: 'command-palette', props: { pages: navigablePages } } as unknown as Component
 }
 
 function applyPageComponentFilters(

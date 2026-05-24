@@ -38,15 +38,10 @@ interface LooseTable {
   readonly name?: string
 }
 
-interface LooseChannel {
-  readonly type?: string
-}
-
 interface LooseAppForApproval {
   readonly agents?: ReadonlyArray<LooseAgent>
   readonly auth?: { readonly roles?: ReadonlyArray<LooseRole> }
   readonly tables?: ReadonlyArray<LooseTable>
-  readonly notifications?: { readonly channels?: ReadonlyArray<LooseChannel> }
 }
 
 const validateAgentsRequireAuth = (app: LooseAppForApproval): string | undefined => {
@@ -107,19 +102,6 @@ const validateAgentToolTables = (
   return `Agent '${orphan.agent}' tools.tables references table '${orphan.table}' which is not defined in app.tables[].`
 }
 
-const validateAgentEmailRequiresSmtp = (
-  agents: ReadonlyArray<LooseAgent>,
-  app: LooseAppForApproval
-): string | undefined => {
-  const hasEmailChannel = (app.notifications?.channels ?? []).some(
-    (channel) => channel.type === 'email'
-  )
-  if (hasEmailChannel) return undefined
-  const offender = agents.find((agent) => (agent.tools?.actions ?? []).includes('email.send'))
-  if (offender === undefined) return undefined
-  return `Agent '${offender.name ?? '<unnamed>'}' tools.actions includes 'email.send' but no email channel (SMTP) is configured. Add an email channel to app.notifications.channels to enable agent email.`
-}
-
 const validateAllApprovalBlocks = (
   agents: ReadonlyArray<LooseAgent>,
   roleNames: ReadonlySet<string | undefined>
@@ -145,7 +127,6 @@ export const validateAllAgentApprovalRules = (app: LooseAppForApproval): string 
     validateAgentNamesUnique(agents) ??
     validateAgentRolesExist(agents, roleNames) ??
     validateAgentToolTables(agents, app) ??
-    validateAgentEmailRequiresSmtp(agents, app) ??
     validateAllApprovalBlocks(agents, roleNames)
 
   return error ?? true

@@ -9,46 +9,6 @@ import { Schema } from 'effect'
 import { DataFilterSchema, DataSortSchema } from './components/data-source'
 
 
-const LayoutComponentSchema = Schema.Struct({
-  type: Schema.Literal('notificationBell').pipe(
-    Schema.annotations({ description: 'Layout component type' })
-  ),
-
-  position: Schema.optional(
-    Schema.Literal('left', 'right').pipe(
-      Schema.annotations({
-        description: 'Position of the component in the layout section (default: right)',
-      })
-    )
-  ),
-}).pipe(
-  Schema.annotations({
-    identifier: 'LayoutComponent',
-    title: 'Layout Component',
-    description: 'A component placed in a layout section (header, footer, etc.)',
-  })
-)
-
-export type LayoutComponent = Schema.Schema.Type<typeof LayoutComponentSchema>
-
-
-const LayoutSectionSchema = Schema.Struct({
-  components: Schema.Array(LayoutComponentSchema).pipe(
-    Schema.annotations({
-      description: 'Components rendered in this layout section',
-    })
-  ),
-}).pipe(
-  Schema.annotations({
-    identifier: 'LayoutSection',
-    title: 'Layout Section',
-    description: 'A named layout section containing components',
-  })
-)
-
-export type LayoutSection = Schema.Schema.Type<typeof LayoutSectionSchema>
-
-
 const SidebarTemplateSchema = Schema.Struct({
   label: Schema.String.pipe(
     Schema.annotations({
@@ -126,8 +86,6 @@ export type SidebarItem = Schema.Schema.Type<typeof SidebarItemSchema>
 
 
 export const PageLayoutSchema = Schema.Struct({
-  header: Schema.optional(LayoutSectionSchema),
-
   sidebar: Schema.optional(
     Schema.Array(SidebarItemSchema).pipe(
       Schema.annotations({
@@ -139,7 +97,7 @@ export const PageLayoutSchema = Schema.Struct({
   Schema.annotations({
     identifier: 'PageLayout',
     title: 'Page Layout',
-    description: 'Layout configuration with named sections (header, footer, sidebar)',
+    description: 'Layout configuration with named sections (sidebar)',
   })
 )
 

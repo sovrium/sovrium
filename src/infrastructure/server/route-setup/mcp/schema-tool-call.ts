@@ -7,11 +7,13 @@
 
 
 import { sql } from 'drizzle-orm'
-import { type Context } from 'hono'
 import { db } from '@/infrastructure/database'
+import { qualifiedSystemTable } from '@/infrastructure/database/sql/dialect-ddl'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import { resolveDriftPosture } from '@/infrastructure/server/route-setup/drift-posture'
 import { setLiveApp } from '@/infrastructure/server/route-setup/live-app-store'
 import {
+  insertRestoredVersion,
   insertVersion,
   readActiveVersionNumber,
   readActiveVersionSnapshot,
@@ -22,16 +24,13 @@ import {
 } from '@/infrastructure/server/route-setup/schema-persistence'
 import { runPublishMigration } from '@/infrastructure/server/route-setup/schema-publish-migration'
 import { validateSnapshot } from '@/infrastructure/server/route-setup/schema-validation'
-import type { McpCaller } from '@/infrastructure/server/route-setup/mcp/auth'
-
-interface SchemaToolCallInput {
-  readonly c: Readonly<Context>
-  readonly caller: McpCaller
-  readonly responseId: number | string
-  readonly appName: string
-  readonly toolName: string
-  readonly args: Record<string, unknown>
-}
+import {
+  handleDiff as handleDiffExtra,
+  handlePreviewStart as handlePreviewStartExtra,
+  handlePreviewStatus as handlePreviewStatusExtra,
+  handlePreviewStop as handlePreviewStopExtra,
+} from './schema-tool-call-extras'
+import type { SchemaToolCallInput } from './schema-tool-call-types'
 
 export const handleSchemaToolCall = async (input: SchemaToolCallInput): Promise<Response> => {
   const suffix = input.toolName.slice(`${input.appName}_`.length)
@@ -50,17 +49,42 @@ export const handleSchemaToolCall = async (input: SchemaToolCallInput): Promise<
   }
 }
 
-const routeSchemaTool = (suffix: string, input: SchemaToolCallInput): Promise<Response> => {
-  if (suffix === 'schema_status') return handleStatus(input)
-  if (suffix === 'schema_versions_list') return handleVersionsList(input)
-  if (suffix === 'schema_versions_get') return handleVersionsGet(input)
-  if (suffix === 'schema_draft_get') return handleDraftGet(input)
-  if (suffix === 'schema_draft_validate') return handleDraftValidate(input)
-  if (suffix === 'schema_draft_replace') return handleDraftReplace(input)
-  if (suffix === 'schema_draft_publish') return handleDraftPublish(input)
-  if (suffix === 'schema_draft_rebase') return handleDraftRebase(input)
-  if (suffix === 'schema_draft_tables_create') return handleTablesCreate(input)
+let SCHEMA_TOOL_HANDLERS:
+  | ReadonlyMap<string, (input: SchemaToolCallInput) => Promise<Response>>
+  | undefined
 
+const buildSchemaToolHandlers = (): ReadonlyMap<
+  string,
+  (input: SchemaToolCallInput) => Promise<Response>
+> =>
+  new Map([
+    ['schema_status', handleStatus],
+    ['schema_versions_list', handleVersionsList],
+    ['schema_versions_get', handleVersionsGet],
+    ['schema_versions_restore', handleVersionsRestore],
+    ['schema_draft_get', handleDraftGet],
+    ['schema_draft_validate', handleDraftValidate],
+    ['schema_draft_replace', handleDraftReplace],
+    ['schema_draft_discard', handleDraftDiscard],
+    ['schema_draft_publish', handleDraftPublish],
+    ['schema_draft_rebase', handleDraftRebase],
+    ['schema_draft_tables_create', handleTablesCreate],
+    ['schema_diff', (input) => handleDiffExtra(input, successResult)],
+    [
+      'schema_draft_preview_start',
+      (input) => handlePreviewStartExtra(input, successResult, { errorResult }),
+    ],
+    ['schema_draft_preview_status', (input) => handlePreviewStatusExtra(input, successResult)],
+    [
+      'schema_draft_preview_stop',
+      (input) => handlePreviewStopExtra(input, successResult, { errorResult }),
+    ],
+  ])
+
+const routeSchemaTool = (suffix: string, input: SchemaToolCallInput): Promise<Response> => {
+  SCHEMA_TOOL_HANDLERS = SCHEMA_TOOL_HANDLERS ?? buildSchemaToolHandlers()
+  const handler = SCHEMA_TOOL_HANDLERS.get(suffix)
+  if (handler !== undefined) return handler(input)
   return Promise.resolve(
     input.c.json({
       jsonrpc: '2.0',
@@ -75,12 +99,19 @@ const handleStatus = async (input: SchemaToolCallInput): Promise<Response> => {
   const activeVersion = await readActiveVersionNumber()
   const draft = await readLatestDraft()
   const bootstrapMode = (await readUserCount()) === 0
+  const draftBaseVersion = draft?.baseVersion ?? activeVersion
+  const draftStale = draft !== undefined && draftBaseVersion !== activeVersion
+  const drift = await resolveDriftPosture()
   const structured = {
     apiEnabled: true,
     bootstrapMode,
     activeVersion,
     draftDirty: draft !== undefined,
     draftBaseVersion: draft?.baseVersion ?? 0,
+    draftStale,
+    driftStatus: drift.driftStatus,
+    ...(drift.source !== undefined ? { source: drift.source } : {}),
+    ...(drift.fileChecksum !== undefined ? { fileChecksum: drift.fileChecksum } : {}),
     previewActive: false,
   }
   return successResult(input, structured)
@@ -243,6 +274,52 @@ const handleTablesCreate = async (input: SchemaToolCallInput): Promise<Response>
     userId: input.caller.userId ?? 'mcp-system',
   }).then(() => successResult(input, { snapshot: nextSnapshot }))
 }
+
+
+const handleVersionsRestore = async (input: SchemaToolCallInput): Promise<Response> => {
+  const versionNumber = Number(input.args['versionNumber'])
+  if (!Number.isInteger(versionNumber) || versionNumber < 1) {
+    return errorResult(input, { code: 'VALIDATION_ERROR', message: 'versionNumber required' })
+  }
+  const sourceRow = await readVersionRow(versionNumber)
+  if (sourceRow === undefined) {
+    return errorResult(input, {
+      code: 'NOT_FOUND',
+      message: `version ${versionNumber} not found`,
+    })
+  }
+  const snapshot =
+    typeof sourceRow['snapshot'] === 'object' && sourceRow['snapshot'] !== null
+      ? (sourceRow['snapshot'] as Record<string, unknown>)
+      : {}
+  const message =
+    typeof input.args['message'] === 'string'
+      ? (input.args['message'] as string)
+      : `Restored from version ${versionNumber}`
+  const userId = input.caller.userId ?? 'mcp-system'
+  const newVersionNumber = await insertRestoredVersion({
+    snapshot,
+    message,
+    userId,
+    restoredFromVersion: versionNumber,
+  })
+  setLiveApp(snapshot as { readonly name: string; readonly [key: string]: unknown })
+  return writeDraft({ snapshot, baseVersion: newVersionNumber, userId }).then(() =>
+    successResult(input, { activeVersion: newVersionNumber })
+  )
+}
+
+
+const handleDraftDiscard = async (input: SchemaToolCallInput): Promise<Response> => {
+  const draft = await readLatestDraft()
+  if (draft === undefined) {
+    return errorResult(input, { code: 'NOT_FOUND', message: 'no draft exists' })
+  }
+  return db
+    .execute(sql.raw(`DELETE FROM ${qualifiedSystemTable('sovrium_app_drafts')}`))
+    .then(() => successResult(input, { discarded: true }))
+}
+
 
 
 const readUserCount = async (): Promise<number> => {

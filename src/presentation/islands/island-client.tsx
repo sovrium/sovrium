@@ -6,7 +6,7 @@
  */
 
 import { QueryClientProvider } from '@tanstack/react-query'
-import { Suspense, useState, type ReactElement } from 'react'
+import { Suspense, useEffect, useState, type ReactElement } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { ISLANDS } from './island-registry'
@@ -21,14 +21,23 @@ function parseIslandProps(raw: string | undefined): Record<string, unknown> | un
   }
 }
 
+function IslandReadySignal({ host }: { readonly host: HTMLElement }): null {
+  useEffect(() => {
+    host.setAttribute('data-island-ready', 'true')
+  }, [host])
+  return null
+}
+
 export function IslandWrapper({
   Component,
   props,
   fallback,
+  host,
 }: {
   readonly Component: React.ComponentType<Record<string, unknown>>
   readonly props: Record<string, unknown>
   readonly fallback: ReactElement
+  readonly host: HTMLElement
 }): ReactElement {
   const [queryClient] = useState(() => createIslandQueryClient())
 
@@ -36,6 +45,7 @@ export function IslandWrapper({
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={fallback}>
         <Component {...props} />
+        <IslandReadySignal host={host} />
       </Suspense>
     </QueryClientProvider>
   )
@@ -77,11 +87,11 @@ function mountIslands(): void {
           Component={Component}
           props={mergedProps}
           fallback={fallback}
+          host={el}
         />
       )
     })
 
-    el.setAttribute('data-island-ready', 'true')
   })
 }
 

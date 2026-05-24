@@ -17,7 +17,6 @@ export {
 export { StorageService, StorageError } from './storage-service'
 export { ImageTransformService, ImageTransformError } from './image-transform-service'
 export { CronScheduler, CronSchedulerError } from './cron-scheduler'
-export { NotificationService, NotificationServiceError } from './notification-service'
 export { RealtimeService, RealtimeError } from './realtime-service'
 export { SearchService, SearchError } from './search-service'
 export { AppRef } from './app-ref'

@@ -1,3 +1,11 @@
+## [0.7.2](https://github.com/sovrium/sovrium/compare/v0.7.1...v0.7.2) (2026-05-24)
+
+Fix timeline CSS variable race in regression spec (10× stress-tested)
+
+## [0.7.1](https://github.com/sovrium/sovrium/compare/v0.7.0...v0.7.1) (2026-05-24)
+
+Release 0.7.1
+
 ## [0.7.0](https://github.com/sovrium/sovrium/compare/v0.6.2...v0.7.0) (2026-05-23)
 
 v0.7.0 — minor release replacing the prematurely-tagged v1.0.0 (audit-log removal is not a breaking change pre-stable)

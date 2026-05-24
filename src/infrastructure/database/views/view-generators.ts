@@ -161,9 +161,11 @@ export const generateDropObsoleteViewsSQL = async (
       (viewName) => !allSchemaViewIds.has(viewName)
     )
 
+    const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
     const dropViewStatements = viewsToDrop.map(dropViewStatement)
     const dropMatViewStatements = matViewsToDrop.map(
-      (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
+      (viewName) =>
+        `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)}${cascadeSuffix}`
     )
 
     yield* executeSQLStatements(tx, [...dropViewStatements, ...dropMatViewStatements])
@@ -189,9 +191,11 @@ export const dropAllObsoleteViews = async (
     const viewsToDrop = existingViewNames.filter((viewName) => !allSchemaViews.has(viewName))
     const matViewsToDrop = existingMatViewNames.filter((viewName) => !allSchemaViews.has(viewName))
 
+    const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
     const dropViewStatements = viewsToDrop.map(dropViewStatement)
     const dropMatViewStatements = matViewsToDrop.map(
-      (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
+      (viewName) =>
+        `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)}${cascadeSuffix}`
     )
 
     if (dropViewStatements.length > 0 || dropMatViewStatements.length > 0) {

@@ -6,6 +6,7 @@
  */
 
 
+import { stringAggExpression } from '../sql/dialect-ddl'
 import { toSingular, generateJunctionTableName } from '../sql/sql-generators'
 import { generateSqlCondition } from '../table-queries/filter-operators'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -50,7 +51,7 @@ const generateReverseLookupExpression = (options: LookupExpressionOptions): stri
   const whereClause = whereConditions.join(' AND ')
 
   return `(
-    SELECT STRING_AGG(${alias}.${relatedField}::TEXT, ', ' ORDER BY ${alias}.${relatedField})
+    SELECT ${stringAggExpression(`${alias}.${relatedField}`, ', ', `${alias}.${relatedField}`)}
     FROM ${relatedTable} AS ${alias}
     WHERE ${whereClause}
   ) AS ${lookupName}`
@@ -81,7 +82,7 @@ const generateManyToManyLookupExpression = (options: ManyToManyLookupOptions): s
   const whereClause = whereConditions.join(' AND ')
 
   return `(
-    SELECT STRING_AGG(${alias}.${relatedField}::TEXT, ', ' ORDER BY ${alias}.${relatedField})
+    SELECT ${stringAggExpression(`${alias}.${relatedField}`, ', ', `${alias}.${relatedField}`)}
     FROM ${junctionTable} AS ${junctionAlias}
     INNER JOIN ${relatedTable} AS ${alias} ON ${joinCondition}
     WHERE ${whereClause}
