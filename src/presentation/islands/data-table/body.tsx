@@ -40,6 +40,8 @@ export interface InlineAutoSave {
   readonly onTabNext: (rowId: string | number, currentField: string, newValue: unknown) => void
 }
 
+export type DataTableRowClickAction = { readonly type: 'navigate'; readonly path: string }
+
 interface TableBodyRowsProps {
   readonly rows: readonly Row<TableRecord>[]
   readonly allColumns: readonly ColumnDef<TableRecord>[]
@@ -54,6 +56,7 @@ interface TableBodyRowsProps {
   readonly tableName?: string
   readonly autoSave?: InlineAutoSave
   readonly inlineSaveStatus?: SaveStatus
+  readonly onRowClickAction?: DataTableRowClickAction
   readonly onCellDoubleClick?: (rowId: string | number, field: string, value: unknown) => void
   readonly onEditSave?: (newValue: unknown) => void
   readonly onEditCancel?: () => void
@@ -87,8 +90,25 @@ function HeaderCell({
         {header.isPlaceholder
           ? undefined
           : flexRender(header.column.columnDef.header, header.getContext())}
-        {header.column.getIsSorted() === 'asc' && <span aria-hidden="true">↑</span>}
-        {header.column.getIsSorted() === 'desc' && <span aria-hidden="true">↓</span>}
+        {}
+        {header.column.getIsSorted() === 'asc' && (
+          <span
+            aria-label="sorted ascending"
+            aria-hidden="true"
+            className="sort-asc"
+          >
+            ↑
+          </span>
+        )}
+        {header.column.getIsSorted() === 'desc' && (
+          <span
+            aria-label="sorted descending"
+            aria-hidden="true"
+            className="sort-desc"
+          >
+            ↓
+          </span>
+        )}
       </div>
     </th>
   )
@@ -300,6 +320,13 @@ function GroupedTableBodyRows({
   )
 }
 
+function resolveRowClickPath(path: string, row: TableRecord): string {
+  return path.replace(/\{([^}]+)\}/g, (_match, field: string) => {
+    const value = row[field]
+    return value === null || value === undefined ? '' : String(value)
+  })
+}
+
 export function TableBodyRows({
   rows,
   allColumns,
@@ -315,6 +342,7 @@ export function TableBodyRows({
   tableName,
   autoSave,
   inlineSaveStatus,
+  onRowClickAction,
   onCellDoubleClick,
   onEditSave,
   onEditCancel,
@@ -357,9 +385,16 @@ export function TableBodyRows({
   }
 
   const handleRowClick = (row: Row<TableRecord>) => {
+    if (onRowClickAction && onRowClickAction.type === 'navigate') {
+      const resolved = resolveRowClickPath(onRowClickAction.path, row.original)
+      if (typeof window !== 'undefined') window.location.assign(resolved)
+      return
+    }
     if (selectionMode !== 'single') return
     row.toggleSelected(!row.getIsSelected())
   }
+
+  const rowIsClickable = onRowClickAction !== undefined || selectionMode === 'single'
 
   return (
     <tbody className="divide-border bg-background-raised divide-y">
@@ -371,7 +406,7 @@ export function TableBodyRows({
             striped && rowIndex % 2 === 1 ? 'bg-background-subtle' : ''
           } ${row.getIsSelected() ? 'bg-primary-subtle' : ''}`}
           {...(row.getIsSelected() && { 'aria-selected': 'true' as const })}
-          {...(selectionMode === 'single' && {
+          {...(rowIsClickable && {
             onClick: () => handleRowClick(row),
             style: { cursor: 'pointer' },
           })}

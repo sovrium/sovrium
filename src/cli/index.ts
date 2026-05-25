@@ -18,7 +18,7 @@ import { handleSchemaCommand } from '@/cli/commands/schema'
 import { handleStartCommand } from '@/cli/commands/start'
 import { handleStopCommand } from '@/cli/commands/stop'
 import { handleValidateCommand } from '@/cli/commands/validate'
-import { parseArgs } from '@/cli/dispatch'
+import { findUnknownFlag, parseArgs } from '@/cli/dispatch'
 import { handleSecretCommand } from '@/cli/secret'
 import { getCurrentVersion, handleUpdateCommand } from '@/cli/update'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
@@ -103,14 +103,16 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       appName: parsed.appName,
     }),
   agents: async () =>
-    handleAgentsCommand(parsed.subcommand, parsed.agentName, parsed.targetPath, parsed.forceFlag),
+    handleAgentsCommand(parsed.subcommand, parsed.agentName, parsed.targetPath, parsed.forceFlag, {
+      helpRequested: parsed.helpRequested ?? false,
+    }),
   admin: async () =>
     handleAdminCommand(parsed.subcommand, parsed.positionalArg, {
       configFile: parsed.configFile,
       password: parsed.password,
     }),
   secret: async () => handleSecretCommand(parsed.subcommand, parsed.positionalArg),
-  update: async () => handleUpdateCommand(),
+  update: async () => handleUpdateCommand({ helpRequested: parsed.helpRequested ?? false }),
   '--version': async () => showVersion(),
   version: async () => showVersion(),
   '--help': async () => showHelp(),
@@ -118,15 +120,31 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
 }
 
 const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
-  start: async () => handleStartCommand(parsed.configFile, parsed.watchMode, parsed.publicDir),
+  start: async () =>
+    handleStartCommand(
+      parsed.configFile,
+      parsed.watchMode,
+      parsed.publicDir,
+      parsed.helpRequested ?? false
+    ),
   build: async () => handleBuildCommand(parsed.configFile, parsed.publicDir),
   schema: async () => handleSchemaCommand(parsed.outputPath),
   validate: async () => handleValidateCommand(parsed.configFile),
 }
 
-const parsed = parseArgs(Bun.argv.slice(2))
+const rawArgs = Bun.argv.slice(2)
+const parsed = parseArgs(rawArgs)
 
 const runCommand = async (): Promise<void> => {
+  if (parsed.command !== '--help' && parsed.command !== '--version') {
+    const unknownFlag = findUnknownFlag(rawArgs)
+    if (unknownFlag !== undefined) {
+      Effect.runSync(Console.error(`Error: Unknown flag "${unknownFlag}"\n`))
+      showHelp()
+      process.exit(1)
+    }
+  }
+
   const exitHandler = exitCommands[parsed.command]
   if (exitHandler) {
     await exitHandler()
@@ -141,7 +159,12 @@ const runCommand = async (): Promise<void> => {
   }
 
   if (!parsed.command.startsWith('-')) {
-    await handleStartCommand(undefined, parsed.watchMode, parsed.publicDir)
+    await handleStartCommand(
+      undefined,
+      parsed.watchMode,
+      parsed.publicDir,
+      parsed.helpRequested ?? false
+    )
   } else {
     Effect.runSync(Console.error(`Error: Unknown command "${parsed.command}"\n`))
     showHelp()

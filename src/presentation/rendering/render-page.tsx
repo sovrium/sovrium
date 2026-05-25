@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+
 import { renderToString } from 'react-dom/server'
 import { resolveLandingPath } from '@/domain/services/landing-resolver'
 import { checkPageAccess, type AccessDecision } from '@/domain/services/page-access-check'
@@ -16,6 +17,7 @@ import {
 } from '@/presentation/rendering/analytics-helpers'
 import { resolveCustomHtmlSources } from '@/presentation/rendering/custom-html-resolver'
 import { resolvePageDataSources } from '@/presentation/rendering/data-source-resolver'
+import { evaluateEmbeddedFormRefsAccess } from '@/presentation/rendering/forms/form-ref-access-check'
 import { expandFormRefs } from '@/presentation/rendering/forms/form-ref-resolver'
 import { resolveMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
 import { resolveCollectionPage } from '@/presentation/rendering/page-collection-resolver'
@@ -392,6 +394,7 @@ export async function renderPageByPath(
 
   const denied = toAccessDeniedResult(checkPageAccess(matchedPage.access, app, session, path))
   if (denied !== false) return denied
+  if (evaluateEmbeddedFormRefsAccess(app, matchedPage, session) === 'denied') return undefined
 
   const landingRedirect = await resolveLandingRedirect(app, path, session, db)
   if (landingRedirect !== undefined) return landingRedirect

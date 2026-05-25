@@ -21,6 +21,36 @@ import { readPublicDirEnv } from './option-parsing'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, reloadServer } from './utils'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
 
+const START_HELP_TEXT = [
+  'Usage: sovrium start [config] [options]',
+  '',
+  'Start a Sovrium server from a YAML/JSON/TS config file.',
+  '',
+  'Arguments:',
+  '  config                        Path to config file (.json, .yaml, .yml, .ts)',
+  '',
+  'Options:',
+  '  --watch, -w                   Watch config file and hot-reload on change',
+  '  --publicDir <path>            Directory of static assets to serve at /',
+  '  --help, -h                    Show this help message',
+  '',
+  'Environment variables (all optional — Sovrium runs zero-config):',
+  '  APP_SCHEMA                    Inline JSON/YAML or remote URL (alternative to file arg)',
+  '  PORT                          Server port (default: 3000)',
+  '  HOSTNAME                      Server hostname (default: localhost)',
+  '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
+  '  AUTH_SECRET                   Auth signing secret (run: sovrium secret generate)',
+  '',
+  'Examples:',
+  '  sovrium start app.yaml                   # Boot with app.yaml',
+  '  sovrium start app.yaml --watch           # Hot reload on file change',
+  '  PORT=8080 sovrium start app.json         # Override port',
+].join('\n')
+
+const showStartHelp = (): void => {
+  Effect.runSync(Console.log(START_HELP_TEXT))
+}
+
 const parseStartOptions = (): StartOptions => {
   const port = Bun.env.PORT
   const hostname = Bun.env.HOSTNAME
@@ -46,8 +76,14 @@ const parseStartOptions = (): StartOptions => {
 export const handleStartCommand = async (
   filePath?: string,
   watchMode = false,
-  publicDir?: string
+  publicDir?: string,
+  helpRequested = false
 ): Promise<void> => {
+  if (helpRequested) {
+    showStartHelp()
+    return
+  }
+
   const { start } = await lazyImportIndex()
   const { logDebug } = await lazyImportLogger()
   const { parseAppSchema } = await lazyImportCli()

@@ -8,7 +8,7 @@
 import { TableBodyRows, TableHeader, TableSummaryFooter } from '../body'
 import type { EditingCell, FieldMetaMap, SaveStatus } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../shared/types'
-import type { InlineAutoSave } from '../body'
+import type { DataTableRowClickAction, InlineAutoSave } from '../body'
 import type {
   DataTableGroupBy,
   DataTableSummaryItem,
@@ -33,6 +33,7 @@ interface TableContentProps {
   readonly tableName: string
   readonly autoSave?: InlineAutoSave
   readonly inlineSaveStatus?: SaveStatus
+  readonly onRowClickAction?: DataTableRowClickAction
   readonly onCellDoubleClick: (rowId: string | number, field: string, currentValue: unknown) => void
   readonly onEditSave: (newValue: unknown) => Promise<void>
   readonly onEditCancel: () => void
@@ -65,6 +66,7 @@ export function TableContent(props: TableContentProps) {
           tableName={props.tableName}
           autoSave={props.autoSave}
           inlineSaveStatus={props.inlineSaveStatus}
+          onRowClickAction={props.onRowClickAction}
           onCellDoubleClick={props.onCellDoubleClick}
           onEditSave={props.onEditSave}
           onEditCancel={props.onEditCancel}

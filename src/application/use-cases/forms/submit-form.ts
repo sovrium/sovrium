@@ -9,6 +9,7 @@ import { Data, Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/form-submission-repository'
 import { buildGuestSession } from '@/application/use-cases/automations/build-guest-session'
 import { triggerFormSubmissionAutomations } from '@/application/use-cases/automations/trigger-form-submission'
+import { coerceScalarsForArrayColumns } from '@/application/use-cases/forms/coerce-array-columns'
 import { checkHoneypot } from '@/application/use-cases/forms/submit-form-honeypot'
 import { createRecordProgram } from '@/application/use-cases/tables/programs'
 import { collectFieldsInHiddenGroups } from '@/domain/models/shared/field-groups-flow'
@@ -332,6 +333,7 @@ interface PersistOutcome {
 }
 
 const persistSubmission = (input: {
+  readonly app: Readonly<App>
   readonly form: Readonly<Form>
   readonly mapped: Readonly<Record<string, unknown>>
   readonly ipAddress: string | undefined
@@ -339,7 +341,7 @@ const persistSubmission = (input: {
   readonly submitterUserId: string | undefined
 }) =>
   Effect.gen(function* () {
-    const { form, mapped, ipAddress, userAgent, submitterUserId } = input
+    const { app, form, mapped, ipAddress, userAgent, submitterUserId } = input
     const cappedSubmissionId =
       form.availability?.maxSubmissions !== undefined
         ? yield* reserveLedgerSlot({
@@ -357,7 +359,11 @@ const persistSubmission = (input: {
         ? yield* createRecordProgram({
             session: buildGuestSession(),
             tableName: form.submitTo.table,
-            fields: filterTableBoundFields(mapped, form),
+            fields: coerceScalarsForArrayColumns(
+              filterTableBoundFields(mapped, form),
+              app,
+              form.submitTo.table
+            ),
           })
         : undefined
     const linkedRecordId = coerceLinkedRecordId(linkedRecord)
@@ -395,6 +401,7 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     const mapped = yield* processSubmissionBody(form, body, query ?? {})
 
     const { submissionId, linkedRecordPresent, linkedRecordId } = yield* persistSubmission({
+      app,
       form,
       mapped,
       ipAddress,

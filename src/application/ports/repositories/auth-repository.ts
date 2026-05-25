@@ -27,5 +27,6 @@ export class AuthRepository extends Context.Tag('AuthRepository')<
     readonly getUserSessionToken: (
       userId: string
     ) => Effect.Effect<string | undefined, AuthDatabaseError>
+    readonly countUsers: () => Effect.Effect<number, AuthDatabaseError>
   }
 >() {}

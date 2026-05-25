@@ -30,4 +30,8 @@ export const buttonFields = {
   loading: Schema.optional(
     Schema.Boolean.annotations({ description: 'Show a loading spinner inside the button' })
   ),
+  label: Schema.optional(Schema.String.annotations({ description: 'Button text label' })),
+  confirm: Schema.optional(
+    Schema.String.annotations({ description: 'Click-time confirmation prompt' })
+  ),
 } as const

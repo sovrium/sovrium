@@ -37,4 +37,9 @@ export const numberInputFields = {
       description: 'Show increment/decrement stepper buttons (default: true)',
     })
   ),
+  defaultValue: Schema.optional(
+    Schema.Number.annotations({
+      description: 'Initial numeric value rendered in the input',
+    })
+  ),
 } as const

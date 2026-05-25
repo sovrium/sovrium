@@ -35,6 +35,8 @@ function buildSelectProps(rawProps: RawProps, elementProps: ElemProps, component
     placeholder: rawProps?.placeholder,
     multiple: pickFromComponent(c, rawProps, 'multiple'),
     searchable: pickFromComponent(c, rawProps, 'searchable'),
+    searchPlaceholder: pickFromComponent(c, rawProps, 'searchPlaceholder'),
+    allowCustomValue: pickFromComponent(c, rawProps, 'allowCustomValue'),
     defaultValue: pickFromComponent(c, rawProps, 'defaultValue'),
     disabled: rawProps?.disabled,
     label: rawProps?.label ?? rawProps?.fieldLabel,
@@ -346,12 +348,17 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         : undefined) ??
       (rawProps?.navItems as readonly { label: string; href?: string }[] | undefined)
     const props = { navItems, ...baseProps(elementProps) }
+    const userClassName = elementProps['className'] as string | undefined
+    const navClassName = userClassName
+      ? `flex items-center gap-1 ${userClassName}`
+      : 'flex items-center gap-1'
     return (
       <nav
         data-island="navigation-menu"
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
-        className="flex items-center gap-1"
+        aria-label={elementProps['aria-label'] as string | undefined}
+        className={navClassName}
       >
         {renderedChildren.length > 0 ? (
           renderedChildren

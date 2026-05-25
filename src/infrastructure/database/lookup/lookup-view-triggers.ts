@@ -104,3 +104,61 @@ FOR EACH ROW
 EXECUTE FUNCTION ${deleteTriggerFunction}()`,
   ]
 }
+
+
+export const generateInsertTriggerSqlite = (
+  viewName: string,
+  baseTableName: string,
+  baseFields: readonly string[]
+): readonly string[] => {
+  const triggerName = `${viewName}_insert_trigger`
+  const insertFieldsList = baseFields.join(', ')
+  const insertValuesList = baseFields.map((name) => `NEW.${name}`).join(', ')
+
+  return [
+    `DROP TRIGGER IF EXISTS ${triggerName}`,
+    `CREATE TRIGGER ${triggerName}
+INSTEAD OF INSERT ON ${viewName}
+BEGIN
+  INSERT INTO ${baseTableName} (${insertFieldsList})
+  VALUES (${insertValuesList});
+END`,
+  ]
+}
+
+export const generateUpdateTriggerSqlite = (
+  viewName: string,
+  baseTableName: string,
+  baseFields: readonly string[]
+): readonly string[] => {
+  const triggerName = `${viewName}_update_trigger`
+  const updateSetList = baseFields.map((name) => `${name} = NEW.${name}`).join(', ')
+
+  return [
+    `DROP TRIGGER IF EXISTS ${triggerName}`,
+    `CREATE TRIGGER ${triggerName}
+INSTEAD OF UPDATE ON ${viewName}
+BEGIN
+  UPDATE ${baseTableName}
+  SET ${updateSetList}
+  WHERE id = OLD.id;
+END`,
+  ]
+}
+
+export const generateDeleteTriggerSqlite = (
+  viewName: string,
+  baseTableName: string
+): readonly string[] => {
+  const triggerName = `${viewName}_delete_trigger`
+
+  return [
+    `DROP TRIGGER IF EXISTS ${triggerName}`,
+    `CREATE TRIGGER ${triggerName}
+INSTEAD OF DELETE ON ${viewName}
+BEGIN
+  DELETE FROM ${baseTableName}
+  WHERE id = OLD.id;
+END`,
+  ]
+}

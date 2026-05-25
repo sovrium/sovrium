@@ -35,6 +35,8 @@ export function renderField(config: RenderFieldConfig): ReactElement {
       {fieldLabel !== undefined && (
         <label htmlFor={controlId}>{required ? `${fieldLabel} *` : fieldLabel}</label>
       )}
+      {children}
+      {}
       {fieldDescription !== undefined && (
         <p
           className="text-sm text-gray-500"
@@ -43,7 +45,6 @@ export function renderField(config: RenderFieldConfig): ReactElement {
           {fieldDescription}
         </p>
       )}
-      {children}
       {fieldError !== undefined && (
         <p
           className="text-sm text-red-600"

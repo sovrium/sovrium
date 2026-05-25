@@ -6,7 +6,7 @@
  */
 
 import { SQL } from 'bun'
-import { Effect, Console, Data, type ConfigError } from 'effect'
+import { Effect, Data, type ConfigError } from 'effect'
 import {
   parseDatabaseDialectConfig,
   type DatabaseDialectConfig,
@@ -445,8 +445,15 @@ export const initializeSchema = (
         if (error instanceof SchemaInitializationError) {
           return Effect.fail(error)
         }
-        return Console.error(`Error initializing database schema: ${error._tag}`).pipe(
-          Effect.flatMap(() => Effect.void)
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : ((error as { _tag?: string })._tag ?? String(error))
+        return Effect.fail(
+          new SchemaInitializationError({
+            message: `Schema initialization failed: ${errorMessage}`,
+            cause: error,
+          })
         )
       }
     )

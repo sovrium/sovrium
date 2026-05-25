@@ -68,25 +68,57 @@ const handleAgentsInstallCommand = async (
   Effect.runSync(Console.log(`Installed agent "${agentName}" to ${destFile}`))
 }
 
+const AGENTS_HELP_TEXT = [
+  'Sovrium CLI — agent template management',
+  '',
+  'Usage:',
+  '  sovrium agents list                       List available agent templates',
+  '  sovrium agents add <name>                 Install an agent template (alias: install)',
+  '  sovrium agents install <name>             Install an agent template',
+  '',
+  'Options for `agents add` / `agents install`:',
+  '  --target <dir>                            Install destination (default: cwd)',
+  '  --force                                   Overwrite an existing agent file',
+  '',
+  'Examples:',
+  '  sovrium agents list',
+  '  sovrium agents add crud-editor',
+  '  sovrium agents add crud-editor --target ./my-project --force',
+].join('\n')
+
+const showAgentsHelp = (): void => {
+  Effect.runSync(Console.log(AGENTS_HELP_TEXT))
+}
+
+export interface AgentsCommandOptions {
+  readonly helpRequested?: boolean
+}
+
 export const handleAgentsCommand = async (
   subcommand?: string,
   agentName?: string,
   targetPath?: string,
-  force = false
+  force = false,
+  options?: Readonly<AgentsCommandOptions>
 ): Promise<void> => {
+  if (options?.helpRequested) {
+    showAgentsHelp()
+    return
+  }
+
   if (subcommand === 'list') {
     handleAgentsListCommand()
     return
   }
 
-  if (subcommand === 'install') {
+  if (subcommand === 'install' || subcommand === 'add') {
     await handleAgentsInstallCommand(agentName, targetPath, force)
     return
   }
 
   Effect.runSync(
     Console.error(
-      'Error: Unknown agents subcommand\n\nUsage:\n  sovrium agents list                    List available agent templates\n  sovrium agents install <name>          Install an agent template'
+      'Error: Unknown agents subcommand\n\nUsage:\n  sovrium agents list                    List available agent templates\n  sovrium agents add <name>              Install an agent template\n  sovrium agents install <name>          Install an agent template (alias of add)'
     )
   )
   process.exit(1)

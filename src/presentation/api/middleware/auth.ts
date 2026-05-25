@@ -132,38 +132,54 @@ export function requireAuth() {
   return requireAuthHandler
 }
 
-async function requireAdminHandler(c: ContextWithSession, next: Next) {
-  const { session } = c.var
+function makeRoleGuard(allowedRoles: ReadonlyArray<string>, notFoundOnMissingSession: boolean) {
+  return async (c: ContextWithSession, next: Next) => {
+    const { session } = c.var
 
-  if (!session) {
-    return c.json(
-      {
-        success: false,
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-      },
-      401
-    )
+    if (!session) {
+      if (notFoundOnMissingSession) {
+        return c.json(
+          {
+            success: false,
+            message: 'Not found',
+            code: 'NOT_FOUND',
+          },
+          404
+        )
+      }
+      return c.json(
+        {
+          success: false,
+          error: 'Unauthorized',
+          message: 'Authentication required',
+          code: 'UNAUTHORIZED',
+        },
+        401
+      )
+    }
+
+    const { getUserRole } = await import('@/application/use-cases/tables/user-role')
+    const role = await getUserRole(session.userId)
+
+    if (!allowedRoles.includes(role)) {
+      return c.json(
+        {
+          success: false,
+          message: 'Not found',
+          code: 'NOT_FOUND',
+        },
+        404
+      )
+    }
+
+    await next()
   }
-
-  const { getUserRole } = await import('@/application/use-cases/tables/user-role')
-  const role = await getUserRole(session.userId)
-
-  if (role !== 'admin') {
-    return c.json(
-      {
-        success: false,
-        message: 'Not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
-
-  await next()
 }
 
 export function requireAdmin() {
-  return requireAdminHandler
+  return makeRoleGuard(['admin'], false)
+}
+
+export function requireAdminTier() {
+  return makeRoleGuard(['admin', 'operator'], true)
 }

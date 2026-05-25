@@ -6,7 +6,6 @@
  */
 
 import { readFileSync, rmSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import { Effect, Config } from 'effect'
 import { Hono } from 'hono'
 import { websocket } from 'hono/bun'
@@ -419,10 +418,10 @@ const registerLockFileCleanup = (honoApp: Readonly<Hono>, configPath: string): v
   process.on('SIGTERM', cleanupLockFileSync)
   process.on('SIGINT', cleanupLockFileSync)
 
-  process.on('SIGUSR1', async () => {
+  process.on('SIGUSR1', () => {
     if (!configPath) return
     try {
-      const content = await readFile(configPath, 'utf-8')
+      const content = readFileSync(configPath, 'utf-8')
       const newHash = computeConfigHash(content)
       const setter = (honoApp as any).__setConfigHash as ((hash: string) => void) | undefined
       if (setter) setter(newHash)

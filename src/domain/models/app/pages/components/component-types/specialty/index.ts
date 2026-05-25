@@ -12,3 +12,9 @@ export { TimePickerTypeLiteral, timePickerFields } from './time-picker'
 export { StatusIndicatorTypeLiteral, statusIndicatorFields } from './status-indicator'
 export { ReorderableListTypeLiteral, reorderableListFields } from './reorderable-list'
 export { LanguageSwitcherTypeLiteral, languageSwitcherFields } from './language-switcher'
+export {
+  CommentsTypeLiteral,
+  commentsFields,
+  CommentCountTypeLiteral,
+  commentCountFields,
+} from './comments'

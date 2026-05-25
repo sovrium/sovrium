@@ -31,6 +31,21 @@ export const FormAvailabilitySchema = Schema.Struct({
       })
     )
   ),
+  closedPage: Schema.optional(
+    Schema.Struct({
+      type: Schema.optional(Schema.Literal('page')),
+      title: Schema.optional(Schema.String.pipe(Schema.minLength(1))),
+      message: Schema.optional(Schema.String),
+      cta: Schema.optional(
+        Schema.Struct({
+          label: Schema.String.pipe(Schema.minLength(1)),
+          href: Schema.String.pipe(Schema.minLength(1)),
+        })
+      ),
+    }).annotations({
+      description: 'Custom closed-form UI block (title, message, optional CTA link)',
+    })
+  ),
 }).pipe(
   Schema.filter((a) => {
     if (a.opensAt && a.closesAt) {

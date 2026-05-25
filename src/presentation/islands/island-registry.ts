@@ -9,6 +9,9 @@ import { lazy } from 'react'
 import AiChatIsland from './ai-chat-island'
 import AuthFormIsland from './auth-form-island'
 import CrudFormIsland from './crud-form-island'
+import DatePickerIsland from './date-picker-island'
+import FileUploadIsland from './file-upload-island'
+import NumberInputIsland from './number-input-island'
 
 export const ISLANDS: Record<string, React.ComponentType<any>> = {
   'data-table': lazy(() => import('./data-table/island')),
@@ -34,6 +37,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   switch: lazy(() => import('./switch-island')),
   tooltip: lazy(() => import('./tooltip-island')),
   popover: lazy(() => import('./popover-island')),
+  'hover-card': lazy(() => import('./hover-card-island')),
   drawer: lazy(() => import('./drawer-island')),
   'dropdown-menu': lazy(() => import('./menu-island')),
   'context-menu': lazy(() => import('./menu-island')),
@@ -44,5 +48,8 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   'navigation-menu': lazy(() => import('./nav-menu-island')),
   'scroll-area': lazy(() => import('./scroll-area-island')),
   'presence-indicator': lazy(() => import('./presence-indicator-island')),
+  'file-upload': FileUploadIsland,
+  'number-input': NumberInputIsland,
+  'date-picker': DatePickerIsland,
 }
 

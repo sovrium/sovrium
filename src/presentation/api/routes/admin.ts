@@ -7,6 +7,8 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   configVersionResponseSchema,
   type ConfigVersionResponse,
@@ -18,7 +20,11 @@ import {
 import { resolveRuntimeLabel } from '@/domain/models/env/database-dialect'
 import { parseStorageEnvConfig } from '@/domain/models/env/storage'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
+import { handleGetAuditLog } from '@/presentation/api/routes/admin/audit-log'
+import { createHandleGetTablesOverview } from '@/presentation/api/routes/admin/tables-overview'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
+import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 const PROCESS_STARTED_AT: string = new Date().toISOString()
@@ -49,6 +55,22 @@ async function handleGetConfigVersion(c: Context): Promise<Response> {
       { success: false, message: 'Failed to build version info', code: 'INTERNAL_ERROR' },
       500
     )
+  }
+
+  const session = getSessionContext(c)
+  if (session) {
+    const role = await getUserRole(session.userId)
+    await emitAuditEvent({
+      action: 'config.version.queried',
+      actor: {
+        id: session.userId,
+        type: 'user',
+        role: role === 'admin' ? 'admin' : 'operator',
+      },
+      resourceId: 'version',
+      severity: 'info',
+      result: 'success',
+    })
   }
 
   c.header('Cache-Control', 'no-store')
@@ -119,10 +141,12 @@ function handleDeleteTransformCache(c: Context): Response {
   return c.json({ success: true, message: 'Transform cache cleared' }, 200)
 }
 
-export function chainAdminRoutes<T extends Hono>(honoApp: T): T {
+export function chainAdminRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
     .get('/api/admin/storage/status', handleGetStorageStatus)
     .get('/api/admin/buckets/quota', handleGetBucketsQuota)
     .get('/api/admin/config/version', handleGetConfigVersion)
+    .get('/api/admin/tables/overview', createHandleGetTablesOverview(app))
+    .get('/api/admin/audit-log', handleGetAuditLog)
     .on('DELETE', '/api/admin/storage/transform-cache', handleDeleteTransformCache) as T
 }

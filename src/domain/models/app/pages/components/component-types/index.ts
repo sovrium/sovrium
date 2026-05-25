@@ -187,6 +187,10 @@ import {
   reorderableListFields,
   LanguageSwitcherTypeLiteral,
   languageSwitcherFields,
+  CommentsTypeLiteral,
+  commentsFields,
+  CommentCountTypeLiteral,
+  commentCountFields,
 } from './specialty'
 import { DividerTypeLiteral, dividerFields, SpacerTypeLiteral, spacerFields } from './structural'
 
@@ -288,6 +292,8 @@ const allComponents = [
   [StatusIndicatorTypeLiteral, statusIndicatorFields],
   [ReorderableListTypeLiteral, reorderableListFields],
   [LanguageSwitcherTypeLiteral, languageSwitcherFields],
+  [CommentsTypeLiteral, commentsFields],
+  [CommentCountTypeLiteral, commentCountFields],
   [DividerTypeLiteral, dividerFields],
   [SpacerTypeLiteral, spacerFields],
   [AiChatTypeLiteral, aiChatFields],
@@ -376,6 +382,8 @@ export const ComponentTypeSchema = Schema.Union(
   StatusIndicatorTypeLiteral,
   ReorderableListTypeLiteral,
   LanguageSwitcherTypeLiteral,
+  CommentsTypeLiteral,
+  CommentCountTypeLiteral,
   DividerTypeLiteral,
   SpacerTypeLiteral,
   AiChatTypeLiteral,

@@ -37,6 +37,7 @@ export interface ParsedArgs {
   readonly publicDir?: string
   readonly positionalArg?: string
   readonly password?: string
+  readonly helpRequested?: boolean
 }
 
 const hasFlag = (argv: readonly string[], long: string, short: string): boolean =>
@@ -58,6 +59,44 @@ const FLAG_VALUE_OPTIONS = [
 
 const NOUN_VERB_COMMANDS = ['agents', 'admin', 'secret'] as const
 
+const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
+  '--help',
+  '-h',
+  '--version',
+  '-v',
+  '--watch',
+  '-w',
+  '--force',
+  '--no-agent',
+])
+
+const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  '--output',
+  '--template',
+  '--target',
+  '--publicDir',
+  '--name',
+  '--password',
+])
+
+const stripEqValue = (arg: string): string =>
+  arg.includes('=') ? arg.slice(0, arg.indexOf('=')) : arg
+
+export const findUnknownFlag = (argv: readonly string[]): string | undefined => {
+  const offenders = argv.filter((arg, i) => {
+    if (!arg.startsWith('-')) return false
+    const flag = stripEqValue(arg)
+    if (KNOWN_BOOLEAN_FLAGS.has(flag)) return false
+    if (KNOWN_VALUE_FLAGS.has(flag)) return false
+    const prev = i > 0 ? argv[i - 1] : undefined
+    if (prev !== undefined && KNOWN_VALUE_FLAGS.has(stripEqValue(prev)) && !prev.includes('=')) {
+      return false
+    }
+    return true
+  })
+  return offenders[0]
+}
+
 const extractNonFlagArgs = (argv: readonly string[]): readonly string[] =>
   argv.filter(
     (arg, i) =>
@@ -66,7 +105,8 @@ const extractNonFlagArgs = (argv: readonly string[]): readonly string[] =>
   )
 
 const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
-  if (hasFlag(argv, '--help', '-h')) {
+  const firstPositional = argv.find((arg) => !arg.startsWith('-'))
+  if (hasFlag(argv, '--help', '-h') && firstPositional === undefined) {
     return {
       command: '--help',
       configFile: undefined,
@@ -115,12 +155,14 @@ const buildStandardResult = (
   command: string,
   configFile: string | undefined,
   flags: ParsedFlags,
-  nonFlagArgs: readonly string[]
+  nonFlagArgs: readonly string[],
+  argv: readonly string[]
 ): ParsedArgs => {
   const isNounVerb = NOUN_VERB_COMMANDS.includes(command as (typeof NOUN_VERB_COMMANDS)[number])
   const subcommand = isNounVerb ? nonFlagArgs[1] : undefined
   const agentName = command === 'agents' ? nonFlagArgs[2] : undefined
   const positionalArg = command === 'agents' ? undefined : isNounVerb ? nonFlagArgs[2] : undefined
+  const helpRequested = argv.includes('--help') || argv.includes('-h')
 
   return {
     command,
@@ -137,6 +179,7 @@ const buildStandardResult = (
     publicDir: flags.publicDir,
     positionalArg,
     password: flags.password,
+    helpRequested,
   }
 }
 
@@ -163,5 +206,5 @@ export const parseArgs = (argv: readonly string[]): ParsedArgs => {
     }
   }
 
-  return buildStandardResult(command, configFile, flags, nonFlagArgs)
+  return buildStandardResult(command, configFile, flags, nonFlagArgs, argv)
 }

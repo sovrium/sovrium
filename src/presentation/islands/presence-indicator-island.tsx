@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 
 interface PresenceUser {
   readonly id: string
@@ -34,13 +34,21 @@ function applyPresenceMessage(
   }
   if (message.type === 'join' && message.user) {
     const { user } = message
-    return [...current.filter((u) => u.id !== user.id), user]
+    return [...current, user]
   }
   if (message.type === 'leave' && typeof message.userId === 'string') {
     const { userId } = message
-    return current.filter((u) => u.id !== userId)
+    const oldestIndex = current.findIndex((u) => u.id === userId)
+    if (oldestIndex === -1) return current
+    return [...current.slice(0, oldestIndex), ...current.slice(oldestIndex + 1)]
   }
   return current
+}
+
+function uniqueByUserId(entries: readonly PresenceUser[]): readonly PresenceUser[] {
+  const sorted = entries.toSorted((a, b) => a.joinedAt.localeCompare(b.joinedAt))
+  const byId = new Map<string, PresenceUser>(sorted.map((entry) => [entry.id, entry]))
+  return [...byId.values()]
 }
 
 function initials(name: string): string {
@@ -75,7 +83,8 @@ export default function PresenceIndicatorIsland({
   pagePath,
   'data-testid': testId = 'presence-indicator',
 }: PresenceIndicatorIslandProps): ReactElement {
-  const [users, setUsers] = useState<readonly PresenceUser[]>([])
+  const [entries, setEntries] = useState<readonly PresenceUser[]>([])
+  const visibleUsers = useMemo(() => uniqueByUserId(entries), [entries])
 
   useEffect(() => {
     if (
@@ -93,7 +102,7 @@ export default function PresenceIndicatorIsland({
     const handleMessage = (event: MessageEvent): void => {
       try {
         const parsed = JSON.parse(event.data) as Parameters<typeof applyPresenceMessage>[1]
-        setUsers((current) => applyPresenceMessage(current, parsed))
+        setEntries((current) => applyPresenceMessage(current, parsed))
       } catch {
       }
     }
@@ -109,10 +118,10 @@ export default function PresenceIndicatorIsland({
   return (
     <div
       data-testid={testId}
-      data-presence-count={users.length}
+      data-presence-count={visibleUsers.length}
       aria-label="Users viewing this page"
     >
-      {users.map((user) => (
+      {visibleUsers.map((user) => (
         <PresenceChip
           key={user.id}
           user={user}

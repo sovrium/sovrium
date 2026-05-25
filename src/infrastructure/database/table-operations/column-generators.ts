@@ -21,7 +21,10 @@ export const generateIdColumn = (
   const pkConstraint = isPrimaryKey ? ' PRIMARY KEY' : ''
 
   if (isSqliteRuntime()) {
-    return `id TEXT NOT NULL DEFAULT (${SQLITE_UUID_DEFAULT})${pkConstraint}`
+    if (primaryKeyType === 'uuid' || primaryKeyType === 'text') {
+      return `id TEXT NOT NULL DEFAULT (${SQLITE_UUID_DEFAULT})${pkConstraint}`
+    }
+    return isPrimaryKey ? `id INTEGER PRIMARY KEY AUTOINCREMENT` : `id INTEGER NOT NULL`
   }
 
   if (primaryKeyType === 'uuid') {
@@ -70,7 +73,9 @@ export const generateDeletedAtColumn = (table: Table): readonly string[] => {
 export const generatePrimaryKeyConstraintIfNeeded = (
   table: Table,
   primaryKeyFields: readonly string[]
-): readonly string[] =>
-  needsAutomaticIdColumn(table, primaryKeyFields) && primaryKeyFields.length === 0
-    ? ['PRIMARY KEY (id)']
-    : []
+): readonly string[] => {
+  if (!needsAutomaticIdColumn(table, primaryKeyFields) || primaryKeyFields.length > 0) {
+    return []
+  }
+  return []
+}

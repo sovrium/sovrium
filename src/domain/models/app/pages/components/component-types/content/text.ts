@@ -42,4 +42,10 @@ export const textFields = {
   ...visibilityFields,
   ...i18nFields,
   element: Schema.optional(TextElementSchema),
+  required: Schema.optional(
+    Schema.Boolean.annotations({
+      description:
+        'When rendered as a <label> element, appends a required-indicator (*) after the label text.',
+    })
+  ),
 } as const

@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
 import { revalidateInlinePrefillParent } from '@/application/use-cases/forms/inline-prefill-revalidation'
 import {
   findFormByName,
@@ -100,14 +101,17 @@ async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Pr
   if (windowState.kind === 'closed') {
     return c.html(renderers.renderClosedForm(app, form, 'closed'))
   }
-  return c.html(renderers.renderForm(app, form, activeLang, buildPrefillContext(c)))
+  return c.html(renderers.renderForm(app, form, activeLang, await buildPrefillContext(c)))
 }
 
-function buildPrefillContext(c: Context): FormPrefillContext {
+async function buildPrefillContext(c: Context): Promise<FormPrefillContext> {
   const query = c.req.query() as Record<string, string>
   const session = getSessionContext(c)
-  const user = session ? { id: session.userId } : undefined
-  return user ? { query, user } : { query }
+  if (!session) return { query }
+  const email = await findUserEmailById(session.userId)
+  const user: Record<string, unknown> =
+    email !== undefined ? { id: session.userId, email } : { id: session.userId }
+  return { query, user }
 }
 
 async function resolveFormSession(
@@ -363,11 +367,11 @@ export function chainFormRoutes<T extends Hono>(
 
   return forms.reduce<T>((acc, form) => {
     if (typeof form.path !== 'string') return acc
-    return acc.get(form.path, (c) => {
+    return acc.get(form.path, async (c) => {
       const resolved = findFormByName(app, form.name)
       if (!resolved) return c.notFound()
       const activeLang = c.req.query('lang')
-      return c.html(renderers.renderForm(app, resolved, activeLang, buildPrefillContext(c)))
+      return c.html(renderers.renderForm(app, resolved, activeLang, await buildPrefillContext(c)))
     }) as T
   }, withCanonical as T)
 }

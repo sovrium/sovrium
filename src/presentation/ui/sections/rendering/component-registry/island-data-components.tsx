@@ -31,6 +31,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     tablePermissions: elementProps.tablePermissions,
     groupBy: elementProps.groupBy,
     summary: elementProps.summary,
+    onRowClick: elementProps.onRowClick,
   }
 }
 

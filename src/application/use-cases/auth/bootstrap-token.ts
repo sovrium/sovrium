@@ -50,10 +50,14 @@ export const generateBootstrapTokenIfNeeded = (
   BootstrapTokenRepository
 > =>
   Effect.gen(function* () {
+    const repo = yield* BootstrapTokenRepository
+
     if (context.hasAuthAdminEmailEnv) {
+      yield* repo.purgeAll()
       return { kind: 'skipped', reason: 'env-var-bootstrap' } as const
     }
     if (!context.userTableIsEmpty) {
+      yield* repo.purgeAll()
       return { kind: 'skipped', reason: 'users-exist' } as const
     }
 
@@ -61,7 +65,6 @@ export const generateBootstrapTokenIfNeeded = (
     const tokenHash = hashBootstrapToken(plaintext)
     const expiresAt = new Date(now.getTime() + BOOTSTRAP_TOKEN_TTL_MS)
 
-    const repo = yield* BootstrapTokenRepository
     yield* repo.create({ tokenHash, expiresAt })
 
     return { kind: 'generated', plaintext, expiresAt } as const

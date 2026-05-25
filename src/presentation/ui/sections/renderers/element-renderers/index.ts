@@ -14,7 +14,7 @@ export {
 } from './html-element-renderer'
 export type { ElementProps, HTMLElementConfig, StatusBadgeConfig } from './html-element-renderer'
 
-export { renderContent, renderParagraph, renderCode, renderPre } from './text-content-renderers'
+export { renderParagraph, renderCode, renderPre, renderBlockquote } from './text-content-renderers'
 
 export {
   renderImage,
@@ -36,6 +36,13 @@ export {
   renderCustomHTML,
   renderSearchInput,
 } from './interactive-renderers'
+
+export {
+  renderFileUploadIsland,
+  renderTimePicker,
+  renderNumberInputIsland,
+  renderDatePickerIsland,
+} from './form-control-renderers'
 
 export {
   renderField,

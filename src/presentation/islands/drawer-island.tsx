@@ -6,7 +6,7 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
 import type { ReactElement } from 'react'
 
@@ -19,6 +19,19 @@ interface DrawerIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+}
+
+function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean) => void): void {
+  useEffect(() => {
+    if (!id) return
+    const handler = (event: Event): void => {
+      const target = event.target as HTMLElement | null
+      const trigger = target?.closest(`[data-click-modal="${id}"]`)
+      if (trigger) setOpen(true)
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [id, setOpen])
 }
 
 const SIDE_CLASSES = {
@@ -35,6 +48,13 @@ const SIZE_CLASSES = {
   md: { horizontal: 'w-80', vertical: 'h-64' },
   lg: { horizontal: 'w-96', vertical: 'h-80' },
   full: { horizontal: 'w-full', vertical: 'h-full' },
+} as const
+
+const SIZE_INLINE_STYLES: Record<keyof typeof SIZE_CLASSES, { width?: string; height?: string }> = {
+  sm: {},
+  md: {},
+  lg: { width: '32rem', height: '24rem' },
+  full: {},
 } as const
 
 function DrawerHeader({
@@ -67,6 +87,42 @@ function getSizeClass(
   return isHorizontal ? SIZE_CLASSES[drawerSize].horizontal : SIZE_CLASSES[drawerSize].vertical
 }
 
+function getSizeInlineStyle(
+  drawerSide: 'left' | 'right' | 'top' | 'bottom',
+  drawerSize: keyof typeof SIZE_CLASSES
+): React.CSSProperties {
+  const override = SIZE_INLINE_STYLES[drawerSize]
+  const isHorizontal = drawerSide === 'left' || drawerSide === 'right'
+  if (isHorizontal && override.width) return { width: override.width }
+  if (!isHorizontal && override.height) return { height: override.height }
+  return {}
+}
+
+interface DrawerPopupBodyProps {
+  readonly title?: string
+  readonly description?: string
+  readonly childrenHtml?: string
+}
+
+function DrawerPopupBody({ title, description, childrenHtml }: DrawerPopupBodyProps): ReactElement {
+  return (
+    <div className="flex h-full flex-col">
+      <DrawerHeader
+        title={title}
+        description={description}
+      />
+      <div className="flex-1 overflow-auto p-4">
+        {childrenHtml && (
+          <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
+        )}
+      </div>
+      <Dialog.Close className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors">
+        ✕
+      </Dialog.Close>
+    </div>
+  )
+}
+
 export default function DrawerIsland({
   title,
   description,
@@ -79,6 +135,11 @@ export default function DrawerIsland({
 }: DrawerIslandProps): ReactElement {
   const [open, setOpen] = useState(true)
   const sizeClass = getSizeClass(drawerSide, drawerSize)
+  const sizeInlineStyle = useMemo(
+    () => getSizeInlineStyle(drawerSide, drawerSize),
+    [drawerSide, drawerSize]
+  )
+  useExternalOpenTrigger(id, setOpen)
 
   return (
     <Dialog.Root
@@ -93,23 +154,15 @@ export default function DrawerIsland({
             `bg-background-overlay text-foreground fixed z-50 shadow-xl transition-transform duration-300 ${SIDE_CLASSES[drawerSide]} ${sizeClass}`,
             className
           )}
+          style={sizeInlineStyle}
           id={id}
           data-testid={testId}
         >
-          <div className="flex h-full flex-col">
-            <DrawerHeader
-              title={title}
-              description={description}
-            />
-            <div className="flex-1 overflow-auto p-4">
-              {childrenHtml && (
-                <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
-              )}
-            </div>
-            <Dialog.Close className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors">
-              ✕
-            </Dialog.Close>
-          </div>
+          <DrawerPopupBody
+            title={title}
+            description={description}
+            childrenHtml={childrenHtml}
+          />
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

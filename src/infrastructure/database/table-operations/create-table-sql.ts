@@ -18,6 +18,13 @@ import {
 } from './column-generators'
 import type { Table } from '@/domain/models/app/tables'
 
+const requiresInlineIdPk = (table: Table, primaryKeyFields: readonly string[]): boolean => {
+  const explicitPkOnId = primaryKeyFields.length === 1 && primaryKeyFields[0] === 'id'
+  const defaultAutomaticIdPath =
+    needsAutomaticIdColumn(table, primaryKeyFields) && primaryKeyFields.length === 0
+  return explicitPkOnId || defaultAutomaticIdPath
+}
+
 export const generateCreateTableSQL = (
   table: Table,
   tableUsesView?: ReadonlyMap<string, boolean>,
@@ -30,7 +37,7 @@ export const generateCreateTableSQL = (
   const primaryKeyFields =
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
 
-  const primaryKeyOnId = primaryKeyFields.length === 1 && primaryKeyFields[0] === 'id'
+  const primaryKeyOnId = requiresInlineIdPk(table, primaryKeyFields)
   const idColumnDefinition = needsAutomaticIdColumn(table, primaryKeyFields)
     ? [generateIdColumn(table.primaryKey?.type, primaryKeyOnId)]
     : []

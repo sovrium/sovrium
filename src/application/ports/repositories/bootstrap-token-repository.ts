@@ -23,5 +23,6 @@ export class BootstrapTokenRepository extends Context.Tag('BootstrapTokenReposit
       tokenHash: string
     ) => Effect.Effect<BootstrapToken, BootstrapTokenDatabaseError | BootstrapTokenError>
     readonly expireAll: () => Effect.Effect<void, BootstrapTokenDatabaseError>
+    readonly purgeAll: () => Effect.Effect<void, BootstrapTokenDatabaseError>
   }
 >() {}

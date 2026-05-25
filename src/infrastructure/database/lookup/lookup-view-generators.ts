@@ -23,6 +23,9 @@ import {
   generateInsertTrigger,
   generateUpdateTrigger,
   generateDeleteTrigger,
+  generateInsertTriggerSqlite,
+  generateUpdateTriggerSqlite,
+  generateDeleteTriggerSqlite,
 } from './lookup-view-triggers'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -157,6 +160,17 @@ const generateLookupExpression = (
   return `NULL AS ${lookupName}`
 }
 
+const resolveForeignKeyColumn = (
+  relationshipFieldDef: Readonly<Record<string, unknown>>,
+  relationshipFieldName: string
+): string => {
+  const explicit = relationshipFieldDef['foreignKey']
+  if (typeof explicit === 'string') return explicit
+  const reciprocal = relationshipFieldDef['reciprocalField']
+  if (typeof reciprocal === 'string') return reciprocal
+  return relationshipFieldName
+}
+
 const generateRollupExpression = (
   rollupField: Fields[number] & {
     readonly type: 'rollup'
@@ -189,10 +203,10 @@ const generateRollupExpression = (
   const aggregationExpr = mapAggregationToPostgres(aggregation, `${alias}.${relatedField}`)
   const defaultValue = getDefaultValueForAggregation(aggregation)
 
-  const foreignKeyColumn =
-    'foreignKey' in relationshipFieldDef && typeof relationshipFieldDef.foreignKey === 'string'
-      ? relationshipFieldDef.foreignKey
-      : relationshipField
+  const foreignKeyColumn = resolveForeignKeyColumn(
+    relationshipFieldDef as unknown as Readonly<Record<string, unknown>>,
+    relationshipField
+  )
 
   const baseCondition = `${alias}.${foreignKeyColumn} = ${tableName}.id`
   const whereConditions = filters
@@ -236,10 +250,10 @@ const generateCountExpression = (
   const { relatedTable } = relationshipFieldDef
   const alias = `${relatedTable}_for_${countName}`
 
-  const foreignKeyColumn =
-    'foreignKey' in relationshipFieldDef && typeof relationshipFieldDef.foreignKey === 'string'
-      ? relationshipFieldDef.foreignKey
-      : relationshipField
+  const foreignKeyColumn = resolveForeignKeyColumn(
+    relationshipFieldDef as unknown as Readonly<Record<string, unknown>>,
+    relationshipField
+  )
 
   const baseCondition = `${alias}.${foreignKeyColumn} = ${tableName}.id`
 
@@ -341,14 +355,19 @@ export const generateLookupViewTriggers = (table: Table): readonly string[] => {
   if (!shouldUseView(table)) {
     return []
   }
-  if (isSqliteRuntime()) {
-    return []
-  }
 
   const sanitized = sanitizeTableName(table.name)
   const baseTableName = getBaseTableName(sanitized)
   const viewName = sanitized
   const baseFields = getBaseFields(table)
+
+  if (isSqliteRuntime()) {
+    return [
+      ...generateInsertTriggerSqlite(viewName, baseTableName, baseFields),
+      ...generateUpdateTriggerSqlite(viewName, baseTableName, baseFields),
+      ...generateDeleteTriggerSqlite(viewName, baseTableName),
+    ]
+  }
 
   return [
     ...generateInsertTrigger(viewName, baseTableName, baseFields),

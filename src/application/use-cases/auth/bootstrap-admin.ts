@@ -184,6 +184,15 @@ export const bootstrapAdmin = (
 
     if (!config) return
 
+    const authRepo = yield* AuthRepository
+    const existingUserCount = yield* authRepo.countUsers()
+    if (existingUserCount > 0) {
+      logDebug(
+        `[bootstrap-admin] Skipped: ${existingUserCount} user(s) already exist — env-var bootstrap is a no-op once any user is present`
+      )
+      return
+    }
+
     yield* validateBootstrapConfig(config)
     logDebug('[bootstrap-admin] Email and password validated, proceeding to create user')
 

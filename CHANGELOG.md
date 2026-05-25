@@ -1,3 +1,177 @@
+## [0.8.0](https://github.com/sovrium/sovrium/compare/v0.7.2...v0.8.0) (2026-05-25)
+
+### Features
+
+- **database**: emit SQLite INSTEAD OF triggers for view-backed tables
+- **database**: align SQLite dynamic-table default id to INTEGER (ADR-016)
+- **pages-social**: add comments + commentCount page components (SSR scaffolding tier)
+- **admin-automations**: drain runs-list.spec.ts (12 fixmes → GREEN)
+- **admin-automations**: drain overview.spec.ts (8 fixmes → GREEN)
+- **data-components**: drain record-detail-page-pattern — APP-PAGES-RECORD-DETAIL-001/003
+- **data-components**: drain runtime-sort-configuration — APP-RUNTIME-VIEWS-008 + a11y polish
+- **data-components**: drain runtime-column-visibility — APP-RUNTIME-VIEWS-012/014/015
+- **data-components**: drain record-navigation — APP-PAGES-RECORD-DETAIL-017..020
+- **data-components**: drain related-records-display — APP-PAGES-RECORD-DETAIL-013..016
+- **data-components**: drain record-header-breadcrumb — APP-PAGES-RECORD-DETAIL-006..008
+- **data-components**: drain form-reset-after-success — APP-PAGES-FORM-062
+- **pages-layout**: drain tab-container — rewrite fixtures against TabPanelContent + id-based defaultTab schema
+- **pages-layout**: drain divider-spacer specs — divider + spacer renderer bodies
+- **pages-layout**: drain divider-spacer — add divider + spacer renderers (HR with style/label, sized div spacer); rename structural-components.ts to .tsx for JSX
+- **pages-layout**: drain accordion-toggle — rewrite fixtures against buildAccordionItems contract (props.id + content.title/body)
+- **pages-layout**: drain callout-alert — use type:alert + variant prop (dismissible AC deferred)
+- **pages-layout**: drain tab-behavior — rewrite tabs fixtures against TabPanelContent schema
+- **pages-layout**: drain basic-app-shell + app-shell-sidebar — honor navigation-menu className for vertical layout
+- **pages-layout**: drain sidebar-navigation-items + blockquote — add renderBlockquote + use aside-element for sidebar
+- **admin-forms**: drain admin/forms — list/detail + submissions list/detail/bulk
+- **ecoconception**: drain low-data-mode — operator-controlled render variant
+- **ecoconception**: drain dashboard-overview — GET /api/admin/eco/overview
+- **admin-buckets**: drain ADMIN-BUCKETS-LIST + OVERVIEW (16 of 17 GREEN)
+- **form-controls**: drain field-composed-form-field specs
+- **form-controls**: drain date-picker specs
+- **form-controls**: drain slider + switch + checkbox + radio-group specs
+- **form-controls**: drain combobox specs
+- **form-controls**: drain time-picker + number-input specs
+- **form-controls**: drain dropzone-file-upload + label specs
+- **cli**: drain CLI-COMMANDS-VALIDATE-001..007 + REGRESSION
+- **cli**: drain CLI-COMMANDS-BUILD-001..007 + REGRESSION
+- **cli**: drain CLI-COMMANDS-SCHEMA-001..006 + REGRESSION
+- **cli**: drain CLI-COMMANDS-AGENTS-001..006 + REGRESSION
+- **cli**: drain CLI-COMMANDS-INIT-001..006 + REGRESSION
+- **cli**: drain CLI-COMMANDS-START-001..005 + REGRESSION
+- **cli**: drain CLI-COMMANDS-HELP-001..005 + REGRESSION
+- **cli**: drain CLI-COMMANDS-VERSION-001..004 + REGRESSION
+- **admin**: drain ADMIN-CONFIG-VERSION + ADMIN-TABLES-OVERVIEW
+- **forms**: drain APP-FORMS-100 — captcha schema acceptance
+- **forms**: drain APP-FORMS-088/090/091/093 — partner role, defaultValue, formRef gates
+- **forms**: drain APP-FORMS-109 — availability.closedPage schema
+- **pages-overlays**: add hover-card island + drain OVERLAY-029..034 + REGRESSION
+- **pages-overlays**: wire drawer island hydration + drain DRAWER-001..004 + REGRESSION
+- **pages-navigation**: drain dropdown-menu — render icons + fix top-level schema field pickup
+- **pages-navigation**: drain split-button — register dropdown-menu/context-menu as island types
+- **bootstrap**: drain APP-SCHEMA-BOOTSTRAP-001..011 + REGRESSION
+
+### Bug Fixes
+
+- **realtime**: dedup presence-sync by user.id, make leave connection-aware
+- **cli**: honor --help on update command (CLI-COMMANDS-UPDATE-001)
+- **forms**: coerce scalar values to arrays for multi-select column inserts (APP-FORMS-INLINE-CREATE-001)
+- **cli**: short-circuit start --help to prevent watch-mode hang (CLI-COMMANDS-START-005)
+- **server**: make SIGUSR1 reload atomic with readFileSync (CLI-SERVER-015)
+- **specs**: coerce pg NUMERIC/INT8 to JS number in fixtures (unblock cross-dialect rollup/count/lookup)
+- **tables**: resolve FK column via reciprocalField in rollup and count generators
+- **admin**: consolidate audit-log store — route bucket emits through emitAuditEvent
+- **admin**: tighten audit-log schema + emit nextCursor: null (Wave 3 merge)
+- **admin**: reconcile Lane A + Lane B audit-log keystone merge (Wave 3)
+- **pages-overlays**: import pickCompField — Wave 2 Lane B/C merge interaction bug
+
+### Refactoring
+
+- **component-registry**: collapse file-upload field-extraction via pickCompField
+- **islands**: slider — extract thumb + aria-sync hook, drop eslint-disable
+- **islands**: select — split SearchableSelect/PlainSelect, drop eslint-disable
+- **islands**: number-input — extract hook + StepperButton, drop eslint-disable
+- **islands**: file-upload — extract validators + hook, drop eslint-disable
+- **islands**: date-picker — extract sub-components, drop eslint-disable
+- **form-controls**: satisfy functional-immutable + max-lines lint
+- **forms**: lint-fix the APP-FORMS-088/090/091/093 drain — functional patterns + import order
+
+### Documentation
+
+- **progress**: refresh SPEC-PROGRESS.md (0f63fdf15)
+- **progress**: refresh SPEC-PROGRESS.md (476264d7a)
+- **progress**: refresh SPEC-PROGRESS.md (32f2f04)
+- **planning**: decision plan for 204 remaining strict .fixme tests
+- **progress**: mirror Wave 5 audit doc update (afbf513dd)
+- **testing-strategy**: Wave 5 complete — 3 tables specs parameterized via catalog-helpers adoption
+- **progress**: mirror button-field parameterization (5e0a63c02)
+- **progress**: mirror required-field parameterization (bb783a5b6)
+- **progress**: mirror indexed-field parameterization (8f13ea617)
+- **progress**: mirror catalog-helpers extension + user story (7dc56397e)
+- **testing-strategy,progress**: Wave 4 complete — cross-dialect catalog helpers + relationships parameterized
+- **progress**: mirror catalog-helpers fixture + user story (70bc1ba46)
+- **testing-strategy,progress**: Wave 3 complete — SQLite INSTEAD OF triggers unblock rollup/count/lookup
+- **progress**: refresh after Phase 2 landmine fixes (CLI-SERVER-015 + CLI-COMMANDS-START-005 + APP-FORMS-INLINE-CREATE-001)
+- **progress**: refresh SPEC-PROGRESS.md after Wave 2 audit doc update (7bd49aad8)
+- **testing-strategy**: Wave 2 investigation log — decimal-as-string unblock attempt reverted, root-cause taxonomy refined
+- **progress**: refresh SPEC-PROGRESS.md after fixture numeric-coercion fix (8bd4b5238)
+- **triage**: landmine triage decisions for cleanup batch
+- **progress**: refresh SPEC-PROGRESS.md after Phase 5 finalization (8ddd57545)
+- **security,testing**: finalize ADR-016 coverage doc + pre-launch-security recommendation
+- **progress**: refresh SPEC-PROGRESS.md after assign-users parameterization (d6d45ec8c)
+- **progress**: refresh SPEC-PROGRESS.md after admin-api groups parameterization (3280f22c9)
+- **progress**: refresh SPEC-PROGRESS.md after forms display parameterization (1c920cc7b)
+- **progress**: refresh SPEC-PROGRESS.md after table-level-access-control parameterization (61253af00)
+- **progress**: refresh SPEC-PROGRESS.md after group-table-permissions parameterization (7657d7972)
+- **progress**: refresh SPEC-PROGRESS.md after eachDialect helper introduction (49e6002bc)
+- **progress**: refresh SPEC-PROGRESS.md after cross-dialect coverage audit (4b584526c)
+- **testing-strategy**: audit DB-driven specs for cross-dialect parameterization (ADR-016 follow-up)
+- **progress**: refresh SPEC-PROGRESS.md after ADR-016 SQLite INTEGER id alignment (ea157a050)
+- **adr**: add ADR-016 for dynamic-table id shape alignment across dialects
+- **progress**: refresh SPEC-PROGRESS.md after rollup/count reciprocalField fix (2651a7d77)
+- **progress**: regenerate after Wave 5 merge — drain automations + admin-automations + pages-social
+- **progress**: regenerate after Wave 4 merge — drain eco + admin-forms + layout + data-components
+- **progress**: mirror ecoconception/low-data-mode drain
+- **progress**: mirror ecoconception/dashboard-overview drain
+- **progress**: regenerate after Wave 3 merge — drain admin + cli + form-controls + buckets
+- **progress**: mirror ADMIN-CONFIG-VERSION + ADMIN-TABLES-OVERVIEW drain (c5bbce01f)
+- **progress**: regenerate after Wave 2 merge + add availability.closedPage YAML example
+- **progress**: mirror bootstrap drain (12 specs ⏳→✅)
+
+### Styles
+
+- **docs**: re-align prettier markdown tables (formatting only)
+- **admin-automations**: prettier-format Lane B route file
+- **eco**: prettier-format the new domain test files
+- **renderers**: prettier-format after renderContent removal
+- **audit-log**: drop trailing blank line in in-memory-store.ts
+- **admin**: prettier-format chainAdminAuditLogRoutes wrapper
+
+### Tests
+
+- **infrastructure**: align API-DB-PROVIDER-030 with Wave 3 INSTEAD OF triggers
+- **tables**: parameterize button-field @regression across postgres and sqlite (Wave 5 — catalog helpers adoption)
+- **tables**: parameterize required-field @regression across postgres and sqlite (Wave 5 — catalog helpers adoption)
+- **tables**: parameterize indexed-field @regression across postgres and sqlite (Wave 5 — catalog helpers adoption)
+- **tables**: parameterize relationships @regression across postgres and sqlite (Wave 4 — catalog helpers)
+- **tables**: parameterize rollup/count/lookup @regression across postgres and sqlite (Wave 3)
+- **authentication**: parameterize assign-users-to-multiple-groups @regression across postgres and sqlite (ADR-016)
+- **authentication**: parameterize admin API for group management @regression across postgres and sqlite (ADR-016)
+- **forms**: parameterize form display overrides @regression across postgres and sqlite (ADR-016)
+- **tables**: parameterize table-level access control @regression across postgres and sqlite (ADR-016)
+- **authentication**: parameterize group-based table permissions @regression across postgres and sqlite (ADR-016)
+- **eco**: tighten overview.test.ts loop literal types (typecheck fix)
+- **eco**: add domain-coverage tests for Wave 4 Lane A's new env parsers
+- **pages-overlays**: drain APP-PAGES-TOOLTIP-002 + REGRESSION
+
+### Chores
+
+- **generated**: refresh embedded runtime, CSS, and coming-soon registry artifacts
+- **specs**: extend catalog-helpers with getColumnCount + getViewExists (Wave 5 — broader adoption)
+- **specs**: add cross-dialect catalog-helpers fixture (Wave 4 — unblock relationships.spec.ts)
+- **specs**: introduce eachDialect helper for cross-dialect @regression coverage
+- **admin-automations**: trim unused max-lines disable directive
+- **drain**: defer APP-PAGES-PUBLIC-COMMENTS-036 — spec asserts truthy fixture return (void)
+- **drain**: defer concurrency-queueing spec — async scheduler + schema both missing
+- **drain**: defer 3 auth-trigger specs — Better Auth → Effect dispatch bridge missing
+- **drain**: defer 3 runs-api specs — async runtime + filter-status + removed notifications
+- **drain**: defer 4 state-action specs — Drizzle bun-sql jsonb double-encoding bug
+- **renderers**: delete unused renderContent function (Knip)
+- **admin,layout**: eslint cleanup for Wave 4 merge
+- **drain**: runtime-filter-builder APP-RUNTIME-VIEWS-001..007 deferred
+- **drain**: save-personal-views APP-RUNTIME-VIEWS-016..022 deferred
+- **drain**: user-table-preferences APP-RUNTIME-VIEWS-027..031 deferred
+- **drain**: share-saved-views APP-RUNTIME-VIEWS-023..026 deferred
+- **drain**: runtime-grouping APP-RUNTIME-VIEWS-032..035 deferred
+- **drain**: quick-edit-drawer APP-PAGES-RECORD-DETAIL-009..012 deferred
+- **drain**: APP-PAGES-CONTENT-001/002/003/004/005 + RICH-TEXT-REGRESSION deferred — text component does not yet support props.format:markdown; markdown rendering only available via page.markdown (MarkdownArticle), wiring into the text component is feature work outside drain scope
+- **drain**: APP-PAGES-CONTENT-025/026/027/028 + TOC-REGRESSION deferred — TOC component renderer not implemented (no 'toc' entry in component registry, no toc-island; building heading-extraction TOC + sticky-TOC client behavior is feature work outside drain scope)
+- **audit-log**: trim unused eslint-disable directives in store.ts
+- **admin**: delete unused Wave 3 keystone-duplicate exports
+- **form-controls**: eslint-disable Wave 3 Lane C debt with refactor markers
+- **drain**: CLI-SERVER-018..023 deferred — DEC-023 reload-versioning not yet implemented
+- **drain**: APP-FORMS-118..127 + ANALYTICS-REGRESSION deferred — admin dashboard backend not yet built
+- **drain**: APP-FORMS-147 + APP-FORMS-137 deferred — schema design conflict
+
 ## [0.7.2](https://github.com/sovrium/sovrium/compare/v0.7.1...v0.7.2) (2026-05-24)
 
 Fix timeline CSS variable race in regression spec (10× stress-tested)

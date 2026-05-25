@@ -6,6 +6,7 @@
  */
 
 import { type FieldMetaMap } from '../../hooks/use-inline-editing'
+import { type DataTableRowClickAction } from '../body'
 import { usePasteImport } from '../paste-preview/use-paste-import'
 import { DataTableView } from './data-table-view'
 import { useClipboardCopy } from './use-clipboard-copy'
@@ -51,6 +52,7 @@ interface DataTableIslandProps {
   readonly groupBy?: DataTableGroupBy
   readonly summary?: readonly DataTableSummaryItem[]
   readonly autoSave?: AutoSaveConfig
+  readonly onRowClick?: { readonly type: string; readonly path?: string } | undefined
 }
 
 function ErrorBanner({ error }: { readonly error: unknown }) {
@@ -96,10 +98,18 @@ function toPasteParams(
   }
 }
 
+function resolveRowClickAction(
+  action: DataTableIslandProps['onRowClick']
+): DataTableRowClickAction | undefined {
+  if (!action || action.type !== 'navigate' || typeof action.path !== 'string') return undefined
+  return { type: 'navigate', path: action.path }
+}
+
 export default function DataTableIsland(props: DataTableIslandProps) {
   const setup = useDataTableIslandSetup(toSetupParams(props))
   const clipboardRef = useClipboardCopy()
   const paste = usePasteImport(toPasteParams(props, clipboardRef, setup.handleRefresh))
+  const onRowClickAction = resolveRowClickAction(props.onRowClick)
 
   if (setup.isError) return <ErrorBanner error={setup.error} />
 
@@ -139,6 +149,7 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         saveStatus={setup.inlineEditing.saveStatus}
         saveTarget={setup.inlineEditing.saveTarget}
         saveIndicator={setup.saveIndicator}
+        onRowClickAction={onRowClickAction}
         onCellDoubleClick={setup.inlineEditing.startEditing}
         onEditSave={setup.inlineEditing.saveEdit}
         onEditCancel={setup.inlineEditing.cancelEditing}

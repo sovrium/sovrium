@@ -33,6 +33,18 @@ export const selectFields = {
       description: 'Enable type-ahead search filtering in the list',
     })
   ),
+  searchPlaceholder: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Placeholder text shown inside the combobox search input (only meaningful when `searchable: true`)',
+    })
+  ),
+  allowCustomValue: Schema.optional(
+    Schema.Boolean.annotations({
+      description:
+        'When `searchable: true`, accept a typed value that does not match any option (free-form input).',
+    })
+  ),
   valueField: Schema.optional(
     Schema.String.annotations({
       description: 'Field name to use as the option value',

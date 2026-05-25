@@ -6,6 +6,13 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import {
+  buildAlertDialogProps,
+  buildDrawerProps,
+  buildHoverCardProps,
+  buildTooltipProps,
+  pickCompField,
+} from './island-overlay-props-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
@@ -27,66 +34,6 @@ function splitPopoverChildren(
   const contentChildren = renderedChildren.slice(1)
   const childrenHtml = contentChildren.map((c) => renderToStaticMarkup(c)).join('')
   return { triggerLabel, triggerId, childrenHtml }
-}
-
-function pickAlertField(
-  comp: Record<string, unknown>,
-  rawProps: Record<string, unknown> | undefined,
-  key: string,
-  fallback?: unknown
-): unknown {
-  return comp[key] ?? rawProps?.[key] ?? fallback
-}
-
-function buildAlertDialogProps(
-  rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>,
-  component: Component | undefined
-) {
-  const comp = (component ?? {}) as Record<string, unknown>
-  const contentText = typeof comp['content'] === 'string' ? (comp['content'] as string) : undefined
-  return {
-    title: rawProps?.title,
-    description: contentText ?? rawProps?.description,
-    cancelLabel: pickAlertField(comp, rawProps, 'cancelLabel', 'Cancel'),
-    confirmLabel: pickAlertField(comp, rawProps, 'confirmLabel', 'Continue'),
-    variant: rawProps?.variant ?? 'default',
-    className: elementProps.className,
-    id: elementProps.id,
-    'data-testid': elementProps['data-testid'],
-  }
-}
-
-function pickCompField<T>(
-  comp: Record<string, unknown> | undefined,
-  rawProps: Record<string, unknown> | undefined,
-  key: string
-): T | undefined {
-  return (comp?.[key] as T | undefined) ?? (rawProps?.[key] as T | undefined)
-}
-
-function buildTooltipProps(
-  rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>,
-  component: Component | undefined,
-  renderedChildren: readonly ReactElement[]
-) {
-  const comp = component as Record<string, unknown> | undefined
-  const compChildren = comp?.['children'] as
-    | readonly { props?: Record<string, unknown> }[]
-    | undefined
-  const triggerProps = compChildren?.[0]?.props
-  const childrenHtml = renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
-  return {
-    tooltipContent: pickCompField<string>(comp, rawProps, 'tooltipContent'),
-    floatingSide: pickCompField<string>(comp, rawProps, 'floatingSide'),
-    tooltipDelay: pickCompField<number>(comp, rawProps, 'tooltipDelay'),
-    triggerId: triggerProps?.['id'] as string | undefined,
-    childrenHtml,
-    className: elementProps['className'],
-    id: elementProps['id'],
-    'data-testid': elementProps['data-testid'],
-  }
 }
 
 export const islandOverlayComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
@@ -238,16 +185,29 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  drawer: ({ rawProps, elementProps }) => {
-    const props = {
-      title: rawProps?.title,
-      description: rawProps?.description,
-      drawerSide: rawProps?.drawerSide,
-      drawerSize: rawProps?.drawerSize,
-      className: elementProps.className,
-      id: elementProps.id,
-      'data-testid': elementProps['data-testid'],
-    }
+  'hover-card': ({ rawProps, elementProps, component, renderedChildren }) => {
+    const props = buildHoverCardProps(rawProps, elementProps, component, renderedChildren)
+    const { triggerId } = props
+    const triggerLabel = props.triggerLabel ?? 'Hover'
+    return (
+      <div
+        data-island="hover-card"
+        data-island-props={JSON.stringify(props)}
+        data-testid={elementProps['data-testid'] as string | undefined}
+      >
+        <a
+          id={triggerId}
+          href="#"
+          className="underline"
+        >
+          {triggerLabel}
+        </a>
+      </div>
+    )
+  },
+
+  drawer: ({ rawProps, elementProps, component, renderedChildren }) => {
+    const props = buildDrawerProps(rawProps, elementProps, component, renderedChildren)
     return (
       <div
         data-island="drawer"
@@ -265,15 +225,17 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  'dropdown-menu': ({ rawProps, elementProps }) => {
-    const triggerLabel = typeof rawProps?.triggerLabel === 'string' ? rawProps.triggerLabel : 'Menu'
+  'dropdown-menu': ({ rawProps, elementProps, component }) => {
+    const comp = (component ?? {}) as Record<string, unknown>
+    const triggerLabelRaw = pickCompField<string>(comp, rawProps, 'triggerLabel')
+    const triggerLabel = typeof triggerLabelRaw === 'string' ? triggerLabelRaw : 'Menu'
     const props = {
-      menuItems: rawProps?.menuItems,
-      floatingSide: rawProps?.floatingSide,
-      floatingAlign: rawProps?.floatingAlign,
+      menuItems: pickCompField<unknown>(comp, rawProps, 'menuItems'),
+      floatingSide: pickCompField<string>(comp, rawProps, 'floatingSide'),
+      floatingAlign: pickCompField<string>(comp, rawProps, 'floatingAlign'),
       triggerLabel,
-      className: elementProps.className,
-      id: elementProps.id,
+      className: elementProps['className'],
+      id: elementProps['id'],
       'data-testid': elementProps['data-testid'],
     }
     return (
@@ -294,9 +256,11 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  'context-menu': ({ rawProps, elementProps }) => {
+  'context-menu': ({ rawProps, elementProps, component }) => {
+    const c = (component ?? {}) as Record<string, unknown>
+    const menuItems = c['menuItems'] ?? rawProps?.menuItems
     const props = {
-      menuItems: rawProps?.menuItems,
+      menuItems,
       className: elementProps.className,
       id: elementProps.id,
       'data-testid': elementProps['data-testid'],

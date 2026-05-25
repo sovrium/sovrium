@@ -6,9 +6,11 @@
  */
 
 export * from './_shared'
+export * from './audit-log'
 export * from './automations'
 export * from './buckets'
 export * from './config'
+export * from './eco'
 export * from './forms'
 export * from './schema-management'
 export * from './storage/status'

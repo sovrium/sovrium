@@ -114,4 +114,52 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
 
   'list-item': ({ elementProps, content, renderedChildren }) =>
     Renderers.renderListItem(elementProps, content, renderedChildren),
+
+  divider: ({ elementProps }) => {
+    const style = elementProps['style'] as string | undefined
+    const label = elementProps['label'] as string | undefined
+    const borderStyle = style === 'dashed' || style === 'dotted' ? style : 'solid'
+    if (label) {
+      return (
+        <div
+          {...elementProps}
+          role="separator"
+          aria-label={label}
+          className={`text-muted flex items-center gap-2 text-xs ${
+            (elementProps['className'] as string | undefined) ?? ''
+          }`}
+        >
+          <hr
+            className="flex-1"
+            style={{ borderStyle }}
+          />
+          <span>{label}</span>
+          <hr
+            className="flex-1"
+            style={{ borderStyle }}
+          />
+        </div>
+      )
+    }
+    return (
+      <hr
+        {...elementProps}
+        style={{ borderStyle }}
+      />
+    )
+  },
+
+  spacer: ({ elementProps }) => {
+    const size = elementProps['size'] as string | undefined
+    const sizeClass =
+      size === 'sm' ? 'h-2' : size === 'lg' ? 'h-12' : size === 'xl' ? 'h-20' : 'h-6'
+    const userClassName = (elementProps['className'] as string | undefined) ?? ''
+    return (
+      <div
+        aria-hidden="true"
+        data-testid={elementProps['data-testid'] as string | undefined}
+        className={`${sizeClass} ${userClassName}`}
+      />
+    )
+  },
 }

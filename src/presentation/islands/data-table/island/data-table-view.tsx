@@ -24,7 +24,7 @@ import type {
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { RealtimeConnectionState } from '../../hooks/use-realtime-subscription'
 import type { TableRecord } from '../../shared/types'
-import type { InlineAutoSave } from '../body'
+import type { DataTableRowClickAction, InlineAutoSave } from '../body'
 import type {
   DataTableBulkAction,
   DataTableGroupBy,
@@ -68,6 +68,7 @@ interface DataTableViewProps {
   readonly saveStatus?: SaveStatus
   readonly saveTarget?: SaveTarget
   readonly saveIndicator?: SaveIndicatorSettings
+  readonly onRowClickAction?: DataTableRowClickAction
   readonly onCellDoubleClick: (rowId: string | number, field: string, currentValue: unknown) => void
   readonly onEditSave: (newValue: unknown) => Promise<void>
   readonly onEditCancel: () => void
@@ -112,6 +113,7 @@ export function DataTableView({
   saveStatus,
   saveTarget,
   saveIndicator,
+  onRowClickAction,
   onCellDoubleClick,
   onEditSave,
   onEditCancel,
@@ -233,6 +235,7 @@ export function DataTableView({
           tableName={tableName}
           autoSave={autoSave}
           inlineSaveStatus={inlineSaveStatus}
+          onRowClickAction={onRowClickAction}
           onCellDoubleClick={onCellDoubleClick}
           onEditSave={onEditSave}
           onEditCancel={onEditCancel}

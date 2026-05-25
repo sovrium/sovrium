@@ -94,7 +94,45 @@ const runPackageManagerUpdate = async (command: readonly string[]): Promise<void
   }
 }
 
-export const handleUpdateCommand = async (): Promise<void> => {
+export interface UpdateCommandOptions {
+  readonly helpRequested?: boolean
+}
+
+const UPDATE_HELP_TEXT = [
+  'Sovrium CLI — update to the latest version',
+  '',
+  'Usage:',
+  '  sovrium update                            Update Sovrium to the latest version',
+  '',
+  'Behavior depends on how Sovrium was installed:',
+  '  binary                                    Self-replace from GitHub Releases (Unix)',
+  '  homebrew                                  Delegates to `brew upgrade sovrium/tap/sovrium`',
+  '  scoop                                     Delegates to `scoop update sovrium`',
+  '  docker                                    Prints `docker pull` instruction',
+  '  npm                                       Prints deprecation notice (npm is retired)',
+  '',
+  'Options:',
+  '  --help, -h                                Show this help message',
+  '',
+  'Environment variables (advanced / test seams):',
+  '  SOVRIUM_INSTALL_METHOD                    Force the detected install method',
+  '  SOVRIUM_DISABLE_NETWORK                   Skip all network calls (offline)',
+  '  SOVRIUM_UPDATE_API_HOST                   Override the GitHub API host',
+  '  SOVRIUM_UPDATE_DRY_RUN                    Print package-manager command instead of running',
+].join('\n')
+
+const showUpdateHelp = (): void => {
+  Effect.runSync(Console.log(UPDATE_HELP_TEXT))
+}
+
+export const handleUpdateCommand = async (
+  options?: Readonly<UpdateCommandOptions>
+): Promise<void> => {
+  if (options?.helpRequested) {
+    showUpdateHelp()
+    return
+  }
+
   const installMethod = detectInstallMethod()
   const currentVersion = await getCurrentVersion()
   Effect.runSync(Console.log(`Current version: ${currentVersion}`))

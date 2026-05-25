@@ -269,7 +269,21 @@ function resolveStandalonePrefill(
 ): Readonly<Record<string, PrefillValue>> | undefined {
   if (!prefillCtx) return undefined
   const { prefill } = form as { readonly prefill?: Readonly<Record<string, PrefillValue>> }
-  return resolveFormPrefill(prefill, prefillCtx)
+  const fieldDefaults = Object.fromEntries(
+    form.fields.flatMap((field) => {
+      const f = field as {
+        readonly defaultValue?: PrefillValue
+        readonly name?: string
+        readonly column?: string
+      }
+      if (f.defaultValue === undefined) return []
+      const key = f.column ?? f.name
+      if (key === undefined) return []
+      return [[key, f.defaultValue] as const]
+    })
+  )
+  const merged = { ...fieldDefaults, ...(prefill ?? {}) }
+  return resolveFormPrefill(merged, prefillCtx)
 }
 
 function renderFormDocument(opts: {

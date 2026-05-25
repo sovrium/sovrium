@@ -15,6 +15,7 @@ import { navigationComponents } from './navigation-components'
 import { progressComponent } from './progress-component'
 import { reorderableListComponent } from './reorderable-list-component'
 import { skeletonComponent } from './skeleton-component'
+import { commentsComponent, commentCountComponent } from './social-components'
 import { specialComponents } from './special-components'
 import { structuralComponents } from './structural-components'
 import { textComponents } from './text-components'
@@ -35,6 +36,8 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   'reorderable-list': reorderableListComponent,
   'favorites-button': favoritesButtonComponent,
   'command-palette': commandPaletteComponent,
+  comments: commentsComponent,
+  commentCount: commentCountComponent,
 } as Partial<Record<Component['type'], ComponentRenderer>> & Record<string, ComponentRenderer>
 
 export { structuralComponents } from './structural-components'

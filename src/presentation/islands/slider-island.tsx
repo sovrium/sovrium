@@ -6,8 +6,10 @@
  */
 
 import { Slider } from '@base-ui/react/slider'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
+import { useSliderAriaSync } from './slider-aria-sync'
+import { SliderThumb } from './slider-thumb'
 import type { ReactElement } from 'react'
 
 interface SliderIslandProps {
@@ -36,6 +38,7 @@ export default function SliderIsland({
   'data-testid': testId,
 }: SliderIslandProps): ReactElement {
   const [value, setValue] = useState(defaultValue)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const handleValueChange = useCallback(
     (val: number | readonly number[]) => {
@@ -43,6 +46,8 @@ export default function SliderIsland({
     },
     [defaultValue]
   )
+
+  useSliderAriaSync(inputRef, min, max)
 
   return (
     <div
@@ -65,10 +70,15 @@ export default function SliderIsland({
         onValueChange={handleValueChange}
         className="relative flex w-full touch-none items-center"
       >
-        <Slider.Track className="bg-background-subtle relative h-1.5 w-full grow rounded-full">
-          <Slider.Indicator className="bg-primary absolute h-full rounded-full" />
-          <Slider.Thumb className="border-primary bg-background-raised hover:bg-primary-subtle focus-visible:ring-focus-ring block h-4 w-4 rounded-full border-2 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50" />
-        </Slider.Track>
+        <Slider.Control className="relative flex w-full touch-none items-center">
+          <Slider.Track className="bg-background-subtle relative h-1.5 w-full grow rounded-full">
+            <Slider.Indicator className="bg-primary absolute h-full rounded-full" />
+          </Slider.Track>
+          <SliderThumb
+            inputRef={inputRef}
+            label={label}
+          />
+        </Slider.Control>
       </Slider.Root>
     </div>
   )

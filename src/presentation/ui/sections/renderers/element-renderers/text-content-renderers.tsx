@@ -8,10 +8,6 @@
 import { type ReactElement } from 'react'
 import type { ElementProps } from './html-element-renderer'
 
-export function renderContent(props: ElementProps, content: string | undefined): ReactElement {
-  const { body, ...rest } = props as ElementProps & { readonly body?: string }
-  return <div {...rest}>{body ?? content}</div>
-}
 
 export function renderParagraph(
   props: ElementProps,
@@ -35,4 +31,12 @@ export function renderPre(
   children: readonly React.ReactNode[]
 ): ReactElement {
   return <pre {...props}>{content || children}</pre>
+}
+
+export function renderBlockquote(
+  props: ElementProps,
+  content: string | undefined,
+  children: readonly React.ReactNode[]
+): ReactElement {
+  return <blockquote {...props}>{content || children}</blockquote>
 }

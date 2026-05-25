@@ -62,9 +62,8 @@ export const textComponents: Partial<Record<Component['type'], ComponentRenderer
   },
 
   text: ({ elementProps, content, renderedChildren, component }) => {
-    const element = (component as Record<string, unknown> | undefined)?.element as
-      | string
-      | undefined
+    const c = (component ?? {}) as Record<string, unknown>
+    const element = c['element'] as string | undefined
     const headingLevel = element ? HEADING_LEVELS[element] : undefined
 
     if (headingLevel) {
@@ -85,7 +84,13 @@ export const textComponents: Partial<Record<Component['type'], ComponentRenderer
       return Renderers.renderParagraph(elementProps, content, renderedChildren)
     }
     if (element === 'blockquote') {
-      return Renderers.renderContent(elementProps, content)
+      return Renderers.renderBlockquote(elementProps, content, renderedChildren)
+    }
+    if (element === 'label') {
+      const required = c['required'] === true
+      const labelText = typeof content === 'string' && content.length > 0 ? content : undefined
+      const labelContent = required && labelText ? `${labelText} *` : labelText
+      return <label {...elementProps}>{labelContent ?? renderedChildren}</label>
     }
 
     return Renderers.renderTextElement(elementProps, content, renderedChildren)

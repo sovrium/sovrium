@@ -8,6 +8,7 @@
 import * as Renderers from '../../renderers/element-renderers'
 import { renderStatusBadge } from '../../renderers/element-renderers/html-element-renderer'
 import { convertBadgeProps } from '../component-registry-helpers'
+import { pickCompField } from './island-overlay-props-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -28,6 +29,35 @@ function resolveStatusDotColorClass(value: unknown): string {
   }
 }
 
+function overlayButtonSchemaFallbacks(
+  elementProps: Record<string, unknown>,
+  componentRaw: Record<string, unknown>
+): Record<string, unknown> {
+  const topLabel =
+    typeof componentRaw['label'] === 'string' ? (componentRaw['label'] as string) : undefined
+  const topConfirm =
+    typeof componentRaw['confirm'] === 'string' ? (componentRaw['confirm'] as string) : undefined
+  return {
+    ...elementProps,
+    ...(topLabel !== undefined && elementProps.label === undefined ? { label: topLabel } : {}),
+    ...(topConfirm !== undefined && elementProps['data-confirm'] === undefined
+      ? { 'data-confirm': topConfirm }
+      : {}),
+  }
+}
+
+function buildButtonClassName(
+  componentRaw: Record<string, unknown>,
+  authorClassName: string | undefined
+): string {
+  const variant = componentRaw['variant'] as string | undefined
+  const size = componentRaw['size'] as string | undefined
+  const variantClass = variant && variant !== 'default' ? `btn-${variant}` : ''
+  const sizeClass = size && size !== 'md' ? `btn-${size}` : ''
+  const btnClasses = ['btn', variantClass, sizeClass].filter(Boolean).join(' ')
+  return authorClassName ? `${btnClasses} ${authorClassName}` : btnClasses
+}
+
 export const interactiveComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
   button: ({
     elementProps,
@@ -40,18 +70,15 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     component,
   }) => {
     const c = (component ?? {}) as Record<string, unknown>
-    const variant = c['variant'] as string | undefined
-    const size = c['size'] as string | undefined
+    const propsWithSchemaFallbacks = overlayButtonSchemaFallbacks(elementProps, c)
+    const mergedClassName = buildButtonClassName(
+      c,
+      propsWithSchemaFallbacks.className as string | undefined
+    )
     const loading = c['loading'] as boolean | undefined
 
-    const variantClass = variant && variant !== 'default' ? `btn-${variant}` : ''
-    const sizeClass = size && size !== 'md' ? `btn-${size}` : ''
-    const btnClasses = ['btn', variantClass, sizeClass].filter(Boolean).join(' ')
-    const authorClassName = elementProps.className as string | undefined
-    const mergedClassName = authorClassName ? `${btnClasses} ${authorClassName}` : btnClasses
-
     return Renderers.renderButton({
-      props: { ...elementProps, className: mergedClassName },
+      props: { ...propsWithSchemaFallbacks, className: mergedClassName },
       content,
       children: renderedChildren,
       interactions,
@@ -79,6 +106,88 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     }),
 
   input: ({ elementProps }) => Renderers.renderInput(elementProps),
+
+
+  'time-picker': ({ elementProps, component, rawProps }) => {
+    const c = (component ?? {}) as Record<string, unknown>
+    const timeFormat = c['timeFormat'] as string | undefined
+    const minTime = c['minTime'] as string | undefined
+    const maxTime = c['maxTime'] as string | undefined
+    const minuteStep = c['minuteStep'] as number | undefined
+    const label = rawProps?.['label'] as string | undefined
+    const stepSeconds = typeof minuteStep === 'number' ? minuteStep * 60 : undefined
+    return Renderers.renderTimePicker({
+      props: elementProps,
+      label,
+      timeFormat,
+      minTime,
+      maxTime,
+      stepSeconds,
+    })
+  },
+
+  'date-picker': ({ elementProps, component, rawProps }) => {
+    const c = (component ?? {}) as Record<string, unknown>
+    const dateFormat = c['dateFormat'] as string | undefined
+    const minDate = c['minDate'] as string | undefined
+    const maxDate = c['maxDate'] as string | undefined
+    const datePickerMode = c['datePickerMode'] as 'single' | 'range' | undefined
+    const label = rawProps?.['label'] as string | undefined
+    const placeholder = rawProps?.['placeholder'] as string | undefined
+    const disabled = rawProps?.['disabled'] as boolean | undefined
+    const name = rawProps?.['name'] as string | undefined
+    const islandProps = {
+      id: elementProps.id as string | undefined,
+      label,
+      placeholder,
+      dateFormat,
+      minDate,
+      maxDate,
+      datePickerMode,
+      disabled,
+      name,
+    }
+    return Renderers.renderDatePickerIsland({
+      props: elementProps,
+      islandProps,
+      label,
+      placeholder,
+      disabled,
+    })
+  },
+
+  'number-input': ({ elementProps, component, rawProps }) => {
+    const c = (component ?? {}) as Record<string, unknown>
+    const min = c['min'] as number | undefined
+    const max = c['max'] as number | undefined
+    const step = c['step'] as number | undefined
+    const defaultValue = c['defaultValue'] as number | undefined
+    const showStepper = c['showStepper'] as boolean | undefined
+    const label = rawProps?.['label'] as string | undefined
+    const disabled = rawProps?.['disabled'] as boolean | undefined
+    const name = rawProps?.['name'] as string | undefined
+    const islandProps = {
+      id: elementProps.id as string | undefined,
+      label,
+      min,
+      max,
+      step,
+      defaultValue,
+      showStepper,
+      disabled,
+      name,
+    }
+    return Renderers.renderNumberInputIsland({
+      props: elementProps,
+      islandProps,
+      label,
+      min,
+      max,
+      step,
+      defaultValue,
+      showStepper,
+    })
+  },
 
   textarea: ({ elementProps, component, rawProps }) => {
     const c = (component ?? {}) as Record<string, unknown>
@@ -113,15 +222,43 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
 
   'file-upload': ({ elementProps, component, rawProps }) => {
     const c = (component ?? {}) as Record<string, unknown>
+    const accept = pickCompField<string>(c, rawProps, 'accept')
+    const maxFiles = pickCompField<number>(c, rawProps, 'maxFiles')
+    const dropZone = pickCompField<boolean>(c, rawProps, 'dropZone')
+    const maxFileSize = pickCompField<number>(c, rawProps, 'maxFileSize')
+    const disabled = rawProps?.['disabled'] as boolean | undefined
+    const label = rawProps?.['label'] as string | undefined
+
+    if (dropZone === true) {
+      const islandProps = {
+        accept,
+        maxFiles,
+        maxFileSize,
+        dropZone,
+        disabled,
+        label,
+        id: elementProps.id as string | undefined,
+        className: elementProps.className as string | undefined,
+        'data-testid': elementProps['data-testid'] as string | undefined,
+      }
+      return Renderers.renderFileUploadIsland({
+        props: elementProps,
+        islandProps,
+        accept,
+        maxFiles,
+        dropZone,
+        disabled,
+        label,
+      })
+    }
+
     return Renderers.renderFileUpload({
       props: elementProps,
-      accept: (c['accept'] as string | undefined) ?? (rawProps?.['accept'] as string | undefined),
-      maxFiles:
-        (c['maxFiles'] as number | undefined) ?? (rawProps?.['maxFiles'] as number | undefined),
-      dropZone:
-        (c['dropZone'] as boolean | undefined) ?? (rawProps?.['dropZone'] as boolean | undefined),
-      disabled: rawProps?.['disabled'] as boolean | undefined,
-      label: rawProps?.['label'] as string | undefined,
+      accept,
+      maxFiles,
+      dropZone,
+      disabled,
+      label,
     })
   },
 

@@ -55,10 +55,31 @@ const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   checkbox: 'checkbox',
   'single-attachment': 'file',
   'multiple-attachments': 'file-multi',
+  'single-select': 'select',
+  'multi-select': 'select',
 }
 
 function inputTypeForTableField(tableField: { readonly type: string }): string {
   return TABLE_FIELD_INPUT_TYPE_MAP[tableField.type] ?? 'text'
+}
+
+function readColumnOptions(
+  column: Readonly<{ readonly type?: string; readonly options?: unknown }> | undefined
+): ReadonlyArray<{ readonly value: string; readonly label: string }> | undefined {
+  if (!column) return undefined
+  if (column.type !== 'single-select' && column.type !== 'multi-select') return undefined
+  const raw = column.options
+  if (!Array.isArray(raw)) return undefined
+  return raw.map((entry) => {
+    if (typeof entry === 'string') return { value: entry, label: entry }
+    if (typeof entry === 'object' && entry !== null) {
+      const obj = entry as { readonly value?: unknown; readonly label?: unknown }
+      const value = typeof obj.value === 'string' ? obj.value : String(obj.value ?? '')
+      const label = typeof obj.label === 'string' ? obj.label : value
+      return { value, label }
+    }
+    return { value: String(entry), label: String(entry) }
+  })
 }
 
 function inputTypeForStandalone(inputType: string): string {
@@ -173,6 +194,7 @@ const resolveTableField = (
 ): ResolvedFormField => {
   const column = table?.fields.find((tableField) => tableField.name === field.column)
   const elementType = column ? inputTypeForTableField(column) : 'text'
+  const columnOptions = readColumnOptions(column)
   return {
     name: field.column,
     inputElement: elementType,
@@ -182,6 +204,7 @@ const resolveTableField = (
     helpText: resolveText(field.helpText, languages, '', activeLang),
     required: field.required ?? column?.required ?? false,
     hidden: field.hidden ?? false,
+    ...(columnOptions ? { options: columnOptions } : {}),
     ...fileUploadOverlay(field, column),
   }
 }

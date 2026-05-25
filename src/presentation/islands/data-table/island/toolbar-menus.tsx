@@ -18,6 +18,7 @@ export function ColumnsMenu({
   return (
     <div
       role="menu"
+      data-testid="column-toggle-panel"
       className="border-border bg-background-overlay absolute top-full right-0 z-10 mt-1 min-w-max rounded border p-2 shadow-lg"
     >
       {table
@@ -28,11 +29,14 @@ export function ColumnsMenu({
             key={col.id}
             className="hover:bg-background-subtle flex cursor-pointer items-center gap-2 px-2 py-1 text-sm"
           >
+            {}
             <input
               type="checkbox"
+              role="switch"
               checked={col.getIsVisible()}
               onChange={col.getToggleVisibilityHandler()}
               aria-label={col.id}
+              aria-checked={col.getIsVisible()}
             />
             {col.id}
           </label>

@@ -105,4 +105,6 @@ export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenReposito
           )
         )
     }).pipe(Effect.asVoid),
+
+  purgeAll: () => wrap(() => db.delete(sovriumBootstrapTokens)).pipe(Effect.asVoid),
 })

@@ -61,12 +61,32 @@ export const FormSchema = Schema.Struct({
   submitter: Schema.optional(SubmitterOptionsSchema),
   onSuccess: Schema.optional(FormOnSuccessSchema),
   onError: Schema.optional(FormOnErrorSchema),
-}).annotations({
-  identifier: 'Form',
-  title: 'Form',
-  description:
-    'Top-level form definition. Reachable as a public route, embeddable, addressable from page components and automation triggers.',
-})
+}).pipe(
+  Schema.filter((form) => {
+    const isPublic = form.access?.require === undefined || form.access.require === 'all'
+    if (!isPublic) return true
+
+    const violations = form.fields.flatMap((field) => {
+      const dv = (field as { readonly defaultValue?: unknown }).defaultValue
+      if (typeof dv !== 'string' || !dv.startsWith('$user.')) return []
+      const path =
+        (field as { readonly name?: string; readonly column?: string }).name ??
+        (field as { readonly column?: string }).column ??
+        '<unknown>'
+      return [`fields.${path}.defaultValue=${dv}`]
+    })
+    if (violations.length > 0) {
+      return `Form "${form.name}" is public but references $user.* values (${violations.join(', ')}). $user references require access.require to be "authenticated" or a role list.`
+    }
+    return true
+  }),
+  Schema.annotations({
+    identifier: 'Form',
+    title: 'Form',
+    description:
+      'Top-level form definition. Reachable as a public route, embeddable, addressable from page components and automation triggers.',
+  })
+)
 
 export const FormsSchema = Schema.Array(FormSchema).pipe(
   Schema.minItems(1),

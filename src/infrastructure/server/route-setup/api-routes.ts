@@ -15,9 +15,19 @@ import {
 } from '@/domain/models/api/health/health'
 import { resolveOllamaBaseUrl } from '@/domain/models/env/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
+import { resetAuditEntries } from '@/infrastructure/audit-log/in-memory-store'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { FormRenderers } from '@/infrastructure/layers/form-renderer-layer'
-import { authMiddleware, requireAuth, requireAdmin } from '@/presentation/api/middleware/auth'
+import { ecoIndexHeaderMiddleware } from '@/infrastructure/server/middleware/eco-index-header'
+import { lowDataModeMiddleware } from '@/infrastructure/server/middleware/low-data-mode'
+import { chainLowDataOptOutRoute } from '@/infrastructure/server/middleware/low-data-opt-out'
+import { resetEcoIndexTrackerForTesting } from '@/infrastructure/utils/eco-index-tracker'
+import {
+  authMiddleware,
+  requireAuth,
+  requireAdmin,
+  requireAdminTier,
+} from '@/presentation/api/middleware/auth'
 import {
   chainTableRoutes,
   chainAccountRoutes,
@@ -36,6 +46,11 @@ import {
   chainBucketRoutes,
   chainFormRoutes,
 } from '@/presentation/api/routes'
+import { chainAdminAuditLogRoutes } from '@/presentation/api/routes/admin/audit-log'
+import { chainAdminAutomationsRoutes } from '@/presentation/api/routes/admin/automations'
+import { chainAdminBucketsRoutes } from '@/presentation/api/routes/admin/buckets'
+import { chainAdminEcoRoutes } from '@/presentation/api/routes/admin/eco'
+import { chainAdminFormsRoutes } from '@/presentation/api/routes/admin/forms'
 import { chainCommandSearchRoutes } from '@/presentation/api/routes/command-search'
 import { chainConnectionRoutes } from '@/presentation/api/routes/connections'
 import { chainFavoriteRoutes } from '@/presentation/api/routes/favorites'
@@ -189,9 +204,20 @@ const applyRequestGuards = (honoApp: Hono): Hono => {
 }
 
 export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
+
+  resetAuditEntries()
+
+  resetEcoIndexTrackerForTesting()
+
+  const honoWithEcoMiddleware = honoApp
+    .use('*', ecoIndexHeaderMiddleware())
+    .use('*', lowDataModeMiddleware())
+
+  const honoWithEcoHeader = chainLowDataOptOutRoute(honoWithEcoMiddleware)
+
   const auth = createAuthInstance(app.auth)
 
-  const honoWithHealth = honoApp.get('/api/health', async (c) => {
+  const honoWithHealth = honoWithEcoHeader.get('/api/health', async (c) => {
     const program = Effect.gen(function* () {
       const ollamaReachable = yield* Effect.promise(() =>
         probeOllamaReachable(resolveOllamaBaseUrl(process.env))
@@ -252,9 +278,28 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/admin/buckets/quota', authMiddleware(auth))
         .use('/api/admin/buckets/quota', requireAuth())
         .use('/api/admin/buckets/quota', requireAdmin())
+        .use('/api/admin/buckets/overview', authMiddleware(auth))
+        .use('/api/admin/buckets/overview', requireAdminTier())
+        .use('/api/admin/buckets', authMiddleware(auth))
+        .use('/api/admin/buckets', requireAdminTier())
+        .use('/api/admin/forms', authMiddleware(auth))
+        .use('/api/admin/forms', requireAdminTier())
+        .use('/api/admin/forms/*', authMiddleware(auth))
+        .use('/api/admin/forms/*', requireAdminTier())
+        .use('/api/admin/audit-log', authMiddleware(auth))
+        .use('/api/admin/audit-log', requireAdminTier())
         .use('/api/admin/config/version', authMiddleware(auth))
-        .use('/api/admin/config/version', requireAuth())
-        .use('/api/admin/config/version', requireAdmin())
+        .use('/api/admin/config/version', requireAdminTier())
+        .use('/api/admin/tables/overview', authMiddleware(auth))
+        .use('/api/admin/tables/overview', requireAdminTier())
+        .use('/api/admin/audit-log', authMiddleware(auth))
+        .use('/api/admin/audit-log', requireAdminTier())
+        .use('/api/admin/eco/overview', authMiddleware(auth))
+        .use('/api/admin/eco/overview', requireAdminTier())
+        .use('/api/admin/automations', authMiddleware(auth))
+        .use('/api/admin/automations', requireAdminTier())
+        .use('/api/admin/automations/*', authMiddleware(auth))
+        .use('/api/admin/automations/*', requireAdminTier())
         .use('/api/admin/storage/transform-cache', authMiddleware(auth))
         .use('/api/admin/storage/transform-cache', requireAuth())
         .use('/api/admin/storage/transform-cache', requireAdmin())
@@ -303,6 +348,14 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/admin/storage/status', requireAdmin())
         .use('/api/admin/buckets/quota', requireAuth())
         .use('/api/admin/buckets/quota', requireAdmin())
+        .use('/api/admin/buckets/overview', requireAdminTier())
+        .use('/api/admin/buckets', requireAdminTier())
+        .use('/api/admin/forms', requireAdminTier())
+        .use('/api/admin/forms/*', requireAdminTier())
+        .use('/api/admin/audit-log', requireAdminTier())
+        .use('/api/admin/eco/overview', requireAdminTier())
+        .use('/api/admin/automations', requireAdminTier())
+        .use('/api/admin/automations/*', requireAdminTier())
         .use('/api/analytics/overview', requireAuth())
         .use('/api/analytics/overview', requireAdmin())
         .use('/api/analytics/pages', requireAuth())
@@ -339,9 +392,17 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   const honoWithForms = chainFormRoutes(honoWithBuckets, app, FormRenderers)
 
-  const honoWithAdmin = chainAdminRoutes(honoWithForms)
+  const honoWithAdmin = chainAdminRoutes(honoWithForms, app)
 
-  const honoWithAiChat = chainAiChatRoutes(honoWithAdmin, app)
+  const honoWithAdminBuckets = chainAdminBucketsRoutes(honoWithAdmin)
+  const honoWithAdminForms = chainAdminFormsRoutes(honoWithAdminBuckets, resolveLiveApp)
+  const honoWithAdminAuditLog = chainAdminAuditLogRoutes(honoWithAdminForms)
+
+  const honoWithAdminEco = chainAdminEcoRoutes(honoWithAdminAuditLog, app)
+
+  const honoWithAdminAutomations = chainAdminAutomationsRoutes(honoWithAdminEco, resolveLiveApp)
+
+  const honoWithAiChat = chainAiChatRoutes(honoWithAdminAutomations, app)
 
   const honoWithAgents = chainAgentScheduleRoutes(
     chainAgentApprovalRoutes(chainAiMcpStatusRoutes(honoWithAiChat, app), app),

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import { AuthRepository, AuthDatabaseError } from '@/application/ports/repositories/auth-repository'
 import { db } from '@/infrastructure/database'
@@ -67,5 +67,14 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       })
 
       return result[0]?.token ?? undefined
+    }),
+
+  countUsers: () =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db.select({ value: count() }).from(users)
+      })
+      return Number(rows[0]?.value ?? 0)
     }),
 })
