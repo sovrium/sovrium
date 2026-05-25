@@ -1,3 +1,13 @@
+## [0.8.1](https://github.com/sovrium/sovrium/compare/v0.8.0...v0.8.1) (2026-05-25)
+
+### Bug Fixes
+
+- **database**: MIGRATION-CHECKSUM-VIEW-DRIFT-001 — preserve auto-generated lookup views across boots
+
+### Documentation
+
+- **progress**: refresh SPEC-PROGRESS.md — MIGRATION-CHECKSUM-VIEW-DRIFT-001 GREEN (d3a33544d)
+
 ## [0.8.0](https://github.com/sovrium/sovrium/compare/v0.7.2...v0.8.0) (2026-05-25)
 
 ### Features

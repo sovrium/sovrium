@@ -7,6 +7,7 @@
 
 import { SQL } from 'bun'
 import { Effect, Runtime } from 'effect'
+import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
 import {
@@ -160,6 +161,7 @@ export const executeSchemaInit = (
 interface QuickConnection {
   readonly checksumSql: string
   readonly tableExistsSql: (name: string) => string
+  readonly viewExistsSql: (name: string) => string
   readonly tx: TransactionLike
   readonly close: () => unknown
 }
@@ -173,6 +175,10 @@ const openQuickConnection = (config: DatabaseDialectConfig): QuickConnection => 
         `SELECT EXISTS (
            SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '${name}'
          ) as "exists"`,
+      viewExistsSql: (name: string) =>
+        `SELECT EXISTS (
+           SELECT 1 FROM sqlite_master WHERE type = 'view' AND name = '${name}'
+         ) as "exists"`,
       tx: sqliteTransactionLike(sqliteDb),
       close: () => sqliteDb.close(),
     }
@@ -183,6 +189,11 @@ const openQuickConnection = (config: DatabaseDialectConfig): QuickConnection => 
     tableExistsSql: (name: string) =>
       `SELECT EXISTS (
          SELECT FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name = '${name}'
+       )`,
+    viewExistsSql: (name: string) =>
+      `SELECT EXISTS (
+         SELECT FROM information_schema.views
          WHERE table_schema = 'public' AND table_name = '${name}'
        )`,
     tx: { unsafe: (sql: string) => pgDb.unsafe(sql) },
@@ -222,6 +233,27 @@ const resolveSkip = async (
   if (!tableCheck[0]?.exists) {
     logDebug(
       `[checkShouldSkipMigration] Checksum matches but '${sanitizedTableName}' missing - full migration`
+    )
+    return false
+  }
+
+  const expectedAutoViewNames = tables
+    .filter((table) => shouldUseView(table))
+    .map((table) => sanitizeTableName(table.name))
+
+  const viewCheckResults = await Promise.all(
+    expectedAutoViewNames.map(async (viewName) => {
+      const rows = (await quick.tx.unsafe(quick.viewExistsSql(viewName))) as readonly {
+        exists: boolean | number
+      }[]
+      return { viewName, exists: Boolean(rows[0]?.exists) }
+    })
+  )
+
+  const missingView = viewCheckResults.find((r) => !r.exists)
+  if (missingView) {
+    logDebug(
+      `[checkShouldSkipMigration] Checksum matches but auto-generated view '${missingView.viewName}' missing - full migration`
     )
     return false
   }
