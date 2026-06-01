@@ -7,9 +7,15 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { SaveStatusIndicator } from '../save-status-indicator'
+import { DensityMenu } from './density-menu'
 import { getNonSelectColumnCount, getVisibleColumnIds, type ActiveFilter } from './export-helpers'
+import { GroupMenu } from './group-menu'
+import { SettingsDialog } from './settings-dialog'
 import { ColumnsMenu, ExportMenu } from './toolbar-menus'
+import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
+import { ViewsMenu, type ViewsMenuEntry } from './views-menu'
 import type { SaveStatus } from '../../hooks/use-inline-editing'
+import type { RowDensity } from '../../hooks/use-table-preferences'
 import type { TableRecord } from '../../shared/types'
 import type {
   DataTableSearch,
@@ -65,16 +71,37 @@ interface DataTableToolbarBarProps {
   readonly importDialogOpen: boolean
   readonly onOpenImportDialog: () => void
   readonly onOpenFilterOverlay: () => void
+  readonly onOpenSortOverlay: () => void
+  readonly activeSortCount: number
+  readonly activeView: 'grid' | 'kanban'
+  readonly onSelectGridView: () => void
+  readonly onSelectKanbanView: () => void
+  readonly groupableFields: ReadonlyArray<string>
+  readonly runtimeGroupBy: string | null
+  readonly onSelectRuntimeGroupBy: (field: string | null) => void
   readonly columnsMenuOpen: boolean
   readonly onToggleColumnsMenu: () => void
   readonly exportMenuOpen: boolean
   readonly onToggleExportMenu: () => void
   readonly onCloseExportMenu: () => void
   readonly onRefresh: () => void
-  readonly onToggleDensity: () => void
+  readonly currentDensity: RowDensity
+  readonly onSelectDensity: (density: RowDensity) => void
+  readonly onResetPreferences?: () => void
+  readonly activeViewName?: string
   readonly activeFilter: ActiveFilter | undefined
+  readonly activeFilterCount: number
   readonly selectedCount: number
   readonly showSearch: boolean
+  readonly viewsEnabled: boolean
+  readonly viewEntries: ReadonlyArray<ViewsMenuEntry>
+  readonly canSaveCurrentView: boolean
+  readonly isViewModified: boolean
+  readonly activeViewSource: 'developer' | 'personal' | null
+  readonly onOpenSaveViewDialog: () => void
+  readonly onSelectView: (entry: ViewsMenuEntry) => void
+  readonly onDeleteView: (entry: ViewsMenuEntry) => void
+  readonly onSaveModifiedView: () => void
   readonly saveStatus?: SaveStatus
 }
 
@@ -89,16 +116,37 @@ export function DataTableToolbarBar({
   importDialogOpen,
   onOpenImportDialog,
   onOpenFilterOverlay,
+  onOpenSortOverlay,
+  activeSortCount,
+  activeView,
+  onSelectGridView,
+  onSelectKanbanView,
+  groupableFields,
+  runtimeGroupBy,
+  onSelectRuntimeGroupBy,
   columnsMenuOpen,
   onToggleColumnsMenu,
   exportMenuOpen,
   onToggleExportMenu,
   onCloseExportMenu,
   onRefresh,
-  onToggleDensity,
+  currentDensity,
+  onSelectDensity,
+  onResetPreferences,
+  activeViewName,
   activeFilter,
+  activeFilterCount,
   selectedCount,
   showSearch,
+  viewsEnabled,
+  viewEntries,
+  canSaveCurrentView,
+  isViewModified,
+  activeViewSource,
+  onOpenSaveViewDialog,
+  onSelectView,
+  onDeleteView,
+  onSaveModifiedView,
   saveStatus,
 }: DataTableToolbarBarProps) {
   const onExportSelectedClick = useCallback(() => {
@@ -129,27 +177,152 @@ export function DataTableToolbarBar({
           onChange={setGlobalFilter}
         />
       )}
+      {activeViewName && (
+        <span
+          data-testid="data-table-active-view"
+          className="text-foreground-muted text-sm"
+        >
+          {activeViewName}
+        </span>
+      )}
+      {toolbarConfig?.viewSwitcher && (
+        <div
+          data-testid="view-switcher"
+          role="group"
+          aria-label="View"
+          className="inline-flex items-center gap-1"
+        >
+          <button
+            type="button"
+            aria-label="Grid"
+            aria-pressed={activeView === 'grid'}
+            onClick={onSelectGridView}
+            className={`rounded border px-2 py-1 text-xs ${
+              activeView === 'grid'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border hover:bg-background-subtle'
+            }`}
+          >
+            Grid
+          </button>
+          <button
+            type="button"
+            aria-label="Kanban"
+            aria-pressed={activeView === 'kanban'}
+            onClick={onSelectKanbanView}
+            className={`rounded border px-2 py-1 text-xs ${
+              activeView === 'kanban'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border hover:bg-background-subtle'
+            }`}
+          >
+            Kanban
+          </button>
+        </div>
+      )}
       {saveStatus && saveStatus !== 'idle' && <SaveStatusIndicator status={saveStatus} />}
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
-          className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
+          className={DROPDOWN_TRIGGER_CLASS}
           onClick={onOpenImportDialog}
         >
           Import
         </button>
         <button
           type="button"
-          className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
+          className="hover:bg-background-subtle inline-flex items-center gap-1 rounded border px-3 py-1 text-sm"
           aria-label="Filter"
           onClick={onOpenFilterOverlay}
         >
           Filter
+          {activeFilterCount > 0 && (
+            <span
+              data-testid="filter-badge"
+              className="bg-primary text-primary-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-medium"
+            >
+              {activeFilterCount}
+            </span>
+          )}
         </button>
+        {toolbarConfig?.sort && (
+          <button
+            type="button"
+            className="hover:bg-background-subtle inline-flex items-center gap-1 rounded border px-3 py-1 text-sm"
+            aria-label="Sort"
+            onClick={onOpenSortOverlay}
+          >
+            Sort
+            {activeSortCount > 0 && (
+              <span
+                data-testid="sort-badge"
+                className="bg-primary text-primary-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-medium"
+              >
+                {activeSortCount}
+              </span>
+            )}
+          </button>
+        )}
+        {toolbarConfig?.groupBy && (
+          <GroupMenu
+            fields={groupableFields}
+            current={runtimeGroupBy}
+            onSelect={onSelectRuntimeGroupBy}
+          />
+        )}
+        {viewsEnabled && (
+          <>
+            {}
+            <button
+              type="button"
+              aria-label="Save view"
+              disabled={!canSaveCurrentView}
+              onClick={onOpenSaveViewDialog}
+              className={`${DROPDOWN_TRIGGER_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+              Save view
+            </button>
+            <ViewsMenu
+              views={viewEntries}
+              onSelectView={onSelectView}
+              onSaveCurrentView={onOpenSaveViewDialog}
+              onDeleteView={onDeleteView}
+            />
+            {}
+            {isViewModified && (
+              <>
+                <span
+                  data-testid="view-modified-indicator"
+                  className="text-foreground-muted text-xs italic"
+                >
+                  Modified
+                </span>
+                {activeViewSource === 'personal' && (
+                  <button
+                    type="button"
+                    aria-label="Save"
+                    onClick={onSaveModifiedView}
+                    className={DROPDOWN_TRIGGER_CLASS}
+                  >
+                    Save
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-label="Save as new"
+                  onClick={onOpenSaveViewDialog}
+                  className={DROPDOWN_TRIGGER_CLASS}
+                >
+                  Save as new
+                </button>
+              </>
+            )}
+          </>
+        )}
         <div className="relative">
           <button
             type="button"
-            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
+            className={DROPDOWN_TRIGGER_CLASS}
             aria-label="Columns"
             onClick={onToggleColumnsMenu}
           >
@@ -160,7 +333,7 @@ export function DataTableToolbarBar({
         {selectionConfig?.mode === 'multiple' && (
           <button
             type="button"
-            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            className={`${DROPDOWN_TRIGGER_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
             aria-label="Export selected"
             disabled={selectedCount === 0}
             onClick={onExportSelectedClick}
@@ -171,7 +344,7 @@ export function DataTableToolbarBar({
         <div className="relative">
           <button
             type="button"
-            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
+            className={DROPDOWN_TRIGGER_CLASS}
             aria-label="Export"
             aria-haspopup="true"
             aria-expanded={exportMenuOpen}
@@ -191,7 +364,7 @@ export function DataTableToolbarBar({
         {toolbarConfig?.refresh && (
           <button
             type="button"
-            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
+            className={DROPDOWN_TRIGGER_CLASS}
             aria-label="Refresh"
             onClick={onRefresh}
           >
@@ -199,15 +372,12 @@ export function DataTableToolbarBar({
           </button>
         )}
         {toolbarConfig?.density && (
-          <button
-            type="button"
-            className="hover:bg-background-subtle rounded border px-3 py-1 text-sm"
-            aria-label="Density"
-            onClick={onToggleDensity}
-          >
-            Density
-          </button>
+          <DensityMenu
+            current={currentDensity}
+            onSelect={onSelectDensity}
+          />
         )}
+        {onResetPreferences && <SettingsDialog onReset={onResetPreferences} />}
       </div>
     </div>
   )

@@ -26,6 +26,8 @@ export interface TriggerData {
   readonly comment?: Readonly<Record<string, unknown>>
   readonly threadParticipants?: readonly string[]
   readonly mentions?: readonly string[]
+  readonly user?: Readonly<Record<string, unknown>>
+  readonly event?: string
 }
 
 const SIMPLE_TEMPLATE_PATTERN = /\{\{\s*([\w.]+)\s*\}\}/g

@@ -47,6 +47,18 @@ export const TwitterAppIdSchema = Schema.Struct({
   description: 'App ID in respective stores',
 })
 
+export const TwitterAppUrlSchema = Schema.Struct({
+  iPhone: Schema.optional(
+    Schema.String.annotations({ description: 'Deep-link URL for iPhone app' })
+  ),
+  iPad: Schema.optional(Schema.String.annotations({ description: 'Deep-link URL for iPad app' })),
+  googlePlay: Schema.optional(
+    Schema.String.annotations({ description: 'Deep-link URL for Google Play app' })
+  ),
+}).annotations({
+  description: 'Deep-link URL to open app in respective stores',
+})
+
 export const TwitterCrossOriginSchema = Schema.Union(
   Schema.Boolean,
   Schema.Literal('anonymous', 'use-credentials')
@@ -101,6 +113,7 @@ export const TwitterCardSchema = Schema.Struct({
   ),
   appName: Schema.optional(TwitterAppNameSchema),
   appId: Schema.optional(TwitterAppIdSchema),
+  appUrl: Schema.optional(TwitterAppUrlSchema),
 }).annotations({
   title: 'Twitter Card Metadata',
   description: 'Twitter Card metadata for rich Twitter/X sharing',
@@ -110,4 +123,5 @@ export type TwitterCardType = Schema.Schema.Type<typeof TwitterCardTypeSchema>
 export type TwitterUsername = Schema.Schema.Type<typeof TwitterUsernameSchema>
 export type TwitterAppName = Schema.Schema.Type<typeof TwitterAppNameSchema>
 export type TwitterAppId = Schema.Schema.Type<typeof TwitterAppIdSchema>
+export type TwitterAppUrl = Schema.Schema.Type<typeof TwitterAppUrlSchema>
 export type TwitterCard = Schema.Schema.Type<typeof TwitterCardSchema>

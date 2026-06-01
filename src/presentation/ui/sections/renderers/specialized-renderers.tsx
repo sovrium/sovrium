@@ -55,23 +55,52 @@ export function renderAlert(
   theme?: Theme
 ): ReactElement {
   const variant = props.variant as string | undefined
+  const dismissible = props.dismissible === true
   const existingStyle = (props.style as Record<string, unknown> | undefined) || {}
+
+  const { dismissible: _dismissible, ...domProps } = props as ElementProps & {
+    dismissible?: unknown
+  }
 
   const mergedStyle = {
     padding: '12px 16px',
     borderRadius: '4px',
     border: '1px solid',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '8px',
     ...buildAlertVariantStyles(variant, theme),
     ...existingStyle,
   }
 
+  const alertId = dismissible ? crypto.randomUUID() : undefined
+
   return (
     <div
-      {...props}
+      {...domProps}
+      {...(alertId ? { 'data-alert-id': alertId } : {})}
       role="alert"
       style={mergedStyle}
     >
-      {content || children}
+      <span style={{ flex: 1 }}>{content || children}</span>
+      {dismissible && alertId && (
+        <button
+          type="button"
+          aria-label="Dismiss"
+          data-click-toggle-element={`[data-alert-id="${alertId}"]`}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'inherit',
+            fontSize: '18px',
+            lineHeight: 1,
+            padding: '0 4px',
+          }}
+        >
+          ×
+        </button>
+      )}
     </div>
   )
 }

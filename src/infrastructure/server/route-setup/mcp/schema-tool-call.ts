@@ -7,12 +7,14 @@
 
 
 import { sql } from 'drizzle-orm'
+import { resolvePruneSet, type VersionRow } from '@/domain/models/schema/retention'
 import { db } from '@/infrastructure/database'
 import { qualifiedSystemTable } from '@/infrastructure/database/sql/dialect-ddl'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import { resolveDriftPosture } from '@/infrastructure/server/route-setup/drift-posture'
 import { setLiveApp } from '@/infrastructure/server/route-setup/live-app-store'
 import {
+  deleteVersionsByNumbers,
   insertRestoredVersion,
   insertVersion,
   readActiveVersionNumber,
@@ -69,6 +71,7 @@ const buildSchemaToolHandlers = (): ReadonlyMap<
     ['schema_draft_publish', handleDraftPublish],
     ['schema_draft_rebase', handleDraftRebase],
     ['schema_draft_tables_create', handleTablesCreate],
+    ['schema_prune', handlePrune],
     ['schema_diff', (input) => handleDiffExtra(input, successResult)],
     [
       'schema_draft_preview_start',
@@ -321,6 +324,46 @@ const handleDraftDiscard = async (input: SchemaToolCallInput): Promise<Response>
 }
 
 
+const projectVersionsForPrune = (
+  rows: ReadonlyArray<Record<string, unknown>>
+): ReadonlyArray<VersionRow> =>
+  rows.map((row) => {
+    const versionNumber = Number(row['version_number'])
+    const restoredRaw = row['restored_from_version']
+    const restoredFromVersion =
+      restoredRaw === null || restoredRaw === undefined ? undefined : Number(restoredRaw)
+    return restoredFromVersion !== undefined
+      ? { versionNumber, restoredFromVersion }
+      : { versionNumber }
+  })
+
+const handlePrune = async (input: SchemaToolCallInput): Promise<Response> => {
+  const keepArg = input.args['keep']
+  if (
+    keepArg !== undefined &&
+    (typeof keepArg !== 'number' || !Number.isFinite(keepArg) || keepArg < 1)
+  ) {
+    return errorResult(input, {
+      code: 'VALIDATION_ERROR',
+      message: 'keep must be a positive integer',
+    })
+  }
+  const rows = await readAllVersionRows()
+  const { toKeep, toPrune } = resolvePruneSet(
+    projectVersionsForPrune(rows),
+    typeof keepArg === 'number' ? keepArg : undefined
+  )
+  const prunedCount = await deleteVersionsByNumbers([...toPrune])
+  const retainedVersionNumbers =
+    [...toKeep].sort((a, b) => a - b)
+  return successResult(input, {
+    pruned: prunedCount,
+    kept: retainedVersionNumbers.length,
+    retainedVersionNumbers,
+  })
+}
+
+
 
 const readUserCount = async (): Promise<number> => {
   try {
@@ -342,7 +385,8 @@ const isMutatingSuffix = (suffix: string): boolean =>
   suffix === 'schema_draft_tables_update' ||
   suffix === 'schema_draft_tables_delete' ||
   suffix === 'schema_draft_preview_start' ||
-  suffix === 'schema_draft_preview_stop'
+  suffix === 'schema_draft_preview_stop' ||
+  suffix === 'schema_prune'
 
 const successResult = (input: SchemaToolCallInput, structured: unknown): Response =>
   input.c.json({

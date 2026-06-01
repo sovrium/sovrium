@@ -7,6 +7,12 @@
 
 import { Tabs } from '@base-ui/react/tabs'
 import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeTabClasses,
+  computeTabIndicatorClasses,
+  computeTabPanelClasses,
+  computeTabsListClasses,
+} from './disclosure-default-classes'
 import type { ReactElement } from 'react'
 
 interface TabItem {
@@ -43,34 +49,27 @@ export default function TabsIsland({
       id={id}
       data-testid={testId}
     >
-      <Tabs.List
-        className={`flex ${
-          tabsOrientation === 'vertical'
-            ? 'border-border flex-col border-r'
-            : 'border-border border-b'
-        }`}
-      >
+      <Tabs.List className={computeTabsListClasses({ orientation: tabsOrientation })}>
         {items.map((tab) => (
           <Tabs.Tab
             key={tab.id}
             value={tab.id}
             disabled={tab.disabled}
-            className="text-foreground-muted hover:text-foreground data-[selected]:border-primary data-[selected]:text-primary px-4 py-2 text-sm font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[selected]:border-b-2"
+            className={computeTabClasses()}
           >
             {tab.label}
           </Tabs.Tab>
         ))}
-        <Tabs.Indicator className="bg-primary absolute bottom-0 h-0.5 transition-all duration-200" />
+        <Tabs.Indicator className={computeTabIndicatorClasses()} />
       </Tabs.List>
 
       {items.map((tab) => (
         <Tabs.Panel
           key={tab.id}
           value={tab.id}
-          className="text-foreground p-4 text-sm"
-        >
-          {tab.content}
-        </Tabs.Panel>
+          className={computeTabPanelClasses()}
+          dangerouslySetInnerHTML={{ __html: tab.content }}
+        />
       ))}
     </Tabs.Root>
   )

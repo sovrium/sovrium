@@ -8,13 +8,13 @@
 
 import { resolveResourceType } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
-  appendAuditEntry,
-  listAuditEntries,
-  type AuditListFilter,
-} from '@/infrastructure/audit-log/in-memory-store'
+  appendAuditEntryToDb,
+  listAuditEntriesFromDb,
+} from '@/infrastructure/audit-log/drizzle-store'
 import type { Actor } from '@/domain/models/api/admin/_shared/actor'
 import type { Severity } from '@/domain/models/api/admin/_shared/severity'
 import type { AuditLogEntry, AuditResult } from '@/domain/models/api/admin/audit-log/entry'
+import type { AuditListFilter } from '@/infrastructure/audit-log/in-memory-store'
 
 export interface EmitAuditInput {
   readonly action: string
@@ -49,9 +49,9 @@ export async function emitAuditEvent(input: EmitAuditInput): Promise<void> {
     ...(input.metadata ? { metadata: input.metadata } : {}),
   }
 
-  appendAuditEntry(entry)
+  return appendAuditEntryToDb(entry)
 }
 
 export async function listAuditEvents(filter?: AuditListFilter): Promise<readonly AuditLogEntry[]> {
-  return listAuditEntries(filter)
+  return listAuditEntriesFromDb(filter)
 }

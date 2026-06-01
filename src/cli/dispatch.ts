@@ -34,7 +34,7 @@ export interface ParsedArgs {
   readonly appName?: string
   readonly forceFlag: boolean
   readonly skipAgent: boolean
-  readonly publicDir?: string
+  readonly publicDir?: string | false
   readonly positionalArg?: string
   readonly password?: string
   readonly helpRequested?: boolean
@@ -68,6 +68,7 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '-w',
   '--force',
   '--no-agent',
+  '--no-publicDir',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -77,6 +78,7 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--publicDir',
   '--name',
   '--password',
+  '--message',
 ])
 
 const stripEqValue = (arg: string): string =>
@@ -134,9 +136,14 @@ interface ParsedFlags {
   readonly outputPath: string | undefined
   readonly templateName: string | undefined
   readonly targetPath: string | undefined
-  readonly publicDir: string | undefined
+  readonly publicDir: string | false | undefined
   readonly appName: string | undefined
   readonly password: string | undefined
+}
+
+const resolvePublicDirFlag = (argv: readonly string[]): string | false | undefined => {
+  if (argv.includes('--no-publicDir')) return false
+  return getFlagValue(argv, '--publicDir')
 }
 
 const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
@@ -146,7 +153,7 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   outputPath: getFlagValue(argv, '--output'),
   templateName: getFlagValue(argv, '--template'),
   targetPath: getFlagValue(argv, '--target'),
-  publicDir: getFlagValue(argv, '--publicDir'),
+  publicDir: resolvePublicDirFlag(argv),
   appName: getFlagValue(argv, '--name'),
   password: getFlagValue(argv, '--password'),
 })

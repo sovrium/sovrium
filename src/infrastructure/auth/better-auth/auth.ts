@@ -9,10 +9,16 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createAuthMiddleware, APIError } from 'better-auth/api'
 import { openAPI } from 'better-auth/plugins'
+import { Effect } from 'effect'
+import {
+  triggerAuthEventAutomations,
+  type AuthTriggerEvent,
+} from '@/application/use-cases/automations/trigger-auth-event'
 import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { stripHtmlToText } from '@/domain/utils/html-sanitization'
 import { resolvePasswordPolicy } from '@/domain/utils/password-policy'
+import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { db } from '@/infrastructure/database'
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
 import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
@@ -41,6 +47,7 @@ import {
   oauthRefreshTokens,
   oauthConsents,
 } from './schema'
+import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 
 export const buildSocialProviders = (authConfig?: Auth) => {
@@ -260,6 +267,27 @@ function buildAdvancedConfig() {
 
 type AppMetaForOrg = {
   readonly name?: string
+  readonly automations?: App['automations']
+}
+
+const dispatchAuthEvent = (
+  event: AuthTriggerEvent,
+  user: Readonly<Record<string, unknown>>,
+  appMeta: AppMetaForOrg | undefined
+): Promise<void> => {
+  if (!appMeta || !appMeta.automations || appMeta.automations.length === 0) {
+    return Promise.resolve()
+  }
+  const program = triggerAuthEventAutomations({
+    app: appMeta as App,
+    event,
+    user,
+    processEnv: process.env,
+    userId: typeof user['id'] === 'string' ? (user['id'] as string) : undefined,
+  })
+  return Effect.runPromise(provideAutomationRuntime(program)).catch((err) => {
+    console.error('[automation:auth-event] runtime provision failed', err)
+  })
 }
 
 function buildDatabaseHooks(
@@ -298,6 +326,14 @@ function buildDatabaseHooks(
               userEmail: user.email,
               connections,
             })
+          }
+          await dispatchAuthEvent('signUp', user, appMeta)
+        },
+      },
+      update: {
+        after: async (user: Readonly<Record<string, unknown>> | null) => {
+          if (user !== null && user['emailVerified'] === true) {
+            await dispatchAuthEvent('emailVerified', user, appMeta)
           }
         },
       },

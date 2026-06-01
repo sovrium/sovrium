@@ -8,7 +8,10 @@
 import { Toggle } from '@base-ui/react/toggle'
 import { ToggleGroup } from '@base-ui/react/toggle-group'
 import { useMemo } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeToggleGroupClasses,
+  computeToggleGroupItemClasses,
+} from '@/presentation/islands/toggle-default-classes'
 import type { ReactElement } from 'react'
 
 interface ToggleItem {
@@ -40,12 +43,15 @@ export default function ToggleGroupIsland({
     () => (defaultValue ? [...defaultValue] : []),
     [defaultValue]
   )
+  const wrapperClasses = computeToggleGroupClasses()
+  const itemClasses = computeToggleGroupItemClasses()
+
   return (
     <ToggleGroup
       defaultValue={memoizedDefaultValue}
       multiple={toggleType === 'multiple'}
       disabled={disabled}
-      className={cn('border-border inline-flex rounded-md border', className)}
+      className={`${wrapperClasses} ${className ?? ''}`}
       id={id}
       data-testid={testId}
     >
@@ -54,7 +60,7 @@ export default function ToggleGroupIsland({
           key={item.id}
           value={item.id}
           disabled={item.disabled}
-          className="border-border text-foreground-muted data-[pressed]:bg-primary-subtle data-[pressed]:text-foreground border-r px-3 py-2 text-sm font-medium transition-colors last:border-r-0 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className={itemClasses}
         >
           {item.label}
         </Toggle>

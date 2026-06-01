@@ -20,12 +20,22 @@ interface GetRecordHistoryConfig {
   readonly offset?: number
 }
 
+interface HistoryActor {
+  readonly id: string
+  readonly name: string
+  readonly image: string | null | undefined
+}
+
+function toHistoryActor(user: UserMetadataWithImage | undefined): HistoryActor | undefined {
+  return user ? { id: user.id, name: user.name, image: user.image } : undefined
+}
+
 function formatActivityEntry(entry: ActivityHistoryEntry) {
   return {
     action: entry.action,
     createdAt: entry.createdAt.toISOString(),
     changes: entry.changes,
-    user: entry.user,
+    user: toHistoryActor(entry.user),
   }
 }
 
@@ -35,7 +45,7 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       readonly action: string
       readonly createdAt: string
       readonly changes: unknown
-      readonly user: UserMetadataWithImage | undefined
+      readonly user: HistoryActor | undefined
     }[]
     readonly pagination: {
       readonly limit: number

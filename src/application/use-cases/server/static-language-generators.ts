@@ -8,6 +8,7 @@
 import { Effect, Schema, type Context } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { AppSchema } from '@/domain/models/app'
+import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { logDebug } from '@/infrastructure/logging'
 import type { CSSCompilationError } from '@/application/ports/services/css-compiler'
 import type { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
@@ -74,10 +75,7 @@ export const generateMultiLanguageFiles = (
           yield* serverInstance.stop
 
           const langOutputDir = `${outputDir}/${lang.code}`
-          const pagePaths =
-            validatedLangApp.pages
-              ?.filter((page) => !page.path.startsWith('/_'))
-              .map((page) => page.path) || []
+          const pagePaths = getPublicPagePaths(validatedLangApp.pages)
           const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
             outputDir: langOutputDir,
             pagePaths,
@@ -148,9 +146,7 @@ export const generateSingleLanguageFiles = (
 
     yield* serverInstance.stop
 
-    const pagePaths =
-      validatedApp.pages?.filter((page) => !page.path.startsWith('/_')).map((page) => page.path) ||
-      []
+    const pagePaths = getPublicPagePaths(validatedApp.pages)
     logDebug(`Generating static HTML files for ${pagePaths.length} pages...`)
     const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
       outputDir,

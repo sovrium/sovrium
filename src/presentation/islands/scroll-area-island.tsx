@@ -7,6 +7,10 @@
 
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import { useMemo } from 'react'
+import {
+  computeScrollAreaScrollbarClasses,
+  computeScrollAreaThumbClasses,
+} from './scroll-area-default-classes'
 import type { ReactElement } from 'react'
 
 interface ScrollAreaIslandProps {
@@ -27,6 +31,7 @@ export default function ScrollAreaIsland({
   'data-testid': testId,
 }: ScrollAreaIslandProps): ReactElement {
   const rootStyle = useMemo(() => ({ maxHeight: scrollAreaHeight }), [scrollAreaHeight])
+  const viewportStyle = useMemo(() => ({ maxHeight: scrollAreaHeight }), [scrollAreaHeight])
   return (
     <ScrollArea.Root
       className={className}
@@ -34,27 +39,36 @@ export default function ScrollAreaIsland({
       data-testid={testId}
       style={rootStyle}
     >
-      <ScrollArea.Viewport className="h-full w-full overflow-hidden">
-        {childrenHtml && (
-          <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
-        )}
+      <ScrollArea.Viewport
+        className="w-full overflow-hidden"
+        style={viewportStyle}
+      >
+        <ScrollArea.Content>
+          {childrenHtml && (
+            <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
+          )}
+        </ScrollArea.Content>
       </ScrollArea.Viewport>
 
       {(scrollOrientation === 'vertical' || scrollOrientation === 'both') && (
         <ScrollArea.Scrollbar
           orientation="vertical"
-          className="flex w-2 touch-none p-0.5 opacity-0 transition-opacity hover:opacity-100 data-[hovering]:opacity-100 data-[scrolling]:opacity-100"
+          keepMounted
+          role="scrollbar"
+          className={computeScrollAreaScrollbarClasses({ orientation: 'vertical' })}
         >
-          <ScrollArea.Thumb className="bg-border-strong flex-1 rounded-full" />
+          <ScrollArea.Thumb className={computeScrollAreaThumbClasses()} />
         </ScrollArea.Scrollbar>
       )}
 
       {(scrollOrientation === 'horizontal' || scrollOrientation === 'both') && (
         <ScrollArea.Scrollbar
           orientation="horizontal"
-          className="flex h-2 touch-none p-0.5 opacity-0 transition-opacity hover:opacity-100 data-[hovering]:opacity-100 data-[scrolling]:opacity-100"
+          keepMounted
+          role="scrollbar"
+          className={computeScrollAreaScrollbarClasses({ orientation: 'horizontal' })}
         >
-          <ScrollArea.Thumb className="bg-border-strong flex-1 rounded-full" />
+          <ScrollArea.Thumb className={computeScrollAreaThumbClasses()} />
         </ScrollArea.Scrollbar>
       )}
     </ScrollArea.Root>

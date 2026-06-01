@@ -55,6 +55,7 @@ function WizardNav(props: {
       {step > 0 && (
         <button
           type="button"
+          className="btn btn-secondary"
           onClick={onBack}
         >
           Back
@@ -63,6 +64,7 @@ function WizardNav(props: {
       {isLastStep ? (
         <button
           type="submit"
+          className="btn btn-primary"
           disabled={isPending}
         >
           {isPending ? 'Saving...' : buttonLabel}
@@ -70,6 +72,7 @@ function WizardNav(props: {
       ) : (
         <button
           type="button"
+          className="btn btn-primary"
           onClick={onNext}
         >
           Next

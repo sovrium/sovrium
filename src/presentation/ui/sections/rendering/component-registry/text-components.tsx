@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { renderTextComponentMarkdown } from '@/presentation/rendering/text-component-markdown'
 import * as Renderers from '../../renderers/element-renderers'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -61,10 +62,21 @@ export const textComponents: Partial<Record<Component['type'], ComponentRenderer
     )
   },
 
-  text: ({ elementProps, content, renderedChildren, component }) => {
+  text: ({ elementProps, content, renderedChildren, component, rawProps }) => {
     const c = (component ?? {}) as Record<string, unknown>
     const element = c['element'] as string | undefined
     const headingLevel = element ? HEADING_LEVELS[element] : undefined
+
+    if (rawProps?.['format'] === 'markdown' && typeof content === 'string') {
+      const safeHtml = renderTextComponentMarkdown(content)
+      return (
+        <article
+          {...elementProps}
+          data-component="markdown"
+          dangerouslySetInnerHTML={{ __html: safeHtml }}
+        />
+      )
+    }
 
     if (headingLevel) {
       return Renderers.renderHeading(

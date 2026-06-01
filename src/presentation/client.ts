@@ -104,7 +104,14 @@ function setupFilterFormHandlers(): void {
 }
 
 
-function showToast(message: string, variant?: string): void {
+type ToastOptions = {
+  variant?: string
+  duration?: number
+  actionLabel?: string
+  actionUrl?: string
+}
+
+function ensureToastContainer(): Element {
   let container = document.querySelector('[data-sonner-toaster]')
   if (!container) {
     container = document.createElement('div')
@@ -121,12 +128,41 @@ function showToast(message: string, variant?: string): void {
     el.style.gap = '8px'
     document.body.appendChild(container)
   }
+  return container
+}
+
+function showToast(message: string, options: ToastOptions = {}): void {
+  const container = ensureToastContainer()
   const toast = document.createElement('div')
   toast.setAttribute('data-toast', '')
-  if (variant) toast.setAttribute('data-variant', variant)
-  toast.textContent = message
+  if (options.variant) toast.setAttribute('data-variant', options.variant)
+
+  const messageSpan = document.createElement('span')
+  messageSpan.textContent = message
+  toast.appendChild(messageSpan)
+
+  if (options.actionLabel && options.actionUrl) {
+    const actionBtn = document.createElement('button')
+    actionBtn.type = 'button'
+    actionBtn.textContent = options.actionLabel
+    const { actionUrl } = options
+    actionBtn.addEventListener('click', () => {
+      void fetch(actionUrl, { method: 'POST' }).finally(() => {
+        toast.remove()
+      })
+    })
+    toast.appendChild(actionBtn)
+  }
+
   container.appendChild(toast)
+
+  if (options.duration && options.duration > 0) {
+    window.setTimeout(() => {
+      toast.remove()
+    }, options.duration)
+  }
 }
+
 
 function setupAutomationButtonHandlers(): void {
   document
@@ -137,7 +173,76 @@ function setupAutomationButtonHandlers(): void {
         const successMessage = button.getAttribute('data-on-success-message')
         const successVariant = button.getAttribute('data-on-success-variant') ?? undefined
         if (!awaitValue && successMessage) {
-          showToast(successMessage, successVariant)
+          showToast(successMessage, { variant: successVariant })
+        }
+      })
+    })
+}
+
+
+type FetchToastResponse = {
+  type: 'toast'
+  message: string
+  variant?: string
+  duration?: number
+  actionLabel?: string
+  actionUrl?: string
+}
+
+function parseToastResponse(raw: string | null): FetchToastResponse | undefined {
+  if (!raw) return undefined
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed && typeof parsed === 'object' && 'message' in parsed) {
+      return parsed as FetchToastResponse
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+function dispatchToastResponse(response: FetchToastResponse | undefined): void {
+  if (!response) return
+  showToast(response.message, {
+    variant: response.variant,
+    duration: response.duration,
+    actionLabel: response.actionLabel,
+    actionUrl: response.actionUrl,
+  })
+}
+
+function setupFetchButtonHandlers(): void {
+  document
+    .querySelectorAll<HTMLButtonElement>('button[data-action-type="fetch"]')
+    .forEach((button) => {
+      button.addEventListener('click', async () => {
+        const url = button.getAttribute('data-action-url')
+        if (!url) return
+        const method = button.getAttribute('data-action-method') ?? 'GET'
+        const headersRaw = button.getAttribute('data-action-headers')
+        const bodyRaw = button.getAttribute('data-action-body')
+        const onSuccess = parseToastResponse(button.getAttribute('data-on-success'))
+        const onError = parseToastResponse(button.getAttribute('data-on-error'))
+
+        const headers: Record<string, string> = headersRaw
+          ? (JSON.parse(headersRaw) as Record<string, string>)
+          : {}
+        const init: RequestInit = { method, headers }
+        if (bodyRaw) {
+          init.body = bodyRaw
+          if (!headers['Content-Type']) headers['Content-Type'] = 'application/json'
+        }
+
+        try {
+          const response = await fetch(url, init)
+          if (response.ok) {
+            dispatchToastResponse(onSuccess)
+          } else {
+            dispatchToastResponse(onError)
+          }
+        } catch {
+          dispatchToastResponse(onError)
         }
       })
     })
@@ -160,6 +265,7 @@ function initClientRuntime(): void {
   setupModalHandlers()
   setupIslandFormGuards()
   setupAutomationButtonHandlers()
+  setupFetchButtonHandlers()
 }
 
 if (document.readyState === 'loading') {

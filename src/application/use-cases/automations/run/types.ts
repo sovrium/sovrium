@@ -27,7 +27,7 @@ export interface ExecutedStep {
   readonly name: string
   readonly type: string
   readonly operator?: string
-  readonly status: 'success' | 'failure' | 'skipped'
+  readonly status: 'success' | 'failure' | 'filtered' | 'skipped'
   readonly error?: string
   readonly props?: Record<string, unknown>
   readonly output?: Record<string, unknown>
@@ -35,7 +35,16 @@ export interface ExecutedStep {
 
 export interface RunAccumulator {
   readonly steps: ReadonlyArray<ExecutedStep>
-  readonly runStatus: 'success' | 'failure' | 'timed-out' | 'exhausted' | 'completed-with-errors'
+  readonly runStatus:
+    | 'success'
+    | 'failure'
+    | 'timed-out'
+    | 'exhausted'
+    | 'completed-with-errors'
+    | 'skipped'
+    | 'cancelled'
+    | 'queued'
+    | 'running'
   readonly runError: string | undefined
   readonly actions: Readonly<Record<string, Record<string, unknown>>>
   readonly lastOutput: Record<string, unknown> | undefined
@@ -97,7 +106,14 @@ export interface RuntimeActionTemplate {
 
 export interface RunAutomationResult {
   readonly runId: string
-  readonly status: 'success' | 'failure' | 'timed-out' | 'exhausted' | 'completed-with-errors'
+  readonly status:
+    | 'success'
+    | 'failure'
+    | 'timed-out'
+    | 'exhausted'
+    | 'completed-with-errors'
+    | 'skipped'
+    | 'cancelled'
   readonly actions: Readonly<Record<string, Record<string, unknown>>>
   readonly lastOutput?: Record<string, unknown>
   readonly error?: string
@@ -117,6 +133,7 @@ export interface ExecuteAutomationRunInput {
   readonly callDepth?: number
   readonly visitedAutomations?: ReadonlySet<string>
   readonly skipActionNames?: ReadonlySet<string>
+  readonly onPersisted?: (runId: string) => void
 }
 
 export type AutomationInvoker = (input: {
@@ -188,6 +205,6 @@ export const truncateError = (input: string): string => {
 }
 
 export const isTerminalFailureStatus = (status: RunAccumulator['runStatus']): boolean =>
-  status === 'failure' || status === 'exhausted'
+  status === 'failure' || status === 'exhausted' || status === 'cancelled'
 
 export type { ActionOutcome }

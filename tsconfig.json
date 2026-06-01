@@ -55,5 +55,5 @@
   // has its own tsconfig + build:types). Dependents that override `include`
   // (tsconfig.build.json → ["src"], tsconfig.eslint.json → []) are unaffected.
   "include": ["src", "specs", "scripts"],
-  "exclude": ["node_modules", "dist", "tmp", "vendor", "design-system", "docs"]
+  "exclude": ["node_modules", "dist", "tmp", "vendor", "docs"]
 }

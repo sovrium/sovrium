@@ -7,7 +7,11 @@
 
 import { Context } from 'effect'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { SessionContextError, UniqueConstraintViolationError } from '@/domain/errors'
+import type {
+  ForeignKeyViolationError,
+  SessionContextError,
+  UniqueConstraintViolationError,
+} from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 import type { Effect } from 'effect'
 
@@ -73,7 +77,7 @@ export class TableRepository extends Context.Tag('TableRepository')<
       fields: Readonly<Record<string, unknown>>
     ) => Effect.Effect<
       Record<string, unknown>,
-      SessionContextError | UniqueConstraintViolationError
+      SessionContextError | UniqueConstraintViolationError | ForeignKeyViolationError
     >
 
     readonly updateRecord: (

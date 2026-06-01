@@ -6,6 +6,8 @@
  */
 
 import { validateTable, enrichUserRole } from '@/presentation/api/middleware/table'
+import { chainUserTablePreferenceRoutes } from '@/presentation/api/routes/user-table-preferences'
+import { chainUserViewRoutes } from '@/presentation/api/routes/user-views'
 import { chainBatchRoutesMethods } from './batch-routes'
 import { chainRecordRoutesMethods } from './record-routes'
 import { chainTableRoutesMethods } from './table-routes'
@@ -54,9 +56,15 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
         .use('/api/tables/:tableId/*', validateTable(resolveApp))
         .use('/api/tables/:tableId/*', provideGuestContext())
 
+  const honoWithRuntimeViews = chainUserTablePreferenceRoutes(
+    chainUserViewRoutes(honoWithMiddleware)
+  )
   return chainViewRoutesMethods(
     chainRecordRoutesMethods(
-      chainBatchRoutesMethods(chainTableRoutesMethods(honoWithMiddleware, resolveApp), resolveApp),
+      chainBatchRoutesMethods(
+        chainTableRoutesMethods(honoWithRuntimeViews, resolveApp),
+        resolveApp
+      ),
       resolveApp
     ),
     resolveApp

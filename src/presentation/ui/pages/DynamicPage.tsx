@@ -22,6 +22,7 @@ import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
+import type { SessionInfo } from '@/domain/types/session-info'
 import type { RouteParams } from '@/domain/utils/route-matcher'
 import type { ResolvedMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
 import type { ResolvedSidebarSection } from '@/presentation/rendering/sidebar-resolver'
@@ -40,6 +41,7 @@ type DynamicPageProps = {
   readonly islandEntryFile?: string
   readonly resolvedSidebar?: readonly ResolvedSidebarSection[]
   readonly markdownPayload?: ResolvedMarkdownPage
+  readonly session?: SessionInfo
 }
 
 type DynamicPageHeadProps = {
@@ -59,9 +61,18 @@ type DynamicPageHeadProps = {
 
 const ISLAND_ACTION_TYPES = new Set(['auth', 'crud', 'automation'])
 
+function isSingleRecordBoundForm(item: Component): boolean {
+  return (
+    (item.type === 'form' || item.type === 'data-form') &&
+    item.dataSource?.mode === 'single' &&
+    typeof item.dataSource.table === 'string'
+  )
+}
+
 function itemSelfNeedsIslands(item: Component): boolean {
   if (ISLAND_COMPONENT_TYPES.has(item.type)) return true
   if (item.dataSource?.mode === 'search') return true
+  if (isSingleRecordBoundForm(item)) return true
   const action = (item as Record<string, unknown>).action as { type?: string } | undefined
   return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
 }
@@ -199,6 +210,7 @@ type DynamicPageBodyProps = {
   readonly islandEntryFile?: string
   readonly resolvedSidebar?: readonly ResolvedSidebarSection[]
   readonly markdownPayload?: ResolvedMarkdownPage
+  readonly session?: SessionInfo
 }
 
 const GENERIC_PARAM_NAMES = new Set(['id', 'key', 'uid', 'pk'])
@@ -297,6 +309,7 @@ function DynamicPageBody({
   islandEntryFile,
   resolvedSidebar,
   markdownPayload,
+  session,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
   const dataAttributes = buildDataAttributes(routeParams, page.path)
   const sidebarSections = selectSidebarSections(resolvedSidebar, page)
@@ -325,6 +338,7 @@ function DynamicPageBody({
         tables={tables}
         buckets={buckets}
         routeParams={routeParams}
+        session={session}
         markdownPayload={markdownPayload}
       />
       {page.presence === true && <PresenceIndicatorMount page={page} />}
@@ -367,6 +381,7 @@ export function DynamicPage({
   islandEntryFile,
   resolvedSidebar,
   markdownPayload,
+  session,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, detectedLanguage)
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage)
@@ -408,6 +423,7 @@ export function DynamicPage({
         islandEntryFile={islandEntryFile}
         resolvedSidebar={resolvedSidebar}
         markdownPayload={markdownPayload}
+        session={session}
       />
     </html>
   )

@@ -47,6 +47,10 @@ export const getDb = (): DrizzleDB => {
   return cached
 }
 
+export const resetDbCache = (): void => {
+  cached = undefined
+}
+
 export const getPgDb = (): DrizzleDB => {
   if (parseDatabaseDialectConfig().dialect !== 'postgres') {
     throw new UnsupportedInSqliteError({

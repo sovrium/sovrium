@@ -22,6 +22,41 @@ const COLORS_NEEDING_FOREGROUND = [
   'popover',
 ] as const
 
+const COLOR_TO_SV_TOKEN: Record<string, string> = {
+  primary: 'primary',
+  'primary-hover': 'primary-hover',
+  'primary-active': 'primary-active',
+  'primary-foreground': 'primary-fg',
+  'primary-subtle': 'primary-subtle',
+  'primary-subtle-foreground': 'primary-subtle-fg',
+  background: 'bg',
+  'background-subtle': 'bg-subtle',
+  'background-raised': 'bg-raised',
+  'background-overlay': 'bg-overlay',
+  foreground: 'fg',
+  'foreground-muted': 'fg-muted',
+  'foreground-subtle': 'fg-subtle',
+  'foreground-disabled': 'fg-disabled',
+  'foreground-inverse': 'fg-inverse',
+  muted: 'bg-subtle',
+  'muted-foreground': 'fg-muted',
+  card: 'bg-raised',
+  popover: 'bg-overlay',
+  border: 'border',
+  ring: 'focus-ring',
+  warmth: 'warmth',
+  'warmth-fg': 'warmth-fg',
+  'warmth-foreground': 'warmth-fg',
+  'warmth-subtle': 'warmth-subtle',
+  'warmth-border': 'warmth-border',
+  success: 'success-solid',
+  warning: 'warning-solid',
+  error: 'error-solid',
+  destructive: 'error-solid',
+  'destructive-foreground': 'error-solid-fg',
+  info: 'info-solid',
+}
+
 export function generateThemeColors(colors?: ColorsConfig): string {
   if (!colors || Object.keys(colors).length === 0) return ''
 
@@ -41,6 +76,26 @@ export function generateThemeColors(colors?: ColorsConfig): string {
     colors['background'] && !colors['foreground'] ? ['    --color-foreground: #09090b;'] : []
 
   return [...colorEntries, ...derivedForegrounds, ...baseForeground].join('\n')
+}
+
+export function generateAuthorSvBridge(colors?: ColorsConfig): string {
+  if (!colors || Object.keys(colors).length === 0) return ''
+
+  const svBridgeEntries = Object.entries(colors).flatMap(([name, value]) => {
+    const svKey = COLOR_TO_SV_TOKEN[name]
+    if (!svKey) return []
+    return [`    --sv-${svKey}: ${value};`]
+  })
+
+  const derivedBorderStrong =
+    colors['border'] && !colors['border-strong']
+      ? [`    --sv-border-strong: ${colors['border']};`]
+      : []
+
+  const allEntries = [...svBridgeEntries, ...derivedBorderStrong]
+  if (allEntries.length === 0) return ''
+
+  return `:root {\n${allEntries.join('\n')}\n  }`
 }
 
 export function generateThemeFonts(fonts?: FontsConfig): string {
@@ -82,45 +137,40 @@ export function generateThemeFonts(fonts?: FontsConfig): string {
   return fontEntries.join('\n')
 }
 
+function generateVarBlock(
+  config: Readonly<Record<string, string>> | undefined,
+  prefix: string,
+  options?: {
+    readonly filter?: (key: string, value: string) => boolean
+    readonly varName?: (key: string) => string
+  }
+): string {
+  if (!config || Object.keys(config).length === 0) return ''
+
+  const varName = options?.varName ?? ((key: string) => `${prefix}-${key}`)
+
+  return Object.entries(config)
+    .filter(([key, value]) => options?.filter?.(key, value) ?? true)
+    .map(([key, value]) => `    --${varName(key)}: ${value};`)
+    .join('\n')
+}
+
 export function generateThemeSpacing(spacing?: SpacingConfig): string {
-  if (!spacing || Object.keys(spacing).length === 0) return ''
-
-  const spacingEntries = Object.entries(spacing)
-    .filter(([_, value]) => {
-      return /^[0-9.]+(?:rem|px|em|%)$/.test(value as string)
-    })
-    .map(([name, value]) => `    --spacing-${name}: ${value};`)
-
-  return spacingEntries.join('\n')
+  return generateVarBlock(spacing as Record<string, string> | undefined, 'spacing', {
+    filter: (_key, value) => /^[0-9.]+(?:rem|px|em|%)$/.test(value),
+  })
 }
 
 export function generateThemeShadows(shadows?: ShadowsConfig): string {
-  if (!shadows || Object.keys(shadows).length === 0) return ''
-
-  const shadowEntries = Object.entries(shadows).map(([name, value]) => {
-    return `    --shadow-${name}: ${value};`
-  })
-
-  return shadowEntries.join('\n')
+  return generateVarBlock(shadows as Record<string, string> | undefined, 'shadow')
 }
 
 export function generateThemeBorderRadius(borderRadius?: BorderRadiusConfig): string {
-  if (!borderRadius || Object.keys(borderRadius).length === 0) return ''
-
-  const radiusEntries = Object.entries(borderRadius).map(([name, value]) => {
-    const key = name === 'DEFAULT' ? 'radius' : `radius-${name}`
-    return `    --${key}: ${value};`
+  return generateVarBlock(borderRadius as Record<string, string> | undefined, 'radius', {
+    varName: (key) => (key === 'DEFAULT' ? 'radius' : `radius-${key}`),
   })
-
-  return radiusEntries.join('\n')
 }
 
 export function generateThemeBreakpoints(breakpoints?: BreakpointsConfig): string {
-  if (!breakpoints || Object.keys(breakpoints).length === 0) return ''
-
-  const breakpointEntries = Object.entries(breakpoints).map(
-    ([name, value]) => `    --breakpoint-${name}: ${value};`
-  )
-
-  return breakpointEntries.join('\n')
+  return generateVarBlock(breakpoints as Record<string, string> | undefined, 'breakpoint')
 }

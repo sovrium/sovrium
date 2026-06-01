@@ -8,6 +8,14 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeAlertDialogPopupClasses,
+  computeDialogActionsClasses,
+  computeDialogDescriptionClasses,
+  computeDialogPopupClasses,
+  computeDialogTitleClasses,
+  computeOverlayBackdropClasses,
+} from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 const ALERT_DIALOG_BLOCKED_REASONS = new Set([
@@ -59,7 +67,7 @@ function DialogActions({
       : 'bg-primary text-primary-fg hover:bg-primary-hover'
 
   return (
-    <div className="flex justify-end gap-3">
+    <div className={computeDialogActionsClasses()}>
       {isAlertDialog && (
         <Dialog.Close className="border-border bg-background text-foreground hover:bg-background-subtle rounded-md border px-4 py-2 text-sm font-medium transition-colors">
           {cancelLabel}
@@ -131,17 +139,15 @@ function DialogPopupBody({
     <Dialog.Popup
       role={isAlertDialog ? 'alertdialog' : 'dialog'}
       className={cn(
-        'bg-background-overlay text-foreground fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg p-6 shadow-xl transition-all duration-200 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0',
+        isAlertDialog ? computeAlertDialogPopupClasses() : computeDialogPopupClasses(),
         className
       )}
       id={id}
       data-testid={testId}
     >
-      {title && (
-        <Dialog.Title className="text-foreground mb-2 text-lg font-semibold">{title}</Dialog.Title>
-      )}
+      {title && <Dialog.Title className={computeDialogTitleClasses()}>{title}</Dialog.Title>}
       {description && (
-        <Dialog.Description className="text-foreground-muted mb-4 text-sm">
+        <Dialog.Description className={computeDialogDescriptionClasses()}>
           {description}
         </Dialog.Description>
       )}
@@ -200,7 +206,7 @@ export default function DialogIsland({
       <Dialog.Portal>
         <Dialog.Backdrop
           data-overlay
-          className="bg-scrim/50 fixed inset-0 z-40 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
+          className={computeOverlayBackdropClasses()}
         />
         <DialogPopupBody
           isAlertDialog={isAlertDialog}

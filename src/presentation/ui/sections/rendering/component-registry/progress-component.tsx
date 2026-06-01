@@ -6,6 +6,13 @@
  */
 
 
+import {
+  computeProgressBarClasses,
+  computeProgressCircleBarStroke,
+  computeProgressCircleTrackStroke,
+  computeProgressLabelClasses,
+  computeProgressTrackClasses,
+} from '../../renderers/element-renderers/feedback-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
@@ -86,26 +93,24 @@ function renderCircle(f: ProgressFields): ReactElement {
           cy={center}
           r={radius}
           fill="none"
-          stroke="currentColor"
+          stroke={computeProgressCircleTrackStroke()}
           strokeWidth={stroke}
-          className="text-gray-200"
         />
         <circle
           cx={center}
           cy={center}
           r={radius}
           fill="none"
-          stroke="currentColor"
+          stroke={computeProgressCircleBarStroke()}
           strokeWidth={stroke}
           strokeDasharray={circumference}
           strokeDashoffset={dashOffset}
           strokeLinecap="round"
           transform={`rotate(-90 ${center} ${center})`}
-          className="text-blue-600"
         />
       </svg>
       {f.showLabel && (
-        <span className="absolute text-sm font-medium text-gray-900">{f.percent}%</span>
+        <span className={`absolute ${computeProgressLabelClasses()}`}>{f.percent}%</span>
       )}
     </div>
   )
@@ -124,17 +129,15 @@ function renderLinear(f: ProgressFields): ReactElement {
         aria-valuemax={f.max}
         data-component="progress"
         data-progress-variant="linear"
-        className="w-full overflow-hidden rounded-full bg-gray-200"
+        className={computeProgressTrackClasses()}
         style={{ height }}
       >
         <div
-          className="h-full rounded-full bg-blue-600"
+          className={computeProgressBarClasses()}
           style={{ width: `${f.percent}%` }}
         />
       </div>
-      {f.showLabel && (
-        <span className="shrink-0 text-sm font-medium text-gray-900">{f.percent}%</span>
-      )}
+      {f.showLabel && <span className={computeProgressLabelClasses()}>{f.percent}%</span>}
     </div>
   )
 }

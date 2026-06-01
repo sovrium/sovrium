@@ -1,6 +1,6 @@
 {
   "name": "sovrium",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "private": true,
   "packageManager": "bun@1.3.14",
   "description": "Configuration-driven web application platform — distributed as standalone binary",
@@ -50,6 +50,7 @@
     "lint": "NODE_OPTIONS=--max-old-space-size=12288 eslint . --cache --cache-location .eslintcache --cache-strategy content",
     "lint:fix": "NODE_OPTIONS=--max-old-space-size=12288 eslint . --fix --cache --cache-location .eslintcache --cache-strategy content",
     "lint:workflows": "actionlint",
+    "design:review": "bun run scripts/design-system/review.ts",
     "audit": "bun audit",
     "quality": "bun run scripts/check-quality.ts",
     "test:unit": "bun test .test.ts .test.tsx",
@@ -62,7 +63,6 @@
     "test:e2e:update-snapshots": "playwright test --update-snapshots",
     "test:e2e:update-snapshots:spec": "playwright test --grep='@spec' --update-snapshots",
     "test:e2e:update-snapshots:regression": "playwright test --grep='@regression' --update-snapshots",
-    "test:e2e:snapshots:docker": "bun run scripts/snapshots-docker.ts",
     "test:all": "bun test:unit && bun test:e2e:regression",
     "test:cleanup": "bun run scripts/kill-zombie-processes.ts",
     "license": "bun run scripts/add-license-headers.ts",
@@ -79,7 +79,8 @@
     "release": "bun run scripts/release.ts"
   },
   "overrides": {
-    "ws": "^8.20.1"
+    "ws": "^8.20.1",
+    "tmp": "^0.2.7"
   },
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "^15.3.5",
@@ -115,11 +116,13 @@
     "eslint-plugin-unicorn": "64.0.0",
     "glob": "^13.0.6",
     "globals": "^17.6.0",
+    "impeccable": "2.1.9",
     "knip": "^6.14.2",
     "otplib": "^13.4.0",
     "pg": "^8.21.0",
     "playwright": "^1.60.0",
     "prettier-plugin-tailwindcss": "^0.7.4",
+    "puppeteer": "25.1.0",
     "testcontainers": "^11.14.0",
     "typescript-eslint": "^8.59.4"
   },

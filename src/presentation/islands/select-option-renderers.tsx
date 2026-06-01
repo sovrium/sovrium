@@ -7,6 +7,12 @@
 
 import { Combobox } from '@base-ui/react/combobox'
 import { Select } from '@base-ui/react/select'
+import {
+  computeComboboxEmptyClasses,
+  computeSelectItemClasses,
+  computeSelectItemIndicatorClasses,
+  computeSelectPopupClasses,
+} from './select-default-classes'
 import { CheckMark } from './select-icons'
 import type { OptionItem } from './select-island-types'
 import type { ReactElement } from 'react'
@@ -16,10 +22,10 @@ export function SelectOption({ option }: { readonly option: OptionItem }): React
     <Select.Item
       value={option.value}
       disabled={option.disabled}
-      className="text-foreground data-[disabled]:text-foreground-subtle data-[highlighted]:bg-background-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
+      className={computeSelectItemClasses()}
     >
       <Select.ItemText>{option.label}</Select.ItemText>
-      <Select.ItemIndicator className="text-primary ml-auto">
+      <Select.ItemIndicator className={computeSelectItemIndicatorClasses()}>
         <CheckMark />
       </Select.ItemIndicator>
     </Select.Item>
@@ -32,10 +38,10 @@ export function ComboboxItemRenderer(item: OptionItem): ReactElement {
       key={item.value}
       value={item}
       disabled={item.disabled}
-      className="text-foreground data-[disabled]:text-foreground-subtle data-[highlighted]:bg-background-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed"
+      className={computeSelectItemClasses()}
     >
       {item.label}
-      <Combobox.ItemIndicator className="text-primary ml-auto">
+      <Combobox.ItemIndicator className={computeSelectItemIndicatorClasses()}>
         <CheckMark />
       </Combobox.ItemIndicator>
     </Combobox.Item>
@@ -46,10 +52,8 @@ export function ComboboxPopupContent(): ReactElement {
   return (
     <Combobox.Portal>
       <Combobox.Positioner sideOffset={4}>
-        <Combobox.Popup className="border-border bg-background-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
-          <Combobox.Empty className="text-foreground-muted px-3 py-2 text-sm">
-            No results
-          </Combobox.Empty>
+        <Combobox.Popup className={computeSelectPopupClasses()}>
+          <Combobox.Empty className={computeComboboxEmptyClasses()}>No results</Combobox.Empty>
           <Combobox.List>{ComboboxItemRenderer}</Combobox.List>
         </Combobox.Popup>
       </Combobox.Positioner>

@@ -5,18 +5,44 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile, rm } from 'node:fs/promises'
 import { Effect, Console } from 'effect'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import {
   computeConfigHash,
+  getReloadMessageFilePath,
   isProcessRunning,
   readLockFile,
   writeLockFile,
 } from '@/infrastructure/server/lock-file'
 import { lazyImportSchema } from './utils'
 
-export const handleReloadCommand = async (): Promise<void> => {
+interface ReloadOptions {
+  readonly message: string | undefined
+  readonly force: boolean
+}
+
+const parseReloadArgs = (argv: readonly string[]): ReloadOptions => {
+  const messageIndex = argv.indexOf('--message')
+  const message =
+    messageIndex >= 0 && argv.length > messageIndex + 1 ? argv[messageIndex + 1] : undefined
+  return { message, force: argv.includes('--force') }
+}
+
+const isDrifted = async (port: number | undefined): Promise<boolean> => {
+  if (port === undefined) return false
+  try {
+    const response = await fetch(`http://localhost:${port}/api/admin/schema/status`)
+    if (!response.ok) return false
+    const body = (await response.json()) as { readonly driftStatus?: string }
+    return body.driftStatus === 'drifted-from-file'
+  } catch {
+    return false
+  }
+}
+
+export const handleReloadCommand = async (argv: readonly string[] = []): Promise<void> => {
+  const options = parseReloadArgs(argv)
   const lockData = await readLockFile()
   if (!lockData) {
     Effect.runSync(Console.error('Error: No server is running (lock file not found)'))
@@ -25,6 +51,15 @@ export const handleReloadCommand = async (): Promise<void> => {
 
   if (!isProcessRunning(lockData.pid)) {
     Effect.runSync(Console.error('Error: Server is not running'))
+    process.exit(1)
+  }
+
+  if (!options.force && (await isDrifted(lockData.port))) {
+    Effect.runSync(
+      Console.error(
+        'Error: live app has drifted from the config file (drift detected). Pass --force to overwrite the live schema with the file.'
+      )
+    )
     process.exit(1)
   }
 
@@ -44,6 +79,18 @@ export const handleReloadCommand = async (): Promise<void> => {
       const message = formatRuntimeError(error)
       Effect.runSync(Console.error(`Error: Invalid configuration - ${message}`))
       process.exit(1)
+    }
+  }
+
+  if (options.message !== undefined && options.message.length > 0) {
+    try {
+      await writeFile(getReloadMessageFilePath(), options.message, 'utf-8')
+    } catch {
+    }
+  } else {
+    try {
+      await rm(getReloadMessageFilePath(), { force: true })
+    } catch {
     }
   }
 

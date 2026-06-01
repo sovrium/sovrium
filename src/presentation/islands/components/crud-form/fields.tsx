@@ -26,6 +26,12 @@ const INPUT_TYPE_MAP: Record<string, string> = {
   url: 'url',
 }
 
+const LABEL_CLASS = 'text-foreground flex flex-col gap-1 text-sm font-medium'
+const CONTROL_CLASS =
+  'border-border bg-background text-foreground focus:border-primary focus:ring-primary rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none'
+const CHECKBOX_LABEL_CLASS = 'text-foreground flex items-center gap-2 text-sm font-medium'
+const CHECKBOX_CLASS = 'accent-primary h-4 w-4'
+
 function TextAreaField({
   field,
   value,
@@ -33,12 +39,16 @@ function TextAreaField({
   invalid,
 }: FieldInputProps & { readonly field: FieldDef; readonly invalid?: boolean }) {
   return (
-    <label key={field.name}>
+    <label
+      key={field.name}
+      className={LABEL_CLASS}
+    >
       {labelOf(field)}
       <textarea
         name={field.name}
         value={value}
         onChange={(e) => onChange(field.name, e.target.value)}
+        className={CONTROL_CLASS}
         {...(field.placeholder && { placeholder: field.placeholder })}
         {...(field.readOnly && { readOnly: true })}
         {...(field.disabled && { disabled: true })}
@@ -61,12 +71,16 @@ function SelectField({
   readonly invalid?: boolean
 }) {
   return (
-    <label key={field.name}>
+    <label
+      key={field.name}
+      className={LABEL_CLASS}
+    >
       {labelOf(field)}
       <select
         name={field.name}
         value={value}
         onChange={(e) => onChange(field.name, e.target.value)}
+        className={CONTROL_CLASS}
         {...(field.disabled && { disabled: true })}
         {...(field.required && { required: true })}
         {...(invalid && { 'aria-invalid': 'true' })}
@@ -87,12 +101,16 @@ function SelectField({
 
 function CheckboxField({ field, value, onChange }: FieldInputProps & { readonly field: FieldDef }) {
   return (
-    <label key={field.name}>
+    <label
+      key={field.name}
+      className={CHECKBOX_LABEL_CLASS}
+    >
       <input
         type="checkbox"
         name={field.name}
         checked={value === 'true'}
         onChange={(e) => onChange(field.name, String(e.target.checked))}
+        className={CHECKBOX_CLASS}
         {...(field.disabled && { disabled: true })}
       />
       {labelOf(field)}
@@ -112,13 +130,17 @@ function TypedInputField({
   readonly invalid?: boolean
 }) {
   return (
-    <label key={field.name}>
+    <label
+      key={field.name}
+      className={LABEL_CLASS}
+    >
       {labelOf(field)}
       <input
         type={inputType}
         name={field.name}
         value={value}
         onChange={(e) => onChange(field.name, e.target.value)}
+        className={CONTROL_CLASS}
         {...(field.required && { required: true, 'data-required': 'true' })}
         {...(field.placeholder && { placeholder: field.placeholder })}
         {...(field.readOnly && { readOnly: true })}

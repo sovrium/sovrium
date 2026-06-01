@@ -6,13 +6,16 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { sanitizeTableName } from '@/domain/utils/table-naming'
+import { appendAuditEntryToDbTx } from '@/infrastructure/audit-log/drizzle-store'
 import { db } from '@/infrastructure/database'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
 import { logInfo } from '@/infrastructure/logging/logger'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { getExistingColumnNames } from './sql/dialect-introspection'
 import { authTableRef, nowExpr } from './sql/dialect-sql'
+import type { AuditLogEntry } from '@/domain/models/api/admin/audit-log/entry'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
 
@@ -42,6 +45,12 @@ export async function purgeAccount(
   appTableNames: readonly string[]
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    const emailRows = (await executeRaw(
+      tx,
+      sql`SELECT email FROM ${authTableRef('user')} WHERE id = ${userId}`
+    )) as unknown as readonly { email: string }[]
+    const erasedEmail = emailRows[0]?.email
+
     const recordTables = await tablesWithCreatedBy(tx, appTableNames)
     for (const tableName of recordTables) {
       await executeRaw(
@@ -59,6 +68,26 @@ export async function purgeAccount(
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('two_factor')} WHERE user_id = ${userId}`)
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('account')} WHERE user_id = ${userId}`)
+
+    const purgeEntry: Readonly<AuditLogEntry> = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      action: AUDIT_ACTIONS.ACCOUNT_DELETION_PURGED,
+      actor: {
+        id: userId,
+        type: 'user',
+        role: 'system',
+        ...(erasedEmail ? { email: erasedEmail } : {}),
+      },
+      resource: { type: 'user', id: userId },
+      severity: 'critical',
+      result: 'success',
+      metadata: {
+        erasedUserId: userId,
+        ...(erasedEmail ? { erasedEmail } : {}),
+      },
+    }
+    await appendAuditEntryToDbTx(tx, purgeEntry)
 
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('user')} WHERE id = ${userId}`)
   })

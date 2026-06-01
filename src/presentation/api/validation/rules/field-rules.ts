@@ -327,6 +327,73 @@ export function enrichAttachmentMetadata(
   })
 }
 
+const decodeContent = (content: string): Uint8Array => {
+  try {
+    return Uint8Array.from(Buffer.from(content, 'base64'))
+  } catch {
+    return new TextEncoder().encode(content)
+  }
+}
+
+const isInlineAttachmentPayload = (
+  value: unknown
+): value is {
+  readonly name: string
+  readonly content: string
+  readonly mimeType?: string
+} =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  typeof (value as { name?: unknown }).name === 'string' &&
+  typeof (value as { content?: unknown }).content === 'string'
+
+const uploadInlinePayload = (payload: {
+  readonly name: string
+  readonly content: string
+  readonly mimeType?: string
+}): Effect.Effect<
+  {
+    readonly key: string
+    readonly name: string
+    readonly mimeType: string
+    readonly size: number
+  },
+  never,
+  StorageService
+> =>
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    const bytes = decodeContent(payload.content)
+    const mimeType = payload.mimeType ?? inferMimeFromKey(payload.name)
+    const key = `${crypto.randomUUID()}-${payload.name}`
+    yield* storage.upload(key, bytes, mimeType).pipe(Effect.catchAll(() => Effect.void))
+    return { key, name: payload.name, mimeType, size: bytes.length }
+  })
+
+export function uploadInlineAttachmentContent(
+  fields: Record<string, unknown>
+): Effect.Effect<Record<string, unknown>, never, ValidationContext | StorageService> {
+  return Effect.gen(function* () {
+    const ctx = yield* ValidationContext
+    const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
+    if (!table) return fields
+
+    const attachmentColumns = table.fields.filter((f) => f.type === 'attachment')
+    if (attachmentColumns.length === 0) return fields
+
+    return yield* Effect.reduce(
+      attachmentColumns,
+      { ...fields } as Record<string, unknown>,
+      (acc, f) => {
+        const value = acc[f.name]
+        if (!isInlineAttachmentPayload(value)) return Effect.succeed(acc)
+        return uploadInlinePayload(value).pipe(Effect.map((meta) => ({ ...acc, [f.name]: meta })))
+      }
+    )
+  })
+}
+
 export function validateFieldWritePermissions(
   forbiddenFields: readonly string[]
 ): Effect.Effect<void, FieldPermissionError, never> {

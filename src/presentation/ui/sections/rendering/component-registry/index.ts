@@ -7,6 +7,7 @@
 
 import { aiChatComponent } from './ai-chat-component'
 import { commandPaletteComponent } from './command-palette-component'
+import { displayComponents } from './display-components'
 import { favoritesButtonComponent } from './favorites-button-component'
 import { interactiveComponents } from './interactive-components'
 import { islandComponents } from './island-components'
@@ -19,6 +20,7 @@ import { commentsComponent, commentCountComponent } from './social-components'
 import { specialComponents } from './special-components'
 import { structuralComponents } from './structural-components'
 import { textComponents } from './text-components'
+import { tocComponent } from './toc-component'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -28,6 +30,7 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   ...mediaComponents,
   ...interactiveComponents,
   ...specialComponents,
+  ...displayComponents,
   ...navigationComponents,
   ...islandComponents,
   'ai-chat': aiChatComponent,
@@ -38,6 +41,7 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   'command-palette': commandPaletteComponent,
   comments: commentsComponent,
   commentCount: commentCountComponent,
+  toc: tocComponent,
 } as Partial<Record<Component['type'], ComponentRenderer>> & Record<string, ComponentRenderer>
 
 export { structuralComponents } from './structural-components'

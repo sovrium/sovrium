@@ -42,4 +42,5 @@ export const PROTECTED_SYSTEM_TABLES = new Set([
   'system.ai_field_cache',
   'system.ai_tool_calls',
   'system.search_indexes',
+  'audit_log',
 ])

@@ -7,6 +7,7 @@
 
 import { Slider } from '@base-ui/react/slider'
 import { useCallback, type ReactElement, type RefObject } from 'react'
+import { computeSliderThumbClasses } from './numeric-default-classes'
 
 interface SliderThumbProps {
   readonly inputRef: RefObject<HTMLInputElement | null>
@@ -20,7 +21,7 @@ export function SliderThumb({ inputRef, label }: SliderThumbProps): ReactElement
     <Slider.Thumb
       inputRef={inputRef}
       getAriaLabel={label === undefined ? null : getAriaLabel}
-      className="border-primary bg-background-raised hover:bg-primary-subtle focus-visible:ring-focus-ring block h-4 w-4 rounded-full border-2 shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+      className={computeSliderThumbClasses()}
     />
   )
 }

@@ -29,7 +29,7 @@ interface TopLevelInsertInput {
   readonly data: Record<string, unknown>
   readonly linkedRecordTable?: string
   readonly linkedRecordId?: string
-  readonly ipAddress?: string
+  readonly submitterIpHash?: string
   readonly userAgent?: string
   readonly submitterUserId?: string
 }
@@ -42,7 +42,7 @@ const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
   ...(input.statusReason !== undefined ? { statusReason: input.statusReason } : {}),
   ...(input.linkedRecordTable !== undefined ? { linkedRecordTable: input.linkedRecordTable } : {}),
   ...(input.linkedRecordId !== undefined ? { linkedRecordId: input.linkedRecordId } : {}),
-  ...(input.ipAddress !== undefined ? { ipAddress: input.ipAddress } : {}),
+  ...(input.submitterIpHash !== undefined ? { submitterIpHash: input.submitterIpHash } : {}),
   ...(input.userAgent !== undefined ? { userAgent: input.userAgent } : {}),
   ...(input.submitterUserId !== undefined ? { submitterUserId: input.submitterUserId } : {}),
 })
@@ -94,14 +94,15 @@ const reserveInsertSql = (input: ReserveInput) => {
     input.linkedRecordTable === undefined ? sql.raw('NULL') : sql`${input.linkedRecordTable}`
   const linkedId =
     input.linkedRecordId === undefined ? sql.raw('NULL') : sql`${input.linkedRecordId}`
-  const ip = input.ipAddress === undefined ? sql.raw('NULL') : sql`${input.ipAddress}`
+  const ipHash =
+    input.submitterIpHash === undefined ? sql.raw('NULL') : sql`${input.submitterIpHash}`
   const ua = input.userAgent === undefined ? sql.raw('NULL') : sql`${input.userAgent}`
   const submitter =
     input.submitterUserId === undefined ? sql.raw('NULL') : sql`${input.submitterUserId}`
   return sql`INSERT INTO system.form_submissions
-          (form_name, form_id, status, data, linked_record_table, linked_record_id, ip_address, user_agent, submitter_user_id)
+          (form_name, form_id, status, data, linked_record_table, linked_record_id, submitter_ip_hash, user_agent, submitter_user_id)
         SELECT ${input.formName}, ${input.formId}, ${input.status}, ${jsonbLiteral(input.data)},
-               ${linkedTable}, ${linkedId}, ${ip}, ${ua}, ${submitter}
+               ${linkedTable}, ${linkedId}, ${ipHash}, ${ua}, ${submitter}
         WHERE (
           SELECT COUNT(*) FROM system.form_submissions
           WHERE form_name = ${input.formName}

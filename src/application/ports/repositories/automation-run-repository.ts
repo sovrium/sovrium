@@ -95,5 +95,13 @@ export class AutomationRunRepository extends Context.Tag('AutomationRunRepositor
       readonly id: string
       readonly status: string
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
+    readonly finaliseRun: (input: {
+      readonly id: string
+      readonly status: string
+      readonly completedAt?: Date
+      readonly durationMs?: number
+      readonly error?: string
+      readonly steps?: readonly CreateStepInput[]
+    }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
   }
 >() {}

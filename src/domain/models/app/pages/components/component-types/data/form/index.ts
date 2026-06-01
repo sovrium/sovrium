@@ -17,6 +17,8 @@ import { FormFieldConfigSchema, FormFieldGroupSchema } from './schema'
 
 export const FormTypeLiteral = Schema.Literal('form')
 
+export const DataFormTypeLiteral = Schema.Literal('data-form')
+
 const InlinePrefillValueSchema = Schema.Union(
   Schema.String,
   Schema.Number,

@@ -12,6 +12,10 @@ import { checkPageAccess, type AccessDecision } from '@/domain/services/page-acc
 import { findMatchingRoute } from '@/domain/utils/route-matcher'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import {
+  evaluateRecordAgainstPredicate,
+  type CurrentUserContext,
+} from '@/domain/validators/row-level-evaluator'
+import {
   extractSessionTimeout,
   shouldInjectAnalytics,
 } from '@/presentation/rendering/analytics-helpers'
@@ -20,9 +24,11 @@ import { resolvePageDataSources } from '@/presentation/rendering/data-source-res
 import { evaluateEmbeddedFormRefsAccess } from '@/presentation/rendering/forms/form-ref-access-check'
 import { expandFormRefs } from '@/presentation/rendering/forms/form-ref-resolver'
 import { resolveMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
+import { resolveOpenDrawerDispatches } from '@/presentation/rendering/open-drawer-dispatch-resolver'
 import { resolveCollectionPage } from '@/presentation/rendering/page-collection-resolver'
 import { resolvePageParentRecord } from '@/presentation/rendering/page-parent-resolver'
 import { resolvePageSidebar } from '@/presentation/rendering/sidebar-resolver'
+import { resolvePageToc } from '@/presentation/rendering/toc-resolver'
 import { applyVisibilityToComponents } from '@/presentation/rendering/visibility-filter'
 import { DefaultHomePage } from '@/presentation/ui/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
@@ -44,6 +50,28 @@ const noopDb: DataSourceDb = {
   fetchRecords: async () => [],
   countRecords: async () => 0,
   fetchSingleRecord: async () => undefined,
+}
+
+function renderPermissionBlockedPage(_app: App, _detectedLanguage: string | undefined): string {
+  return (
+    '<!DOCTYPE html>\n' +
+    '<html lang="en"><head><meta charset="utf-8">' +
+    '<title>Access denied</title></head><body>' +
+    '<main><h1>Access denied</h1>' +
+    '<p>You do not have permission to view this record.</p>' +
+    '</main></body></html>'
+  )
+}
+
+async function overlayUserAccessRoles(
+  session: SessionInfo,
+  db: DataSourceDb
+): Promise<SessionInfo> {
+  if (!db.fetchUserAccessRoles) return session
+  const extras = await db.fetchUserAccessRoles(session.userId).catch(() => [] as readonly string[])
+  if (extras.length === 0) return session
+  const merged = [...new Set<string>([session.role, ...extras])]
+  return { ...session, effectiveRoles: merged }
 }
 
 
@@ -148,6 +176,29 @@ function applyCrudCreatePermissions(
   })
 }
 
+function markComponentReadOnly(component: Component): Component {
+  return {
+    ...component,
+    props: {
+      ...(component.props ?? {}),
+      _readOnly: true,
+    },
+  }
+}
+
+function getSynthesizedUpdateTable(component: Component): string | undefined {
+  if (component.type !== 'form' && component.type !== 'data-form') return undefined
+  const action = component.action as { readonly type?: string } | undefined
+  if (action?.type !== undefined) return undefined
+  const dataSource = component.dataSource as
+    | { readonly table?: string; readonly mode?: string }
+    | undefined
+  if (!dataSource || dataSource.mode !== 'single' || typeof dataSource.table !== 'string') {
+    return undefined
+  }
+  return dataSource.table
+}
+
 function applyCrudUpdatePermissions(
   components: Page['components'],
   tables: App['tables'],
@@ -161,10 +212,17 @@ function applyCrudUpdatePermissions(
     const component = item as Component
     const action = component.action as { type?: string; operation?: string; table?: string }
 
-    if (action?.type !== 'crud' || action?.operation !== 'update') return component
-    if (isCrudUpdateAllowed(action.table, tables, session)) return component
+    if (action?.type === 'crud' && action?.operation === 'update') {
+      if (isCrudUpdateAllowed(action.table, tables, session)) return component
+      return hideComponent(component)
+    }
 
-    return hideComponent(component)
+    const synthesizedTable = getSynthesizedUpdateTable(component)
+    if (synthesizedTable !== undefined && !isCrudUpdateAllowed(synthesizedTable, tables, session)) {
+      return markComponentReadOnly(component)
+    }
+
+    return component
   })
 }
 
@@ -197,17 +255,28 @@ function applyPageComponentFilters(
   const expanded = expandFormRefs(updatePermFiltered, app, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
   })
+  const withToc = resolvePageToc(expanded)
+  const withDrawerDispatches = resolveOpenDrawerDispatches(withToc ?? [])
   return {
     ...rawPage,
-    components: [...(expanded ?? []), buildCommandPaletteComponent(app)],
+    components: [...withDrawerDispatches, buildCommandPaletteComponent(app)],
   }
 }
 
 const ISLAND_ACTION_TYPES = new Set(['auth', 'crud', 'automation'])
 
+function isSingleRecordBoundForm(s: Component): boolean {
+  return (
+    (s.type === 'form' || s.type === 'data-form') &&
+    s.dataSource?.mode === 'single' &&
+    typeof s.dataSource.table === 'string'
+  )
+}
+
 function selfNeedsIslands(s: Component): boolean {
   if (ISLAND_COMPONENT_TYPES.has(s.type)) return true
   if (s.dataSource?.mode === 'search') return true
+  if (isSingleRecordBoundForm(s)) return true
   const action = (s as Record<string, unknown>).action as { type?: string } | undefined
   return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
 }
@@ -293,6 +362,7 @@ interface RenderPageHtmlInput {
   readonly islandEntryFile: string | undefined
   readonly resolvedSidebar: readonly ResolvedSidebarSection[] | undefined
   readonly markdownPayload: ResolvedMarkdownPage | undefined
+  readonly session: SessionInfo | undefined
 }
 
 function renderPageHtml(input: RenderPageHtmlInput): string {
@@ -304,6 +374,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
     islandEntryFile,
     resolvedSidebar,
     markdownPayload,
+    session,
   } = input
   const injectAnalytics = shouldInjectAnalytics(app.analytics, page.path)
   const sessionTimeout = extractSessionTimeout(app.analytics)
@@ -322,6 +393,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
       islandEntryFile={islandEntryFile}
       resolvedSidebar={resolvedSidebar}
       markdownPayload={markdownPayload}
+      session={session}
     />
   )
   return `<!DOCTYPE html>\n${html}`
@@ -335,14 +407,98 @@ async function resolveCollectionAndFilter(input: {
   readonly cookies: Readonly<Record<string, string>> | undefined
   readonly db: DataSourceDb
   readonly previewMode: boolean
-}): Promise<Page | { readonly unauthorized: true } | undefined> {
+}): Promise<
+  Page | { readonly unauthorized: true } | { readonly permissionBlocked: true } | undefined
+> {
   const { matchedPage, app, routeParams, session, cookies, db, previewMode } = input
+  const rowLevelReadCheck =
+    session !== undefined
+      ? buildCollectionRowLevelReadCheck(matchedPage, app, session, db)
+      : undefined
   const collectionResolution = await resolveCollectionPage(matchedPage, routeParams, db, {
     bypassFilter: previewMode,
+    ...(rowLevelReadCheck !== undefined ? { rowLevelReadCheck } : {}),
   })
   if (collectionResolution.kind === 'not-found') return undefined
+  if (collectionResolution.kind === 'permission-blocked') return { permissionBlocked: true }
   const rawPage = collectionResolution.kind === 'match' ? collectionResolution.page : matchedPage
   return resolveAndFilterPage({ rawPage, app, routeParams, session, cookies, db })
+}
+
+function buildCollectionRowLevelReadCheck(
+  page: Page,
+  app: App,
+  session: SessionInfo,
+  db: DataSourceDb
+): ((record: Readonly<Record<string, unknown>>) => Promise<boolean>) | undefined {
+  if (page.collection === undefined) return undefined
+  const tableName = page.collection.table
+  const table = app.tables?.find((t) => t.name === tableName)
+  const predicate = table?.rowLevelPermissions?.read?.when
+  if (!predicate) return undefined
+  const isAdmin = session.isUnrestricted === true || session.role === 'admin'
+  if (isAdmin) return undefined
+  return async (record) => {
+    const scopeTables = collectScopeTablesFromPredicate(predicate)
+    const assignments = await loadAssignmentsForScopes(session.userId, scopeTables, db)
+    const ctx: CurrentUserContext = {
+      userId: session.userId,
+      email: session.email,
+      role: session.role,
+      isUnrestricted: session.isUnrestricted === true,
+      assignments,
+    }
+    return evaluateRecordAgainstPredicate(record, predicate, ctx)
+  }
+}
+
+function scopeFromTypedPredicateValue(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  const obj = value as {
+    readonly kind?: string
+    readonly path?: { readonly kind?: string; readonly tableSlug?: string }
+  }
+  if (obj.kind !== 'currentUser') return undefined
+  if (obj.path?.kind !== 'assignment') return undefined
+  return typeof obj.path.tableSlug === 'string' ? obj.path.tableSlug : undefined
+}
+
+function scopeFromTemplatePredicateValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const prefix = '$currentUser.assignments.'
+  if (!value.startsWith(prefix)) return undefined
+  const slug = value.slice(prefix.length)
+  return slug.length > 0 ? slug : undefined
+}
+
+function collectScopeTablesFromPredicate(predicate: {
+  readonly value: unknown
+}): readonly string[] {
+  const fromTemplate = scopeFromTemplatePredicateValue(predicate.value)
+  if (fromTemplate !== undefined) return [fromTemplate]
+  const fromTyped = scopeFromTypedPredicateValue(predicate.value)
+  if (fromTyped !== undefined) return [fromTyped]
+  return []
+}
+
+async function loadAssignmentsForScopes(
+  userId: string,
+  scopeTables: readonly string[],
+  db: DataSourceDb
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  if (scopeTables.length === 0 || !db.fetchUserAssignments) {
+    return new Map<string, readonly string[]>()
+  }
+  const fetchAssignments = db.fetchUserAssignments
+  const entries = await Promise.all(
+    scopeTables.map(
+      async (slug): Promise<readonly [string, readonly string[]]> => [
+        slug,
+        await fetchAssignments(userId, slug).catch(() => [] as readonly string[]),
+      ]
+    )
+  )
+  return new Map(entries)
 }
 
 async function resolveAndFilterPage(input: {
@@ -375,6 +531,14 @@ async function resolveAndFilterPage(input: {
   return resolveCustomHtmlSources(resolved)
 }
 
+async function resolveOverlayedSession(
+  rawSession: SessionInfo | undefined,
+  db: DataSourceDb | undefined
+): Promise<SessionInfo | undefined> {
+  if (!rawSession) return undefined
+  return overlayUserAccessRoles(rawSession, db ?? noopDb)
+}
+
 export async function renderPageByPath(
   app: App,
   path: string,
@@ -387,10 +551,19 @@ export async function renderPageByPath(
     readonly previewMode?: boolean
   }
 ): Promise<PageRenderResult> {
-  const { detectedLanguage, session, cookies, db, islandBuilder, previewMode } = options ?? {}
+  const {
+    detectedLanguage,
+    session: rawSession,
+    cookies,
+    db,
+    islandBuilder,
+    previewMode,
+  } = options ?? {}
   const found = findPageForPath(app, path)
   if (!found) return undefined
   const { page: matchedPage, params: routeParams } = found
+
+  const session = await resolveOverlayedSession(rawSession, db)
 
   const denied = toAccessDeniedResult(checkPageAccess(matchedPage.access, app, session, path))
   if (denied !== false) return denied
@@ -410,6 +583,9 @@ export async function renderPageByPath(
   })
   if (resolvedPage === undefined) return undefined
   if ('unauthorized' in resolvedPage) return { unauthorized: true }
+  if ('permissionBlocked' in resolvedPage) {
+    return renderPermissionBlockedPage(app, detectedLanguage)
+  }
   const page: Page = resolvedPage
 
   const [resolvedSidebar, islandEntryFile, markdownPayload] = await Promise.all([
@@ -425,6 +601,7 @@ export async function renderPageByPath(
     islandEntryFile,
     resolvedSidebar,
     markdownPayload,
+    session,
   })
 }
 

@@ -230,6 +230,7 @@ export function FormBody(props: FormBodyProps) {
       {state.error && <div role="alert">{state.error}</div>}
       <button
         type="submit"
+        className="btn btn-primary"
         disabled={state.isPending}
         {...(variant && { 'data-variant': variant })}
       >

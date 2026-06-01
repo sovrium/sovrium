@@ -12,10 +12,13 @@ import {
   findFormByName,
   submitFormProgram,
   FormClosedError,
+  FormFieldForeignKeyError,
+  FormFieldFormatError,
   FormFieldRequiredError,
   FormHoneypotTrippedError,
   FormNotFoundError,
   FormNotYetOpenError,
+  FormRateLimitedError,
   FormSubmissionLimitError,
 } from '@/application/use-cases/forms/submit-form'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
@@ -24,6 +27,7 @@ import {
   type FormAccessDecision,
 } from '@/domain/models/shared/form-access-flow'
 import { evaluateAvailabilityWindow } from '@/domain/models/shared/form-availability-flow'
+import { hashIp, readIpHashSalt } from '@/infrastructure/forms/ip-hash'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
 import { provideFormsLive } from '@/presentation/api/routes/forms/effect-runner'
 import {
@@ -227,18 +231,39 @@ function respondAvailability403(c: Context, failure: unknown): Response | undefi
   return undefined
 }
 
-function respondSubmissionFailure(c: Context, isJsonClient: boolean, failure: unknown): Response {
-  if (failure instanceof FormNotFoundError) {
-    return c.json({ error: 'form_not_found' }, 404)
-  }
-  const structured = respondAvailability403(c, failure)
-  if (structured !== undefined) return structured
+function respondFieldValidation400(
+  c: Context,
+  isJsonClient: boolean,
+  failure: unknown
+): Response | undefined {
   if (failure instanceof FormFieldRequiredError) {
+    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
+  }
+  if (failure instanceof FormFieldFormatError) {
+    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
+  }
+  if (failure instanceof FormFieldForeignKeyError) {
     return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
   }
   if (failure instanceof FieldValidationError) {
     return respondValidation400(c, isJsonClient, failure.field ?? '', failure.message)
   }
+  return undefined
+}
+
+function respondSubmissionFailure(c: Context, isJsonClient: boolean, failure: unknown): Response {
+  if (failure instanceof FormNotFoundError) {
+    return c.json({ error: 'form_not_found' }, 404)
+  }
+  if (failure instanceof FormRateLimitedError) {
+    return c.json({ error: 'rate limit exceeded' }, 429, {
+      'Retry-After': String(failure.retryAfterSec),
+    })
+  }
+  const structured = respondAvailability403(c, failure)
+  if (structured !== undefined) return structured
+  const fieldError = respondFieldValidation400(c, isJsonClient, failure)
+  if (fieldError !== undefined) return fieldError
   if (failure instanceof FormUploadError) {
     if (isJsonClient) return c.json({ error: 'upload_failed', message: failure.message }, 400)
     return c.html(renderSubmissionErrorHtml(failure.message, '400 — upload failed'), 400)
@@ -332,13 +357,14 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
   const ipAddress = extractClientIp(c)
   const userAgent = c.req.header('user-agent')
   const query = c.req.query() as Record<string, string>
+  const submitterIpHash = hashIp(readIpHashSalt(), ipAddress ?? '')
   const program = submitFormProgram({
     app,
     formName,
     body,
     query,
     processEnv: process.env,
-    ...(ipAddress !== undefined ? { ipAddress } : {}),
+    submitterIpHash,
     ...(userAgent !== undefined ? { userAgent } : {}),
     ...(submitterUserId !== undefined ? { submitterUserId } : {}),
   })

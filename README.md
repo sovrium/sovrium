@@ -40,6 +40,7 @@
 - [CLI command reference](#cli-command-reference)
 - [Configuration](#configuration)
 - [Environment variables](#environment-variables)
+- [Bootstrapping the first admin](#bootstrapping-the-first-admin)
 - [Deployment](#deployment)
 - [Example: a headless API](#example-a-headless-api)
 - [Architecture](#architecture)
@@ -258,53 +259,52 @@ sovrium build app.yaml
 Sovrium covers the building blocks of a business application. Each domain is
 declared in the same configuration file.
 
-Legend: ✅ stable &nbsp;·&nbsp; 🚧 in progress &nbsp;·&nbsp; 🔭 planned.
+Legend: ✅ implemented & spec-covered &nbsp;·&nbsp; 🔭 planned.
 
 ### Data & API
 
-| Status | Domain                 | What you get                                                                                                                                                                  |
-| :----: | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   ✅   | **Tables**             | **52 field types** across 9 families — text, numeric, date/time, selection, special, system, attachment, advanced (formulas, lookups, rollups, relationships), and AI fields. |
-|   ✅   | **Views**              | Saved table views with filtering, sorting, grouping, and per-role permissions. SQL views and JSON-config views.                                                               |
-|   ✅   | **Automatic REST API** | Every table gets a CRUD API — filter, sort, paginate, and track changes. No endpoint code to write.                                                                           |
-|   🚧   | **Records UI**         | Data tables, forms, kanban boards, calendars, and galleries bound directly to your tables — plus runtime views, CSV import/export, and undo/redo.                             |
-|   ✅   | **Migrations**         | Schema evolution with checksum validation and a startup conflict check (Git-like fast-forward / conflict detection).                                                          |
+| Status | Domain          | What you get                                                                                                                                                                  |
+| :----: | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Tables**      | **52 field types** across 9 families — text, numeric, date/time, selection, special, system, attachment, advanced (formulas, lookups, rollups, relationships), and AI fields. |
+|   ✅   | **Views**       | Saved table views with filtering, sorting, grouping, and per-role permissions. SQL views and JSON-config views.                                                               |
+|   ✅   | **Records API** | Every table gets a CRUD REST API with filtering, sorting, pagination, batch ops, upsert, soft-delete, authorship, and change history.                                         |
+|   ✅   | **Records UI**  | Data tables, forms, kanban boards, calendars, and galleries bound directly to your tables — plus runtime views, CSV import/export, and undo/redo.                             |
+|   ✅   | **Migrations**  | Schema evolution with checksum validation and a startup conflict check (Git-like fast-forward / conflict detection).                                                          |
 
 ### Authentication & access
 
-| Status | Domain                | What you get                                                                                                          |
-| :----: | --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-|   ✅   | **Authentication**    | Email/password, magic links, two-factor (TOTP), and social login. OAuth 2.1 / OIDC server mode for external clients.  |
-|   ✅   | **RBAC**              | Role-based access control with built-in `admin` / `member` / `viewer` roles, plus table- and field-level permissions. |
-|   ✅   | **Account & GDPR**    | Self-service personal-data export (Art. 15/20) and scheduled account erasure with hard purge (Art. 17).               |
-|   ✅   | **Security baseline** | Security headers, CSRF / cross-origin guards, and anti-enumeration `404`s applied platform-wide.                      |
+| Status | Domain                | What you get                                                                                                                                                |
+| :----: | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Authentication**    | Email/password, magic links, password recovery, two-factor (TOTP), and session management — plus OAuth 2.1 / OIDC server mode and organization/team groups. |
+|   ✅   | **RBAC**              | Role-based access control with built-in `admin` / `member` / `viewer` roles, plus table- and field-level permissions.                                       |
+|   ✅   | **Account & GDPR**    | Self-service personal-data export (Art. 15/20) and scheduled account erasure with hard purge (Art. 17).                                                     |
+|   ✅   | **Security baseline** | Security headers, CSRF / cross-origin guards, and anti-enumeration `404`s applied platform-wide.                                                            |
 
 ### Interface & content
 
-| Status | Domain                   | What you get                                                                                                          |
-| :----: | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-|   🚧   | **Pages**                | Compose pages from a component library — containers, text, buttons, data tables, charts, kanban, calendars, and more. |
-|   🚧   | **Forms**                | Standalone or embedded forms with validation, multi-step wizards, and submission pipelines.                           |
-|   ✅   | **Theming**              | Colors, typography, spacing, shadows, radii, breakpoints, and animations — all defined in config.                     |
-|   ✅   | **Internationalization** | Built-in translations, browser language detection, RTL layout, and per-user language preference.                      |
+| Status | Domain                   | What you get                                                                                                                                                                                                                                                            |
+| :----: | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Pages**                | Page definitions, navigation, icons, CRUD components, auth components, interactivity, the full component library (charts, calendars, kanban, galleries, overlays), and SEO/meta primitives.                                                                             |
+|   ✅   | **Forms**                | Top-level `app.forms[]` with standalone routes, multi-step / one-question layouts, conditional logic, file uploads, and prefill. 🔭 Planned submission extras: save-and-resume, edit-after-submit, calculation fields, payment fields, CAPTCHA, and a moderation queue. |
+|   ✅   | **Theming**              | Colors, typography, spacing, shadows, radii, breakpoints, and animations — all defined in config.                                                                                                                                                                       |
+|   ✅   | **Internationalization** | Built-in translations, browser language detection, RTL layout, and per-user language preference.                                                                                                                                                                        |
 
 ### Logic & intelligence
 
-| Status | Domain            | What you get                                                                                                                                                  |
-| :----: | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   ✅   | **Automations**   | Triggers (webhook, schedule, record, form, auth) and 20+ action types (HTTP, email, code, AI, approvals, branching, loops).                                   |
-|   🚧   | **AI & agents**   | AI computed fields, conversational chat over your data, RAG pipelines, AI agents, and MCP integration — all declarative, with `local-first` provider routing. |
-|   ✅   | **Analytics**     | Privacy-first, cookie-free page analytics — views, visitors, referrers, campaigns, and a unified events model.                                                |
-|   🚧   | **Notifications** | In-app inbox and email digests with per-user preferences and `@mention` delivery.                                                                             |
-|   🔭   | **Admin Space**   | A `/admin` console for managing tables, pages, automations, users, and theme — a self-service "wp-admin" for your app.                                        |
+| Status | Domain          | What you get                                                                                                                                                  |
+| :----: | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Automations** | Triggers (webhook, schedule, record, form, auth, automation-call) and 20+ action types (HTTP, email, code, AI, approvals, branching, loops).                  |
+|   ✅   | **AI & agents** | AI computed fields, conversational chat over your data, RAG pipelines, AI agents, and MCP integration — all declarative, with `local-first` provider routing. |
+|   ✅   | **Analytics**   | Privacy-first, cookie-free page analytics — views, visitors, referrers, campaigns, and a unified events model.                                                |
+|   ✅   | **Admin Space** | A `/admin` console for managing tables, pages, automations, users, and theme — a self-service "wp-admin" for your app.                                        |
 
 ### Storage & developer experience
 
-| Status | Domain             | What you get                                                                                                  |
-| :----: | ------------------ | ------------------------------------------------------------------------------------------------------------- |
-|   🚧   | **Buckets**        | Pluggable file storage — S3-compatible, local filesystem, or PostgreSQL fallback. Signed URLs and transforms. |
-|   ✅   | **CLI**            | Run, build, validate, scaffold, and inspect — see the [command reference](#cli-command-reference) below.      |
-|   ✅   | **Config formats** | YAML, JSON, or TypeScript — with `@sovrium/types` for autocompletion and startup type-checking.               |
+| Status | Domain             | What you get                                                                                                                                         |
+| :----: | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Buckets**        | Pluggable file storage — S3-compatible, local filesystem, or PostgreSQL bytea fallback. Signed URLs, image transforms, and bucket-level permissions. |
+|   ✅   | **CLI**            | Run, build, validate, scaffold, and inspect — see the [command reference](#cli-command-reference) below.                                             |
+|   ✅   | **Config formats** | YAML, JSON, or TypeScript — with `@sovrium/types` for autocompletion and startup type-checking.                                                      |
 
 ---
 
@@ -317,27 +317,31 @@ sovrium <command> [config] [options]
 If you pass a config file with no command, `start` is assumed
 (`sovrium app.yaml` ≡ `sovrium start app.yaml`).
 
-| Command                       | Purpose                                            | Common options                                              |
-| ----------------------------- | -------------------------------------------------- | ----------------------------------------------------------- |
-| `start [config]`              | Start the application server (default command).    | `--watch, -w`                                               |
-| `build [config]`              | Build a static site into `./dist`.                 | _(see build env vars)_                                      |
-| `validate [config]`           | Validate a config file against the Sovrium schema. | —                                                           |
-| `schema`                      | Print the Sovrium JSON Schema to stdout.           | `--output <path>`                                           |
-| `init`                        | Scaffold a new project from a template.            | `--template <t>`, `--output <dir>`, `--name <n>`, `--force` |
-| `agents list`                 | List available AI agent templates.                 | —                                                           |
-| `agents install <name>`       | Install an agent template into the project.        | `--force`                                                   |
-| `update`                      | Update the Sovrium binary to the latest release.   | —                                                           |
-| `stop` / `restart` / `reload` | Control a running server.                          | —                                                           |
-| `--help, -h`                  | Show help.                                         | —                                                           |
-| `--version, -v`               | Show the installed version.                        | —                                                           |
+| Command                       | Purpose                                                                                                                 | Common options                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `start [config]`              | Start the application server (default command).                                                                         | `--watch, -w`                             |
+| `build [config]`              | Build a static site into `./dist`.                                                                                      | _(see build env vars)_                    |
+| `validate [config]`           | Validate a config file against the Sovrium schema.                                                                      | —                                         |
+| `schema`                      | Print the Sovrium JSON Schema to stdout.                                                                                | `--output <path>`                         |
+| `init [dir]`                  | Scaffold a new project from a template.                                                                                 | `--template <t>`, `--name <n>`, `--force` |
+| `agents list`                 | List available AI agent templates.                                                                                      | —                                         |
+| `agents install <name>`       | Install an agent template into the project.                                                                             | `--force`                                 |
+| `admin create <email>`        | Create an admin user against the active database (prompts for the password unless `--password` given).                  | `--password <value>`                      |
+| `secret generate [target]`    | Print fresh, cryptographically random secrets as `.env`-shaped lines. Target: `auth`, `encryption`, or `all` (default). | —                                         |
+| `update`                      | Update the Sovrium binary to the latest release.                                                                        | —                                         |
+| `stop` / `restart` / `reload` | Control a running server (`reload` hot-swaps config without downtime).                                                  | —                                         |
+| `--help, -h`                  | Show help.                                                                                                              | —                                         |
+| `--version, -v`               | Show the installed version.                                                                                             | —                                         |
 
 ```bash
 # Examples
-sovrium start app.yaml --watch                 # dev server with hot reload
-sovrium validate app.ts                        # type-check a TypeScript config
-sovrium build app.json                         # static-site export
-sovrium schema --output sovrium.schema.json    # write the JSON Schema to disk
-sovrium init --template blog --output ./blog   # scaffold a new project
+sovrium start app.yaml --watch                  # dev server with hot reload
+sovrium validate app.ts                         # type-check a TypeScript config
+sovrium build app.json                          # static-site export
+sovrium schema --output sovrium.schema.json     # write the JSON Schema to disk
+sovrium init ./my-app --template blog           # scaffold a new project
+sovrium admin create me@example.com             # provision an admin (prompts for password)
+sovrium secret generate                         # print AUTH_SECRET + SOVRIUM_ENCRYPTION_KEY
 ```
 
 Supported config formats: `.json`, `.yaml`, `.yml`, `.ts`.
@@ -394,50 +398,179 @@ integration, custom tooling, or feeding the contract to an AI agent.
 
 Sovrium follows a clear split: **infrastructure** concerns live in environment
 variables (operator-controlled); **application** intent lives in the config
-file (author-controlled). Common variables:
+file (author-controlled). **Every variable is optional** — `sovrium start
+app.yaml` runs zero-config with embedded SQLite, local file storage, AI
+disabled, and eco-friendly defaults. The full reference is in
+[`.env.example`](.env.example).
 
 ### Server & database
 
-| Variable       | Default         | Purpose                                             |
-| -------------- | --------------- | --------------------------------------------------- |
-| `PORT`         | `3000`          | Server port.                                        |
-| `HOSTNAME`     | `localhost`     | Server hostname.                                    |
-| `DATABASE_URL` | embedded SQLite | PostgreSQL connection string for production.        |
-| `LOG_LEVEL`    | `info`          | `debug` · `info` · `warn` · `error`.                |
-| `NODE_ENV`     | —               | Set `production` to enable secure cookies and CSRF. |
+| Variable       | Default                           | Purpose                                                                           |
+| -------------- | --------------------------------- | --------------------------------------------------------------------------------- |
+| `PORT`         | `3000`                            | Server port.                                                                      |
+| `BASE_URL`     | `http://localhost:<PORT>`         | Public base URL of the app. Required for OAuth and cookie security in production. |
+| `DATABASE_URL` | embedded SQLite (`./database.db`) | PostgreSQL connection string for production. Omit for zero-config SQLite.         |
+| `LOG_LEVEL`    | `info`                            | `debug` · `info` · `warn` · `error`.                                              |
+| `NODE_ENV`     | —                                 | Set `production` to enable secure cookies and the CSRF / origin guard.            |
 
-### Authentication
+### Authentication & admin bootstrap
 
-| Variable                           | Purpose                                           |
-| ---------------------------------- | ------------------------------------------------- |
-| `AUTH_SECRET`                      | Secret used to sign sessions (required for auth). |
-| `BASE_URL`                         | Public base URL of the app (required for OAuth).  |
-| `<PROVIDER>_CLIENT_ID` / `_SECRET` | OAuth credentials, e.g. `GOOGLE_CLIENT_ID`.       |
+| Variable                                                       | Purpose                                                                                                                                 |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                                                  | Secret used to sign sessions and tokens. Minimum 16 chars; generate with `sovrium secret generate`. Strongly recommended in production. |
+| `SOVRIUM_ENCRYPTION_KEY`                                       | Symmetric key used for encrypted columns (also produced by `sovrium secret generate`).                                                  |
+| `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` / `AUTH_ADMIN_NAME` | Provision the first admin at startup. See [Bootstrapping the first admin](#bootstrapping-the-first-admin).                              |
+| `<PROVIDER>_CLIENT_ID` / `_SECRET`                             | Social-login OAuth credentials, e.g. `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.                                                       |
 
 ### Storage, AI & email
 
-| Variable                                              | Default  | Purpose                                                   |
-| ----------------------------------------------------- | -------- | --------------------------------------------------------- |
-| `STORAGE_PROVIDER`                                    | `local`  | `local` · `s3` (S3 options via `STORAGE_S3_*`).           |
-| `AI_PROVIDER`                                         | `ollama` | `anthropic` · `openai` · `mistral` · `google` · `ollama`. |
-| `AI_API_KEY` / `AI_MODEL`                             | —        | Credentials and model for cloud AI providers.             |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | —        | Outbound email server.                                    |
+| Variable                                                                                                                        | Default     | Purpose                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `STORAGE_PROVIDER`                                                                                                              | auto        | `s3` · `local`. Omit for auto: local files when running on SQLite; PostgreSQL `bytea` fallback when running on PostgreSQL. |
+| `STORAGE_S3_ENDPOINT` / `STORAGE_S3_BUCKET` / `STORAGE_S3_REGION` / `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY` | —           | S3-compatible storage credentials (AWS S3, MinIO, Cloudflare R2, …).                                                       |
+| `STORAGE_LOCAL_DIRECTORY`                                                                                                       | `./uploads` | Filesystem directory when `STORAGE_PROVIDER=local`.                                                                        |
+| `AI_PROVIDER`                                                                                                                   | — (AI off)  | `ollama` · `openai` · `anthropic` · `mistral` · `google`. Set to enable AI features.                                       |
+| `AI_API_KEY` / `AI_MODEL` / `AI_BASE_URL`                                                                                       | —           | Credentials, model, and (for self-hosted endpoints) base URL. `AI_BASE_URL=http://localhost:11434` for Ollama.             |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS`                                                                           | —           | Outbound email server. Email is disabled when `SMTP_HOST` is unset.                                                        |
 
 ### Eco-conception
 
 Sovrium treats environmental footprint as a platform property — every `ECO_*`
 variable defaults to the eco-aligned setting; operators opt _out_, never in.
 
-| Variable                     | Default       | Purpose                                      |
-| ---------------------------- | ------------- | -------------------------------------------- |
-| `ECO_MODE`                   | `on`          | Master toggle (`on` · `off` · `auto`).       |
-| `ECO_IMAGE_FORMAT`           | `avif`        | Server-side image transcoding format.        |
-| `ECO_AI_PROVIDER_PRECEDENCE` | `local-first` | AI routing precedence (favors local models). |
+| Variable                     | Default       | Purpose                                                                         |
+| ---------------------------- | ------------- | ------------------------------------------------------------------------------- |
+| `ECO_MODE`                   | `on`          | Master toggle (`on` · `off` · `auto`).                                          |
+| `ECO_IMAGE_FORMAT`           | `avif`        | Server-side image transcoding format (`avif` · `webp` · `jpeg` · `png`).        |
+| `ECO_AI_PROVIDER_PRECEDENCE` | `local-first` | AI routing precedence (`local-first` · `cloud-first` · `local-only`).           |
+| `ECO_PAGE_CACHE`             | `on`          | In-memory static-page HTML cache (skips re-render for request-invariant pages). |
 
 > Static builds also accept `SOVRIUM_*` variables — `SOVRIUM_OUTPUT_DIR`,
 > `SOVRIUM_BASE_URL`, `SOVRIUM_DEPLOYMENT`, `SOVRIUM_GENERATE_SITEMAP`, and
 > more. Run `sovrium build --help` or see the [docs](https://sovrium.com/docs)
 > for the full list.
+
+---
+
+## Bootstrapping the first admin
+
+A fresh Sovrium instance starts with an empty user table. There is no
+default admin — you choose how to provision the first one. Sovrium supports
+**three** complementary paths; all of them produce the same result: a
+verified user with `role: 'admin'`.
+
+### Path 1 — Environment variables (recommended for orchestrated deploys)
+
+Set these env vars on the first launch. Sovrium creates the admin at startup
+and skips on every subsequent boot:
+
+| Variable              | Required | Notes                                      |
+| --------------------- | -------- | ------------------------------------------ |
+| `AUTH_ADMIN_EMAIL`    | yes      | Must be a valid email format.              |
+| `AUTH_ADMIN_PASSWORD` | yes      | Minimum **8** characters.                  |
+| `AUTH_ADMIN_NAME`     | no       | Display name; defaults to `Administrator`. |
+
+Example `.env`:
+
+```bash
+# Required (generate with: sovrium secret generate)
+AUTH_SECRET=<64+ hex characters>
+BASE_URL=https://app.example.com
+
+# First-admin bootstrap (consumed on the first boot, idempotent thereafter)
+AUTH_ADMIN_EMAIL=admin@example.com
+AUTH_ADMIN_PASSWORD=AStrongPasswordYouTypeOnce
+AUTH_ADMIN_NAME=Operator
+```
+
+**What happens on boot:**
+
+- If the user table is empty → the admin is created (email pre-verified).
+- If the email already exists → no-op (Sovrium logs and continues).
+- If any other user already exists → no-op (the bootstrap window is closed;
+  use `sovrium admin create` instead).
+- Requires `app.auth` to be configured in the schema.
+
+After the first successful boot, the env vars can be removed.
+
+### Path 2 — One-time bootstrap token (zero-config no-credentials boot)
+
+If `AUTH_ADMIN_EMAIL` is **not** set and the user table is empty, Sovrium
+generates a 256-bit, single-use bootstrap token at startup and folds it into
+the startup banner — printed **exactly once** to stdout:
+
+```text
+  Sovrium v0.8.1
+
+  ⚠ No admin user — claim one within 1 hour with the token below
+
+  ✓ Mode: production
+  ✓ Database: SQLite (./.sovrium/database.db)
+  ✓ Storage: Local (./uploads)
+  ✓ Server ready in 84ms
+
+  → https://app.example.com
+  → First-admin token (POST /api/admin/bootstrap/claim):
+    7c9f8b2a1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f90
+```
+
+Claim it within an hour with one HTTP call:
+
+```bash
+curl -X POST https://app.example.com/api/admin/bootstrap/claim \
+  -H "Authorization: Bearer 7c9f8b2a...8f90" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@example.com", "password": "AStrongPassword1!", "name": "Operator" }'
+```
+
+Properties:
+
+- Only the **SHA-256 hash** is persisted; the plaintext never appears in
+  logs, the database, or any retained output.
+- The token expires after 1 hour and can be claimed **once**.
+- Once any user exists, the route returns `404` and the token becomes
+  unclaimable — even if it were leaked.
+
+This is the path for one-shot binary launches: `sovrium start app.yaml`,
+copy the token from the terminal, claim, done.
+
+### Path 3 — Interactive CLI (`sovrium admin create`)
+
+For existing instances or when you don't want credentials in env vars or
+HTTP bodies:
+
+```bash
+sovrium admin create me@example.com
+# → Admin password: ****  (echo disabled, prompted on the TTY)
+# → Created admin user "me@example.com".
+```
+
+In CI / non-interactive shells, pass the password explicitly:
+
+```bash
+sovrium admin create me@example.com --password "$ADMIN_PASSWORD"
+```
+
+The command is idempotent — re-running for an existing email reports
+"already exists" rather than failing.
+
+### Security caveats
+
+- **Never commit secrets to Git.** Use `sovrium secret generate` to mint a
+  fresh `AUTH_SECRET` (and `SOVRIUM_ENCRYPTION_KEY`), then load them from a
+  secrets manager, container orchestrator, or systemd `EnvironmentFile=`.
+- `AUTH_SECRET` is the signing key for sessions and tokens — rotating it
+  invalidates every existing session. It must be at least 16 random bytes
+  (≥32 hex characters); generators produce 32 bytes / 64 hex characters.
+- In production (`NODE_ENV=production`), `BASE_URL` must match the public
+  origin: cookies are flagged `Secure` and the CSRF / origin guard rejects
+  requests whose `Origin` doesn't match.
+- The bootstrap-token path closes permanently the moment any user exists —
+  it is **not** a recurring backdoor. To recover from a lost admin password,
+  re-run the server with `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` set
+  (existing users with that email are not modified, so you may need to
+  delete the user first) or use `sovrium admin create` with a different
+  email.
 
 ---
 
@@ -545,15 +678,25 @@ Every issue is read and triaged.
 
 ## Status
 
-Sovrium is under **active development**. Core domains — tables, the automatic
-REST API, authentication, RBAC, theming, internationalization, automations,
-analytics, account & GDPR, the security baseline, and the CLI — are stable
-today. Pages, forms, buckets, AI & agents, notifications, and the Admin Space
-are progressing.
+Sovrium is **Phase 0 — Foundation**, under active development. Every domain
+above is now implemented and fully spec-covered: tables and the 52-field-type
+system, the Records REST API and Records UI, authentication (including OAuth 2.1
+/ OIDC server mode and organization/team groups), RBAC, account & GDPR, the
+security baseline, pages and the full component library, forms, theming and the
+design system, internationalization, automations, AI computed fields, chat,
+agents, RAG, MCP integration, analytics, the Admin Space, buckets, migrations,
+and the CLI. The only outstanding work is a handful of forms-submission extras —
+save-and-resume, edit-after-submit, calculation fields, payment fields, CAPTCHA,
+and a moderation queue.
 
-Every feature is backed by an extensive end-to-end test suite before it ships
-— at the time of writing, 80% of ~6,300 specs are passing with a 93% quality
-score (see [SPEC-PROGRESS.md](SPEC-PROGRESS.md) for the live report).
+Every feature is specified and backed by an extensive end-to-end test suite
+before it ships. At the time of writing, the entire suite is green — **100% of
+6,246 specs passing with a 95% quality score**. "Implemented & spec-covered"
+means the behavior is built, locked, and verified end-to-end; it is a distinct
+bar from long-term production hardening, which continues as the platform
+matures. See [SPEC-PROGRESS.md](SPEC-PROGRESS.md) for the live report and
+[`docs/user-stories/FEATURES.md`](docs/user-stories/FEATURES.md) for the
+per-domain breakdown.
 
 ---
 
@@ -569,7 +712,7 @@ score (see [SPEC-PROGRESS.md](SPEC-PROGRESS.md) for the live report).
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **May 25, 2030**. Commercial hosting licenses:
+**Apache 2.0** on **May 31, 2030**. Commercial hosting licenses:
 license@sovrium.com.
 
 ---

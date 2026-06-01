@@ -13,7 +13,7 @@ export function resolveNavigatePath(
   onClick: KanbanCard['onClick'],
   record: TableRecord
 ): string | undefined {
-  if (!onClick || onClick.type !== 'navigate') return undefined
+  if (!onClick || !('type' in onClick) || onClick.type !== 'navigate') return undefined
   return substitute(onClick.path, record)
 }
 

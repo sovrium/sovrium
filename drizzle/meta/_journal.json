@@ -36,6 +36,20 @@
       "when": 1779613114824,
       "tag": "0004_charming_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779779363057,
+      "tag": "0005_panoramic_elektra",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779903369860,
+      "tag": "0006_narrow_tarantula",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,7 @@ import {
   listCommentAuthorsForRecord,
   getCommentsCount,
   updateComment,
+  updateCommentStatus,
 } from '@/infrastructure/database/table-queries/query-helpers/comment-queries'
 import {
   checkRecordExists,
@@ -33,4 +34,5 @@ export const CommentRepositoryLive = Layer.succeed(CommentRepository, {
   listAuthorsForRecord: listCommentAuthorsForRecord,
   getCount: getCommentsCount,
   update: updateComment,
+  updateStatus: updateCommentStatus,
 })

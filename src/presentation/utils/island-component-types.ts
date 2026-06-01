@@ -32,4 +32,7 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'switch',
   'radio-group',
   'date-picker',
+  'pageSearch',
+  'comments',
+  'commentCount',
 ])

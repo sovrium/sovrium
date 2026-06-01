@@ -25,7 +25,7 @@ export function resolveEventNavigatePath(
   action: Action | undefined,
   record: TableRecord
 ): string | undefined {
-  if (!action || action.type !== 'navigate') return undefined
+  if (!action || !('type' in action) || action.type !== 'navigate') return undefined
   return substituteRecordTokens(action.path, record)
 }
 

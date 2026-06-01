@@ -6,6 +6,9 @@
  */
 
 
+import { computeCurrencyDisplayClasses } from '../field-affordances-default-classes'
+import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
+import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { TableRecord } from '../shared/types'
 import type {
   ActionColumnItem,
@@ -114,18 +117,39 @@ export function evaluateCellStyle(
 }
 
 
-function buildFieldCellRenderer(col: FieldColumn) {
-  if (!col.format && !col.cellStyle) return undefined
+const NUMERIC_DISPLAY_FORMATS = new Set<ColumnFormat>(['currency', 'percentage'])
+
+function buildFieldCellRenderer(col: FieldColumn, fieldMeta?: FieldMetaMap) {
+  const fieldTypeRenderer = fieldMeta?.[col.field]?.type
+    ? FIELD_TYPE_TO_CELL_RENDERER[fieldMeta[col.field]!.type]
+    : undefined
+
+  if (!col.format && !col.cellStyle && !fieldTypeRenderer) return undefined
 
   return ({ getValue }: { getValue: () => unknown }) => {
     const value = getValue()
-    const displayValue = col.format ? formatCellValue(value, col.format) : String(value ?? '')
     const conditionalClass = col.cellStyle ? evaluateCellStyle(value, col.cellStyle) : ''
 
-    if (conditionalClass) {
-      return <span className={conditionalClass}>{displayValue}</span>
+    if (col.format) {
+      const displayValue = formatCellValue(value, col.format)
+      const numericClass = NUMERIC_DISPLAY_FORMATS.has(col.format)
+        ? computeCurrencyDisplayClasses()
+        : ''
+      const composed = [numericClass, conditionalClass].filter(Boolean).join(' ')
+      return composed ? <span className={composed}>{displayValue}</span> : displayValue
     }
-    return displayValue
+
+    if (fieldTypeRenderer) {
+      const rendered = fieldTypeRenderer({ value })
+      return conditionalClass ? <span className={conditionalClass}>{rendered}</span> : rendered
+    }
+
+    const displayValue = String(value ?? '')
+    return conditionalClass ? (
+      <span className={conditionalClass}>{displayValue}</span>
+    ) : (
+      displayValue
+    )
   }
 }
 
@@ -133,13 +157,14 @@ function buildFieldCellRenderer(col: FieldColumn) {
 export function mapColumnsToColumnDefs(
   columns: readonly DataTableColumn[],
   groupByField?: string,
-  onActionClick?: RowActionHandler
+  onActionClick?: RowActionHandler,
+  fieldMeta?: FieldMetaMap
 ): readonly ColumnDef<TableRecord>[] {
   const visibleColumns = columns.filter((col) => !('field' in col && col.visible === false))
 
   return visibleColumns.map((col, index) => {
     if ('field' in col) {
-      const cellRenderer = buildFieldCellRenderer(col)
+      const cellRenderer = buildFieldCellRenderer(col, fieldMeta)
       return {
         accessorKey: col.field,
         header: col.label ?? col.field,
@@ -169,7 +194,7 @@ export function mapColumnsToColumnDefs(
               key={`action-${String(actionIndex)}`}
               type="button"
               className="text-primary hover:bg-primary-subtle rounded px-2 py-1 text-xs disabled:opacity-50"
-              data-action-type={action.action.type}
+              data-action-type={'type' in action.action ? action.action.type : action.action.action}
               disabled={!onActionClick}
               onClick={
                 onActionClick
@@ -188,38 +213,53 @@ export function mapColumnsToColumnDefs(
   })
 }
 
+function buildAutoCellRenderer(
+  field: string,
+  fieldMeta?: FieldMetaMap
+): ((ctx: { getValue: () => unknown }) => React.ReactNode) | undefined {
+  const fieldType = fieldMeta?.[field]?.type
+  if (!fieldType) return undefined
+  const renderer = FIELD_TYPE_TO_CELL_RENDERER[fieldType]
+  if (!renderer) return undefined
+  return ({ getValue }: { getValue: () => unknown }) => renderer({ value: getValue() })
+}
+
 export function autoGenerateColumns(
   records: readonly TableRecord[],
   groupByField?: string,
-  editable?: boolean
+  editable?: boolean,
+  fieldMeta?: FieldMetaMap
 ): readonly ColumnDef<TableRecord>[] {
   const firstRecord = records[0]
   if (!firstRecord) return []
-  return Object.keys(firstRecord).map(
-    (key) =>
-      ({
-        accessorKey: key,
-        header: key,
-        enableSorting: true,
-        meta: { field: key, ...(editable === true && { editable: true }) },
-        ...(groupByField && key === groupByField && { enableGrouping: true }),
-      }) satisfies ColumnDef<TableRecord>
-  )
+  return Object.keys(firstRecord).map((key) => {
+    const cellRenderer = buildAutoCellRenderer(key, fieldMeta)
+    return {
+      accessorKey: key,
+      header: key,
+      enableSorting: true,
+      meta: { field: key, ...(editable === true && { editable: true }) },
+      ...(groupByField && key === groupByField && { enableGrouping: true }),
+      ...(cellRenderer && { cell: cellRenderer }),
+    } satisfies ColumnDef<TableRecord>
+  })
 }
 
 export function autoGenerateColumnsFromFields(
   fields: readonly string[],
   groupByField?: string,
-  editable?: boolean
+  editable?: boolean,
+  fieldMeta?: FieldMetaMap
 ): readonly ColumnDef<TableRecord>[] {
-  return fields.map(
-    (field) =>
-      ({
-        accessorKey: field,
-        header: field,
-        enableSorting: true,
-        meta: { field, ...(editable === true && { editable: true }) },
-        ...(groupByField && field === groupByField && { enableGrouping: true }),
-      }) satisfies ColumnDef<TableRecord>
-  )
+  return fields.map((field) => {
+    const cellRenderer = buildAutoCellRenderer(field, fieldMeta)
+    return {
+      accessorKey: field,
+      header: field,
+      enableSorting: true,
+      meta: { field, ...(editable === true && { editable: true }) },
+      ...(groupByField && field === groupByField && { enableGrouping: true }),
+      ...(cellRenderer && { cell: cellRenderer }),
+    } satisfies ColumnDef<TableRecord>
+  })
 }

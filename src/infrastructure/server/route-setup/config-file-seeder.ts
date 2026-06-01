@@ -6,15 +6,14 @@
  */
 
 
-import { sql } from 'drizzle-orm'
+import { desc, max as sqlMax } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
-import {
-  nowEpochMsSqlLiteral,
-  qualifiedSystemTable,
-} from '@/infrastructure/database/sql/dialect-ddl'
-import { extractRows } from '@/infrastructure/database/sql/sql-utils'
-import { escapeSqlLiteral } from '@/infrastructure/server/route-setup/schema-persistence'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { sovriumAppVersions as sovriumAppVersionsPg } from '@/infrastructure/database/drizzle/schema/app-versioning'
+import { sovriumAppVersions as sovriumAppVersionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/app-versioning'
 import type { AppVersionSource } from '@/domain/models/system/app-version'
+
+const sovriumAppVersions = resolveDialectSchema(sovriumAppVersionsPg, sovriumAppVersionsSqlite)
 
 
 const sha256Hex = async (text: string): Promise<string> => {
@@ -26,15 +25,13 @@ const sha256Hex = async (text: string): Promise<string> => {
 
 const readLatestVersionChecksum = async (): Promise<string | undefined> => {
   try {
-    const result = await db.execute(
-      sql.raw(
-        `SELECT checksum FROM ${qualifiedSystemTable('sovrium_app_versions')} ORDER BY version_number DESC LIMIT 1`
-      )
-    )
-    const row = extractRows(result)[0]
-    if (row === undefined) return undefined
-    const raw = row['checksum']
-    return typeof raw === 'string' ? raw : undefined
+    const rows = await db
+      .select({ checksum: sovriumAppVersions.checksum })
+      .from(sovriumAppVersions)
+      .orderBy(desc(sovriumAppVersions.versionNumber))
+      .limit(1)
+    const checksum = rows[0]?.checksum
+    return typeof checksum === 'string' ? checksum : undefined
   } catch {
     return undefined
   }
@@ -46,24 +43,28 @@ const DEFAULT_MESSAGE: Readonly<Record<'config-file' | 'env', string>> = {
   env: 'Initial config from APP_SCHEMA',
 }
 
+const readMaxVersionNumber = async (): Promise<number> => {
+  const [row] = await db
+    .select({ max: sqlMax(sovriumAppVersions.versionNumber) })
+    .from(sovriumAppVersions)
+  return Math.max(Number(row?.max ?? 0), 0)
+}
+
 const insertBootVersion = async (input: {
   readonly snapshot: unknown
-  readonly snapJson: string
   readonly checksum: string
   readonly source: Extract<AppVersionSource, 'config-file' | 'env'>
 }): Promise<void> => {
-  const snapJsonEscaped = escapeSqlLiteral(input.snapJson)
-  const message = escapeSqlLiteral(DEFAULT_MESSAGE[input.source])
-  const source = escapeSqlLiteral(input.source)
-  const fileChecksum = escapeSqlLiteral(input.checksum)
-  const versionsTable = qualifiedSystemTable('sovrium_app_versions')
-  return db
-    .execute(
-      sql.raw(
-        `INSERT INTO ${versionsTable} (version_number, snapshot, checksum, created_at, created_by_user_id, message, source, file_checksum) SELECT COALESCE(MAX(version_number), 0) + 1, '${snapJsonEscaped}', '${input.checksum}', ${nowEpochMsSqlLiteral()}, 'system', '${message}', '${source}', '${fileChecksum}' FROM ${versionsTable}`
-      )
-    )
-    .then(() => undefined)
+  const nextVersionNumber = (await readMaxVersionNumber()) + 1
+  await db.insert(sovriumAppVersions).values({
+    versionNumber: nextVersionNumber,
+    snapshot: input.snapshot as never,
+    checksum: input.checksum,
+    createdByUserId: 'system',
+    source: input.source,
+    fileChecksum: input.checksum,
+    message: DEFAULT_MESSAGE[input.source],
+  } as never)
 }
 
 const resolveBootSource = (
@@ -79,17 +80,54 @@ export const seedConfigFileVersionIfChanged = async (
 ): Promise<void> => {
   if (!isBootSeederEnabled(process.env)) return
   const snapJson = JSON.stringify(validatedApp)
-  const escapedForChecksum = escapeSqlLiteral(snapJson)
-  return sha256Hex(escapedForChecksum)
+  return sha256Hex(snapJson)
     .then((hex) => `sha256:${hex}`)
     .then(async (checksum) => {
       const latest = await readLatestVersionChecksum()
       if (latest === checksum) return
       return insertBootVersion({
         snapshot: validatedApp,
-        snapJson,
         checksum,
         source: resolveBootSource(process.env),
+      })
+    })
+    .catch(() => undefined)
+}
+
+
+const RELOAD_DEFAULT_MESSAGE = 'Reloaded from app.yaml'
+
+const insertReloadVersion = async (input: {
+  readonly snapshot: unknown
+  readonly checksum: string
+  readonly message: string
+}): Promise<void> => {
+  const nextVersionNumber = (await readMaxVersionNumber()) + 1
+  await db.insert(sovriumAppVersions).values({
+    versionNumber: nextVersionNumber,
+    snapshot: input.snapshot as never,
+    checksum: input.checksum,
+    createdByUserId: 'system',
+    source: 'config-file',
+    fileChecksum: input.checksum,
+    message: input.message,
+  } as never)
+}
+
+export const appendReloadVersionIfChanged = async (
+  validatedApp: Readonly<{ readonly name: string; readonly [key: string]: unknown }>,
+  message?: string
+): Promise<void> => {
+  const snapJson = JSON.stringify(validatedApp)
+  return sha256Hex(snapJson)
+    .then((hex) => `sha256:${hex}`)
+    .then(async (checksum) => {
+      const latest = await readLatestVersionChecksum()
+      if (latest === checksum) return
+      return insertReloadVersion({
+        snapshot: validatedApp,
+        checksum,
+        message: message && message.length > 0 ? message : RELOAD_DEFAULT_MESSAGE,
       })
     })
     .catch(() => undefined)

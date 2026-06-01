@@ -6,6 +6,11 @@
  */
 
 import { Popover } from '@base-ui/react/popover'
+import {
+  computePopoverDescriptionClasses,
+  computePopoverPopupClasses,
+  computePopoverTitleClasses,
+} from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 interface PopoverIslandProps {
@@ -62,14 +67,12 @@ export default function PopoverIsland({
           align={floatingAlign}
           sideOffset={8}
         >
-          <Popover.Popup className="border-border bg-background-overlay text-foreground w-72 rounded-lg border p-4 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Popover.Popup className={computePopoverPopupClasses()}>
             {title && (
-              <Popover.Title className="text-foreground mb-1 text-sm font-semibold">
-                {title}
-              </Popover.Title>
+              <Popover.Title className={computePopoverTitleClasses()}>{title}</Popover.Title>
             )}
             {description && (
-              <Popover.Description className="text-foreground-muted mb-3 text-sm">
+              <Popover.Description className={computePopoverDescriptionClasses()}>
                 {description}
               </Popover.Description>
             )}

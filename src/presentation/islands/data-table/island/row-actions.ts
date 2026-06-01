@@ -54,7 +54,7 @@ export function createRowActionHandler({
   queryKey,
 }: CreateRowActionHandlerParams): RowActionHandler {
   return async (action, record) => {
-    if (action.action.type !== 'crud') return
+    if (!('type' in action.action) || action.action.type !== 'crud') return
     const crudAction = action.action as unknown as CrudAction
     const recordId = String(record['id'] ?? '')
     if (!recordId) return

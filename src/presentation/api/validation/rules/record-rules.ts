@@ -18,6 +18,7 @@ import {
   validateFieldFormats,
   validateAttachmentConstraints,
   enrichAttachmentMetadata,
+  uploadInlineAttachmentContent,
 } from './field-rules'
 import type { FieldValidationError, FieldPermissionError } from '../../middleware/validation'
 import type { StorageService } from '@/application/ports/services/storage-service'
@@ -105,7 +106,9 @@ export function validateRecordCreation(
 
     yield* validateAttachmentConstraints(slugAppliedData)
 
-    const enrichedData = yield* enrichAttachmentMetadata(slugAppliedData)
+    const persistedData = yield* uploadInlineAttachmentContent(slugAppliedData)
+
+    const enrichedData = yield* enrichAttachmentMetadata(persistedData)
 
     const sanitizedData = yield* sanitizeRichTextFields(enrichedData)
 

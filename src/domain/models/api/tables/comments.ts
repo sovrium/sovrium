@@ -12,7 +12,6 @@ export const commentUserSchema = z
   .object({
     id: z.string().describe('User identifier'),
     name: z.string().describe('User display name'),
-    email: z.string().describe('User email address'),
     image: z.string().nullable().optional().describe('User avatar URL'),
   })
   .openapi('CommentUser')
@@ -67,7 +66,6 @@ export const recordHistoryEntrySchema = z
       .object({
         id: z.string().describe('User identifier'),
         name: z.string().describe('User display name'),
-        email: z.string().describe('User email address'),
       })
       .nullable()
       .describe('User details (null for system activities)'),
@@ -94,14 +92,20 @@ export const createCommentRequestSchema = z
     parentCommentId: z.string().min(1).optional(),
     mentions: z.array(z.string().min(1)).optional(),
     authorId: z.string().min(1).optional(),
+    honeypot: z.string().optional(),
   })
   .refine((value) => Boolean(value.content) || Boolean(value.body), {
     message: 'Either content or body is required',
   })
 
-export const updateCommentRequestSchema = z.object({
-  content: z.string().min(1, 'Comment content is required'),
-})
+export const updateCommentRequestSchema = z
+  .object({
+    content: z.string().min(1, 'Comment content is required').optional(),
+    status: z.enum(['approved', 'rejected', 'pending']).optional(),
+  })
+  .refine((value) => value.content !== undefined || value.status !== undefined, {
+    message: 'Either content or status is required',
+  })
 
 
 export type Comment = z.infer<typeof commentSchema>

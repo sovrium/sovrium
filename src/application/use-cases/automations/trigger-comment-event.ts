@@ -34,6 +34,7 @@ export interface TriggerCommentEventInput {
     readonly body: string
     readonly parentCommentId: string | null
     readonly createdAt: Date
+    readonly status: 'pending' | 'approved' | 'rejected'
   }
   readonly author: {
     readonly id: string
@@ -47,13 +48,15 @@ export interface TriggerCommentEventInput {
 const matchesCommentTrigger = (
   automation: NonNullable<App['automations']>[number],
   tableName: string,
-  mentions: readonly string[]
+  mentions: readonly string[],
+  status: 'pending' | 'approved' | 'rejected'
 ): boolean => {
   if (automation.enabled === false) return false
   const { trigger } = automation
   if (trigger.type !== 'comment') return false
   if (trigger.table !== tableName) return false
   if (trigger.filter?.mentionsOnly === true && mentions.length === 0) return false
+  if (trigger.when === 'approved' && status !== 'approved') return false
   return true
 }
 
@@ -74,17 +77,21 @@ const buildCommentTriggerData = (
   record: Readonly<Record<string, unknown>>,
   threadParticipants: readonly string[]
 ): TriggerData => {
+  const event = input.comment.status === 'approved' ? 'approved' : 'created'
   const envelope = {
     record,
     comment: {
       id: input.comment.id,
       body: input.comment.body,
+      content: input.comment.body,
       parentCommentId: input.comment.parentCommentId,
       createdAt: input.comment.createdAt.toISOString(),
       author: input.author,
+      status: input.comment.status,
     },
     threadParticipants,
     mentions: input.mentions,
+    event,
   }
   return envelope as unknown as TriggerData
 }
@@ -160,7 +167,7 @@ export const triggerCommentEventAutomations = (
 > =>
   Effect.gen(function* () {
     const matching = (input.app.automations ?? []).filter((automation) =>
-      matchesCommentTrigger(automation, input.tableName, input.mentions)
+      matchesCommentTrigger(automation, input.tableName, input.mentions, input.comment.status)
     )
     if (matching.length === 0) return
 

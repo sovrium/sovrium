@@ -17,6 +17,12 @@ export const drawerFields = {
   ...coreFields,
   ...visibilityFields,
   ...i18nFields,
+  id: Schema.optional(
+    Schema.String.annotations({
+      description:
+        "Drawer identifier referenced by `onRowClick: { action: 'openDrawer', component: <id> }` (PG-04).",
+    })
+  ),
   drawerSide: Schema.optional(DrawerSideSchema),
   drawerSize: Schema.optional(DrawerSizeSchema),
 } as const

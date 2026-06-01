@@ -57,6 +57,7 @@ const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   'multiple-attachments': 'file-multi',
   'single-select': 'select',
   'multi-select': 'select',
+  user: 'user',
 }
 
 function inputTypeForTableField(tableField: { readonly type: string }): string {
@@ -186,6 +187,13 @@ function fileUploadOverlay(
   }
 }
 
+const readUserAllowMultiple = (
+  column: Readonly<Table['fields'][number]> | undefined
+): boolean | undefined => {
+  if (column?.type !== 'user') return undefined
+  return (column as { readonly allowMultiple?: boolean }).allowMultiple === true
+}
+
 const resolveTableField = (
   field: Readonly<TableBoundField>,
   table: Readonly<Table> | undefined,
@@ -195,6 +203,7 @@ const resolveTableField = (
   const column = table?.fields.find((tableField) => tableField.name === field.column)
   const elementType = column ? inputTypeForTableField(column) : 'text'
   const columnOptions = readColumnOptions(column)
+  const allowMultiple = readUserAllowMultiple(column)
   return {
     name: field.column,
     inputElement: elementType,
@@ -205,6 +214,7 @@ const resolveTableField = (
     required: field.required ?? column?.required ?? false,
     hidden: field.hidden ?? false,
     ...(columnOptions ? { options: columnOptions } : {}),
+    ...(allowMultiple !== undefined ? { allowMultiple } : {}),
     ...fileUploadOverlay(field, column),
   }
 }

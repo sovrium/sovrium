@@ -131,6 +131,16 @@ const SCHEMA_TOOL_SPECS: ReadonlyArray<{
     },
   },
   {
+    suffix: 'schema_prune',
+    description:
+      'Prune the schema-version ledger; retains v1, active, the restore chain, and the newest `keep`.',
+    readOnly: false,
+    inputSchema: {
+      type: 'object',
+      properties: { keep: { type: 'integer', minimum: 1 } },
+    },
+  },
+  {
     suffix: 'schema_draft_preview_start',
     description: 'Start an ephemeral preview server running the current draft.',
     readOnly: false,

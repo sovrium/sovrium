@@ -88,6 +88,7 @@ export function SuccessPage(props: {
                 key={action.label}
                 href={action.url ?? '/'}
                 data-success-action="navigate"
+                className="btn btn-secondary"
               >
                 {action.label}
               </a>
@@ -97,6 +98,7 @@ export function SuccessPage(props: {
                 type="button"
                 data-success-action="reset"
                 onClick={onReset}
+                className="btn btn-primary"
               >
                 {action.label}
               </button>

@@ -6,6 +6,10 @@
  */
 
 import { type ReactElement } from 'react'
+import {
+  computeLanguageSwitcherDropdownClasses,
+  computeLanguageSwitcherTriggerClasses,
+} from '@/presentation/ui/sections/renderers/element-renderers/specialty-ssr-default-classes'
 import type { Languages } from '@/domain/models/app/languages'
 
 const HIDDEN_STYLE = { display: 'none' } as const
@@ -25,6 +29,7 @@ function LanguageSwitcherButton({
     <button
       data-testid="language-switcher-button"
       type="button"
+      className={computeLanguageSwitcherTriggerClasses()}
     >
       {shouldShowFlag(defaultLanguage?.flag) && (
         <span data-testid="language-flag">{defaultLanguage!.flag} </span>
@@ -69,7 +74,7 @@ export function LanguageSwitcher({
       {}
       <div
         data-language-dropdown
-        className="absolute top-full left-0 z-10"
+        className={computeLanguageSwitcherDropdownClasses()}
         aria-hidden="true"
         style={HIDDEN_STYLE}
         data-supported-languages={JSON.stringify(languages.supported)}

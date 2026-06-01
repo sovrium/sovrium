@@ -15,6 +15,11 @@ import {
   type AutomationFormAction,
   type CrudFormAction,
 } from './crud-form-renderer'
+import { computeFormClasses } from './forms-default-classes'
+import {
+  computeSearchInputContainerClasses,
+  computeSearchInputFieldClasses,
+} from './interactive-content-default-classes'
 import type { ElementProps } from './html-element-renderer'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -56,9 +61,60 @@ function renderAuthFormVariant(config: RenderFormConfig): ReactElement {
   return renderAuthForm(props, action!, tables, component)
 }
 
+function maybeSynthesizeCrudUpdateAction(config: RenderFormConfig): RenderFormConfig['action'] {
+  if (config.action) return config.action
+  const componentRecord = (config.component ?? {}) as Record<string, unknown>
+  const dataSource = componentRecord['dataSource'] as
+    | { readonly table?: string; readonly mode?: string }
+    | undefined
+  if (!dataSource || dataSource.mode !== 'single' || typeof dataSource.table !== 'string') {
+    return undefined
+  }
+  return {
+    type: 'crud',
+    operation: 'update',
+    table: dataSource.table,
+  } as RenderFormConfig['action']
+}
+
+function maybeApplySaveButtonDefault(config: RenderFormConfig): RenderFormConfig {
+  const componentRecord = (config.component ?? {}) as Record<string, unknown>
+  const existingProps = (componentRecord['props'] as Record<string, unknown> | undefined) ?? {}
+  if (typeof existingProps['label'] === 'string') return config
+  return {
+    ...config,
+    component: {
+      ...componentRecord,
+      props: { ...existingProps, label: 'Save' },
+    } as RenderFormConfig['component'],
+  }
+}
+
+function renderBareFormVariant(
+  props: ElementProps,
+  children: readonly React.ReactNode[]
+): ReactElement {
+  const authorClassName = props.className as string | undefined
+  const mergedClassName = authorClassName
+    ? `${computeFormClasses()} ${authorClassName}`
+    : computeFormClasses()
+  return (
+    <form
+      {...props}
+      className={mergedClassName}
+    >
+      {children.length > 0 ? children : <button type="submit">Submit</button>}
+    </form>
+  )
+}
+
 export function renderForm(config: RenderFormConfig): ReactElement {
-  const { props, children, action, tables, buckets, component } = config
-  if (action?.type === 'crud') return renderCrudFormVariant(config)
+  const synthesizedAction = maybeSynthesizeCrudUpdateAction(config)
+  const synthesized = synthesizedAction !== config.action
+  const withAction = synthesized ? { ...config, action: synthesizedAction } : config
+  const effectiveConfig = synthesized ? maybeApplySaveButtonDefault(withAction) : withAction
+  const { props, children, action, tables, buckets, component } = effectiveConfig
+  if (action?.type === 'crud') return renderCrudFormVariant(effectiveConfig)
   if (action?.type === 'automation') {
     return renderAutomationForm(
       props,
@@ -68,10 +124,8 @@ export function renderForm(config: RenderFormConfig): ReactElement {
       buckets
     )
   }
-  if (action?.type === 'auth') return renderAuthFormVariant(config)
-  return (
-    <form {...props}>{children.length > 0 ? children : <button type="submit">Submit</button>}</form>
-  )
+  if (action?.type === 'auth') return renderAuthFormVariant(effectiveConfig)
+  return renderBareFormVariant(props, children)
 }
 
 export function renderInput(props: ElementProps): ReactElement {
@@ -132,17 +186,65 @@ export function renderSearchInput(props: ElementProps): ReactElement {
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
 
+  const containerDefaults = computeSearchInputContainerClasses()
+  const containerClassName = className ? `${containerDefaults} ${className}` : containerDefaults
+  const fieldClassName = computeSearchInputFieldClasses()
+
   return (
     <div
       id={id}
-      className={className}
+      className={containerClassName}
       data-testid={testId}
     >
       <input
         type="search"
         placeholder={placeholder ?? 'Search...'}
         aria-label={placeholder ?? 'Search...'}
-        style={{ width: '100%', padding: '0.5rem' }}
+        className={fieldClassName}
+      />
+    </div>
+  )
+}
+
+export interface RenderPageSearchConfig {
+  readonly props: ElementProps
+  readonly placeholder?: string
+  readonly maxResults?: number
+}
+
+export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
+  const { props, placeholder, maxResults } = config
+  const id = props.id as string | undefined
+  const className = props.className as string | undefined
+  const testId = props['data-testid'] as string | undefined
+  const effectivePlaceholder = placeholder ?? 'Search...'
+
+  const containerDefaults = computeSearchInputContainerClasses()
+  const containerClassName = className ? `${containerDefaults} ${className}` : containerDefaults
+  const fieldClassName = computeSearchInputFieldClasses()
+
+  const islandProps = {
+    placeholder: effectivePlaceholder,
+    ...(typeof maxResults === 'number' ? { maxResults } : {}),
+    ...(id !== undefined ? { id } : {}),
+    ...(className !== undefined ? { className } : {}),
+    ...(testId !== undefined ? { 'data-testid': testId } : {}),
+  }
+  const propsJson = JSON.stringify(islandProps)
+
+  return (
+    <div
+      id={id}
+      className={containerClassName}
+      data-testid={testId}
+      data-island="page-search"
+      data-island-props={propsJson}
+    >
+      <input
+        type="search"
+        placeholder={effectivePlaceholder}
+        aria-label={effectivePlaceholder}
+        className={fieldClassName}
       />
     </div>
   )

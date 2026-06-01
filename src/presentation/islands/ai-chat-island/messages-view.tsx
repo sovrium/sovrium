@@ -6,6 +6,10 @@
  */
 
 import { useEffect, useRef } from 'react'
+import {
+  computeAiChatMessageBubbleClasses,
+  computeAiChatMessageListClasses,
+} from '../specialty-islands-default-classes'
 import type { ChatMessage, ChatStatus } from './types'
 import type { ReactElement } from 'react'
 
@@ -31,7 +35,7 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
       role="log"
       aria-label="Chat messages"
       aria-live="polite"
-      className="chat-messages text-foreground-muted flex-1 space-y-2 overflow-y-auto p-4 text-sm"
+      className={`chat-messages ${computeAiChatMessageListClasses()}`}
       style={{ minHeight: `${chatHeight}px` }}
     >
       {messages.map((message, index) => (
@@ -39,11 +43,9 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
           key={message.id}
           data-message-role={message.role}
           data-testid={`message-${index}`}
-          className={
-            message.role === 'user'
-              ? 'bg-primary text-primary-fg ml-auto w-fit max-w-[80%] rounded-lg px-3 py-2 break-words'
-              : 'bg-background-subtle text-foreground mr-auto w-fit max-w-[80%] rounded-lg px-3 py-2 break-words'
-          }
+          className={computeAiChatMessageBubbleClasses({
+            role: message.role === 'user' ? 'user' : 'assistant',
+          })}
         >
           {message.content}
         </div>

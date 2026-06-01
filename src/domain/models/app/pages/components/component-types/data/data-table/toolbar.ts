@@ -18,6 +18,9 @@ export const DataTableToolbarSchema = Schema.Struct({
   columnToggle: Schema.optional(
     Schema.Boolean.annotations({ description: 'Show column visibility toggle' })
   ),
+  groupBy: optBool('Show runtime group-by picker'),
+  views: optBool('Show saved-views dropdown'),
+  viewSwitcher: optBool('Show view-type switcher'),
 }).annotations({
   title: 'Data Table Toolbar',
   description: 'Toolbar control visibility configuration',

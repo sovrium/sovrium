@@ -234,4 +234,32 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         .limit(1)
       return toRun(updated, defRows[0]?.name ?? '')
     }),
+
+  finaliseRun: (input) =>
+    wrap(async () => {
+      const updateSet: Record<string, unknown> = {
+        status: input.status,
+        ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
+        ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
+        ...(input.error !== undefined ? { error: input.error } : {}),
+      }
+      const [updated] = await db
+        .update(automationRuns)
+        .set(updateSet)
+        .where(eq(automationRuns.id, input.id))
+        .returning()
+      if (!updated) return undefined
+
+      const steps = input.steps ?? []
+      if (steps.length > 0) {
+        await db.insert(automationRunSteps).values(stepValues(updated.id, steps))
+      }
+
+      const defRows = await db
+        .select({ name: automationDefinitions.name })
+        .from(automationDefinitions)
+        .where(eq(automationDefinitions.id, updated.automationId))
+        .limit(1)
+      return toRun(updated, defRows[0]?.name ?? '')
+    }),
 })

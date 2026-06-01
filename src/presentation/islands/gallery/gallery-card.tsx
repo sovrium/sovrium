@@ -17,7 +17,7 @@ interface CardData {
 }
 
 function resolveNavigatePath(onClick: Action | undefined, record: TableRecord): string | undefined {
-  if (!onClick || onClick.type !== 'navigate') return undefined
+  if (!onClick || !('type' in onClick) || onClick.type !== 'navigate') return undefined
   return substitute(onClick.path, record)
 }
 
@@ -104,7 +104,9 @@ function HoverOverlayButton({
   const content = typeof child['content'] === 'string' ? substitute(child['content'], record) : ''
   const action = child['action'] as Action | undefined
   const navigatePath =
-    action && action.type === 'navigate' ? substitute(action.path, record) : undefined
+    action && 'type' in action && action.type === 'navigate'
+      ? substitute(action.path, record)
+      : undefined
   const handleClick = buildOverlayClickHandler(navigatePath)
 
   return (

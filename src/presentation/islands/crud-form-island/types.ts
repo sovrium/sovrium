@@ -72,6 +72,7 @@ export type FormState = FormBodyState & {
 
 export interface SubmitContext {
   readonly operation: CrudOperation
+  readonly tableName?: string
   readonly fields: readonly FieldDef[]
   readonly recordId?: string
   readonly redirectUrl?: string

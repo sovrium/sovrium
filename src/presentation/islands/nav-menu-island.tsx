@@ -7,6 +7,7 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { cn } from '@/presentation/islands/lib/cn'
+import { computeMenuPopupClasses, computeNavMenuTriggerClasses } from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 interface NavChild {
@@ -60,7 +61,7 @@ function NavDropdown({
 }): ReactElement {
   return (
     <Menu.Root key={`nav-${index}`}>
-      <Menu.Trigger className="text-foreground hover:bg-background-subtle hover:text-foreground inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+      <Menu.Trigger className={computeNavMenuTriggerClasses()}>
         {item.label}
         <ChevronDown />
       </Menu.Trigger>
@@ -70,7 +71,7 @@ function NavDropdown({
           align="start"
           sideOffset={4}
         >
-          <Menu.Popup className="border-border bg-background-overlay text-foreground w-80 rounded-lg border p-2 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Menu.Popup className={cn(computeMenuPopupClasses(), 'w-80 p-2')}>
             {item.children?.map((child, childIndex) => (
               <Menu.LinkItem
                 key={`child-${childIndex}`}
@@ -113,7 +114,7 @@ export default function NavMenuIsland({
           <a
             key={`nav-${index}`}
             href={item.href ?? '#'}
-            className="text-foreground hover:bg-background-subtle hover:text-foreground rounded-md px-3 py-2 text-sm font-medium transition-colors"
+            className={computeNavMenuTriggerClasses()}
           >
             {item.label}
           </a>

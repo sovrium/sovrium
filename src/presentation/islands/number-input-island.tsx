@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeNumberInputFieldClasses,
+  computeNumberInputStepperClasses,
+  computeNumberInputWrapperClasses,
+} from './numeric-default-classes'
 import { useNumberInputState } from './use-number-input-state'
 import type { ReactElement } from 'react'
 
@@ -33,9 +38,9 @@ function StepperButton({ direction, onClick, disabled }: StepperButtonProps): Re
       onClick={onClick}
       aria-label={direction}
       disabled={disabled}
-      className="border-border bg-background h-8 w-8 rounded border text-sm"
+      className={computeNumberInputStepperClasses({ direction })}
     >
-      {direction === 'increment' ? '+' : '-'}
+      {direction === 'increment' ? '+' : '−'}
     </button>
   )
 }
@@ -62,34 +67,36 @@ export default function NumberInputIsland({
       data-component="number-input-island"
     >
       {label !== undefined && <label htmlFor={id}>{label}</label>}
-      {showStepper && (
-        <StepperButton
-          direction="decrement"
-          onClick={handleDecrement}
+      <span className={computeNumberInputWrapperClasses()}>
+        {showStepper && (
+          <StepperButton
+            direction="decrement"
+            onClick={handleDecrement}
+            disabled={disabled}
+          />
+        )}
+        <input
+          id={id}
+          name={name}
+          type="number"
+          aria-label={label}
+          min={min}
+          max={max}
+          step={stepAmount}
           disabled={disabled}
+          value={Number.isNaN(value) ? '' : value}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          className={computeNumberInputFieldClasses()}
         />
-      )}
-      <input
-        id={id}
-        name={name}
-        type="number"
-        aria-label={label}
-        min={min}
-        max={max}
-        step={stepAmount}
-        disabled={disabled}
-        value={Number.isNaN(value) ? '' : value}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        className="border-border bg-background h-8 w-20 rounded border px-2 text-sm"
-      />
-      {showStepper && (
-        <StepperButton
-          direction="increment"
-          onClick={handleIncrement}
-          disabled={disabled}
-        />
-      )}
+        {showStepper && (
+          <StepperButton
+            direction="increment"
+            onClick={handleIncrement}
+            disabled={disabled}
+          />
+        )}
+      </span>
     </span>
   )
 }

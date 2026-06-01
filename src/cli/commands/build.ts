@@ -5,9 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Effect } from 'effect'
-import { parseBooleanEnv, readPublicDirEnv } from './option-parsing'
+import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
+import {
+  isPublicDirOptOut,
+  parseBooleanEnv,
+  readPublicDirEnv,
+  resolveDefaultPublicDir,
+} from './option-parsing'
 import { lazyImportIndex, lazyImportCli, lazyImportLogger } from './utils'
 import type { GenerateStaticOptions } from '@/application/use-cases/server/generate-static'
 import type { StartupPhase } from '@/infrastructure/logging/logger'
@@ -53,6 +60,7 @@ const parseBuildOptions = (): GenerateStaticOptions => {
 const buildBuildPhases = (summary: {
   readonly mode: 'development' | 'production'
   readonly languages: readonly string[]
+  readonly publicDirLabel?: string
   readonly fileCount: number
   readonly durationLabel: string
 }): readonly StartupPhase[] => {
@@ -62,6 +70,14 @@ const buildBuildPhases = (summary: {
     ...(summary.languages.length > 0
       ? [{ label: `Languages: ${summary.languages.join(', ')}`, type: 'success' as const }]
       : []),
+    ...(summary.publicDirLabel
+      ? [
+          {
+            label: `Public directory: ${summary.publicDirLabel}`,
+            type: 'success' as const,
+          },
+        ]
+      : []),
     { label: 'CSS compiled', type: 'success' as const },
     {
       label: `Generated ${summary.fileCount} ${fileWord} in ${summary.durationLabel}`,
@@ -70,7 +86,29 @@ const buildBuildPhases = (summary: {
   ]
 }
 
-export const handleBuildCommand = async (filePath?: string, publicDir?: string): Promise<void> => {
+const resolveBuildPublicDir = (
+  filePath: string | undefined,
+  publicDirFlag: string | false | undefined,
+  envPublicDir: string | undefined
+): string | undefined => {
+  const explicitOptOut = publicDirFlag === false || isPublicDirOptOut(envPublicDir)
+  if (explicitOptOut) return undefined
+  return envPublicDir ?? resolveDefaultPublicDir(filePath)
+}
+
+const buildPublicDirLabel = async (
+  resolvedPublicDir: string | undefined
+): Promise<string | undefined> => {
+  if (!resolvedPublicDir) return undefined
+  return stat(resolvedPublicDir)
+    .then((s) => (s.isDirectory() ? formatPathForDisplay(resolvedPublicDir) : undefined))
+    .catch(() => undefined)
+}
+
+export const handleBuildCommand = async (
+  filePath?: string,
+  publicDir?: string | false
+): Promise<void> => {
   const { build } = await lazyImportIndex()
   const { parseAppSchema } = await lazyImportCli()
   const { renderBuildSummary, formatDuration, logError } = await lazyImportLogger()
@@ -79,9 +117,12 @@ export const handleBuildCommand = async (filePath?: string, publicDir?: string):
   const app = await parseAppSchema('build', filePath)
   const envOptions = parseBuildOptions()
   const defaultOutputDir = filePath ? join(dirname(filePath), 'dist') : './dist'
+  const outputOverride = publicDir === false ? undefined : publicDir
+  const resolvedPublicDir = resolveBuildPublicDir(filePath, publicDir, envOptions.publicDir)
   const options = {
     ...envOptions,
-    outputDir: publicDir || envOptions.outputDir || defaultOutputDir,
+    outputDir: outputOverride || envOptions.outputDir || defaultOutputDir,
+    ...(resolvedPublicDir && { publicDir: resolvedPublicDir }),
   }
 
   const startedAt = Date.now()
@@ -94,9 +135,11 @@ export const handleBuildCommand = async (filePath?: string, publicDir?: string):
   const version = await getSovriumVersion()
   const mode = process.env['NODE_ENV'] === 'production' ? 'production' : 'development'
   const languages = app.languages?.supported.map((lang) => lang.code) ?? []
+  const publicDirLabel = await buildPublicDirLabel(resolvedPublicDir)
   const phases = buildBuildPhases({
     mode,
     languages,
+    ...(publicDirLabel !== undefined && { publicDirLabel }),
     fileCount: result.files.length,
     durationLabel: formatDuration(durationMs),
   })

@@ -38,6 +38,19 @@ export class UniqueConstraintViolationError extends Error {
   }
 }
 
+export class ForeignKeyViolationError extends Error {
+  readonly _tag = 'ForeignKeyViolationError'
+  override readonly cause?: unknown
+  readonly fieldName?: string
+
+  constructor(message: string, fieldName?: string, cause?: unknown) {
+    super(message)
+    this.name = 'ForeignKeyViolationError'
+    this.fieldName = fieldName
+    this.cause = cause
+  }
+}
+
 export class ValidationError extends Error {
   readonly _tag = 'ValidationError'
   readonly details?: readonly {

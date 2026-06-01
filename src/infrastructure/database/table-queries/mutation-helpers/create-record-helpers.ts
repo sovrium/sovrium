@@ -33,6 +33,19 @@ export function isUniqueConstraintViolation(error: unknown): boolean {
   return hasUniqueViolationMarkers(err) || hasUniqueViolationMarkers(err?.cause)
 }
 
+function hasForeignKeyViolationMarkers(obj: PostgresErrorLike | null | undefined): boolean {
+  if (obj === null || obj === undefined) return false
+  if (obj.code === '23503') return true
+  if (obj.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') return true
+  const message = obj.message?.toLowerCase()
+  return !!message && (message.includes('foreign key') || message.includes('foreign_key'))
+}
+
+export function isForeignKeyViolation(error: unknown): boolean {
+  const err = error as PostgresErrorLike | null | undefined
+  return hasForeignKeyViolationMarkers(err) || hasForeignKeyViolationMarkers(err?.cause)
+}
+
 export function buildInsertClauses(
   fields: Readonly<Record<string, unknown>>,
   arrayColumnTypes?: Readonly<Record<string, string>>

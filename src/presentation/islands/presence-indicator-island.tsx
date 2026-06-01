@@ -63,6 +63,7 @@ function PresenceChip({ user }: { readonly user: PresenceUser }): ReactElement {
     <span
       data-presence-user-id={user.id}
       title={user.name}
+      className="border-border bg-background-raised text-foreground inline-flex items-center gap-2 rounded-full border py-0.5 pr-3 pl-0.5 text-sm"
     >
       {user.avatarUrl ? (
         <img
@@ -70,11 +71,17 @@ function PresenceChip({ user }: { readonly user: PresenceUser }): ReactElement {
           alt={user.name}
           width={28}
           height={28}
+          className="h-7 w-7 rounded-full object-cover"
         />
       ) : (
-        <span aria-hidden="true">{initials(user.name)}</span>
+        <span
+          aria-hidden="true"
+          className="bg-primary text-primary-foreground flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold"
+        >
+          {initials(user.name)}
+        </span>
       )}
-      <span>{user.name}</span>
+      <span className="font-medium">{user.name}</span>
     </span>
   )
 }
@@ -120,6 +127,7 @@ export default function PresenceIndicatorIsland({
       data-testid={testId}
       data-presence-count={visibleUsers.length}
       aria-label="Users viewing this page"
+      className="flex flex-wrap items-center gap-2"
     >
       {visibleUsers.map((user) => (
         <PresenceChip

@@ -6,7 +6,7 @@
  */
 
 import { Toggle } from '@base-ui/react/toggle'
-import { cn } from '@/presentation/islands/lib/cn'
+import { computeToggleClasses } from '@/presentation/islands/toggle-default-classes'
 import type { ReactElement } from 'react'
 
 interface ToggleIslandProps {
@@ -20,12 +20,6 @@ interface ToggleIslandProps {
   readonly 'data-testid'?: string
 }
 
-const SIZE_CLASSES = {
-  sm: 'h-8 px-2 text-xs',
-  md: 'h-9 px-3 text-sm',
-  lg: 'h-10 px-4 text-base',
-} as const
-
 export default function ToggleIsland({
   pressed = false,
   disabled = false,
@@ -36,21 +30,13 @@ export default function ToggleIsland({
   id,
   'data-testid': testId,
 }: ToggleIslandProps): ReactElement {
-  const variantClass =
-    variant === 'outline'
-      ? 'border border-border bg-background-raised text-foreground data-[pressed]:bg-primary-subtle data-[pressed]:border-border-strong'
-      : 'bg-background-subtle text-foreground data-[pressed]:bg-primary-subtle'
+  const defaultClasses = computeToggleClasses({ variant, size })
 
   return (
     <Toggle
       defaultPressed={pressed}
       disabled={disabled}
-      className={cn(
-        'inline-flex items-center justify-center rounded-md font-medium transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
-        variantClass,
-        SIZE_CLASSES[size],
-        className
-      )}
+      className={`${defaultClasses} ${className ?? ''}`}
       id={id}
       data-testid={testId}
       aria-label={label}

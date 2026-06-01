@@ -13,6 +13,7 @@ import type {
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Theme } from '@/domain/models/app/theme'
+import type { SessionInfo } from '@/domain/types/session-info'
 
 export type ComponentRendererProps = {
   readonly component: Component | SimpleComponentReference | ComponentReference
@@ -22,6 +23,7 @@ export type ComponentRendererProps = {
   readonly theme?: Theme
   readonly languages?: Languages
   readonly currentLang?: string
+  readonly session?: SessionInfo
 }
 
 export const CONTAINER_TYPES = ['div', 'container', 'flex', 'grid', 'card', 'badge'] as const

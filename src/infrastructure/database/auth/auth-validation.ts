@@ -7,7 +7,7 @@
 
 import { Data } from 'effect'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { logInfo } from '@/infrastructure/logging/logger'
+import { logDebug } from '@/infrastructure/logging/logger'
 import { isUserReferenceField, isUserField } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -31,7 +31,7 @@ export const ensureBetterAuthUsersTable = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   dialect: Dialect = defaultDialect()
 ): Promise<void> => {
-  logInfo('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
+  logDebug('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
 
   const tableExistsResult =
     dialect === 'sqlite'
@@ -74,7 +74,7 @@ export const ensureBetterAuthUsersTable = async (
     })
   }
 
-  logInfo('[ensureBetterAuthUsersTable] Better Auth users table verified successfully')
+  logDebug('[ensureBetterAuthUsersTable] Better Auth users table verified successfully')
 }
 
 const readSqliteAuthUserIdType = async (tx: {

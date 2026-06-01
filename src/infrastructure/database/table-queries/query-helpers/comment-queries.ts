@@ -16,8 +16,12 @@ import {
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
 import { wrapDatabaseError } from '../shared/error-handling'
-import { extractUserFromRow } from '../shared/user-join-helpers'
 import { castToInt } from './aggregation-helpers'
+import {
+  buildCommentSelectFields,
+  transformCommentRow,
+  type CommentQueryRow,
+} from './comment-row-transform'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -102,73 +106,6 @@ export function listCommentAuthorsForRecord(config: {
     },
     catch: wrapDatabaseError('Failed to list comment authors'),
   })
-}
-
-function transformCommentRow(row: {
-  readonly id: string
-  readonly tableId: string
-  readonly recordId: string
-  readonly userId: string | null
-  readonly parentId: string | null
-  readonly content: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
-  readonly userName: string | undefined
-  readonly userEmail: string | undefined
-  readonly userImage: string | undefined
-}): {
-  readonly id: string
-  readonly tableId: string
-  readonly recordId: string
-  readonly userId: string | null
-  readonly parentId: string | null
-  readonly content: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
-  readonly user: UserMetadataWithOptionalImage | undefined
-} {
-  return {
-    id: row.id,
-    tableId: row.tableId,
-    recordId: row.recordId,
-    userId: row.userId,
-    parentId: row.parentId,
-    content: row.content,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    user: extractUserFromRow(row),
-  }
-}
-
-type CommentQueryRow = {
-  readonly id: string
-  readonly tableId: string
-  readonly recordId: string
-  readonly userId: string | null
-  readonly parentId: string | null
-  readonly content: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
-  readonly userName: string | null
-  readonly userEmail: string | null
-  readonly userImage: string | null
-}
-
-const buildCommentSelectFields = () => {
-  const users = authUsersTable()
-  return {
-    id: recordComments.id,
-    tableId: recordComments.tableId,
-    recordId: recordComments.recordId,
-    userId: recordComments.userId,
-    parentId: recordComments.parentId,
-    content: recordComments.content,
-    createdAt: recordComments.createdAt,
-    updatedAt: recordComments.updatedAt,
-    userName: users.name,
-    userEmail: users.email,
-    userImage: users.image,
-  }
 }
 
 function executeCommentQuery(commentId: string) {
@@ -416,5 +353,57 @@ export function updateComment(config: {
       error instanceof SessionContextError
         ? error
         : new SessionContextError('Failed to update comment', error),
+  })
+}
+
+export function updateCommentStatus(config: {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+  readonly status: 'approved' | 'rejected' | 'pending'
+}): Effect.Effect<
+  | {
+      readonly id: string
+      readonly tableId: string
+      readonly recordId: string
+      readonly userId: string | null
+      readonly content: string
+      readonly status: 'approved' | 'rejected' | 'pending'
+      readonly createdAt: Date
+      readonly updatedAt: Date
+    }
+  | undefined,
+  SessionContextError
+> {
+  const { session, commentId, status } = config
+  return Effect.tryPromise({
+    try: async () => {
+      const now = new Date()
+
+      const result = await db
+        .update(recordComments)
+        .set({
+          status,
+          moderatedAt: now,
+          moderatedBy: session.userId,
+          updatedAt: now,
+        })
+        .where(activeCommentById(commentId))
+        .returning()
+
+      if (result.length === 0) return undefined
+
+      const comment = result[0]!
+      return {
+        id: comment.id,
+        tableId: comment.tableId,
+        recordId: comment.recordId,
+        userId: comment.userId,
+        content: comment.content,
+        status: comment.status as 'approved' | 'rejected' | 'pending',
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+      }
+    },
+    catch: wrapDatabaseError('Failed to update comment status'),
   })
 }

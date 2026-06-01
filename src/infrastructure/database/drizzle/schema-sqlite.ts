@@ -28,6 +28,7 @@ export * from './schema-sqlite/auth-tables'
 export * from './schema-sqlite/auth-relations'
 
 export * from './schema-sqlite/activity-log'
+export * from './schema-sqlite/audit-log'
 export * from './schema-sqlite/app-versioning'
 export * from './schema-sqlite/ai'
 export * from './schema-sqlite/analytics-events'
@@ -42,6 +43,7 @@ export * from './schema-sqlite/record-comments'
 export * from './schema-sqlite/search'
 export * from './schema-sqlite/storage'
 export * from './schema-sqlite/user-access'
+export * from './schema-sqlite/user-views'
 export * from './schema-sqlite/webhook'
 
 export type User = typeof users.$inferSelect

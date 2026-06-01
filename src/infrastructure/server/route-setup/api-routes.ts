@@ -15,8 +15,10 @@ import {
 } from '@/domain/models/api/health/health'
 import { resolveOllamaBaseUrl } from '@/domain/models/env/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
+import { clearAuditLogTable } from '@/infrastructure/audit-log/drizzle-store'
 import { resetAuditEntries } from '@/infrastructure/audit-log/in-memory-store'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
+import { resetFormRateLimitState } from '@/infrastructure/forms/form-rate-limiter'
 import { FormRenderers } from '@/infrastructure/layers/form-renderer-layer'
 import { ecoIndexHeaderMiddleware } from '@/infrastructure/server/middleware/eco-index-header'
 import { lowDataModeMiddleware } from '@/infrastructure/server/middleware/low-data-mode'
@@ -25,6 +27,7 @@ import { resetEcoIndexTrackerForTesting } from '@/infrastructure/utils/eco-index
 import {
   authMiddleware,
   requireAuth,
+  requireAuthOrGuestComment,
   requireAdmin,
   requireAdminTier,
 } from '@/presentation/api/middleware/auth'
@@ -45,17 +48,21 @@ import {
   chainAutomationRoutes,
   chainBucketRoutes,
   chainFormRoutes,
+  chainSharedViewRoute,
 } from '@/presentation/api/routes'
 import { chainAdminAuditLogRoutes } from '@/presentation/api/routes/admin/audit-log'
 import { chainAdminAutomationsRoutes } from '@/presentation/api/routes/admin/automations'
 import { chainAdminBucketsRoutes } from '@/presentation/api/routes/admin/buckets'
 import { chainAdminEcoRoutes } from '@/presentation/api/routes/admin/eco'
 import { chainAdminFormsRoutes } from '@/presentation/api/routes/admin/forms'
+import { chainAdminFormsAnalyticsExportRoutes } from '@/presentation/api/routes/admin/forms-analytics-export'
+import { chainAdminUsersRoutes } from '@/presentation/api/routes/admin/users-overview'
 import { chainCommandSearchRoutes } from '@/presentation/api/routes/command-search'
 import { chainConnectionRoutes } from '@/presentation/api/routes/connections'
 import { chainFavoriteRoutes } from '@/presentation/api/routes/favorites'
 import { chainRealtimeRoutes } from '@/presentation/api/routes/realtime'
 import { chainRecentRoutes } from '@/presentation/api/routes/recent'
+import { sharedViewsRateLimitMiddleware } from '@/presentation/api/routes/user-views/shared-views-rate-limit'
 import {
   extractClientIp,
   isTablesRateLimitExceeded,
@@ -207,7 +214,11 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   resetAuditEntries()
 
+  void clearAuditLogTable()
+
   resetEcoIndexTrackerForTesting()
+
+  resetFormRateLimitState()
 
   const honoWithEcoMiddleware = honoApp
     .use('*', ecoIndexHeaderMiddleware())
@@ -262,12 +273,16 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithTablesRateLimit = applyTablesRateLimitMiddleware(honoWithGuards)
   const honoWithActivityRateLimit = applyActivityRateLimitMiddleware(honoWithTablesRateLimit)
 
+  const resolveAppForGuestCommentExemption = (): App => (getLiveApp() as App | undefined) ?? app
   const honoWithAuth = app.auth
     ? honoWithActivityRateLimit
         .use('/api/tables', authMiddleware(auth))
         .use('/api/tables', requireAuth())
         .use('/api/tables/*', authMiddleware(auth))
-        .use('/api/tables/*', requireAuth())
+        .use('/api/tables/*', requireAuthOrGuestComment(resolveAppForGuestCommentExemption))
+        .use('/api/shared-views/*', authMiddleware(auth))
+        .use('/api/shared-views/*', requireAuth())
+        .use('/api/shared-views/*', sharedViewsRateLimitMiddleware)
         .use('/api/activity', authMiddleware(auth))
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', authMiddleware(auth))
@@ -300,6 +315,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/admin/automations', requireAdminTier())
         .use('/api/admin/automations/*', authMiddleware(auth))
         .use('/api/admin/automations/*', requireAdminTier())
+        .use('/api/admin/users/overview', authMiddleware(auth))
+        .use('/api/admin/users/overview', requireAdminTier())
         .use('/api/admin/storage/transform-cache', authMiddleware(auth))
         .use('/api/admin/storage/transform-cache', requireAuth())
         .use('/api/admin/storage/transform-cache', requireAdmin())
@@ -356,6 +373,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/admin/eco/overview', requireAdminTier())
         .use('/api/admin/automations', requireAdminTier())
         .use('/api/admin/automations/*', requireAdminTier())
+        .use('/api/admin/users/overview', requireAdminTier())
         .use('/api/analytics/overview', requireAuth())
         .use('/api/analytics/overview', requireAdmin())
         .use('/api/analytics/pages', requireAuth())
@@ -370,7 +388,9 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const resolveLiveApp = (): App => (getLiveApp() as App | undefined) ?? app
   const honoWithTables = chainTableRoutes(honoWithAuth, app, resolveLiveApp)
 
-  const honoWithActivity = chainActivityRoutes(honoWithTables)
+  const honoWithSharedViews = chainSharedViewRoute(honoWithTables, resolveLiveApp)
+
+  const honoWithActivity = chainActivityRoutes(honoWithSharedViews)
 
   const analyticsEnabled = app.analytics !== undefined && app.analytics !== false
   const honoWithAnalytics = analyticsEnabled
@@ -395,14 +415,20 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithAdmin = chainAdminRoutes(honoWithForms, app)
 
   const honoWithAdminBuckets = chainAdminBucketsRoutes(honoWithAdmin)
-  const honoWithAdminForms = chainAdminFormsRoutes(honoWithAdminBuckets, resolveLiveApp)
+  const honoWithAdminFormsAnalytics = chainAdminFormsAnalyticsExportRoutes(
+    honoWithAdminBuckets,
+    resolveLiveApp
+  )
+  const honoWithAdminForms = chainAdminFormsRoutes(honoWithAdminFormsAnalytics, resolveLiveApp)
   const honoWithAdminAuditLog = chainAdminAuditLogRoutes(honoWithAdminForms)
 
   const honoWithAdminEco = chainAdminEcoRoutes(honoWithAdminAuditLog, app)
 
   const honoWithAdminAutomations = chainAdminAutomationsRoutes(honoWithAdminEco, resolveLiveApp)
 
-  const honoWithAiChat = chainAiChatRoutes(honoWithAdminAutomations, app)
+  const honoWithAdminUsers = chainAdminUsersRoutes(honoWithAdminAutomations)
+
+  const honoWithAiChat = chainAiChatRoutes(honoWithAdminUsers, app)
 
   const honoWithAgents = chainAgentScheduleRoutes(
     chainAgentApprovalRoutes(chainAiMcpStatusRoutes(honoWithAiChat, app), app),

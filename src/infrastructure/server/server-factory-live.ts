@@ -25,6 +25,7 @@ export const ServerFactoryLive = Layer.effect(
         renderNotFoundPage: config.renderNotFoundPage,
         renderErrorPage: config.renderErrorPage,
         ...(config.renderRssFeed !== undefined ? { renderRssFeed: config.renderRssFeed } : {}),
+        ...(config.bootstrapToken !== undefined ? { bootstrapToken: config.bootstrapToken } : {}),
       }),
   }))
 )

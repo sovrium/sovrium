@@ -6,7 +6,16 @@
  */
 
 import { Schema } from 'effect'
+import { PermissionValueSchema } from './permissions'
 import { VisibleWhenConditionSchema } from './visible-when'
+
+export const FormFieldPermissionsSchema = Schema.Struct({
+  read: Schema.optional(PermissionValueSchema),
+}).annotations({
+  identifier: 'FormFieldPermissions',
+  title: 'Form Field Permissions',
+  description: 'Per-field read permissions for admin export + detail redaction',
+})
 
 export const commonFieldProps = {
   label: Schema.optional(Schema.String),
@@ -19,4 +28,5 @@ export const commonFieldProps = {
   visibleWhen: Schema.optional(VisibleWhenConditionSchema),
   requiredWhen: Schema.optional(VisibleWhenConditionSchema),
   disabledWhen: Schema.optional(VisibleWhenConditionSchema),
+  permissions: Schema.optional(FormFieldPermissionsSchema),
 } as const

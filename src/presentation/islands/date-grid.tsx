@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useMemo, type ReactElement } from 'react'
+import { computeDateDayClasses, computeDateWeekdayClasses } from './date-default-classes'
 import {
   WEEKDAY_LABELS,
   isInRange,
@@ -25,6 +26,56 @@ interface DayCellProps {
   readonly onDayClick: (day: Date) => void
 }
 
+type DayState =
+  | 'default'
+  | 'selected'
+  | 'today'
+  | 'outside'
+  | 'disabled'
+  | 'range-start'
+  | 'range-end'
+  | 'range-middle'
+
+interface DerivedDayState {
+  readonly state: DayState
+  readonly isSelected: boolean
+  readonly oob: boolean
+  readonly inViewMonth: boolean
+}
+
+function deriveDayState({
+  day,
+  viewMonth,
+  minDateObj,
+  maxDateObj,
+  datePickerMode,
+  singleValue,
+  rangeValue,
+}: Omit<DayCellProps, 'onDayClick'>): DerivedDayState {
+  const inViewMonth = day.getMonth() === viewMonth.getMonth()
+  const oob = isOutOfBounds(day, minDateObj, maxDateObj)
+  const inRange =
+    datePickerMode === 'range' && rangeValue !== undefined && isInRange(day, rangeValue)
+  const isSelected =
+    datePickerMode === 'range' ? inRange : singleValue !== undefined && isSameDay(day, singleValue)
+  const state: DayState = oob
+    ? 'disabled'
+    : inRange && rangeValue !== undefined
+      ? deriveRangeState(day, rangeValue)
+      : isSelected
+        ? 'selected'
+        : !inViewMonth
+          ? 'outside'
+          : 'default'
+  return { state, isSelected, oob, inViewMonth }
+}
+
+function deriveRangeState(day: Date, rangeValue: DateRange): DayState {
+  if (rangeValue.from !== undefined && isSameDay(day, rangeValue.from)) return 'range-start'
+  if (rangeValue.to !== undefined && isSameDay(day, rangeValue.to)) return 'range-end'
+  return 'range-middle'
+}
+
 function DayCell({
   day,
   viewMonth,
@@ -35,15 +86,15 @@ function DayCell({
   rangeValue,
   onDayClick,
 }: DayCellProps): ReactElement {
-  const inViewMonth = day.getMonth() === viewMonth.getMonth()
-  const oob = isOutOfBounds(day, minDateObj, maxDateObj)
-  const isSelected =
-    datePickerMode === 'range'
-      ? rangeValue !== undefined && isInRange(day, rangeValue)
-      : singleValue !== undefined && isSameDay(day, singleValue)
-  const buttonClass = isSelected
-    ? 'bg-primary text-primary-fg h-8 w-8 rounded'
-    : 'hover:bg-background-subtle h-8 w-8 rounded'
+  const { state, isSelected, oob, inViewMonth } = deriveDayState({
+    day,
+    viewMonth,
+    minDateObj,
+    maxDateObj,
+    datePickerMode,
+    singleValue,
+    rangeValue,
+  })
   const handleClick = useCallback(() => onDayClick(day), [day, onDayClick])
   return (
     <td
@@ -57,7 +108,7 @@ function DayCell({
         type="button"
         onClick={handleClick}
         disabled={oob}
-        className={buttonClass}
+        className={computeDateDayClasses({ state })}
       >
         {day.getDate()}
       </button>
@@ -99,7 +150,7 @@ function WeekdayHeaderRow(): ReactElement {
         <th
           key={w}
           scope="col"
-          className="text-foreground-muted px-1 py-1 text-xs font-normal"
+          className={computeDateWeekdayClasses()}
         >
           {w}
         </th>

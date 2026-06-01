@@ -35,6 +35,15 @@ const twitterCardFieldMapping = [
     key: 'app:id:googleplay',
     getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appId?.googlePlay,
   },
+  {
+    key: 'app:url:iphone',
+    getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appUrl?.iPhone,
+  },
+  { key: 'app:url:ipad', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appUrl?.iPad },
+  {
+    key: 'app:url:googleplay',
+    getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appUrl?.googlePlay,
+  },
 ] as const
 
 function buildTwitterCardFields(

@@ -38,6 +38,7 @@ export interface ServerFactoryConfig {
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  readonly bootstrapToken?: string
 }
 
 export class ServerFactory extends Context.Tag('ServerFactory')<

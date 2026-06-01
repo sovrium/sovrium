@@ -92,7 +92,7 @@ const showHelp = (): void => {
 const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
   stop: async () => handleStopCommand(),
   restart: async () => handleRestartCommand(parsed.configFile),
-  reload: async () => handleReloadCommand(),
+  reload: async () => handleReloadCommand(rawArgs),
   init: async () =>
     handleInitCommand({
       templateName: parsed.templateName,

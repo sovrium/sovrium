@@ -28,6 +28,8 @@ export const computeConfigHash = (content: string): string => {
 
 export const getLockFilePath = (): string => join(getLockDir(), LOCK_FILE_NAME)
 
+export const getReloadMessageFilePath = (): string => join(getLockDir(), 'reload-message')
+
 export const writeLockFile = async (data: LockFileData): Promise<void> => {
   await mkdir(getLockDir(), { recursive: true })
   await writeFile(getLockFilePath(), JSON.stringify(data), 'utf-8')

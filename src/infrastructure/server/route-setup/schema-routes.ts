@@ -36,6 +36,7 @@ import {
   PAGES,
 } from './schema-routes-handlers'
 import { handlePreviewStart, handlePreviewStatus, handlePreviewStop } from './schema-routes-preview'
+import { handlePruneVersions } from './schema-routes-prune'
 import type { App } from '@/domain/models/app'
 
 const isSchemaEditApiEnabled = (): boolean => process.env['SCHEMA_EDIT_API_ENABLED'] === 'true'
@@ -108,6 +109,10 @@ export const setupSchemaRoutes = <T extends Hono>(honoApp: T, app: Readonly<App>
     .post(
       '/api/admin/schema/versions/:version/restore',
       gated((c) => handleRestoreVersion(c, app, c.req.param('version')))
+    )
+    .post(
+      '/api/admin/schema/prune',
+      gated((c) => handlePruneVersions(c, app))
     )
     .post(
       '/api/admin/schema/draft/tables',

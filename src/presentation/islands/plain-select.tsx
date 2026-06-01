@@ -8,6 +8,12 @@
 import { Select } from '@base-ui/react/select'
 import { useMemo, type ReactElement } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeSelectIconClasses,
+  computeSelectLabelClasses,
+  computeSelectListClasses,
+  computeSelectTriggerClasses,
+} from './select-default-classes'
 import { ChevronDown } from './select-icons'
 import { SelectOption } from './select-option-renderers'
 import type { SelectIslandProps } from './select-island-types'
@@ -38,23 +44,20 @@ export function PlainSelect({
         defaultValue={defaultValue}
         disabled={disabled}
       >
-        {label && (
-          <Select.Label className="text-foreground mb-1 block text-sm font-medium">
-            {label}
-          </Select.Label>
-        )}
+        {label && <Select.Label className={computeSelectLabelClasses()}>{label}</Select.Label>}
 
-        <Select.Trigger className="border-border bg-background-raised text-foreground data-[open]:border-primary data-[open]:ring-focus-ring flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm shadow-sm transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[open]:ring-1">
+        <Select.Trigger className={computeSelectTriggerClasses()}>
           <Select.Value placeholder={placeholder ?? 'Select...'}>{renderValue}</Select.Value>
-          <Select.Icon className="text-foreground-subtle ml-2">
+          <Select.Icon className={computeSelectIconClasses()}>
             <ChevronDown />
           </Select.Icon>
         </Select.Trigger>
 
         <Select.Portal>
           <Select.Positioner sideOffset={4}>
-            <Select.Popup className="border-border bg-background-overlay max-h-60 overflow-auto rounded-md border py-1 shadow-lg">
-              <Select.List>
+            {}
+            <Select.Popup>
+              <Select.List className={computeSelectListClasses()}>
                 {options?.map((option) => (
                   <SelectOption
                     key={option.value}

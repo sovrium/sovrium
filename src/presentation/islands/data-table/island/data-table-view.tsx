@@ -9,12 +9,16 @@ import { ImportCsvDialog } from '../import-csv-dialog'
 import { SaveStatusIndicator } from '../save-status-indicator'
 import { BulkActionBar } from './bulk-actions'
 import { ConflictToast } from './conflict-toast'
+import { DeleteViewConfirmDialog } from './delete-view-confirm-dialog'
 import { FilterOverlay } from './filter-overlay'
 import { PaginationControls } from './pagination'
+import { SaveViewDialog } from './save-view-dialog'
+import { SortOverlay } from './sort-overlay'
 import { TableContent } from './table-content'
 import { DataTableToolbarBar, SearchToolbar } from './toolbar'
 import type { SaveIndicatorSettings } from './use-island-setup'
 import type { useDataTableUiState } from './use-ui-state'
+import type { ViewsMenuEntry } from './views-menu'
 import type {
   EditingCell,
   FieldMetaMap,
@@ -23,6 +27,7 @@ import type {
 } from '../../hooks/use-inline-editing'
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { RealtimeConnectionState } from '../../hooks/use-realtime-subscription'
+import type { RowDensity } from '../../hooks/use-table-preferences'
 import type { TableRecord } from '../../shared/types'
 import type { DataTableRowClickAction, InlineAutoSave } from '../body'
 import type {
@@ -73,12 +78,23 @@ interface DataTableViewProps {
   readonly onEditSave: (newValue: unknown) => Promise<void>
   readonly onEditCancel: () => void
   readonly onRefresh: () => void
-  readonly onToggleDensity: () => void
+  readonly currentDensity: RowDensity
+  readonly onSelectDensity: (density: RowDensity) => void
+  readonly onResetPreferences?: () => void
+  readonly activeViewName?: string
   readonly onBulkExecute: (action: DataTableBulkAction) => void
   readonly conflict?: DetectedConflict
   readonly onDismissConflict?: () => void
   readonly connectionStatus?: RealtimeConnectionState
   readonly ui: ReturnType<typeof useDataTableUiState>
+  readonly viewsEnabled: boolean
+  readonly viewEntries: ReadonlyArray<ViewsMenuEntry>
+  readonly canSaveCurrentView: boolean
+  readonly isViewModified: boolean
+  readonly onSelectView: (entry: ViewsMenuEntry) => void
+  readonly onSaveNewView: (name: string) => Promise<void>
+  readonly onSaveModifiedView: () => void
+  readonly onConfirmDeleteView: () => Promise<void>
 }
 
 export function DataTableView({
@@ -118,12 +134,23 @@ export function DataTableView({
   onEditSave,
   onEditCancel,
   onRefresh,
-  onToggleDensity,
+  currentDensity,
+  onSelectDensity,
+  onResetPreferences,
+  activeViewName,
   onBulkExecute,
   conflict,
   onDismissConflict,
   connectionStatus,
   ui,
+  viewsEnabled,
+  viewEntries,
+  canSaveCurrentView,
+  isViewModified,
+  onSelectView,
+  onSaveNewView,
+  onSaveModifiedView,
+  onConfirmDeleteView,
 }: DataTableViewProps) {
   const showToolbar = true
 
@@ -176,17 +203,51 @@ export function DataTableView({
           importDialogOpen={ui.importDialogOpen}
           onOpenImportDialog={ui.onOpenImportDialog}
           onOpenFilterOverlay={ui.onOpenFilterOverlay}
+          onOpenSortOverlay={ui.onOpenSortOverlay}
+          activeSortCount={ui.activeSorts.length}
+          activeView={ui.activeView}
+          onSelectGridView={ui.setActiveViewGrid}
+          onSelectKanbanView={ui.setActiveViewKanban}
+          groupableFields={tableFields ?? []}
+          runtimeGroupBy={ui.runtimeGroupBy}
+          onSelectRuntimeGroupBy={ui.setRuntimeGroupBy}
           columnsMenuOpen={ui.columnsMenuOpen}
           onToggleColumnsMenu={ui.onToggleColumnsMenu}
           exportMenuOpen={ui.exportMenuOpen}
           onToggleExportMenu={ui.onToggleExportMenu}
           onCloseExportMenu={ui.onCloseExportMenu}
           onRefresh={onRefresh}
-          onToggleDensity={onToggleDensity}
+          currentDensity={currentDensity}
+          onSelectDensity={onSelectDensity}
+          {...(onResetPreferences && { onResetPreferences })}
+          {...(activeViewName && { activeViewName })}
           activeFilter={ui.activeFilter}
+          activeFilterCount={ui.activeFilters.length}
           selectedCount={selectedCount}
           showSearch={showSearch}
+          viewsEnabled={viewsEnabled}
+          viewEntries={viewEntries}
+          canSaveCurrentView={canSaveCurrentView}
+          isViewModified={isViewModified}
+          activeViewSource={ui.activeViewSource}
+          onOpenSaveViewDialog={ui.onOpenSaveViewDialog}
+          onSelectView={onSelectView}
+          onDeleteView={(entry) => ui.onOpenDeleteViewDialog({ id: entry.id, name: entry.name })}
+          onSaveModifiedView={onSaveModifiedView}
           saveStatus={showToolbarIndicator ? indicatorStatus : undefined}
+        />
+      )}
+      <SaveViewDialog
+        open={ui.saveViewDialogOpen}
+        onOpenChange={(o) => (o ? ui.onOpenSaveViewDialog() : ui.onCloseSaveViewDialog())}
+        onSave={onSaveNewView}
+      />
+      {ui.deleteViewTarget && (
+        <DeleteViewConfirmDialog
+          open={ui.deleteViewTarget !== null}
+          onOpenChange={(o) => (!o ? ui.onCloseDeleteViewDialog() : undefined)}
+          viewName={ui.deleteViewTarget.name}
+          onConfirm={onConfirmDeleteView}
         />
       )}
       {!showToolbar && showSearch && searchConfig && (
@@ -207,16 +268,27 @@ export function DataTableView({
       )}
       {!ui.importDialogOpen && ui.filterOverlayOpen && (
         <FilterOverlay
-          table={table}
-          records={records}
-          tableFields={tableFields}
-          filterStep={ui.filterStep}
-          filterField={ui.filterField}
-          onFieldSelect={ui.onFieldSelect}
-          onValueSelect={ui.onValueSelect}
+          tableFields={tableFields ?? []}
+          fieldMeta={fieldMeta}
+          activeFilters={ui.activeFilters}
+          filterConjunction={ui.filterConjunction}
+          onAddFilter={ui.addFilter}
+          onRemoveFilter={ui.removeFilter}
+          onClearAll={ui.clearAllFilters}
+          onToggleConjunction={ui.toggleConjunction}
         />
       )}
-      {!ui.importDialogOpen && !ui.filterOverlayOpen && (
+      {!ui.importDialogOpen && ui.sortOverlayOpen && (
+        <SortOverlay
+          tableFields={tableFields ?? []}
+          activeSorts={ui.activeSorts}
+          onAddSort={ui.addSort}
+          onRemoveSort={ui.removeSort}
+          onClearAll={ui.clearAllSorts}
+          onReorderSort={ui.reorderSort}
+        />
+      )}
+      {!ui.importDialogOpen && (
         <TableContent
           table={table}
           records={records}
@@ -239,6 +311,8 @@ export function DataTableView({
           onCellDoubleClick={onCellDoubleClick}
           onEditSave={onEditSave}
           onEditCancel={onEditCancel}
+          collapsedGroups={ui.collapsedGroups}
+          onToggleGroupCollapsed={ui.toggleGroupCollapsed}
         />
       )}
       {!ui.importDialogOpen && paginationConfig && (

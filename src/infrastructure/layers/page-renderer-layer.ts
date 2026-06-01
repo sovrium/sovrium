@@ -23,6 +23,7 @@ function createDataSourceDbAdapter(repo: Context.Tag.Service<DataSourceRepositor
       Effect.runPromise(repo.fetchSingleRecord(tableName, paramField, paramValue, fields)),
     fetchUserAssignments: (userId, tableSlug) =>
       Effect.runPromise(repo.fetchUserAssignments(userId, tableSlug)),
+    fetchUserAccessRoles: (userId) => Effect.runPromise(repo.fetchUserAccessRoles(userId)),
   }
 }
 

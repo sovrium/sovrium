@@ -118,6 +118,11 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
     return loadSchemaFromFile(filePath, command)
   }
 
+  const appSchemaFileEnv = Bun.env.APP_SCHEMA_FILE
+  if (appSchemaFileEnv) {
+    return loadSchemaFromFile(appSchemaFileEnv, command)
+  }
+
   const appSchemaEnv = Bun.env.APP_SCHEMA
 
   if (appSchemaEnv) {

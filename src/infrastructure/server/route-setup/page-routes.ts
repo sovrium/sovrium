@@ -11,6 +11,7 @@ import { getCookie } from 'hono/cookie'
 import { parseEcoPageCache } from '@/domain/models/env/eco-page-cache'
 import { computeAppRenderChecksum } from '@/domain/services/app-render-checksum'
 import { isRenderablePathCacheable } from '@/domain/services/page-cacheability'
+import { isSharedViewAccessDenied } from '@/domain/services/page-shared-view-guard'
 import { buildRobotsTxt, buildSitemapXml } from '@/domain/services/sitemap-builder'
 import { logError } from '@/infrastructure/logging/logger'
 import {
@@ -99,6 +100,26 @@ function sendResolved(
   })
 }
 
+async function checkSharedViewGate(
+  config: HonoAppConfig,
+  path: string,
+  reqCtx: PageRequestContext,
+  c: Context
+): Promise<Response | undefined> {
+  const userViewParam = c.req.query('userView')
+  if (userViewParam === undefined || userViewParam === '') return undefined
+  const denied = isSharedViewAccessDenied(
+    config.app,
+    path,
+    `userView=${encodeURIComponent(userViewParam)}`,
+    reqCtx.session
+      ? { role: reqCtx.session.role, effectiveRoles: reqCtx.session.effectiveRoles }
+      : undefined
+  )
+  if (!denied) return undefined
+  return c.html(await config.renderNotFoundPage(config.app, reqCtx.detectedLanguage), 404)
+}
+
 async function renderWithCache(
   config: HonoAppConfig,
   path: string,
@@ -106,6 +127,9 @@ async function renderWithCache(
   c: Context
 ): Promise<Response | undefined> {
   const { app, renderPage } = config
+
+  const gateResponse = await checkSharedViewGate(config, path, reqCtx, c)
+  if (gateResponse !== undefined) return gateResponse
 
   const cacheUsable =
     parseEcoPageCache(process.env) === 'on' &&

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+
 import { readFileSync, rmSync } from 'node:fs'
 import { Effect, Config } from 'effect'
 import { Hono } from 'hono'
@@ -12,7 +13,7 @@ import { websocket } from 'hono/bun'
 import { requestId } from 'hono/request-id'
 import { AiService } from '@/application/ports/services/ai-service'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
-import { getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { appRequiresEmail } from '@/domain/models/app'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { filterAgentKnowledgeTables } from '@/domain/services/rag-knowledge-access'
@@ -38,6 +39,7 @@ import {
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isEmailConfigured } from '@/infrastructure/email/email-config'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import { isIpHashSaltConfigured } from '@/infrastructure/forms/ip-hash'
 import {
   logDebug,
   logError,
@@ -50,9 +52,11 @@ import {
   disposeCronScheduler,
   registerCronAutomations,
 } from '@/infrastructure/scheduling/register-cron-automations'
+import { applyBootstrapTokenToSummary } from '@/infrastructure/server/bootstrap-banner'
 import {
   computeConfigHash,
   getLockFilePath,
+  getReloadMessageFilePath,
   writeLockFile as writeLockFileToDisk,
 } from '@/infrastructure/server/lock-file'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
@@ -63,6 +67,7 @@ import {
   setupAuthRoutes,
 } from '@/infrastructure/server/route-setup/auth-routes'
 import { setupBootstrapRoutes } from '@/infrastructure/server/route-setup/bootstrap-routes'
+import { appendReloadVersionIfChanged } from '@/infrastructure/server/route-setup/config-file-seeder'
 import { setupDevReloadRoute } from '@/infrastructure/server/route-setup/dev-reload-routes'
 import { composeConfigHeader } from '@/infrastructure/server/route-setup/drift-posture'
 import { setupMcpRoutes } from '@/infrastructure/server/route-setup/mcp/routes'
@@ -77,6 +82,8 @@ import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-as
 import {
   collectStoragePhases,
   collectAiListenerPhases,
+  collectAdminPhases,
+  collectPublicDirPhases,
   buildStartupPhases,
   databaseStartupLabel,
 } from '@/infrastructure/server/startup-degradation-phases'
@@ -116,6 +123,7 @@ export interface ServerConfig {
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
   readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  readonly bootstrapToken?: string
 }
 
 function buildGetSession(
@@ -125,20 +133,29 @@ function buildGetSession(
     try {
       const session = await authInstance.api.getSession({ headers })
       if (!session) return undefined
-      const user = session.user as { id: string; email?: string; role?: string }
+      const user = session.user as { id: string; email?: string; name?: string; role?: string }
       const role = user.role ?? 'member'
       const isUnrestricted = role === 'admin'
       const groups = await getUserGroups(user.id)
-      return { userId: user.id, role, email: user.email, isUnrestricted, groups }
+      const effectiveRoles = buildEffectiveRoles(role, groups)
+      return {
+        userId: user.id,
+        role,
+        email: user.email,
+        name: user.name,
+        isUnrestricted,
+        groups,
+        effectiveRoles,
+      }
     } catch {
       return undefined
     }
   }
 }
 
-export function createHonoApp(
+export async function createHonoApp(
   config: HonoAppConfig & { readonly configHash?: string }
-): Readonly<Hono> {
+): Promise<Readonly<Hono>> {
   const { app, renderNotFoundPage, renderErrorPage, configHash } = config
 
   const authInstance = app.auth ? createAuthInstance(app.auth, app.connections, app) : undefined
@@ -184,7 +201,7 @@ export function createHonoApp(
 
   const honoWithRoutes = setupPageRoutes(
     setupDevReloadRoute(
-      setupStaticAssets(
+      await setupStaticAssets(
         setupSeoRoutes(
           setupMcpRoutes(
             setupAuthRoutes(
@@ -363,11 +380,24 @@ const collectInfraPhases = (
     const dialectConfig = parseDatabaseDialectConfig()
     const databasePhases: readonly StartupPhase[] = yield* runDatabaseStartup(app, dialectConfig)
 
+    const adminPhases = yield* Effect.promise(() => collectAdminPhases(app))
+
     const smtpPhases: readonly StartupPhase[] =
       appRequiresEmail(app) && !isEmailConfigured()
         ? [
             {
               label: 'Email sending disabled — SMTP not configured (set SMTP_HOST to enable)',
+              type: 'warning' as const,
+            },
+          ]
+        : []
+
+    const formSaltPhases: readonly StartupPhase[] =
+      (app.forms?.length ?? 0) > 0 && !isIpHashSaltConfigured()
+        ? [
+            {
+              label:
+                'FORM_IP_HASH_SALT not set — submitter IP hashes will reset on every restart (set a long random value)',
               type: 'warning' as const,
             },
           ]
@@ -386,7 +416,14 @@ const collectInfraPhases = (
     const aiComputeListener = yield* startAiComputeListenerIfNeeded(app, databaseUrl)
 
     return {
-      phases: [...databasePhases, ...smtpPhases, ...storagePhases, ...aiListenerPhases],
+      phases: [
+        ...databasePhases,
+        ...adminPhases,
+        ...smtpPhases,
+        ...formSaltPhases,
+        ...storagePhases,
+        ...aiListenerPhases,
+      ],
       cssSizeKB,
       cssLabel,
       aiComputeListener,
@@ -427,20 +464,64 @@ const registerLockFileCleanup = (honoApp: Readonly<Hono>, configPath: string): v
       if (setter) setter(newHash)
     } catch {
     }
+    const reloadMessage = ((): string | undefined => {
+      try {
+        const value = readFileSync(getReloadMessageFilePath(), 'utf-8')
+        rmSync(getReloadMessageFilePath(), { force: true })
+        return value
+      } catch {
+        return undefined
+      }
+    })()
+
+    appendReloadFromFile(configPath, reloadMessage)
   })
+}
+
+const appendReloadFromFile = async (
+  configPath: string,
+  message: string | undefined
+): Promise<void> => {
+  try {
+    const { loadSchemaFromFile } = await import('@/infrastructure/schema/file-loader')
+    const { Schema: S } = await import('effect')
+    const { AppSchema } = await import('@/domain/models/app')
+    const parsed = await loadSchemaFromFile(configPath)
+    const decoded = S.decodeUnknownSync(AppSchema)(parsed) as {
+      readonly name: string
+      readonly [key: string]: unknown
+    }
+    await appendReloadVersionIfChanged(decoded, message)
+  } catch {
+  }
 }
 
 const renderStartup = (
   phases: readonly StartupPhase[],
   url: string,
-  durationMs: number
+  durationMs: number,
+  bootstrapToken?: string
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const version = yield* getPackageVersion()
-    yield* renderStartupSummary({ version, phases, url, durationMs })
+    const augmented = applyBootstrapTokenToSummary(phases, bootstrapToken)
+    yield* renderStartupSummary({
+      version,
+      phases: augmented.phases,
+      url,
+      durationMs,
+      ...(augmented.bootstrapToken ? { bootstrapToken: augmented.bootstrapToken } : {}),
+    })
   })
 
-const buildHonoAppFromConfig = (config: ServerConfig): Readonly<Hono> =>
+const collectAllPhases = (config: ServerConfig) =>
+  Effect.gen(function* () {
+    const r = yield* collectInfraPhases(config.app)
+    const pd = yield* Effect.promise(() => collectPublicDirPhases(config.publicDir))
+    return { ...r, infraPhases: [...r.phases, ...pd] }
+  })
+
+const buildHonoAppFromConfig = (config: ServerConfig): Promise<Readonly<Hono>> =>
   createHonoApp({
     app: config.app,
     publicDir: config.publicDir,
@@ -470,13 +551,9 @@ export const createServer = (
     const hostname = config.hostname ?? (Bun.env.HOSTNAME || 'localhost')
     const { configHash = '', configPath = '' } = config
 
-    const {
-      phases: infraPhases,
-      cssLabel,
-      aiComputeListener,
-    } = yield* collectInfraPhases(config.app)
+    const { infraPhases, cssLabel, aiComputeListener } = yield* collectAllPhases(config)
 
-    const honoApp = buildHonoAppFromConfig(config)
+    const honoApp = yield* Effect.promise(() => buildHonoAppFromConfig(config))
     const server = yield* startBunServer(honoApp, port, hostname)
     const url = `http://${hostname}:${server.port}`
 
@@ -491,7 +568,7 @@ export const createServer = (
     if (!config.silent) {
       yield* writeLockFile(server.port, configHash, configPath)
       registerLockFileCleanup(honoApp, configPath)
-      yield* renderStartup(phases, url, durationMs)
+      yield* renderStartup(phases, url, durationMs, config.bootstrapToken)
     }
 
     return {

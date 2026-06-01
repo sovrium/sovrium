@@ -6,12 +6,15 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import {
   accountDeleteRequestSchema,
   accountDeleteScheduledResponseSchema,
   accountDeleteCancelledResponseSchema,
   accountExportResponseSchema,
 } from '@/domain/models/api/account/account'
+import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { sanitizeTableName } from '@/domain/utils/table-naming'
 import { db } from '@/infrastructure/database'
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge'
@@ -240,6 +243,19 @@ async function handleDelete(c: Context): Promise<Response> {
       sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = ${scheduledErasureAt} WHERE id = ${userId}`
     )
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
+  })
+
+  const actor = await resolveActor(userId)
+  await emitAuditEvent({
+    action: AUDIT_ACTIONS.ACCOUNT_DELETION_SCHEDULED,
+    actor,
+    resourceId: userId,
+    severity: 'critical',
+    result: 'success',
+    metadata: {
+      gracePeriodDays: GRACE_PERIOD_DAYS,
+      scheduledErasureAt: scheduledErasureAt.toISOString(),
+    },
   })
 
   return c.json(

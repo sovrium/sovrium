@@ -82,6 +82,61 @@ function isCrudDeleteAction(action: unknown): action is CrudFormAction {
   )
 }
 
+type FetchToastResponse = {
+  type: 'toast'
+  message: string
+  variant?: string
+  duration?: number
+  actionLabel?: string
+  actionUrl?: string
+}
+
+type FetchAction = {
+  type: 'fetch'
+  url: string
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  headers?: Record<string, string>
+  body?: Record<string, unknown>
+  onSuccess?: FetchToastResponse
+  onError?: FetchToastResponse
+}
+
+function isFetchAction(action: unknown): action is FetchAction {
+  return (action as { type?: string })?.type === 'fetch'
+}
+
+function buildFetchDataAttributes(action: FetchAction): Record<string, string> {
+  return {
+    'data-action-type': 'fetch',
+    'data-action-url': action.url,
+    'data-action-method': action.method ?? 'GET',
+    ...(action.headers && { 'data-action-headers': JSON.stringify(action.headers) }),
+    ...(action.body && { 'data-action-body': JSON.stringify(action.body) }),
+    ...(action.onSuccess && { 'data-on-success': JSON.stringify(action.onSuccess) }),
+    ...(action.onError && { 'data-on-error': JSON.stringify(action.onError) }),
+  }
+}
+
+function renderFetchButton(
+  props: ElementProps,
+  content: string | undefined,
+  children: readonly React.ReactNode[],
+  action: FetchAction
+): ReactElement {
+  const fetchAttrs = buildFetchDataAttributes(action)
+  const label = (props.label ?? props['data-label']) as string | undefined
+  const { label: _label, 'data-label': _dataLabel, ...restProps } = props as Record<string, unknown>
+  const buttonContent = content || (children.length > 0 ? children : undefined) || label
+  return (
+    <button
+      {...restProps}
+      {...fetchAttrs}
+    >
+      {buttonContent}
+    </button>
+  )
+}
+
 function renderAutomationButton(
   props: ElementProps,
   content: string | undefined,
@@ -160,6 +215,10 @@ export function renderButton({
 
   if (isAutomationAction(action)) {
     return renderAutomationButton(props, content, children, action)
+  }
+
+  if (isFetchAction(action)) {
+    return renderFetchButton(props, content, children, action)
   }
 
   const interactionsTyped = interactions as

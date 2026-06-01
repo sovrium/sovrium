@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
   db,
+  ForeignKeyViolationError,
   SessionContextError,
   UniqueConstraintViolationError,
   type DrizzleTransaction,
@@ -21,6 +22,7 @@ import {
 } from '../mutation-helpers/authorship-helpers'
 import {
   buildInsertClauses,
+  isForeignKeyViolation,
   isUniqueConstraintViolation,
   lookupArrayColumnTypes,
 } from '../mutation-helpers/create-record-helpers'
@@ -68,17 +70,63 @@ async function executeCreateRecordTx(
   return insertResult[0] ?? {}
 }
 
+function firstCapture(
+  pattern: Readonly<RegExp>,
+  sources: readonly (string | undefined)[]
+): string | undefined {
+  return sources
+    .filter((s): s is string => typeof s === 'string')
+    .map((s) => pattern.exec(s))
+    .find((m): m is RegExpExecArray => m !== null && m[1] !== undefined)?.[1]
+}
+
+function extractFkFieldName(error: unknown): string | undefined {
+  const err = error as
+    | {
+        readonly detail?: string
+        readonly constraint?: string
+        readonly message?: string
+        readonly cause?: {
+          readonly detail?: string
+          readonly constraint?: string
+          readonly message?: string
+        }
+      }
+    | null
+    | undefined
+  if (err === null || err === undefined) return undefined
+  const fromDetail = firstCapture(/Key \(([^)]+)\)=/, [
+    err.detail,
+    err.message,
+    err.cause?.detail,
+    err.cause?.message,
+  ])
+  if (fromDetail !== undefined) return fromDetail
+  return firstCapture(/_([a-z][a-z0-9_]*)_fk(?:ey)?$/i, [err.constraint, err.cause?.constraint])
+}
+
 export function createRecord(
   session: Readonly<Session>,
   tableName: string,
   fields: Readonly<Record<string, unknown>>
-): Effect.Effect<Record<string, unknown>, SessionContextError | UniqueConstraintViolationError> {
+): Effect.Effect<
+  Record<string, unknown>,
+  SessionContextError | UniqueConstraintViolationError | ForeignKeyViolationError
+> {
   return Effect.gen(function* () {
     const record = yield* Effect.tryPromise({
       try: () => db.transaction((tx) => executeCreateRecordTx(tx, session, tableName, fields)),
       catch: (error) => {
         if (error instanceof SessionContextError) return error
         if (error instanceof UniqueConstraintViolationError) return error
+        if (error instanceof ForeignKeyViolationError) return error
+        if (isForeignKeyViolation(error)) {
+          const fieldName = extractFkFieldName(error)
+          const message = fieldName
+            ? `referenced ${fieldName} does not exist`
+            : 'referenced record does not exist'
+          return new ForeignKeyViolationError(message, fieldName, error)
+        }
         if (isUniqueConstraintViolation(error)) {
           return new UniqueConstraintViolationError('Unique constraint violation', error)
         }

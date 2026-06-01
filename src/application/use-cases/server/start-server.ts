@@ -39,6 +39,10 @@ import type { App } from '@/domain/models/app'
 import type { Auth } from '@/infrastructure/auth/better-auth'
 import type { PackageResolutionError } from '@/infrastructure/automations/package-resolver'
 import type { TSValidationError } from '@/infrastructure/automations/typescript-validator'
+import type {
+  DatabaseConnectionError,
+  MigrationError,
+} from '@/infrastructure/database/drizzle/migrate'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
@@ -73,11 +77,10 @@ const userTableIsEmpty = (): Effect.Effect<boolean, never> =>
   }).pipe(Effect.catchAll(() => Effect.succeed(false)))
 
 const runBootstrapTokenFlow = (
-  app: Readonly<{ readonly auth?: unknown }>,
-  logger: Context.Tag.Service<typeof Logger>
-): Effect.Effect<void, BootstrapTokenBootError, never> =>
+  app: Readonly<{ readonly auth?: unknown }>
+): Effect.Effect<string | undefined, BootstrapTokenBootError, never> =>
   Effect.gen(function* () {
-    if (!app.auth) return
+    if (!app.auth) return undefined
 
     const empty = yield* userTableIsEmpty()
     const ctx: BootstrapTokenBootContext = {
@@ -90,32 +93,8 @@ const runBootstrapTokenFlow = (
       Effect.mapError((cause) => new BootstrapTokenBootError({ cause }))
     )
 
-    if (result.kind === 'generated') {
-      printBootstrapBanner(result.plaintext)
-      yield* logger.info(
-        'Bootstrap token generated (plaintext printed to stdout). It expires in 1 hour and can be claimed once.'
-      )
-    }
+    return result.kind === 'generated' ? result.plaintext : undefined
   })
-
-const printBootstrapBanner = (plaintext: string): void => {
-  console.log(
-    [
-      '',
-      '==============================================================',
-      '  SOVRIUM BOOTSTRAP TOKEN (one-time, expires in 1 hour)',
-      '',
-      `  ${plaintext}`,
-      '',
-      '  Use it once via:',
-      '    POST /api/admin/bootstrap/claim',
-      '    Authorization: Bearer <token>',
-      '    Body: { "email", "password", "name" }',
-      '==============================================================',
-      '',
-    ].join('\n')
-  )
-}
 
 const validateCodeActionsAtStartup = (
   validatedApp: unknown
@@ -143,27 +122,45 @@ const decodeAndValidateApp = (
     )
   })
 
+const formatBootstrapError = (
+  error: Readonly<{ readonly _tag?: string; readonly message: string; readonly cause?: unknown }>
+): string =>
+  '_tag' in error && error._tag === 'DatabaseError'
+    ? error.cause instanceof Error
+      ? error.cause.message
+      : String(error.cause)
+    : error.message
+
+const runBootSequenceAndBootstrap = (
+  validatedApp: App,
+  logger: Context.Tag.Service<typeof Logger>
+): Effect.Effect<
+  string | undefined,
+  MigrationError | DatabaseConnectionError,
+  AuthRepository | Auth
+> =>
+  Effect.gen(function* () {
+    yield* runMigrations(parseDatabaseDialectConfig())
+    yield* Effect.promise(() => seedConfigFileVersionIfChanged(validatedApp))
+    return yield* bootstrapAdminAndToken(validatedApp, logger)
+  })
+
 const bootstrapAdminAndToken = (
   validatedApp: App,
   logger: Context.Tag.Service<typeof Logger>
-): Effect.Effect<void, never, AuthRepository | Auth> =>
+): Effect.Effect<string | undefined, never, AuthRepository | Auth> =>
   Effect.gen(function* () {
     yield* bootstrapAdmin(validatedApp).pipe(
-      Effect.catchAll((error) => {
-        const detail =
-          '_tag' in error && error._tag === 'DatabaseError'
-            ? error.cause instanceof Error
-              ? error.cause.message
-              : String(error.cause)
-            : error.message
-        return logger.warn('Admin bootstrap error', detail)
-      })
+      Effect.catchAll((error) => logger.warn('Admin bootstrap error', formatBootstrapError(error)))
     )
-    yield* runBootstrapTokenFlow(validatedApp, logger).pipe(
+    return yield* runBootstrapTokenFlow(validatedApp).pipe(
       Effect.catchAll((error) => {
         const { cause } = error
         const message = cause instanceof Error ? cause.message : String(cause)
-        return logger.warn('Bootstrap token generation skipped', message)
+        return Effect.zipRight(
+          logger.warn('Bootstrap token generation skipped', message),
+          Effect.succeed(undefined)
+        )
       })
     )
   })
@@ -203,11 +200,7 @@ export const startServer = (
     const pageRenderer = yield* PageRenderer
     const logger = yield* Logger
 
-    yield* runMigrations(parseDatabaseDialectConfig())
-
-    yield* Effect.promise(() => seedConfigFileVersionIfChanged(validatedApp))
-
-    yield* bootstrapAdminAndToken(validatedApp, logger)
+    const bootstrapToken = yield* runBootSequenceAndBootstrap(validatedApp, logger)
 
     return yield* serverFactory.create({
       app: validatedApp,
@@ -220,5 +213,6 @@ export const startServer = (
       renderNotFoundPage: pageRenderer.renderNotFound,
       renderErrorPage: pageRenderer.renderError,
       renderRssFeed: pageRenderer.renderRssFeed,
+      bootstrapToken,
     })
   })

@@ -9,27 +9,20 @@ import {
   flexRender,
   type Cell,
   type ColumnDef,
-  type Header,
-  type HeaderGroup,
   type Row,
   type RowModel,
 } from '@tanstack/react-table'
+import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
+import { dispatch as dispatchIslandEvent } from '../_shared/event-bus'
 import { EditableCell } from './editable-cell'
 import { evaluateCellStyle } from './formatting'
 import { SaveStatusIndicator } from './save-status-indicator'
 import type { EditingCell, FieldMetaMap, SaveStatus } from '../hooks/use-inline-editing'
 import type { TableRecord } from '../shared/types'
-import type {
-  CellStyleCondition,
-  DataTableSummaryItem,
-  SummaryFunction,
-} from '@/domain/models/app/pages/components/data-table'
+import type { CellStyleCondition } from '@/domain/models/app/pages/components/data-table'
 import type { ReactElement } from 'react'
 
-interface TableHeaderProps {
-  readonly headerGroups: readonly HeaderGroup<TableRecord>[]
-  readonly cellClass: string
-}
+export { TableHeader } from './body-header'
 
 export interface InlineAutoSave {
   readonly enabled: boolean
@@ -40,7 +33,9 @@ export interface InlineAutoSave {
   readonly onTabNext: (rowId: string | number, currentField: string, newValue: unknown) => void
 }
 
-export type DataTableRowClickAction = { readonly type: 'navigate'; readonly path: string }
+export type DataTableRowClickAction =
+  | { readonly type: 'navigate'; readonly path: string }
+  | { readonly type: 'openDrawer'; readonly component: string }
 
 interface TableBodyRowsProps {
   readonly rows: readonly Row<TableRecord>[]
@@ -60,76 +55,8 @@ interface TableBodyRowsProps {
   readonly onCellDoubleClick?: (rowId: string | number, field: string, value: unknown) => void
   readonly onEditSave?: (newValue: unknown) => void
   readonly onEditCancel?: () => void
-}
-
-function HeaderCell({
-  header,
-  cellClass,
-}: {
-  readonly header: Header<TableRecord, unknown>
-  readonly cellClass: string
-}) {
-  const meta = header.column.columnDef.meta as { frozen?: boolean; field?: string } | undefined
-  return (
-    <th
-      key={header.id}
-      className={`${cellClass} text-foreground-muted text-left text-xs font-medium tracking-wider uppercase ${
-        header.column.getCanSort() ? 'cursor-pointer select-none' : ''
-      }`}
-      onClick={header.column.getToggleSortingHandler()}
-      aria-sort={
-        header.column.getIsSorted() === 'asc'
-          ? 'ascending'
-          : header.column.getIsSorted() === 'desc'
-            ? 'descending'
-            : 'none'
-      }
-      {...(meta?.frozen && { 'data-frozen': 'true' })}
-    >
-      <div className="flex items-center gap-1">
-        {header.isPlaceholder
-          ? undefined
-          : flexRender(header.column.columnDef.header, header.getContext())}
-        {}
-        {header.column.getIsSorted() === 'asc' && (
-          <span
-            aria-label="sorted ascending"
-            aria-hidden="true"
-            className="sort-asc"
-          >
-            ↑
-          </span>
-        )}
-        {header.column.getIsSorted() === 'desc' && (
-          <span
-            aria-label="sorted descending"
-            aria-hidden="true"
-            className="sort-desc"
-          >
-            ↓
-          </span>
-        )}
-      </div>
-    </th>
-  )
-}
-
-export function TableHeader({ headerGroups, cellClass }: TableHeaderProps): ReactElement {
-  return (
-    <thead className="bg-background-subtle">
-      {headerGroups.map((headerGroup) => (
-        <tr key={headerGroup.id}>
-          {headerGroup.headers.map((header) => (
-            <HeaderCell
-              key={header.id}
-              header={header}
-              cellClass={cellClass}
-            />
-          ))}
-        </tr>
-      ))}
-    </thead>
-  )
+  readonly collapsedGroups?: ReadonlyArray<string>
+  readonly onToggleGroupCollapsed?: (groupValue: string) => void
 }
 
 
@@ -223,9 +150,16 @@ function SkeletonRows({
   readonly cellClass: string
 }): ReactElement {
   return (
-    <tbody className="divide-border bg-background-raised divide-y">
+    <tbody
+      className="divide-border bg-background-raised divide-y"
+      aria-hidden="true"
+    >
       {Array.from({ length: 5 }).map((_, i) => (
-        <tr key={`skeleton-${String(i)}`}>
+        <tr
+          key={`skeleton-${String(i)}`}
+          data-skeleton-row="true"
+          className="pointer-events-none"
+        >
           {allColumns.map((_, j) => (
             <td
               key={`skeleton-cell-${String(j)}`}
@@ -240,6 +174,104 @@ function SkeletonRows({
   )
 }
 
+function GroupHeaderRow({
+  row,
+  allColumns,
+  cellClass,
+  borderClass,
+  isCollapsed,
+  onToggle,
+}: {
+  readonly row: Row<TableRecord>
+  readonly allColumns: readonly ColumnDef<TableRecord>[]
+  readonly cellClass: string
+  readonly borderClass: string
+  readonly isCollapsed: boolean
+  readonly onToggle?: (groupValue: string) => void
+}): ReactElement {
+  const groupValueRaw = row.groupingValue
+  const groupValue = String(groupValueRaw ?? '')
+  const handleToggle = onToggle ? () => onToggle(groupValue) : undefined
+  return (
+    <tr
+      key={row.id}
+      data-testid="group-header"
+      data-group-header="true"
+      data-group={groupValue}
+      data-group-value={groupValueRaw}
+      role="row"
+      aria-expanded={!isCollapsed}
+      className="group-header bg-background-subtle"
+    >
+      <td
+        colSpan={allColumns.length}
+        className={`${cellClass} ${borderClass} text-foreground cursor-pointer font-medium`}
+        {...(handleToggle && { onClick: handleToggle })}
+      >
+        <span
+          aria-hidden="true"
+          className="mr-2"
+        >
+          {isCollapsed ? '▶' : '▼'}
+        </span>
+        {groupValue} ({row.subRows.length})
+      </td>
+    </tr>
+  )
+}
+
+function GroupedDataRow({
+  row,
+  rowIndex,
+  cellClass,
+  borderClass,
+  striped,
+  selectionMode,
+}: {
+  readonly row: Row<TableRecord>
+  readonly rowIndex: number
+  readonly cellClass: string
+  readonly borderClass: string
+  readonly striped: boolean
+  readonly selectionMode?: 'none' | 'single' | 'multiple'
+}): ReactElement {
+  const handleRowClick = () => {
+    if (selectionMode !== 'single') return
+    row.toggleSelected(!row.getIsSelected())
+  }
+  return (
+    <tr
+      key={row.id}
+      className={`hover:bg-background-subtle transition-colors ${
+        striped && rowIndex % 2 === 1 ? 'bg-background-subtle' : ''
+      } ${row.getIsSelected() ? 'bg-primary-subtle' : ''}`}
+      {...(row.getIsSelected() && { 'aria-selected': 'true' as const })}
+      {...(selectionMode === 'single' && {
+        onClick: handleRowClick,
+        style: { cursor: 'pointer' },
+      })}
+    >
+      {row.getVisibleCells().map((cell) => {
+        const meta = cell.column.columnDef.meta as
+          | { field?: string; cellStyle?: readonly CellStyleCondition[] }
+          | undefined
+        const conditionalClass = meta?.cellStyle
+          ? evaluateCellStyle(cell.getValue(), meta.cellStyle)
+          : ''
+        return (
+          <td
+            key={cell.id}
+            className={`${cellClass} ${borderClass} whitespace-nowrap ${conditionalClass}`}
+            {...(meta?.field && { 'data-field': meta.field })}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
+
 function GroupedTableBodyRows({
   rowModel,
   allColumns,
@@ -247,6 +279,8 @@ function GroupedTableBodyRows({
   borderClass,
   striped,
   selectionMode,
+  collapsedGroups,
+  onToggleGroupCollapsed,
 }: {
   readonly rowModel: RowModel<TableRecord>
   readonly allColumns: readonly ColumnDef<TableRecord>[]
@@ -254,77 +288,65 @@ function GroupedTableBodyRows({
   readonly borderClass: string
   readonly striped: boolean
   readonly selectionMode?: 'none' | 'single' | 'multiple'
+  readonly collapsedGroups: ReadonlyArray<string>
+  readonly onToggleGroupCollapsed?: (groupValue: string) => void
 }): ReactElement {
-  const handleRowClick = (row: Row<TableRecord>) => {
-    if (selectionMode !== 'single') return
-    row.toggleSelected(!row.getIsSelected())
+  const collapsedSet = new Set(collapsedGroups)
+  type GroupBucket = {
+    readonly groupRow: Row<TableRecord>
+    readonly dataRows: ReadonlyArray<Row<TableRecord>>
   }
-
+  const groupBuckets: ReadonlyArray<GroupBucket> = rowModel.rows.reduce<ReadonlyArray<GroupBucket>>(
+    (acc, row) => {
+      if (row.getIsGrouped()) {
+        return [...acc, { groupRow: row, dataRows: [] }]
+      }
+      const parent = row.getParentRow()
+      if (parent?.getIsGrouped() !== true || acc.length === 0) return acc
+      const last = acc[acc.length - 1]
+      if (!last) return acc
+      const head = acc.slice(0, -1)
+      return [...head, { groupRow: last.groupRow, dataRows: [...last.dataRows, row] }]
+    },
+    []
+  )
   return (
-    <tbody className="divide-border bg-background-raised divide-y">
-      {}
-      {rowModel.rows.map((row, rowIndex) => {
-        if (row.getIsGrouped()) {
-          return (
-            <tr
-              key={row.id}
-              data-group-header="true"
-              data-group="true"
-              data-group-value={row.groupingValue}
-              role="row"
-              className="bg-background-subtle hover:bg-background-subtle"
-            >
-              <td
-                colSpan={allColumns.length}
-                className={`${cellClass} ${borderClass} text-foreground font-medium`}
-              >
-                {String(row.groupingValue)} ({row.subRows.length})
-              </td>
-            </tr>
-          )
-        }
-
+    <>
+      {groupBuckets.map(({ groupRow, dataRows }) => {
+        const groupValue = String(groupRow.groupingValue ?? '')
+        const collapsed = collapsedSet.has(groupValue)
         return (
-          <tr
-            key={row.id}
-            className={`hover:bg-background-subtle transition-colors ${
-              striped && rowIndex % 2 === 1 ? 'bg-background-subtle' : ''
-            } ${row.getIsSelected() ? 'bg-primary-subtle' : ''}`}
-            {...(row.getIsSelected() && { 'aria-selected': 'true' as const })}
-            {...(selectionMode === 'single' && {
-              onClick: () => handleRowClick(row),
-              style: { cursor: 'pointer' },
-            })}
+          <tbody
+            key={groupRow.id}
+            data-group={groupValue}
+            data-testid={`group-${groupValue}`}
+            className="divide-border bg-background-raised divide-y"
           >
-            {row.getVisibleCells().map((cell) => {
-              const meta = cell.column.columnDef.meta as
-                | { field?: string; cellStyle?: readonly CellStyleCondition[] }
-                | undefined
-              const conditionalClass = meta?.cellStyle
-                ? evaluateCellStyle(cell.getValue(), meta.cellStyle)
-                : ''
-              return (
-                <td
-                  key={cell.id}
-                  className={`${cellClass} ${borderClass} whitespace-nowrap ${conditionalClass}`}
-                  {...(meta?.field && { 'data-field': meta.field })}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              )
-            })}
-          </tr>
+            <GroupHeaderRow
+              row={groupRow}
+              allColumns={allColumns}
+              cellClass={cellClass}
+              borderClass={borderClass}
+              isCollapsed={collapsed}
+              {...(onToggleGroupCollapsed && { onToggle: onToggleGroupCollapsed })}
+            />
+            {!collapsed &&
+              dataRows.map((row, rowIndex) => (
+                <GroupedDataRow
+                  key={row.id}
+                  row={row}
+                  rowIndex={rowIndex}
+                  cellClass={cellClass}
+                  borderClass={borderClass}
+                  striped={striped}
+                  selectionMode={selectionMode}
+                />
+              ))}
+          </tbody>
         )
       })}
-    </tbody>
+    </>
   )
-}
-
-function resolveRowClickPath(path: string, row: TableRecord): string {
-  return path.replace(/\{([^}]+)\}/g, (_match, field: string) => {
-    const value = row[field]
-    return value === null || value === undefined ? '' : String(value)
-  })
 }
 
 export function TableBodyRows({
@@ -346,6 +368,8 @@ export function TableBodyRows({
   onCellDoubleClick,
   onEditSave,
   onEditCancel,
+  collapsedGroups,
+  onToggleGroupCollapsed,
 }: TableBodyRowsProps & { readonly rowModel?: RowModel<TableRecord> }): ReactElement {
   if (isLoading) {
     return (
@@ -380,14 +404,23 @@ export function TableBodyRows({
         borderClass={borderClass}
         striped={striped}
         selectionMode={selectionMode}
+        collapsedGroups={collapsedGroups ?? []}
+        {...(onToggleGroupCollapsed && { onToggleGroupCollapsed })}
       />
     )
   }
 
   const handleRowClick = (row: Row<TableRecord>) => {
     if (onRowClickAction && onRowClickAction.type === 'navigate') {
-      const resolved = resolveRowClickPath(onRowClickAction.path, row.original)
+      const resolved = substituteRecordVars(onRowClickAction.path, row.original)
       if (typeof window !== 'undefined') window.location.assign(resolved)
+      return
+    }
+    if (onRowClickAction && onRowClickAction.type === 'openDrawer') {
+      dispatchIslandEvent('sovrium:open-drawer', {
+        id: onRowClickAction.component,
+        record: row.original,
+      })
       return
     }
     if (selectionMode !== 'single') return
@@ -448,57 +481,4 @@ export function TableBodyRows({
 }
 
 
-function computeAggregate(
-  records: readonly TableRecord[],
-  field: string,
-  fn: SummaryFunction
-): number {
-  if (fn === 'count') return records.length
-
-  const values = records.map((r) => Number(r[field])).filter((v) => !Number.isNaN(v))
-
-  if (values.length === 0) return 0
-
-  switch (fn) {
-    case 'sum':
-      return values.reduce((a, b) => a + b, 0)
-    case 'avg':
-      return values.reduce((a, b) => a + b, 0) / values.length
-    case 'min':
-      return Math.min(...values)
-    case 'max':
-      return Math.max(...values)
-  }
-}
-
-export function TableSummaryFooter({
-  summary,
-  records,
-  cellClass,
-}: {
-  readonly summary: readonly DataTableSummaryItem[]
-  readonly records: readonly TableRecord[]
-  readonly cellClass: string
-}): ReactElement {
-  return (
-    <tfoot data-summary="true">
-      <tr
-        role="row"
-        className="bg-background-subtle font-medium"
-      >
-        {summary.map((item, i) => {
-          const value = computeAggregate(records, item.field, item.function)
-          return (
-            <td
-              key={`summary-${String(i)}`}
-              className={`${cellClass} text-foreground whitespace-nowrap`}
-            >
-              {item.label ? `${item.label}: ` : ''}
-              {value}
-            </td>
-          )
-        })}
-      </tr>
-    </tfoot>
-  )
-}
+export { TableSummaryFooter } from './body-summary'

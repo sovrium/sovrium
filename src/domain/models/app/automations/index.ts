@@ -99,6 +99,26 @@ export const AutomationSchema = Schema.Struct({
     )
   ),
 
+  concurrency: Schema.optional(
+    Schema.Struct({
+      limit: Schema.optional(
+        Schema.Number.pipe(
+          Schema.int(),
+          Schema.between(1, 50),
+          Schema.annotations({
+            description: 'Max simultaneous runs of this automation (1-50)',
+          })
+        )
+      ),
+    }).pipe(
+      Schema.annotations({
+        identifier: 'AutomationConcurrency',
+        description:
+          'Per-automation concurrency limits. Without this block, the global default applies.',
+      })
+    )
+  ),
+
   tags: Schema.optional(
     Schema.Array(Schema.String).pipe(
       Schema.annotations({ description: 'Tags for organizing automations' })

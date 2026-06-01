@@ -6,6 +6,7 @@
  */
 
 import { useCallback } from 'react'
+import { computeAiChatContainerClasses } from '../specialty-islands-default-classes'
 import { ChatInputRow } from './chat-input-row'
 import { MessagesView } from './messages-view'
 import { useChat } from './use-chat'
@@ -22,7 +23,7 @@ export default function AiChatIsland(props: AiChatIslandProps): ReactElement {
   const handleRetry = useCallback(() => retry(), [retry])
 
   return (
-    <div className="flex h-full flex-col">
+    <div className={computeAiChatContainerClasses()}>
       <MessagesView
         messages={messages}
         status={status}

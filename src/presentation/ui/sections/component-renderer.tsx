@@ -40,6 +40,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { VariantOverrides } from '@/domain/models/app/pages/components/responsive'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
+import type { SessionInfo } from '@/domain/types/session-info'
 import type { RouteParams } from '@/domain/utils/route-matcher'
 
 type ComponentRendererProps = {
@@ -55,6 +56,7 @@ type ComponentRendererProps = {
   readonly tables?: Tables
   readonly buckets?: Buckets
   readonly routeParams?: RouteParams
+  readonly session?: SessionInfo
 }
 
 function renderComponentReference(
@@ -81,6 +83,7 @@ function renderComponentReference(
       tables={props.tables}
       buckets={props.buckets}
       routeParams={props.routeParams}
+      session={props.session}
     />
   )
 }
@@ -107,6 +110,7 @@ function renderChildren(
         tables={props.tables}
         buckets={props.buckets}
         routeParams={props.routeParams}
+        session={props.session}
       />
     )
   ) as ReactElement[]
@@ -232,6 +236,7 @@ function buildResponsiveChildren(
           tables={props.tables}
           buckets={props.buckets}
           routeParams={props.routeParams}
+          session={props.session}
         />
       )
     },
@@ -333,6 +338,56 @@ function RenderDirectComponent({
 
   const dataTablePermissions = dataTableResolvedTable?.permissions
 
+  const dataTableViews = dataTableResolvedTable?.views
+    ? dataTableResolvedTable.views
+        .filter((v) => !('query' in v) || !v.query)
+        .map((v) => {
+          const flatFilters:
+            | ReadonlyArray<{
+                readonly field: string
+                readonly operator: string
+                readonly value: unknown
+              }>
+            | undefined = (() => {
+            const f = v.filters as unknown
+            if (!f || typeof f !== 'object') return undefined
+            const obj = f as Record<string, unknown>
+            if (typeof obj['field'] === 'string') {
+              return [
+                {
+                  field: obj['field'] as string,
+                  operator: String(obj['operator'] ?? 'equals'),
+                  value: obj['value'],
+                },
+              ]
+            }
+            if (Array.isArray(obj['and'])) {
+              return (obj['and'] as ReadonlyArray<Record<string, unknown>>)
+                .filter((c) => typeof c['field'] === 'string')
+                .map((c) => ({
+                  field: c['field'] as string,
+                  operator: String(c['operator'] ?? 'equals'),
+                  value: c['value'],
+                }))
+            }
+            return undefined
+          })()
+          const groupByCandidate =
+            'groupBy' in v && v.groupBy
+              ? typeof v.groupBy === 'string'
+                ? v.groupBy
+                : (v.groupBy as { readonly field?: string }).field
+              : undefined
+          return {
+            id: String(v.id),
+            name: v.name,
+            ...(flatFilters && flatFilters.length > 0 ? { filters: flatFilters } : {}),
+            ...('sorts' in v && v.sorts ? { sorts: v.sorts } : {}),
+            ...(groupByCandidate ? { groupBy: groupByCandidate } : {}),
+          }
+        })
+    : undefined
+
   const kanbanResolvedTable =
     type === 'kanban' && props.tables && substitutedComponent.dataSource
       ? props.tables.find(
@@ -377,6 +432,7 @@ function RenderDirectComponent({
           tableFields: dataTableTableFields,
           fieldMeta: dataTableFieldMeta,
           tablePermissions: dataTablePermissions,
+          tableViews: dataTableViews,
         }
       : type === 'kanban'
         ? {
@@ -517,6 +573,7 @@ function RenderDirectComponent({
     tables: props.tables,
     buckets: props.buckets,
     routeParams: props.routeParams,
+    session: props.session,
   })
 
   if (hoverData) {

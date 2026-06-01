@@ -8,6 +8,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { ReactElement } from 'react'
 
 type RawProps = Record<string, unknown> | undefined
 type ElemProps = Record<string, unknown>
@@ -78,7 +79,10 @@ function buildAccordionItems(rawChildren: unknown): ReadonlyArray<{
     .filter((item) => item.id !== '')
 }
 
-function buildTabsItems(rawChildren: unknown): ReadonlyArray<{
+function buildTabsItems(
+  rawChildren: unknown,
+  renderedChildren: readonly ReactElement[]
+): ReadonlyArray<{
   readonly id: string
   readonly label: string
   readonly content: string
@@ -86,21 +90,38 @@ function buildTabsItems(rawChildren: unknown): ReadonlyArray<{
 }> {
   const children = (Array.isArray(rawChildren) ? rawChildren : []) as ReadonlyArray<{
     readonly type?: string
-    readonly props?: { readonly id?: string; readonly disabled?: boolean }
+    readonly props?: { readonly id?: string; readonly label?: string; readonly disabled?: boolean }
     readonly content?: { readonly label?: string; readonly body?: string } | string
+    readonly children?: readonly unknown[]
   }>
   return children
-    .filter((child) => child?.type === 'tab-panel')
-    .map((child) => {
+    .map((child, index) => ({ child, index }))
+    .filter(({ child }) => child?.type === 'tab-panel')
+    .map(({ child, index }) => {
       const tabContent = typeof child.content === 'object' ? child.content : undefined
+      const label = tabContent?.label ?? child.props?.label ?? ''
+      const id =
+        child.props?.id ??
+        label
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+      const stringBody = tabContent?.body
+      const childRendered = renderedChildren[index]
+      const renderedBody =
+        stringBody !== undefined
+          ? stringBody
+          : childRendered
+            ? renderToStaticMarkup(childRendered)
+            : ''
       return {
-        id: child.props?.id ?? '',
-        label: tabContent?.label ?? '',
-        content: tabContent?.body ?? '',
+        id,
+        label,
+        content: renderedBody,
         disabled: child.props?.disabled,
       }
     })
-    .filter((item) => item.id !== '')
+    .filter((item) => item.id !== '' || item.label !== '' || item.content !== '')
 }
 
 export const islandFormComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
@@ -113,6 +134,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-island-props={JSON.stringify(selectProps)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
+        {}
         <select
           className="border-border bg-background-raised text-foreground w-full rounded-md border px-3 py-2 text-sm shadow-sm"
           disabled
@@ -149,10 +171,10 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
     )
   },
 
-  tabs: ({ component, elementProps }) => {
+  tabs: ({ component, elementProps, renderedChildren }) => {
     const c = asRecord(component)
     const islandProps = {
-      items: buildTabsItems(c['children']),
+      items: buildTabsItems(c['children'], renderedChildren),
       defaultTab: c['defaultTab'] as string | undefined,
       tabsOrientation:
         (c['tabsOrientation'] as 'horizontal' | 'vertical' | undefined) ?? 'horizontal',
@@ -301,11 +323,23 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
 
   'toggle-group': ({ rawProps, elementProps, component }) => {
     const c = asRecord(component)
+    const rawOptions = pickFromComponent(c, rawProps, 'options') ?? rawProps?.items
+    const items = Array.isArray(rawOptions)
+      ? rawOptions.map((option) => {
+          const o = option as Record<string, unknown>
+          return {
+            id: (o.value ?? o.id ?? '') as string,
+            label: (o.label ?? o.value ?? o.id ?? '') as string,
+            disabled: o.disabled as boolean | undefined,
+          }
+        })
+      : undefined
     const props = {
-      items: pickFromComponent(c, rawProps, 'options') ?? rawProps?.items,
+      items,
       toggleType: pickFromComponent(c, rawProps, 'toggleType'),
       orientation: pickFromComponent(c, rawProps, 'orientation'),
       size: pickFromComponent(c, rawProps, 'size'),
+      defaultValue: pickFromComponent(c, rawProps, 'defaultValue'),
       ...baseProps(elementProps),
     }
     return (

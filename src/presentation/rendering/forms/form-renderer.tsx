@@ -9,6 +9,7 @@
 
 import { type CSSProperties, type ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
+import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import { isGroupVisible } from '@/domain/models/shared/field-groups-flow'
 import { FormFieldElement, type PrefillValue } from './form-field-elements'
 import { resolveAllFields, resolveDocumentLang, resolveText } from './form-field-resolver'
@@ -88,7 +89,7 @@ function buildFormBodyShared({
     lockPrefill,
     formAttributes: buildFormAttributes(form, embed, lockPrefill),
     ...(form.fieldGroups ? { fieldGroups: form.fieldGroups } : {}),
-    ...(form.antiSpam?.honeypot === true ? { antiSpamHoneypot: true } : {}),
+    ...(effectiveAntiSpam(form).honeypot ? { antiSpamHoneypot: true } : {}),
   }
 }
 

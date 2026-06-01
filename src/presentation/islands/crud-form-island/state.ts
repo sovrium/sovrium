@@ -69,6 +69,7 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     setValues((prev) => buildResetValues(fields, prev, preserveFields ?? []))
   const ctx: SubmitContext = {
     operation,
+    tableName: table,
     fields,
     recordId,
     redirectUrl,

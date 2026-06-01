@@ -7,6 +7,15 @@
 
 import { type ReactElement, Fragment } from 'react'
 import { renderIcon } from '../../renderers/element-renderers/icon-renderer'
+import { computeButtonGroupClasses } from '../../renderers/element-renderers/interactive-content-default-classes'
+import {
+  computeBreadcrumbItemClasses,
+  computeBreadcrumbListClasses,
+  computeBreadcrumbSeparatorClasses,
+  computePaginationButtonClasses,
+  computePaginationEllipsisClasses,
+  computePaginationListClasses,
+} from '../../renderers/element-renderers/navigation-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -14,6 +23,42 @@ interface BreadcrumbItem {
   readonly label: string
   readonly href?: string
   readonly icon?: string
+}
+
+function renderBreadcrumbLabel(item: BreadcrumbItem): ReactElement | string {
+  if (!item.icon) return item.label
+  const iconEl = renderIcon({ name: item.icon, size: 16, 'aria-hidden': 'true' }, [])
+  return (
+    <span className="inline-flex items-center gap-1">
+      {iconEl}
+      <span>{item.label}</span>
+    </span>
+  )
+}
+
+function renderBreadcrumbEntry(item: BreadcrumbItem, isCurrent: boolean): ReactElement {
+  const labelContent = renderBreadcrumbLabel(item)
+  const crumbClasses = computeBreadcrumbItemClasses({
+    state: isCurrent ? 'current' : 'default',
+  })
+  if (isCurrent || !item.href) {
+    return (
+      <span
+        aria-current={isCurrent ? 'page' : undefined}
+        className={crumbClasses}
+      >
+        {labelContent}
+      </span>
+    )
+  }
+  return (
+    <a
+      href={item.href}
+      className={crumbClasses}
+    >
+      {labelContent}
+    </a>
+  )
 }
 
 function renderBreadcrumb({
@@ -31,7 +76,7 @@ function renderBreadcrumb({
   const { 'data-testid': dataTestId, ...rest } = elementPropsWithSpacing
   const className = rest.className as string | undefined
   const lastIndex = items.length - 1
-
+  const separatorClasses = computeBreadcrumbSeparatorClasses()
   return (
     <nav
       {...rest}
@@ -39,33 +84,16 @@ function renderBreadcrumb({
       className={className}
       data-testid={dataTestId as string | undefined}
     >
-      <ol className="flex flex-wrap items-center gap-2 text-sm">
+      <ol className={computeBreadcrumbListClasses()}>
         {items.map((item, index) => {
           const isCurrent = index === lastIndex
-          const iconEl = item.icon
-            ? renderIcon({ name: item.icon, size: 16, 'aria-hidden': 'true' }, [])
-            : undefined
-          const labelContent = iconEl ? (
-            <span className="inline-flex items-center gap-1">
-              {iconEl}
-              <span>{item.label}</span>
-            </span>
-          ) : (
-            item.label
-          )
           return (
             <Fragment key={`${index}-${item.label}`}>
-              <li>
-                {isCurrent || !item.href ? (
-                  <span aria-current={isCurrent ? 'page' : undefined}>{labelContent}</span>
-                ) : (
-                  <a href={item.href}>{labelContent}</a>
-                )}
-              </li>
+              <li>{renderBreadcrumbEntry(item, isCurrent)}</li>
               {!isCurrent && (
                 <li
                   aria-hidden="true"
-                  className="text-muted-fg"
+                  className={separatorClasses}
                 >
                   {separator}
                 </li>
@@ -94,9 +122,8 @@ function renderButtonGroup({
     ...rest
   } = elementProps as Record<string, unknown>
   const cn = className as string | undefined
-  const containerClass = cn
-    ? `inline-flex isolate -space-x-px ${cn}`
-    : 'inline-flex isolate -space-x-px'
+  const containerDefaults = `inline-flex isolate -space-x-px ${computeButtonGroupClasses()}`
+  const containerClass = cn ? `${containerDefaults} ${cn}` : containerDefaults
   return (
     <div
       {...rest}
@@ -146,7 +173,7 @@ function renderPaginationEntry(
         key={`ellipsis-${index}`}
         aria-hidden="true"
       >
-        <span>...</span>
+        <span className={computePaginationEllipsisClasses()}>...</span>
       </li>
     )
   }
@@ -156,6 +183,9 @@ function renderPaginationEntry(
       <button
         type="button"
         aria-current={isActive ? 'page' : undefined}
+        className={computePaginationButtonClasses({
+          state: isActive ? 'selected' : 'default',
+        })}
       >
         {entry}
       </button>
@@ -179,6 +209,8 @@ function renderPagination({
   const pages = paginationPages(totalPages, currentPage, siblingCount)
   const { 'data-testid': dataTestId, className, ...rest } = elementProps
 
+  const prevDisabled = currentPage <= 1
+  const nextDisabled = currentPage >= totalPages
   return (
     <nav
       {...rest}
@@ -186,12 +218,15 @@ function renderPagination({
       className={className as string | undefined}
       data-testid={dataTestId as string | undefined}
     >
-      <ul className="flex items-center gap-1">
+      <ul className={computePaginationListClasses()}>
         <li>
           <button
             type="button"
             aria-label="Previous"
-            disabled={currentPage <= 1}
+            disabled={prevDisabled}
+            className={computePaginationButtonClasses({
+              state: prevDisabled ? 'disabled' : 'default',
+            })}
           >
             Previous
           </button>
@@ -201,7 +236,10 @@ function renderPagination({
           <button
             type="button"
             aria-label="Next"
-            disabled={currentPage >= totalPages}
+            disabled={nextDisabled}
+            className={computePaginationButtonClasses({
+              state: nextDisabled ? 'disabled' : 'default',
+            })}
           >
             Next
           </button>

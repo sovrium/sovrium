@@ -270,6 +270,7 @@ export async function handleListRecords(c: Context, app: App) {
         filter: finalFilter,
         ...params,
         sort: effectiveSort,
+        origin: new URL(c.req.url).origin,
       })
     ),
     listRecordsResponseSchema
@@ -358,6 +359,7 @@ export async function handleGetRecord(c: Context, app: App) {
           recordId,
           includeDeleted,
           format: formatParam === 'display' ? 'display' : undefined,
+          origin: new URL(c.req.url).origin,
         })
       ),
       getRecordResponseSchema

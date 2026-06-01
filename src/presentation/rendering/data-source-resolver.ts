@@ -50,6 +50,8 @@ export interface DataSourceDb {
   ) => Promise<Record<string, unknown> | undefined>
 
   readonly fetchUserAssignments?: (userId: string, tableSlug: string) => Promise<readonly string[]>
+
+  readonly fetchUserAccessRoles?: (userId: string) => Promise<readonly string[]>
 }
 
 export function withDataSourceError(component: Component, errorMessage: string): Component {

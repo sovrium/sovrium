@@ -6,9 +6,21 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { text, timestamp, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { text, timestamp, customType, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { automationDefinitions } from './automation'
 import { systemSchema } from './migration-audit'
+
+const jsonbRaw = customType<{ data: unknown; driverData: unknown }>({
+  dataType() {
+    return 'jsonb'
+  },
+  toDriver(value) {
+    return value
+  },
+  fromDriver(value) {
+    return value
+  },
+})
 
 export const automationState = systemSchema.table(
   'automation_state',
@@ -20,7 +32,7 @@ export const automationState = systemSchema.table(
       .notNull()
       .references(() => automationDefinitions.id, { onDelete: 'cascade' }),
     key: text('key').notNull(),
-    value: jsonb('value'),
+    value: jsonbRaw('value'),
     ttl: timestamp('ttl', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })

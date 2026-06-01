@@ -7,6 +7,7 @@
 
 export * from '../../auth/better-auth/schema'
 export * from './schema/activity-log'
+export * from './schema/audit-log'
 export * from './schema/app-versioning'
 export * from './schema/ai'
 export * from './schema/analytics-events'
@@ -21,4 +22,5 @@ export * from './schema/record-comments'
 export * from './schema/search'
 export * from './schema/storage'
 export * from './schema/user-access'
+export * from './schema/user-views'
 export * from './schema/webhook'

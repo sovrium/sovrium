@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
+import { dispatch as dispatchIslandEvent } from '../_shared/event-bus'
 import { evaluateCondition, isFieldVisible } from '../components/crud-form/conditions'
 import { type FieldDef } from '../components/crud-form/fields'
 import { showSuccessToast } from '../components/crud-form/toast'
@@ -115,18 +117,11 @@ function resolveRecordFields(result: MutationResult): Record<string, unknown> {
   return nested ?? record
 }
 
-function resolveRedirectTemplate(url: string, record: Record<string, unknown>): string {
-  return url.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_match, field: string) => {
-    const value = record[field]
-    return value !== undefined && value !== null ? String(value) : ''
-  })
-}
-
 function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
   ctx.setState({ isPending: false, successPageShown: { values: { ...ctx.values } } })
   const redirect = ctx.successPage?.redirect
   if (redirect?.startsWith('/')) {
-    const resolved = resolveRedirectTemplate(redirect, resolveRecordFields(result))
+    const resolved = substituteRecordVars(redirect, resolveRecordFields(result))
     setTimeout(() => globalThis.location.assign(resolved), 800)
   }
 }
@@ -144,10 +139,25 @@ function handleDefaultSuccess(ctx: SubmitContext): void {
   }
 }
 
+function dispatchCrudSuccess(ctx: SubmitContext, result: MutationResult): void {
+  if (typeof ctx.tableName !== 'string') return
+  if (ctx.operation === 'automation') return
+  const recordId =
+    typeof result.record?.['id'] === 'string' || typeof result.record?.['id'] === 'number'
+      ? String(result.record['id'])
+      : ctx.recordId
+  dispatchIslandEvent('sovrium:crud-success', {
+    table: ctx.tableName,
+    operation: ctx.operation,
+    ...(recordId !== undefined && { recordId }),
+  })
+}
+
 function handleMutationSuccess(ctx: SubmitContext, result: MutationResult): void {
   if (ctx.successToast?.message) {
     showSuccessToast(ctx.successToast)
   }
+  dispatchCrudSuccess(ctx, result)
   if (ctx.successPage && ctx.operation !== 'delete') {
     handleSuccessPage(ctx, result)
     return

@@ -9,6 +9,8 @@ export interface SessionInfo {
   readonly userId: string
   readonly role: string
   readonly email?: string
+  readonly name?: string
   readonly isUnrestricted?: boolean
   readonly groups?: readonly string[]
+  readonly effectiveRoles?: readonly string[]
 }

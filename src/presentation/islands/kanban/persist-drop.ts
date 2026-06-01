@@ -20,7 +20,7 @@ export async function persistKanbanDrop(
   newGroupValue: string
 ): Promise<{ readonly ok: boolean }> {
   const action = ctx.drag.persistAction
-  if (!action || action.type !== 'crud' || action.operation !== 'update') {
+  if (!action || !('type' in action) || action.type !== 'crud' || action.operation !== 'update') {
     return { ok: true }
   }
 
@@ -47,8 +47,9 @@ export async function persistKanbanDrop(
 }
 
 export function showErrorToast(drag: KanbanDrag): void {
+  const action = drag.persistAction
   const errorToast =
-    drag.persistAction?.type === 'crud' ? drag.persistAction.onError?.toast : undefined
+    action && 'type' in action && action.type === 'crud' ? action.onError?.toast : undefined
   if (errorToast?.message) {
     showSuccessToast({ message: errorToast.message, variant: errorToast.variant })
   }

@@ -6,6 +6,13 @@
  */
 
 import * as Renderers from '../../renderers/element-renderers'
+import {
+  computeAudioPlayerClasses,
+  computeIframeClasses,
+  computeImageClasses,
+  computeVideoPlayerClasses,
+} from '../../renderers/element-renderers/interactive-content-default-classes'
+import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -17,15 +24,26 @@ export const mediaComponents: Partial<Record<Component['type'], ComponentRendere
     if (variant === 'avatar') return Renderers.renderAvatar(elementProps)
     if (variant === 'thumbnail') return Renderers.renderThumbnail(elementProps)
     if (variant === 'hero') return Renderers.renderHeroImage(elementProps)
-    return Renderers.renderImage(elementProps)
+    const authorClassName = elementProps['className'] as string | undefined
+    const mergedClassName = mergePrestyle(computeImageClasses(), authorClassName)
+    return Renderers.renderImage({ ...elementProps, className: mergedClassName })
   },
 
-  video: ({ elementProps, renderedChildren }) =>
-    Renderers.renderVideo(elementProps, renderedChildren),
+  video: ({ elementProps, renderedChildren }) => {
+    const authorClassName = elementProps['className'] as string | undefined
+    const mergedClassName = mergePrestyle(computeVideoPlayerClasses(), authorClassName)
+    return Renderers.renderVideo({ ...elementProps, className: mergedClassName }, renderedChildren)
+  },
 
-  audio: ({ elementProps, renderedChildren }) =>
-    Renderers.renderAudio(elementProps, renderedChildren),
+  audio: ({ elementProps, renderedChildren }) => {
+    const authorClassName = elementProps['className'] as string | undefined
+    const mergedClassName = mergePrestyle(computeAudioPlayerClasses(), authorClassName)
+    return Renderers.renderAudio({ ...elementProps, className: mergedClassName }, renderedChildren)
+  },
 
-  iframe: ({ elementProps, renderedChildren }) =>
-    Renderers.renderIframe(elementProps, renderedChildren),
+  iframe: ({ elementProps, renderedChildren }) => {
+    const authorClassName = elementProps['className'] as string | undefined
+    const mergedClassName = mergePrestyle(computeIframeClasses(), authorClassName)
+    return Renderers.renderIframe({ ...elementProps, className: mergedClassName }, renderedChildren)
+  },
 }

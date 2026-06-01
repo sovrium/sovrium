@@ -7,6 +7,17 @@
 
 
 import { type ReactElement } from 'react'
+import {
+  computeFileUploadDropzoneClasses,
+  computeFileUploadDropzoneHintClasses,
+  computeFileUploadDropzoneIconClasses,
+  computeFileUploadDropzoneTextClasses,
+} from './forms-default-classes'
+import {
+  computeTimePickerAmPmClasses,
+  computeTimePickerFieldClasses,
+  computeTimePickerWrapperClasses,
+} from './specialty-ssr-default-classes'
 import type { ElementProps } from './html-element-renderer'
 
 export interface RenderFileUploadIslandConfig {
@@ -38,13 +49,29 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
       data-island-props={JSON.stringify(islandProps)}
       data-dropzone={dropZone ? 'true' : undefined}
     >
-      <span
-        className="border-border bg-background text-foreground inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium shadow-sm"
-        aria-disabled={disabled ? 'true' : undefined}
-      >
-        <span aria-hidden="true">+</span>
-        <span>{skeletonLabel}</span>
-      </span>
+      {dropZone ? (
+        <div
+          className={computeFileUploadDropzoneClasses()}
+          aria-disabled={disabled ? 'true' : undefined}
+        >
+          <span
+            aria-hidden="true"
+            className={computeFileUploadDropzoneIconClasses()}
+          >
+            ⬆
+          </span>
+          <span className={computeFileUploadDropzoneTextClasses()}>{skeletonLabel}</span>
+          <span className={computeFileUploadDropzoneHintClasses()}>Drag or click to browse</span>
+        </div>
+      ) : (
+        <span
+          className="border-border bg-background text-foreground inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium shadow-sm"
+          aria-disabled={disabled ? 'true' : undefined}
+        >
+          <span aria-hidden="true">+</span>
+          <span>{skeletonLabel}</span>
+        </span>
+      )}
     </div>
   )
 }
@@ -61,14 +88,21 @@ export interface RenderTimePickerConfig {
 export function renderTimePicker(config: RenderTimePickerConfig): ReactElement {
   const { props, label, timeFormat, minTime, maxTime, stepSeconds } = config
   const id = props.id as string | undefined
-  const className = props.className as string | undefined
+  const authorClassName = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
   const ariaLabel = label ?? (props['aria-label'] as string | undefined)
   const showAmPm = timeFormat === '12h'
 
+  const wrapperPrestyle = computeTimePickerWrapperClasses()
+  const wrapperClassName = authorClassName
+    ? `${wrapperPrestyle} ${authorClassName}`
+    : wrapperPrestyle
+  const fieldClassName = computeTimePickerFieldClasses()
+  const ampmClassName = computeTimePickerAmPmClasses()
+
   return (
     <span
-      className={className}
+      className={wrapperClassName}
       data-testid={testId}
       data-component="time-picker"
     >
@@ -80,11 +114,13 @@ export function renderTimePicker(config: RenderTimePickerConfig): ReactElement {
         min={minTime}
         max={maxTime}
         step={stepSeconds}
+        className={fieldClassName}
       />
       {showAmPm && (
         <span
           aria-hidden="true"
           data-time-format="12h"
+          className={ampmClassName}
         >
           AM / PM
         </span>

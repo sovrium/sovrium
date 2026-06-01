@@ -12,6 +12,7 @@ import {
   replayAutomationRun,
   type ReplayAutomationRunError,
 } from '@/application/use-cases/automations/replay-automation-run'
+import { signalCancellation } from '@/application/use-cases/automations/run/scheduler'
 import { provideAutomationLive } from './effect-runner'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -84,6 +85,8 @@ export async function handleCancelRun(c: Context, _app: App) {
   if (id === undefined) {
     return c.json({ success: false, message: 'Run id required' }, 400)
   }
+
+  signalCancellation(id)
 
   const program = Effect.gen(function* () {
     const repo = yield* AutomationRunRepository

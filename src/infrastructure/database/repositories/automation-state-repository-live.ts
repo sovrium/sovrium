@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, eq, like, or, gt, isNull, sql } from 'drizzle-orm'
+import { and, eq, like, or, gt, isNull, sql, type SQL } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AutomationStateDatabaseError,
@@ -22,22 +22,26 @@ const automationState = resolveDialectSchema(automationStatePg, automationStateS
 
 const wrap = makeDbWrap((cause) => new AutomationStateDatabaseError({ cause }))
 
+const encodeJsonbValue = (value: unknown): unknown | SQL =>
+  isSqliteRuntime() ? value : sql`${JSON.stringify(value)}::text::jsonb`
+
 export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateRepository, {
   set: ({ automationId, key, value, ttlMs }) =>
     wrap(async () => {
       const ttlAt = ttlMs === undefined ? undefined : new Date(Date.now() + ttlMs)
+      const encodedValue = encodeJsonbValue(value)
       await db
         .insert(automationState)
         .values({
           automationId,
           key,
-          value,
+          value: encodedValue,
           ...(ttlAt !== undefined ? { ttl: ttlAt } : {}),
         })
         .onConflictDoUpdate({
           target: [automationState.automationId, automationState.key],
           set: {
-            value,
+            value: encodedValue,
             ttl: ttlAt,
             updatedAt: new Date(),
           },
@@ -93,7 +97,7 @@ export const AutomationStateRepositoryLive = Layer.succeed(AutomationStateReposi
         .values({
           automationId,
           key,
-          value: amount,
+          value: encodeJsonbValue(amount),
         })
         .onConflictDoUpdate({
           target: [automationState.automationId, automationState.key],

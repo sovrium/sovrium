@@ -188,9 +188,10 @@ function buildCreateRecordProgram(input: {
   readonly fields: Record<string, unknown>
   readonly app: App
   readonly userRole: string
+  readonly origin: string
 }) {
-  const { session, tableName, fields, app, userRole } = input
-  return createRecordProgram({ session, tableName, fields, app, userRole }).pipe(
+  const { session, tableName, fields, app, userRole, origin } = input
+  return createRecordProgram({ session, tableName, fields, app, userRole, origin }).pipe(
     Effect.tap((record) => publishInsertChange(app.name, tableName, record)),
     Effect.tap((record) =>
       triggerRecordEventAutomations({
@@ -252,6 +253,7 @@ export async function handleCreateRecord(c: Context, app: App) {
         fields: validationResult.right,
         app,
         userRole,
+        origin: new URL(c.req.url).origin,
       })
     ),
     createRecordResponseSchema,

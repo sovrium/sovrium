@@ -207,60 +207,6 @@ function renderListWithPagination(
 }
 
 export const specialComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
-  'static-table': ({ elementPropsWithSpacing, component }) => {
-    const tableComp = component as
-      | {
-          tableHeaders?: readonly string[]
-          tableRows?: ReadonlyArray<readonly string[]>
-        }
-      | undefined
-    const headers = tableComp?.tableHeaders ?? []
-    const rows = tableComp?.tableRows ?? []
-    const { 'data-testid': dataTestId, ...restProps } = elementPropsWithSpacing
-    return (
-      <table
-        {...restProps}
-        data-testid={dataTestId as string | undefined}
-      >
-        {headers.length > 0 && (
-          <thead>
-            <tr>
-              {headers.map((header, i) => (
-                <th key={i}>{header}</th>
-              ))}
-            </tr>
-          </thead>
-        )}
-        {rows.length > 0 && (
-          <tbody>
-            {rows.map((row, ri) => (
-              <tr key={ri}>
-                {row.map((cell, ci) => (
-                  <td key={ci}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        )}
-      </table>
-    )
-  },
-
-  'speech-bubble': ({ elementProps, content, renderedChildren }) => {
-    const base =
-      'bg-info-bg border border-info-border text-info-fg px-4 py-3 text-sm rounded-tl-md rounded-tr-md rounded-br-md rounded-bl-none'
-    const extra = elementProps.className as string | undefined
-    const className = extra ? `${base} ${extra}` : base
-    return (
-      <div
-        data-testid={elementProps['data-testid'] as string | undefined}
-        className={className}
-      >
-        {content || renderedChildren}
-      </div>
-    )
-  },
-
   hero: renderHeroSection,
 
   list: ({ elementProps, content, theme, renderedChildren }) => {

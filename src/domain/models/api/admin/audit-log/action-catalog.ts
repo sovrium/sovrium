@@ -7,6 +7,8 @@
 
 
 export const ACTION_CATALOG: Readonly<Record<string, string>> = {
+  'account.deletion.scheduled': 'user',
+  'account.deletion.purged': 'user',
   'config.version.queried': 'config',
   'table.overview.queried': 'table',
   'bucket.list.queried': 'bucket',
@@ -17,6 +19,9 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   'form.submission.detail.queried': 'form.submission',
   'form.submission.bulk.queried': 'form.submission',
   'form.submission.body.revealed': 'form.submission',
+  'form.analytics.queried': 'form',
+  'form.export.queried': 'form.submission',
+  'user.overview.queried': 'user',
   'automation.overview.queried': 'automation',
   'automation.runs.list.queried': 'automation.run',
   'automation.runs.detail.queried': 'automation.run',
@@ -27,6 +32,8 @@ export function resolveResourceType(action: string): string | undefined {
 }
 
 export const AUDIT_ACTIONS = {
+  ACCOUNT_DELETION_SCHEDULED: 'account.deletion.scheduled',
+  ACCOUNT_DELETION_PURGED: 'account.deletion.purged',
   CONFIG_VERSION_QUERIED: 'config.version.queried',
   TABLE_OVERVIEW_QUERIED: 'table.overview.queried',
   BUCKET_LIST_QUERIED: 'bucket.list.queried',
@@ -37,6 +44,9 @@ export const AUDIT_ACTIONS = {
   FORM_SUBMISSION_DETAIL_QUERIED: 'form.submission.detail.queried',
   FORM_SUBMISSION_BULK_QUERIED: 'form.submission.bulk.queried',
   FORM_SUBMISSION_BODY_REVEALED: 'form.submission.body.revealed',
+  FORM_ANALYTICS_QUERIED: 'form.analytics.queried',
+  FORM_EXPORT_QUERIED: 'form.export.queried',
+  USER_OVERVIEW_QUERIED: 'user.overview.queried',
   AUTOMATION_OVERVIEW_QUERIED: 'automation.overview.queried',
   AUTOMATION_RUNS_LIST_QUERIED: 'automation.runs.list.queried',
   AUTOMATION_RUNS_DETAIL_QUERIED: 'automation.runs.detail.queried',

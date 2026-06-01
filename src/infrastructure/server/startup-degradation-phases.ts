@@ -5,8 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { stat } from 'node:fs/promises'
+import { Effect } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth-repository'
 import { parseStorageEnvConfig, type StorageEnvConfig } from '@/domain/models/env/storage'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/logger'
@@ -59,6 +63,45 @@ export const collectAiListenerPhases = (app: Readonly<App>): readonly StartupPha
       type: 'warning' as const,
     },
   ]
+}
+
+export const collectPublicDirPhases = async (
+  publicDir: string | undefined
+): Promise<readonly StartupPhase[]> => {
+  if (!publicDir) return []
+  const exists = await stat(publicDir)
+    .then((s) => s.isDirectory())
+    .catch(() => false)
+  if (!exists) return []
+  return [
+    {
+      label: `Public directory: ${formatPathForDisplay(publicDir)}`,
+      type: 'success' as const,
+    },
+  ]
+}
+
+export const collectAdminPhases = (app: Readonly<App>): Promise<readonly StartupPhase[]> => {
+  if (!app.auth) return Promise.resolve([])
+  const program = Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    const admin = yield* repo.findFirstAdmin()
+    if (admin) {
+      return [{ label: `Admin: ${admin.email}`, type: 'success' as const }] as const
+    }
+    const userCount = yield* repo.countUsers()
+    if (userCount === 0) return [] as const
+    return [
+      {
+        label: "No admin user — provision one via 'sovrium admin create'",
+        type: 'warning' as const,
+      },
+    ] as const
+  }).pipe(
+    Effect.provide(AuthRepositoryLive),
+    Effect.catchAll(() => Effect.succeed([] as readonly StartupPhase[]))
+  )
+  return Effect.runPromise(program)
 }
 
 export const buildStartupPhases = (params: {

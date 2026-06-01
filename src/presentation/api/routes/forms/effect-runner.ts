@@ -7,6 +7,7 @@
 
 import { Effect, Layer } from 'effect'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/data-source-repository-live'
 import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/form-submission-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
@@ -17,7 +18,8 @@ const FormsRuntimeLayer = Layer.mergeAll(
   TableLive,
   DataSourceRepositoryLive,
   AutomationRuntimeLayer,
-  StorageServiceLive
+  StorageServiceLive,
+  AnalyticsRepositoryLive
 )
 
 export function provideFormsLive<A, E, R>(

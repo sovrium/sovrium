@@ -6,6 +6,7 @@
  */
 
 import { Tooltip } from '@base-ui/react/tooltip'
+import { computeTooltipPopupClasses } from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 interface TooltipIslandProps {
@@ -52,7 +53,7 @@ export default function TooltipIsland({
             side={floatingSide}
             sideOffset={6}
           >
-            <Tooltip.Popup className="bg-foreground text-background rounded-md px-3 py-1.5 text-xs shadow-md transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
+            <Tooltip.Popup className={computeTooltipPopupClasses()}>
               {tooltipContent}
               <Tooltip.Arrow className="text-foreground">
                 <svg

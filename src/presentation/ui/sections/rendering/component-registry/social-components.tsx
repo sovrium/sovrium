@@ -6,75 +6,109 @@
  */
 
 
+import { GUEST_COMMENT_FORM_RUNTIME } from './guest-comment-runtime'
+import {
+  buildCommentCountIslandProps,
+  buildCommentThreadIslandProps,
+  resolveCommentCountFields,
+  resolveCommentsFields,
+  resolveCountLabel,
+  resolveTableCommentsConfig,
+} from './social-components-helpers'
 import type { ComponentRenderer } from '../component-dispatch-config'
-import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
 
-function pickString(
-  c: Record<string, unknown>,
-  props: Record<string, unknown>,
-  key: string,
-  fallback: string
-): string
-function pickString(
-  c: Record<string, unknown>,
-  props: Record<string, unknown>,
-  key: string,
-  fallback: undefined
-): string | undefined
-function pickString(
-  c: Record<string, unknown>,
-  props: Record<string, unknown>,
-  key: string,
-  fallback: string | undefined
-): string | undefined {
-  if (typeof c[key] === 'string') return c[key] as string
-  if (typeof props[key] === 'string') return props[key] as string
-  return fallback
+const HONEYPOT_STYLE = {
+  position: 'absolute' as const,
+  left: '-9999px',
+  height: 0,
+  width: 0,
 }
 
-function pickNumber(
-  c: Record<string, unknown>,
-  props: Record<string, unknown>,
-  key: string,
-  fallback: number
-): number {
-  if (typeof c[key] === 'number') return c[key] as number
-  if (typeof props[key] === 'number') return props[key] as number
-  return fallback
+function GuestCommentHoneypot(): ReactElement {
+  return (
+    <input
+      type="text"
+      name="honeypot"
+      data-testid="honeypot-field"
+      tabIndex={-1}
+      autoComplete="off"
+      aria-hidden="true"
+      hidden
+      style={HONEYPOT_STYLE}
+    />
+  )
 }
 
-interface CommentsFields {
-  readonly id: string | undefined
-  readonly limit: number
-  readonly sort: string
-  readonly paginationStyle: string
-  readonly emptyText: string
-  readonly table: string | undefined
-  readonly recordId: string | undefined
+function GuestCommentFormSkeleton({
+  placeholder,
+  guestEmailRequired,
+  honeypotEnabled,
+}: {
+  readonly placeholder: string
+  readonly guestEmailRequired: boolean
+  readonly honeypotEnabled: boolean
+}): ReactElement {
+  return (
+    <form
+      data-comments-form="guest"
+      data-comments-guest-email-required={String(guestEmailRequired)}
+      className="comments-form mt-4 grid gap-3"
+      noValidate
+    >
+      <label className="grid gap-1 text-sm">
+        <span>Name</span>
+        <input
+          type="text"
+          name="guestName"
+          required
+          maxLength={100}
+          className="border-input bg-background rounded border px-2 py-1"
+        />
+      </label>
+      <label className="grid gap-1 text-sm">
+        <span>Email</span>
+        <input
+          type="email"
+          name="guestEmail"
+          required={guestEmailRequired}
+          className="border-input bg-background rounded border px-2 py-1"
+        />
+      </label>
+      <label className="grid gap-1 text-sm">
+        <span>Comment</span>
+        <textarea
+          name="content"
+          required
+          maxLength={10_000}
+          placeholder={placeholder}
+          className="border-input bg-background min-h-[100px] rounded border px-2 py-1"
+        />
+      </label>
+      {honeypotEnabled && <GuestCommentHoneypot />}
+      <button
+        type="submit"
+        className="bg-primary text-primary-foreground rounded px-3 py-1"
+      >
+        Submit comment
+      </button>
+    </form>
+  )
 }
 
-function resolveCommentsFields(
-  component: Component | undefined,
-  rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>
-): CommentsFields {
-  const c = (component ?? {}) as Record<string, unknown>
-  const props = (rawProps ?? {}) as Record<string, unknown>
-  return {
-    id: typeof elementProps.id === 'string' ? elementProps.id : undefined,
-    limit: pickNumber(c, props, 'limit', 20),
-    sort: pickString(c, props, 'sort', 'newest'),
-    paginationStyle: pickString(c, props, 'paginationStyle', 'loadMore'),
-    emptyText: pickString(c, props, 'emptyText', 'No comments yet'),
-    table: pickString(c, props, 'table', undefined),
-    recordId: pickString(c, props, 'recordId', undefined),
-  }
-}
-
-export const commentsComponent: ComponentRenderer = ({ component, rawProps, elementProps }) => {
-  const f = resolveCommentsFields(component, rawProps, elementProps)
-  const section: ReactElement = (
+function renderCommentsSection(input: {
+  readonly f: ReturnType<typeof resolveCommentsFields>
+  readonly cfg: ReturnType<typeof resolveTableCommentsConfig>
+  readonly elementProps: Record<string, unknown>
+  readonly islandProps: string | undefined
+  readonly sessionName: string | undefined
+  readonly sessionEmail: string | undefined
+}): ReactElement {
+  const { f, cfg, elementProps, islandProps, sessionName, sessionEmail } = input
+  const showGuestForm = cfg.guestComments && cfg.commentPermissionAllowsAll
+  const testId =
+    typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
+  return (
     <section
       id={f.id}
       data-component="comments"
@@ -84,9 +118,13 @@ export const commentsComponent: ComponentRenderer = ({ component, rawProps, elem
       data-comments-pagination-style={f.paginationStyle}
       data-comments-table={f.table}
       data-comments-record-id={f.recordId}
-      data-testid={
-        typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
-      }
+      data-comments-guest={String(cfg.guestComments)}
+      data-comments-threading={String(cfg.threading)}
+      data-comments-session-name={sessionName}
+      data-comments-session-email={sessionEmail}
+      data-island={islandProps ? 'comments' : undefined}
+      data-island-props={islandProps}
+      data-testid={testId}
       aria-label="Comments"
       className="comments my-6"
     >
@@ -96,56 +134,56 @@ export const commentsComponent: ComponentRenderer = ({ component, rawProps, elem
       >
         {f.emptyText}
       </p>
+      {showGuestForm && (
+        <>
+          <GuestCommentFormSkeleton
+            placeholder={f.placeholder}
+            guestEmailRequired={cfg.guestEmailRequired}
+            honeypotEnabled={showGuestForm}
+          />
+          <script
+            dangerouslySetInnerHTML={{ __html: GUEST_COMMENT_FORM_RUNTIME }}
+          />
+        </>
+      )}
     </section>
   )
-  return section
 }
 
-interface CommentCountFields {
-  readonly id: string | undefined
-  readonly format: string
-  readonly emptyText: string
-  readonly emptyTextWasCustomized: boolean
-  readonly table: string | undefined
-  readonly recordId: string | undefined
-}
-
-function resolveCommentCountFields(
-  component: Component | undefined,
-  rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>
-): CommentCountFields {
-  const c = (component ?? {}) as Record<string, unknown>
-  const props = (rawProps ?? {}) as Record<string, unknown>
-  const customEmpty = pickString(c, props, 'emptyText', undefined)
-  return {
-    id: typeof elementProps.id === 'string' ? elementProps.id : undefined,
-    format: pickString(c, props, 'format', '{count} comments'),
-    emptyText: customEmpty ?? '0 comments',
-    emptyTextWasCustomized: customEmpty !== undefined,
-    table: pickString(c, props, 'table', undefined),
-    recordId: pickString(c, props, 'recordId', undefined),
-  }
-}
-
-function resolveCountLabel(
-  count: number,
-  format: string,
-  emptyText: string,
-  emptyTextWasCustomized: boolean
-): string {
-  if (count === 0 && emptyTextWasCustomized) {
-    return emptyText
-  }
-  if (count === 0 && format === '{count} comments') {
-    return emptyText
-  }
-  return format.replace('{count}', String(count))
+export const commentsComponent: ComponentRenderer = ({
+  component,
+  rawProps,
+  elementProps,
+  tables,
+  session,
+}) => {
+  const f = resolveCommentsFields(component, rawProps, elementProps)
+  const cfg = resolveTableCommentsConfig(f.table, tables)
+  const islandProps =
+    f.table && f.recordId
+      ? JSON.stringify(
+          buildCommentThreadIslandProps({
+            fields: f,
+            elementProps,
+            session,
+            threading: cfg.threading,
+          })
+        )
+      : undefined
+  return renderCommentsSection({
+    f,
+    cfg,
+    elementProps,
+    islandProps,
+    sessionName: session?.name,
+    sessionEmail: session?.email,
+  })
 }
 
 export const commentCountComponent: ComponentRenderer = ({ component, rawProps, elementProps }) => {
   const f = resolveCommentCountFields(component, rawProps, elementProps)
   const label = resolveCountLabel(0, f.format, f.emptyText, f.emptyTextWasCustomized)
+  const islandProps = buildCommentCountIslandProps({ fields: f, elementProps })
   const span: ReactElement = (
     <span
       id={f.id}
@@ -154,6 +192,8 @@ export const commentCountComponent: ComponentRenderer = ({ component, rawProps, 
       data-comment-count-format={f.format}
       data-comment-count-table={f.table}
       data-comment-count-record-id={f.recordId}
+      data-island={islandProps ? 'comment-count' : undefined}
+      data-island-props={islandProps}
       data-testid={
         typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
       }

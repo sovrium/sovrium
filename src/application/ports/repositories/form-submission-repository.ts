@@ -45,7 +45,7 @@ export class FormSubmissionRepository extends Context.Tag('FormSubmissionReposit
       readonly data: Record<string, unknown>
       readonly linkedRecordTable?: string
       readonly linkedRecordId?: string
-      readonly ipAddress?: string
+      readonly submitterIpHash?: string
       readonly userAgent?: string
       readonly submitterUserId?: string
     }) => Effect.Effect<TopLevelFormSubmissionRow, FormSubmissionDatabaseError>
@@ -62,7 +62,7 @@ export class FormSubmissionRepository extends Context.Tag('FormSubmissionReposit
       readonly countStatuses: readonly string[]
       readonly linkedRecordTable?: string
       readonly linkedRecordId?: string
-      readonly ipAddress?: string
+      readonly submitterIpHash?: string
       readonly userAgent?: string
       readonly submitterUserId?: string
     }) => Effect.Effect<TopLevelFormSubmissionRow | undefined, FormSubmissionDatabaseError>

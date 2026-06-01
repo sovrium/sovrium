@@ -37,9 +37,11 @@ import type { Context, Hono } from 'hono'
 const triggerResultBody = (result: RunAutomationResult) => {
   const toPublicStatus = (
     s: RunAutomationResult['status']
-  ): 'completed' | 'completed-with-errors' | 'failed' => {
+  ): 'completed' | 'completed-with-errors' | 'failed' | 'skipped' | 'cancelled' => {
     if (s === 'success') return 'completed'
     if (s === 'completed-with-errors') return 'completed-with-errors'
+    if (s === 'skipped') return 'skipped'
+    if (s === 'cancelled') return 'cancelled'
     return 'failed'
   }
   return {
@@ -240,9 +242,12 @@ async function handleListRuns(c: Context, app: App) {
   return c.json({ runs }, 200)
 }
 
-const inMemoryStepStatusToApi = (status: 'success' | 'failure' | 'skipped'): string => {
+const inMemoryStepStatusToApi = (
+  status: 'success' | 'failure' | 'filtered' | 'skipped'
+): string => {
   if (status === 'success') return 'completed'
   if (status === 'skipped') return 'skipped'
+  if (status === 'filtered') return 'filtered'
   return 'failed'
 }
 
@@ -288,14 +293,10 @@ const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly Persi
   })),
 })
 
-const inMemoryRunStatusToApi = (
-  status: 'success' | 'failure' | 'timed-out' | 'exhausted' | 'completed-with-errors'
-): string => {
+const inMemoryRunStatusToApi = (status: AutomationRunRecord['status']): string => {
   if (status === 'success') return 'completed'
-  if (status === 'timed-out') return 'timed-out'
-  if (status === 'exhausted') return 'exhausted'
-  if (status === 'completed-with-errors') return 'completed-with-errors'
-  return 'failed'
+  if (status === 'failure') return 'failed'
+  return status
 }
 
 const buildInMemoryRunDetailBody = (app: App, inMemoryRun: AutomationRunRecord) => ({

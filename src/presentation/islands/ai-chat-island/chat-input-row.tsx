@@ -6,6 +6,11 @@
  */
 
 import { useCallback, useState } from 'react'
+import {
+  computeAiChatInputClasses,
+  computeAiChatInputRowClasses,
+  computeAiChatSendButtonClasses,
+} from '../specialty-islands-default-classes'
 import type { ReactElement } from 'react'
 
 
@@ -63,7 +68,7 @@ export function ChatInputRow({
     <form
       data-ai-chat-form
       onSubmit={handleSubmit}
-      className="border-border flex items-center gap-2 border-t p-3"
+      className={computeAiChatInputRowClasses()}
     >
       <label
         htmlFor="ai-chat-input"
@@ -82,14 +87,14 @@ export function ChatInputRow({
         onChange={handleChange}
         disabled={isSending}
         placeholder={placeholder}
-        className="border-border flex-1 rounded border px-3 py-2 text-sm"
+        className={computeAiChatInputClasses()}
       />
       <button
         type="submit"
         data-ai-chat-send
         data-testid="chat-send"
         disabled={!canSend}
-        className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+        className={computeAiChatSendButtonClasses()}
       >
         Send
       </button>

@@ -52,7 +52,28 @@ interface DataTableIslandProps {
   readonly groupBy?: DataTableGroupBy
   readonly summary?: readonly DataTableSummaryItem[]
   readonly autoSave?: AutoSaveConfig
-  readonly onRowClick?: { readonly type: string; readonly path?: string } | undefined
+  readonly tableViews?: ReadonlyArray<{
+    readonly id: string
+    readonly name: string
+    readonly filters?: ReadonlyArray<{
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }>
+    readonly sorts?: ReadonlyArray<{
+      readonly field: string
+      readonly direction: 'asc' | 'desc'
+    }>
+    readonly groupBy?: string | null
+  }>
+  readonly onRowClick?:
+    | {
+        readonly type?: string
+        readonly action?: string
+        readonly path?: string
+        readonly component?: string
+      }
+    | undefined
 }
 
 function ErrorBanner({ error }: { readonly error: unknown }) {
@@ -81,6 +102,7 @@ function toSetupParams(props: DataTableIslandProps) {
     groupByConfig: props.groupBy,
     bordered: props.bordered ?? false,
     autoSaveConfig: props.autoSave,
+    tableViews: props.tableViews,
   }
 }
 
@@ -101,8 +123,14 @@ function toPasteParams(
 function resolveRowClickAction(
   action: DataTableIslandProps['onRowClick']
 ): DataTableRowClickAction | undefined {
-  if (!action || action.type !== 'navigate' || typeof action.path !== 'string') return undefined
-  return { type: 'navigate', path: action.path }
+  if (!action) return undefined
+  if (action.type === 'navigate' && typeof action.path === 'string') {
+    return { type: 'navigate', path: action.path }
+  }
+  if (action.action === 'openDrawer' && typeof action.component === 'string') {
+    return { type: 'openDrawer', component: action.component }
+  }
+  return undefined
 }
 
 export default function DataTableIsland(props: DataTableIslandProps) {
@@ -124,13 +152,13 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         records={setup.records}
         allColumns={setup.allColumns}
         totalRecords={setup.totalRecords}
-        isLoading={setup.isLoading}
+        isLoading={setup.isLoading || setup.isPrefsLoading}
         searchConfig={props.search}
         selectionConfig={props.selection}
         toolbarConfig={props.toolbar}
         bulkActionsConfig={props.bulkActions}
         paginationConfig={props.pagination}
-        groupByConfig={props.groupBy}
+        groupByConfig={setup.effectiveGroupByConfig}
         summaryConfig={props.summary}
         tableFields={props.tableFields}
         fieldMeta={props.fieldMeta}
@@ -154,12 +182,23 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         onEditSave={setup.inlineEditing.saveEdit}
         onEditCancel={setup.inlineEditing.cancelEditing}
         onRefresh={setup.handleRefresh}
-        onToggleDensity={setup.toggleDensity}
+        currentDensity={setup.currentDensity}
+        onSelectDensity={setup.onSelectDensity}
+        onResetPreferences={setup.onResetPreferences}
+        {...(setup.activeViewName && { activeViewName: setup.activeViewName })}
         onBulkExecute={setup.onBulkExecute}
         conflict={setup.conflict}
         onDismissConflict={setup.dismissConflict}
         connectionStatus={setup.connectionStatus}
         ui={setup.ui}
+        viewsEnabled={setup.viewsEnabled}
+        viewEntries={setup.viewEntries}
+        canSaveCurrentView={setup.canSaveCurrentView}
+        isViewModified={setup.isViewModified}
+        onSelectView={setup.onSelectView}
+        onSaveNewView={setup.onSaveNewView}
+        onSaveModifiedView={setup.onSaveModifiedView}
+        onConfirmDeleteView={setup.onConfirmDeleteView}
       />
     </>
   )

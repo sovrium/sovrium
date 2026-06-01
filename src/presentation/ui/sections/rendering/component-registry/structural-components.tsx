@@ -6,6 +6,18 @@
  */
 
 import * as Renderers from '../../renderers/element-renderers'
+import {
+  computeListItemClasses,
+  computeTimelineContainerClasses,
+  computeTimelineRailClasses,
+} from '../../renderers/element-renderers/display-default-classes'
+import {
+  computeCardClasses,
+  computeDividerLabelTextClasses,
+  computeDividerLabelWrapperClasses,
+  computeDividerRuleClasses,
+} from '../../renderers/element-renderers/layout-default-classes'
+import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -49,23 +61,39 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
       interactions: interactions,
     }),
 
-  card: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) =>
-    Renderers.renderHTMLElement({
+  card: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) => {
+    const authorClassName = elementPropsWithSpacing['className'] as string | undefined
+    const mergedClassName = mergePrestyle(computeCardClasses(), authorClassName)
+    return Renderers.renderHTMLElement({
       type: 'div',
-      props: elementPropsWithSpacing,
+      props: { ...elementPropsWithSpacing, className: mergedClassName },
       content: content,
       children: renderedChildren,
       interactions: interactions,
-    }),
+    })
+  },
 
-  timeline: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) =>
-    Renderers.renderHTMLElement({
+  timeline: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) => {
+    const authorClassName = elementPropsWithSpacing['className'] as string | undefined
+    const mergedClassName = mergePrestyle(computeTimelineContainerClasses(), authorClassName)
+    const children = (
+      <>
+        <div
+          aria-hidden="true"
+          className={computeTimelineRailClasses()}
+        />
+        {content}
+        {renderedChildren}
+      </>
+    )
+    return Renderers.renderHTMLElement({
       type: 'div',
-      props: elementPropsWithSpacing,
-      content: content,
-      children: renderedChildren,
+      props: { ...elementPropsWithSpacing, className: mergedClassName },
+      content: undefined,
+      children: [children],
       interactions: interactions,
-    }),
+    })
+  },
 
   accordion: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) =>
     Renderers.renderHTMLElement({
@@ -112,38 +140,51 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
       interactions: interactions,
     }),
 
-  'list-item': ({ elementProps, content, renderedChildren }) =>
-    Renderers.renderListItem(elementProps, content, renderedChildren),
+  'list-item': ({ elementProps, content, renderedChildren }) => {
+    const interactive =
+      Boolean(elementProps['onClick']) ||
+      Boolean(elementProps['href']) ||
+      elementProps['interactive'] === true
+    const disabled = elementProps['disabled'] === true
+    const selected = elementProps['selected'] === true
+    const state = disabled ? 'disabled' : selected ? 'selected' : 'default'
+    const authorClassName = elementProps['className'] as string | undefined
+    const className = mergePrestyle(computeListItemClasses({ state, interactive }), authorClassName)
+    return Renderers.renderListItem({ ...elementProps, className }, content, renderedChildren)
+  },
 
   divider: ({ elementProps }) => {
     const style = elementProps['style'] as string | undefined
     const label = elementProps['label'] as string | undefined
     const borderStyle = style === 'dashed' || style === 'dotted' ? style : 'solid'
+    const authorClassName = elementProps['className'] as string | undefined
     if (label) {
+      const wrapperClassName = mergePrestyle(computeDividerLabelWrapperClasses(), authorClassName)
+      const ruleClassName = `flex-1 ${computeDividerRuleClasses()}`
       return (
         <div
           {...elementProps}
           role="separator"
           aria-label={label}
-          className={`text-muted flex items-center gap-2 text-xs ${
-            (elementProps['className'] as string | undefined) ?? ''
-          }`}
+          className={wrapperClassName}
         >
           <hr
-            className="flex-1"
+            className={ruleClassName}
             style={{ borderStyle }}
           />
-          <span>{label}</span>
+          <span className={computeDividerLabelTextClasses()}>{label}</span>
           <hr
-            className="flex-1"
+            className={ruleClassName}
             style={{ borderStyle }}
           />
         </div>
       )
     }
+    const ruleClassName = mergePrestyle(computeDividerRuleClasses(), authorClassName)
     return (
       <hr
         {...elementProps}
+        className={ruleClassName}
         style={{ borderStyle }}
       />
     )

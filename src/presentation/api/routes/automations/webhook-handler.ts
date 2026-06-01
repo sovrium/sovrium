@@ -202,9 +202,11 @@ interface BuildResponseInput {
 
 const toWebhookResponseStatus = (
   status: RunAutomationResult['status']
-): 'completed' | 'completed-with-errors' | 'failed' => {
+): 'completed' | 'completed-with-errors' | 'failed' | 'skipped' | 'cancelled' => {
   if (status === 'success') return 'completed'
   if (status === 'completed-with-errors') return 'completed-with-errors'
+  if (status === 'skipped') return 'skipped'
+  if (status === 'cancelled') return 'cancelled'
   return 'failed'
 }
 
@@ -250,26 +252,45 @@ interface DispatchInput {
   readonly userId?: string
 }
 
-const dispatchAsync = (c: Context, input: DispatchInput): Response => {
-  const runId = generateRunId()
+const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response> => {
+  let resolveRunId: ((id: string) => void) | undefined
+  const runIdPromise = new Promise<string>((resolve) => {
+    resolveRunId = resolve
+  })
+
   const program = runWebhookAutomation({
     name: input.name,
     app: input.app,
     processEnv: process.env,
     triggerData: input.triggerData,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
+    onPersisted: (id) => {
+      if (resolveRunId !== undefined) {
+        resolveRunId(id)
+        resolveRunId = undefined
+      }
+    },
   })
   Effect.runPromise(Effect.either(provideAutomationLive(program))).then(
     (res) => {
       if (res._tag === 'Left') {
         console.error('[automation] async webhook run failed', res.left)
       }
+      if (resolveRunId !== undefined) {
+        resolveRunId(generateRunId())
+        resolveRunId = undefined
+      }
     },
     (err) => {
       console.error('[automation] async webhook run rejected', err)
+      if (resolveRunId !== undefined) {
+        resolveRunId(generateRunId())
+        resolveRunId = undefined
+      }
     }
   )
-  return c.json({ id: runId }, 202)
+  const runId = await runIdPromise
+  return c.json({ id: runId, runId }, 202)
 }
 
 const dispatchSync = async (

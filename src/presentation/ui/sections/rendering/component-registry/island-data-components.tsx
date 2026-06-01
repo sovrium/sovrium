@@ -5,9 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeDataTableHeaderClasses,
+  computeDataTableShellClasses,
+  computeKanbanColumnClasses,
+} from '../../renderers/element-renderers/data-default-classes'
 import { renderComponentSearchBar } from './component-search-bar'
 import { islandCalendarComponent } from './island-calendar-component'
 import { islandChartComponent } from './island-chart-component'
+import { islandDropdownComponent } from './island-dropdown-component'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -29,6 +35,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     tableFields: elementProps.tableFields,
     fieldMeta: elementProps.fieldMeta,
     tablePermissions: elementProps.tablePermissions,
+    tableViews: elementProps.tableViews,
     groupBy: elementProps.groupBy,
     summary: elementProps.summary,
     onRowClick: elementProps.onRowClick,
@@ -83,67 +90,8 @@ function extractTimelineProps(elementProps: Record<string, unknown>): Record<str
   }
 }
 
-function extractDropdownProps(elementProps: Record<string, unknown>): {
-  id?: string
-  label?: string
-  dataSource: unknown
-  valueField: unknown
-  displayField: unknown
-  initialValue?: string
-  onSelect?: unknown
-} {
-  return {
-    id: elementProps.id as string | undefined,
-    label: elementProps.label as string | undefined,
-    dataSource: elementProps.dataSource,
-    valueField: elementProps.valueField,
-    displayField: elementProps.displayField,
-    initialValue: elementProps.initialValue as string | undefined,
-    onSelect: elementProps.onSelect,
-  }
-}
-
 export const islandDataComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
-  dropdown: ({ elementProps, rawProps }) => {
-    const dropdownProps = extractDropdownProps({
-      ...elementProps,
-      ...(rawProps ?? {}),
-    })
-    const containerId = dropdownProps.id ?? (rawProps?.id as string | undefined)
-    const label = dropdownProps.label ?? (rawProps?.label as string | undefined)
-    const propsJson = JSON.stringify(dropdownProps)
-
-    return (
-      <div
-        id={containerId}
-        data-island="dropdown"
-        data-island-props={propsJson}
-        data-testid={elementProps['data-testid'] as string | undefined}
-        data-component-type="dropdown"
-      >
-        {label && (
-          <label
-            htmlFor={containerId ? `${containerId}-select` : undefined}
-            className="text-foreground mb-1 block text-sm font-medium"
-          >
-            {label}
-          </label>
-        )}
-        <select
-          id={containerId ? `${containerId}-select` : undefined}
-          className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:ring-1 focus:outline-none"
-          defaultValue=""
-        >
-          <option
-            value=""
-            disabled
-          >
-            Loading...
-          </option>
-        </select>
-      </div>
-    )
-  },
+  dropdown: islandDropdownComponent,
   calendar: islandCalendarComponent,
   gallery: ({ elementProps }) => {
     const islandProps = extractGalleryProps(elementProps)
@@ -252,7 +200,7 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={`kanban-skeleton-col-${String(i)}`}
-              className="border-border bg-background-subtle flex w-72 shrink-0 flex-col gap-2 rounded-lg border p-3"
+              className={`${computeKanbanColumnClasses()} w-72 shrink-0`}
             >
               <div className="bg-background-subtle h-5 w-24 animate-pulse rounded" />
               <div className="bg-background-raised h-20 animate-pulse rounded" />
@@ -275,7 +223,7 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
         data-component-type="data-table"
         id={elementProps.id as string | undefined}
         data-testid={elementProps['data-testid'] as string | undefined}
-        className="border-border bg-background-raised w-full overflow-hidden rounded-lg border"
+        className={`${computeDataTableShellClasses()} w-full`}
       >
         {}
         <div
@@ -287,7 +235,7 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
             <div className="bg-background-subtle h-9 w-64 animate-pulse rounded" />
           </div>
           {}
-          <div className="border-border bg-background-subtle flex gap-4 border-b px-4 py-3">
+          <div className={`${computeDataTableHeaderClasses()} flex gap-4`}>
             <div className="bg-background-subtle h-4 w-24 animate-pulse rounded" />
             <div className="bg-background-subtle h-4 w-32 animate-pulse rounded" />
             <div className="bg-background-subtle h-4 w-20 animate-pulse rounded" />

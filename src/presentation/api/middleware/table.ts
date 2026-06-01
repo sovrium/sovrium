@@ -80,6 +80,11 @@ export function enrichUserRole(
       )
     }
 
+    if (session.userId === 'guest') {
+      await next()
+      return
+    }
+
     const [userRole, userGroups] = await Promise.all([
       resolveRole(session.userId),
       resolveGroups(session.userId),

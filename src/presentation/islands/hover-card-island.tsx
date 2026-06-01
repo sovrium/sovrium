@@ -6,6 +6,7 @@
  */
 
 import { PreviewCard } from '@base-ui/react/preview-card'
+import { computeHoverCardPopupClasses } from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 interface HoverCardIslandProps {
@@ -87,7 +88,7 @@ export default function HoverCardIsland({
           align={floatingAlign}
           sideOffset={8}
         >
-          <PreviewCard.Popup className="border-border bg-background-overlay text-foreground w-72 rounded-lg border p-4 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <PreviewCard.Popup className={computeHoverCardPopupClasses()}>
             <HoverCardPopupContents childrenHtml={childrenHtml} />
           </PreviewCard.Popup>
         </PreviewCard.Positioner>

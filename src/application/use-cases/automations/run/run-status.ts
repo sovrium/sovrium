@@ -7,19 +7,42 @@
 
 
 export const toApiStatus = (
-  engineStatus: 'success' | 'failure' | 'timed-out' | 'exhausted' | 'completed-with-errors'
-): 'completed' | 'failed' | 'timed-out' | 'exhausted' | 'completed-with-errors' => {
+  engineStatus:
+    | 'success'
+    | 'failure'
+    | 'timed-out'
+    | 'exhausted'
+    | 'completed-with-errors'
+    | 'skipped'
+    | 'cancelled'
+    | 'queued'
+    | 'running'
+):
+  | 'completed'
+  | 'failed'
+  | 'timed-out'
+  | 'exhausted'
+  | 'completed-with-errors'
+  | 'skipped'
+  | 'cancelled'
+  | 'queued'
+  | 'running' => {
   if (engineStatus === 'success') return 'completed'
   if (engineStatus === 'timed-out') return 'timed-out'
   if (engineStatus === 'exhausted') return 'exhausted'
   if (engineStatus === 'completed-with-errors') return 'completed-with-errors'
+  if (engineStatus === 'skipped') return 'skipped'
+  if (engineStatus === 'cancelled') return 'cancelled'
+  if (engineStatus === 'queued') return 'queued'
+  if (engineStatus === 'running') return 'running'
   return 'failed'
 }
 
 export const toApiStepStatus = (
-  engineStatus: 'success' | 'failure' | 'skipped'
-): 'completed' | 'failed' | 'skipped' => {
+  engineStatus: 'success' | 'failure' | 'filtered' | 'skipped'
+): 'completed' | 'failed' | 'filtered' | 'skipped' => {
   if (engineStatus === 'success') return 'completed'
   if (engineStatus === 'skipped') return 'skipped'
+  if (engineStatus === 'filtered') return 'filtered'
   return 'failed'
 }

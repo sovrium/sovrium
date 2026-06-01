@@ -8,6 +8,12 @@
 import { Combobox } from '@base-ui/react/combobox'
 import { useMemo, type KeyboardEventHandler, type ReactElement } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeComboboxInputClasses,
+  computeComboboxInputGroupClasses,
+  computeSelectIconClasses,
+  computeSelectLabelClasses,
+} from './select-default-classes'
 import { ChevronDown } from './select-icons'
 import { ComboboxPopupContent } from './select-option-renderers'
 import { useComboboxCustomValue } from './use-combobox-custom-value'
@@ -29,17 +35,17 @@ function ComboboxInputGroup({
   onInputKeyDown,
 }: ComboboxInputGroupProps): ReactElement {
   return (
-    <Combobox.InputGroup className="border-border bg-background-raised focus-within:border-primary focus-within:ring-focus-ring flex w-full items-center rounded-md border shadow-sm transition-colors focus-within:ring-1 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
+    <Combobox.InputGroup className={computeComboboxInputGroupClasses()}>
       <Combobox.Input
         placeholder={inputPlaceholder}
         aria-label={label}
         data-allow-custom-value={allowCustomValue ? 'true' : undefined}
         onKeyDown={onInputKeyDown}
-        className="text-foreground flex-1 bg-transparent px-3 py-2 text-sm outline-none"
+        className={computeComboboxInputClasses()}
       />
       <Combobox.Trigger
         aria-label={triggerLabel}
-        className="text-foreground-subtle px-2"
+        className={computeSelectIconClasses()}
       >
         <ChevronDown />
       </Combobox.Trigger>
@@ -80,11 +86,7 @@ export function SearchableSelect({
         inputValue={controlledInputValue}
         onInputValueChange={controlledOnInputValueChange}
       >
-        {label && (
-          <Combobox.Label className="text-foreground mb-1 block text-sm font-medium">
-            {label}
-          </Combobox.Label>
-        )}
+        {label && <Combobox.Label className={computeSelectLabelClasses()}>{label}</Combobox.Label>}
         <ComboboxInputGroup
           inputPlaceholder={inputPlaceholder}
           label={label}

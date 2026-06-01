@@ -59,7 +59,12 @@ const buildStep = (
     connectionsForRedaction(ctx.app)
   ) as Record<string, unknown>
 
-  const stepStatus: 'success' | 'failure' = outcome.status === 'failure' ? 'failure' : 'success'
+  const stepStatus: 'success' | 'failure' | 'filtered' =
+    outcome.status === 'failure'
+      ? 'failure'
+      : outcome.status === 'filtered'
+        ? 'filtered'
+        : 'success'
   return {
     name: String(rawAction['name'] ?? ''),
     type: String(rawAction['type'] ?? ''),
@@ -291,7 +296,12 @@ const foldOutcome = (input: {
 }): RunAccumulator => {
   const { acc, rawAction, resolvedProps, outcome, ctx } = input
   if (outcome.status === 'filtered') {
-    return { ...acc, halted: true }
+    return {
+      ...acc,
+      steps: [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)],
+      runStatus: 'skipped',
+      halted: true,
+    }
   }
   return appendStepToAccumulator({
     acc,

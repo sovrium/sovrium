@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeDateCaptionClasses,
+  computeDateNavButtonClasses,
+  computeDatePopupClasses,
+} from './date-default-classes'
 import { MONTH_NAMES, type DateRange } from './date-format-helpers'
 import { DateGrid } from './date-grid'
 import type { ReactElement } from 'react'
@@ -38,25 +43,25 @@ export function DatePickerPopup({
     <div
       role="dialog"
       aria-label={label ?? 'Choose date'}
-      className="border-border bg-background-overlay absolute top-full left-0 z-50 mt-1 rounded-md border p-3 shadow-lg"
+      className={computeDatePopupClasses()}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <button
           type="button"
           aria-label="previous month"
           onClick={onPrevMonth}
-          className="border-border rounded border px-2 py-1 text-xs"
+          className={computeDateNavButtonClasses({ direction: 'previous' })}
         >
           ‹
         </button>
-        <span className="text-sm font-medium">
+        <span className={computeDateCaptionClasses()}>
           {MONTH_NAMES[viewMonth.getMonth()]} {viewMonth.getFullYear()}
         </span>
         <button
           type="button"
           aria-label="next month"
           onClick={onNextMonth}
-          className="border-border rounded border px-2 py-1 text-xs"
+          className={computeDateNavButtonClasses({ direction: 'next' })}
         >
           ›
         </button>

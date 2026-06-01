@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/table-repository'
 import { SessionContextError } from '@/domain/errors'
@@ -13,6 +14,10 @@ import {
   reshapeShortcutAggregations,
   type AggregateConfig,
 } from './utils/aggregation-helpers'
+import {
+  enrichRecordsWithAttachmentUrls,
+  enrichRecordWithAttachmentUrls,
+} from './utils/attachment-url-enricher'
 import { formatFieldForDisplay } from './utils/display-formatter'
 import { filterReadableFields } from './utils/field-read-filter'
 import { processRecords, applyPagination } from './utils/list-helpers'
@@ -66,6 +71,7 @@ interface ListRecordsConfig {
   readonly offset?: number
   readonly aggregate?: AggregateConfig
   readonly groupBy?: string
+  readonly origin?: string
 }
 
 function toGroupName(record: Readonly<Record<string, unknown>>, groupBy: string): string {
@@ -145,8 +151,13 @@ export function createListRecordsProgram(
       timezone,
       fields,
     })
+    const enrichedProcessed = enrichRecordsWithAttachmentUrls(processedRecords, {
+      app,
+      tableName,
+      origin: config.origin ?? '',
+    })
     const { paginatedRecords, pagination } = applyPagination(
-      processedRecords,
+      enrichedProcessed,
       records.length,
       limit,
       offset
@@ -254,6 +265,7 @@ interface GetRecordConfig {
   readonly userRole: string
   readonly includeDeleted?: boolean
   readonly format?: 'display'
+  readonly origin?: string
 }
 
 export function createGetRecordProgram(
@@ -267,7 +279,16 @@ export function createGetRecordProgram(
     if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
 
     const filteredRecord = filterReadableFields({ app, tableName, userRole, record })
-    const transformed = transformRecord(filteredRecord, { app, tableName, format: config.format })
+    const transformedRaw = transformRecord(filteredRecord, {
+      app,
+      tableName,
+      format: config.format,
+    })
+    const transformed = enrichRecordWithAttachmentUrls(transformedRaw, {
+      app,
+      tableName,
+      origin: config.origin ?? '',
+    })
 
     const fields =
       config.format === 'display'
@@ -303,16 +324,20 @@ interface CreateRecordConfig {
   readonly fields: Readonly<Record<string, unknown>>
   readonly app?: App
   readonly userRole?: string
+  readonly origin?: string
 }
 
 export function createRecordProgram(config: CreateRecordConfig) {
-  const { session, tableName, fields, app, userRole } = config
+  const { session, tableName, fields, app, userRole, origin } = config
   return Effect.gen(function* () {
     const repo = yield* TableRepository
 
     const record = yield* repo.createRecord(session, tableName, fields)
 
-    const transformed = transformRecord(record)
+    const enrich = (rec: TransformedRecord): TransformedRecord =>
+      enrichRecordWithAttachmentUrls(rec, { app, tableName, origin: origin ?? '' })
+
+    const transformed = enrich(transformRecord(record, app ? { app, tableName } : undefined))
 
     const filteredFields =
       app && userRole
@@ -324,7 +349,7 @@ export function createRecordProgram(config: CreateRecordConfig) {
               record,
             })
 
-            const transformedFiltered = transformRecord(filteredRecord)
+            const transformedFiltered = enrich(transformRecord(filteredRecord, { app, tableName }))
             return transformedFiltered.fields
           })()
         : transformed.fields

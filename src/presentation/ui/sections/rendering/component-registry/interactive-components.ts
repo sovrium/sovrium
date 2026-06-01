@@ -6,27 +6,78 @@
  */
 
 import * as Renderers from '../../renderers/element-renderers'
-import { renderStatusBadge } from '../../renderers/element-renderers/html-element-renderer'
+import {
+  computeButtonDefaultClasses,
+  type ButtonSize,
+  type ButtonState,
+  type ButtonVariant,
+} from '../../renderers/element-renderers/button-default-classes'
+import {
+  computeAlertClasses,
+  computeBadgeClasses,
+  computeStatusBadgeDotClasses,
+  computeStatusBadgeWrapperClasses,
+  type AlertVariant,
+  type BadgeVariant,
+  type StatusDotColor,
+} from '../../renderers/element-renderers/feedback-default-classes'
+import {
+  computeInputDefaultClasses,
+  type InputState,
+} from '../../renderers/element-renderers/input-default-classes'
 import { convertBadgeProps } from '../component-registry-helpers'
+import { buildIconClassName, buildLinkClassName, variantFromButtonClassName } from './interactive-prestyle-builders'
 import { pickCompField } from './island-overlay-props-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
-function resolveStatusDotColorClass(value: unknown): string {
-  switch (value) {
-    case 'green':
-      return 'bg-success-solid'
-    case 'red':
-      return 'bg-error-solid'
-    case 'amber':
-    case 'yellow':
-      return 'bg-warning-solid'
-    case 'blue':
-      return 'bg-info-solid'
-    case 'gray':
-    default:
-      return 'bg-neutral-600'
-  }
+const STATUS_DOT_COLORS = new Set<StatusDotColor>([
+  'green',
+  'red',
+  'amber',
+  'yellow',
+  'blue',
+  'gray',
+])
+
+function resolveStatusDotColor(value: unknown): StatusDotColor {
+  return typeof value === 'string' && STATUS_DOT_COLORS.has(value as StatusDotColor)
+    ? (value as StatusDotColor)
+    : 'gray'
+}
+
+const BADGE_VARIANTS = new Set<BadgeVariant>(['default', 'secondary', 'destructive', 'outline'])
+
+function buildBadgeClassName(
+  componentRaw: Record<string, unknown>,
+  authorClassName: string | undefined
+): string {
+  const rawVariant = componentRaw['badgeVariant']
+  const variant = BADGE_VARIANTS.has(rawVariant as BadgeVariant)
+    ? (rawVariant as BadgeVariant)
+    : undefined
+  const defaults = computeBadgeClasses({ variant })
+  return authorClassName ? `${defaults} ${authorClassName}` : defaults
+}
+
+const ALERT_VARIANTS = new Set<AlertVariant>([
+  'default',
+  'destructive',
+  'warning',
+  'info',
+  'success',
+])
+
+function buildAlertClassName(
+  componentRaw: Record<string, unknown>,
+  authorClassName: string | undefined
+): string {
+  const rawVariant = componentRaw['alertVariant'] ?? componentRaw['variant']
+  const variant = ALERT_VARIANTS.has(rawVariant as AlertVariant)
+    ? (rawVariant as AlertVariant)
+    : undefined
+  const defaults = computeAlertClasses({ variant })
+  return authorClassName ? `${defaults} ${authorClassName}` : defaults
 }
 
 function overlayButtonSchemaFallbacks(
@@ -46,16 +97,47 @@ function overlayButtonSchemaFallbacks(
   }
 }
 
+const BUTTON_VARIANTS = new Set<ButtonVariant>([
+  'default',
+  'destructive',
+  'outline',
+  'secondary',
+  'ghost',
+  'link',
+  'fab',
+])
+const BUTTON_SIZES = new Set<ButtonSize>(['sm', 'md', 'lg'])
+
 function buildButtonClassName(
   componentRaw: Record<string, unknown>,
+  authorClassName: string | undefined,
+  state: ButtonState
+): string {
+  const rawVariant = componentRaw['variant']
+  const rawSize = componentRaw['size']
+  const variant = BUTTON_VARIANTS.has(rawVariant as ButtonVariant)
+    ? (rawVariant as ButtonVariant)
+    : variantFromButtonClassName(authorClassName)
+  const size = BUTTON_SIZES.has(rawSize as ButtonSize) ? (rawSize as ButtonSize) : undefined
+  const defaults = computeButtonDefaultClasses({ variant, size, state })
+  return authorClassName ? `${defaults} ${authorClassName}` : defaults
+}
+
+function deriveInputState(elementProps: Record<string, unknown>): InputState {
+  if (elementProps['disabled'] === true) return 'disabled'
+  const ariaInvalid = elementProps['aria-invalid']
+  if (ariaInvalid === true || ariaInvalid === 'true') return 'error'
+  if (elementProps['readOnly'] === true || elementProps['readonly'] === true) return 'readonly'
+  return 'default'
+}
+
+function buildInputClassName(
+  elementProps: Record<string, unknown>,
   authorClassName: string | undefined
 ): string {
-  const variant = componentRaw['variant'] as string | undefined
-  const size = componentRaw['size'] as string | undefined
-  const variantClass = variant && variant !== 'default' ? `btn-${variant}` : ''
-  const sizeClass = size && size !== 'md' ? `btn-${size}` : ''
-  const btnClasses = ['btn', variantClass, sizeClass].filter(Boolean).join(' ')
-  return authorClassName ? `${btnClasses} ${authorClassName}` : btnClasses
+  const state = deriveInputState(elementProps)
+  const defaults = computeInputDefaultClasses({ state })
+  return authorClassName ? `${defaults} ${authorClassName}` : defaults
 }
 
 export const interactiveComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
@@ -71,11 +153,14 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
   }) => {
     const c = (component ?? {}) as Record<string, unknown>
     const propsWithSchemaFallbacks = overlayButtonSchemaFallbacks(elementProps, c)
+    const loading = c['loading'] as boolean | undefined
+    const disabled = propsWithSchemaFallbacks['disabled'] === true
+    const buttonState: ButtonState = loading ? 'loading' : disabled ? 'disabled' : 'default'
     const mergedClassName = buildButtonClassName(
       c,
-      propsWithSchemaFallbacks.className as string | undefined
+      propsWithSchemaFallbacks.className as string | undefined,
+      buttonState
     )
-    const loading = c['loading'] as boolean | undefined
 
     return Renderers.renderButton({
       props: { ...propsWithSchemaFallbacks, className: mergedClassName },
@@ -89,11 +174,24 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     })
   },
 
-  link: ({ elementProps, content, renderedChildren }) =>
-    Renderers.renderLink(elementProps, content, renderedChildren),
+  link: ({ elementProps, content, renderedChildren, component }) => {
+    const className = buildLinkClassName(
+      (component ?? {}) as Record<string, unknown>,
+      elementProps['className'] as string | undefined
+    )
+    return Renderers.renderLink({ ...elementProps, className }, content, renderedChildren)
+  },
 
-  alert: ({ elementProps, content, renderedChildren, theme }) =>
-    Renderers.renderAlert(elementProps, content, renderedChildren, theme),
+  alert: ({ elementProps, content, renderedChildren, theme, component }) => {
+    const c = (component ?? {}) as Record<string, unknown>
+    const mergedClassName = buildAlertClassName(c, elementProps.className as string | undefined)
+    return Renderers.renderAlert(
+      { ...elementProps, className: mergedClassName },
+      content,
+      renderedChildren,
+      theme
+    )
+  },
 
   form: ({ elementProps, renderedChildren, action, tables, buckets, component }) =>
     Renderers.renderForm({
@@ -105,7 +203,23 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
       component,
     }),
 
-  input: ({ elementProps }) => Renderers.renderInput(elementProps),
+  'data-form': ({ elementProps, renderedChildren, action, tables, buckets, component }) =>
+    Renderers.renderForm({
+      props: elementProps,
+      children: renderedChildren,
+      action,
+      tables,
+      buckets,
+      component,
+    }),
+
+  input: ({ elementProps }) => {
+    const mergedClassName = buildInputClassName(
+      elementProps,
+      elementProps.className as string | undefined
+    )
+    return Renderers.renderInput({ ...elementProps, className: mergedClassName })
+  },
 
 
   'time-picker': ({ elementProps, component, rawProps }) => {
@@ -262,28 +376,42 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     })
   },
 
-  icon: ({ elementProps, renderedChildren }) =>
-    Renderers.renderIcon(elementProps, renderedChildren),
+  icon: ({ elementProps, renderedChildren, component }) => {
+    const className = buildIconClassName(
+      (component ?? {}) as Record<string, unknown>,
+      elementProps['className'] as string | undefined
+    )
+    return Renderers.renderIcon({ ...elementProps, className }, renderedChildren)
+  },
 
   badge: ({ elementProps, content, renderedChildren, interactions, component }) => {
-    const badgeProps = convertBadgeProps(elementProps)
+    const c = (component ?? {}) as Record<string, unknown>
+    const authorClassName = elementProps['className'] as string | undefined
 
-    const variant = (component as { variant?: unknown } | undefined)?.variant
+    const { variant } = c
     if (variant === 'status') {
-      const status = (component as { status?: unknown } | undefined)?.status
-      const statusColor = (component as { statusColor?: unknown } | undefined)?.statusColor
-      const pulse = (component as { pulse?: unknown } | undefined)?.pulse === true
-      const dotColorClass = resolveStatusDotColorClass(statusColor)
-      const dotClassName = pulse
-        ? `inline-block h-2 w-2 rounded-full ${dotColorClass} animate-pulse`
-        : `inline-block h-2 w-2 rounded-full ${dotColorClass}`
+      const { status } = c
+      const statusColor = resolveStatusDotColor(c['statusColor'])
+      const pulse = c['pulse'] === true
+      const dotClassName = computeStatusBadgeDotClasses({ color: statusColor, pulse })
+      const wrapperDefaults = computeStatusBadgeWrapperClasses()
+      const mergedWrapperClassName = authorClassName
+        ? `${wrapperDefaults} ${authorClassName}`
+        : wrapperDefaults
+      const badgePropsForStatus = convertBadgeProps({
+        ...elementProps,
+        className: mergedWrapperClassName,
+      })
       const statusLabel = typeof status === 'string' ? status : undefined
-      return renderStatusBadge({
-        props: badgeProps,
+      return Renderers.renderStatusBadge({
+        props: badgePropsForStatus,
         dotClassName,
         label: statusLabel,
       })
     }
+
+    const mergedClassName = buildBadgeClassName(c, authorClassName)
+    const badgeProps = convertBadgeProps({ ...elementProps, className: mergedClassName })
 
     return Renderers.renderHTMLElement({
       type: 'span',
@@ -306,4 +434,11 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     Renderers.renderLanguageSwitcher(elementProps, languages),
 
   searchInput: ({ elementProps }) => Renderers.renderSearchInput(elementProps),
+
+  pageSearch: ({ elementProps, component }) => {
+    const c = (component ?? {}) as Record<string, unknown>
+    const placeholder = c['placeholder'] as string | undefined
+    const maxResults = c['maxResults'] as number | undefined
+    return Renderers.renderPageSearch({ props: elementProps, placeholder, maxResults })
+  },
 }

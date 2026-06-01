@@ -51,5 +51,8 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   'file-upload': FileUploadIsland,
   'number-input': NumberInputIsland,
   'date-picker': DatePickerIsland,
+  'page-search': lazy(() => import('./page-search-island')),
+  comments: lazy(() => import('./comment-thread-island')),
+  'comment-count': lazy(() => import('./comment-count-island')),
 }
 

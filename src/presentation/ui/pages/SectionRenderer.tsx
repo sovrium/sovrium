@@ -19,6 +19,7 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
+import type { SessionInfo } from '@/domain/types/session-info'
 import type { RouteParams } from '@/domain/utils/route-matcher'
 
 export interface SectionRendererProps {
@@ -31,6 +32,7 @@ export interface SectionRendererProps {
   readonly tables?: Tables
   readonly buckets?: Buckets
   readonly routeParams?: RouteParams
+  readonly session?: SessionInfo
 }
 
 export function SectionRenderer({
@@ -43,6 +45,7 @@ export function SectionRenderer({
   tables,
   buckets,
   routeParams,
+  session,
 }: SectionRendererProps): Readonly<ReactElement> {
   const renderedSections = sections.map((section, index) => {
     const componentInfo = getComponentInfo(section, index, sections)
@@ -61,6 +64,7 @@ export function SectionRenderer({
         tables={tables}
         buckets={buckets}
         routeParams={routeParams}
+        session={session}
       />
     )
   })

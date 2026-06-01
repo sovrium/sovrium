@@ -6,8 +6,14 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { subscribe as subscribeIslandEvent } from '@/presentation/islands/_shared/event-bus'
 import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeDrawerHeaderClasses,
+  computeDrawerPopupClasses,
+  computeOverlayBackdropClasses,
+} from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 interface DrawerIslandProps {
@@ -19,19 +25,70 @@ interface DrawerIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  readonly defaultOpen?: boolean
 }
 
-function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean) => void): void {
+function useExternalOpenTrigger(
+  id: string | undefined,
+  setOpen: (open: boolean) => void,
+  recordRef: { current: Record<string, unknown> | null },
+  closeOnCrudSuccess: boolean
+): void {
   useEffect(() => {
     if (!id) return
-    const handler = (event: Event): void => {
+    const clickHandler = (event: Event): void => {
       const target = event.target as HTMLElement | null
       const trigger = target?.closest(`[data-click-modal="${id}"]`)
       if (trigger) setOpen(true)
     }
-    document.addEventListener('click', handler)
-    return () => document.removeEventListener('click', handler)
-  }, [id, setOpen])
+    document.addEventListener('click', clickHandler)
+    const unsubscribeOpenDrawer = subscribeIslandEvent('sovrium:open-drawer', (detail) => {
+      if (detail.id !== id) return
+      recordRef.current = detail.record
+      setOpen(true)
+    })
+    const unsubscribeCrudSuccess = subscribeIslandEvent('sovrium:crud-success', () => {
+      if (!closeOnCrudSuccess) return
+      setOpen(false)
+    })
+    return () => {
+      document.removeEventListener('click', clickHandler)
+      unsubscribeOpenDrawer()
+      unsubscribeCrudSuccess()
+    }
+  }, [id, setOpen, recordRef, closeOnCrudSuccess])
+}
+
+function populateFormFromRecord(container: HTMLElement, record: Record<string, unknown>): void {
+  const recordId = record['id']
+  if (recordId !== undefined && recordId !== null) {
+    const form = container.querySelector(
+      'form[data-action-method="update"]'
+    ) as HTMLFormElement | null
+    if (form) {
+      form.setAttribute('data-action-record-id', String(recordId))
+      const currentAction = form.getAttribute('action')
+      if (currentAction) {
+        const patched = currentAction
+          .replace('/records//update', `/records/${String(recordId)}/update`)
+          .replace(/\/records\/update$/, `/records/${String(recordId)}/update`)
+        if (patched !== currentAction) form.setAttribute('action', patched)
+      }
+    }
+  }
+  const inputs = container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+    'input[name], textarea[name]'
+  )
+  inputs.forEach((el) => {
+    const key = el.getAttribute('name')
+    if (!key || !(key in record)) return
+    const value = record[key]
+    if (value === null || value === undefined) {
+      el.value = ''
+    } else {
+      el.value = String(value)
+    }
+  })
 }
 
 const SIDE_CLASSES = {
@@ -66,7 +123,7 @@ function DrawerHeader({
 }): ReactElement | undefined {
   if (!title && !description) return undefined
   return (
-    <div className="border-border border-b p-4">
+    <div className={computeDrawerHeaderClasses()}>
       {title && (
         <Dialog.Title className="text-foreground text-lg font-semibold">{title}</Dialog.Title>
       )}
@@ -102,9 +159,19 @@ interface DrawerPopupBodyProps {
   readonly title?: string
   readonly description?: string
   readonly childrenHtml?: string
+  readonly onMount?: (container: HTMLElement) => void
 }
 
-function DrawerPopupBody({ title, description, childrenHtml }: DrawerPopupBodyProps): ReactElement {
+function DrawerPopupBody({
+  title,
+  description,
+  childrenHtml,
+  onMount,
+}: DrawerPopupBodyProps): ReactElement {
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (contentRef.current && onMount) onMount(contentRef.current)
+  }, [onMount])
   return (
     <div className="flex h-full flex-col">
       <DrawerHeader
@@ -113,7 +180,10 @@ function DrawerPopupBody({ title, description, childrenHtml }: DrawerPopupBodyPr
       />
       <div className="flex-1 overflow-auto p-4">
         {childrenHtml && (
-          <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
+          <div
+            ref={contentRef}
+            dangerouslySetInnerHTML={{ __html: childrenHtml }}
+          />
         )}
       </div>
       <Dialog.Close className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors">
@@ -121,6 +191,18 @@ function DrawerPopupBody({ title, description, childrenHtml }: DrawerPopupBodyPr
       </Dialog.Close>
     </div>
   )
+}
+
+function useDrawerController(id: string | undefined, defaultOpen: boolean) {
+  const [open, setOpen] = useState(defaultOpen)
+  const dispatchedRecordRef = useRef<Record<string, unknown> | null>(null)
+  const closeOnCrudSuccess = !defaultOpen
+  useExternalOpenTrigger(id, setOpen, dispatchedRecordRef, closeOnCrudSuccess)
+  const handleBodyMount = useCallback((container: HTMLElement) => {
+    const record = dispatchedRecordRef.current
+    if (record) populateFormFromRecord(container, record)
+  }, [])
+  return { open, setOpen, handleBodyMount }
 }
 
 export default function DrawerIsland({
@@ -131,15 +213,15 @@ export default function DrawerIsland({
   childrenHtml,
   className,
   id,
+  defaultOpen = true,
   'data-testid': testId,
 }: DrawerIslandProps): ReactElement {
-  const [open, setOpen] = useState(true)
+  const { open, setOpen, handleBodyMount } = useDrawerController(id, defaultOpen)
   const sizeClass = getSizeClass(drawerSide, drawerSize)
   const sizeInlineStyle = useMemo(
     () => getSizeInlineStyle(drawerSide, drawerSize),
     [drawerSide, drawerSize]
   )
-  useExternalOpenTrigger(id, setOpen)
 
   return (
     <Dialog.Root
@@ -148,10 +230,12 @@ export default function DrawerIsland({
       onOpenChange={setOpen}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="bg-scrim/50 fixed inset-0 z-40 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
         <Dialog.Popup
           className={cn(
-            `bg-background-overlay text-foreground fixed z-50 shadow-xl transition-transform duration-300 ${SIDE_CLASSES[drawerSide]} ${sizeClass}`,
+            computeDrawerPopupClasses({ side: drawerSide }),
+            SIDE_CLASSES[drawerSide],
+            sizeClass,
             className
           )}
           style={sizeInlineStyle}
@@ -162,6 +246,7 @@ export default function DrawerIsland({
             title={title}
             description={description}
             childrenHtml={childrenHtml}
+            onMount={handleBodyMount}
           />
         </Dialog.Popup>
       </Dialog.Portal>

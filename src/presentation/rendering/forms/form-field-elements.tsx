@@ -21,6 +21,7 @@ export interface ResolvedFormField {
   readonly maxFileSize?: number
   readonly maxFiles?: number
   readonly dropZone?: boolean
+  readonly allowMultiple?: boolean
 }
 
 export type PrefillValue = string | number | boolean | readonly string[] | readonly number[]
@@ -156,6 +157,36 @@ const TextInput = ({
   </div>
 )
 
+const UserInput = ({
+  field,
+  defaultValue,
+}: {
+  readonly field: ResolvedFormField
+  readonly defaultValue: string | undefined
+}) => {
+  const multiple = field.allowMultiple === true
+  return (
+    <div
+      className="form-field form-field-user"
+      data-field-type="user"
+      data-field-name={field.name}
+      data-allow-multiple={multiple ? 'true' : 'false'}
+    >
+      <label htmlFor={`field-${field.name}`}>{field.label}</label>
+      <select
+        id={`field-${field.name}`}
+        name={field.name}
+        required={field.required}
+        multiple={multiple}
+        defaultValue={defaultValue ?? (multiple ? undefined : '')}
+      >
+        {!multiple && <option value="">{field.placeholder || 'Select a user...'}</option>}
+      </select>
+      {field.helpText && <small className="help-text">{field.helpText}</small>}
+    </div>
+  )
+}
+
 const FileInput = ({
   field,
   multiple,
@@ -243,46 +274,55 @@ const LockedHiddenInput = ({
 }
 
 function dispatchFieldInput(field: ResolvedFormField, defaultValue: string | undefined) {
-  if (field.inputElement === 'textarea')
+  const f = field
+  const dv = defaultValue
+  if (f.inputElement === 'textarea')
     return (
       <TextareaInput
-        field={field}
-        defaultValue={defaultValue}
+        field={f}
+        defaultValue={dv}
       />
     )
-  if (field.inputElement === 'select')
+  if (f.inputElement === 'select')
     return (
       <SelectInput
-        field={field}
-        defaultValue={defaultValue}
+        field={f}
+        defaultValue={dv}
       />
     )
-  if (field.inputElement === 'radio')
+  if (f.inputElement === 'radio')
     return (
       <RadioInput
-        field={field}
-        defaultValue={defaultValue}
+        field={f}
+        defaultValue={dv}
       />
     )
-  if (field.inputElement === 'signature') return <SignatureInput field={field} />
-  if (field.inputElement === 'file')
+  if (f.inputElement === 'signature') return <SignatureInput field={f} />
+  if (f.inputElement === 'file')
     return (
       <FileInput
-        field={field}
+        field={f}
         multiple={false}
       />
     )
-  if (field.inputElement === 'file-multi')
+  if (f.inputElement === 'file-multi')
     return (
       <FileInput
-        field={field}
+        field={f}
         multiple={true}
+      />
+    )
+  if (f.inputElement === 'user')
+    return (
+      <UserInput
+        field={f}
+        defaultValue={dv}
       />
     )
   return (
     <TextInput
-      field={field}
-      defaultValue={defaultValue}
+      field={f}
+      defaultValue={dv}
     />
   )
 }

@@ -235,19 +235,110 @@ export const ToastActionSchema = Schema.Struct({
   description: 'Pure notification action — shows a transient toast with no side-effect',
 })
 
+const FetchToastResponseSchema = Schema.Struct({
+  type: Schema.Literal('toast'),
+  message: Schema.String.annotations({
+    description: 'Toast notification message. Supports $variable references.',
+  }),
+  variant: Schema.optional(
+    Schema.Literal('default', 'success', 'destructive', 'error', 'warning', 'info').annotations({
+      description: 'Visual style of the toast notification',
+    })
+  ),
+  duration: Schema.optional(
+    Schema.Number.pipe(
+      Schema.int(),
+      Schema.greaterThan(0),
+      Schema.annotations({
+        description: 'Auto-dismiss duration in milliseconds (default: 5000)',
+        examples: [2000, 5000, 10_000],
+      })
+    )
+  ),
+  actionLabel: Schema.optional(
+    Schema.String.annotations({
+      description: 'Label of an optional action button rendered inside the toast',
+      examples: ['Undo', 'Retry'],
+    })
+  ),
+  actionUrl: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'URL invoked (POST) when the toast action button is clicked. Required with actionLabel.',
+    })
+  ),
+}).annotations({
+  title: 'Fetch Toast Response',
+  description: 'Toast notification rendered after a fetch action completes',
+})
+
+export const FetchActionSchema = Schema.Struct({
+  type: Schema.Literal('fetch'),
+  url: Schema.String.annotations({
+    description: 'Target URL for the fetch call (e.g. /api/tables/contacts/records)',
+  }),
+  method: Schema.optional(
+    Schema.Literal('GET', 'POST', 'PUT', 'PATCH', 'DELETE').annotations({
+      description: 'HTTP method (defaults to GET)',
+    })
+  ),
+  headers: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
+      description: 'Request headers. Content-Type defaults to application/json when body is set.',
+    })
+  ),
+  body: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
+      description: 'JSON request body (serialized with JSON.stringify)',
+    })
+  ),
+  onSuccess: Schema.optional(FetchToastResponseSchema),
+  onError: Schema.optional(FetchToastResponseSchema),
+}).annotations({
+  title: 'Fetch Action',
+  description: 'Client-side fetch action with optional success/error toast response',
+})
+
+export const OpenDrawerActionSchema = Schema.Struct({
+  action: Schema.Literal('openDrawer'),
+  component: Schema.String.annotations({
+    description:
+      "ID of the drawer page-component to open (matches a sibling `{ type: 'drawer', id }`)",
+  }),
+  props: Schema.optional(
+    Schema.Struct({
+      width: Schema.optional(
+        Schema.Number.pipe(
+          Schema.int(),
+          Schema.greaterThan(0),
+          Schema.annotations({ description: 'Drawer width in pixels for this trigger instance' })
+        )
+      ),
+    }).annotations({
+      description: 'Per-trigger overrides applied to the referenced drawer component',
+    })
+  ),
+}).annotations({
+  title: 'Open Drawer Action',
+  description:
+    'Opens a referenced drawer component (record-detail quick-edit pattern). Discriminated by the `action: openDrawer` literal (not `type`).',
+})
+
 export const ActionSchema = Schema.Union(
   AuthActionSchema,
   CrudActionSchema,
   AutomationActionSchema,
   FilterActionSchema,
   NavigateActionSchema,
-  ToastActionSchema
+  ToastActionSchema,
+  FetchActionSchema,
+  OpenDrawerActionSchema
 ).pipe(
   Schema.annotations({
     identifier: 'Action',
     title: 'Action',
     description:
-      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), filter (cross-component filtering), navigate (pure URL navigation), toast (transient notification).',
+      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), filter (cross-component filtering), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response). Open-drawer is discriminated by `action: openDrawer` instead of `type` (PG-04 quick-edit drawer pattern).',
   })
 )
 
@@ -258,6 +349,8 @@ export type AutomationAction = Schema.Schema.Type<typeof AutomationActionSchema>
 export type FilterAction = Schema.Schema.Type<typeof FilterActionSchema>
 export type NavigateAction = Schema.Schema.Type<typeof NavigateActionSchema>
 export type ToastAction = Schema.Schema.Type<typeof ToastActionSchema>
+export type FetchAction = Schema.Schema.Type<typeof FetchActionSchema>
+export type OpenDrawerAction = Schema.Schema.Type<typeof OpenDrawerActionSchema>
 export type ActionResponse = Schema.Schema.Type<typeof ActionResponseSchema>
 export type ActionResponseType = Schema.Schema.Type<typeof ActionResponseTypeSchema>
 export type Toast = Schema.Schema.Type<typeof ToastSchema>

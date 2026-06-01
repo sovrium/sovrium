@@ -7,6 +7,11 @@
 
 import { Menu } from '@base-ui/react/menu'
 import * as LucideIcons from 'lucide-react'
+import {
+  computeMenuItemClasses,
+  computeMenuPopupClasses,
+  computeMenuSeparatorClasses,
+} from './overlay-default-classes'
 import type { ComponentType, ReactElement } from 'react'
 
 function kebabToPascalCase(name: string): string {
@@ -68,19 +73,15 @@ function renderMenuEntry(item: MenuItem, index: number): ReactElement {
     return (
       <Menu.Separator
         key={`sep-${index}`}
-        className="bg-border my-1 h-px"
+        className={computeMenuSeparatorClasses()}
       />
     )
   }
-  const variantClass =
-    item.variant === 'destructive'
-      ? 'text-error-fg data-[highlighted]:bg-error-bg'
-      : 'text-foreground'
   return (
     <Menu.Item
       key={`item-${index}`}
       disabled={item.disabled}
-      className={`data-[highlighted]:bg-background-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 ${variantClass}`}
+      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
     >
       <MenuItemIcon icon={item.icon} />
       <span className="flex-1">{item.label}</span>
@@ -120,7 +121,7 @@ export default function MenuIsland({
           align={floatingAlign}
           sideOffset={4}
         >
-          <Menu.Popup className="border-border bg-background-overlay text-foreground min-w-48 rounded-md border py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <Menu.Popup className={computeMenuPopupClasses()}>
             {menuItems.map((item, index) => renderMenuEntry(item, index))}
           </Menu.Popup>
         </Menu.Positioner>

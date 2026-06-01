@@ -7,6 +7,13 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeMenuItemClasses,
+  computeMenuPopupClasses,
+  computeMenuSeparatorClasses,
+  computeMenuTriggerClasses,
+  computeMenubarContainerClasses,
+} from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 interface MenuItem {
@@ -39,38 +46,31 @@ export default function MenubarIsland({
   return (
     <div
       role="menubar"
-      className={cn(
-        'border-border bg-background-raised flex items-center rounded-md border',
-        className
-      )}
+      className={cn(computeMenubarContainerClasses(), className)}
       id={id}
       data-testid={testId}
     >
       {menus.map((menu, menuIndex) => (
         <Menu.Root key={`menu-${menuIndex}`}>
-          <Menu.Trigger className="text-foreground hover:bg-background-subtle data-[open]:bg-background-subtle px-3 py-1.5 text-sm font-medium transition-colors">
-            {menu.label}
-          </Menu.Trigger>
+          <Menu.Trigger className={computeMenuTriggerClasses()}>{menu.label}</Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner
               side="bottom"
               align="start"
               sideOffset={4}
             >
-              <Menu.Popup className="border-border bg-background-overlay text-foreground min-w-48 rounded-md border py-1 shadow-lg transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+              <Menu.Popup className={computeMenuPopupClasses()}>
                 {menu.items.map((item, itemIndex) =>
                   item.separator ? (
                     <Menu.Separator
                       key={`sep-${itemIndex}`}
-                      className="bg-border my-1 h-px"
+                      className={computeMenuSeparatorClasses()}
                     />
                   ) : (
                     <Menu.Item
                       key={`item-${itemIndex}`}
                       disabled={item.disabled}
-                      className={`data-[highlighted]:bg-background-subtle flex cursor-pointer items-center px-3 py-2 text-sm outline-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 ${
-                        item.variant === 'destructive' ? 'text-error-fg' : 'text-foreground'
-                      }`}
+                      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
                     >
                       <span className="flex-1">{item.label}</span>
                       {item.shortcut && (

@@ -109,14 +109,19 @@ export function buildDrawerProps(
 ) {
   const comp = component as Record<string, unknown> | undefined
   const childrenHtml = renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
+  const dispatchedById = rawProps?.['_openDrawerDispatchedById']
+  const defaultOpen = typeof dispatchedById === 'string' ? false : undefined
+  const topLevelId = typeof comp?.['id'] === 'string' ? (comp['id'] as string) : undefined
+  const resolvedId = topLevelId ?? (elementProps['id'] as string | undefined)
   return {
     title: rawProps?.['title'],
     description: pickCompField<string>(comp, rawProps, 'description'),
     drawerSide: pickCompField<string>(comp, rawProps, 'drawerSide'),
     drawerSize: pickCompField<string>(comp, rawProps, 'drawerSize'),
     childrenHtml,
+    ...(defaultOpen !== undefined ? { defaultOpen } : {}),
     className: elementProps['className'],
-    id: elementProps['id'],
+    id: resolvedId,
     'data-testid': elementProps['data-testid'],
   }
 }

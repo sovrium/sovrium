@@ -237,9 +237,16 @@ export function renderCrudUpdateForm(
   buckets?: Buckets
 ): ReactElement {
   const record = (props._record ?? {}) as Record<string, unknown>
-  const fields = buildResolvedFieldDefs(tables, action.table, component, buckets)
+  const rawFields = buildResolvedFieldDefs(tables, action.table, component, buckets)
   const submitBtn = readSubmitButtonProps(component)
-  const { _record: _rec, _dataSourceBound: _dsb, ...restProps } = props as Record<string, unknown>
+  const {
+    _record: _rec,
+    _dataSourceBound: _dsb,
+    _readOnly: readOnlyFlag,
+    ...restProps
+  } = props as Record<string, unknown>
+  const isReadOnly = readOnlyFlag === true
+  const fields = isReadOnly ? rawFields.map((f) => ({ ...f, disabled: true })) : rawFields
   const recordId = String(record['id'] ?? '')
   const { layout, fieldGroups } = readLayoutOptions(component)
   const islandProps = buildCrudIslandProps({
@@ -284,7 +291,7 @@ export function renderCrudUpdateForm(
           value={action.onSuccess?.navigate ?? ''}
         />
         {fields.map((f) => renderUpdateSkeletonField(f, record))}
-        <button type="submit">Update</button>
+        {!isReadOnly && <button type="submit">{submitBtn.label ?? 'Update'}</button>}
       </form>
     </div>
   )

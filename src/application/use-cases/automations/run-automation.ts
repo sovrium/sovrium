@@ -18,7 +18,20 @@ import { buildEnvLookup } from './resolve-env-vars'
 import { buildAutomationContext, type TriggerData } from './resolve-trigger-data'
 import { buildAutomationInvoker } from './run/automation-call-invoker'
 import { dispatchFailureHandlers } from './run/failure-dispatch'
-import { persistRun, recordInMemoryRun } from './run/run-persistence'
+import {
+  finaliseRun,
+  markRunRunning,
+  persistQueuedRun,
+  recordInMemoryRun,
+} from './run/run-persistence'
+import {
+  acquireSlot,
+  isCancelled,
+  registerCancellation,
+  releaseSlot,
+  resolveConcurrencyLimit,
+  unregisterCancellation,
+} from './run/scheduler'
 import { appendSkippedStep, executeStep } from './run/step-executor'
 import {
   EMPTY_RUN_ACCUMULATOR,
@@ -58,6 +71,7 @@ export interface RunWebhookAutomationOptions {
   readonly triggerData?: TriggerData
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId?: string
+  readonly onPersisted?: (runId: string) => void
 }
 
 const resolveWebhookAutomation = (
@@ -146,7 +160,7 @@ const buildStepContext = (input: {
 
 const buildRunResult = (runId: string, finalState: RunAccumulator): RunAutomationResult => ({
   runId,
-  status: finalState.runStatus,
+  status: finalState.runStatus as Exclude<RunAccumulator['runStatus'], 'queued' | 'running'>,
   actions: finalState.actions,
   ...(finalState.lastOutput !== undefined ? { lastOutput: finalState.lastOutput } : {}),
   ...(finalState.runError !== undefined ? { error: finalState.runError } : {}),
@@ -190,6 +204,74 @@ const runActionsWithTimeout = (
   })
 }
 
+const enqueueAndAdmit = (
+  input: ExecuteAutomationRunInput,
+  startedAt: Readonly<Date>
+): Effect.Effect<string, never, RunRequirements> =>
+  Effect.gen(function* () {
+    const { name, automation, automationId, processEnv, triggerData } = input
+    const persistedQueuedId = yield* persistQueuedRun({
+      automationId,
+      triggerData,
+      startedAt,
+    })
+    const runId = persistedQueuedId ?? cryptoRandomId()
+    registerCancellation(runId)
+    if (input.onPersisted !== undefined) {
+      const cb = input.onPersisted
+      cb(runId)
+    }
+    const limit = resolveConcurrencyLimit(automation, processEnv)
+    yield* Effect.promise(() => acquireSlot(name, limit))
+    yield* markRunRunning(runId)
+    return runId
+  })
+
+const finaliseAndRelease = (input: {
+  readonly name: string
+  readonly automationId: string
+  readonly runId: string
+  readonly finalState: RunAccumulator
+  readonly triggerData: TriggerData
+  readonly startedAt: Date
+  readonly finishedAt: Date
+}): Effect.Effect<
+  { readonly observedRunId: string; readonly effectiveState: RunAccumulator },
+  never,
+  RunRequirements
+> =>
+  Effect.gen(function* () {
+    const cancelled = isCancelled(input.runId)
+    const effectiveState: RunAccumulator = cancelled
+      ? {
+          ...input.finalState,
+          runStatus: 'cancelled',
+          runError: input.finalState.runError ?? 'Run cancelled',
+        }
+      : input.finalState
+    const finalisedId = yield* finaliseRun({
+      runId: input.runId,
+      automationId: input.automationId,
+      engineStatus: effectiveState.runStatus,
+      engineError: effectiveState.runError,
+      triggerData: input.triggerData,
+      startedAt: input.startedAt,
+      finishedAt: input.finishedAt,
+      steps: effectiveState.steps,
+    })
+    const observedRunId = finalisedId ?? input.runId
+    recordInMemoryRun({
+      runId: observedRunId,
+      name: input.name,
+      startedAt: input.startedAt.toISOString(),
+      finishedAt: input.finishedAt.toISOString(),
+      finalState: effectiveState,
+    })
+    releaseSlot(input.name)
+    unregisterCancellation(input.runId)
+    return { observedRunId, effectiveState }
+  })
+
 export const executeAutomationRun = (
   input: ExecuteAutomationRunInput
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
@@ -201,41 +283,29 @@ export const executeAutomationRun = (
     const runTimeoutMs = resolveRunTimeoutMs(automation)
     const skipActionNames = input.skipActionNames ?? new Set<string>()
 
+    const runId = yield* enqueueAndAdmit(input, startedAtDate)
     const finalState = yield* runActionsWithTimeout(rawActions, ctx, runTimeoutMs, skipActionNames)
-
     const finishedAtDate = new Date()
-
-    const persistedRunId = yield* persistRun({
+    const { observedRunId, effectiveState } = yield* finaliseAndRelease({
+      name,
       automationId,
-      engineStatus: finalState.runStatus,
-      engineError: finalState.runError,
+      runId,
+      finalState,
       triggerData,
       startedAt: startedAtDate,
       finishedAt: finishedAtDate,
-      steps: finalState.steps,
     })
-
-    const runId = persistedRunId ?? cryptoRandomId()
-    recordInMemoryRun({
-      runId,
-      name,
-      startedAt: startedAtDate.toISOString(),
-      finishedAt: finishedAtDate.toISOString(),
-      finalState,
-    })
-
     yield* dispatchPostRunFailureEffects({
       app,
       processEnv,
       automation,
       name,
-      runId,
-      finalState,
+      runId: observedRunId,
+      finalState: effectiveState,
       startedAtDate,
       finishedAtDate,
     })
-
-    return buildRunResult(runId, finalState)
+    return buildRunResult(observedRunId, effectiveState)
   })
 
 const boundAutomationInvoker = buildAutomationInvoker({
@@ -290,6 +360,7 @@ export const runWebhookAutomation = ({
   triggerData = {},
   handlers = defaultActionHandlers,
   userId,
+  onPersisted,
 }: RunWebhookAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
@@ -307,6 +378,7 @@ export const runWebhookAutomation = ({
       triggerData,
       handlers,
       userId,
+      ...(onPersisted !== undefined ? { onPersisted } : {}),
     })
   })
 

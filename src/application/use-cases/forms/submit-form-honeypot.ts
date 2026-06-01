@@ -7,6 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/form-submission-repository'
+import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import type { Form } from '@/domain/models/app/forms'
 
 export class FormHoneypotTrippedError extends Data.TaggedError('FormHoneypotTrippedError')<{
@@ -18,12 +19,12 @@ const HONEYPOT_FIELD = '_hp'
 export const checkHoneypot = (input: {
   readonly form: Readonly<Form>
   readonly body: Readonly<Record<string, unknown>>
-  readonly ipAddress: string | undefined
+  readonly submitterIpHash: string | undefined
   readonly userAgent: string | undefined
 }) =>
   Effect.gen(function* () {
-    const { form, body, ipAddress, userAgent } = input
-    if (form.antiSpam?.honeypot !== true) return
+    const { form, body, submitterIpHash, userAgent } = input
+    if (effectiveAntiSpam(form).honeypot !== true) return
     const trap = body[HONEYPOT_FIELD]
     if (trap === undefined || trap === null || trap === '') return
     if (form.submitTo.storeSubmission !== false) {
@@ -37,7 +38,7 @@ export const checkHoneypot = (input: {
         status: 'spam',
         statusReason: 'honeypot',
         data: spamData,
-        ...(ipAddress !== undefined ? { ipAddress } : {}),
+        ...(submitterIpHash !== undefined ? { submitterIpHash } : {}),
         ...(userAgent !== undefined ? { userAgent } : {}),
       })
     }

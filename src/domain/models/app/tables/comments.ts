@@ -29,6 +29,57 @@ const AutoApproveSchema = Schema.Struct({
   })
 )
 
+const SpamProtectionSchema = Schema.Struct({
+  honeypot: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotations({
+        description:
+          'Render a hidden honeypot input; submissions with non-empty honeypot value return 200 OK silently (default: true when guest comments enabled)',
+      })
+    )
+  ),
+  rateLimitPerIp: Schema.optional(
+    Schema.Number.pipe(
+      Schema.annotations({
+        description:
+          'Max comments per IP per minute; the (N+1)th submission within the window returns 429 (default: 5)',
+      })
+    )
+  ),
+  maxLinksBeforeModeration: Schema.optional(
+    Schema.Number.pipe(
+      Schema.annotations({
+        description:
+          'Comments whose body contains more than N URL-like substrings are auto-set to status:"pending" (default: 2)',
+      })
+    )
+  ),
+  blockedWords: Schema.optional(
+    Schema.Array(Schema.String).pipe(
+      Schema.annotations({
+        description:
+          'Case-insensitive substring matches against the comment body; any hit auto-sets status:"rejected"',
+      })
+    )
+  ),
+}).pipe(
+  Schema.annotations({
+    identifier: 'CommentsSpamProtection',
+    title: 'Comment Spam Protection',
+    description:
+      'Per-table spam guards (honeypot, rate limit, link threshold, blocked words) layered on top of the always-on F-03 anti-spam floor',
+  })
+)
+
+const ModerationModeSchema = Schema.Literal('auto', 'manual', 'auth-required').pipe(
+  Schema.annotations({
+    identifier: 'CommentsModerationMode',
+    title: 'Comment Moderation Mode',
+    description:
+      "Comment moderation policy: 'manual' (queue, default), 'auto' (publish immediately), 'auth-required' (publish immediately but require sign-in)",
+  })
+)
+
 export const CommentsConfigSchema = Schema.Struct({
   guestComments: Schema.optional(
     Schema.Boolean.pipe(
@@ -50,15 +101,11 @@ export const CommentsConfigSchema = Schema.Struct({
     )
   ),
 
-  moderation: Schema.optional(
-    Schema.Boolean.pipe(
-      Schema.annotations({
-        description: 'Require approval before comments are visible (default: false)',
-      })
-    )
-  ),
+  moderation: Schema.optional(Schema.Union(Schema.Boolean, ModerationModeSchema)),
 
   autoApprove: Schema.optional(AutoApproveSchema),
+
+  spamProtection: Schema.optional(SpamProtectionSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'CommentsConfig',

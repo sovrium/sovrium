@@ -8,6 +8,7 @@
 export {
   SessionContextError,
   ForbiddenError,
+  ForeignKeyViolationError,
   UniqueConstraintViolationError,
   ValidationError,
 } from '@/domain/errors'

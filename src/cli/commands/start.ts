@@ -6,10 +6,12 @@
  */
 
 import { watch } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdtemp, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
 import { getCurrentVersion, checkForUpdatesInBackground } from '@/cli/update'
+import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import {
   computeConfigHash,
@@ -17,7 +19,7 @@ import {
   readLockFile,
   removeLockFile,
 } from '@/infrastructure/server/lock-file'
-import { readPublicDirEnv } from './option-parsing'
+import { isPublicDirOptOut, readPublicDirEnv, resolveDefaultPublicDir } from './option-parsing'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, reloadServer } from './utils'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
 
@@ -32,6 +34,8 @@ const START_HELP_TEXT = [
   'Options:',
   '  --watch, -w                   Watch config file and hot-reload on change',
   '  --publicDir <path>            Directory of static assets to serve at /',
+  '                                (default: ./public next to app.yaml, if present)',
+  '  --no-publicDir                Disable static-asset serving entirely',
   '  --help, -h                    Show this help message',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
@@ -40,10 +44,12 @@ const START_HELP_TEXT = [
   '  HOSTNAME                      Server hostname (default: localhost)',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
   '  AUTH_SECRET                   Auth signing secret (run: sovrium secret generate)',
+  '  SOVRIUM_PUBLIC_DIR            Static-asset directory (or "none" to disable)',
   '',
   'Examples:',
-  '  sovrium start app.yaml                   # Boot with app.yaml',
+  '  sovrium start app.yaml                   # Boot with app.yaml (serves ./public if present)',
   '  sovrium start app.yaml --watch           # Hot reload on file change',
+  '  sovrium start app.yaml --no-publicDir    # Disable static-asset serving',
   '  PORT=8080 sovrium start app.json         # Override port',
 ].join('\n')
 
@@ -76,7 +82,7 @@ const parseStartOptions = (): StartOptions => {
 export const handleStartCommand = async (
   filePath?: string,
   watchMode = false,
-  publicDir?: string,
+  publicDir?: string | false,
   helpRequested = false
 ): Promise<void> => {
   if (helpRequested) {
@@ -90,10 +96,31 @@ export const handleStartCommand = async (
 
   const app = await parseAppSchema('start', filePath)
   const envOptions = parseStartOptions()
-  const resolvedPublicDir = publicDir || envOptions.publicDir
+  const envValue = envOptions.publicDir
+  const explicitOptOut = publicDir === false || isPublicDirOptOut(envValue)
+  const userResolvedPublicDir = explicitOptOut
+    ? undefined
+    : ((publicDir || undefined) ?? envValue ?? resolveDefaultPublicDir(filePath))
+
+  const needsSearchIndex = !explicitOptOut && hasPageSearchComponent(app as any)
+  const allocatedSearchPublicDir =
+    needsSearchIndex && !userResolvedPublicDir
+      ? await mkdtemp(join(tmpdir(), 'sovrium-search-public-'))
+      : undefined
+  const resolvedPublicDir = userResolvedPublicDir ?? allocatedSearchPublicDir
+
   const options: StartOptions = {
     ...envOptions,
     ...(resolvedPublicDir && { publicDir: resolvedPublicDir }),
+  }
+
+  if (needsSearchIndex && resolvedPublicDir) {
+    const { prebuildSearchIndex } = await lazyImportIndex()
+    await prebuildSearchIndex(app, resolvedPublicDir).catch((error) => {
+      Effect.runSync(
+        Console.error(`[search-index] failed to pre-build: ${formatRuntimeError(error)}`)
+      )
+    })
   }
 
   const configContent = filePath ? await readFile(filePath, 'utf-8') : JSON.stringify(app)

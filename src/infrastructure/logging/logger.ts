@@ -106,23 +106,36 @@ export interface StartupPhase {
   readonly type: 'success' | 'warning' | 'skip'
 }
 
+export interface BootstrapTokenBanner {
+  readonly plaintext: string
+  readonly claimEndpoint: string
+  readonly expiresInMinutes: number
+}
+
 export interface StartupSummary {
   readonly version: string
   readonly phases: readonly StartupPhase[]
   readonly url: string
   readonly durationMs: number
+  readonly bootstrapToken?: BootstrapTokenBanner
 }
 
 export const formatDuration = (ms: number): string =>
   ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 
 export const renderStartupSummary = (summary: StartupSummary): Effect.Effect<void> =>
-  renderSummary({ version: summary.version, phases: summary.phases, footer: summary.url })
+  renderSummary({
+    version: summary.version,
+    phases: summary.phases,
+    footer: summary.url,
+    ...(summary.bootstrapToken ? { bootstrapToken: summary.bootstrapToken } : {}),
+  })
 
 const renderSummary = (params: {
   readonly version: string
   readonly phases: readonly StartupPhase[]
   readonly footer: string
+  readonly bootstrapToken?: BootstrapTokenBanner
 }): Effect.Effect<void> =>
   Effect.gen(function* () {
     const warnings = params.phases.filter((p) => p.type === 'warning')
@@ -143,6 +156,13 @@ const renderSummary = (params: {
 
     yield* Console.log('')
     yield* Console.log(`  \u2192 ${params.footer}`)
+
+    if (params.bootstrapToken) {
+      yield* Console.log(
+        `  \u2192 First-admin token (POST ${params.bootstrapToken.claimEndpoint}):`
+      )
+      yield* Console.log(`    ${params.bootstrapToken.plaintext}`)
+    }
     yield* Console.log('')
   })
 

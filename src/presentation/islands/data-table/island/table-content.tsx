@@ -37,6 +37,8 @@ interface TableContentProps {
   readonly onCellDoubleClick: (rowId: string | number, field: string, currentValue: unknown) => void
   readonly onEditSave: (newValue: unknown) => Promise<void>
   readonly onEditCancel: () => void
+  readonly collapsedGroups?: ReadonlyArray<string>
+  readonly onToggleGroupCollapsed?: (groupValue: string) => void
 }
 
 export function TableContent(props: TableContentProps) {
@@ -70,6 +72,10 @@ export function TableContent(props: TableContentProps) {
           onCellDoubleClick={props.onCellDoubleClick}
           onEditSave={props.onEditSave}
           onEditCancel={props.onEditCancel}
+          {...(props.collapsedGroups && { collapsedGroups: props.collapsedGroups })}
+          {...(props.onToggleGroupCollapsed && {
+            onToggleGroupCollapsed: props.onToggleGroupCollapsed,
+          })}
         />
         {summaryConfig && summaryConfig.length > 0 && (
           <TableSummaryFooter

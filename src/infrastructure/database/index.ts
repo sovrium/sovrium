@@ -12,6 +12,7 @@ export * from './drizzle/schema'
 export {
   SessionContextError,
   ForbiddenError,
+  ForeignKeyViolationError,
   UniqueConstraintViolationError,
   ValidationError,
 } from './session-context'

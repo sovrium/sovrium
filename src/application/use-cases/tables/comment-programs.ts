@@ -20,6 +20,18 @@ interface CreateCommentConfig {
   readonly parentCommentId?: string
 }
 
+export interface CommentDisplayUser {
+  readonly id: string
+  readonly name: string
+  readonly image: string | undefined
+}
+
+function toCommentDisplayUser(
+  user: UserMetadataWithOptionalImage | undefined
+): CommentDisplayUser | undefined {
+  return user ? { id: user.id, name: user.name, image: user.image } : undefined
+}
+
 export interface CreatedComment {
   readonly id: string
   readonly tableId: string
@@ -29,7 +41,7 @@ export interface CreatedComment {
   readonly parentCommentId: string | null
   readonly createdAt: string
   readonly updatedAt: string
-  readonly user?: UserMetadataWithOptionalImage | undefined
+  readonly user?: CommentDisplayUser | undefined
 }
 
 function formatCommentResponse(comment: {
@@ -53,7 +65,7 @@ function formatCommentResponse(comment: {
       parentCommentId: comment.parentId ?? null,
       createdAt: comment.createdAt.toISOString(),
       updatedAt: comment.updatedAt?.toISOString() ?? comment.createdAt.toISOString(),
-      user: comment.user,
+      user: toCommentDisplayUser(comment.user),
     },
   }
 }
@@ -61,6 +73,7 @@ function formatCommentResponse(comment: {
 export function createCommentProgram(config: CreateCommentConfig): Effect.Effect<
   {
     readonly comment: CreatedComment
+    readonly author: UserMetadataWithOptionalImage | undefined
   },
   SessionContextError,
   CommentRepository
@@ -87,7 +100,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
     const merged = commentWithUser
       ? { ...commentWithUser, parentId: comment.parentId }
       : { ...comment, updatedAt: comment.createdAt }
-    return formatCommentResponse(merged)
+    return { ...formatCommentResponse(merged), author: commentWithUser?.user }
   })
 }
 
@@ -151,10 +164,11 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
       readonly tableId: string
       readonly recordId: string
       readonly userId: string | null
+      readonly parentCommentId: string | null
       readonly content: string
       readonly createdAt: string
       readonly updatedAt: string
-      readonly user?: UserMetadataWithOptionalImage | undefined
+      readonly user?: CommentDisplayUser | undefined
     }
   },
   SessionContextError,
@@ -200,6 +214,7 @@ function formatCommentsList(
     readonly tableId: string
     readonly recordId: string
     readonly userId: string | null
+    readonly parentId?: string | null
     readonly content: string
     readonly createdAt: Date
     readonly updatedAt: Date
@@ -210,20 +225,22 @@ function formatCommentsList(
   readonly tableId: string
   readonly recordId: string
   readonly userId: string | null
+  readonly parentCommentId: string | null
   readonly content: string
   readonly createdAt: string
   readonly updatedAt: string
-  readonly user?: UserMetadataWithOptionalImage | undefined
+  readonly user?: CommentDisplayUser | undefined
 }[] {
   return comments.map((comment) => ({
     id: comment.id,
     tableId: comment.tableId,
     recordId: comment.recordId,
     userId: comment.userId,
+    parentCommentId: comment.parentId ?? null,
     content: comment.content,
     createdAt: comment.createdAt.toISOString(),
     updatedAt: comment.updatedAt.toISOString(),
-    user: comment.user,
+    user: toCommentDisplayUser(comment.user),
   }))
 }
 
@@ -284,7 +301,7 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
       readonly content: string
       readonly createdAt: string
       readonly updatedAt: string
-      readonly user?: UserMetadataWithOptionalImage | undefined
+      readonly user?: CommentDisplayUser | undefined
     }
   },
   SessionContextError,
@@ -328,6 +345,47 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
   })
 }
 
+interface UpdateCommentStatusConfig {
+  readonly session: Readonly<UserSession>
+  readonly commentId: string
+  readonly tableName: string
+  readonly status: 'approved' | 'rejected' | 'pending'
+}
+
+export interface ModeratedCommentResult {
+  readonly id: string
+  readonly tableId: string
+  readonly recordId: string
+  readonly userId: string | null
+  readonly content: string
+  readonly status: 'approved' | 'rejected' | 'pending'
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
+export function updateCommentStatusProgram(
+  config: UpdateCommentStatusConfig
+): Effect.Effect<ModeratedCommentResult | undefined, SessionContextError, CommentRepository> {
+  return Effect.gen(function* () {
+    const comments = yield* CommentRepository
+    const { session, commentId, status } = config
+
+    const updated = yield* comments.updateStatus({ session, commentId, status })
+    if (!updated) return undefined
+
+    return {
+      id: updated.id,
+      tableId: updated.tableId,
+      recordId: updated.recordId,
+      userId: updated.userId,
+      content: updated.content,
+      status: updated.status,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    }
+  })
+}
+
 export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   {
     readonly comments: readonly {
@@ -335,10 +393,11 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
       readonly tableId: string
       readonly recordId: string
       readonly userId: string | null
+      readonly parentCommentId: string | null
       readonly content: string
       readonly createdAt: string
       readonly updatedAt: string
-      readonly user?: UserMetadataWithOptionalImage | undefined
+      readonly user?: CommentDisplayUser | undefined
     }[]
     readonly pagination?: {
       readonly total: number

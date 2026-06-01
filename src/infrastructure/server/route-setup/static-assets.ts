@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
@@ -171,12 +172,40 @@ export function setupJavaScriptRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
     )
 }
 
-export function setupPublicDirRoute(honoApp: Readonly<Hono>, publicDir: string): Readonly<Hono> {
+const PUBLIC_DIR_SECRET_BLOCKLIST =
+  /(?:^|\/)(?:\.env(?:\..+)?|\.git\/.*|node_modules\/.*|\.sovrium\/.*|CLAUDE\.md|[^/]+\.(?:key|pem|sql|sqlite(?:-journal)?))$/i
+
+export async function setupPublicDirRoute(
+  honoApp: Readonly<Hono>,
+  publicDir: string
+): Promise<Readonly<Hono>> {
+  const rootRealpath = await realpath(publicDir).catch((error: unknown) => {
+    logDebug(`[ASSETS] publicDir not mounted: ${publicDir} (${String(error)})`)
+    return undefined
+  })
+  if (rootRealpath === undefined) return honoApp
+
+  const rootPrefix = rootRealpath + sep
+
   return honoApp.get('/*', async (c, next) => {
     const { path } = c.req
-    const filePath = `${publicDir}${path}`
-    const file = Bun.file(filePath)
 
+    if (PUBLIC_DIR_SECRET_BLOCKLIST.test(path)) {
+      await next()
+      return
+    }
+
+    const joinedPath = join(rootRealpath, path)
+    const targetRealpath = await realpath(joinedPath).catch(() => undefined)
+    if (
+      targetRealpath === undefined ||
+      (targetRealpath !== rootRealpath && !targetRealpath.startsWith(rootPrefix))
+    ) {
+      await next()
+      return
+    }
+
+    const file = Bun.file(targetRealpath)
     if (await file.exists()) {
       return new Response(file, {
         headers: {
@@ -282,11 +311,11 @@ export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   })
 }
 
-export function setupStaticAssets(
+export async function setupStaticAssets(
   honoApp: Readonly<Hono>,
   app: App,
   publicDir?: string
-): Readonly<Hono> {
+): Promise<Readonly<Hono>> {
   const withAssets = setupIslandRoutes(
     setupAnalyticsScriptRoute(
       setupClientBundleRoute(setupJavaScriptRoutes(setupCSSRoute(honoApp, app))),

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeChartShellClasses } from '../../renderers/element-renderers/data-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 
 const CHART_SKELETON_HEIGHTS = ['h-[40%]', 'h-[55%]', 'h-[70%]', 'h-[60%]', 'h-[85%]', 'h-[50%]']
@@ -38,7 +39,7 @@ export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
     >
       {}
       <div
-        className="border-border bg-background-raised w-full rounded-lg border p-4"
+        className={`${computeChartShellClasses()} w-full`}
         aria-label="Loading chart..."
         role="status"
       >

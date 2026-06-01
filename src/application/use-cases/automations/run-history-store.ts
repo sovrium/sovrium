@@ -11,12 +11,21 @@ export interface AutomationRunRecord {
   readonly automationName: string
   readonly startedAt: string
   readonly finishedAt: string
-  readonly status: 'success' | 'failure' | 'timed-out' | 'exhausted' | 'completed-with-errors'
+  readonly status:
+    | 'success'
+    | 'failure'
+    | 'timed-out'
+    | 'exhausted'
+    | 'completed-with-errors'
+    | 'skipped'
+    | 'cancelled'
+    | 'queued'
+    | 'running'
   readonly steps: ReadonlyArray<{
     readonly name: string
     readonly type: string
     readonly operator?: string
-    readonly status: 'success' | 'failure' | 'skipped'
+    readonly status: 'success' | 'failure' | 'filtered' | 'skipped'
     readonly error?: string
     readonly props?: Record<string, unknown>
     readonly output?: Record<string, unknown>

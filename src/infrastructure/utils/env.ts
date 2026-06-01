@@ -21,6 +21,8 @@ export const isPageCacheDevBypassed = (): boolean => env['SOVRIUM_DEV_NO_CACHE']
 
 export const isLiveReloadEligible = (): boolean => isLocalDevDefault(getNodeEnv())
 
+export const isFormAnalyticsEnabled = (): boolean => env['ECO_FORM_ANALYTICS'] !== 'off'
+
 export const collectInsecureEnvWarning = (): StartupPhase | undefined => {
   const nodeEnv = getNodeEnv()
   if (nodeEnv === undefined || nodeEnv === '' || nodeEnv === 'development') {

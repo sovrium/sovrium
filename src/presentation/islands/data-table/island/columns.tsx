@@ -12,6 +12,7 @@ import {
   mapColumnsToColumnDefs,
   type RowActionHandler,
 } from '../formatting'
+import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../shared/types'
 import type {
   DataTableColumn,
@@ -53,6 +54,7 @@ export interface BuildColumnsOptions {
   readonly tableFields?: readonly string[]
   readonly groupByField?: string
   readonly onActionClick?: RowActionHandler
+  readonly fieldMeta?: FieldMetaMap
   readonly autoColumnsEditable?: boolean
 }
 
@@ -64,15 +66,23 @@ export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecor
     tableFields,
     groupByField,
     onActionClick,
+    fieldMeta,
     autoColumnsEditable,
   } = options
 
   const baseColumns: ColumnDef<TableRecord>[] =
     columnConfig && columnConfig.length > 0
-      ? [...mapColumnsToColumnDefs(columnConfig, groupByField, onActionClick)]
+      ? [...mapColumnsToColumnDefs(columnConfig, groupByField, onActionClick, fieldMeta)]
       : tableFields && tableFields.length > 0
-        ? [...autoGenerateColumnsFromFields(tableFields, groupByField, autoColumnsEditable)]
-        : [...autoGenerateColumns(records, groupByField, autoColumnsEditable)]
+        ? [
+            ...autoGenerateColumnsFromFields(
+              tableFields,
+              groupByField,
+              autoColumnsEditable,
+              fieldMeta
+            ),
+          ]
+        : [...autoGenerateColumns(records, groupByField, autoColumnsEditable, fieldMeta)]
 
   const selectionEnabled =
     selectionConfig?.mode === 'single' || selectionConfig?.mode === 'multiple'

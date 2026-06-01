@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeDateTriggerClasses } from './date-default-classes'
 import { DatePickerPopup } from './date-picker-popup'
 import { useDatePickerState } from './use-date-picker-state'
 import type { ReactElement } from 'react'
@@ -44,7 +45,9 @@ function TriggerButton({
       disabled={disabled}
       aria-haspopup="dialog"
       aria-expanded={open ? 'true' : 'false'}
-      className="border-border bg-background text-foreground hover:bg-background-subtle inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm shadow-sm"
+      className={computeDateTriggerClasses({
+        state: disabled ? 'disabled' : open ? 'open' : 'default',
+      })}
     >
       {triggerLabel}
     </button>

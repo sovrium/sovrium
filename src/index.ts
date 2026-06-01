@@ -9,10 +9,13 @@
 import { Effect, Schema, Either } from 'effect'
 import { TreeFormatter } from 'effect/ParseResult'
 import { createAdminAccount } from '@/application/use-cases/auth/bootstrap-admin'
+import { generateSearchIndex } from '@/application/use-cases/server/generate-search-index'
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { normalizeAppConfig } from '@/application/use-cases/server/normalize-app-config'
 import { startServer } from '@/application/use-cases/server/start-server'
 import { AppSchema } from '@/domain/models/app'
+import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
+import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { generateAppJsonSchema as generateSchema } from '@/domain/services/json-schema'
 import { warnForConfig } from '@/infrastructure/coming-soon'
@@ -84,6 +87,22 @@ export const build = async (
       logDebug('Generating static site...')
       const result = yield* generateStaticUseCase(app, options)
       logDebug(`Static site generated to ${result.outputDir} (${result.files.length} files)`)
+
+      if (hasPageSearchComponent(validatedApp)) {
+        const publicPagePaths = getPublicPagePaths(validatedApp.pages)
+
+        const searchResult = yield* generateSearchIndex({
+          inputDir: result.outputDir,
+          outputDir: result.outputDir,
+          publicPagePaths,
+        })
+
+        return {
+          outputDir: result.outputDir,
+          files: [...result.files, ...searchResult.files],
+        }
+      }
+
       return result
     }).pipe(Effect.provide(createStaticBuildLayer()))
 
@@ -95,6 +114,46 @@ export const build = async (
         `If this looks like a bug, please open an issue:\n` +
         `  https://github.com/sovrium/sovrium/issues/new`
     )
+  }
+}
+
+export const prebuildSearchIndex = async (app: AppConfig, publicDir: string): Promise<boolean> => {
+  const normalizedApp = normalizeAppConfig(app)
+  const validatedApp = Schema.decodeUnknownSync(AppSchema)(normalizedApp)
+
+  if (!hasPageSearchComponent(validatedApp)) {
+    return false
+  }
+
+  const fs = await import('node:fs/promises')
+  const os = await import('node:os')
+  const path = await import('node:path')
+
+  const tempStaticDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sovrium-search-'))
+
+  try {
+    const publicPagePaths = getPublicPagePaths(validatedApp.pages)
+
+    const program = Effect.gen(function* () {
+      yield* generateStaticUseCase(app, {
+        outputDir: tempStaticDir,
+        hydration: false,
+        generateSitemap: false,
+        generateRobotsTxt: false,
+        generateManifest: false,
+      })
+
+      yield* generateSearchIndex({
+        inputDir: tempStaticDir,
+        outputDir: publicDir,
+        publicPagePaths,
+      })
+    }).pipe(Effect.provide(createStaticBuildLayer()))
+
+    await Effect.runPromise(program)
+    return true
+  } finally {
+    await fs.rm(tempStaticDir, { recursive: true, force: true }).catch(() => undefined)
   }
 }
 

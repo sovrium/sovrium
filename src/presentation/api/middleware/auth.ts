@@ -128,6 +128,63 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
   await next()
 }
 
+export function requireAuthOrGuestComment(
+  resolveApp: () => { readonly tables?: ReadonlyArray<unknown> } | undefined
+) {
+  return async (c: ContextWithSession, next: Next): Promise<Response | undefined> => {
+    if (c.var.session) {
+      await next()
+      return undefined
+    }
+    if (isGuestCommentCreateRequest(c) && hasGuestCommentsEnabled(c, resolveApp())) {
+      const guestSession: Session = {
+        userId: 'guest',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        token: '',
+        ipAddress: null,
+        userAgent: null,
+      } as Session
+      c.set('session', guestSession)
+      c.set('userRole', 'guest')
+      c.set('userGroups', [] as readonly string[])
+      await next()
+      return undefined
+    }
+    return c.json(
+      {
+        success: false,
+        error: 'Unauthorized',
+        message: 'Authentication required',
+        code: 'UNAUTHORIZED',
+      },
+      401
+    )
+  }
+}
+
+function isGuestCommentCreateRequest(c: Context): boolean {
+  if (c.req.method !== 'POST' && c.req.method !== 'GET') return false
+  return /^\/api\/tables\/[^/]+\/records\/[^/]+\/comments\/?$/.test(c.req.path)
+}
+
+function hasGuestCommentsEnabled(
+  c: Context,
+  app: { readonly tables?: ReadonlyArray<unknown> } | undefined
+): boolean {
+  if (!app?.tables) return false
+  const match = c.req.path.match(/^\/api\/tables\/([^/]+)\/records\//)
+  if (!match) return false
+  const tableKey = match[1] ?? ''
+  const table = app.tables.find((t): t is { readonly name?: string; readonly id?: unknown } => {
+    if (typeof t !== 'object' || t === null) return false
+    const candidate = t as { readonly name?: unknown; readonly id?: unknown }
+    return candidate.name === tableKey || String(candidate.id ?? '') === tableKey
+  })
+  if (!table) return false
+  const { comments } = table as { readonly comments?: { readonly guestComments?: boolean } }
+  return comments?.guestComments === true
+}
+
 export function requireAuth() {
   return requireAuthHandler
 }

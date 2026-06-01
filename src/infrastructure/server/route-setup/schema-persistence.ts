@@ -6,14 +6,21 @@
  */
 
 
-import { sql } from 'drizzle-orm'
+import { desc, eq, inArray, max as sqlMax } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
-  nowEpochMsSqlLiteral,
-  qualifiedSystemTable,
-} from '@/infrastructure/database/sql/dialect-ddl'
-import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+  sovriumAppDrafts as sovriumAppDraftsPg,
+  sovriumAppVersions as sovriumAppVersionsPg,
+} from '@/infrastructure/database/drizzle/schema/app-versioning'
+import {
+  sovriumAppDrafts as sovriumAppDraftsSqlite,
+  sovriumAppVersions as sovriumAppVersionsSqlite,
+} from '@/infrastructure/database/drizzle/schema-sqlite/app-versioning'
 import type { AppVersionSource } from '@/domain/models/system/app-version'
+
+const sovriumAppVersions = resolveDialectSchema(sovriumAppVersionsPg, sovriumAppVersionsSqlite)
+const sovriumAppDrafts = resolveDialectSchema(sovriumAppDraftsPg, sovriumAppDraftsSqlite)
 
 
 export type Snapshot = Record<string, unknown>
@@ -29,15 +36,34 @@ export interface DraftRow {
 export const escapeSqlLiteral = (value: string): string => value.replace(/'/g, "''")
 
 
+const toIsoString = (value: unknown): string => {
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === 'number') return new Date(value).toISOString()
+  if (typeof value === 'string') return value
+  return new Date().toISOString()
+}
+
+const projectVersionRow = (row: Readonly<Record<string, unknown>>): Record<string, unknown> => ({
+  version_number: row['versionNumber'],
+  snapshot: row['snapshot'],
+  checksum: row['checksum'],
+  created_at: toIsoString(row['createdAt']),
+  created_by_user_id: row['createdByUserId'],
+  source: row['source'],
+  file_checksum: row['fileChecksum'],
+  message: row['message'],
+  restored_from_version: row['restoredFromVersion'],
+})
+
+
 export const readActiveVersionNumber = async (): Promise<number> => {
   try {
-    const result = await db.execute(
-      sql.raw(
-        `SELECT version_number FROM ${qualifiedSystemTable('sovrium_app_versions')} ORDER BY version_number DESC LIMIT 1`
-      )
-    )
-    const rows = extractRows(result)
-    return rows.length > 0 ? Number(rows[0]?.['version_number'] ?? 0) : 0
+    const rows = await db
+      .select({ versionNumber: sovriumAppVersions.versionNumber })
+      .from(sovriumAppVersions)
+      .orderBy(desc(sovriumAppVersions.versionNumber))
+      .limit(1)
+    return rows.length > 0 ? Number(rows[0]?.versionNumber ?? 0) : 0
   } catch {
     return 0
   }
@@ -45,14 +71,12 @@ export const readActiveVersionNumber = async (): Promise<number> => {
 
 export const readActiveVersionSnapshot = async (): Promise<Snapshot | undefined> => {
   try {
-    const result = await db.execute(
-      sql.raw(
-        `SELECT snapshot FROM ${qualifiedSystemTable('sovrium_app_versions')} ORDER BY version_number DESC LIMIT 1`
-      )
-    )
-    const row = extractRows(result)[0]
-    if (row === undefined) return undefined
-    const { snapshot } = row
+    const rows = await db
+      .select({ snapshot: sovriumAppVersions.snapshot })
+      .from(sovriumAppVersions)
+      .orderBy(desc(sovriumAppVersions.versionNumber))
+      .limit(1)
+    const snapshot = rows[0]?.snapshot
     return typeof snapshot === 'object' && snapshot !== null ? (snapshot as Snapshot) : undefined
   } catch {
     return undefined
@@ -61,12 +85,11 @@ export const readActiveVersionSnapshot = async (): Promise<Snapshot | undefined>
 
 export const readAllVersionRows = async (): Promise<ReadonlyArray<Record<string, unknown>>> => {
   try {
-    const result = await db.execute(
-      sql.raw(
-        `SELECT * FROM ${qualifiedSystemTable('sovrium_app_versions')} ORDER BY version_number DESC`
-      )
-    )
-    return extractRows(result)
+    const rows = await db
+      .select()
+      .from(sovriumAppVersions)
+      .orderBy(desc(sovriumAppVersions.versionNumber))
+    return rows.map((r) => projectVersionRow(r as Record<string, unknown>))
   } catch {
     return []
   }
@@ -76,12 +99,13 @@ export const readVersionRow = async (
   versionNumber: number
 ): Promise<Record<string, unknown> | undefined> => {
   try {
-    const result = await db.execute(
-      sql.raw(
-        `SELECT * FROM ${qualifiedSystemTable('sovrium_app_versions')} WHERE version_number = ${Math.floor(versionNumber)} LIMIT 1`
-      )
-    )
-    return extractRows(result)[0]
+    const rows = await db
+      .select()
+      .from(sovriumAppVersions)
+      .where(eq(sovriumAppVersions.versionNumber, Math.floor(versionNumber)))
+      .limit(1)
+    const row = rows[0]
+    return row !== undefined ? projectVersionRow(row as Record<string, unknown>) : undefined
   } catch {
     return undefined
   }
@@ -102,29 +126,32 @@ const insertVersionRow = async (input: {
   readonly fileChecksum?: string
   readonly restoredFromVersion?: number
 }): Promise<number> => {
-  const snapJson = escapeSqlLiteral(JSON.stringify(input.snapshot))
-  const message = escapeSqlLiteral(input.message)
-  const userId = escapeSqlLiteral(input.userId)
-  const source = escapeSqlLiteral(input.source)
+  const snapJson = JSON.stringify(input.snapshot)
   const checksum = `sha256:${await sha256Hex(snapJson)}`
 
-  const restored = input.restoredFromVersion
-  const restoredColumn = restored !== undefined ? ', restored_from_version' : ''
-  const restoredValue = restored !== undefined ? `, ${Math.floor(restored)}` : ''
+  const [maxRow] = await db
+    .select({ max: sqlMax(sovriumAppVersions.versionNumber) })
+    .from(sovriumAppVersions)
+  const rawMax = maxRow?.max
+  const nextVersionNumber = Math.max(Number(rawMax ?? 0), 0) + 1
 
-  const { fileChecksum } = input
-  const fileChecksumColumn = fileChecksum !== undefined ? ', file_checksum' : ''
-  const fileChecksumValue =
-    fileChecksum !== undefined ? `, '${escapeSqlLiteral(fileChecksum)}'` : ''
-
-  const versionsTable = qualifiedSystemTable('sovrium_app_versions')
-  const result = await db.execute(
-    sql.raw(
-      `INSERT INTO ${versionsTable} (version_number, snapshot, checksum, created_at, created_by_user_id, message, source${fileChecksumColumn}${restoredColumn}) SELECT COALESCE(MAX(version_number), 0) + 1, '${snapJson}', '${checksum}', ${nowEpochMsSqlLiteral()}, '${userId}', '${message}', '${source}'${fileChecksumValue}${restoredValue} FROM ${versionsTable} RETURNING version_number`
-    )
-  )
-  const row = extractRows(result)[0]
-  return row !== undefined ? Number(row['version_number'] ?? 0) : 0
+  const inserted = await db
+    .insert(sovriumAppVersions)
+    .values({
+      versionNumber: nextVersionNumber,
+      snapshot: input.snapshot as never,
+      checksum,
+      createdByUserId: input.userId,
+      source: input.source,
+      message: input.message,
+      ...(input.fileChecksum !== undefined ? { fileChecksum: input.fileChecksum } : {}),
+      ...(input.restoredFromVersion !== undefined
+        ? { restoredFromVersion: input.restoredFromVersion }
+        : {}),
+    } as never)
+    .returning({ versionNumber: sovriumAppVersions.versionNumber })
+  const row = inserted[0]
+  return row !== undefined ? Number(row.versionNumber ?? nextVersionNumber) : nextVersionNumber
 }
 
 export const insertVersion = (input: {
@@ -142,44 +169,47 @@ export const insertRestoredVersion = (input: {
   readonly restoredFromVersion: number
 }): Promise<number> => insertVersionRow({ ...input, source: 'restore' })
 
+export const deleteVersionsByNumbers = async (
+  versionNumbers: ReadonlyArray<number>
+): Promise<number> => {
+  if (versionNumbers.length === 0) return 0
+  const floored = versionNumbers.map((n) => Math.floor(n))
+  await db.delete(sovriumAppVersions).where(inArray(sovriumAppVersions.versionNumber, floored))
+  return floored.length
+}
+
 
 export const readLatestDraft = async (): Promise<DraftRow | undefined> => {
   try {
-    const result = await db.execute(
-      sql.raw(
-        `SELECT snapshot, base_version, updated_at, updated_by_user_id FROM ${qualifiedSystemTable('sovrium_app_drafts')} ORDER BY updated_at DESC LIMIT 1`
-      )
-    )
-    const row = extractRows(result)[0]
+    const rows = await db
+      .select()
+      .from(sovriumAppDrafts)
+      .orderBy(desc(sovriumAppDrafts.updatedAt))
+      .limit(1)
+    const row = rows[0]
     if (row === undefined) return undefined
-    const { snapshot, updated_at: updatedAt } = row
+    const { snapshot } = row as Record<string, unknown>
     return {
       snapshot: typeof snapshot === 'object' && snapshot !== null ? (snapshot as Snapshot) : {},
-      baseVersion: Number(row['base_version'] ?? 0),
-      updatedAt: updatedAt !== undefined ? String(updatedAt) : new Date().toISOString(),
-      updatedByUserId: String(row['updated_by_user_id'] ?? ''),
+      baseVersion: Number((row as Record<string, unknown>)['baseVersion'] ?? 0),
+      updatedAt: toIsoString((row as Record<string, unknown>)['updatedAt']),
+      updatedByUserId: String((row as Record<string, unknown>)['updatedByUserId'] ?? ''),
     }
   } catch {
     return undefined
   }
 }
 
-export const writeDraft = (input: {
+export const writeDraft = async (input: {
   readonly snapshot: unknown
   readonly baseVersion: number
   readonly userId: string
 }): Promise<void> => {
-  const snapJson = escapeSqlLiteral(JSON.stringify(input.snapshot))
-  const userId = escapeSqlLiteral(input.userId)
-  const draftsTable = qualifiedSystemTable('sovrium_app_drafts')
-  return db
-    .execute(sql.raw(`DELETE FROM ${draftsTable}`))
-    .then(() =>
-      db.execute(
-        sql.raw(
-          `INSERT INTO ${draftsTable} (id, snapshot, base_version, updated_at, updated_by_user_id) VALUES ('singleton', '${snapJson}', ${Math.floor(input.baseVersion)}, ${nowEpochMsSqlLiteral()}, '${userId}')`
-        )
-      )
-    )
-    .then(() => undefined)
+  await db.delete(sovriumAppDrafts)
+  await db.insert(sovriumAppDrafts).values({
+    id: 'singleton',
+    snapshot: input.snapshot as never,
+    baseVersion: Math.floor(input.baseVersion),
+    updatedByUserId: input.userId,
+  } as never)
 }

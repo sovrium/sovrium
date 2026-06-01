@@ -8,6 +8,7 @@
 import { Slider } from '@base-ui/react/slider'
 import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
+import { computeSliderRangeClasses, computeSliderTrackClasses } from './numeric-default-classes'
 import { useSliderAriaSync } from './slider-aria-sync'
 import { SliderThumb } from './slider-thumb'
 import type { ReactElement } from 'react'
@@ -71,8 +72,10 @@ export default function SliderIsland({
         className="relative flex w-full touch-none items-center"
       >
         <Slider.Control className="relative flex w-full touch-none items-center">
-          <Slider.Track className="bg-background-subtle relative h-1.5 w-full grow rounded-full">
-            <Slider.Indicator className="bg-primary absolute h-full rounded-full" />
+          <Slider.Track
+            className={computeSliderTrackClasses({ state: disabled ? 'disabled' : 'default' })}
+          >
+            <Slider.Indicator className={computeSliderRangeClasses()} />
           </Slider.Track>
           <SliderThumb
             inputRef={inputRef}

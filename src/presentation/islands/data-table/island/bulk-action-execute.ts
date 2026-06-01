@@ -30,10 +30,10 @@ export function executeBulkAction(
   table: ReturnType<typeof useReactTable<TableRecord>>,
   action: DataTableBulkAction
 ): void {
-  if (action.action.type !== 'crud') return
+  if (!('type' in action.action) || action.action.type !== 'crud') return
 
   const crudAction = action.action
-  const formAction = buildBulkFormAction(action.action.table, crudAction.operation)
+  const formAction = buildBulkFormAction(crudAction.table, crudAction.operation)
   if (!formAction) return
 
   const selectedIds = table

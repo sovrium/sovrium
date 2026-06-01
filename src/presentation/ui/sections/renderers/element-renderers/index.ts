@@ -35,6 +35,7 @@ export {
   renderIcon,
   renderCustomHTML,
   renderSearchInput,
+  renderPageSearch,
 } from './interactive-renderers'
 
 export {

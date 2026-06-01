@@ -86,7 +86,7 @@ function resolveCreateTable(
   tableName: string | undefined
 ): string | undefined {
   const action = interaction?.onDateClick
-  if (action?.type === 'crud' && action.operation === 'create') {
+  if (action && 'type' in action && action.type === 'crud' && action.operation === 'create') {
     return action.table ?? tableName
   }
   return tableName
@@ -115,7 +115,7 @@ function useDateClickModal(interaction: CalendarInteraction | undefined): DateCl
   const [clickedDate, setClickedDate] = useState<string | undefined>(undefined)
   const action = interaction?.onDateClick
   const handleDateClick = (info: DateClickArg): void => {
-    if (!action || action.type !== 'crud') return
+    if (!action || !('type' in action) || action.type !== 'crud') return
     if (action.operation !== 'create') return
     setClickedDate(info.dateStr)
     setOpen(true)

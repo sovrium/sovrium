@@ -134,7 +134,7 @@ function generateCssFile(
       )
     )
     if (precompiledPath) {
-      logDebug(`Pre-compiled CSS written to ${precompiledPath}`)
+      yield* Console.log(`Pre-compiled CSS written to ${precompiledPath}`)
     }
 
     return cssFile

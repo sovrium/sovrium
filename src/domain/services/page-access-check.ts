@@ -87,6 +87,9 @@ function isSessionAuthorized(
 
   if (roles.includes(session.role)) return true
 
+  const effective = session.effectiveRoles ?? []
+  if (effective.some((effRole) => roles.includes(effRole))) return true
+
   const userGroups = session.groups ?? []
   return groups.some((groupName) => userGroups.includes(groupName))
 }

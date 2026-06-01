@@ -88,10 +88,21 @@ export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: 
   })
 }
 
+const publicDirExists = (publicDir: string): Effect.Effect<boolean, never, never> =>
+  Effect.tryPromise({
+    try: () => fs.stat(publicDir).then((s) => s.isDirectory()),
+    catch: () => false as const,
+  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+
 export function copyPublicAssets(publicDir: string | undefined, outputDir: string) {
   return Effect.if(publicDir !== undefined, {
     onTrue: () =>
       Effect.gen(function* () {
+        const exists = yield* publicDirExists(publicDir!)
+        if (!exists) {
+          logDebug(`Public directory ${publicDir} not found — skipping asset copy`)
+          return [] as readonly string[]
+        }
         logDebug(`Copying assets from ${publicDir}...`)
         return yield* copyDirectory(publicDir!, outputDir)
       }),

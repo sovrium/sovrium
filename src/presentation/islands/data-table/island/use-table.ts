@@ -15,12 +15,15 @@ import {
   getExpandedRowModel,
   type ColumnDef,
   type ColumnFiltersState,
+  type ColumnOrderState,
+  type ColumnSizingState,
   type OnChangeFn,
   type PaginationState,
   type RowSelectionState,
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import type { TableRecord } from '../../shared/types'
 import type {
   DataTableGroupBy,
@@ -28,15 +31,20 @@ import type {
 } from '@/domain/models/app/pages/components/data-table'
 
 function buildGroupingState(groupByConfig: DataTableGroupBy | undefined) {
-  if (!groupByConfig) return undefined
-  return {
-    getGroupedRowModel: getGroupedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    initialState: {
-      grouping: [groupByConfig.field],
-      expanded: groupByConfig.collapsed === true ? {} : true,
-    },
+  if (!groupByConfig) {
+    return { rowModels: undefined, groupingState: undefined } as const
   }
+  return {
+    rowModels: {
+      getGroupedRowModel: getGroupedRowModel(),
+      getExpandedRowModel: getExpandedRowModel(),
+    },
+    groupingState: {
+      grouping: [groupByConfig.field] as ReadonlyArray<string>,
+      expanded:
+        groupByConfig.collapsed === true ? ({} as Record<string, boolean>) : (true as const),
+    },
+  } as const
 }
 
 interface UseDataTableInstanceParams {
@@ -54,42 +62,85 @@ interface UseDataTableInstanceParams {
   readonly setRowSelection: OnChangeFn<RowSelectionState>
   readonly columnVisibility: VisibilityState
   readonly setColumnVisibility: OnChangeFn<VisibilityState>
+  readonly columnOrder: ColumnOrderState
+  readonly setColumnOrder: OnChangeFn<ColumnOrderState>
+  readonly columnSizing: ColumnSizingState
+  readonly setColumnSizing: OnChangeFn<ColumnSizingState>
   readonly selectionConfig: DataTableSelection | undefined
   readonly groupByConfig: DataTableGroupBy | undefined
   readonly totalRecords: number
 }
 
-export function useDataTableInstance(params: UseDataTableInstanceParams) {
-  const { records, allColumns, selectionConfig, groupByConfig, totalRecords, pagination } = params
+function buildTableState(
+  params: UseDataTableInstanceParams,
+  groupingState: ReturnType<typeof buildGroupingState>['groupingState']
+) {
+  return {
+    sorting: params.sorting,
+    columnFilters: params.columnFilters,
+    globalFilter: params.globalFilter,
+    pagination: params.pagination,
+    rowSelection: params.rowSelection,
+    columnVisibility: params.columnVisibility,
+    columnOrder: params.columnOrder,
+    columnSizing: params.columnSizing,
+    ...(groupingState && {
+      grouping: groupingState.grouping as string[],
+      expanded: groupingState.expanded,
+    }),
+  }
+}
+
+function buildTableOptions(
+  params: UseDataTableInstanceParams,
+  groupingState: ReturnType<typeof buildGroupingState>['groupingState'],
+  rowModels: ReturnType<typeof buildGroupingState>['rowModels']
+) {
+  const { records, allColumns, selectionConfig, totalRecords, pagination } = params
   const selectionEnabled =
     selectionConfig?.mode === 'single' || selectionConfig?.mode === 'multiple'
-
-  return useReactTable({
+  return {
     data: records as TableRecord[],
     columns: [...allColumns],
-    state: {
-      sorting: params.sorting,
-      columnFilters: params.columnFilters,
-      globalFilter: params.globalFilter,
-      pagination,
-      rowSelection: params.rowSelection,
-      columnVisibility: params.columnVisibility,
-    },
+    state: buildTableState(params, groupingState),
     onSortingChange: params.setSorting,
     onColumnFiltersChange: params.setColumnFilters,
     onGlobalFilterChange: params.setGlobalFilter,
     onPaginationChange: params.setPagination,
     onRowSelectionChange: params.setRowSelection,
     onColumnVisibilityChange: params.setColumnVisibility,
+    onColumnOrderChange: params.setColumnOrder,
+    onColumnSizingChange: params.setColumnSizing,
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange' as const,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    ...buildGroupingState(groupByConfig),
+    ...(rowModels ?? {}),
     enableRowSelection: selectionEnabled,
     enableMultiRowSelection: selectionConfig?.mode === 'multiple',
+    sortDescFirst: false,
     manualPagination: true,
     manualSorting: true,
     pageCount: Math.ceil(totalRecords / pagination.pageSize),
-  })
+  }
+}
+
+export function useDataTableInstance(params: UseDataTableInstanceParams) {
+  const { groupByConfig } = params
+
+  const groupingKey = groupByConfig?.field ?? ''
+  const collapsedDefault = groupByConfig?.collapsed === true
+  const { rowModels, groupingState } = useMemo(
+    () =>
+      buildGroupingState(
+        groupingKey === ''
+          ? undefined
+          : { field: groupingKey, ...(collapsedDefault && { collapsed: true }) }
+      ),
+    [groupingKey, collapsedDefault]
+  )
+
+  return useReactTable(buildTableOptions(params, groupingState, rowModels))
 }

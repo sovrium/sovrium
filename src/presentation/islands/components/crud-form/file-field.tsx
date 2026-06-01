@@ -7,6 +7,13 @@
 
 
 import { useState } from 'react'
+import {
+  computeAttachmentRemoveButtonClasses,
+  computeAttachmentTileClasses,
+  computeAttachmentTileFileIconClasses,
+  computeAttachmentTileFilenameClasses,
+  computeAttachmentTileImageClasses,
+} from '../../field-affordances-default-classes'
 import { type FieldDef, labelOf } from './field-def'
 
 export interface UploadedFile {
@@ -145,7 +152,10 @@ interface FilePreviewProps {
 function FilePreview({ file, onRemove }: FilePreviewProps) {
   const isImage = file.mimeType.startsWith('image/')
   return (
-    <div data-file-name={file.name}>
+    <div
+      data-file-name={file.name}
+      className={computeAttachmentTileClasses()}
+    >
       {isImage ? (
         <img
           src={file.url}
@@ -153,16 +163,24 @@ function FilePreview({ file, onRemove }: FilePreviewProps) {
           data-preview="true"
           width={64}
           height={64}
+          className={computeAttachmentTileImageClasses()}
         />
       ) : (
-        <span>{file.name}</span>
+        <span
+          aria-hidden="true"
+          className={computeAttachmentTileFileIconClasses()}
+        >
+          📄
+        </span>
       )}
+      <span className={computeAttachmentTileFilenameClasses()}>{file.name}</span>
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${file.name}`}
+        className={computeAttachmentRemoveButtonClasses()}
       >
-        Remove
+        ×
       </button>
     </div>
   )

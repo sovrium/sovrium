@@ -6,18 +6,24 @@
  */
 
 
+import {
+  computeSkeletonClasses,
+  type SkeletonVariant,
+} from '../../renderers/element-renderers/feedback-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
 
-const VARIANT_RADIUS: Readonly<Record<string, string>> = {
-  text: 'rounded',
-  circular: 'rounded-full',
-  rectangular: 'rounded-md',
+const SKELETON_VARIANTS = new Set<SkeletonVariant>(['text', 'circular', 'rectangular'])
+
+function resolveSkeletonVariant(value: unknown): SkeletonVariant {
+  return typeof value === 'string' && SKELETON_VARIANTS.has(value as SkeletonVariant)
+    ? (value as SkeletonVariant)
+    : 'text'
 }
 
 interface SkeletonFields {
-  readonly variant: string
+  readonly variant: SkeletonVariant
   readonly width: string
   readonly height: string
   readonly animate: boolean
@@ -31,7 +37,7 @@ function resolveSkeletonFields(
   const c = (component ?? {}) as Record<string, unknown>
   const props = rawProps ?? {}
   return {
-    variant: typeof c.skeletonVariant === 'string' ? c.skeletonVariant : 'text',
+    variant: resolveSkeletonVariant(c.skeletonVariant),
     width: typeof c.skeletonWidth === 'string' ? c.skeletonWidth : '100%',
     height: typeof c.skeletonHeight === 'string' ? c.skeletonHeight : '1rem',
     animate: c.animate !== false,
@@ -41,9 +47,7 @@ function resolveSkeletonFields(
 
 export const skeletonComponent: ComponentRenderer = ({ component, rawProps }) => {
   const f = resolveSkeletonFields(component, rawProps)
-  const radius = VARIANT_RADIUS[f.variant] ?? VARIANT_RADIUS.text
-  const animateClass = f.animate ? 'animate-pulse' : ''
-  const className = `skeleton bg-muted ${radius} ${animateClass}`.trim()
+  const className = computeSkeletonClasses({ variant: f.variant, animate: f.animate })
   const skeleton: ReactElement = (
     <div
       id={f.id}

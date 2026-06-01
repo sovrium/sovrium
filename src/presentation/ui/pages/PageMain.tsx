@@ -20,6 +20,7 @@ import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
+import type { SessionInfo } from '@/domain/types/session-info'
 import type { RouteParams } from '@/domain/utils/route-matcher'
 import type { ResolvedMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
 
@@ -35,6 +36,7 @@ type PageMainProps = {
   readonly tables?: Tables
   readonly buckets?: Buckets
   readonly routeParams?: RouteParams
+  readonly session?: SessionInfo
   readonly markdownPayload?: ResolvedMarkdownPage
 }
 
@@ -48,6 +50,7 @@ export function PageMain({
   tables,
   buckets,
   routeParams,
+  session,
   markdownPayload,
 }: PageMainProps): Readonly<ReactElement> {
   return (
@@ -55,6 +58,7 @@ export function PageMain({
       data-testid={`page-${toSlug(page.name ?? page.path)}`}
       data-page-name={page.name}
       data-page-id={page.id}
+      data-sovrium-search-body
       style={MAIN_STYLE}
     >
       {markdownPayload && <MarkdownArticle markdown={markdownPayload} />}
@@ -68,6 +72,7 @@ export function PageMain({
         tables={tables}
         buckets={buckets}
         routeParams={routeParams}
+        session={session}
       />
     </main>
   )

@@ -6,14 +6,9 @@
  */
 
 
-export const substituteRecordVars = (
-  template: string,
-  record: Readonly<Record<string, unknown>>
-): string =>
-  template.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_, fieldName: string) => {
-    const value = record[fieldName]
-    return value === undefined || value === null ? '' : String(value)
-  })
+import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
+
+export { substituteRecordVars }
 
 export interface ResolvedSidebarEntry {
   readonly recordId: string

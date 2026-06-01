@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeReorderableHandleClasses,
+  computeReorderableListClasses,
+} from '@/presentation/ui/sections/renderers/element-renderers/specialty-ssr-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -121,7 +125,7 @@ function dragHandle(key: string): ReactElement {
       tabIndex={0}
       aria-label="Drag to reorder"
       aria-pressed="false"
-      style={{ cursor: 'grab', marginRight: '0.5rem', userSelect: 'none' }}
+      className={computeReorderableHandleClasses()}
     >
       {'☰'}
     </span>
@@ -165,12 +169,17 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
         }
       : {}
 
+  const authorClassName = elementProps['className'] as string | undefined
+  const listPrestyle = computeReorderableListClasses()
+  const listClassName = authorClassName ? `${listPrestyle} ${authorClassName}` : listPrestyle
+
   return (
     <>
       <ul
         {...elementProps}
         {...toastAttrs}
         data-reorderable-list="true"
+        className={listClassName}
       >
         {items}
       </ul>

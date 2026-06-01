@@ -6,6 +6,8 @@
  */
 
 import { Effect } from 'effect'
+import { parseEcoDesignLayer } from '@/domain/models/env/eco-design-layer'
+import { generateArbitraryVarSafelist } from '@/infrastructure/css/arbitrary-var-safelist'
 import {
   getCSSCacheKey,
   getOrComputeCachedCSS,
@@ -25,10 +27,12 @@ import {
 import { generateCodeBlockStyles } from '@/infrastructure/css/theme/code-block-styles-generator'
 import {
   NEUTRAL_FLOOR_LAYER,
+  SOURCE_SERIF_ITALIC_FONT_FACE,
   V1_ALIAS_BRIDGE,
   V1_TOKEN_LAYER,
 } from '@/infrastructure/css/theme/default-theme-layer'
 import {
+  generateAuthorSvBridge,
   generateThemeBorderRadius,
   generateThemeBreakpoints,
   generateThemeColors,
@@ -59,13 +63,81 @@ function generateThemeCSS(theme?: Theme): string {
     generateThemeBreakpoints(theme.breakpoints),
   ].filter(Boolean)
 
-  if (themeTokens.length === 0) return ''
+  const authorSvBridge = generateAuthorSvBridge(theme.colors)
 
-  return `@theme static {\n${themeTokens.join('\n')}\n  }`
+  if (themeTokens.length === 0 && !authorSvBridge) return ''
+
+  const themeStaticBlock =
+    themeTokens.length > 0 ? `@theme static {\n${themeTokens.join('\n')}\n  }` : ''
+
+  return [themeStaticBlock, authorSvBridge].filter(Boolean).join('\n\n')
 }
+
+const LAYOUT_UTILITY_SAFELIST = [
+  'grid-cols-1',
+  'grid-cols-2',
+  'grid-cols-3',
+  'grid-cols-4',
+  'grid-cols-5',
+  'grid-cols-6',
+  'grid-cols-7',
+  'grid-cols-8',
+  'grid-cols-9',
+  'grid-cols-10',
+  'grid-cols-11',
+  'grid-cols-12',
+  'sm:grid-cols-1',
+  'sm:grid-cols-2',
+  'sm:grid-cols-3',
+  'sm:grid-cols-4',
+  'sm:grid-cols-5',
+  'sm:grid-cols-6',
+  'sm:grid-cols-7',
+  'sm:grid-cols-8',
+  'sm:grid-cols-9',
+  'sm:grid-cols-10',
+  'sm:grid-cols-11',
+  'sm:grid-cols-12',
+  'md:grid-cols-1',
+  'md:grid-cols-2',
+  'md:grid-cols-3',
+  'md:grid-cols-4',
+  'md:grid-cols-5',
+  'md:grid-cols-6',
+  'md:grid-cols-7',
+  'md:grid-cols-8',
+  'md:grid-cols-9',
+  'md:grid-cols-10',
+  'md:grid-cols-11',
+  'md:grid-cols-12',
+  'lg:grid-cols-1',
+  'lg:grid-cols-2',
+  'lg:grid-cols-3',
+  'lg:grid-cols-4',
+  'lg:grid-cols-5',
+  'lg:grid-cols-6',
+  'lg:grid-cols-7',
+  'lg:grid-cols-8',
+  'lg:grid-cols-9',
+  'lg:grid-cols-10',
+  'lg:grid-cols-11',
+  'lg:grid-cols-12',
+].join(' ')
+
+const ARBITRARY_VAR_CLASS_SAFELIST = generateArbitraryVarSafelist().join(' ')
+
+const ARBITRARY_VAR_SAFELIST_DIRECTIVE = ARBITRARY_VAR_CLASS_SAFELIST
+  ? `@source inline("${ARBITRARY_VAR_CLASS_SAFELIST}");`
+  : '/* arbitrary-var safelist empty — binary mode (resolved literals already in JS bundle) */'
 
 const STATIC_IMPORTS = `@import 'tailwindcss';
     @import 'tw-animate-css';
+    /*---break---
+     */
+    @source inline("${LAYOUT_UTILITY_SAFELIST}");
+    /*---break---
+     */
+    ${ARBITRARY_VAR_SAFELIST_DIRECTIVE}
     /*---break---
      */
     @custom-variant dark (&:is(.dark *));
@@ -92,8 +164,11 @@ const STATIC_IMPORTS = `@import 'tailwindcss';
 const FINAL_BASE_LAYER = ''
 
 function buildDefaultLayer(theme?: Theme): string {
+  if (parseEcoDesignLayer(process.env) === 'off') {
+    return SOURCE_SERIF_ITALIC_FONT_FACE
+  }
   const tokenLayer = theme?.baseline === 'replace' ? NEUTRAL_FLOOR_LAYER : V1_TOKEN_LAYER
-  return `${tokenLayer}\n\n  ${V1_ALIAS_BRIDGE}`
+  return `${SOURCE_SERIF_ITALIC_FONT_FACE}\n\n  ${tokenLayer}\n\n  ${V1_ALIAS_BRIDGE}`
 }
 
 function buildSourceCSS(theme?: Theme): string {

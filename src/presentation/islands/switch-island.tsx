@@ -7,6 +7,10 @@
 
 import { Switch } from '@base-ui/react/switch'
 import { cn } from '@/presentation/islands/lib/cn'
+import {
+  computeSwitchThumbClasses,
+  computeSwitchTrackClasses,
+} from '@/presentation/islands/toggle-default-classes'
 import type { ReactElement } from 'react'
 
 interface SwitchIslandProps {
@@ -20,12 +24,6 @@ interface SwitchIslandProps {
   readonly 'data-testid'?: string
 }
 
-const SIZE_CLASSES = {
-  sm: { track: 'h-4 w-7', thumb: 'h-3 w-3 data-[checked]:translate-x-3' },
-  md: { track: 'h-5 w-9', thumb: 'h-4 w-4 data-[checked]:translate-x-4' },
-  lg: { track: 'h-6 w-11', thumb: 'h-5 w-5 data-[checked]:translate-x-5' },
-} as const
-
 export default function SwitchIsland({
   checked,
   disabled = false,
@@ -36,8 +34,6 @@ export default function SwitchIsland({
   id,
   'data-testid': testId,
 }: SwitchIslandProps): ReactElement {
-  const sizeClass = SIZE_CLASSES[size]
-
   return (
     <label
       className={cn(
@@ -52,11 +48,9 @@ export default function SwitchIsland({
         defaultChecked={checked}
         disabled={disabled}
         name={name}
-        className={`bg-background-subtle data-[checked]:bg-primary relative inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 ${sizeClass.track}`}
+        className={computeSwitchTrackClasses({ size })}
       >
-        <Switch.Thumb
-          className={`bg-background-raised pointer-events-none block rounded-full shadow-sm transition-transform duration-200 ${sizeClass.thumb}`}
-        />
+        <Switch.Thumb className={computeSwitchThumbClasses({ size })} />
       </Switch.Root>
       {label && <span className="text-foreground text-sm">{label}</span>}
     </label>
