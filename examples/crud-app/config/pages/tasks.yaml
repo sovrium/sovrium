@@ -1,0 +1,117 @@
+name: tasks
+path: /tasks
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Tasks
+  description: Follow-ups on a calendar and a grid
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Tasks
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Schedule follow-ups on the calendar, then work them down in the grid.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a task
+          - type: form
+            dataSource:
+              table: tasks
+            fields:
+              - field: title
+              - field: deal
+              - field: due_date
+              - field: status
+              - field: priority
+            action:
+              type: crud
+              operation: create
+              table: tasks
+              onSuccess:
+                navigate: /tasks
+                toast:
+                  message: Task created
+                  variant: success
+
+      - type: calendar
+        dataSource:
+          table: tasks
+        dateField: due_date
+        defaultView: month
+
+      - type: text
+        element: h2
+        props:
+          className: text-lg font-semibold mt-10 mb-4
+        content: Open tasks
+      - type: data-table
+        dataSource:
+          table: tasks
+          filter:
+            - field: done
+              operator: eq
+              value: false
+          sort:
+            - field: due_date
+              direction: asc
+        columns:
+          - field: title
+            label: Task
+            sortable: true
+          - field: deal
+            label: Deal
+            filterable: true
+          - field: status
+            label: Status
+            filterable: true
+          - field: priority
+            label: Priority
+            filterable: true
+          - field: due_date
+            label: Due
+            format: short-date
+          - field: done
+            label: Done
+            align: center
+            format: check-cross
+        selection:
+          mode: multiple
+        groupBy:
+          field: status
+          direction: asc
+        toolbar:
+          search: true
+          filters: true
+          sort: true
+          groupBy: true
+          views: true
+          viewSwitcher: true
+        pagination:
+          pageSize: 25
+        bulkActions:
+          - label: Delete
+            confirm: Delete the selected tasks?
+            action:
+              type: crud
+              operation: delete
+              table: tasks
+        emptyMessage: No open tasks. Nice work.

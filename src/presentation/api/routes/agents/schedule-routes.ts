@@ -7,12 +7,13 @@
 
 
 import { Cron, DateTime, Either } from 'effect'
+import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
 import { recordAgentActivity } from './agent-activity-log'
 import { callAgentAi } from './agent-ai-call'
 import { agentNotFound, findAgent } from './agent-lookup'
-import { insertApprovalRow } from './approval-db'
 import { buildApprovalRecord } from './approval-presenter'
 import { appendAgentActivityEntry, putApproval } from './approval-store'
+import { runApprovalMirror, toMirrorRecord } from './effect-runner'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context, Hono } from 'hono'
@@ -102,7 +103,7 @@ const handleTriggerSchedule =
         taskPrompt: schedule.taskPrompt,
       })
       putApproval(record)
-      await insertApprovalRow(record)
+      await runApprovalMirror(MirrorApprovalCreate(toMirrorRecord(record)))
       return c.json(
         {
           status: 'pending_approval',

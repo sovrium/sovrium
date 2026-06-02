@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { EMAIL_PATTERN, MAX_EMAIL_LENGTH } from '@/domain/utils/email-validation'
 
 export const AuthEnvSchema = Schema.Struct({
   authSecret: Schema.optional(
@@ -18,7 +19,8 @@ export const AuthEnvSchema = Schema.Struct({
   ),
   adminEmail: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+      Schema.maxLength(MAX_EMAIL_LENGTH),
+      Schema.pattern(EMAIL_PATTERN),
       Schema.annotations({
         description: 'Default admin email (AUTH_ADMIN_EMAIL)',
         examples: ['admin@example.com'],

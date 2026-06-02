@@ -6,35 +6,28 @@
  */
 
 
-import { and, count, desc, eq, gt, inArray, isNull, lt, max } from 'drizzle-orm'
+import { Effect } from 'effect'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import {
+  BuildFormDetail,
+  BuildFormsList,
+  BuildSubmissionDetail,
+  BuildSubmissionsBulk,
+  BuildSubmissionsList,
+} from '@/application/use-cases/admin/forms-overview'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
-  formAdminDetailResponseSchema,
-  formsListResponseSchema,
-  type FormAdminItem,
-} from '@/domain/models/api/admin/forms/list'
-import {
   bodyCaptureDisabledErrorSchema,
   formSubmissionDetailQuerySchema,
-  formSubmissionDetailResponseSchema,
 } from '@/domain/models/api/admin/forms/submission-detail'
 import {
   formsSubmissionsBulkRequestSchema,
-  formsSubmissionsBulkResponseSchema,
   tooManyIdsErrorSchema,
 } from '@/domain/models/api/admin/forms/submissions-bulk'
-import {
-  formsSubmissionsListQuerySchema,
-  formsSubmissionsListResponseSchema,
-  type FormSubmissionAdminItem,
-  type FormSubmissionStatus,
-} from '@/domain/models/api/admin/forms/submissions-list'
-import { db } from '@/infrastructure/database'
-import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { formsSubmissionsListQuerySchema } from '@/domain/models/api/admin/forms/submissions-list'
+import { provideAdminFormsLive } from '@/presentation/api/routes/admin/forms/effect-runner'
 import type { App } from '@/domain/models/app'
-import type { Form } from '@/domain/models/app/forms'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -54,92 +47,6 @@ function chainAdminFormsRoutesInternal<T extends Hono>(honoApp: T, resolveApp: (
     .get('/api/admin/forms/:formName', (c) => handleFormDetail(c, resolveApp)) as T
 }
 
-function resolveAccessLevel(form: Form): 'public' | 'authenticated' | 'role-restricted' {
-  const require = form.access?.require
-  if (require === undefined || require === 'all') return 'public'
-  if (require === 'authenticated') return 'authenticated'
-  return 'role-restricted'
-}
-
-function resolveIsOpen(form: Form): boolean {
-  const availability = form.availability
-  if (!availability) return true
-  const now = Date.now()
-  if (availability.opensAt) {
-    const opens = Date.parse(availability.opensAt)
-    if (!Number.isNaN(opens) && now < opens) return false
-  }
-  if (availability.closesAt) {
-    const closes = Date.parse(availability.closesAt)
-    if (!Number.isNaN(closes) && now >= closes) return false
-  }
-  return true
-}
-
-async function buildFormAdminItem(form: Form): Promise<FormAdminItem> {
-  const submissions = formSubmissionsTable()
-  const aggregateResult = (await db
-    .select({
-      submissionCount: count(),
-      lastSubmissionAt: max(submissions.submittedAt),
-    })
-    .from(submissions)
-    .where(
-      and(eq(submissions.formName, form.name), isNull(submissions.deletedAt))
-    )) as ReadonlyArray<{
-    readonly submissionCount: number | string
-    readonly lastSubmissionAt: Date | string | null
-  }>
-  const row = aggregateResult[0]
-  const submissionCount = Number(row?.submissionCount ?? 0)
-  const lastSubmissionRaw = row?.lastSubmissionAt ?? null
-  const lastSubmissionAt =
-    lastSubmissionRaw === null
-      ? null
-      : lastSubmissionRaw instanceof Date
-        ? lastSubmissionRaw.toISOString()
-        : new Date(lastSubmissionRaw).toISOString()
-
-  const item: FormAdminItem = {
-    id: form.id,
-    name: form.name,
-    title: form.title,
-    ...(form.path !== undefined ? { path: form.path } : {}),
-    accessLevel: resolveAccessLevel(form),
-    isOpen: resolveIsOpen(form),
-    _admin: {
-      lastModifiedBy: null,
-      deletedAt: null,
-      metadata: {
-        fieldCount: form.fields.length,
-        submissionCount,
-        lastSubmissionAt,
-      },
-    },
-  }
-  return item
-}
-
-function encodeFormsCursor(afterName: string): string {
-  return Buffer.from(JSON.stringify({ afterName }), 'utf8').toString('base64')
-}
-
-function decodeFormsCursor(
-  cursor: string,
-  forms: ReadonlyArray<{ readonly name: string }>
-): number {
-  try {
-    const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8')) as {
-      readonly afterName?: unknown
-    }
-    if (typeof decoded.afterName !== 'string') return 0
-    const idx = forms.findIndex((f) => f.name === decoded.afterName)
-    return idx === -1 ? 0 : idx + 1
-  } catch {
-    return 0
-  }
-}
-
 function parseFormsListQuery(c: Context): {
   readonly cursor: string | undefined
   readonly limit: number
@@ -156,31 +63,13 @@ function parseFormsListQuery(c: Context): {
 async function handleListForms(c: FormsRouteContext, resolveApp: () => App): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
   const app = resolveApp()
-  const allForms: readonly Form[] = (app.forms ?? []).slice()
-  const sortedForms = allForms.toSorted((a, b) => a.name.localeCompare(b.name))
-
   const { cursor, limit, search } = parseFormsListQuery(c)
-  const filtered = search
-    ? sortedForms.filter((f) => {
-        const haystack = `${f.name} ${f.title}`.toLowerCase()
-        return haystack.includes(search.toLowerCase())
-      })
-    : sortedForms
 
-  const startIndex = cursor ? decodeFormsCursor(cursor, filtered) : 0
-  const pageSlice = filtered.slice(startIndex, startIndex + limit)
-  const nextStart = startIndex + pageSlice.length
-  const nextCursor =
-    nextStart < filtered.length && pageSlice.length > 0
-      ? encodeFormsCursor(pageSlice[pageSlice.length - 1]!.name)
-      : null
-
-  const items = await Promise.all(pageSlice.map((form) => buildFormAdminItem(form)))
-
-  const body = { items, nextCursor }
-  const parsed = formsListResponseSchema.safeParse(body)
-  if (!parsed.success) {
-    console.error('[admin] forms list response validation failed', parsed.error)
+  const outcome = await Effect.runPromise(
+    BuildFormsList(app, { cursor, limit, search }).pipe(provideAdminFormsLive)
+  )
+  if (outcome._tag === 'ValidationFailed') {
+    console.error('[admin] forms list response validation failed', outcome.error)
     return c.json(
       { success: false, message: 'Failed to build forms list', code: 'INTERNAL_ERROR' },
       500
@@ -196,7 +85,7 @@ async function handleListForms(c: FormsRouteContext, resolveApp: () => App): Pro
     result: 'success',
   })
 
-  return c.json(parsed.data, 200)
+  return c.json(outcome.body, 200)
 }
 
 async function handleFormDetail(c: FormsRouteContext, resolveApp: () => App): Promise<Response> {
@@ -207,15 +96,14 @@ async function handleFormDetail(c: FormsRouteContext, resolveApp: () => App): Pr
     return c.json({ success: false, message: 'Invalid form name', code: 'BAD_REQUEST' }, 400)
   }
 
-  const form = (app.forms ?? []).find((f) => f.name === formName)
-  if (!form) {
+  const outcome = await Effect.runPromise(
+    BuildFormDetail(app, formName).pipe(provideAdminFormsLive)
+  )
+  if (outcome._tag === 'NotFound') {
     return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
   }
-
-  const item = await buildFormAdminItem(form)
-  const parsed = formAdminDetailResponseSchema.safeParse(item)
-  if (!parsed.success) {
-    console.error('[admin] form detail response validation failed', parsed.error)
+  if (outcome._tag === 'ValidationFailed') {
+    console.error('[admin] form detail response validation failed', outcome.error)
     return c.json(
       { success: false, message: 'Failed to build form detail', code: 'INTERNAL_ERROR' },
       500
@@ -226,78 +114,14 @@ async function handleFormDetail(c: FormsRouteContext, resolveApp: () => App): Pr
   await emitAuditEvent({
     action: AUDIT_ACTIONS.FORM_DETAIL_QUERIED,
     actor,
-    resourceId: form.name,
+    resourceId: formName,
     severity: 'info',
     result: 'success',
   })
 
-  return c.json(parsed.data, 200)
+  return c.json(outcome.body, 200)
 }
 
-
-function encodeSubmissionsCursor(submittedAt: string, id: string): string {
-  return Buffer.from(JSON.stringify({ submittedAt, id }), 'utf8').toString('base64')
-}
-
-function decodeSubmissionsCursor(
-  cursor: string
-): { readonly submittedAt: string; readonly id: string } | null {
-  try {
-    const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8')) as {
-      readonly submittedAt?: unknown
-      readonly id?: unknown
-    }
-    if (typeof decoded.submittedAt !== 'string' || typeof decoded.id !== 'string') return null
-    return { submittedAt: decoded.submittedAt, id: decoded.id }
-  } catch {
-    return null
-  }
-}
-
-function coerceStatus(raw: unknown): FormSubmissionStatus {
-  if (
-    raw === 'received' ||
-    raw === 'processing' ||
-    raw === 'done' ||
-    raw === 'failed' ||
-    raw === 'spam'
-  ) {
-    return raw
-  }
-  return 'received'
-}
-
-function buildSubmissionAdminItem(
-  row: Readonly<{
-    id: string
-    formName: string | null
-    submittedAt: Date | string
-    status: string | null
-    deletedAt: Date | string | null
-  }>,
-  formName: string
-): FormSubmissionAdminItem {
-  const submittedAt =
-    row.submittedAt instanceof Date
-      ? row.submittedAt.toISOString()
-      : new Date(row.submittedAt).toISOString()
-  const deletedAt =
-    row.deletedAt === null || row.deletedAt === undefined
-      ? null
-      : row.deletedAt instanceof Date
-        ? row.deletedAt.toISOString()
-        : new Date(row.deletedAt).toISOString()
-  return {
-    id: row.id,
-    formName: row.formName ?? formName,
-    submittedAt,
-    status: coerceStatus(row.status),
-    _admin: {
-      lastModifiedBy: null,
-      deletedAt,
-    },
-  }
-}
 
 async function handleListSubmissions(
   c: FormsRouteContext,
@@ -325,57 +149,19 @@ async function handleListSubmissions(
   }
   const query = parsedQuery.data
 
-  const submissions = formSubmissionsTable()
-  const conditions = [eq(submissions.formName, formName)]
-  if (!query.include_deleted) {
-    conditions.push(isNull(submissions.deletedAt))
-  }
-  if (query.status) {
-    conditions.push(eq(submissions.status, query.status))
-  }
-  if (query.from) {
-    conditions.push(gt(submissions.submittedAt, new Date(query.from)))
-  }
-  if (query.to) {
-    conditions.push(lt(submissions.submittedAt, new Date(query.to)))
-  }
-  if (query.cursor) {
-    const decoded = decodeSubmissionsCursor(query.cursor)
-    if (decoded) {
-      conditions.push(lt(submissions.submittedAt, new Date(decoded.submittedAt)))
-    }
-  }
-
-  const rows = (await db
-    .select({
-      id: submissions.id,
-      formName: submissions.formName,
-      submittedAt: submissions.submittedAt,
-      status: submissions.status,
-      deletedAt: submissions.deletedAt,
-    })
-    .from(submissions)
-    .where(and(...conditions))
-    .orderBy(desc(submissions.submittedAt))
-    .limit(query.limit + 1)) as ReadonlyArray<{
-    id: string
-    formName: string | null
-    submittedAt: Date | string
-    status: string | null
-    deletedAt: Date | string | null
-  }>
-
-  const pageRows = rows.slice(0, query.limit)
-  const items = pageRows.map((row) => buildSubmissionAdminItem(row, formName))
-  const nextCursor =
-    rows.length > query.limit && items.length > 0
-      ? encodeSubmissionsCursor(items[items.length - 1]!.submittedAt, items[items.length - 1]!.id)
-      : null
-
-  const body = { items, nextCursor }
-  const parsed = formsSubmissionsListResponseSchema.safeParse(body)
-  if (!parsed.success) {
-    console.error('[admin] submissions list response validation failed', parsed.error)
+  const outcome = await Effect.runPromise(
+    BuildSubmissionsList({
+      formName,
+      includeDeleted: query.include_deleted,
+      status: query.status,
+      from: query.from,
+      to: query.to,
+      cursor: query.cursor,
+      limit: query.limit,
+    }).pipe(provideAdminFormsLive)
+  )
+  if (outcome._tag === 'ValidationFailed') {
+    console.error('[admin] submissions list response validation failed', outcome.error)
     return c.json(
       { success: false, message: 'Failed to build submissions list', code: 'INTERNAL_ERROR' },
       500
@@ -391,7 +177,7 @@ async function handleListSubmissions(
     result: 'success',
   })
 
-  return c.json(parsed.data, 200)
+  return c.json(outcome.body, 200)
 }
 
 async function handleSubmissionDetail(
@@ -417,52 +203,28 @@ async function handleSubmissionDetail(
     return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
   }
 
-  const submissions = formSubmissionsTable()
-  const rows = (await db
-    .select({
-      id: submissions.id,
-      formName: submissions.formName,
-      submittedAt: submissions.submittedAt,
-      status: submissions.status,
-      deletedAt: submissions.deletedAt,
-      data: submissions.data,
-    })
-    .from(submissions)
-    .where(and(eq(submissions.id, submissionId), eq(submissions.formName, formName)))
-    .limit(1)) as ReadonlyArray<{
-    id: string
-    formName: string | null
-    submittedAt: Date | string
-    status: string | null
-    deletedAt: Date | string | null
-    data: unknown
-  }>
-
-  const row = rows[0]
-  if (!row) {
-    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
-  }
-
   const actor = await resolveActor(session.userId)
   const isAdmin = actor.role === 'admin'
   const captureAllowed = process.env['ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED'] === 'true'
 
-  let bodyToInclude: Record<string, unknown> | undefined = undefined
-  if (query.reveal) {
-    if (!captureAllowed || !isAdmin) {
-      return c.json(bodyCaptureDisabledErrorSchema.parse({ error: 'body-capture-disabled' }), 403)
-    }
-    bodyToInclude = (row.data ?? {}) as Record<string, unknown>
+  const outcome = await Effect.runPromise(
+    BuildSubmissionDetail({
+      formName,
+      submissionId,
+      reveal: query.reveal,
+      captureAllowed,
+      isAdmin,
+    }).pipe(provideAdminFormsLive)
+  )
+
+  if (outcome._tag === 'NotFound') {
+    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
   }
-
-  const item = buildSubmissionAdminItem(row, formName)
-  const withBody: FormSubmissionAdminItem & { body?: Record<string, unknown> } = bodyToInclude
-    ? { ...item, body: bodyToInclude }
-    : item
-
-  const parsed = formSubmissionDetailResponseSchema.safeParse(withBody)
-  if (!parsed.success) {
-    console.error('[admin] submission detail response validation failed', parsed.error)
+  if (outcome._tag === 'RevealDenied') {
+    return c.json(bodyCaptureDisabledErrorSchema.parse({ error: 'body-capture-disabled' }), 403)
+  }
+  if (outcome._tag === 'ValidationFailed') {
+    console.error('[admin] submission detail response validation failed', outcome.error)
     return c.json(
       { success: false, message: 'Failed to build submission detail', code: 'INTERNAL_ERROR' },
       500
@@ -477,7 +239,7 @@ async function handleSubmissionDetail(
     result: 'success',
   })
 
-  if (bodyToInclude !== undefined) {
+  if (outcome.bodyRevealed) {
     await emitAuditEvent({
       action: AUDIT_ACTIONS.FORM_SUBMISSION_BODY_REVEALED,
       actor,
@@ -487,7 +249,7 @@ async function handleSubmissionDetail(
     })
   }
 
-  return c.json(parsed.data, 200)
+  return c.json(outcome.body, 200)
 }
 
 async function handleSubmissionsBulk(
@@ -520,41 +282,11 @@ async function handleSubmissionsBulk(
     return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
   }
 
-  const submissions = formSubmissionsTable()
-  const rows = (await db
-    .select({
-      id: submissions.id,
-      formName: submissions.formName,
-      submittedAt: submissions.submittedAt,
-      status: submissions.status,
-      deletedAt: submissions.deletedAt,
-    })
-    .from(submissions)
-    .where(
-      and(
-        inArray(submissions.id, [...requestIds]),
-        eq(submissions.formName, formName),
-        isNull(submissions.deletedAt)
-      )
-    )) as ReadonlyArray<{
-    id: string
-    formName: string | null
-    submittedAt: Date | string
-    status: string | null
-    deletedAt: Date | string | null
-  }>
-
-  const byId = new Map(rows.map((row) => [row.id, buildSubmissionAdminItem(row, formName)]))
-  const items: FormSubmissionAdminItem[] = []
-  for (const id of requestIds) {
-    const item = byId.get(id)
-    if (item) items.push(item)
-  }
-
-  const body = { items }
-  const parsed = formsSubmissionsBulkResponseSchema.safeParse(body)
-  if (!parsed.success) {
-    console.error('[admin] submissions bulk response validation failed', parsed.error)
+  const outcome = await Effect.runPromise(
+    BuildSubmissionsBulk(formName, requestIds).pipe(provideAdminFormsLive)
+  )
+  if (outcome._tag === 'ValidationFailed') {
+    console.error('[admin] submissions bulk response validation failed', outcome.error)
     return c.json(
       { success: false, message: 'Failed to build bulk response', code: 'INTERNAL_ERROR' },
       500
@@ -570,7 +302,7 @@ async function handleSubmissionsBulk(
     result: 'success',
   })
 
-  return c.json(parsed.data, 200)
+  return c.json(outcome.body, 200)
 }
 
 export function chainAdminFormsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {

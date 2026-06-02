@@ -250,8 +250,18 @@ export async function handleListComments(c: Context, app: App) {
   const offset = offsetParam ? Number(offsetParam) : undefined
   const sortOrder = parseSortOrder(c.req.query('sort'))
 
+  const viewerIsAdmin = userRole === 'admin'
+
   const result = await runTableProgram(
-    listCommentsProgram({ session, recordId, tableName: table.name, limit, offset, sortOrder })
+    listCommentsProgram({
+      session,
+      recordId,
+      tableName: table.name,
+      limit,
+      offset,
+      sortOrder,
+      viewerIsAdmin,
+    })
   )
 
   if (result._tag === 'Left') {

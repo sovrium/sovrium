@@ -14,6 +14,7 @@ import {
   requiresAuthenticationForComment,
   type CommentModerationConfig,
 } from '@/domain/services/comment-moderation-policy'
+import { isAuthenticatedSession } from '@/domain/services/guest-session'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { notFoundResponse } from './comment-handler-shared'
@@ -29,6 +30,8 @@ interface CreateCommentBody {
   readonly content: string
   readonly parentCommentId?: string
   readonly mentions: readonly string[]
+  readonly guestName?: string
+  readonly guestEmail?: string
 }
 
 function validateCommentText(payload: Record<string, unknown>): string | undefined {
@@ -45,16 +48,22 @@ function validateCreateCommentBody(body: unknown): CreateCommentBody | undefined
   const text = validateCommentText(payload)
   if (text === undefined) return undefined
 
-  const { parentCommentId, mentions } = payload
+  const { parentCommentId, mentions, guestName, guestEmail } = payload
   const validatedParent = typeof parentCommentId === 'string' ? parentCommentId : undefined
   const validatedMentions = Array.isArray(mentions)
     ? mentions.filter((id): id is string => typeof id === 'string' && id.length > 0)
     : []
+  const validatedGuestName =
+    typeof guestName === 'string' && guestName.length > 0 ? guestName : undefined
+  const validatedGuestEmail =
+    typeof guestEmail === 'string' && guestEmail.length > 0 ? guestEmail : undefined
 
   return {
     content: text,
     parentCommentId: validatedParent,
     mentions: validatedMentions,
+    guestName: validatedGuestName,
+    guestEmail: validatedGuestEmail,
   }
 }
 
@@ -103,10 +112,6 @@ function combineModerationVerdicts(
 
 function readModerationConfig(table: NonNullable<App['tables']>[number]): CommentModerationConfig {
   return (table.comments ?? {}) as CommentModerationConfig
-}
-
-function isAuthenticatedSession(userId: string): boolean {
-  return userId !== 'guest'
 }
 
 async function checkCreateCommentGate(c: Context, app: App): Promise<CreateCommentGate> {
@@ -239,20 +244,7 @@ export async function handleCreateComment(c: Context, app: App) {
   const depthResponse = await checkSingleLevelThreading(c, validated.parentCommentId)
   if (depthResponse !== undefined) return depthResponse
 
-  if (combinedStatus !== 'approved') {
-    return c.json(
-      synthesizeClassifiedComment({
-        status: combinedStatus,
-        recordId,
-        tableId,
-        content: validated.content,
-        parentCommentId: validated.parentCommentId,
-      }),
-      201
-    )
-  }
-
-  return persistApprovedComment({
+  return persistResolvedComment({
     c,
     app,
     table,
@@ -261,6 +253,7 @@ export async function handleCreateComment(c: Context, app: App) {
     tableId,
     recordId,
     userRole,
+    status: combinedStatus,
   })
 }
 
@@ -268,7 +261,54 @@ function handleCreateProgramLeft(c: Context, error: unknown): Response {
   return handleCommentError(c, error)
 }
 
-async function persistApprovedComment(input: {
+function handleResolvedCommentLeft(input: {
+  readonly c: Context
+  readonly error: unknown
+  readonly status: CombinedModerationStatus
+  readonly recordId: string
+  readonly tableId: string
+  readonly content: string
+  readonly parentCommentId: string | undefined
+}): Response {
+  const { c, error, status, recordId, tableId, content, parentCommentId } = input
+  if (status !== 'approved' && isAuthorizationError(error)) {
+    return c.json(
+      synthesizeClassifiedComment({ status, recordId, tableId, content, parentCommentId }),
+      201
+    )
+  }
+  return handleCreateProgramLeft(c, error)
+}
+
+async function maybeFireCommentPostedTrigger(input: {
+  readonly app: App
+  readonly table: NonNullable<App['tables']>[number]
+  readonly validated: CreateCommentBody
+  readonly session: ReturnType<typeof getTableContext>['session']
+  readonly tableId: string
+  readonly recordId: string
+  readonly userRole: string
+  readonly status: CombinedModerationStatus
+  readonly result: Effect.Effect.Success<ReturnType<typeof createCommentProgram>>
+}): Promise<void> {
+  const { app, table, validated, session, tableId, recordId, userRole, status, result } = input
+  if (status !== 'approved') return
+  await dispatchCommentPostedTrigger(
+    buildTriggerDispatchArgs({
+      app,
+      tableName: table.name,
+      tableId,
+      recordId,
+      userRole,
+      session,
+      comment: result.comment,
+      author: result.author,
+      mentions: validated.mentions,
+    })
+  )
+}
+
+async function persistResolvedComment(input: {
   readonly c: Context
   readonly app: App
   readonly table: NonNullable<App['tables']>[number]
@@ -277,8 +317,9 @@ async function persistApprovedComment(input: {
   readonly tableId: string
   readonly recordId: string
   readonly userRole: string
+  readonly status: CombinedModerationStatus
 }): Promise<Response> {
-  const { c, app, table, validated, session, tableId, recordId, userRole } = input
+  const { c, app, table, validated, session, tableId, recordId, userRole, status } = input
 
   const result = await runTableProgram(
     createCommentProgram({
@@ -288,24 +329,35 @@ async function persistApprovedComment(input: {
       tableName: table.name,
       content: validated.content,
       parentCommentId: validated.parentCommentId,
+      guestName: validated.guestName,
+      guestEmail: validated.guestEmail,
+      status,
     })
   )
 
-  if (result._tag === 'Left') return handleCreateProgramLeft(c, result.left)
-
-  await dispatchCommentPostedTrigger(
-    buildTriggerDispatchArgs({
-      app,
-      tableName: table.name,
-      tableId,
+  if (result._tag === 'Left') {
+    return handleResolvedCommentLeft({
+      c,
+      error: result.left,
+      status,
       recordId,
-      userRole,
-      session,
-      comment: result.right.comment,
-      author: result.right.author,
-      mentions: validated.mentions,
+      tableId,
+      content: validated.content,
+      parentCommentId: validated.parentCommentId,
     })
-  )
+  }
 
-  return c.json({ comment: result.right.comment, status: 'approved' as const }, 201)
+  await maybeFireCommentPostedTrigger({
+    app,
+    table,
+    validated,
+    session,
+    tableId,
+    recordId,
+    userRole,
+    status,
+    result: result.right,
+  })
+
+  return c.json({ comment: result.right.comment, status: result.right.comment.status }, 201)
 }

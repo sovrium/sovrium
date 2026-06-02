@@ -1,0 +1,153 @@
+name: deals
+path: /deals
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Deals
+  description: Your sales pipeline as a kanban board
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Pipeline
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Drag deals between stages, or switch to the grid for a full breakdown.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a deal
+          - type: form
+            dataSource:
+              table: deals
+            fields:
+              - field: name
+              - field: company
+              - field: stage
+              - field: value
+              - field: probability
+              - field: close_date
+              - field: priority
+            action:
+              type: crud
+              operation: create
+              table: deals
+              onSuccess:
+                navigate: /deals
+                toast:
+                  message: Deal created
+                  variant: success
+
+      - type: kanban
+        dataSource:
+          table: deals
+          filter:
+            - field: stage
+              operator: neq
+              value: Won
+            - field: stage
+              operator: neq
+              value: Lost
+        kanbanGroupBy:
+          field: stage
+        colorField: priority
+        emptyColumnMessage: No deals in this stage.
+        # Each pipeline card surfaces the 4 facts a rep needs while dragging a
+        # deal: the deal name, the account, the headline value, and (in the
+        # footer) the close date + priority. Footer formats are limited to
+        # relative-date / short-date / avatar / badge / text, so the dollar
+        # value lives in the card body as styled text.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-semibold
+              content: $record.name
+            - type: text
+              element: p
+              props:
+                className: text-xs text-gray-500
+              content: $record.company
+            - type: text
+              element: p
+              props:
+                className: text-sm font-medium mt-1
+              content: $record.value
+          footer:
+            - field: close_date
+              format: relative-date
+            - field: priority
+              format: badge
+
+      - type: text
+        element: h2
+        props:
+          className: text-lg font-semibold mt-10 mb-4
+        content: All deals
+      - type: data-table
+        dataSource:
+          table: deals
+          sort:
+            - field: close_date
+              direction: asc
+        columns:
+          - field: name
+            label: Deal
+            sortable: true
+          - field: company
+            label: Company
+            sortable: true
+            filterable: true
+          - field: stage
+            label: Stage
+            filterable: true
+          - field: value
+            label: Value
+            align: right
+            format: currency
+          - field: probability
+            label: Probability
+            align: right
+            format: percentage
+          - field: close_date
+            label: Close Date
+            format: short-date
+          - field: priority
+            label: Priority
+        groupBy:
+          field: stage
+          direction: asc
+        summary:
+          - field: name
+            function: count
+            label: Deals
+          - field: value
+            function: sum
+            label: Pipeline Value
+        toolbar:
+          search: true
+          filters: true
+          sort: true
+          groupBy: true
+          views: true
+          viewSwitcher: true
+        pagination:
+          pageSize: 25
+        emptyMessage: No deals yet.

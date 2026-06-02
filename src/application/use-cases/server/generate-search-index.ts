@@ -126,9 +126,9 @@ const extractSearchBodySubtree = (html: string): string | undefined => {
 const extractBodyText = (html: string): string => {
   const source = extractSearchBodySubtree(html) ?? html
 
-  const withoutScripts = source.replace(/<script[\s\S]*?<\/script>/giu, ' ')
-  const withoutStyles = withoutScripts.replace(/<style[\s\S]*?<\/style>/giu, ' ')
-  const withoutHead = withoutStyles.replace(/<head[\s\S]*?<\/head>/giu, ' ')
+  const withoutScripts = source.replace(/<script[\s\S]*?<\/script\s*>/giu, ' ')
+  const withoutStyles = withoutScripts.replace(/<style[\s\S]*?<\/style\s*>/giu, ' ')
+  const withoutHead = withoutStyles.replace(/<head[\s\S]*?<\/head\s*>/giu, ' ')
   const text = stripTags(withoutHead)
   return decodeHtmlEntities(text).replace(/\s+/gu, ' ').trim()
 }

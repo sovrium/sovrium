@@ -1,0 +1,95 @@
+name: admin-tags
+path: /admin/tags
+access:
+  require: authenticated
+  redirectTo: /admin/login
+meta:
+  title: Admin · Tags
+  description: Manage post tags
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-10 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-3xl mx-auto
+        children:
+          - type: link
+            props:
+              href: /admin
+              className: text-sm mb-6 inline-block text-primary hover:underline
+            content: ← Back to posts
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-6 text-foreground
+            content: Tags
+
+          # Existing tags
+          - type: container
+            props:
+              className: rounded-lg border border-border bg-card p-2 mb-8
+            children:
+              - type: data-table
+                dataSource:
+                  table: tags
+                  sort:
+                    - field: name
+                      direction: asc
+                columns:
+                  - field: name
+                    label: Name
+                  - field: slug
+                    label: Slug
+                  - type: actions
+                    label: Actions
+                    actions:
+                      - label: Delete
+                        icon: trash
+                        confirm: Delete this tag?
+                        action:
+                          type: crud
+                          operation: delete
+                          table: tags
+                          onSuccess:
+                            navigate: /admin/tags
+                            toast:
+                              message: Tag deleted
+                              variant: success
+                pagination:
+                  pageSize: 20
+                emptyMessage: No tags yet.
+
+          # Add a tag
+          - type: text
+            element: h2
+            props:
+              className: text-lg font-semibold mb-3 text-foreground
+            content: Add a tag
+          - type: container
+            props:
+              className: p-6 rounded-lg border border-border bg-card
+            children:
+              - type: form
+                props:
+                  id: new-tag-form
+                dataSource:
+                  table: tags
+                fields:
+                  - field: name
+                    label: Name
+                    placeholder: e.g. Engineering
+                  - field: slug
+                    label: Slug
+                    placeholder: e.g. engineering
+                action:
+                  type: crud
+                  operation: create
+                  table: tags
+                  onSuccess:
+                    navigate: /admin/tags
+                    toast:
+                      message: Tag added
+                      variant: success

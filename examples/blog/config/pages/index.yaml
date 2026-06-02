@@ -1,5 +1,5 @@
 name: blog-index
-path: /blog
+path: /
 meta:
   title: Blog
   description: Latest articles and writing
@@ -7,9 +7,7 @@ components:
   - type: container
     element: section
     props:
-      className: py-16 px-6
-      style:
-        backgroundColor: '#fafaf9'
+      className: bg-background py-16 px-6
     children:
       - type: container
         props:
@@ -18,16 +16,12 @@ components:
           - type: text
             element: h1
             props:
-              className: text-5xl font-bold mb-4
-              style:
-                color: '#18181b'
+              className: text-5xl font-bold mb-4 text-foreground tracking-tight
             content: Blog
           - type: text
             element: p
             props:
-              className: text-lg mb-12
-              style:
-                color: '#52525b'
+              className: text-lg mb-12 text-muted-foreground
             content: Thoughts, essays, and notes on building things.
 
           - type: data-table

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { SQLITE_ISO_NOW } from '@/infrastructure/database/sql/dialect-ddl'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
@@ -118,7 +119,7 @@ export const generateUpdatedAtTriggers = (table: Table): readonly string[] => {
 
   if (isSqliteRuntime()) {
     const triggerName = `a_trigger_${sanitized}_updated_at`
-    const setClause = fieldNames.map((name) => `${name} = CURRENT_TIMESTAMP`).join(', ')
+    const setClause = fieldNames.map((name) => `${name} = ${SQLITE_ISO_NOW}`).join(', ')
     return [
       `DROP TRIGGER IF EXISTS ${triggerName}`,
       `CREATE TRIGGER ${triggerName}

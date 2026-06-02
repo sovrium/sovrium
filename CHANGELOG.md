@@ -1,3 +1,122 @@
+## [0.10.0](https://github.com/sovrium/sovrium/compare/v0.9.0...v0.10.0) (2026-06-02)
+
+### Features
+
+- AI-compute async refinement via real provider on both engines
+- AI-compute deterministic baseline on both engines + two-phase scaffolding
+- RAG works on SQLite via BLOB embeddings + app-side cosine
+- **comments**: filter non-admin comment list to approved-only (APP-PAGES-PUBLIC-COMMENTS-019)
+- **comments**: persist resolved moderation status on create (APP-PAGES-PUBLIC-COMMENTS-027)
+- **comments**: surface guest name in comment thread (APP-PAGES-PUBLIC-COMMENTS-006)
+- **comments**: persist guest identity on comment create (APP-PAGES-PUBLIC-COMMENTS-005)
+
+### Bug Fixes
+
+- map numeric precision to SQL scale, not total digits (#15)
+- defer FK enforcement during SQLite schema-migration transaction
+- align SQLite field-value serialization with Postgres (DEC-027)
+- emit ISO-8601 timestamps from SQLite updated_at trigger
+- **types**: export DeleteViewTarget so @sovrium/types .d.ts emit succeeds
+- harden email validation and HTML-tag regexes flagged by CodeQL
+- **css**: compile per-app CSS under ECO_DESIGN_LAYER=off (light parity)
+- **css**: serve per-app CSS when app adds candidates beyond builtin
+- **comments**: persist pending/rejected comments so admin queue lists them (APP-PAGES-PUBLIC-COMMENTS-020)
+
+### Refactoring
+
+- move agent-approval DB mirror behind ApprovalRepository
+- move account export/erasure data-access behind AccountRepository
+- move chat tool-calling raw query behind DynamicRecordRepository
+- move admin forms data-access behind AdminFormsRepository
+- move admin automations data-access behind AdminAutomationsRepository
+- remove the coming-soon flagging system
+- move admin users-overview data-access behind UsersOverviewRepository
+- move command-search data-access behind CommandSearchRepository
+- move favorites/recent data-access behind UserEntityListRepository
+- **comments**: consolidate guest-session helpers + close guestEmail leak
+- **rendering**: extract type-specific prop dispatch from component-renderer
+
+### Documentation
+
+- add docs-site example using the markdown pages feature
+- Phase 2 design — real-AI compute, two-phase baseline-then-refined
+- record AI-on-SQLite design (DEC-029/030) as first-class direction
+- **examples**: turn blog into a CMS with admin space + AI editor agent
+- **examples**: rebuild crud-app as an Airtable-style workspace with an AI agent
+- update migration tree listing for squashed baseline
+- polish README for v0.10.0 (correctness, tone, AI-first entry point)
+- reformat ADR-018 and realign ADR index Status column
+- scrub private infra data from README, mirror .env.example
+- add ADR-018 superseding ADR-006 (table permissions as schema config)
+- update status framing to reflect feature-complete MVP
+- mark all FEATURES.md rows as Covered
+- **better-auth**: point vendored-source section at the re-pulled v1.6.13 snapshot
+- **progress**: mirror moderation regression GREEN — 0 fixme remaining
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-026 GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-022 GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-021 GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-020 GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-019 GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-023 GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-027 GREEN
+- **progress**: mirror guest-comments regression GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-006 GREEN
+- **progress**: mirror APP-PAGES-PUBLIC-COMMENTS-005 GREEN
+- **progress**: regenerate reports to reflect 11 RED public-comments specs
+
+### Styles
+
+- prettier-format theming-architecture.md DEC-026 table
+- **comments**: prettier-format moderation-queue spec
+
+### Tests
+
+- align example specs with reworked crud-app (OKLCH theme + pages)
+- add anti-drift check for SQLite dual-dialect coverage doc
+- add getColumnInfo helper + parameterize 15 field-type specs cross-dialect
+- add selective SQLite parity probes for pages + account
+- add SQLite parity probe for buckets local-storage round-trip
+- add SQLite parity probe for AI chat/agent persistence
+- add SQLite parity probes for DB-touching automation actions
+- add SQLite parity probes for api/ health + schema-management
+- **pages**: await table row visibility after reload (APP-RUNTIME-VIEWS-028)
+- **design-system**: set global screenshot jitter tolerance; drop per-spec nav override
+- **design-system**: tolerate parallel-load jitter on 2 nav snapshots
+- **design-system**: re-scope layer-off contract to light-only parity (DEC-026)
+- **design-system**: regenerate darwin baselines after CSS fast-path fix
+- **design-system**: regenerate calendar + date-picker darwin baselines post dep-sync
+- **comments**: enable moderation regression (APP-PAGES-PUBLIC-COMMENTS-MODERATION-REGRESSION)
+- **comments**: enable approved-only count spec (APP-PAGES-PUBLIC-COMMENTS-026)
+- **comments**: enable admin-reject spec (APP-PAGES-PUBLIC-COMMENTS-022)
+- **comments**: enable admin-approve spec (APP-PAGES-PUBLIC-COMMENTS-021)
+- **comments**: enable autoApprove.authenticated spec (APP-PAGES-PUBLIC-COMMENTS-023)
+- **comments**: enable guest comments regression (APP-PAGES-PUBLIC-COMMENTS-GUEST-REGRESSION)
+- **design-system**: regenerate darwin baseline for zero-config menubar menu
+- **pages**: poll row height in VIEWS-031 to await server density sync
+- **pages**: click empty calendar cell in CALENDAR-012 to avoid event overlap
+- **specs**: assign canonical spec IDs to comment purge + email-privacy tests
+
+### Chores
+
+- fix quality gate failures (max-lines, css scan test pollution)
+- squash drizzle migrations to one baseline per dialect
+- agent memory + coverage-doc formatting
+- regenerate embedded runtime + css assets to match source
+- auto-approve project MCP servers via enableAllProjectMcpServers
+- add Playwright MCP server (bunx launcher)
+- squash drizzle migrations into a single clean baseline
+- **agent-memory**: record cohab Forgejo 503 deadlock pattern + recovery
+- **agent-memory**: record ECO_DESIGN_LAYER=off dark-mode gap (DEC-026)
+- **agent-memory**: record CSS precompiled-file candidate-gap finding
+- regenerate SPEC-PROGRESS.md from merged tree
+- regenerate embedded assets and format docs after dependency sync
+- **deps**: update dependencies and sync version references in docs
+- **ci**: re-trigger CI to mirror stranded v0.9.0 release tag
+
+### CI
+
+- auto-discover all screenshot specs in update-snapshots workflow
+
 ## [0.9.0](https://github.com/sovrium/sovrium/compare/v0.8.1...v0.9.0) (2026-05-31)
 
 Release 0.9.0

@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { text, timestamp, jsonb, integer, index, customType } from 'drizzle-orm/pg-core'
+import { text, timestamp, jsonb, integer, index, primaryKey, customType } from 'drizzle-orm/pg-core'
 import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
 
@@ -215,8 +215,29 @@ export const aiActivityLogs = systemSchema.table(
   ]
 )
 
+export const aiComputeStatus = systemSchema.table(
+  'ai_compute_status',
+  {
+    appId: text('app_id').notNull(),
+    tableName: text('table_name').notNull(),
+    recordId: text('record_id').notNull(),
+    fieldName: text('field_name').notNull(),
+    status: text('status').notNull(),
+    attempt: integer('attempt').notNull().default(0),
+    error: text('error'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.appId, table.tableName, table.recordId, table.fieldName],
+    }),
+  ]
+)
+
 export type AiConversation = typeof aiConversations.$inferSelect
 export type NewAiConversation = typeof aiConversations.$inferInsert
+export type AiComputeStatus = typeof aiComputeStatus.$inferSelect
+export type NewAiComputeStatus = typeof aiComputeStatus.$inferInsert
 export type AiMessage = typeof aiMessages.$inferSelect
 export type NewAiMessage = typeof aiMessages.$inferInsert
 export type AiFact = typeof aiFacts.$inferSelect

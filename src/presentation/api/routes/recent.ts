@@ -5,21 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, desc, eq, sql } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
-import { userRecentItems } from '@/infrastructure/database/drizzle/schema/favorites'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { Effect } from 'effect'
 import {
-  filterLiveEntities,
-  parseEntityMutationBody,
-} from '@/presentation/api/routes/user-entity-lists'
+  ListRecent,
+  MAX_RECENT_ITEMS,
+  RecordRecent,
+} from '@/application/use-cases/user-entity-lists'
+import { provideUserEntityListsLive } from '@/presentation/api/routes/favorites/effect-runner'
+import { parseEntityMutationBody } from '@/presentation/api/routes/user-entity-lists'
 import { unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { Context, Hono } from 'hono'
 
-
-const MAX_RECENT_ITEMS = 20
 
 const resolveLimit = (c: Context): number => {
   const raw = c.req.query('limit')
@@ -34,26 +31,9 @@ const handleList = async (c: Context) => {
 
   const limit = resolveLimit(c)
 
-  const rows = await db
-    .select({
-      id: userRecentItems.id,
-      entityType: userRecentItems.entityType,
-      entityId: userRecentItems.entityId,
-      tableId: userRecentItems.tableId,
-      viewedAt: userRecentItems.viewedAt,
-    })
-    .from(userRecentItems)
-    .where(eq(userRecentItems.userId, session.userId))
-    .orderBy(desc(userRecentItems.viewedAt))
-    .limit(MAX_RECENT_ITEMS)
-
-  const visible = (await filterLiveEntities(rows)).slice(0, limit).map((row) => ({
-    id: row.id,
-    entityType: row.entityType,
-    entityId: row.entityId,
-    tableId: row.tableId,
-    viewedAt: row.viewedAt instanceof Date ? row.viewedAt.toISOString() : row.viewedAt,
-  }))
+  const visible = await Effect.runPromise(
+    ListRecent(session.userId, limit).pipe(provideUserEntityListsLive)
+  )
 
   return c.json(visible, 200)
 }
@@ -68,46 +48,7 @@ const handleAdd = async (c: Context) => {
     return c.json({ success: false, message: 'Invalid recent payload', code: 'BAD_REQUEST' }, 400)
   }
 
-  const existing = await db
-    .select({ id: userRecentItems.id })
-    .from(userRecentItems)
-    .where(
-      and(
-        eq(userRecentItems.userId, session.userId),
-        eq(userRecentItems.entityType, input.entityType),
-        eq(userRecentItems.entityId, input.entityId)
-      )
-    )
-    .limit(1)
-
-  const current = existing[0]
-  if (current) {
-    await db
-      .update(userRecentItems)
-      .set({ viewedAt: new Date(), tableId: input.tableName })
-      .where(eq(userRecentItems.id, current.id))
-    return c.json({ success: true }, 201)
-  }
-
-  await db.insert(userRecentItems).values({
-    userId: session.userId,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    tableId: input.tableName,
-  })
-
-  const offsetClause = isSqliteRuntime()
-    ? sql`LIMIT -1 OFFSET ${MAX_RECENT_ITEMS}`
-    : sql`OFFSET ${MAX_RECENT_ITEMS}`
-  await executeRaw(
-    db,
-    sql`DELETE FROM ${userRecentItems} WHERE id IN (
-      SELECT id FROM ${userRecentItems}
-      WHERE user_id = ${session.userId}
-      ORDER BY viewed_at DESC
-      ${offsetClause}
-    )`
-  )
+  await Effect.runPromise(RecordRecent(session.userId, input).pipe(provideUserEntityListsLive))
 
   return c.json({ success: true }, 201)
 }

@@ -29,7 +29,7 @@ export interface SortRow {
 
 export type ActiveViewType = 'grid' | 'kanban'
 
-interface DeleteViewTarget {
+export interface DeleteViewTarget {
   readonly id: string
   readonly name: string
 }

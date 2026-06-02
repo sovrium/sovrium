@@ -8,7 +8,7 @@
 
 import { Effect, Layer } from 'effect'
 import { AiService } from '@/application/ports/services/ai-service'
-import { AiEmbeddingRepositoryLive } from '@/infrastructure/database/repositories/ai-embedding-repository-live'
+import { AiEmbeddingRepositoryActive } from '@/infrastructure/layers/ai-embedding-repository-layer'
 import { AiLive } from './layer'
 import type {
   AiEmbeddingRepository,
@@ -17,7 +17,7 @@ import type {
 
 export const RagSyncLayer: Layer.Layer<AiService | AiEmbeddingRepository> = Layer.merge(
   AiLive,
-  AiEmbeddingRepositoryLive
+  AiEmbeddingRepositoryActive
 )
 
 export interface TextChunk {

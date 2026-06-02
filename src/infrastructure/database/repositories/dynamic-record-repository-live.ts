@@ -124,4 +124,10 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
       }>
       return result.map((row) => row.id)
     }),
+
+  runRawQuery: (input) =>
+    wrap(
+      async () =>
+        (await db.execute(sql.raw(input.sql))) as unknown as ReadonlyArray<Record<string, unknown>>
+    ),
 })

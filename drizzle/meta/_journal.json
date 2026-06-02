@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1779083789900,
-      "tag": "0000_swift_the_stranger",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1779208741299,
-      "tag": "0001_brave_gauntlet",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779543469820,
-      "tag": "0002_normal_vermin",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1779548810894,
-      "tag": "0003_safe_lake",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1779613114824,
-      "tag": "0004_charming_power_pack",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1779779363057,
-      "tag": "0005_panoramic_elektra",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1779903369860,
-      "tag": "0006_narrow_tarantula",
+      "when": 1780433687471,
+      "tag": "0000_icy_northstar",
       "breakpoints": true
     }
   ]

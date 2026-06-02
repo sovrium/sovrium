@@ -74,6 +74,7 @@ const buildGenerateNotifySql = (
     'kind', '${GENERATE_PAYLOAD_KIND}',
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
+    'record_id', NEW.id,
     'value', NEW.${fieldName},
     'prompt', NEW.${fieldName},
     'source', left(source_content, 4000),

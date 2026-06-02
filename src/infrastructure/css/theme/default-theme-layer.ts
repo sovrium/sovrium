@@ -449,6 +449,12 @@ export const V1_TOKEN_LAYER = `@source inline("${CANONICAL_COLOR_UTILITIES} ${CA
 
   ${V1_ROOT_DARK}`
 
+export const V1_THEME_REGISTRATIONS = `@source inline("${CANONICAL_COLOR_UTILITIES} ${CANONICAL_FONT_UTILITIES}");
+
+  ${V1_THEME_COLOR_REGISTRATIONS}
+
+  ${V1_THEME_NONCOLOR_REGISTRATIONS}`
+
 export const V1_ALIAS_BRIDGE = `:root {
     /* Surface roles.
        Neutral defaults are used directly (no var(--color-background, ...)

@@ -23,6 +23,7 @@ export interface CommentRecord {
   readonly createdAt: string
   readonly updatedAt: string
   readonly user?: CommentUser
+  readonly guestName?: string | null
 }
 
 export interface CommentsListResponse {
@@ -57,4 +58,8 @@ export interface CommentThreadIslandProps {
 
 export function isEdited(comment: CommentRecord): boolean {
   return new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 2000
+}
+
+export function resolveCommentAuthorName(comment: CommentRecord, fallback: string): string {
+  return comment.guestName ?? comment.user?.name ?? fallback
 }

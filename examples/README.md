@@ -4,15 +4,16 @@ Each example is a **directory** containing an `app.yaml` entry point plus a `con
 
 ## Examples
 
-| Template          | Paired editor agent | Description                                                                                                                                     |
-| ----------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **hello-world**   | _(none)_            | Minimal starter. One page, no collections. Default template for `sovrium init`. Stays a single `app.yaml` to demonstrate when not to pre-split. |
-| **landing-page**  | website-editor      | Bilingual marketing site with i18n, theme, 5 reusable components, and the home page split out for size.                                         |
-| **crud-app**      | crud-editor         | CRUD app with tables (contacts, companies), email/password auth, theme, and dashboard + sign-in pages.                                          |
-| **api-only**      | api-editor          | Headless API mode with tables (projects, tasks) and auth. No pages.                                                                             |
-| **member-portal** | portal-editor       | Public marketing pages + an auth-gated portal area with role-gated sections. Magic-link + password auth.                                        |
-| **mcp-server**    | mcp-editor          | Headless MCP server exposing tables to an LLM client via per-entity `aiAccess`. No pages.                                                       |
-| **blog**          | blog-editor         | Blog with posts (rich-text), tags, authors, and an index + dynamic `/blog/:slug` detail route.                                                  |
+| Template          | Paired editor agent | Description                                                                                                                                                                                                                                                                                                          |
+| ----------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **hello-world**   | _(none)_            | Minimal starter. One page, no collections. Default template for `sovrium init`. Stays a single `app.yaml` to demonstrate when not to pre-split.                                                                                                                                                                      |
+| **landing-page**  | website-editor      | Bilingual marketing site with i18n, theme, 5 reusable components, and the home page split out for size.                                                                                                                                                                                                              |
+| **crud-app**      | crud-editor         | CRUD app with tables (contacts, companies), email/password auth, theme, and dashboard + sign-in pages.                                                                                                                                                                                                               |
+| **api-only**      | api-editor          | Headless API mode with tables (projects, tasks) and auth. No pages.                                                                                                                                                                                                                                                  |
+| **member-portal** | portal-editor       | Public marketing pages + an auth-gated portal area with role-gated sections. Magic-link + password auth.                                                                                                                                                                                                             |
+| **mcp-server**    | mcp-editor          | Headless MCP server exposing tables to an LLM client via per-entity `aiAccess`. No pages.                                                                                                                                                                                                                            |
+| **blog**          | blog-editor         | Blog with posts (rich-text), tags, authors, and an index + dynamic `/blog/:slug` detail route.                                                                                                                                                                                                                       |
+| **docs-site**     | _(none)_            | Documentation website (Astro Starlight / Docusaurus alternative) showcasing the **markdown pages** feature: real `.md` files under `content/docs/`, a `contentDir` collection generating one route per file, a frontmatter-grouped sidebar, prev/next chrome, a TOC, and Shiki-highlighted code. No tables, no auth. |
 
 ## Quick Start
 
@@ -29,6 +30,7 @@ sovrium init my-app --template api-only
 sovrium init my-app --template member-portal
 sovrium init my-app --template mcp-server
 sovrium init my-app --template blog
+sovrium init my-app --template docs-site
 
 # Skip the paired agent install
 sovrium init my-app --template crud-app --no-agent

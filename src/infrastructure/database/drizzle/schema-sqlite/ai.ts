@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { text, integer, index } from 'drizzle-orm/sqlite-core'
+import { text, integer, blob, index, primaryKey } from 'drizzle-orm/sqlite-core'
 import { users } from './auth-tables'
 import { systemTable } from './table-helpers'
 
@@ -77,6 +77,7 @@ export const aiEmbeddings = systemTable(
     sourceRef: text('source_ref'),
     chunkIndex: integer('chunk_index').notNull().default(0),
     content: text('content').notNull(),
+    embedding: blob('embedding', { mode: 'buffer' }),
     metadata: text('metadata', { mode: 'json' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
@@ -219,8 +220,31 @@ export const aiActivityLogs = systemTable(
   ]
 )
 
+export const aiComputeStatus = systemTable(
+  'ai_compute_status',
+  {
+    appId: text('app_id').notNull(),
+    tableName: text('table_name').notNull(),
+    recordId: text('record_id').notNull(),
+    fieldName: text('field_name').notNull(),
+    status: text('status').notNull(),
+    attempt: integer('attempt').notNull().default(0),
+    error: text('error'),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.appId, table.tableName, table.recordId, table.fieldName],
+    }),
+  ]
+)
+
 export type AiConversation = typeof aiConversations.$inferSelect
 export type NewAiConversation = typeof aiConversations.$inferInsert
+export type AiComputeStatus = typeof aiComputeStatus.$inferSelect
+export type NewAiComputeStatus = typeof aiComputeStatus.$inferInsert
 export type AiMessage = typeof aiMessages.$inferSelect
 export type NewAiMessage = typeof aiMessages.$inferInsert
 export type AiFact = typeof aiFacts.$inferSelect

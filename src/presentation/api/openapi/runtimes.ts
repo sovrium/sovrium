@@ -6,14 +6,8 @@
  */
 
 import { createRoute, type RouteConfig } from '@hono/zod-openapi'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
-import type { Context, MiddlewareHandler, Next } from 'hono'
 
 export type SovriumRuntime = 'postgres' | 'sqlite'
-
-export function getCurrentRuntime(): SovriumRuntime {
-  return parseDatabaseDialectConfig().dialect
-}
 
 export interface AdminRouteConfig<P extends string = string> extends RouteConfig {
   readonly path: P
@@ -31,24 +25,4 @@ export function adminRoute<P extends string>(config: AdminRouteConfig<P>) {
     ...rest,
     [OPENAPI_RUNTIMES_EXTENSION]: [...runtimes],
   } as RouteConfig)
-}
-
-export function requireRuntime(allowed: ReadonlyArray<SovriumRuntime>): MiddlewareHandler {
-  const set = new Set<SovriumRuntime>(allowed)
-  return async (c: Context, next: Next) => {
-    const current = getCurrentRuntime()
-    if (!set.has(current)) {
-      return c.json(
-        {
-          success: false,
-          error: 'requires-postgres',
-          code: 'SERVICE_UNAVAILABLE',
-          message: `This endpoint requires the Postgres runtime; current runtime is "${current}".`,
-        },
-        501
-      )
-    }
-    await next()
-    return undefined
-  }
 }

@@ -75,8 +75,10 @@ const buildNotifySql = (sanitized: string, fieldName: string): string =>
   -- Emit NOTIFY so the application layer can observe + log the classification.
   -- Payload format: JSON with table, field, value, and a condensed source prefix.
   notify_payload := json_build_object(
+    'kind', 'categorize',
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
+    'record_id', NEW.id,
     'value', chosen,
     'source', left(source_content, 500),
     'categories', to_jsonb(categories)

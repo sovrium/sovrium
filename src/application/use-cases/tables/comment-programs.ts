@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { SessionContextError } from '@/domain/errors'
+import { isGuestSession } from '@/domain/services/guest-session'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
 
@@ -18,6 +19,9 @@ interface CreateCommentConfig {
   readonly tableName: string
   readonly content: string
   readonly parentCommentId?: string
+  readonly guestName?: string
+  readonly guestEmail?: string
+  readonly status?: 'approved' | 'pending' | 'rejected'
 }
 
 export interface CommentDisplayUser {
@@ -42,6 +46,12 @@ export interface CreatedComment {
   readonly createdAt: string
   readonly updatedAt: string
   readonly user?: CommentDisplayUser | undefined
+  readonly guestName: string | null
+  readonly status: 'approved' | 'pending' | 'rejected'
+}
+
+export interface CreatedCommentWithGuestEmail extends CreatedComment {
+  readonly guestEmail: string | null
 }
 
 function formatCommentResponse(comment: {
@@ -54,6 +64,8 @@ function formatCommentResponse(comment: {
   readonly createdAt: Date
   readonly updatedAt?: Date
   readonly user?: UserMetadataWithOptionalImage | undefined
+  readonly guestName?: string | null
+  readonly status?: 'approved' | 'pending' | 'rejected'
 }): { readonly comment: CreatedComment } {
   return {
     comment: {
@@ -66,13 +78,15 @@ function formatCommentResponse(comment: {
       createdAt: comment.createdAt.toISOString(),
       updatedAt: comment.updatedAt?.toISOString() ?? comment.createdAt.toISOString(),
       user: toCommentDisplayUser(comment.user),
+      guestName: comment.guestName ?? null,
+      status: comment.status ?? 'approved',
     },
   }
 }
 
 export function createCommentProgram(config: CreateCommentConfig): Effect.Effect<
   {
-    readonly comment: CreatedComment
+    readonly comment: CreatedCommentWithGuestEmail
     readonly author: UserMetadataWithOptionalImage | undefined
   },
   SessionContextError,
@@ -80,7 +94,17 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
 > {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const { session, tableId, recordId, tableName, content, parentCommentId } = config
+    const {
+      session,
+      tableId,
+      recordId,
+      tableName,
+      content,
+      parentCommentId,
+      guestName,
+      guestEmail,
+      status,
+    } = config
 
     const hasAccess = yield* comments.checkRecordExists({ session, tableName, recordId })
     if (!hasAccess) {
@@ -93,14 +117,25 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
       recordId,
       content,
       parentId: parentCommentId,
+      status,
+      ...(isGuestSession(session.userId) ? { guestName, guestEmail } : {}),
     })
 
     const commentWithUser = yield* comments.getWithUser({ session, commentId: comment.id })
 
     const merged = commentWithUser
-      ? { ...commentWithUser, parentId: comment.parentId }
+      ? {
+          ...commentWithUser,
+          parentId: comment.parentId,
+          guestName: comment.guestName,
+          status: comment.status,
+        }
       : { ...comment, updatedAt: comment.createdAt }
-    return { ...formatCommentResponse(merged), author: commentWithUser?.user }
+    const formatted = formatCommentResponse(merged)
+    return {
+      comment: { ...formatted.comment, guestEmail: comment.guestEmail },
+      author: commentWithUser?.user,
+    }
   })
 }
 
@@ -206,6 +241,7 @@ interface ListCommentsConfig {
   readonly limit?: number
   readonly offset?: number
   readonly sortOrder?: 'asc' | 'desc'
+  readonly viewerIsAdmin?: boolean
 }
 
 function formatCommentsList(
@@ -219,29 +255,10 @@ function formatCommentsList(
     readonly createdAt: Date
     readonly updatedAt: Date
     readonly user?: UserMetadataWithOptionalImage | undefined
+    readonly guestName?: string | null
   }[]
-): readonly {
-  readonly id: string
-  readonly tableId: string
-  readonly recordId: string
-  readonly userId: string | null
-  readonly parentCommentId: string | null
-  readonly content: string
-  readonly createdAt: string
-  readonly updatedAt: string
-  readonly user?: CommentDisplayUser | undefined
-}[] {
-  return comments.map((comment) => ({
-    id: comment.id,
-    tableId: comment.tableId,
-    recordId: comment.recordId,
-    userId: comment.userId,
-    parentCommentId: comment.parentId ?? null,
-    content: comment.content,
-    createdAt: comment.createdAt.toISOString(),
-    updatedAt: comment.updatedAt.toISOString(),
-    user: toCommentDisplayUser(comment.user),
-  }))
+): readonly CreatedComment[] {
+  return comments.map((comment) => formatCommentResponse(comment).comment)
 }
 
 function calculatePagination(params: {
@@ -388,17 +405,7 @@ export function updateCommentStatusProgram(
 
 export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   {
-    readonly comments: readonly {
-      readonly id: string
-      readonly tableId: string
-      readonly recordId: string
-      readonly userId: string | null
-      readonly parentCommentId: string | null
-      readonly content: string
-      readonly createdAt: string
-      readonly updatedAt: string
-      readonly user?: CommentDisplayUser | undefined
-    }[]
+    readonly comments: readonly CreatedComment[]
     readonly pagination?: {
       readonly total: number
       readonly limit: number
@@ -411,18 +418,27 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
 > {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const { session, recordId, tableName, limit, offset, sortOrder } = config
+    const { session, recordId, tableName, limit, offset, sortOrder, viewerIsAdmin } = config
+
+    const includeAllStatuses = viewerIsAdmin === true
 
     yield* verifyRecordAccess({ session, tableName, recordId })
 
-    const commentsList = yield* comments.list({ session, recordId, limit, offset, sortOrder })
+    const commentsList = yield* comments.list({
+      session,
+      recordId,
+      limit,
+      offset,
+      sortOrder,
+      includeAllStatuses,
+    })
 
     const pagination =
       limit !== undefined
         ? calculatePagination({
             limit,
             offset,
-            total: yield* comments.getCount({ session, recordId }),
+            total: yield* comments.getCount({ session, recordId, includeAllStatuses }),
           })
         : undefined
 

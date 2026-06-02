@@ -13,17 +13,61 @@ fields:
     name: phone
     type: phone-number
   - id: 4
+    name: avatar
+    type: single-attachment
+  - id: 5
     name: company
     type: relationship
     relatedTable: companies
     relationType: many-to-one
-  - id: 5
-    name: status
-    type: single-select
-    options:
-      - Lead
-      - Active
-      - Inactive
   - id: 6
+    name: title
+    type: single-line-text
+  - id: 7
+    name: status
+    type: status
+    options:
+      - value: Lead
+        color: '#F59E0B'
+      - value: Active
+        color: '#10B981'
+      - value: Inactive
+        color: '#94A3B8'
+    default: Lead
+  - id: 8
+    name: tags
+    type: multi-select
+    options:
+      - Decision Maker
+      - Champion
+      - Technical
+      - Billing
+      - Newsletter
+  - id: 9
+    name: last_contacted
+    type: date
+  - id: 10
     name: created_by
     type: created-by
+
+aiAccess:
+  description: >-
+    People at the companies you work with. Use this when the user asks about
+    contacts, leads, statuses, or who to follow up with.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

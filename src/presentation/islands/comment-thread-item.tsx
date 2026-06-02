@@ -8,7 +8,7 @@
 
 import { useState, type ReactElement, type ReactNode } from 'react'
 import { CommentThreadForm } from './comment-thread-form'
-import { isEdited, type CommentRecord } from './comment-thread-types'
+import { isEdited, resolveCommentAuthorName, type CommentRecord } from './comment-thread-types'
 import {
   computeCommentItemClasses,
   computeCommentMetaClasses,
@@ -30,11 +30,11 @@ interface CommentThreadItemProps {
 }
 
 function CommentMeta({ comment }: { readonly comment: CommentRecord }): ReactElement {
-  const authorName = comment.user?.name ?? 'Unknown'
+  const authorName = resolveCommentAuthorName(comment, 'Anonymous')
   const created = new Date(comment.createdAt)
   return (
     <header className={computeCommentMetaClasses()}>
-      <span className="text-foreground font-medium">{authorName}</span>
+      <span className="comments-author text-foreground font-medium">{authorName}</span>
       <time dateTime={comment.createdAt}>{created.toLocaleString()}</time>
     </header>
   )
@@ -245,7 +245,7 @@ function DeleteModeItem({
       <CommentMeta comment={comment} />
       <p className="text-sm">{comment.content}</p>
       <DeleteConfirm
-        authorName={comment.user?.name ?? 'this author'}
+        authorName={resolveCommentAuthorName(comment, 'this author')}
         isDeleting={isDeleting}
         onConfirm={async () => {
           await onConfirmDelete(comment.id)

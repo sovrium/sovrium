@@ -1,0 +1,120 @@
+name: companies
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Companies
+  description: Your accounts, in a live database grid
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Companies
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Every account you track — grouped, sorted, and editable like a spreadsheet.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a company
+          - type: form
+            dataSource:
+              table: companies
+            fields:
+              - field: name
+              - field: industry
+              - field: size
+              - field: website
+              - field: annual_revenue
+              - field: is_active
+            action:
+              type: crud
+              operation: create
+              table: companies
+              onSuccess:
+                navigate: /
+                toast:
+                  message: Company created
+                  variant: success
+
+      - type: data-table
+        dataSource:
+          table: companies
+          sort:
+            - field: name
+              direction: asc
+        columns:
+          - field: name
+            label: Company
+            sortable: true
+            filterable: true
+          - field: industry
+            label: Industry
+            sortable: true
+            filterable: true
+          - field: size
+            label: Size
+          - field: annual_revenue
+            label: Annual Revenue
+            align: right
+            format: currency
+          - field: website
+            label: Website
+          - field: is_active
+            label: Active
+            align: center
+            format: check-cross
+          - field: created_at
+            label: Added
+            format: relative-date
+        selection:
+          mode: multiple
+        search:
+          enabled: true
+          placeholder: Search companies...
+        groupBy:
+          field: industry
+          direction: asc
+        summary:
+          - field: name
+            function: count
+            label: Companies
+          - field: annual_revenue
+            function: sum
+            label: Total Revenue
+        toolbar:
+          search: true
+          filters: true
+          sort: true
+          groupBy: true
+          views: true
+          viewSwitcher: true
+          export: true
+          columnToggle: true
+        pagination:
+          pageSize: 25
+          pageSizeOptions: [10, 25, 50, 100]
+        bulkActions:
+          - label: Delete
+            confirm: Delete the selected companies?
+            action:
+              type: crud
+              operation: delete
+              table: companies
+        emptyMessage: No companies yet. Create your first account to get started.

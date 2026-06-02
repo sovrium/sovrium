@@ -1,0 +1,17 @@
+# Admin authentication for the blog CMS.
+#
+# Email + password sign-in. The first account ever registered becomes the
+# built-in `admin` (Better Auth firstUserAdmin); every later sign-up gets the
+# `editor` role below.
+#
+# Role capabilities are enforced by the per-table `permissions` blocks:
+#   - editor : create / edit / publish posts and tags
+#   - admin  : everything an editor can do, plus manage authors
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8
+defaultRole: editor
+roles:
+  - name: editor
+    description: Create, edit, and publish posts and tags
+    level: 30

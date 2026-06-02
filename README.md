@@ -166,7 +166,7 @@ compile errors instead of runtime failures.
 
 ## Why Sovrium?
 
-A typical organization pays **$10k+/month** for 20+ SaaS tools — a database
+A typical organization can pay **$10k+/month** for 20+ SaaS tools — a database
 here, an internal-tools builder there, a CMS, an auth provider — with data
 scattered across vendor clouds and zero control over any of it.
 
@@ -176,9 +176,9 @@ files **you own** and **version in Git**.
 |                     |                Sovrium                 | SaaS tools (Airtable / Retool / Notion) |
 | ------------------- | :------------------------------------: | :-------------------------------------: |
 | **Data ownership**  |              Your servers              |              Vendor cloud               |
-| **Monthly cost**    |            $0 (infra only)             |          $20–50 per user/month          |
-| **Vendor lock-in**  |                  None                  |                Complete                 |
-| **Customization**   |               Unlimited                |           Limited to features           |
+| **Monthly cost**    |          Infrastructure only           |          $20–50 per user/month          |
+| **Vendor lock-in**  |                  None                  |                  High                   |
+| **Customization**   |               Extensive                |           Limited to features           |
 | **Version control** |  Git-native (the config _is_ the app)  |                  None                   |
 | **Hosting**         | Anywhere you run a binary or container |               Vendor-only               |
 
@@ -259,13 +259,13 @@ sovrium build app.yaml
 Sovrium covers the building blocks of a business application. Each domain is
 declared in the same configuration file.
 
-Legend: ✅ implemented & spec-covered &nbsp;·&nbsp; 🔭 planned.
+Legend: ✅ implemented &nbsp;·&nbsp; 🔭 planned.
 
 ### Data & API
 
 | Status | Domain          | What you get                                                                                                                                                                  |
 | :----: | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   ✅   | **Tables**      | **52 field types** across 9 families — text, numeric, date/time, selection, special, system, attachment, advanced (formulas, lookups, rollups, relationships), and AI fields. |
+|   ✅   | **Tables**      | **49 field types** across 9 families — text, numeric, date/time, selection, special, system, attachment, advanced (formulas, lookups, rollups, relationships), and AI fields. |
 |   ✅   | **Views**       | Saved table views with filtering, sorting, grouping, and per-role permissions. SQL views and JSON-config views.                                                               |
 |   ✅   | **Records API** | Every table gets a CRUD REST API with filtering, sorting, pagination, batch ops, upsert, soft-delete, authorship, and change history.                                         |
 |   ✅   | **Records UI**  | Data tables, forms, kanban boards, calendars, and galleries bound directly to your tables — plus runtime views, CSV import/export, and undo/redo.                             |
@@ -392,6 +392,18 @@ fast with a clear message rather than misbehaving at runtime.
 `sovrium schema` emits the canonical JSON Schema — useful for editor
 integration, custom tooling, or feeding the contract to an AI agent.
 
+### For AI agents & LLMs
+
+Sovrium is built to be driven by an LLM or coding agent — the entire app surface
+is a single, inspectable contract:
+
+- **`sovrium schema`** — the canonical JSON Schema; hand it to an agent as the
+  authoritative contract, or validate a generated config against it.
+- **[`@sovrium/types`](https://www.npmjs.com/package/@sovrium/types)** — typed
+  `defineConfig` authoring with full autocompletion and startup type-checking.
+- **[`sovrium.com/llms.txt`](https://sovrium.com/llms.txt)** — an LLM-optimized
+  documentation entry point.
+
 ---
 
 ## Environment variables
@@ -400,18 +412,19 @@ Sovrium follows a clear split: **infrastructure** concerns live in environment
 variables (operator-controlled); **application** intent lives in the config
 file (author-controlled). **Every variable is optional** — `sovrium start
 app.yaml` runs zero-config with embedded SQLite, local file storage, AI
-disabled, and eco-friendly defaults. The full reference is in
-[`.env.example`](.env.example).
+disabled, and eco-friendly defaults. The tables below cover every variable; an
+annotated [`.env.example`](.env.example) ships the most common ones as
+copy-paste defaults.
 
 ### Server & database
 
-| Variable       | Default                           | Purpose                                                                           |
-| -------------- | --------------------------------- | --------------------------------------------------------------------------------- |
-| `PORT`         | `3000`                            | Server port.                                                                      |
-| `BASE_URL`     | `http://localhost:<PORT>`         | Public base URL of the app. Required for OAuth and cookie security in production. |
-| `DATABASE_URL` | embedded SQLite (`./database.db`) | PostgreSQL connection string for production. Omit for zero-config SQLite.         |
-| `LOG_LEVEL`    | `info`                            | `debug` · `info` · `warn` · `error`.                                              |
-| `NODE_ENV`     | —                                 | Set `production` to enable secure cookies and the CSRF / origin guard.            |
+| Variable       | Default                                    | Purpose                                                                           |
+| -------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `PORT`         | `3000`                                     | Server port.                                                                      |
+| `BASE_URL`     | `http://localhost:<PORT>`                  | Public base URL of the app. Required for OAuth and cookie security in production. |
+| `DATABASE_URL` | embedded SQLite (`./.sovrium/database.db`) | PostgreSQL connection string for production. Omit for zero-config SQLite.         |
+| `LOG_LEVEL`    | `info`                                     | `debug` · `info` · `warn` · `error`.                                              |
+| `NODE_ENV`     | —                                          | Set `production` to enable secure cookies and the CSRF / origin guard.            |
 
 ### Authentication & admin bootstrap
 
@@ -500,7 +513,7 @@ generates a 256-bit, single-use bootstrap token at startup and folds it into
 the startup banner — printed **exactly once** to stdout:
 
 ```text
-  Sovrium v0.8.1
+  Sovrium v0.10.0
 
   ⚠ No admin user — claim one within 1 hour with the token below
 
@@ -678,33 +691,29 @@ Every issue is read and triaged.
 
 ## Status
 
-Sovrium is **Phase 0 — Foundation**, under active development. Every domain
-above is now implemented and fully spec-covered: tables and the 52-field-type
-system, the Records REST API and Records UI, authentication (including OAuth 2.1
-/ OIDC server mode and organization/team groups), RBAC, account & GDPR, the
-security baseline, pages and the full component library, forms, theming and the
-design system, internationalization, automations, AI computed fields, chat,
-agents, RAG, MCP integration, analytics, the Admin Space, buckets, migrations,
-and the CLI. The only outstanding work is a handful of forms-submission extras —
-save-and-resume, edit-after-submit, calculation fields, payment fields, CAPTCHA,
-and a moderation queue.
+Sovrium is a **feature-complete MVP**, under active production hardening. Every
+domain above is implemented: tables and the 49-field-type system, the Records REST
+API and Records UI, authentication (including OAuth 2.1 / OIDC server mode and
+organization/team groups), RBAC, account & GDPR, the security baseline, pages
+and the full component library, forms, theming and the design system,
+internationalization, automations, AI computed fields, chat, agents, RAG, MCP
+integration, analytics, the Admin Space, buckets, migrations, and the CLI. The
+only outstanding work is a handful of forms-submission extras — save-and-resume,
+edit-after-submit, calculation fields, payment fields, CAPTCHA, and a moderation
+queue.
 
-Every feature is specified and backed by an extensive end-to-end test suite
-before it ships. At the time of writing, the entire suite is green — **100% of
-6,246 specs passing with a 95% quality score**. "Implemented & spec-covered"
-means the behavior is built, locked, and verified end-to-end; it is a distinct
-bar from long-term production hardening, which continues as the platform
-matures. See [SPEC-PROGRESS.md](SPEC-PROGRESS.md) for the live report and
-[`docs/user-stories/FEATURES.md`](docs/user-stories/FEATURES.md) for the
-per-domain breakdown.
+"Implemented" means the behavior is built and locked; it is a distinct bar from
+long-term production hardening, which continues as the platform matures.
 
 ---
 
 ## Community & support
 
-- [Issues](https://github.com/sovrium/sovrium/issues) — bug reports and feature requests
 - [Documentation](https://sovrium.com/docs) — guides and reference
+- [Security policy](SECURITY.md) — supported versions and how to report a vulnerability
 - [sovrium.com](https://sovrium.com) — product overview and where Sovrium is headed
+
+For bug reports and feature requests, see [Contributing](#contributing) above.
 
 ---
 
@@ -712,7 +721,7 @@ per-domain breakdown.
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **May 31, 2030**. Commercial hosting licenses:
+**Apache 2.0** on **June 2, 2030**. Commercial hosting licenses:
 license@sovrium.com.
 
 ---

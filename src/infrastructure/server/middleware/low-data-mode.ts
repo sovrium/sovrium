@@ -55,7 +55,9 @@ function dropDecorativeFontLinks(html: string): string {
 }
 
 function dropNonEssentialInlineBlocks(html: string): string {
-  return html.replace(/<script>[\S\s]*?<\/script>/g, '').replace(/<style>[\S\s]*?<\/style>/g, '')
+  return html
+    .replace(/<script\s*>[\S\s]*?<\/script\s*>/gi, '')
+    .replace(/<style\s*>[\S\s]*?<\/style\s*>/gi, '')
 }
 
 function applyLowDataTransforms(html: string, currentPath: string): string {

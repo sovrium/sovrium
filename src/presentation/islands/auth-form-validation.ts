@@ -5,20 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isValidEmail } from '@/domain/utils/email-validation'
 import { type AuthFormField } from '@/presentation/utils/auth-form-types'
 
 export { type AuthFormField }
 
 export type FieldErrors = Readonly<Record<string, string>>
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 export function validateField(field: AuthFormField, value: string): string | undefined {
   const trimmed = value.trim()
   if (field.required && trimmed === '') {
     return `${field.label} is required`
   }
-  if (field.inputType === 'email' && trimmed !== '' && !EMAIL_PATTERN.test(trimmed)) {
+  if (field.inputType === 'email' && trimmed !== '' && !isValidEmail(trimmed)) {
     return `${field.label} must be a valid email address`
   }
   return undefined

@@ -1,0 +1,59 @@
+# Reusable workspace top-nav. Included as a $ref array-item at the top of every
+# workspace page's `components` list (the same $ref mechanism app.yaml uses for
+# tables/pages), so the table navigation stays defined in exactly one place.
+type: container
+element: header
+props:
+  className: border-b
+children:
+  - type: container
+    props:
+      className: max-w-6xl mx-auto px-6 py-3 flex items-center justify-between
+    children:
+      - type: container
+        props:
+          className: flex items-center gap-6
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-base font-semibold
+            content: CRM Workspace
+          - type: container
+            props:
+              className: flex items-center gap-1 text-sm
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Companies
+              - type: link
+                props:
+                  href: /contacts
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Contacts
+              - type: link
+                props:
+                  href: /deals
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Deals
+              - type: link
+                props:
+                  href: /tasks
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Tasks
+              - type: link
+                props:
+                  href: /assistant
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Assistant
+      - type: button
+        props:
+          className: px-3 py-1.5 rounded-md border text-sm font-medium
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /sign-in

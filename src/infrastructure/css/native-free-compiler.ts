@@ -66,6 +66,11 @@ export const resolveNativeFreeCandidates = (app?: App): readonly string[] => [
   ...new Set([...BUILTIN_CSS_CANDIDATES, ...collectClassStrings(app)]),
 ]
 
+export const appAddsCandidatesBeyondBuiltin = (app?: App): boolean => {
+  const builtin = new Set<string>(BUILTIN_CSS_CANDIDATES)
+  return collectClassStrings(app).some((token) => !builtin.has(token))
+}
+
 export const compileCSSNativeFree = (
   sourceCSS: string,
   app?: App

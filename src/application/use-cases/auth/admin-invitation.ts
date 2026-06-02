@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isValidEmail } from '@/domain/utils/email-validation'
 import { parseDuration } from '@/domain/utils/parse-duration'
 import { resolvePasswordPolicy } from '@/domain/utils/password-policy'
 import {
@@ -75,8 +76,7 @@ const validateInviteInput = (body: {
     return { status: 'invalid-input', message: 'email is required' }
   }
   const email = body.email.trim().toLowerCase()
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) {
+  if (!isValidEmail(email)) {
     return { status: 'invalid-input', message: 'email must be a valid email address' }
   }
   if (typeof body.name !== 'string' || body.name.trim().length === 0) {

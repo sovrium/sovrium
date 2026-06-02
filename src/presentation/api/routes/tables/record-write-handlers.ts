@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+
 import { Effect } from 'effect'
+import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import {
   hasCreatePermissionForRoles,
@@ -22,6 +24,8 @@ import {
   updateRecordRequestSchema,
 } from '@/domain/models/api/tables/records'
 import { createRecordResponseSchema } from '@/domain/models/api/tables/tables'
+import { applyAiComputeBaseline } from '@/domain/services/ai-compute/apply-baseline'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   provideTableWithAutomationsLive,
   runTableProgram,
@@ -186,11 +190,12 @@ function buildCreateRecordProgram(input: {
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableName: string
   readonly fields: Record<string, unknown>
+  readonly incoming: Readonly<Record<string, unknown>>
   readonly app: App
   readonly userRole: string
   readonly origin: string
 }) {
-  const { session, tableName, fields, app, userRole, origin } = input
+  const { session, tableName, fields, incoming, app, userRole, origin } = input
   return createRecordProgram({ session, tableName, fields, app, userRole, origin }).pipe(
     Effect.tap((record) => publishInsertChange(app.name, tableName, record)),
     Effect.tap((record) =>
@@ -214,6 +219,18 @@ function buildCreateRecordProgram(input: {
             createdAt: record.createdAt,
             updatedAt: record.updatedAt,
           },
+        })
+      )
+    ),
+    Effect.tap((record) =>
+      Effect.sync(() =>
+        signalAiComputeWritePhase({
+          app,
+          tableName,
+          op: 'insert',
+          recordId: record.id,
+          incoming,
+          record: record.fields,
         })
       )
     )
@@ -244,13 +261,22 @@ export async function handleCreateRecord(c: Context, app: App) {
   const predicateError = checkCreatePredicate(c, table, guard, validationResult.right)
   if (predicateError) return predicateError
 
+  const fields =
+    table && isSqliteRuntime()
+      ? {
+          ...validationResult.right,
+          ...applyAiComputeBaseline({ table, op: 'insert', incoming: validationResult.right }),
+        }
+      : validationResult.right
+
   return await runEffect(
     c,
     provideTableWithAutomationsLive(
       buildCreateRecordProgram({
         session,
         tableName,
-        fields: validationResult.right,
+        fields,
+        incoming: validationResult.right,
         app,
         userRole,
         origin: new URL(c.req.url).origin,

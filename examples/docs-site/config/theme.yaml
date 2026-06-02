@@ -1,0 +1,51 @@
+colors:
+  primary: '#6d28d9'
+  primary-hover: '#5b21b6'
+  primary-light: '#ede9fe'
+  background: '#ffffff'
+  background-alt: '#faf9fc'
+  text: '#1e1b2e'
+  text-secondary: '#4b4563'
+  text-muted: '#7c768f'
+  border: '#e7e3ef'
+  code-bg: '#1e1b2e'
+  code-text: '#e7e3ef'
+  note: '#3b82f6'
+  note-bg: '#eff6ff'
+  warning: '#d97706'
+  warning-bg: '#fffbeb'
+  tip: '#059669'
+  tip-bg: '#ecfdf5'
+# Single Shiki theme token applied to every fenced code block in the markdown
+# pages. Shiki highlights server-side and emits class/CSS-variable output, so it
+# survives the HTML sanitizer. Swap for any named Shiki theme (e.g. github-light).
+codeBlock:
+  theme: github-dark
+fonts:
+  sans:
+    family: Inter
+    fallback: system-ui, -apple-system, sans-serif
+    weights: [400, 500, 600, 700]
+    size: 16px
+    lineHeight: '1.7'
+  heading:
+    family: Inter
+    fallback: system-ui, -apple-system, sans-serif
+    weights: [600, 700, 800]
+    size: 40px
+    lineHeight: '1.2'
+    letterSpacing: '-0.02em'
+  mono:
+    family: 'JetBrains Mono'
+    fallback: ui-monospace, SFMono-Regular, Menlo, monospace
+    weights: [400, 500]
+    size: 14px
+borderRadius:
+  sm: 0.25rem
+  md: 0.5rem
+  lg: 0.75rem
+  full: 9999px
+shadows:
+  sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)
+  md: 0 4px 6px -1px rgb(0 0 0 / 0.1)
+  lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)

@@ -8,15 +8,25 @@
 
 import { Effect } from 'effect'
 import { Client } from 'pg'
-import { AiService } from '@/application/ports/services/ai-service'
+import { refineAiComputeField } from '@/application/use-cases/ai-compute/refine-field'
 import { AiLive } from '@/infrastructure/ai/layer'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { isSqliteRuntime } from './unsupported-in-sqlite'
+import type { AiComputeKind } from '@/domain/services/ai-compute/baseline'
+import type { AiComputeRequestConfig } from '@/domain/services/ai-compute/build-request'
 
 interface AiComputePayload {
-  readonly kind?: 'categorize' | 'summary' | 'translate' | 'extract' | 'sentiment' | 'generate'
+  readonly kind?:
+    | 'categorize'
+    | 'summary'
+    | 'translate'
+    | 'extract'
+    | 'sentiment'
+    | 'generate'
+    | 'tag'
   readonly table: string
   readonly field: string
+  readonly record_id?: string | number
   readonly value: string | undefined
   readonly source: string
   readonly categories?: readonly string[]
@@ -34,7 +44,10 @@ export class AiComputeListener {
   private client: Client | undefined = undefined
   private stopped = false
 
-  constructor(private readonly databaseUrl: string) {}
+  constructor(
+    private readonly databaseUrl: string,
+    private readonly appId: string
+  ) {}
 
   async start(): Promise<void> {
     if (isSqliteRuntime()) {
@@ -79,252 +92,60 @@ export class AiComputeListener {
     if (this.stopped) return
 
     const payload = parsePayload(raw)
-    if (!payload) return
+    if (!payload || payload.record_id === undefined || payload.record_id === null) return
 
-    const request = buildChatRequest(payload)
-    if (!request) return
+    const kind = resolveKind(payload.kind)
+    const config = toRequestConfig(payload)
 
-    const program = Effect.gen(function* () {
-      const ai = yield* AiService
-      return yield* ai.chat(request)
+    const program = refineAiComputeField({
+      appId: this.appId,
+      tableName: payload.table,
+      recordId: String(payload.record_id),
+      fieldName: payload.field,
+      kind,
+      source: payload.source,
+      baselineValue: payload.value,
+      config,
     })
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(AiLive), Effect.either))
     if (result._tag === 'Left') {
-      logDebug(`[ai-compute] AiService.chat failed: ${result.left.message}`)
+      logDebug(`[ai-compute] refinement program failed: ${String(result.left)}`)
     }
   }
 }
 
-interface ChatMessage {
-  readonly role: 'system' | 'user' | 'assistant'
-  readonly content: string
-}
-
-interface ChatRequest {
-  readonly messages: readonly ChatMessage[]
-  readonly model?: string
-  readonly temperature?: number
-  readonly maxTokens?: number
-}
-
-function buildChatRequest(payload: AiComputePayload): ChatRequest | undefined {
-  switch (payload.kind) {
+const resolveKind = (kind: AiComputePayload['kind']): AiComputeKind => {
+  switch (kind) {
     case 'summary':
-      return buildSummaryRequest(payload)
+      return 'ai-summary'
     case 'translate':
-      return buildTranslateRequest(payload)
+      return 'ai-translate'
     case 'extract':
-      return buildExtractRequest(payload)
+      return 'ai-extract'
     case 'sentiment':
-      return buildSentimentRequest(payload)
+      return 'ai-sentiment'
     case 'generate':
-      return buildGenerateRequest(payload)
+      return 'ai-generate'
+    case 'tag':
+      return 'ai-tag'
     case 'categorize':
     case undefined:
-      return buildCategorizeRequest(payload)
+      return 'ai-categorize'
   }
 }
 
-function buildCategorizeRequest(payload: AiComputePayload): ChatRequest | undefined {
-  const messages = buildCategorizeMessages(payload)
-  if (!messages) return undefined
-  const model = payload.model ?? undefined
-  return { messages, temperature: 0, ...(model !== undefined ? { model } : {}) }
-}
-
-function buildSummaryRequest(payload: AiComputePayload): ChatRequest {
-  const messages = buildSummaryMessages(payload)
-  const model = payload.model ?? undefined
-  const temperature = payload.temperature ?? undefined
-  const maxTokens = payload.maxTokens ?? undefined
-  return {
-    messages,
-    ...(model !== undefined ? { model } : {}),
-    ...(temperature !== undefined ? { temperature } : {}),
-    ...(maxTokens !== undefined ? { maxTokens } : {}),
-  }
-}
-
-function buildCategorizeMessages(payload: AiComputePayload): readonly ChatMessage[] | undefined {
-  const { categories } = payload
-  if (!categories || categories.length === 0) return undefined
-
-  const systemPrompt = [
-    'You are a classification assistant. Given source content, choose exactly',
-    `one category from this list: [${categories.join(', ')}].`,
-    'Respond with only the chosen category name, nothing else.',
-  ].join(' ')
-
-  const userMessage = [
-    `Source content: ${payload.source}`,
-    `Categories: [${categories.join(', ')}]`,
-    `Chosen category: ${payload.value ?? ''}`,
-  ].join('\n')
-
-  return [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userMessage },
-  ]
-}
-
-function buildSummaryMessages(payload: AiComputePayload): readonly ChatMessage[] {
-  const basePrompt = payload.prompt?.trim() || 'Summarize the following content concisely'
-  const lengthHint =
-    typeof payload.maxLength === 'number' && payload.maxLength > 0
-      ? ` Keep the summary under ${payload.maxLength} characters.`
-      : ''
-  const systemPrompt = `${basePrompt}.${lengthHint} Respond with only the summary text, nothing else.`
-
-  return [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: `Source content: ${payload.source}` },
-  ]
-}
-
-function buildTranslateRequest(payload: AiComputePayload): ChatRequest {
-  const messages = buildTranslateMessages(payload)
-  const model = payload.model ?? undefined
-  const temperature = payload.temperature ?? undefined
-  const maxTokens = payload.maxTokens ?? undefined
-  return {
-    messages,
-    ...(model !== undefined ? { model } : {}),
-    ...(temperature !== undefined ? { temperature } : {}),
-    ...(maxTokens !== undefined ? { maxTokens } : {}),
-  }
-}
-
-const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
-  fr: 'French',
-  es: 'Spanish',
-  de: 'German',
-  it: 'Italian',
-  pt: 'Portuguese',
-  nl: 'Dutch',
-  ja: 'Japanese',
-  ko: 'Korean',
-  zh: 'Chinese',
-  ru: 'Russian',
-  ar: 'Arabic',
-  hi: 'Hindi',
-  en: 'English',
-}
-
-const languageName = (code: string): string =>
-  LANGUAGE_NAMES[code] ?? LANGUAGE_NAMES[code.split('-')[0] ?? code] ?? code
-
-function buildTranslateMessages(payload: AiComputePayload): readonly ChatMessage[] {
-  const target = payload.targetLanguage ?? 'en'
-  const customSystem = payload.systemPrompt?.trim() ?? ''
-  const base =
-    customSystem ||
-    `Translate the following text into ${languageName(target)}. Respond with only the translation, nothing else.`
-  const customPrompt = payload.prompt?.trim() ?? ''
-  const styleHint = customPrompt ? ` ${customPrompt}` : ''
-  const systemPrompt = `${base}${styleHint}`
-
-  return [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: payload.source },
-  ]
-}
-
-function buildExtractRequest(payload: AiComputePayload): ChatRequest {
-  const messages = buildExtractMessages(payload)
-  const model = payload.model ?? undefined
-  const temperature = payload.temperature ?? undefined
-  const maxTokens = payload.maxTokens ?? undefined
-  return {
-    messages,
-    ...(model !== undefined ? { model } : {}),
-    ...(temperature !== undefined ? { temperature } : {}),
-    ...(maxTokens !== undefined ? { maxTokens } : {}),
-  }
-}
-
-function buildExtractMessages(payload: AiComputePayload): readonly ChatMessage[] {
-  const schemaText = payload.schema?.trim() ?? ''
-  const customSystem = payload.systemPrompt?.trim() ?? ''
-  const base =
-    customSystem ||
-    [
-      'You are a structured-data extraction assistant.',
-      'Extract the requested fields from the text and respond with ONLY a JSON object',
-      'matching this JSON Schema:',
-      schemaText || '{}',
-      'Use null for fields that cannot be determined. Do not include any prose.',
-    ].join(' ')
-  const customPrompt = payload.prompt?.trim() ?? ''
-  const guidanceHint = customPrompt ? ` ${customPrompt}` : ''
-  const systemPrompt = `${base}${guidanceHint}`
-
-  return [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: payload.source },
-  ]
-}
-
-function buildSentimentRequest(payload: AiComputePayload): ChatRequest {
-  const messages = buildSentimentMessages(payload)
-  const model = payload.model ?? undefined
-  const temperature = payload.temperature ?? 0
-  const maxTokens = payload.maxTokens ?? undefined
-  return {
-    messages,
-    ...(model !== undefined ? { model } : {}),
-    temperature,
-    ...(maxTokens !== undefined ? { maxTokens } : {}),
-  }
-}
-
-function buildSentimentMessages(payload: AiComputePayload): readonly ChatMessage[] {
-  const customSystem = payload.systemPrompt?.trim() ?? ''
-  const base =
-    customSystem ||
-    [
-      'You are a sentiment analysis assistant.',
-      'Analyze the sentiment of the following text and respond with ONLY a JSON object',
-      'of the form { "label": <one of "positive" | "negative" | "neutral" | "mixed">,',
-      '"score": <float between 0.0 and 1.0 representing confidence>,',
-      '"explanation": <short string justifying the classification> }.',
-      'Do not include any prose outside the JSON object.',
-    ].join(' ')
-  const customPrompt = payload.prompt?.trim() ?? ''
-  const focusHint = customPrompt ? ` ${customPrompt}` : ''
-  const systemPrompt = `${base}${focusHint}`
-
-  return [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: payload.source },
-  ]
-}
-
-function buildGenerateRequest(payload: AiComputePayload): ChatRequest {
-  const messages = buildGenerateMessages(payload)
-  const model = payload.model ?? undefined
-  const temperature = payload.temperature ?? undefined
-  const maxTokens = payload.maxTokens ?? undefined
-  return {
-    messages,
-    ...(model !== undefined ? { model } : {}),
-    ...(temperature !== undefined ? { temperature } : {}),
-    ...(maxTokens !== undefined ? { maxTokens } : {}),
-  }
-}
-
-function buildGenerateMessages(payload: AiComputePayload): readonly ChatMessage[] {
-  const customSystem = payload.systemPrompt?.trim() ?? ''
-  const systemPrompt =
-    customSystem ||
-    'Generate the requested content. Respond with only the generated text, nothing else.'
-  const userMessage = payload.prompt?.trim() || payload.source
-
-  return [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userMessage },
-  ]
-}
+const toRequestConfig = (payload: AiComputePayload): AiComputeRequestConfig => ({
+  prompt: payload.prompt,
+  systemPrompt: payload.systemPrompt,
+  model: payload.model,
+  temperature: payload.temperature,
+  maxTokens: payload.maxTokens,
+  maxLength: payload.maxLength,
+  ...(payload.categories !== undefined ? { categories: payload.categories } : {}),
+  ...(payload.targetLanguage !== undefined ? { targetLanguage: payload.targetLanguage } : {}),
+  ...(payload.schema !== undefined ? { schema: payload.schema } : {}),
+})
 
 const parsePayload = (raw: string): AiComputePayload | undefined => {
   try {

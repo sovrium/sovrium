@@ -1,0 +1,144 @@
+name: contacts
+path: /contacts
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Contacts
+  description: People across your accounts
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Contacts
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: The same records in two views — a spreadsheet grid and a card gallery.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a contact
+          - type: form
+            dataSource:
+              table: contacts
+            fields:
+              - field: name
+              - field: email
+              - field: phone
+              - field: company
+              - field: title
+              - field: status
+              - field: tags
+            action:
+              type: crud
+              operation: create
+              table: contacts
+              onSuccess:
+                navigate: /contacts
+                toast:
+                  message: Contact created
+                  variant: success
+
+      - type: data-table
+        dataSource:
+          table: contacts
+          sort:
+            - field: name
+              direction: asc
+        columns:
+          - field: name
+            label: Name
+            sortable: true
+            filterable: true
+          - field: title
+            label: Title
+          - field: company
+            label: Company
+            sortable: true
+            filterable: true
+          - field: email
+            label: Email
+          - field: phone
+            label: Phone
+          - field: status
+            label: Status
+            filterable: true
+          - field: tags
+            label: Tags
+          - field: last_contacted
+            label: Last Contacted
+            format: relative-date
+        selection:
+          mode: multiple
+        search:
+          enabled: true
+          placeholder: Search contacts...
+        toolbar:
+          search: true
+          filters: true
+          sort: true
+          views: true
+          viewSwitcher: true
+          export: true
+        pagination:
+          pageSize: 25
+        bulkActions:
+          - label: Delete
+            confirm: Delete the selected contacts?
+            action:
+              type: crud
+              operation: delete
+              table: contacts
+        emptyMessage: No contacts yet.
+
+      - type: text
+        element: h2
+        props:
+          className: text-lg font-semibold mt-10 mb-4
+        content: Gallery
+
+      - type: gallery
+        dataSource:
+          table: contacts
+          sort:
+            - field: name
+              direction: asc
+        gridColumns:
+          mobile: 1
+          sm: 2
+          md: 3
+          lg: 4
+        galleryCard:
+          coverImage: $record.avatar
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-semibold
+              content: $record.name
+            - type: text
+              element: p
+              props:
+                className: text-xs
+              content: $record.title
+            - type: text
+              element: p
+              props:
+                className: text-xs
+              content: $record.email
+        emptyMessage: No contacts to show.

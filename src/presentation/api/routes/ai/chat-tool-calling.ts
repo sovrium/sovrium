@@ -6,7 +6,6 @@
  */
 
 
-import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
   AiService,
@@ -16,13 +15,13 @@ import {
   type ChatToolDefinition,
   type AiError,
 } from '@/application/ports/services/ai-service'
+import { runRawDynamicQuery } from '@/application/use-cases/ai/dynamic-record-query'
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
-import { db } from '@/infrastructure/database'
 import { recordActivityLogRow, recordChatActivity } from './chat-activity-log'
 import { appendConversationTurn } from './chat-conversation-store'
 import { persistTurnDurably } from './chat-durable-memory'
 import { projectAppTables } from './chat-table-projection'
-import { provideAiLive } from './effect-runner'
+import { provideAiLive, provideDynamicRecordRepoLive } from './effect-runner'
 import type { ChatAction, ChatResponse } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -126,12 +125,11 @@ const executeToolCall = async (
     }
   }
 
-  try {
-    const rows = (await db.execute(sql.raw(query))) as unknown as ReadonlyArray<
-      Record<string, unknown>
-    >
-    return { content: JSON.stringify({ rows }), action, denied: false }
-  } catch (cause) {
+  const result = await Effect.runPromise(
+    runRawDynamicQuery({ sql: query }).pipe(provideDynamicRecordRepoLive, Effect.either)
+  )
+  if (result._tag === 'Left') {
+    const { cause } = result.left
     return {
       content: `Error: query execution failed — ${
         cause instanceof Error ? cause.message : String(cause)
@@ -140,6 +138,7 @@ const executeToolCall = async (
       denied: false,
     }
   }
+  return { content: JSON.stringify({ rows: result.right }), action, denied: false }
 }
 
 const callProvider = (

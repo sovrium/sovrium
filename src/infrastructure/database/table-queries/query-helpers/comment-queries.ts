@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
+import { sql, eq, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { isGuestSession } from '@/domain/services/guest-session'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import {
@@ -18,6 +19,11 @@ import { recordComments as recordCommentsSqlite } from '@/infrastructure/databas
 import { wrapDatabaseError } from '../shared/error-handling'
 import { castToInt } from './aggregation-helpers'
 import {
+  activeCommentById,
+  activeCommentsByRecordId,
+  visibleCommentsByRecordId,
+} from './comment-query-predicates'
+import {
   buildCommentSelectFields,
   transformCommentRow,
   type CommentQueryRow,
@@ -27,12 +33,32 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
-function activeCommentById(commentId: string) {
-  return and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt))
-}
-
-function activeCommentsByRecordId(recordId: string) {
-  return and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt))
+function buildCommentInsertValues(config: {
+  readonly session: Readonly<Session>
+  readonly tableId: string
+  readonly recordId: string
+  readonly content: string
+  readonly parentId?: string
+  readonly guestName?: string
+  readonly guestEmail?: string
+  readonly status?: 'approved' | 'pending' | 'rejected'
+}) {
+  const { session, tableId, recordId, content, parentId, guestName, guestEmail, status } = config
+  const now = new Date()
+  const isGuest = isGuestSession(session.userId)
+  return {
+    id: crypto.randomUUID(),
+    tableId,
+    recordId,
+    userId: isGuest ? null : session.userId,
+    guestName: isGuest ? (guestName ?? null) : null,
+    guestEmail: isGuest ? (guestEmail ?? null) : null,
+    content,
+    parentId: parentId ?? null,
+    status: status ?? 'approved',
+    createdAt: now,
+    updatedAt: now,
+  }
 }
 
 export function createComment(config: {
@@ -41,6 +67,9 @@ export function createComment(config: {
   readonly recordId: string
   readonly content: string
   readonly parentId?: string
+  readonly guestName?: string
+  readonly guestEmail?: string
+  readonly status?: 'approved' | 'pending' | 'rejected'
 }): Effect.Effect<
   {
     readonly id: string
@@ -49,25 +78,16 @@ export function createComment(config: {
     readonly userId: string | null
     readonly content: string
     readonly parentId: string | null
+    readonly status: 'approved' | 'pending' | 'rejected'
     readonly createdAt: Date
+    readonly guestName: string | null
+    readonly guestEmail: string | null
   },
   SessionContextError
 > {
-  const { session, tableId, recordId, content, parentId } = config
   return Effect.tryPromise({
     try: async () => {
-      const now = new Date()
-      const values = {
-        id: crypto.randomUUID(),
-        tableId,
-        recordId,
-        userId: session.userId,
-        content,
-        parentId: parentId ?? null,
-        createdAt: now,
-        updatedAt: now,
-      }
-
+      const values = buildCommentInsertValues(config)
       const result = await db.insert(recordComments).values(values).returning()
 
       if (result.length === 0) {
@@ -82,7 +102,10 @@ export function createComment(config: {
         userId: comment.userId,
         content: comment.content,
         parentId: comment.parentId,
+        status: comment.status as 'approved' | 'pending' | 'rejected',
         createdAt: comment.createdAt,
+        guestName: comment.guestName,
+        guestEmail: comment.guestEmail,
       }
     },
     catch: wrapDatabaseError('Failed to create comment'),
@@ -132,6 +155,8 @@ export function getCommentWithUser(config: {
       readonly createdAt: Date
       readonly updatedAt: Date
       readonly user: UserMetadataWithOptionalImage | undefined
+      readonly guestName: string | null
+      readonly guestEmail: string | null
     }
   | undefined,
   SessionContextError
@@ -218,13 +243,13 @@ export function getCommentForAuth(config: {
   })
 }
 
-function buildCommentsQuery(recordId: string) {
+function buildCommentsQuery(recordId: string, includeAllStatuses: boolean) {
   const users = authUsersTable()
   return db
     .select(buildCommentSelectFields())
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
-    .where(activeCommentsByRecordId(recordId))
+    .where(visibleCommentsByRecordId(recordId, includeAllStatuses))
 }
 
 function executeListCommentsQuery(
@@ -233,9 +258,10 @@ function executeListCommentsQuery(
     readonly limit?: number
     readonly offset?: number
     readonly sortOrder?: 'asc' | 'desc'
+    readonly includeAllStatuses?: boolean
   }
 ) {
-  const query = buildCommentsQuery(recordId)
+  const query = buildCommentsQuery(recordId, options?.includeAllStatuses ?? false)
 
   const sortedQuery =
     options?.sortOrder === 'asc'
@@ -256,6 +282,7 @@ export function listComments(config: {
   readonly limit?: number
   readonly offset?: number
   readonly sortOrder?: 'asc' | 'desc'
+  readonly includeAllStatuses?: boolean
 }): Effect.Effect<
   readonly {
     readonly id: string
@@ -267,13 +294,16 @@ export function listComments(config: {
     readonly createdAt: Date
     readonly updatedAt: Date
     readonly user: UserMetadataWithOptionalImage | undefined
+    readonly guestName: string | null
+    readonly guestEmail: string | null
   }[],
   SessionContextError
 > {
-  const { recordId, limit, offset, sortOrder } = config
+  const { recordId, limit, offset, sortOrder, includeAllStatuses } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
-      try: () => executeListCommentsQuery(recordId, { limit, offset, sortOrder }),
+      try: () =>
+        executeListCommentsQuery(recordId, { limit, offset, sortOrder, includeAllStatuses }),
       catch: (error) => new SessionContextError('Failed to list comments', error),
     })
 
@@ -291,15 +321,16 @@ export function listComments(config: {
 export function getCommentsCount(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
+  readonly includeAllStatuses?: boolean
 }): Effect.Effect<number, SessionContextError> {
-  const { recordId } = config
+  const { recordId, includeAllStatuses } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise<Array<{ count: number }>, SessionContextError>({
       try: () =>
         db
           .select({ count: castToInt(sql`COUNT(*)`) })
           .from(recordComments)
-          .where(activeCommentsByRecordId(recordId)),
+          .where(visibleCommentsByRecordId(recordId, includeAllStatuses ?? false)),
       catch: (error) => new SessionContextError('Failed to count comments', error),
     })
 

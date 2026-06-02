@@ -103,6 +103,7 @@ const buildExtractNotifySql = (
     'kind', '${EXTRACT_PAYLOAD_KIND}',
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
+    'record_id', NEW.id,
     'value', NEW.${fieldName}::text,
     'source', left(source_content, 4000),
     'schema', ${schemaLiteral},

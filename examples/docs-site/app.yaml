@@ -1,0 +1,20 @@
+name: docs-site
+version: 1.0.0
+description: >-
+  A documentation website built with Sovrium's markdown pages feature — an
+  Astro Starlight / Docusaurus alternative. The docs live as plain `.md` files
+  under `content/docs/`, authored in any editor and tracked in Git. A single
+  `contentDir` collection page turns that folder into one route per file, with
+  a frontmatter-grouped sidebar, automatic prev/next links, a table of
+  contents, and Shiki-highlighted code — all from configuration. The home page
+  shows the inline-markdown mode; the docs section shows the file-based
+  content-directory mode.
+
+theme:
+  $ref: ./config/theme.yaml
+
+pages:
+  # Inline-markdown landing page (markdown.content + layout: prose)
+  - $ref: ./config/pages/home.yaml
+  # File-based docs collection (contentDir → one route per .md file)
+  - $ref: ./config/pages/docs.yaml

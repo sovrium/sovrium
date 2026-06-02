@@ -1,0 +1,104 @@
+name: admin-authors
+path: /admin/authors
+# Admin-only: editors can write posts but only admins manage the author roster.
+access:
+  require:
+    - admin
+  redirectTo: /admin/login
+meta:
+  title: Admin · Authors
+  description: Manage post authors
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-10 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-3xl mx-auto
+        children:
+          - type: link
+            props:
+              href: /admin
+              className: text-sm mb-6 inline-block text-primary hover:underline
+            content: ← Back to posts
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-6 text-foreground
+            content: Authors
+
+          # Existing authors
+          - type: container
+            props:
+              className: rounded-lg border border-border bg-card p-2 mb-8
+            children:
+              - type: data-table
+                dataSource:
+                  table: authors
+                  sort:
+                    - field: name
+                      direction: asc
+                columns:
+                  - field: name
+                    label: Name
+                  - field: slug
+                    label: Slug
+                  - field: bio
+                    label: Bio
+                  - type: actions
+                    label: Actions
+                    actions:
+                      - label: Delete
+                        icon: trash
+                        confirm: Delete this author?
+                        action:
+                          type: crud
+                          operation: delete
+                          table: authors
+                          onSuccess:
+                            navigate: /admin/authors
+                            toast:
+                              message: Author deleted
+                              variant: success
+                pagination:
+                  pageSize: 20
+                emptyMessage: No authors yet.
+
+          # Add an author
+          - type: text
+            element: h2
+            props:
+              className: text-lg font-semibold mb-3 text-foreground
+            content: Add an author
+          - type: container
+            props:
+              className: p-6 rounded-lg border border-border bg-card
+            children:
+              - type: form
+                props:
+                  id: new-author-form
+                dataSource:
+                  table: authors
+                fields:
+                  - field: name
+                    label: Name
+                    placeholder: e.g. Ada Lovelace
+                  - field: slug
+                    label: Slug
+                    placeholder: e.g. ada-lovelace
+                  - field: bio
+                    label: Bio
+                    placeholder: A short biography shown on the byline.
+                  - field: avatar
+                    label: Avatar
+                action:
+                  type: crud
+                  operation: create
+                  table: authors
+                  onSuccess:
+                    navigate: /admin/authors
+                    toast:
+                      message: Author added
+                      variant: success

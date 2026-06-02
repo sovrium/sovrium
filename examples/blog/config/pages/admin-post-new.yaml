@@ -1,0 +1,83 @@
+name: admin-post-new
+path: /admin/posts/new
+access:
+  require: authenticated
+  redirectTo: /admin/login
+meta:
+  title: New post
+  description: Write a new blog post
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-10 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-2xl mx-auto
+        children:
+          - type: link
+            props:
+              href: /admin
+              className: text-sm mb-6 inline-block text-primary hover:underline
+            content: ← Back to posts
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-6 text-foreground
+            content: New post
+
+          - type: container
+            props:
+              className: p-6 rounded-lg border border-border bg-card
+            children:
+              - type: form
+                props:
+                  id: new-post-form
+                dataSource:
+                  table: posts
+                layout: single-column
+                fieldGroups:
+                  - label: Write
+                    fields: [title, slug, body, excerpt, cover_image]
+                  - label: Publishing
+                    fields: [author, tags, status, published_at]
+                fields:
+                  # Essentials first — what you need to start a draft.
+                  - field: title
+                    label: Title
+                    placeholder: Post title
+                  - field: slug
+                    label: URL slug
+                    placeholder: my-post-slug
+                  - field: body
+                    label: Body
+                  - field: excerpt
+                    label: Excerpt
+                    placeholder: A short summary shown in listings and meta tags.
+                  - field: cover_image
+                    label: Cover image
+                  - field: author
+                    label: Author
+                  - field: tags
+                    label: Tags
+                  # New posts default to draft so nothing publishes by accident.
+                  - field: status
+                    label: Status
+                    defaultValue: draft
+                  # Publish date only appears once the status is set to published.
+                  - field: published_at
+                    label: Publish date
+                    visibleWhen:
+                      field: status
+                      operator: eq
+                      value: published
+                action:
+                  type: crud
+                  operation: create
+                  table: posts
+                  onSuccess:
+                    navigate: /admin
+                    toast:
+                      message: Post created
+                      variant: success

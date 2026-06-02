@@ -6,6 +6,7 @@
  */
 
 
+import { MirrorApprovalCreate, MirrorApprovalUpdate } from '@/application/use-cases/agents/approval'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { checkPermissionWithAdminOverride, isAdminRole } from '@/domain/models/shared/permissions'
 import {
@@ -28,7 +29,6 @@ import { agentNotFound, findAgent } from './agent-lookup'
 import { serializeAgent } from './agent-presenter'
 import { checkAgentRateLimit } from './agent-rate-limit'
 import { resolveRoleLevel } from './agent-roles'
-import { insertApprovalRow, lookupUserEmail, updateApprovalRow } from './approval-db'
 import { buildApprovalRecord, serializeApproval } from './approval-presenter'
 import {
   appendActivityEntry,
@@ -41,6 +41,7 @@ import {
   type ApprovalRecord,
   type ApprovalStatus,
 } from './approval-store'
+import { runApprovalMirror, runApproverEmailLookup, toMirrorRecord } from './effect-runner'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context, Hono } from 'hono'
@@ -215,7 +216,7 @@ const executeWithinSlot = async (
 
   const record = buildApprovalRecord(agent, action, payload)
   putApproval(record)
-  await insertApprovalRow(record)
+  await runApprovalMirror(MirrorApprovalCreate(toMirrorRecord(record)))
 
   return c.json(
     {
@@ -354,7 +355,7 @@ interface Approver {
 const resolveApprover = async (userId: string | undefined): Promise<Approver | undefined> => {
   if (userId === undefined) return undefined
   const role = await getUserRole(userId)
-  const email = await lookupUserEmail(userId)
+  const email = await runApproverEmailLookup(userId)
   return { id: userId, email, role }
 }
 
@@ -372,7 +373,7 @@ const applyDecision = async (
       ...(decision === 'approve' && { actionExecuted: true, executedAs: record.agentName }),
     }) ?? record
 
-  await updateApprovalRow(next)
+  await runApprovalMirror(MirrorApprovalUpdate(toMirrorRecord(next)))
 
   appendActivityEntry({
     id: crypto.randomUUID(),

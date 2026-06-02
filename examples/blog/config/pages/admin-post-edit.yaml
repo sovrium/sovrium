@@ -1,0 +1,81 @@
+name: admin-post-edit
+path: /admin/posts/:id/edit
+access:
+  require: authenticated
+  redirectTo: /admin/login
+# Binds the page to one posts record resolved from the :id route param so the
+# form below loads the existing values for editing.
+dataSource:
+  table: posts
+  mode: single
+  param: id
+meta:
+  title: Edit post
+  description: Edit and publish a blog post
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-10 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-2xl mx-auto
+        children:
+          - type: link
+            props:
+              href: /admin
+              className: text-sm mb-6 inline-block text-primary hover:underline
+            content: ← Back to posts
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-6 text-foreground
+            content: Edit post
+
+          - type: container
+            props:
+              className: p-6 rounded-lg border border-border bg-card
+            children:
+              - type: form
+                props:
+                  id: edit-post-form
+                dataSource:
+                  table: posts
+                layout: single-column
+                fieldGroups:
+                  - label: Content
+                    fields: [title, slug, excerpt, body, cover_image]
+                  - label: Publishing
+                    fields: [status, published_at, author, tags]
+                fields:
+                  - field: title
+                    label: Title
+                    placeholder: Post title
+                  - field: slug
+                    label: URL slug
+                    placeholder: my-post-slug
+                  - field: excerpt
+                    label: Excerpt
+                    placeholder: A short summary shown in listings and meta tags.
+                  - field: body
+                    label: Body
+                  - field: cover_image
+                    label: Cover image
+                  - field: status
+                    label: Status
+                  - field: published_at
+                    label: Publish date
+                  - field: author
+                    label: Author
+                  - field: tags
+                    label: Tags
+                action:
+                  type: crud
+                  operation: update
+                  table: posts
+                  onSuccess:
+                    navigate: /admin
+                    toast:
+                      message: Post saved
+                      variant: success

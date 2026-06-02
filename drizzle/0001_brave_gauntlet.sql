@@ -1,2 +1,0 @@
-ALTER TABLE "system"."sovrium_app_versions" ADD COLUMN "source" text DEFAULT 'config-file' NOT NULL;--> statement-breakpoint
-ALTER TABLE "system"."sovrium_app_versions" ADD COLUMN "file_checksum" text;

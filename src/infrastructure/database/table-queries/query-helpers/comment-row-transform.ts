@@ -28,6 +28,8 @@ export type CommentQueryRow = {
   readonly userName: string | null
   readonly userEmail: string | null
   readonly userImage: string | null
+  readonly guestName: string | null
+  readonly guestEmail: string | null
 }
 
 export function transformCommentRow(row: {
@@ -42,6 +44,8 @@ export function transformCommentRow(row: {
   readonly userName: string | undefined
   readonly userEmail: string | undefined
   readonly userImage: string | undefined
+  readonly guestName: string | null
+  readonly guestEmail: string | null
 }): {
   readonly id: string
   readonly tableId: string
@@ -52,6 +56,8 @@ export function transformCommentRow(row: {
   readonly createdAt: Date
   readonly updatedAt: Date
   readonly user: UserMetadataWithOptionalImage | undefined
+  readonly guestName: string | null
+  readonly guestEmail: string | null
 } {
   return {
     id: row.id,
@@ -63,6 +69,8 @@ export function transformCommentRow(row: {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     user: extractUserFromRow(row),
+    guestName: row.guestName,
+    guestEmail: row.guestEmail,
   }
 }
 
@@ -80,5 +88,7 @@ export const buildCommentSelectFields = () => {
     userName: users.name,
     userEmail: users.email,
     userImage: users.image,
+    guestName: recordComments.guestName,
+    guestEmail: recordComments.guestEmail,
   }
 }

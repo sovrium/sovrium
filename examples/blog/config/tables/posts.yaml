@@ -1,5 +1,18 @@
 id: 3
 name: posts
+# The heart of the CMS. Public visitors read posts; editors and admins author
+# and publish them; only admins can delete. The `author` relationship is the
+# public byline, while `created_by` records which logged-in account wrote it.
+permissions:
+  read: all
+  create:
+    - admin
+    - editor
+  update:
+    - admin
+    - editor
+  delete:
+    - admin
 fields:
   - id: 1
     name: title
@@ -64,3 +77,6 @@ fields:
   - id: 11
     name: updated_at
     type: updated-at
+  - id: 12
+    name: created_by
+    type: created-by

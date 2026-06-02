@@ -39,6 +39,7 @@ export const runSqliteSchemaTransaction = async (
 ): Promise<void> => {
   const tx = sqliteTransactionLike(client)
   client.exec('BEGIN')
+  client.exec('PRAGMA defer_foreign_keys = ON')
   try {
     await work(tx)
     client.exec('COMMIT')

@@ -1,0 +1,51 @@
+name: home
+path: /
+access: all
+
+meta:
+  title: Sovrium Docs — Documentation built from markdown
+  description: A documentation website built from markdown files with Sovrium's content-directory feature.
+
+# `components` is required on every page, but stays empty here: a markdown page
+# renders from `markdown` below, not from a component tree (the two are mutually
+# exclusive — an empty list is how a page opts fully into markdown mode).
+components: []
+
+# Inline-markdown mode: the whole page is rendered from a markdown string with
+# the article-width `prose` layout. Frontmatter at the top of the string feeds
+# `$frontmatter.*`; the body below it is rendered as GFM.
+markdown:
+  layout: prose
+  content: |
+    ---
+    title: Sovrium Docs
+    description: A documentation site built from markdown files.
+    ---
+
+    # Documentation, from markdown
+
+    This site is built with Sovrium's **markdown pages** feature — an
+    [Astro Starlight](https://starlight.astro.build) / [Docusaurus](https://docusaurus.io)
+    alternative. Every doc page is a plain `.md` file under `content/docs/`,
+    authored in any editor and tracked in Git.
+
+    A single `contentDir` page turns that folder into a full docs section:
+
+    | You get | From |
+    | --- | --- |
+    | One route per file | `contentDir.directory` + `slugFrom: filepath` |
+    | A grouped sidebar | `contentDir.nav.groupBy: category` |
+    | Prev / next links | `$contentDir.previous` / `$contentDir.next` |
+    | A table of contents | `markdown.toc.position: sidebar` |
+    | Highlighted code | `theme.codeBlock.theme` (Shiki) |
+
+    ```bash
+    # Try it now
+    sovrium init my-docs --template docs-site
+    cd my-docs && sovrium start app.yaml
+    ```
+
+    ::: callout
+    New here? Start with the [Introduction](/docs/introduction) — it explains how
+    a page becomes a route and where to drop your own `.md` files.
+    :::

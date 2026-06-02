@@ -1,0 +1,45 @@
+name: admin-register
+path: /admin/register
+meta:
+  title: Create account
+  description: Create a blog admin account
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-16 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-md mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-2 text-foreground text-center
+            content: Create account
+          - type: text
+            element: p
+            props:
+              className: text-sm mb-8 text-muted-foreground text-center
+            content: The first account created becomes the site admin. Later sign-ups are editors.
+
+          - type: container
+            props:
+              className: p-6 rounded-lg border border-border bg-card
+            children:
+              - type: form
+                props:
+                  id: admin-register-form
+                action:
+                  type: auth
+                  method: signup
+                  strategy: email
+                  onSuccess:
+                    navigate: /admin
+
+          - type: link
+            props:
+              href: /admin/login
+              className: block text-sm mt-6 text-primary hover:underline text-center
+            content: ← Back to sign in

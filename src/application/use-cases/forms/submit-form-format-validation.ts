@@ -7,6 +7,7 @@
 
 
 import { Data, Effect } from 'effect'
+import { isValidEmail } from '@/domain/utils/email-validation'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -14,8 +15,6 @@ export class FormFieldFormatError extends Data.TaggedError('FormFieldFormatError
   readonly fieldName: string
   readonly message: string
 }> {}
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const isInvalidEmailField = (
   field: Readonly<Form['fields'][number]>,
@@ -26,7 +25,7 @@ const isInvalidEmailField = (
   if (!emailColumns.has(field.column)) return false
   const value = body[field.column]
   if (value === undefined || value === null || value === '') return false
-  return typeof value !== 'string' || !EMAIL_REGEX.test(value)
+  return typeof value !== 'string' || !isValidEmail(value)
 }
 
 export const validateFieldFormats = (

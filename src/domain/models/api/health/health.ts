@@ -18,10 +18,21 @@ import {
   resolveBaseUrl,
 } from '@/domain/models/env/ai-providers'
 
+export const aiComputeHealthSchema = z.object({
+  enabled: z.boolean().describe('AI-compute availability (always true — baseline is the floor)'),
+  mode: z.literal('baseline-then-refined').describe('Two-phase compute mode'),
+  refinement: z
+    .enum(['on', 'off'])
+    .describe('Whether a configured provider refines the deterministic baseline'),
+})
+
+export type AiComputeHealth = z.infer<typeof aiComputeHealthSchema>
+
 export const aiHealthStatusSchema = z.object({
   status: z
     .enum(['configured', 'not_configured'])
     .describe('Whether an AI provider is configured via AI_PROVIDER'),
+  compute: aiComputeHealthSchema.describe('AI-compute two-phase descriptor (DEC-030 Phase 2)'),
   provider: z.string().optional().describe('Configured AI provider identifier (AI_PROVIDER)'),
   model: z.string().optional().describe('Default AI model identifier (AI_MODEL)'),
   endpoint: z.string().optional().describe('AI provider base URL (AI_BASE_URL), when applicable'),
@@ -97,8 +108,15 @@ const buildConfiguredAiHealthStatus = (
     ...(model ? { model } : {}),
     ...(endpoint ? { endpoint } : {}),
     ...(warnings.length > 0 ? { warnings: [...warnings] } : {}),
+    compute: aiComputeHealth(true),
   }
 }
+
+const aiComputeHealth = (providerConfigured: boolean): Readonly<AiComputeHealth> => ({
+  enabled: true,
+  mode: 'baseline-then-refined',
+  refinement: providerConfigured ? 'on' : 'off',
+})
 
 export const buildAiHealthStatus = (
   processEnv: Readonly<Record<string, string | undefined>>,
@@ -106,7 +124,7 @@ export const buildAiHealthStatus = (
 ): Readonly<AiHealthStatus> => {
   const rawProvider = processEnv['AI_PROVIDER']?.trim()
   if (rawProvider === undefined || rawProvider === '' || !isSupportedAiProvider(rawProvider)) {
-    return { status: 'not_configured' }
+    return { status: 'not_configured', compute: aiComputeHealth(false) }
   }
   return buildConfiguredAiHealthStatus(rawProvider, processEnv, agents)
 }

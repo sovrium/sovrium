@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { DEFAULT_SUMMARY_CAP } from '@/domain/services/ai-compute/baseline'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   buildAiComputeTriggerStatements,
@@ -21,7 +22,7 @@ type AiSummaryField = Extract<Fields[number], { readonly type: 'ai-summary' }>
 
 const SUMMARY_PAYLOAD_KIND = 'summary'
 
-const DEFAULT_PLACEHOLDER_CAP = 200
+const DEFAULT_PLACEHOLDER_CAP = DEFAULT_SUMMARY_CAP
 
 const buildSummaryGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-empty user value.
@@ -71,6 +72,7 @@ const buildSummaryNotifySql = (
     'kind', '${SUMMARY_PAYLOAD_KIND}',
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
+    'record_id', NEW.id,
     'value', NEW.${fieldName},
     'source', left(source_content, 2000),
     'prompt', ${promptLiteral},

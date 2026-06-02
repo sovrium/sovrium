@@ -1,15 +1,36 @@
 name: blog
 version: 1.0.0
-description: A content-first blog with rich-text posts, tags, and authors
+description: >-
+  A self-hostable blog CMS — a WordPress / Webflow alternative. Public reading
+  experience plus an authenticated admin space to create, edit, and publish
+  articles. Uses Sovrium's default theming (no custom palette). The first
+  account registered at /admin/register becomes the admin; later sign-ups are
+  editors.
+
+auth:
+  $ref: ./config/auth.yaml
+
+# Runtime AI agents. The blog-editor assistant drafts, edits, and reviews posts
+# under the `editor` role, with every write held for human approval. Requires an
+# AI provider at runtime (set AI_PROVIDER — defaults to a local Ollama).
+agents:
+  - $ref: ./config/agents/blog-editor.yaml
 
 tables:
   - $ref: ./config/tables/authors.yaml
   - $ref: ./config/tables/tags.yaml
   - $ref: ./config/tables/posts.yaml
 
-theme:
-  $ref: ./config/theme.yaml
-
 pages:
+  # Public site
   - $ref: ./config/pages/index.yaml
   - $ref: ./config/pages/post-detail.yaml
+  # Admin space
+  - $ref: ./config/pages/admin-login.yaml
+  - $ref: ./config/pages/admin-register.yaml
+  - $ref: ./config/pages/admin-dashboard.yaml
+  - $ref: ./config/pages/admin-post-new.yaml
+  - $ref: ./config/pages/admin-post-edit.yaml
+  - $ref: ./config/pages/admin-tags.yaml
+  - $ref: ./config/pages/admin-authors.yaml
+  - $ref: ./config/pages/admin-ai-editor.yaml

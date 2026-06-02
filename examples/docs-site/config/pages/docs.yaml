@@ -1,0 +1,40 @@
+name: docs
+# Empty component tree — this page renders each markdown file (via `markdown`
+# + `contentDir` below), not a hand-built component layout.
+components: []
+# `:path*` captures nested slugs, so content/docs/guides/deployment.md is
+# served at /docs/guides/deployment (slugFrom: filepath preserves structure).
+path: /docs/:path*
+access: all
+
+# Scan a directory of markdown files and generate one route per file — like
+# Astro content collections, but with Sovrium's theming, SEO, and access control.
+contentDir:
+  directory: content/docs
+  slugFrom: filepath
+  filter:
+    # Files with `draft: true` in frontmatter are skipped (and hidden from nav).
+    draft: false
+  sort:
+    field: order
+    direction: asc
+  nav:
+    # Build the docs sidebar from the collection, grouped by the `category`
+    # frontmatter field, labelled by `title`.
+    enabled: true
+    groupBy: category
+    labelFrom: title
+
+# Render each file with the documentation layout: a left sidebar (from `nav`
+# above), the article, a sticky table of contents, and prev/next chrome.
+markdown:
+  layout: docs
+  toc:
+    maxDepth: 3
+    position: sidebar
+
+# Static metadata shared by every doc route. On-page identity still comes from
+# each file's own `# H1` and its frontmatter `title` (used as the sidebar label).
+meta:
+  title: Sovrium Docs
+  description: Documentation for building configuration-driven apps with Sovrium.

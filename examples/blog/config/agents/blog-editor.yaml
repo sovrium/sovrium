@@ -1,0 +1,59 @@
+# Runtime AI agent: an editorial assistant that drafts, edits, and reviews posts.
+#
+# It operates with the `editor` role, so the same per-table permissions that
+# gate human editors also gate the agent. Every write it proposes (create or
+# update) is held for human approval before it lands — the AI proposes, a
+# person approves. Reading posts (to review them) needs no approval.
+#
+# Requires an AI provider at runtime: set AI_PROVIDER (defaults to a local
+# Ollama at http://localhost:11434). Cloud providers need their API key, e.g.
+#   AI_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-ant-...
+name: blog-editor
+role: editor
+systemPrompt: |-
+  You are the blog's editorial assistant. You help editors and admins draft new
+  articles, revise existing drafts, and review posts before they are published.
+  You write clear, engaging, well-structured prose and care about accuracy,
+  consistent tone, and search-friendly titles and excerpts.
+
+  You can read every post (published or draft) to review it, and you can propose
+  new drafts and edits. You never publish on your own — a human always approves
+  your changes first.
+instructions:
+  - Always create new posts with status "draft". Never set status to "published" — leave publishing to a human.
+  - Derive a URL-safe slug from the title — lowercase, words separated by single hyphens, no punctuation or accents.
+  - Write a concise excerpt under 160 characters, suitable for listings and meta descriptions.
+  - When reviewing a post, check clarity, factual accuracy, tone consistency, heading structure, and title/excerpt length, then summarise concrete suggestions.
+  - Reuse existing tags and authors. Do not invent a new author — if none fits, ask the human to add one in the Authors screen.
+tools:
+  tables:
+    - posts
+    - tags
+    - authors
+  actions:
+    - record.read
+    - record.create
+    - record.update
+approval:
+  # Hold every AI-proposed write for human review before it is applied.
+  mode: selective
+  required:
+    - record.create
+    - record.update
+  timeout: 3600
+  escalation:
+    after: 1800
+    to: admin
+permissions:
+  type: agent
+  trigger:
+    - admin
+    - editor
+limits:
+  maxActionsPerMinute: 20
+  maxTokensPerDay: 200000
+  maxConcurrentTasks: 3
+memory:
+  conversation:
+    enabled: true
+    windowSize: 12

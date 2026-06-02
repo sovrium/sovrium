@@ -5,21 +5,30 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql } from 'drizzle-orm'
+
+import { and, eq, like, sql } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AiEmbeddingDatabaseError,
   AiEmbeddingRepository,
 } from '@/application/ports/repositories/ai-embedding-repository'
 import { db } from '@/infrastructure/database'
+import { aiEmbeddings as aiEmbeddingsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
+import {
+  cosineSimilarity,
+  deserializeEmbedding,
+  serializeEmbedding,
+} from '@/infrastructure/database/sql/ai-embedding-vector-math'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import type {
   EmbeddingSearchResult,
   NewEmbedding,
 } from '@/application/ports/repositories/ai-embedding-repository'
+import type { aiEmbeddings as aiEmbeddingsPg } from '@/infrastructure/database/drizzle/schema/ai'
 
 const wrap = makeDbWrap((cause) => new AiEmbeddingDatabaseError({ cause }))
+
 
 const EMBEDDING_DIMENSIONS = 1536
 
@@ -107,5 +116,79 @@ export const AiEmbeddingRepositoryLive = Layer.succeed(
     insertMany: (rows) => wrap(() => insertManyImpl(rows)),
     search: (input) => wrap(() => searchImpl(input)),
     deleteBySourceIdPrefix: (prefix) => wrap(() => deleteBySourceIdPrefixImpl(prefix)),
+  })
+)
+
+
+const aiEmbeddingsSqliteTyped = aiEmbeddingsSqlite as unknown as typeof aiEmbeddingsPg
+
+const insertManySqliteImpl = async (rows: ReadonlyArray<NewEmbedding>): Promise<void> => {
+  if (rows.length === 0) return
+  const values = rows.map((row) => ({
+    sourceType: row.sourceType,
+    sourceId: row.sourceId,
+    agentName: row.agentName,
+    sourceRef: row.sourceRef,
+    chunkIndex: row.chunkIndex,
+    content: row.content,
+    embedding: serializeEmbedding(row.embedding) as unknown as ReadonlyArray<number>,
+    metadata: row.metadata ?? undefined,
+  }))
+  await db.insert(aiEmbeddingsSqliteTyped).values(values)
+}
+
+interface CandidateRow {
+  readonly agentName: string | null
+  readonly sourceRef: string | null
+  readonly content: string
+  readonly embedding: unknown
+}
+
+const searchSqliteImpl = async (input: {
+  readonly embedding: ReadonlyArray<number>
+  readonly agentName: string | undefined
+  readonly minSimilarity: number
+  readonly maxResults: number
+}): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
+  const candidates = (await db
+    .select({
+      agentName: aiEmbeddingsSqliteTyped.agentName,
+      sourceRef: aiEmbeddingsSqliteTyped.sourceRef,
+      content: aiEmbeddingsSqliteTyped.content,
+      embedding: aiEmbeddingsSqliteTyped.embedding,
+    })
+    .from(aiEmbeddingsSqliteTyped)
+    .where(
+      input.agentName !== undefined
+        ? and(
+            sql`${aiEmbeddingsSqliteTyped.embedding} IS NOT NULL`,
+            eq(aiEmbeddingsSqliteTyped.agentName, input.agentName)
+          )
+        : sql`${aiEmbeddingsSqliteTyped.embedding} IS NOT NULL`
+    )) as unknown as ReadonlyArray<CandidateRow>
+
+  const scored = candidates
+    .map((row) => ({
+      agentName: row.agentName,
+      sourceRef: row.sourceRef,
+      content: row.content,
+      similarity: cosineSimilarity(input.embedding, deserializeEmbedding(row.embedding)),
+    }))
+    .filter((row) => row.similarity >= input.minSimilarity)
+  return scored.toSorted((a, b) => b.similarity - a.similarity).slice(0, input.maxResults)
+}
+
+const deleteBySourceIdPrefixSqliteImpl = async (prefix: string): Promise<void> => {
+  await db
+    .delete(aiEmbeddingsSqliteTyped)
+    .where(like(aiEmbeddingsSqliteTyped.sourceId, `${prefix}%`))
+}
+
+export const AiEmbeddingRepositorySqlite = Layer.succeed(
+  AiEmbeddingRepository,
+  AiEmbeddingRepository.of({
+    insertMany: (rows) => wrap(() => insertManySqliteImpl(rows)),
+    search: (input) => wrap(() => searchSqliteImpl(input)),
+    deleteBySourceIdPrefix: (prefix) => wrap(() => deleteBySourceIdPrefixSqliteImpl(prefix)),
   })
 )

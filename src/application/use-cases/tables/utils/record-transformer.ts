@@ -63,6 +63,10 @@ const SINGLE_ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
 
 const BOOLEAN_FIELD_TYPES: ReadonlySet<string> = new Set(['checkbox', 'boolean', 'bool'])
 
+const JSON_DESERIALIZED_FIELD_TYPES: ReadonlySet<string> = new Set(['multi-select', 'json'])
+
+const STRING_DECIMAL_FIELD_TYPES: ReadonlySet<string> = new Set(['decimal'])
+
 function applyAttachmentDisplayName(value: RecordFieldValue): RecordFieldValue {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
   const attachment = value as Record<string, unknown>
@@ -106,6 +110,34 @@ const coerceBooleanField = (
   return value
 }
 
+const deserializeJsonField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  if (typeof value !== 'string') return value
+  const fieldType = getFieldType(app, tableName, fieldName)
+  if (!fieldType || !JSON_DESERIALIZED_FIELD_TYPES.has(fieldType)) return value
+  try {
+    return JSON.parse(value) as RecordFieldValue
+  } catch {
+    return value
+  }
+}
+
+const stringifyDecimalField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  if (typeof value !== 'number') return value
+  const fieldType = getFieldType(app, tableName, fieldName)
+  if (!fieldType || !STRING_DECIMAL_FIELD_TYPES.has(fieldType)) return value
+  return String(value)
+}
+
 const parseNumericString = (value: unknown, processedValue: RecordFieldValue): RecordFieldValue => {
   if (typeof value === 'string') {
     const num = Number(value)
@@ -142,7 +174,9 @@ function processRawField(
   tableName: string
 ): RecordFieldValue {
   const numeric = coerceNumericField(key, value, app, tableName)
-  const coerced = coerceBooleanField(key, numeric, app, tableName)
+  const decimalString = stringifyDecimalField(key, numeric, app, tableName)
+  const jsonParsed = deserializeJsonField(key, decimalString, app, tableName)
+  const coerced = coerceBooleanField(key, jsonParsed, app, tableName)
   const fieldType = getFieldType(app, tableName, key)
   return fieldType && SINGLE_ATTACHMENT_FIELD_TYPES.has(fieldType)
     ? applyAttachmentDisplayName(coerced)

@@ -5,13 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, desc, eq, isNull } from 'drizzle-orm'
-import { db } from '@/infrastructure/database'
-import { userFavorites } from '@/infrastructure/database/drizzle/schema/favorites'
+import { Effect } from 'effect'
 import {
-  filterLiveEntities,
-  parseEntityMutationBody,
-} from '@/presentation/api/routes/user-entity-lists'
+  AddFavorite,
+  ListFavorites,
+  RemoveFavorite,
+} from '@/application/use-cases/user-entity-lists'
+import { provideUserEntityListsLive } from '@/presentation/api/routes/favorites/effect-runner'
+import { parseEntityMutationBody } from '@/presentation/api/routes/user-entity-lists'
 import { unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { Context, Hono } from 'hono'
@@ -24,25 +25,9 @@ const handleList = async (c: Context) => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
 
-  const rows = await db
-    .select({
-      id: userFavorites.id,
-      entityType: userFavorites.entityType,
-      entityId: userFavorites.entityId,
-      tableId: userFavorites.tableId,
-      createdAt: userFavorites.createdAt,
-    })
-    .from(userFavorites)
-    .where(and(eq(userFavorites.userId, session.userId), isNull(userFavorites.deletedAt)))
-    .orderBy(desc(userFavorites.createdAt))
-
-  const visible = (await filterLiveEntities(rows)).map((row) => ({
-    id: row.id,
-    entityType: row.entityType,
-    entityId: row.entityId,
-    tableId: row.tableId,
-    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  }))
+  const visible = await Effect.runPromise(
+    ListFavorites(session.userId).pipe(provideUserEntityListsLive)
+  )
 
   return c.json(visible, 200)
 }
@@ -55,37 +40,7 @@ const handleAdd = async (c: Context) => {
   const input = parseEntityMutationBody(body)
   if (!input) return badRequest(c)
 
-  const existing = await db
-    .select({ id: userFavorites.id })
-    .from(userFavorites)
-    .where(
-      and(
-        eq(userFavorites.userId, session.userId),
-        eq(userFavorites.entityType, input.entityType),
-        eq(userFavorites.entityId, input.entityId)
-      )
-    )
-    .limit(1)
-
-  const current = existing[0]
-  if (current) {
-    await db
-      .update(userFavorites)
-      .set({
-        deletedAt: null,
-        tableId: input.tableName,
-        createdAt: new Date(),
-      })
-      .where(eq(userFavorites.id, current.id))
-    return c.json({ success: true }, 201)
-  }
-
-  await db.insert(userFavorites).values({
-    userId: session.userId,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    tableId: input.tableName,
-  })
+  await Effect.runPromise(AddFavorite(session.userId, input).pipe(provideUserEntityListsLive))
   return c.json({ success: true }, 201)
 }
 
@@ -97,17 +52,7 @@ const handleRemove = async (c: Context) => {
   const input = parseEntityMutationBody(body)
   if (!input) return badRequest(c)
 
-  await db
-    .update(userFavorites)
-    .set({ deletedAt: new Date() })
-    .where(
-      and(
-        eq(userFavorites.userId, session.userId),
-        eq(userFavorites.entityType, input.entityType),
-        eq(userFavorites.entityId, input.entityId),
-        isNull(userFavorites.deletedAt)
-      )
-    )
+  await Effect.runPromise(RemoveFavorite(session.userId, input).pipe(provideUserEntityListsLive))
 
   return c.json({ success: true }, 200)
 }

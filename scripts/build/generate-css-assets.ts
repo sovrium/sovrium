@@ -14,6 +14,8 @@ const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 
 const SCAN_SOURCES = ['src', 'examples'] as const
 
+const TEST_FILE_GLOBS = ['**/*.test.ts', '**/*.test.tsx'] as const
+
 const GENERATED_OUTPUT_REL = 'infrastructure/css/generated-css-assets.ts'
 
 const COPYRIGHT_HEADER = `/**
@@ -36,6 +38,11 @@ function scanCandidates(): readonly string[] {
         pattern: GENERATED_OUTPUT_REL,
         negated: true,
       },
+      ...TEST_FILE_GLOBS.map((pattern) => ({
+        base: join(PROJECT_ROOT, 'src'),
+        pattern,
+        negated: true,
+      })),
     ],
   })
   return [...new Set(scanner.scan())].toSorted()

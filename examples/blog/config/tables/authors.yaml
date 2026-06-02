@@ -1,5 +1,14 @@
 id: 1
 name: authors
+# Public bylines. Anyone can read them; only admins manage the roster.
+permissions:
+  read: all
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin
 fields:
   - id: 1
     name: name

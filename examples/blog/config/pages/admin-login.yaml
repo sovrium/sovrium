@@ -1,0 +1,50 @@
+name: admin-login
+path: /admin/login
+meta:
+  title: Sign in
+  description: Sign in to the blog admin
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-16 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-md mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-2 text-foreground text-center
+            content: Sign in
+          - type: text
+            element: p
+            props:
+              className: text-sm mb-8 text-muted-foreground text-center
+            content: Access the blog admin to write and publish posts.
+
+          - type: container
+            props:
+              className: p-6 rounded-lg border border-border bg-card
+            children:
+              - type: form
+                props:
+                  id: admin-login-form
+                action:
+                  type: auth
+                  method: login
+                  strategy: email
+                  onSuccess:
+                    navigate: /admin
+
+          - type: text
+            element: p
+            props:
+              className: text-sm mt-6 text-muted-foreground text-center
+            content: No account yet?
+          - type: link
+            props:
+              href: /admin/register
+              className: block text-sm text-primary hover:underline text-center
+            content: Create the first admin account →

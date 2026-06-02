@@ -9,7 +9,10 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ISLANDS_DIR = join(import.meta.dir, '../../presentation/islands')
+const RECIPE_DIRS = [
+  join(import.meta.dir, '../../presentation/islands'),
+  join(import.meta.dir, '../../presentation/ui/sections/renderers/element-renderers'),
+] as const
 const CSS_VAR_PATH = join(import.meta.dir, '../../presentation/utils/design/css-var.ts')
 
 const CLASS_USE_PATTERN =
@@ -46,12 +49,16 @@ function loadTokens(): Readonly<Record<string, string>> {
   )
 }
 
-function readIslandFiles(): readonly string[] {
-  try {
-    return readdirSync(ISLANDS_DIR).filter((file) => file.endsWith('-default-classes.ts'))
-  } catch {
-    return []
-  }
+function readRecipeFiles(): readonly string[] {
+  return RECIPE_DIRS.flatMap((dir) => {
+    try {
+      return readdirSync(dir)
+        .filter((file) => file.endsWith('-default-classes.ts'))
+        .map((file) => join(dir, file))
+    } catch {
+      return []
+    }
+  })
 }
 
 function classesForSource(
@@ -70,12 +77,10 @@ function classesForSource(
 }
 
 export function generateArbitraryVarSafelist(): readonly string[] {
-  const files = readIslandFiles()
+  const files = readRecipeFiles()
   if (files.length === 0) return []
   const tokens = loadTokens()
   if (Object.keys(tokens).length === 0) return []
-  const classes = files.flatMap((file) =>
-    classesForSource(readFileSync(join(ISLANDS_DIR, file), 'utf8'), tokens)
-  )
+  const classes = files.flatMap((path) => classesForSource(readFileSync(path, 'utf8'), tokens))
   return [...new Set(classes)].toSorted()
 }

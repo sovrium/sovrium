@@ -21,6 +21,8 @@ export interface CommentWithUser {
   readonly createdAt: Date
   readonly updatedAt: Date
   readonly user: UserMetadataWithOptionalImage | undefined
+  readonly guestName: string | null
+  readonly guestEmail: string | null
 }
 
 export interface CommentForAuth {
@@ -45,6 +47,8 @@ export interface ListedComment {
   readonly createdAt: Date
   readonly updatedAt: Date
   readonly user?: UserMetadataWithOptionalImage | undefined
+  readonly guestName?: string | null
+  readonly guestEmail?: string | null
 }
 
 export class CommentRepository extends Context.Tag('CommentRepository')<
@@ -56,6 +60,9 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly recordId: string
       readonly content: string
       readonly parentId?: string
+      readonly guestName?: string
+      readonly guestEmail?: string
+      readonly status?: 'approved' | 'pending' | 'rejected'
     }) => Effect.Effect<
       {
         readonly id: string
@@ -64,7 +71,10 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
         readonly userId: string | null
         readonly content: string
         readonly parentId: string | null
+        readonly status: 'approved' | 'pending' | 'rejected'
         readonly createdAt: Date
+        readonly guestName: string | null
+        readonly guestEmail: string | null
       },
       SessionContextError
     >
@@ -107,11 +117,13 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly limit?: number
       readonly offset?: number
       readonly sortOrder?: 'asc' | 'desc'
+      readonly includeAllStatuses?: boolean
     }) => Effect.Effect<readonly ListedComment[], SessionContextError>
 
     readonly getCount: (config: {
       readonly session: Readonly<UserSession>
       readonly recordId: string
+      readonly includeAllStatuses?: boolean
     }) => Effect.Effect<number, SessionContextError>
 
     readonly update: (config: {

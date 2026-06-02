@@ -1,0 +1,46 @@
+name: admin-ai-editor
+path: /admin/ai-editor
+access:
+  require: authenticated
+  redirectTo: /admin/login
+meta:
+  title: Admin · AI editor
+  description: Draft, revise, and review posts with the AI editorial assistant
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-10 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-3xl mx-auto
+        children:
+          - type: link
+            props:
+              href: /admin
+              className: text-sm mb-6 inline-block text-primary hover:underline
+            content: ← Back to posts
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-2 text-foreground
+            content: AI editor
+          - type: text
+            element: p
+            props:
+              className: text-sm mb-6 text-muted-foreground
+            content: >-
+              Ask the assistant to draft a new post, revise a draft, or review an
+              article. It proposes changes as drafts — you approve before anything
+              is saved or published.
+
+          - type: container
+            props:
+              className: rounded-lg border border-border bg-card p-2
+            children:
+              - type: ai-chat
+                agent: blog-editor
+                placeholder: e.g. "Draft a 600-word post titled 'Why we self-host' and tag it Engineering"
+                chatHeight: 640
+                showHistory: true

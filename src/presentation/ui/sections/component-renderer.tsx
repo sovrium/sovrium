@@ -17,6 +17,10 @@ import {
 } from './components/component-reference-handler'
 import { resolveComponent } from './components/component-resolution'
 import { buildComponentProps } from './props/component-builder'
+import {
+  buildTypeSpecificElementProps,
+  resolveTypeSpecificInputs,
+} from './props/type-specific-props-builder'
 import { dispatchComponentType } from './rendering/component-type-dispatcher'
 import { buildResponsiveChildrenVariants } from './responsive/responsive-children-builder'
 import { buildResponsiveContentVariants } from './responsive/responsive-content-builder'
@@ -312,224 +316,14 @@ function RenderDirectComponent({
     type
   )
 
-  const dataTableResolvedTable =
-    type === 'data-table' && props.tables && substitutedComponent.dataSource
-      ? props.tables.find(
-          (t) => t.name === (substitutedComponent.dataSource as { readonly table: string }).table
-        )
-      : undefined
+  const resolvedTypeInputs = resolveTypeSpecificInputs(type, substitutedComponent, props.tables)
 
-  const dataTableTableFields = dataTableResolvedTable
-    ? dataTableResolvedTable.fields.map((f) => f.name)
-    : undefined
-
-  const dataTableFieldMeta = dataTableResolvedTable
-    ? Object.fromEntries(
-        dataTableResolvedTable.fields.map((f) => [
-          f.name,
-          {
-            type: f.type,
-            ...('options' in f && f.options ? { options: f.options } : {}),
-            ...('required' in f && f.required ? { required: true } : {}),
-          },
-        ])
-      )
-    : undefined
-
-  const dataTablePermissions = dataTableResolvedTable?.permissions
-
-  const dataTableViews = dataTableResolvedTable?.views
-    ? dataTableResolvedTable.views
-        .filter((v) => !('query' in v) || !v.query)
-        .map((v) => {
-          const flatFilters:
-            | ReadonlyArray<{
-                readonly field: string
-                readonly operator: string
-                readonly value: unknown
-              }>
-            | undefined = (() => {
-            const f = v.filters as unknown
-            if (!f || typeof f !== 'object') return undefined
-            const obj = f as Record<string, unknown>
-            if (typeof obj['field'] === 'string') {
-              return [
-                {
-                  field: obj['field'] as string,
-                  operator: String(obj['operator'] ?? 'equals'),
-                  value: obj['value'],
-                },
-              ]
-            }
-            if (Array.isArray(obj['and'])) {
-              return (obj['and'] as ReadonlyArray<Record<string, unknown>>)
-                .filter((c) => typeof c['field'] === 'string')
-                .map((c) => ({
-                  field: c['field'] as string,
-                  operator: String(c['operator'] ?? 'equals'),
-                  value: c['value'],
-                }))
-            }
-            return undefined
-          })()
-          const groupByCandidate =
-            'groupBy' in v && v.groupBy
-              ? typeof v.groupBy === 'string'
-                ? v.groupBy
-                : (v.groupBy as { readonly field?: string }).field
-              : undefined
-          return {
-            id: String(v.id),
-            name: v.name,
-            ...(flatFilters && flatFilters.length > 0 ? { filters: flatFilters } : {}),
-            ...('sorts' in v && v.sorts ? { sorts: v.sorts } : {}),
-            ...(groupByCandidate ? { groupBy: groupByCandidate } : {}),
-          }
-        })
-    : undefined
-
-  const kanbanResolvedTable =
-    type === 'kanban' && props.tables && substitutedComponent.dataSource
-      ? props.tables.find(
-          (t) => t.name === (substitutedComponent.dataSource as { readonly table: string }).table
-        )
-      : undefined
-
-  const kanbanGroupByField = (substitutedComponent as { kanbanGroupBy?: { field?: string } })
-    .kanbanGroupBy?.field
-
-  const kanbanColumnOptions =
-    kanbanResolvedTable && kanbanGroupByField
-      ? (() => {
-          const groupField = kanbanResolvedTable.fields.find((f) => f.name === kanbanGroupByField)
-          if (groupField && 'options' in groupField && Array.isArray(groupField.options)) {
-            return groupField.options as readonly string[]
-          }
-          return undefined
-        })()
-      : undefined
-
-  const finalElementPropsWithType =
-    type === 'data-table'
-      ? {
-          ...baseElementPropsWithType,
-          dataSource: substitutedComponent.dataSource,
-          columns: substitutedComponent.columns,
-          selection: substitutedComponent.selection,
-          pagination: substitutedComponent.pagination,
-          search: substitutedComponent.search,
-          groupBy: substitutedComponent.groupBy,
-          summary: substitutedComponent.summary,
-          toolbar: substitutedComponent.toolbar,
-          bulkActions: substitutedComponent.bulkActions,
-          rowHeight: substitutedComponent.rowHeight,
-          striped: substitutedComponent.striped,
-          bordered: substitutedComponent.bordered,
-          emptyMessage: substitutedComponent.emptyMessage,
-          showRowNumbers: substitutedComponent.showRowNumbers,
-          onRowClick: substitutedComponent.onRowClick,
-          autoSave: substitutedComponent.autoSave,
-          tableFields: dataTableTableFields,
-          fieldMeta: dataTableFieldMeta,
-          tablePermissions: dataTablePermissions,
-          tableViews: dataTableViews,
-        }
-      : type === 'kanban'
-        ? {
-            ...baseElementPropsWithType,
-            dataSource: substitutedComponent.dataSource,
-            kanbanGroupBy: substitutedComponent.kanbanGroupBy,
-            card: substitutedComponent.card,
-            drag: substitutedComponent.drag,
-            emptyColumnMessage: substitutedComponent.emptyColumnMessage,
-            colorField: substitutedComponent.colorField,
-            columnOptions: kanbanColumnOptions,
-            search: substitutedComponent.search,
-          }
-        : type === 'calendar'
-          ? {
-              ...baseElementPropsWithType,
-              dataSource: substitutedComponent.dataSource,
-              dateField: substitutedComponent.dateField,
-              endDateField: substitutedComponent.endDateField,
-              defaultView: substitutedComponent.defaultView,
-              labelField: substitutedComponent.labelField,
-              colorField: substitutedComponent.colorField,
-              maxEventsPerDay: substitutedComponent.maxEventsPerDay,
-              calendarEvent: substitutedComponent.calendarEvent,
-              calendarInteraction: substitutedComponent.calendarInteraction,
-              search: substitutedComponent.search,
-            }
-          : type === 'gallery'
-            ? {
-                ...baseElementPropsWithType,
-                dataSource: substitutedComponent.dataSource,
-                gridColumns: substitutedComponent.gridColumns,
-                galleryCard: substitutedComponent.galleryCard,
-                emptyMessage: substitutedComponent.emptyMessage,
-                layout: substitutedComponent.layout,
-              }
-            : type === 'chart'
-              ? {
-                  ...baseElementPropsWithType,
-                  dataSource: substitutedComponent.dataSource,
-                  chartType: substitutedComponent.chartType,
-                  xAxis: substitutedComponent.xAxis,
-                  yAxis: substitutedComponent.yAxis,
-                  series: substitutedComponent.series,
-                  legend: substitutedComponent.legend,
-                  tooltip: substitutedComponent.tooltip,
-                  chartAggregate: substitutedComponent.chartAggregate,
-                  emptyMessage: substitutedComponent.emptyMessage,
-                }
-              : type === 'kpi'
-                ? {
-                    ...baseElementPropsWithType,
-                    dataSource: substitutedComponent.dataSource,
-                    label: substitutedComponent.label,
-                    kpiAggregate: substitutedComponent.kpiAggregate,
-                    kpiFormat: substitutedComponent.kpiFormat,
-                    icon: substitutedComponent.icon,
-                    trend: substitutedComponent.trend,
-                    thresholds: substitutedComponent.thresholds,
-                    sparkline: substitutedComponent.sparkline,
-                  }
-                : type === 'data-timeline'
-                  ? {
-                      ...baseElementPropsWithType,
-                      dataSource: substitutedComponent.dataSource,
-                      startField: componentProps?.startField,
-                      endField: componentProps?.endField,
-                      labelField: componentProps?.labelField,
-                      groupBy: componentProps?.groupBy,
-                      colorField: componentProps?.colorField,
-                      defaultZoom: componentProps?.defaultZoom,
-                      emptyMessage:
-                        substitutedComponent.emptyMessage ?? componentProps?.emptyMessage,
-                    }
-                  : type === 'select'
-                    ? {
-                        ...baseElementPropsWithType,
-                        dataSource: substitutedComponent.dataSource,
-                        valueField: substitutedComponent.valueField,
-                        displayField: substitutedComponent.displayField,
-                      }
-                    : type === 'modal'
-                      ? {
-                          ...baseElementPropsWithType,
-                          id: substitutedComponent.id,
-                          title: substitutedComponent.title,
-                          sections: substitutedComponent.sections,
-                        }
-                      : type === 'input'
-                        ? {
-                            ...baseElementPropsWithType,
-                            ...((substitutedComponent as { inputType?: string }).inputType !==
-                              undefined && {
-                              type: (substitutedComponent as { inputType?: string }).inputType,
-                            }),
-                          }
-                        : baseElementPropsWithType
+  const finalElementPropsWithType = buildTypeSpecificElementProps(type, {
+    baseElementPropsWithType,
+    component: substitutedComponent,
+    componentProps,
+    resolved: resolvedTypeInputs,
+  })
 
   const meta = componentProps?.meta as ComponentMeta | undefined
   const structuredDataScript = meta ? <StructuredDataFromComponent meta={meta} /> : undefined

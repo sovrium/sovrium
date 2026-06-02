@@ -313,7 +313,7 @@ const resolveAiComputeListener = (
     const aiService = yield* AiService
     if (!aiService.isConfigured()) return undefined
 
-    return new AiComputeListener(databaseUrl)
+    return new AiComputeListener(databaseUrl, app.name)
   }).pipe(Effect.provide(AiLive))
 
 const startAiComputeListenerIfNeeded = (

@@ -1,0 +1,66 @@
+id: 3
+name: deals
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: company
+    type: relationship
+    relatedTable: companies
+    relationType: many-to-one
+  - id: 3
+    name: stage
+    type: single-select
+    options:
+      - Prospect
+      - Qualified
+      - Proposal
+      - Negotiation
+      - Won
+      - Lost
+    default: Prospect
+  - id: 4
+    name: value
+    type: currency
+    currency: USD
+    precision: 0
+  - id: 5
+    name: probability
+    type: percentage
+    precision: 0
+    min: 0
+    max: 100
+  - id: 6
+    name: close_date
+    type: date
+  - id: 7
+    name: priority
+    type: rating
+    max: 3
+  - id: 8
+    name: created_at
+    type: created-at
+
+aiAccess:
+  description: >-
+    The sales pipeline. Use this when the user asks about deals, stages,
+    pipeline value, probabilities, or close dates.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

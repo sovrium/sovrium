@@ -130,13 +130,19 @@ export const mapFormulaResultTypeToDialect = (resultType: string | undefined): s
 
 const NUMERIC_TYPES_WITH_PRECISION = new Set(['decimal', 'currency', 'percentage'])
 
+const NUMERIC_INTEGER_DIGITS = 18
+
 const specialCasePostgresType = (field: Fields[number]): string | undefined => {
   if (field.type === 'array') {
     const itemType = 'itemType' in field && field.itemType ? field.itemType : 'text'
     return `${itemType.toUpperCase()}[]`
   }
-  if (NUMERIC_TYPES_WITH_PRECISION.has(field.type) && 'precision' in field && field.precision) {
-    return `NUMERIC(${field.precision},2)`
+  if (
+    NUMERIC_TYPES_WITH_PRECISION.has(field.type) &&
+    'precision' in field &&
+    field.precision !== undefined
+  ) {
+    return `NUMERIC(${NUMERIC_INTEGER_DIGITS + field.precision},${field.precision})`
   }
   if (
     field.type === 'single-attachment' &&

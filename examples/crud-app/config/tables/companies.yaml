@@ -6,6 +6,9 @@ fields:
     type: single-line-text
     required: true
   - id: 2
+    name: logo
+    type: single-attachment
+  - id: 3
     name: industry
     type: single-select
     options:
@@ -14,10 +17,62 @@ fields:
       - Healthcare
       - Education
       - Retail
+      - Manufacturing
       - Other
-  - id: 3
+  - id: 4
+    name: size
+    type: single-select
+    options:
+      - '1-10'
+      - '11-50'
+      - '51-200'
+      - '201-1000'
+      - '1000+'
+  - id: 5
     name: website
     type: url
-  - id: 4
+  - id: 6
+    name: annual_revenue
+    type: currency
+    currency: USD
+    precision: 0
+  - id: 7
+    name: is_active
+    type: checkbox
+    default: true
+  - id: 8
     name: notes
-    type: long-text
+    type: rich-text
+  - id: 9
+    name: created_at
+    type: created-at
+  - id: 10
+    name: updated_at
+    type: updated-at
+
+# Opt this table in to AI-agent access (the records-assistant agent). Combined
+# with the agent's `tools` allowlist, this is the second gate that lets the
+# agent read, create, and edit company records.
+aiAccess:
+  description: >-
+    Company accounts. Use this when the user asks about organizations,
+    industries, account size, or revenue.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+# Role-based access: everyone signed in can read; members/admins can write;
+# only admins can hard-delete.
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

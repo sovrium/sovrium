@@ -8,6 +8,7 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { buildAiComputeProjection } from '@/application/use-cases/ai-compute/status-projection'
 import { SessionContextError } from '@/domain/errors'
 import {
   computeGroupedAggregations,
@@ -305,6 +306,8 @@ export function createGetRecordProgram(
 
     const id = preserveIdType(record.id)
 
+    const aiCompute = yield* buildAiComputeProjection(app, tableName, id)
+
     return {
       ...fields,
       id,
@@ -314,6 +317,7 @@ export function createGetRecordProgram(
       ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
       ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
       ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
+      ...(aiCompute ? { _aiCompute: aiCompute } : {}),
     }
   })
 }

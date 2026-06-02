@@ -23,11 +23,6 @@ import {
 } from '@/domain/models/env/ai-providers'
 import type { App } from '@/domain/models/app'
 
-const hasAiFields = (app: Readonly<App>): boolean =>
-  app.tables?.some((table) =>
-    table.fields.some((field) => typeof field.type === 'string' && field.type.startsWith('ai-'))
-  ) ?? false
-
 const hasAgents = (app: Readonly<App>): boolean => (app.agents?.length ?? 0) > 0
 
 const checkProviderConsistency = (
@@ -41,9 +36,6 @@ const checkProviderConsistency = (
   }
 
   const aiDisabled = provider === undefined || provider === ''
-  if (aiDisabled && hasAiFields(app)) {
-    return `AI-computed fields require the AI_PROVIDER environment variable to be set. Set AI_PROVIDER to one of: ${supportedList}.`
-  }
   if (aiDisabled && hasAgents(app)) {
     return `AI agents require the AI_PROVIDER environment variable to be set. Set AI_PROVIDER to one of: ${supportedList}.`
   }

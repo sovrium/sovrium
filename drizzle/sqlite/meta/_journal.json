@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1779134713164,
-      "tag": "0000_marvelous_rage",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1779208689760,
-      "tag": "0001_eager_shockwave",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1779543471173,
-      "tag": "0002_reflective_senator_kelly",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1779548812258,
-      "tag": "0003_panoramic_vermin",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1779613128841,
-      "tag": "0004_parched_mojo",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1779779370189,
-      "tag": "0005_amusing_ulik",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1779903378698,
-      "tag": "0006_calm_layla_miller",
+      "when": 1780433696967,
+      "tag": "0000_mute_cassandra_nova",
       "breakpoints": true
     }
   ]

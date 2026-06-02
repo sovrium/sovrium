@@ -64,6 +64,7 @@ const buildTagNotifySql = (field: AiTagField, sanitized: string, fieldName: stri
     'kind', '${TAG_PAYLOAD_KIND}',
     'table', '${escapeSqlString(sanitized)}',
     'field', '${escapeSqlString(fieldName)}',
+    'record_id', NEW.id,
     'value', array_to_string(chosen, ', '),
     'source', left(source_content, 500),
     'categories', to_jsonb(tags),

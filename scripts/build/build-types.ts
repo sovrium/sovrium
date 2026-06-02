@@ -6,14 +6,13 @@
  */
 
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import ts from 'typescript'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const TYPES_PKG = join(PROJECT_ROOT, 'packages', 'types')
 const DIST_DIR = join(TYPES_PKG, 'dist')
-const COMING_SOON_INTERNAL_FILE = join(PROJECT_ROOT, 'schemas/.coming-soon.internal.json')
 
 const TYPE_EXPORTS = [
   { exported: 'AppConfig', source: 'AppConfig' },
@@ -27,24 +26,6 @@ const TYPE_EXPORTS = [
   { exported: 'StartOptions', source: 'StartOptions' },
   { exported: 'GenerateStaticOptions', source: 'GenerateStaticOptions' },
 ] as const
-
-const COMING_SOON_JSDOC = '/** @deprecated COMING SOON — not yet implemented. */'
-
-interface InternalComingSoonEntry {
-  readonly schemaFile: string
-  readonly effectSchemaNames: readonly string[]
-  readonly linkedUserStories?: readonly string[]
-  readonly fixmeSpecIds?: readonly string[]
-  readonly reason?: string
-  readonly discriminatorTag?: string
-  readonly parentSchemaName?: string
-  readonly leafSchemaTags?: readonly (readonly [string, string])[]
-}
-
-interface InternalComingSoonManifest {
-  readonly generatedAt: string
-  readonly entries: readonly InternalComingSoonEntry[]
-}
 
 
 function extractTypes(): string {
@@ -193,158 +174,6 @@ function buildJS(): void {
 }
 
 
-const SCHEMA_LITERAL_PATTERN = /Schema\.Literal\(\s*['"]([^'"]+)['"]\s*\)/g
-
-function extractDiscriminatorLiterals(source: string): readonly string[] {
-  const matches = [...source.matchAll(SCHEMA_LITERAL_PATTERN)]
-  const literals = matches.map((m) => m[1]).filter((s): s is string => typeof s === 'string')
-  return [...new Set(literals)]
-}
-
-function readInternalManifest(manifestPath: string): InternalComingSoonManifest | null {
-  if (!existsSync(manifestPath)) {
-    console.warn('[build-types] no internal coming-soon manifest found, skipping JSDoc injection.')
-    return null
-  }
-
-  let raw: string
-  try {
-    raw = readFileSync(manifestPath, 'utf-8')
-  } catch {
-    console.warn(
-      '[build-types] no internal coming-soon manifest readable, skipping JSDoc injection.'
-    )
-    return null
-  }
-
-  let parsed: InternalComingSoonManifest
-  try {
-    parsed = JSON.parse(raw) as InternalComingSoonManifest
-  } catch {
-    console.warn(
-      '[build-types] no internal coming-soon manifest parseable, skipping JSDoc injection.'
-    )
-    return null
-  }
-
-  if (!parsed.entries || parsed.entries.length === 0) {
-    console.warn(
-      '[build-types] no internal coming-soon manifest entries, skipping JSDoc injection.'
-    )
-    return null
-  }
-
-  return parsed
-}
-
-function injectComingSoonJsDoc(dtsContent: string, manifestPath: string): string {
-  const manifest = readInternalManifest(manifestPath)
-  if (!manifest) return dtsContent
-
-  const variantTags = [
-    ...new Set(
-      manifest.entries
-        .map((e) => e.discriminatorTag)
-        .filter((t): t is string => typeof t === 'string')
-    ),
-  ].sort()
-  const leafTags = new Set<string>()
-  for (const entry of manifest.entries) {
-    if (entry.discriminatorTag !== undefined) continue
-    if (entry.leafSchemaTags) {
-      for (const [literal] of entry.leafSchemaTags) {
-        leafTags.add(literal)
-      }
-      continue
-    }
-    const sourcePath = join(PROJECT_ROOT, entry.schemaFile)
-    if (!existsSync(sourcePath)) continue
-    let source: string
-    try {
-      source = readFileSync(sourcePath, 'utf-8')
-    } catch {
-      continue
-    }
-    for (const literal of extractDiscriminatorLiterals(source)) {
-      leafTags.add(literal)
-    }
-  }
-  const allLiteralTags = [...new Set([...variantTags, ...leafTags])].sort()
-
-  let mutated = dtsContent
-  let literalInjections = 0
-  for (const tag of allLiteralTags) {
-    const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const tokenPattern = new RegExp(`(?<!\\* )"${escaped}"`, 'g')
-    mutated = mutated.replace(tokenPattern, (m) => {
-      literalInjections++
-      return `${COMING_SOON_JSDOC} ${m}`
-    })
-  }
-
-  const wholeFileSchemasNotInLiterals = new Set<string>()
-  const flaggedLiteralsSet = new Set(allLiteralTags)
-  for (const entry of manifest.entries) {
-    if (entry.discriminatorTag !== undefined) continue
-    let coveredByLiterals = false
-    if (entry.leafSchemaTags) {
-      for (const [literal] of entry.leafSchemaTags) {
-        if (flaggedLiteralsSet.has(literal)) {
-          coveredByLiterals = true
-          break
-        }
-      }
-    }
-    if (coveredByLiterals) continue
-    for (const name of entry.effectSchemaNames) {
-      wholeFileSchemasNotInLiterals.add(name)
-    }
-  }
-
-  const exportNames = TYPE_EXPORTS.map((t) => t.exported)
-    .slice()
-    .sort()
-  const typesToFlag = new Set<string>()
-  for (const name of exportNames) {
-    const typeBodyPattern = new RegExp(`export type ${name} = ([^\\n]+)`, 'm')
-    const match = mutated.match(typeBodyPattern)
-    if (!match || !match[1]) continue
-    const body = match[1]
-    for (const schemaName of wholeFileSchemasNotInLiterals) {
-      if (body.includes(schemaName)) {
-        typesToFlag.add(name)
-        break
-      }
-    }
-  }
-
-  const sortedToFlag = [...typesToFlag].sort()
-  for (const name of sortedToFlag) {
-    const exportLine = `export type ${name} = `
-    mutated = mutated.replace(exportLine, `${COMING_SOON_JSDOC}\n${exportLine}`)
-  }
-
-  if (literalInjections === 0 && sortedToFlag.length === 0) {
-    console.log(
-      '[build-types] no coming-soon discriminators surfaced in published types — no JSDoc to inject.'
-    )
-    return mutated
-  }
-
-  if (literalInjections > 0) {
-    console.log(
-      `[build-types] injected @deprecated COMING SOON JSDoc on ${literalInjections} discriminator literal occurrence(s) across ${allLiteralTags.length} unique tag(s)`
-    )
-  }
-  if (sortedToFlag.length > 0) {
-    console.log(
-      `[build-types] injected @deprecated COMING SOON JSDoc on ${sortedToFlag.length} top-level type(s): ${sortedToFlag.join(', ')}`
-    )
-  }
-  return mutated
-}
-
-
 function verify(dtsContent: string): void {
   console.log('\n▸ Verifying outputs')
 
@@ -383,12 +212,11 @@ async function main(): Promise<void> {
 
   mkdirSync(DIST_DIR, { recursive: true })
 
-  const rawDts = extractTypes()
-  const finalDts = injectComingSoonJsDoc(rawDts, COMING_SOON_INTERNAL_FILE)
-  writeFileSync(join(DIST_DIR, 'index.d.ts'), finalDts)
+  const dts = extractTypes()
+  writeFileSync(join(DIST_DIR, 'index.d.ts'), dts)
 
   buildJS()
-  verify(finalDts)
+  verify(dts)
 
   console.log('\n✓ @sovrium/types build complete — packages/types/dist/ ready')
 }

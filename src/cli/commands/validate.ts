@@ -8,7 +8,6 @@
 import { dirname, basename, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
 import { detectFormat } from '@/domain/utils'
-import { warnForConfig } from '@/infrastructure/coming-soon'
 import { lazyImportSchema } from './utils'
 
 const validateFileExists = async (filePath: string): Promise<void> => {
@@ -156,8 +155,6 @@ export const handleValidateCommand = async (filePath?: string): Promise<void> =>
     Effect.runSync(Console.error(`Validation failed:\n${errorLines}`))
     process.exit(1)
   }
-
-  Effect.runSync(warnForConfig(parsed))
 
   Effect.runSync(
     Console.log(`Valid configuration: ${(parsed as Record<string, unknown>).name ?? 'unnamed'}`)

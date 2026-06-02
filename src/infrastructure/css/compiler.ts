@@ -15,6 +15,7 @@ import {
   type CompiledCSS,
 } from '@/infrastructure/css/cache/css-cache-service'
 import {
+  appAddsCandidatesBeyondBuiltin,
   compileCSSNativeFree,
   MINIMAL_FALLBACK_CSS,
   resolveNativeFreeCandidates,
@@ -29,6 +30,7 @@ import {
   NEUTRAL_FLOOR_LAYER,
   SOURCE_SERIF_ITALIC_FONT_FACE,
   V1_ALIAS_BRIDGE,
+  V1_THEME_REGISTRATIONS,
   V1_TOKEN_LAYER,
 } from '@/infrastructure/css/theme/default-theme-layer'
 import {
@@ -165,7 +167,7 @@ const FINAL_BASE_LAYER = ''
 
 function buildDefaultLayer(theme?: Theme): string {
   if (parseEcoDesignLayer(process.env) === 'off') {
-    return SOURCE_SERIF_ITALIC_FONT_FACE
+    return `${SOURCE_SERIF_ITALIC_FONT_FACE}\n\n  ${V1_THEME_REGISTRATIONS}`
   }
   const tokenLayer = theme?.baseline === 'replace' ? NEUTRAL_FLOOR_LAYER : V1_TOKEN_LAYER
   return `${SOURCE_SERIF_ITALIC_FONT_FACE}\n\n  ${tokenLayer}\n\n  ${V1_ALIAS_BRIDGE}`
@@ -252,6 +254,9 @@ const logCompilationError = (error: unknown, sourceCSS: string): CSSCompilationE
 
 const isProduction = checkIsProduction()
 
+const canServePrecompiledFile = (app?: App): boolean =>
+  app?.theme === undefined && !appAddsCandidatesBeyondBuiltin(app)
+
 export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
     const theme = app?.theme
@@ -296,7 +301,7 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
     const cacheKey = getCSSCacheKey(theme, resolveNativeFreeCandidates(app))
 
     if (isProduction) {
-      const result = yield* getOrComputeCachedCSS(
+      return yield* getOrComputeCachedCSS(
         cacheKey,
         Effect.gen(function* () {
           const precompiled = yield* loadPrecompiledCSS()
@@ -311,11 +316,12 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
           return yield* compileCSSRaw(app)
         })
       )
-      return result
     }
 
+    const canUsePrecompiledFile = canServePrecompiledFile(app)
+
     if (isDevCacheDisabled()) {
-      if (!theme && process.env.SOVRIUM_CSS_FILE) {
+      if (canUsePrecompiledFile && process.env.SOVRIUM_CSS_FILE) {
         const precompiled = yield* loadPrecompiledCSS()
         if (precompiled) {
           logDebug('[CSS] Loaded from pre-compiled file (dev, cache bypassed)')
@@ -328,7 +334,7 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
     const result = yield* getOrComputeCachedCSS(
       cacheKey,
       Effect.gen(function* () {
-        if (!theme && process.env.SOVRIUM_CSS_FILE) {
+        if (canUsePrecompiledFile && process.env.SOVRIUM_CSS_FILE) {
           const precompiled = yield* loadPrecompiledCSS()
           if (precompiled) {
             logDebug('[CSS] Loaded from pre-compiled file (dev mode)')

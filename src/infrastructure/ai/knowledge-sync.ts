@@ -6,12 +6,13 @@
  */
 
 
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai-embedding-repository'
 import { chunkText, resolveChunkSettings, type ChunkSettings } from '@/domain/services/rag-chunking'
 import { db } from '@/infrastructure/database'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
 import type { RagAgent } from './rag-agent-input'
 import type { NewEmbedding } from '@/application/ports/repositories/ai-embedding-repository'
@@ -40,6 +41,16 @@ export interface SyncKnowledgeStats {
 
 const quoteIdent = (name: string): string => `"${name.replace(/"/g, '""')}"`
 
+const runReadQuery = async (query: SQL): Promise<ReadonlyArray<Record<string, unknown>>> => {
+  if (isSqliteRuntime()) {
+    const sqliteDb = db as unknown as {
+      all: (q: SQL) => ReadonlyArray<Record<string, unknown>>
+    }
+    return sqliteDb.all(query)
+  }
+  return extractRows(await db.execute(query))
+}
+
 const loadKnowledgeRecords = (input: {
   readonly table: string
   readonly fields: ReadonlyArray<string>
@@ -58,10 +69,9 @@ const loadKnowledgeRecords = (input: {
               sql` AND `
             )}`
           : sql``
-      const result = await db.execute(
+      const rows = await runReadQuery(
         sql`SELECT ${sql.raw(columns)} FROM ${sql.raw(quoteIdent(input.table))}${whereClause}`
       )
-      const rows = extractRows(result)
       return rows.map((row): KnowledgeRecord => {
         const fields = Object.fromEntries(
           input.fields.map((field) => {

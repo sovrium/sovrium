@@ -14,9 +14,7 @@ components:
   - type: container
     element: section
     props:
-      className: py-16 px-6
-      style:
-        backgroundColor: '#ffffff'
+      className: bg-background py-16 px-6
     children:
       - type: container
         props:
@@ -24,27 +22,19 @@ components:
         children:
           - type: link
             props:
-              href: /blog
-              className: text-sm mb-8 inline-block
-              style:
-                color: '#7c3aed'
+              href: /
+              className: text-sm mb-8 inline-block text-primary hover:underline
             content: ← Back to all posts
 
           - type: text
             element: h1
             props:
-              className: text-4xl font-bold mb-6
-              style:
-                color: '#18181b'
-                lineHeight: '1.15'
-                letterSpacing: '-0.02em'
+              className: text-4xl font-bold mb-6 text-foreground leading-tight tracking-tight
             content: '$record.title'
 
           - type: container
             props:
-              className: flex items-center gap-3 mb-10 text-sm
-              style:
-                color: '#71717a'
+              className: flex items-center gap-3 mb-10 text-sm text-muted-foreground
             children:
               - type: text
                 element: span
@@ -59,12 +49,7 @@ components:
           - type: container
             element: article
             props:
-              className: prose prose-lg max-w-none
-              style:
-                color: '#18181b'
-                fontFamily: Lora, Georgia, serif
-                fontSize: '19px'
-                lineHeight: '1.75'
+              className: prose prose-lg max-w-none text-foreground
             children:
               - type: text
                 element: pre

@@ -1,5 +1,16 @@
 id: 2
 name: tags
+# Public taxonomy. Editors and admins can curate the tag set.
+permissions:
+  read: all
+  create:
+    - admin
+    - editor
+  update:
+    - admin
+    - editor
+  delete:
+    - admin
 fields:
   - id: 1
     name: name

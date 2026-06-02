@@ -15,6 +15,7 @@ import {
   type DynamicRecordError,
   type DynamicRecordInsertInput,
   type DynamicRecordListInput,
+  type DynamicRecordRawQueryInput,
   type DynamicRecordUpdateAllInput,
   type DynamicRecordUpdateByIdInput,
 } from '@/application/ports/repositories/dynamic-record-repository'
@@ -77,4 +78,16 @@ export const deleteDynamicRecords = (
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.delete(input)
+  })
+
+export const runRawDynamicQuery = (
+  input: DynamicRecordRawQueryInput
+): Effect.Effect<
+  ReadonlyArray<Record<string, unknown>>,
+  DynamicRecordError,
+  DynamicRecordRepository
+> =>
+  Effect.gen(function* () {
+    const repo = yield* DynamicRecordRepository
+    return yield* repo.runRawQuery(input)
   })

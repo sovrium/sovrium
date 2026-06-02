@@ -18,7 +18,6 @@ import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-searc
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
 import { generateAppJsonSchema as generateSchema } from '@/domain/services/json-schema'
-import { warnForConfig } from '@/infrastructure/coming-soon'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
 import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
@@ -54,8 +53,6 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
     const normalizedApp = normalizeAppConfig(app)
     const validatedApp = Schema.decodeUnknownSync(AppSchema)(normalizedApp)
 
-    Effect.runSync(warnForConfig(validatedApp))
-
     const program = Effect.gen(function* () {
       const server = yield* startServer(normalizedApp, options)
       yield* Effect.fork(withGracefulShutdown(server))
@@ -80,8 +77,6 @@ export const build = async (
 ): Promise<GenerateStaticResult> => {
   try {
     const validatedApp = Schema.decodeUnknownSync(AppSchema)(app)
-
-    Effect.runSync(warnForConfig(validatedApp))
 
     const program = Effect.gen(function* () {
       logDebug('Generating static site...')

@@ -1,1 +1,0 @@
-DROP TABLE "system"."share_links" CASCADE;

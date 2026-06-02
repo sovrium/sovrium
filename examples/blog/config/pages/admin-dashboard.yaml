@@ -1,0 +1,119 @@
+name: admin-dashboard
+path: /admin
+access:
+  require: authenticated
+  redirectTo: /admin/login
+meta:
+  title: Admin · Posts
+  description: Manage and publish blog posts
+components:
+  - type: container
+    element: section
+    props:
+      className: bg-background min-h-screen py-10 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-5xl mx-auto
+        children:
+          # Header row: title + primary action
+          - type: container
+            props:
+              className: flex items-center justify-between mb-2
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-3xl font-bold text-foreground
+                content: Posts
+              - type: link
+                props:
+                  href: /admin/posts/new
+                  className: px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90
+                content: + New post
+
+          - type: text
+            element: p
+            props:
+              className: text-sm mb-6 text-muted-foreground
+            content: Every post — drafts and published. Edit to change content or flip the status to publish.
+
+          # Admin navigation
+          - type: container
+            props:
+              className: flex gap-4 mb-8 text-sm
+            children:
+              - type: link
+                props:
+                  href: /admin/tags
+                  className: text-primary hover:underline
+                content: Manage tags
+              - type: link
+                props:
+                  href: /admin/authors
+                  className: text-primary hover:underline
+                content: Manage authors
+              - type: link
+                props:
+                  href: /admin/ai-editor
+                  className: text-primary hover:underline
+                content: AI editor
+
+          # Posts table with per-row edit / delete
+          - type: container
+            props:
+              className: rounded-lg border border-border bg-card p-2
+            children:
+              - type: data-table
+                dataSource:
+                  table: posts
+                  sort:
+                    - field: updated_at
+                      direction: desc
+                columns:
+                  - field: title
+                    label: Title
+                  - field: status
+                    label: Status
+                  - field: author
+                    label: Author
+                  - field: published_at
+                    label: Published
+                  - type: actions
+                    label: Actions
+                    actions:
+                      - label: Edit
+                        icon: pencil
+                        action:
+                          type: navigate
+                          path: /admin/posts/$record.id/edit
+                      - label: Delete
+                        icon: trash
+                        confirm: Delete this post? This cannot be undone.
+                        action:
+                          type: crud
+                          operation: delete
+                          table: posts
+                          onSuccess:
+                            navigate: /admin
+                            toast:
+                              message: Post deleted
+                              variant: success
+                pagination:
+                  pageSize: 20
+                emptyMessage: No posts yet. Create your first one.
+
+          # Sign out
+          - type: container
+            props:
+              className: flex justify-end mt-8
+            children:
+              - type: button
+                props:
+                  className: px-4 py-2 rounded-md border border-border bg-card text-foreground text-sm font-medium
+                content: Sign out
+                action:
+                  type: auth
+                  method: logout
+                  onSuccess:
+                    navigate: /

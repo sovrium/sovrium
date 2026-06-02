@@ -5,12 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { hasUpdatePermission } from '@/application/use-cases/tables/permissions/permissions'
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
+import { applyAiComputeBaseline } from '@/domain/services/ai-compute/apply-baseline'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   provideTableWithAutomationsLive,
   runTableProgram,
@@ -44,6 +48,20 @@ function maybeApplyPublishedAtAutoSet(
   if ('published_at' in fields) return fields
   if (oldRecord?.['status'] === 'published') return fields
   return { ...fields, published_at: new Date().toISOString() }
+}
+
+function mergeSqliteAiBaselineOnUpdate(
+  app: App,
+  tableName: string,
+  fields: Record<string, unknown>,
+  oldRecord: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!table || !isSqliteRuntime()) return fields
+  return {
+    ...fields,
+    ...applyAiComputeBaseline({ table, op: 'update', incoming: fields, old: oldRecord }),
+  }
 }
 
 function collectReplacedAttachmentKeys(
@@ -177,11 +195,22 @@ async function executeUpdateNoTrigger(config: {
   readonly recordId: string
   readonly oldRecord: Record<string, unknown> | undefined
   readonly dataWithPublishedAt: Record<string, unknown>
+  readonly incoming: Record<string, unknown>
   readonly app: App
   readonly userRole: string
   readonly c: Context
 }): Promise<Response> {
-  const { session, tableName, recordId, oldRecord, dataWithPublishedAt, app, userRole, c } = config
+  const {
+    session,
+    tableName,
+    recordId,
+    oldRecord,
+    dataWithPublishedAt,
+    incoming,
+    app,
+    userRole,
+    c,
+  } = config
   const result = await runTableProgram(
     updateRecordProgram(session, tableName, recordId, {
       fields: dataWithPublishedAt,
@@ -197,7 +226,7 @@ async function executeUpdateNoTrigger(config: {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
   await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
-  publishUpdateChange({ appId: app.name, tableName, recordId, updateResult, oldRecord })
+  publishUpdateChange({ app, tableName, recordId, incoming, updateResult, oldRecord })
   if (oldRecord) {
     const replacedKeys = collectReplacedAttachmentKeys(
       oldRecord,
@@ -222,6 +251,37 @@ function staleWriteConflictResponse(c: Context): Response {
   )
 }
 
+async function prepareUpdateData(config: {
+  readonly session: Session
+  readonly tableName: string
+  readonly recordId: string
+  readonly allowedData: Record<string, unknown>
+  readonly app: App
+  readonly clientUpdatedAt?: string
+  readonly c: Context
+}): Promise<
+  | { readonly conflict: Response }
+  | {
+      readonly oldRecord: Record<string, unknown> | undefined
+      readonly dataWithBaseline: Record<string, unknown>
+    }
+> {
+  const { session, tableName, recordId, allowedData, app, clientUpdatedAt, c } = config
+  const rawResult = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
+  const oldRecord = rawResult._tag === 'Right' && rawResult.right ? rawResult.right : undefined
+  if (isStaleWrite({ clientUpdatedAt, storedRecord: oldRecord })) {
+    return { conflict: staleWriteConflictResponse(c) }
+  }
+  const dataWithPublishedAt = maybeApplyPublishedAtAutoSet(app, tableName, oldRecord, allowedData)
+  const dataWithBaseline = mergeSqliteAiBaselineOnUpdate(
+    app,
+    tableName,
+    dataWithPublishedAt,
+    oldRecord
+  )
+  return { oldRecord, dataWithBaseline }
+}
+
 export async function executeUpdate(config: {
   session: Session
   tableName: string
@@ -234,14 +294,17 @@ export async function executeUpdate(config: {
 }): Promise<Response> {
   const { session, tableName, recordId, allowedData, app, userRole, clientUpdatedAt, c } = config
 
-  const rawResult = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  const oldRecord = rawResult._tag === 'Right' && rawResult.right ? rawResult.right : undefined
-
-  if (isStaleWrite({ clientUpdatedAt, storedRecord: oldRecord })) {
-    return staleWriteConflictResponse(c)
-  }
-
-  const dataWithPublishedAt = maybeApplyPublishedAtAutoSet(app, tableName, oldRecord, allowedData)
+  const prep = await prepareUpdateData({
+    session,
+    tableName,
+    recordId,
+    allowedData,
+    app,
+    clientUpdatedAt,
+    c,
+  })
+  if ('conflict' in prep) return prep.conflict
+  const { oldRecord, dataWithBaseline } = prep
 
   try {
     if (!hasUpdateRecordTrigger(app, tableName)) {
@@ -250,7 +313,8 @@ export async function executeUpdate(config: {
         tableName,
         recordId,
         oldRecord,
-        dataWithPublishedAt,
+        dataWithPublishedAt: dataWithBaseline,
+        incoming: allowedData,
         app,
         userRole,
         c,
@@ -261,7 +325,8 @@ export async function executeUpdate(config: {
       session,
       tableName,
       recordId,
-      allowedData: dataWithPublishedAt,
+      allowedData: dataWithBaseline,
+      incoming: allowedData,
       app,
       userRole,
       c,
@@ -276,11 +341,12 @@ async function executeUpdateWithRecordTrigger(config: {
   tableName: string
   recordId: string
   allowedData: Record<string, unknown>
+  incoming: Record<string, unknown>
   app: App
   userRole: string
   c: Context
 }): Promise<Response> {
-  const { session, tableName, recordId, allowedData, app, userRole, c } = config
+  const { session, tableName, recordId, allowedData, incoming, app, userRole, c } = config
   const program = Effect.gen(function* () {
     const previous = yield* rawGetRecordProgram(session, tableName, recordId)
     const updated = yield* updateRecordProgram(session, tableName, recordId, {
@@ -315,7 +381,7 @@ async function executeUpdateWithRecordTrigger(config: {
   }
   const oldRecord = result.right.previous ?? undefined
   await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
-  publishUpdateChange({ appId: app.name, tableName, recordId, updateResult, oldRecord })
+  publishUpdateChange({ app, tableName, recordId, incoming, updateResult, oldRecord })
   return c.json(updateResult, 200)
 }
 
@@ -350,19 +416,24 @@ async function fireUpdateWebhooks(
 }
 
 function publishUpdateChange(params: {
-  readonly appId: string
+  readonly app: App
   readonly tableName: string
   readonly recordId: string
+  readonly incoming: Record<string, unknown>
   readonly updateResult: Record<string, unknown>
   readonly oldRecord: Record<string, unknown> | undefined
 }): void {
-  publishRecordChange({
-    appId: params.appId,
-    tableName: params.tableName,
-    event: 'update',
-    recordId: params.recordId,
-    record: extractRecordFields(params.updateResult),
-    oldRecord: params.oldRecord,
+  const { app, tableName, recordId, incoming, updateResult, oldRecord } = params
+  const record = extractRecordFields(updateResult)
+  publishRecordChange({ appId: app.name, tableName, event: 'update', recordId, record, oldRecord })
+  signalAiComputeWritePhase({
+    app,
+    tableName,
+    op: 'update',
+    recordId,
+    incoming,
+    old: oldRecord,
+    record,
   })
 }
 

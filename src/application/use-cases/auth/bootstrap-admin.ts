@@ -11,6 +11,7 @@ import {
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth-repository'
 import { getStrategy } from '@/domain/models/app/auth'
+import { isValidEmail } from '@/domain/utils/email-validation'
 import { Auth } from '@/infrastructure/auth/better-auth'
 import { logDebug } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
@@ -44,11 +45,6 @@ export const parseAdminBootstrapConfig = (): AdminBootstrapConfig | undefined =>
   }
 
   return { email, password, name: name || 'Administrator' }
-}
-
-const isValidEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
 }
 
 const isValidPassword = (password: string): boolean => {

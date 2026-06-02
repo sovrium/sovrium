@@ -58,6 +58,10 @@ export interface DynamicRecordDeleteInput {
   readonly filter?: DynamicRecordFilter | undefined
 }
 
+export interface DynamicRecordRawQueryInput {
+  readonly sql: string
+}
+
 export class DynamicRecordRepository extends Context.Tag('DynamicRecordRepository')<
   DynamicRecordRepository,
   {
@@ -80,5 +84,8 @@ export class DynamicRecordRepository extends Context.Tag('DynamicRecordRepositor
     readonly delete: (
       input: DynamicRecordDeleteInput
     ) => Effect.Effect<ReadonlyArray<number>, DynamicRecordError>
+    readonly runRawQuery: (
+      input: DynamicRecordRawQueryInput
+    ) => Effect.Effect<ReadonlyArray<Record<string, unknown>>, DynamicRecordError>
   }
 >() {}
