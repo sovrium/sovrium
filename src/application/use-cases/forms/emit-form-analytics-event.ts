@@ -7,7 +7,7 @@
 
 
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '@/application/ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import { isFormAnalyticsEnabled } from '@/infrastructure/utils/env'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'

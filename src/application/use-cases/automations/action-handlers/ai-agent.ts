@@ -7,9 +7,9 @@
 
 
 import { Effect } from 'effect'
-import { AiEmbeddingRepository } from '@/application/ports/repositories/ai-embedding-repository'
+import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
-import { AiEmbeddingRepositoryLive } from '@/infrastructure/database/repositories/ai-embedding-repository-live'
+import { AiEmbeddingRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { aiErrorOutcome } from './ai'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'

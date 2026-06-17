@@ -6,16 +6,16 @@
  */
 
 
-import { parseEcoAiMaxCarbonClass } from '@/domain/models/env/eco-ai-max-carbon-class'
-import { parseEcoAiProviderPrecedenceList } from '@/domain/models/env/eco-ai-provider-list'
-import { parseEcoIndexHeader } from '@/domain/models/env/eco-index-header'
+import { parseEcoAiMaxCarbonClass } from '@/domain/models/env/eco/eco-ai-max-carbon-class'
+import { parseEcoAiProviderPrecedenceList } from '@/domain/models/env/eco/eco-ai-provider-list'
+import { parseEcoIndexHeader } from '@/domain/models/env/eco/eco-index-header'
 import {
   parseEcoMode,
   resolveActivatedSubKnobs,
   type EcoMode,
   type EcoSubKnob,
-} from '@/domain/models/env/eco-mode'
-import { parseEcoRetentionPurgeDays } from '@/domain/models/env/eco-retention-purge-days'
+} from '@/domain/models/env/eco/eco-mode'
+import { parseEcoRetentionPurgeDays } from '@/domain/models/env/eco/eco-retention-purge-days'
 import type { EcoOverviewResponse } from '@/domain/models/api/admin/eco/overview'
 import type { EcoIndexTrackerSnapshot } from '@/infrastructure/utils/eco-index-tracker'
 

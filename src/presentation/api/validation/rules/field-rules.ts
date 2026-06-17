@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { hasPermission } from '@/domain/models/app/tables/permissions'
 import { inferMimeFromKey } from '@/domain/utils/mime-types'
 import {
@@ -15,6 +16,9 @@ import {
   FieldFormatError,
   ValidationContext,
 } from '../../middleware/validation'
+
+const hasUserDefault = (field: { readonly type: string }): boolean =>
+  'default' in field && (field as { readonly default?: unknown }).default !== undefined
 
 export function validateReadonlyIdField(
   fields: Record<string, unknown>
@@ -25,23 +29,23 @@ export function validateReadonlyIdField(
   return Effect.void
 }
 
-export function validateDefaultFields(
+export function validateReadonlyComputedFields(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldValidationError, ValidationContext> {
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
 
-    const fieldsWithDefaults =
-      table?.fields?.filter((f) => 'default' in f && f.default !== undefined) ?? []
+    const readonlyComputedFields =
+      table?.fields?.filter((f) => isReadonlyComputedFieldType(f.type)) ?? []
 
-    const attemptedDefaultField = fieldsWithDefaults.find((f) => f.name in fields)
+    const attemptedComputedField = readonlyComputedFields.find((f) => f.name in fields)
 
-    if (attemptedDefaultField) {
+    if (attemptedComputedField) {
       return yield* Effect.fail(
         new FieldValidationError(
-          `Cannot write to readonly field '${attemptedDefaultField.name}'`,
-          attemptedDefaultField.name
+          `Cannot write to readonly field '${attemptedComputedField.name}'`,
+          attemptedComputedField.name
         )
       )
     }
@@ -69,7 +73,8 @@ export function validateRequiredFields(
           field.required &&
           !(field.name in fields) &&
           !primaryKeyFields.has(field.name) &&
-          !autoInjectedFields.has(field.name)
+          !autoInjectedFields.has(field.name) &&
+          !hasUserDefault(field)
       )
       .map((field) => field.name)
 

@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '../../ports/repositories/analytics-repository'
-import type { AnalyticsDatabaseError } from '../../ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
+import type { AnalyticsDatabaseError } from '../../ports/repositories/analytics/analytics-repository'
 
 const DEFAULT_RETENTION_DAYS = 365
 

@@ -5,12 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isViewComputedFormula } from '../formula/formula-utils'
 import type { Table } from '@/domain/models/app/tables'
 
 export const getBaseFields = (table: Table): readonly string[] =>
   table.fields
     .filter((field) => {
       if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'count') {
+        return false
+      }
+      if (isViewComputedFormula(field, table.fields)) {
         return false
       }
       if (

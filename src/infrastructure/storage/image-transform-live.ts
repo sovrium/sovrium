@@ -14,7 +14,7 @@ import {
   type ImageTransformOptions,
   type ImageTransformResult,
 } from '@/application/ports/services/image-transform-service'
-import { parseEcoImageFormat } from '@/domain/models/env/eco-image-format'
+import { parseEcoImageFormat } from '@/domain/models/env/eco/eco-image-format'
 import { resizeImage, createThumbnail, convertImage, cropImage } from './image-processor'
 
 class SharpProcessingError extends Data.TaggedError('SharpProcessingError')<{

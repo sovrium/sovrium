@@ -9,7 +9,7 @@ import { Effect } from 'effect'
 import {
   BatchRepository,
   type BatchValidationError,
-} from '@/application/ports/repositories/batch-repository'
+} from '@/application/ports/repositories/tables/batch-repository'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { SessionContextError, ValidationError } from '@/domain/errors'

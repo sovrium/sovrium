@@ -46,7 +46,11 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
     const explicitContentType = optionalString(p, 'contentType')
     if (!source) return { status: 'failure', error: 'file.upload requires a source' } as const
 
-    const { bytes, detectedMime } = yield* resolveSource(source)
+    const resolved = yield* Effect.either(resolveSource(source))
+    if (resolved._tag === 'Left') {
+      return errorOutcome(`invalid_outbound_url_${resolved.left.reason}`)
+    }
+    const { bytes, detectedMime } = resolved.right
     const mime =
       explicitContentType || detectedMime || mimeByExt(path) || 'application/octet-stream'
     const hasPath = path !== undefined && path.trim() !== ''

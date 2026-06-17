@@ -6,13 +6,18 @@
  */
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import {
   createRecordProgram,
   deleteRecordProgram,
   updateRecordProgram,
 } from '@/application/use-cases/tables/programs'
-import { buildGuestSession } from '../build-guest-session'
+import {
+  buildCreateAuthorshipOverrides,
+  buildUpdateAuthorshipOverrides,
+} from '@/domain/services/authorship-fields'
+import { SYSTEM_USER_ID } from '@/domain/services/guest-session'
+import { buildGuestSession, buildSystemSession } from '../build-guest-session'
 import {
   buildRunContextView,
   rawActionProps,
@@ -20,9 +25,9 @@ import {
 } from './run-context-resolution'
 import { recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
-import type { QueryFilter } from '@/application/ports/repositories/table-repository'
+import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 
-export const handleRecordCreate: ActionHandler = (action, _app, _automation) =>
+export const handleRecordCreate: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -33,9 +38,12 @@ export const handleRecordCreate: ActionHandler = (action, _app, _automation) =>
     }
 
     const program = createRecordProgram({
-      session: buildGuestSession(),
+      session: buildSystemSession(),
       tableName,
-      fields,
+      fields: {
+        ...fields,
+        ...buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID),
+      },
     })
     const result = yield* Effect.either(program)
     if (result._tag === 'Left') {
@@ -61,7 +69,7 @@ const firstLeftMessage = <A>(
   return firstError ? errorMessageOf(firstError.left) : 'batch create failed'
 }
 
-export const handleRecordBatchCreate: ActionHandler = (action, _app, _automation, runContext) =>
+export const handleRecordBatchCreate: ActionHandler = (action, app, _automation, runContext) =>
   Effect.gen(function* () {
     const props = runContext
       ? (resolveRunContextValue(
@@ -78,11 +86,14 @@ export const handleRecordBatchCreate: ActionHandler = (action, _app, _automation
     const items = Array.isArray(itemsRaw) ? (itemsRaw as ReadonlyArray<unknown>) : []
     const continueOnItemError = props['continueOnItemError'] === true
 
-    const session = buildGuestSession()
+    const session = buildSystemSession()
+    const authorship = buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
     const results = yield* Effect.forEach(items, (item) => {
       const fields =
         item !== null && typeof item === 'object' ? (item as Record<string, unknown>) : {}
-      return Effect.either(createRecordProgram({ session, tableName, fields }))
+      return Effect.either(
+        createRecordProgram({ session, tableName, fields: { ...fields, ...authorship } })
+      )
     })
     const created = results.filter((r) => r._tag === 'Right').length
     const failed = results.length - created
@@ -135,7 +146,7 @@ const toQueryFilter = (filter: unknown): QueryFilter | undefined => {
   return and.length > 0 ? { and } : undefined
 }
 
-export const handleRecordUpdate: ActionHandler = (action, _app, _automation) =>
+export const handleRecordUpdate: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -154,11 +165,16 @@ export const handleRecordUpdate: ActionHandler = (action, _app, _automation) =>
       return { status: 'success' } as const
     }
 
-    const session = buildGuestSession()
+    const session = buildSystemSession()
+    const fieldsWithAuthorship = {
+      ...data,
+      ...buildUpdateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID),
+    }
     const updates = yield* Effect.either(
       Effect.forEach(
         idsToUpdate,
-        (recordId) => updateRecordProgram(session, tableName, recordId, { fields: data }),
+        (recordId) =>
+          updateRecordProgram(session, tableName, recordId, { fields: fieldsWithAuthorship }),
         { discard: true }
       )
     )
@@ -172,11 +188,16 @@ export const handleRecordUpdate: ActionHandler = (action, _app, _automation) =>
 
 const upsertCreate = (
   tableName: string,
-  data: Readonly<Record<string, unknown>>
+  data: Readonly<Record<string, unknown>>,
+  createOverrides: Readonly<Record<string, string>>
 ): Effect.Effect<ActionOutcome, never, TableRepository> =>
   Effect.gen(function* () {
     const created = yield* Effect.either(
-      createRecordProgram({ session: buildGuestSession(), tableName, fields: data })
+      createRecordProgram({
+        session: buildSystemSession(),
+        tableName,
+        fields: { ...data, ...createOverrides },
+      })
     )
     return created._tag === 'Left'
       ? failureFromError(created.left)
@@ -186,14 +207,16 @@ const upsertCreate = (
 const upsertUpdate = (
   tableName: string,
   matchedIds: readonly string[],
-  data: Readonly<Record<string, unknown>>
+  data: Readonly<Record<string, unknown>>,
+  updateOverrides: Readonly<Record<string, string>>
 ): Effect.Effect<ActionOutcome, never, TableRepository> =>
   Effect.gen(function* () {
-    const session = buildGuestSession()
+    const session = buildSystemSession()
+    const fields = { ...data, ...updateOverrides }
     const updates = yield* Effect.either(
       Effect.forEach(
         matchedIds,
-        (recordId) => updateRecordProgram(session, tableName, recordId, { fields: data }),
+        (recordId) => updateRecordProgram(session, tableName, recordId, { fields }),
         { discard: true }
       )
     )
@@ -202,7 +225,7 @@ const upsertUpdate = (
       : ({ status: 'success', output: { operation: 'updated' } } as const)
   })
 
-export const handleRecordUpsert: ActionHandler = (action, _app, _automation) =>
+export const handleRecordUpsert: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -219,8 +242,17 @@ export const handleRecordUpsert: ActionHandler = (action, _app, _automation) =>
       : yield* resolveIdsByFilter(tableName, props['filter'])
 
     return matchedIds.length === 0
-      ? yield* upsertCreate(tableName, data)
-      : yield* upsertUpdate(tableName, matchedIds, data)
+      ? yield* upsertCreate(
+          tableName,
+          data,
+          buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
+        )
+      : yield* upsertUpdate(
+          tableName,
+          matchedIds,
+          data,
+          buildUpdateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
+        )
   })
 
 export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
@@ -250,7 +282,7 @@ export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
       return { status: 'success', output: { deletedCount: 0 } } as const
     }
 
-    const session = buildGuestSession()
+    const session = buildSystemSession()
     const deletes = yield* Effect.either(
       Effect.forEach(idsToDelete, (recordId) => deleteRecordProgram(session, tableName, recordId), {
         discard: true,

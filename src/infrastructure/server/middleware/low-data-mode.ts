@@ -11,7 +11,7 @@ import {
   parseEcoLowDataDefault,
   resolveLowDataMode,
   type LowDataSignals,
-} from '@/domain/models/env/eco-low-data-default'
+} from '@/domain/models/env/eco/eco-low-data-default'
 import type { Context, MiddlewareHandler, Next } from 'hono'
 
 const LOW_DATA_COOKIE_NAME = 'sovrium_low_data'

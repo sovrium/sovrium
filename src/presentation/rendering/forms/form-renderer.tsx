@@ -11,6 +11,11 @@ import { type CSSProperties, type ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import { isGroupVisible } from '@/domain/models/shared/field-groups-flow'
+import {
+  computeFormGroupClasses,
+  computeFormGroupLabelClasses,
+  computeFormLayoutClasses,
+} from '@/presentation/utils/design/form-layout-classes'
 import { FormFieldElement, type PrefillValue } from './form-field-elements'
 import { resolveAllFields, resolveDocumentLang, resolveText } from './form-field-resolver'
 import { resolveFormPrefill, type FormPrefillContext } from './form-prefill-resolver'
@@ -97,15 +102,18 @@ function FormBody({
   app,
   form,
   embed = false,
+  mountRuntime,
   prefillContext,
   activeLang,
 }: {
   readonly app: App
   readonly form: Form
   readonly embed?: boolean
+  readonly mountRuntime?: boolean
   readonly prefillContext?: EmbeddedFormPrefillContext
   readonly activeLang?: string
 }) {
+  const shouldMountRuntime = mountRuntime ?? !embed
   const commonProps = buildFormBodyShared({ app, form, embed, prefillContext, activeLang })
   const isMultiStep = form.layout === 'multi-step' && form.steps && form.steps.length > 0
   const isOneQuestion = form.layout === 'one-question'
@@ -124,7 +132,7 @@ function FormBody({
     <>
       {body}
       {}
-      {!embed && <FormRuntimeMount form={form} />}
+      {shouldMountRuntime && <FormRuntimeMount form={form} />}
     </>
   )
 }
@@ -154,9 +162,9 @@ function renderFlatFormFields({
       {visibleGroups.map((group) => (
         <section
           key={group.label}
-          className="form-group"
+          className={`form-group ${computeFormGroupClasses()}`}
         >
-          <h2 className="form-group-label">{group.label}</h2>
+          <h2 className={`form-group-label ${computeFormGroupLabelClasses()}`}>{group.label}</h2>
           {group.fields
             .map((name) => resolvedFields.find((f) => f.name === name))
             .filter((f): f is FormBodyShared['resolvedFields'][number] => f !== undefined)
@@ -198,7 +206,10 @@ function FormBodyFlat({
     <>
       <h1 className="form-title">{title}</h1>
       {description && <p className="form-description">{description}</p>}
-      <form {...formAttributes}>
+      <form
+        className={computeFormLayoutClasses()}
+        {...formAttributes}
+      >
         {antiSpamHoneypot && <HoneypotInput />}
         {renderFlatFormFields({ resolvedFields, fieldGroups, prefillMap, lockPrefill })}
         <button type="submit">{submitLabel}</button>
@@ -365,7 +376,8 @@ export function renderEmbeddedFormBody(
     <FormBody
       app={app as App}
       form={form as Form}
-      embed={true}
+      embed={false}
+      mountRuntime={true}
       prefillContext={prefillContext}
     />
   )

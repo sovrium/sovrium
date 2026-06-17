@@ -6,17 +6,16 @@
  */
 
 import { sql } from 'drizzle-orm'
+import type { FilterNode, FilterLeaf } from './aggregation-helpers'
 import type { SQL } from 'drizzle-orm'
+
+const isLeafFilter = (node: FilterNode): node is FilterLeaf => 'field' in node && 'operator' in node
 
 export function buildTrashFilters(
   baseQuery: Readonly<SQL>,
-  filters?: readonly {
-    readonly field: string
-    readonly operator: string
-    readonly value: unknown
-  }[]
+  filters?: readonly FilterNode[]
 ): Readonly<SQL> {
-  return (filters ?? []).reduce((query, condition) => {
+  return (filters ?? []).filter(isLeafFilter).reduce((query, condition) => {
     const { field, operator, value } = condition
     const fieldIdentifier = sql.identifier(field)
 

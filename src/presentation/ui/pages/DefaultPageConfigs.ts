@@ -159,6 +159,7 @@ export function createNotFoundPageConfig(): Page {
       lang: 'en-US',
       title: '404 - Not Found',
       description: 'Page not found',
+      robots: 'noindex',
     },
     components: createErrorSection('404', 'Page not found'),
   }

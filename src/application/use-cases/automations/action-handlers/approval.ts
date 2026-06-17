@@ -17,14 +17,17 @@ const insertApprovalRequest = (input: {
   readonly message: string
   readonly timeoutSeconds: number | undefined
   readonly expiresAt: Date | undefined
+  readonly runId: string | undefined
+  readonly stepIndex: number
 }): Effect.Effect<void> =>
   Effect.promise(() =>
     db
       .insert(automationApprovalRequests)
       .values({
-        stepIndex: 0,
+        stepIndex: input.stepIndex,
         status: 'pending',
         message: input.message,
+        ...(input.runId !== undefined ? { runId: input.runId } : {}),
         ...(input.timeoutSeconds !== undefined ? { timeoutSeconds: input.timeoutSeconds } : {}),
         ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
       })
@@ -32,22 +35,36 @@ const insertApprovalRequest = (input: {
       .catch(() => undefined)
   )
 
-export const handleApprovalRequest: ActionHandler = (action, _app, _automation) =>
+const deriveTimeout = (
+  timeout: unknown
+): { readonly timeoutSeconds: number | undefined; readonly expiresAt: Date | undefined } => {
+  const timeoutMs =
+    typeof timeout === 'string' && timeout.trim() !== '' ? parseDuration(timeout) : NaN
+  const hasTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+  return {
+    timeoutSeconds: hasTimeout ? Math.floor(timeoutMs / 1000) : undefined,
+    expiresAt: hasTimeout ? new Date(Date.now() + timeoutMs) : undefined,
+  }
+}
+
+export const handleApprovalRequest: ActionHandler = (action, _app, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const message = stringProp(props, 'message')
     const { timeout, onTimeout } = props
+    const { timeoutSeconds, expiresAt } = deriveTimeout(timeout)
 
-    const timeoutMs =
-      typeof timeout === 'string' && timeout.trim() !== '' ? parseDuration(timeout) : NaN
-    const hasTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0
-    const timeoutSeconds = hasTimeout ? Math.floor(timeoutMs / 1000) : undefined
-    const expiresAt = hasTimeout ? new Date(Date.now() + timeoutMs) : undefined
-
-    yield* insertApprovalRequest({ message, timeoutSeconds, expiresAt })
+    yield* insertApprovalRequest({
+      message,
+      timeoutSeconds,
+      expiresAt,
+      runId: automation.runId,
+      stepIndex: runContext?.stepIndex ?? 0,
+    })
 
     return {
       status: 'success',
+      pause: true,
       output: {
         status: 'pending',
         ...(typeof timeout === 'string' ? { timeout } : {}),

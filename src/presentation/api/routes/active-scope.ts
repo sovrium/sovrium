@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
-import { UserAccessRepository } from '@/application/ports/repositories/user-access-repository'
+import { UserAccessRepository } from '@/application/ports/repositories/auth/user-access-repository'
 import {
   cookieNameForScope,
   validateActiveAssignment,

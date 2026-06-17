@@ -39,10 +39,12 @@ export const ActionResponseTypeSchema = Schema.Literal(
   'navigate',
   'reset',
   'message',
-  'successPage'
+  'successPage',
+  'role-landing'
 ).annotations({
   title: 'Action Response Type',
-  description: 'Form behavior after a successful action (navigate, reset, message, successPage)',
+  description:
+    'Form behavior after a successful action (navigate, reset, message, successPage, role-landing)',
 })
 
 export const ActionResponseSchema = Schema.Struct({
@@ -121,6 +123,38 @@ export const AuthActionSchema = Schema.Struct({
       examples: ['google', 'github', 'discord'],
     })
   ),
+  submitLabel: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Custom submit-button label for the auth form. Defaults to the localized built-in label for the method. Supports $t:key translation references.',
+      examples: ['Sign In', 'Se connecter', '$t:auth.submit'],
+    })
+  ),
+  fields: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String.annotations({
+          description: 'Name of the auth field to override (e.g. email, password)',
+          examples: ['email', 'password'],
+        }),
+        label: Schema.optional(
+          Schema.String.annotations({
+            description: 'Visible label override for this field. Supports $t:key references.',
+            examples: ['Adresse e-mail', 'Mot de passe', '$t:auth.email.label'],
+          })
+        ),
+        placeholder: Schema.optional(
+          Schema.String.annotations({
+            description: 'Input placeholder override for this field. Supports $t:key references.',
+            examples: ['vous@exemple.com', '$t:auth.email.placeholder'],
+          })
+        ),
+      })
+    ).annotations({
+      description:
+        'Per-field label/placeholder overrides for the auth form. Targets fields by name. Additive — default fields are used when omitted.',
+    })
+  ),
   onSuccess: Schema.optional(ActionResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
 }).annotations({
@@ -151,6 +185,38 @@ export const CrudActionSchema = Schema.Struct({
     Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
       description: 'Field values to apply in bulk update operations',
       examples: [{ status: 'shipped' }, { archived: true }],
+    })
+  ),
+  submitLabel: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Custom submit-button label for the CRUD form. Defaults to the localized built-in label for the operation (Create/Update/Delete). Supports $t:key translation references.',
+      examples: ['Create', 'Enregistrer', '$t:crud.submit'],
+    })
+  ),
+  fields: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String.annotations({
+          description: 'Name of the CRUD field to override (matches a table column, e.g. name)',
+          examples: ['name', 'email'],
+        }),
+        label: Schema.optional(
+          Schema.String.annotations({
+            description: 'Visible label override for this field. Supports $t:key references.',
+            examples: ['Nom du client', 'Adresse e-mail', '$t:crud.name.label'],
+          })
+        ),
+        placeholder: Schema.optional(
+          Schema.String.annotations({
+            description: 'Input placeholder override for this field. Supports $t:key references.',
+            examples: ['Entreprise SARL', '$t:crud.name.placeholder'],
+          })
+        ),
+      })
+    ).annotations({
+      description:
+        'Per-field label/placeholder overrides for the CRUD form. Targets fields by name (table column). Additive — table-derived fields are used when omitted.',
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),

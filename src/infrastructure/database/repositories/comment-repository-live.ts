@@ -8,6 +8,11 @@
 import { Layer } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import {
+  listCommentAuthorEmailsForRecord,
+  getUserEmailById,
+  getUserMetadataById,
+} from '@/infrastructure/database/table-queries/query-helpers/comment-author-email-queries'
+import {
   createComment,
   getCommentWithUser,
   getCommentForAuth,
@@ -32,6 +37,9 @@ export const CommentRepositoryLive = Layer.succeed(CommentRepository, {
   remove: deleteComment,
   list: listComments,
   listAuthorsForRecord: listCommentAuthorsForRecord,
+  listAuthorEmailsForRecord: listCommentAuthorEmailsForRecord,
+  getUserEmailById,
+  getUserMetadataById,
   getCount: getCommentsCount,
   update: updateComment,
   updateStatus: updateCommentStatus,

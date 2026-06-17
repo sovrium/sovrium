@@ -20,6 +20,7 @@ import {
   authOauthClientsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { logError } from '@/infrastructure/logging/logger'
+import { isTransportRelaxed } from '@/infrastructure/utils/security-posture'
 import { chainAdminInvitationRoutes } from './admin-invitation-routes'
 import {
   isRateLimitExceeded,
@@ -154,6 +155,23 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
   return result
 }
 
+const resolveCanonicalOrigin = (): string | undefined => {
+  const baseUrl = process.env['BASE_URL']
+  if (baseUrl === undefined || baseUrl === '') return undefined
+  try {
+    return new URL(baseUrl).origin
+  } catch {
+    return undefined
+  }
+}
+
+const isLoopbackOrigin = (origin: string): boolean =>
+  origin.startsWith('http://localhost:') ||
+  origin.startsWith('http://localhost') ||
+  origin.startsWith('http://127.0.0.1:') ||
+  origin.startsWith('http://127.0.0.1') ||
+  origin.startsWith('http://[::1]')
+
 export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
   if (!app?.auth) {
     return honoApp
@@ -163,10 +181,10 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
     '/api/auth/*',
     cors({
       origin: (origin) => {
-        if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-          return origin
-        }
-        return origin
+        const canonical = resolveCanonicalOrigin()
+        if (canonical !== undefined && origin === canonical) return origin
+        if (isTransportRelaxed() && isLoopbackOrigin(origin)) return origin
+        return ''
       },
       allowHeaders: ['Content-Type', 'Authorization'],
       allowMethods: ['POST', 'GET', 'OPTIONS'],
@@ -326,8 +344,8 @@ export function setupAuthRoutes(
   const appWithInvitationRoutes = chainAdminInvitationRoutes(
     appWithAuthRateLimit,
     authInstance,
-    app.auth,
-    emailHandlers
+    emailHandlers,
+    app
   )
 
   const appWithProtectedResource = setupOauthProtectedResourceRoute(appWithInvitationRoutes, app)

@@ -14,9 +14,9 @@ import { requestId } from 'hono/request-id'
 import { AiService } from '@/application/ports/services/ai-service'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
-import { appRequiresEmail } from '@/domain/models/app'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
-import { filterAgentKnowledgeTables } from '@/domain/services/rag-knowledge-access'
+import { appRequiresEmail, isAdminEquivalent } from '@/domain/models/app'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { filterAgentKnowledgeTables } from '@/domain/services/rag/rag-knowledge-access'
 import { AiLive } from '@/infrastructure/ai/layer'
 import { runSyncAgentUsers } from '@/infrastructure/auth/agent-user-sync'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -30,7 +30,7 @@ import {
 } from '@/infrastructure/database/ai-knowledge-listener'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
-import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import {
   initializeSchema,
   type AuthConfigRequiredForUserFields,
@@ -93,7 +93,7 @@ import { getSovriumVersion } from '@/infrastructure/utils/version'
 import type { ServerInstance } from '@/application/models/server'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import type { SessionInfo } from '@/domain/types/session-info'
 import type {
   DatabaseConnectionError,
@@ -127,7 +127,8 @@ export interface ServerConfig {
 }
 
 function buildGetSession(
-  authInstance: Readonly<ReturnType<typeof createAuthInstance>>
+  authInstance: Readonly<ReturnType<typeof createAuthInstance>>,
+  app: Readonly<App>
 ): (headers: Headers) => Promise<SessionInfo | undefined> {
   return async (headers) => {
     try {
@@ -135,7 +136,7 @@ function buildGetSession(
       if (!session) return undefined
       const user = session.user as { id: string; email?: string; name?: string; role?: string }
       const role = user.role ?? 'member'
-      const isUnrestricted = role === 'admin'
+      const isUnrestricted = isAdminEquivalent(role, app)
       const groups = await getUserGroups(user.id)
       const effectiveRoles = buildEffectiveRoles(role, groups)
       return {
@@ -159,7 +160,7 @@ export async function createHonoApp(
   const { app, renderNotFoundPage, renderErrorPage, configHash } = config
 
   const authInstance = app.auth ? createAuthInstance(app.auth, app.connections, app) : undefined
-  const getSession = authInstance ? buildGetSession(authInstance) : undefined
+  const getSession = authInstance ? buildGetSession(authInstance, app) : undefined
 
   const configWithSession = { ...config, getSession }
 
@@ -563,7 +564,7 @@ export const createServer = (
 
     const durationMs = Date.now() - startTime
 
-    const phases = buildStartupPhases({ infraPhases, cssLabel, durationMs })
+    const phases = buildStartupPhases({ infraPhases, cssLabel, durationMs, bindHost: hostname })
 
     if (!config.silent) {
       yield* writeLockFile(server.port, configHash, configPath)

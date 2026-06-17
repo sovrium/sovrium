@@ -6,17 +6,17 @@
  */
 
 import { z } from 'zod'
-import { resolveAiEcoRouting, type AiEcoRouting } from '@/domain/models/env/ai-eco-routing'
+import { resolveAiEcoRouting, type AiEcoRouting } from '@/domain/models/env/ai/ai-eco-routing'
 import {
   computeAiModelWarnings,
   type AgentModelOverride,
-} from '@/domain/models/env/ai-model-warnings'
+} from '@/domain/models/env/ai/ai-model-warnings'
 import {
   defaultModelForProvider,
   isSupportedAiProvider,
   resolveAiProvider,
   resolveBaseUrl,
-} from '@/domain/models/env/ai-providers'
+} from '@/domain/models/env/ai/ai-providers'
 
 export const aiComputeHealthSchema = z.object({
   enabled: z.boolean().describe('AI-compute availability (always true — baseline is the floor)'),

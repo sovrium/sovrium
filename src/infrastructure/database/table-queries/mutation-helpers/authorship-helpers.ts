@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isGuestSession } from '@/domain/services/guest-session'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
@@ -23,7 +24,7 @@ async function checkAuthorshipColumns(
 }
 
 function normalizeUserIdForDb(userId: string | undefined): string | null {
-  if (!userId || userId === 'guest') return null
+  if (!userId || isGuestSession(userId)) return null
   return userId
 }
 

@@ -13,8 +13,8 @@ import {
   type FavoriteRow,
   type RecentRow,
   type UserEntityListDatabaseError,
-} from '@/application/ports/repositories/user-entity-list-repository'
-import { UserEntityListRepositoryLive } from '@/infrastructure/database/repositories/user-entity-list-repository-live'
+} from '@/application/ports/repositories/tables/user-entity-list-repository'
+import { UserEntityListRepositoryLive } from '@/infrastructure/database/repositories/tables/user-entity-list-repository-live'
 import type { Context } from 'effect'
 
 

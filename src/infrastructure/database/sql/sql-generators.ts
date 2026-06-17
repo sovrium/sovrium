@@ -33,6 +33,7 @@ export {
   isRelationshipField,
   isUserField,
   isUserReferenceField,
+  relationshipFieldCreatesForeignKey,
 } from './sql-field-predicates'
 
 export { generateColumnDefinition } from './sql-column-generators'

@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useState } from 'react'
+import { computeFormLayoutClasses } from '@/presentation/utils/design/form-layout-classes'
 import { type FieldDef } from '../components/crud-form/fields'
 import { FormFields } from '../components/crud-form/layout'
 import { findMissingRequiredFields, submitCrudForm } from './submit-pipeline'
@@ -142,6 +143,7 @@ export function WizardCreateForm(props: {
 
   return (
     <form
+      className={computeFormLayoutClasses()}
       aria-label={`Create ${island.table}`}
       onSubmit={onSubmit}
       data-action-type="crud"

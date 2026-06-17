@@ -5,4 +5,4 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export { matchGlobPattern, matchesAnyGlobPattern } from '@/domain/utils/glob-matcher'
+export { matchGlobPattern, matchesAnyGlobPattern } from '@/domain/utils/matching/glob-matcher'

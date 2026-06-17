@@ -12,7 +12,7 @@ import {
   type AdminFormAggregateRow,
   type AdminFormSubmissionRow,
   type AdminFormsDatabaseError,
-} from '@/application/ports/repositories/admin-forms-repository'
+} from '@/application/ports/repositories/forms/admin-forms-repository'
 import {
   formAdminDetailResponseSchema,
   formsListResponseSchema,
@@ -25,7 +25,7 @@ import {
   type FormSubmissionAdminItem,
   type FormSubmissionStatus,
 } from '@/domain/models/api/admin/forms/submissions-list'
-import { AdminFormsRepositoryLive } from '@/infrastructure/database/repositories/admin-forms-repository-live'
+import { AdminFormsRepositoryLive } from '@/infrastructure/database/repositories/forms/admin-forms-repository-live'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 

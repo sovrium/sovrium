@@ -8,14 +8,18 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { AiEmbeddingRepository } from '@/application/ports/repositories/ai-embedding-repository'
-import { chunkText, resolveChunkSettings, type ChunkSettings } from '@/domain/services/rag-chunking'
+import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
+import {
+  chunkText,
+  resolveChunkSettings,
+  type ChunkSettings,
+} from '@/domain/services/rag/rag-chunking'
 import { db } from '@/infrastructure/database'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
 import type { RagAgent } from './rag-agent-input'
-import type { NewEmbedding } from '@/application/ports/repositories/ai-embedding-repository'
+import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 
 interface KnowledgeRecord {

@@ -7,9 +7,19 @@
 
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
+import { computeFormLayoutClasses } from '@/presentation/utils/design/form-layout-classes'
+
+export {
+  computeFormLayoutClasses,
+  computeFormFieldClasses,
+  computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
+  computeFormGroupClasses,
+  computeFormGroupLabelClasses,
+} from '@/presentation/utils/design/form-layout-classes'
 
 
-const FORM_LAYOUT = 'p-5 flex flex-col gap-3'
+const FORM_CARD_PADDING = 'p-5'
 
 const FORM_SURFACE = [
   `bg-[${v('sv-bg', T.bg)}]`,
@@ -19,7 +29,8 @@ const FORM_SURFACE = [
   `shadow-[${v('sv-shadow-sm', T.shadowSm)}]`,
 ].join(' ')
 
-export const computeFormClasses = (): string => [FORM_LAYOUT, FORM_SURFACE].join(' ')
+export const computeFormClasses = (): string =>
+  [FORM_CARD_PADDING, computeFormLayoutClasses(), FORM_SURFACE].join(' ')
 
 
 const DROPZONE_LAYOUT = 'p-6 flex flex-col items-center gap-2'

@@ -10,13 +10,13 @@ import {
   ActivityLogRepository,
   type ActivityLog,
   type ActivityLogDatabaseError,
-} from '@/application/ports/repositories/activity-log-repository'
+} from '@/application/ports/repositories/analytics/activity-log-repository'
 import {
   AuthRepository,
   type AuthDatabaseError,
-} from '@/application/ports/repositories/auth-repository'
-import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositories/activity-log-repository-live'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
+} from '@/application/ports/repositories/auth/auth-repository'
+import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositories/analytics/activity-log-repository-live'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import type { UserMetadata } from '@/application/ports/models/user-metadata'
 
 export class ActivityLogForbiddenError extends Data.TaggedError('ActivityLogForbiddenError')<{

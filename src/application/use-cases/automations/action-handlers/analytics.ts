@@ -7,7 +7,7 @@
 
 
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '@/application/ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import { recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 

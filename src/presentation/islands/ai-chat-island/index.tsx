@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react'
-import { computeAiChatContainerClasses } from '../specialty-islands-default-classes'
+import { computeAiChatContainerClasses } from '../recipes/specialty-islands-default-classes'
 import { ChatInputRow } from './chat-input-row'
 import { MessagesView } from './messages-view'
 import { useChat } from './use-chat'

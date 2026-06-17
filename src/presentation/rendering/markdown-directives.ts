@@ -7,7 +7,7 @@
 
 
 import type { Theme } from '@/domain/models/app/theme'
-import type { MarkdownDirective } from '@/domain/services/markdown-renderer'
+import type { MarkdownDirective } from '@/domain/services/markdown/markdown-renderer'
 
 const PLACEHOLDER_RE = /<div class="md-directive md-directive-(\d+)">([\s\S]*?)<\/div>\s*/g
 

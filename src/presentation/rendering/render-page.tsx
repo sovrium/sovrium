@@ -7,12 +7,13 @@
 
 
 import { renderToString } from 'react-dom/server'
-import { resolveLandingPath } from '@/domain/services/landing-resolver'
-import { checkPageAccess, type AccessDecision } from '@/domain/services/page-access-check'
-import { findMatchingRoute } from '@/domain/utils/route-matcher'
+import { resolveLandingPath } from '@/domain/services/pages/landing-resolver'
+import { checkPageAccess, type AccessDecision } from '@/domain/services/pages/page-access-check'
+import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import {
   evaluateRecordAgainstPredicate,
+  isPredicateGroup,
   type CurrentUserContext,
 } from '@/domain/validators/row-level-evaluator'
 import {
@@ -21,9 +22,13 @@ import {
 } from '@/presentation/rendering/analytics-helpers'
 import { resolveCustomHtmlSources } from '@/presentation/rendering/custom-html-resolver'
 import { resolvePageDataSources } from '@/presentation/rendering/data-source-resolver'
+import { resolveEditorContext } from '@/presentation/rendering/editors/editor-context-resolver'
 import { evaluateEmbeddedFormRefsAccess } from '@/presentation/rendering/forms/form-ref-access-check'
 import { expandFormRefs } from '@/presentation/rendering/forms/form-ref-resolver'
-import { resolveMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
+import {
+  isContentDirSlugNotFound,
+  resolveMarkdownPage,
+} from '@/presentation/rendering/markdown-page-resolver'
 import { resolveOpenDrawerDispatches } from '@/presentation/rendering/open-drawer-dispatch-resolver'
 import { resolveCollectionPage } from '@/presentation/rendering/page-collection-resolver'
 import { resolvePageParentRecord } from '@/presentation/rendering/page-parent-resolver'
@@ -37,6 +42,7 @@ import type { PageRenderResult } from '@/application/ports/services/page-rendere
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { RowLevelWhen } from '@/domain/models/app/tables/permissions'
 import type { SessionInfo } from '@/domain/types/session-info'
 import type { DataSourceDb } from '@/presentation/rendering/data-source-resolver'
 import type { ResolvedMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
@@ -255,8 +261,14 @@ function applyPageComponentFilters(
   const expanded = expandFormRefs(updatePermFiltered, app, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
   })
-  const withToc = resolvePageToc(expanded)
+  const editorResolved = resolveEditorContext(expanded, {
+    ...(parentRecord !== undefined ? { parentRecord } : {}),
+  })
+  const withToc = resolvePageToc(editorResolved)
   const withDrawerDispatches = resolveOpenDrawerDispatches(withToc ?? [])
+  if (app.palette?.enabled === false) {
+    return { ...rawPage, components: withDrawerDispatches }
+  }
   return {
     ...rawPage,
     components: [...withDrawerDispatches, buildCommandPaletteComponent(app)],
@@ -386,6 +398,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
       languages={app.languages}
       tables={app.tables}
       buckets={app.buckets}
+      landingPath={app.auth?.landingPath}
       detectedLanguage={detectedLanguage}
       routeParams={routeParams}
       builtInAnalyticsEnabled={injectAnalytics}
@@ -422,7 +435,17 @@ async function resolveCollectionAndFilter(input: {
   if (collectionResolution.kind === 'not-found') return undefined
   if (collectionResolution.kind === 'permission-blocked') return { permissionBlocked: true }
   const rawPage = collectionResolution.kind === 'match' ? collectionResolution.page : matchedPage
-  return resolveAndFilterPage({ rawPage, app, routeParams, session, cookies, db })
+  const collectionRecord =
+    collectionResolution.kind === 'match' ? collectionResolution.record : undefined
+  return resolveAndFilterPage({
+    rawPage,
+    app,
+    routeParams,
+    session,
+    cookies,
+    db,
+    ...(collectionRecord !== undefined ? { collectionRecord } : {}),
+  })
 }
 
 function buildCollectionRowLevelReadCheck(
@@ -471,9 +494,10 @@ function scopeFromTemplatePredicateValue(value: unknown): string | undefined {
   return slug.length > 0 ? slug : undefined
 }
 
-function collectScopeTablesFromPredicate(predicate: {
-  readonly value: unknown
-}): readonly string[] {
+function collectScopeTablesFromPredicate(predicate: RowLevelWhen): readonly string[] {
+  if (isPredicateGroup(predicate)) {
+    return predicate.conditions.flatMap(collectScopeTablesFromPredicate)
+  }
   const fromTemplate = scopeFromTemplatePredicateValue(predicate.value)
   if (fromTemplate !== undefined) return [fromTemplate]
   const fromTyped = scopeFromTypedPredicateValue(predicate.value)
@@ -508,18 +532,16 @@ async function resolveAndFilterPage(input: {
   readonly session: SessionInfo | undefined
   readonly cookies: Readonly<Record<string, string>> | undefined
   readonly db: DataSourceDb
+  readonly collectionRecord?: Readonly<Record<string, unknown>>
 }): Promise<Page | { readonly unauthorized: true } | undefined> {
-  const { rawPage, app, routeParams, session, cookies, db } = input
+  const { rawPage, app, routeParams, session, cookies, db, collectionRecord } = input
 
   const parentResolution = await resolvePageParentRecord(rawPage, routeParams, db)
   if (parentResolution.kind === 'not-found') return undefined
 
-  const filteredPage = applyPageComponentFilters(
-    rawPage,
-    app,
-    session,
-    parentResolution.kind === 'record' ? parentResolution.record : undefined
-  )
+  const hostRecord = parentResolution.kind === 'record' ? parentResolution.record : collectionRecord
+
+  const filteredPage = applyPageComponentFilters(rawPage, app, session, hostRecord)
 
   const resolved = await resolvePageDataSources(filteredPage, app, routeParams, {
     session,
@@ -587,6 +609,8 @@ export async function renderPageByPath(
     return renderPermissionBlockedPage(app, detectedLanguage)
   }
   const page: Page = resolvedPage
+
+  if (await isContentDirSlugNotFound(page, routeParams)) return undefined
 
   const [resolvedSidebar, islandEntryFile, markdownPayload] = await Promise.all([
     resolvePageSidebar(page.layout?.sidebar, app, { session, cookies, db: db ?? noopDb }),

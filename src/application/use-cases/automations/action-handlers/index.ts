@@ -17,6 +17,7 @@ import {
   handleAuthUnbanUser,
 } from './auth'
 import { handleAutomationCall, handleAutomationReturn } from './automation'
+import { handleCloud } from './cloud'
 import { handleCodeRun } from './code'
 import { handleCryptoHash, handleCryptoHmac } from './crypto'
 import {
@@ -29,6 +30,7 @@ import {
   handleDataSet,
   handleDataSort,
   handleDataSplit,
+  handleDataValidateConfig,
 } from './data'
 import { handleDelayQueue, handleDelayWait, handleDelayWebhook } from './delay'
 import { handleDigestCollect, handleDigestRelease } from './digest'
@@ -98,6 +100,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['data/split', handleDataSplit],
   ['data/compare', handleDataCompare],
   ['data/lookup', handleDataLookup],
+  ['data/validate-config', handleDataValidateConfig],
   ['ai/generate', handleAiGenerate],
   ['ai/classify', handleAiClassify],
   ['ai/extract', handleAiExtract],
@@ -152,6 +155,14 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['loop/each', handleLoopEach],
   ['automation/call', handleAutomationCall],
   ['automation/return', handleAutomationReturn],
+  ['cloud/provision-db', handleCloud],
+  ['cloud/spawn-app', handleCloud],
+  ['cloud/route-add', handleCloud],
+  ['cloud/disable-app', handleCloud],
+  ['cloud/destroy-app', handleCloud],
+  ['cloud/scale-app', handleCloud],
+  ['cloud/set-version', handleCloud],
+  ['cloud/tail-logs', handleCloud],
 ])
 
 export const noopActionHandler: ActionHandler = (_action, _app, _automation) =>

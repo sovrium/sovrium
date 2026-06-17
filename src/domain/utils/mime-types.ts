@@ -28,3 +28,10 @@ export const inferMimeFromKey = (key: string): string => {
 }
 
 export const isImageKey = (key: string): boolean => inferMimeFromKey(key).startsWith('image/')
+
+const ACTIVE_IMAGE_MIME_TYPES: ReadonlySet<string> = new Set(['image/svg+xml'])
+
+export const isInlineSafeImageKey = (key: string): boolean => {
+  const mime = inferMimeFromKey(key)
+  return mime.startsWith('image/') && !ACTIVE_IMAGE_MIME_TYPES.has(mime)
+}

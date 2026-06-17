@@ -6,18 +6,19 @@
  */
 
 import { Data, Effect } from 'effect'
-import { ConnectionRepository } from '@/application/ports/repositories/connection-repository'
+import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import {
   ConnectionTokenRepository,
   type ConnectionTokenPlaintext,
-} from '@/application/ports/repositories/connection-token-repository'
+} from '@/application/ports/repositories/connections/connection-token-repository'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import {
   refreshAccessToken,
   withRefreshLock,
   type OAuth2RefreshProps,
 } from '@/infrastructure/connections/token-refresh'
-import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connection-token-repository-live'
+import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
+import { buildEnvLookup, resolveEnvInString } from '../resolve-env-vars'
 import { stringProp } from './shared'
 import type { AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
@@ -35,24 +36,26 @@ const findConnection = (app: App, name: string): ConnectionDef | undefined => {
 }
 
 const buildStaticAuthHeader = (
-  conn: ConnectionDef
+  conn: ConnectionDef,
+  envLookup: Readonly<Record<string, string>>
 ): { readonly header: string; readonly value: string } | { readonly error: string } => {
   const { props } = conn
+  const secretProp = (key: string): string => resolveEnvInString(stringProp(props, key), envLookup)
   if (conn.type === 'apiKey') {
-    const key = stringProp(props, 'key')
+    const key = secretProp('key')
     if (!key) return { error: `connection ${conn.name}: apiKey requires a key` }
     const headerName = stringProp(props, 'header') || 'X-API-Key'
     const prefix = stringProp(props, 'prefix')
     return { header: headerName, value: prefix ? `${prefix} ${key}` : key }
   }
   if (conn.type === 'bearer') {
-    const token = stringProp(props, 'token')
+    const token = secretProp('token')
     if (!token) return { error: `connection ${conn.name}: bearer requires a token` }
     return { header: 'Authorization', value: `Bearer ${token}` }
   }
   if (conn.type === 'basic') {
-    const username = stringProp(props, 'username')
-    const password = stringProp(props, 'password')
+    const username = secretProp('username')
+    const password = secretProp('password')
     if (!username) return { error: `connection ${conn.name}: basic requires a username` }
     const encoded = Buffer.from(`${username}:${password}`, 'utf8').toString('base64')
     return { header: 'Authorization', value: `Basic ${encoded}` }
@@ -316,7 +319,8 @@ export const resolveConnectionHeaders = (
     }
     const dbMissing = yield* ensureConnectionExistsInDb(connectionName)
     if (dbMissing !== undefined) return { headers: baseHeaders, error: dbMissing }
-    const built = buildStaticAuthHeader(conn)
+    const envLookup = buildEnvLookup(app.env, process.env)
+    const built = buildStaticAuthHeader(conn, envLookup)
     if ('error' in built) return { headers: baseHeaders, error: built.error }
     return { headers: { ...baseHeaders, [built.header]: built.value } }
   })

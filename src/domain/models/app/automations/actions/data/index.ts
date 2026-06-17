@@ -15,6 +15,7 @@ import { DataMergeActionSchema } from './merge'
 import { DataSetActionSchema } from './set'
 import { DataSortActionSchema } from './sort'
 import { DataSplitActionSchema } from './split'
+import { DataValidateConfigActionSchema } from './validate-config'
 
 export const DataActionSchema = Schema.Union(
   DataSetActionSchema,
@@ -25,13 +26,14 @@ export const DataActionSchema = Schema.Union(
   DataMergeActionSchema,
   DataSplitActionSchema,
   DataCompareActionSchema,
-  DataLookupActionSchema
+  DataLookupActionSchema,
+  DataValidateConfigActionSchema
 ).pipe(
   Schema.annotations({
     identifier: 'DataAction',
     title: 'Data Action',
     description:
-      'Data transformation operations: set fields, aggregate, sort, limit, deduplicate, merge, split, compare, lookup',
+      'Data transformation operations: set fields, aggregate, sort, limit, deduplicate, merge, split, compare, lookup, validate-config',
   })
 )
 
@@ -46,3 +48,4 @@ export * from './merge'
 export * from './set'
 export * from './sort'
 export * from './split'
+export * from './validate-config'

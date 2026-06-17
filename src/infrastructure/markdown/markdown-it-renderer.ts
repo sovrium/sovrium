@@ -14,7 +14,7 @@ import {
   splitFrontmatter,
   type MarkdownHeading,
   type RenderedMarkdown,
-} from '@/domain/services/markdown-renderer'
+} from '@/domain/services/markdown/markdown-renderer'
 
 interface MdToken {
   readonly type: string
@@ -125,7 +125,7 @@ const createRenderer = (): MarkdownIt => {
     if (!token) return ''
     const info = (token.info ?? '').trim()
     const lang = info.split(/\s+/, 1)[0] ?? ''
-    const code = token.content
+    const code = token.content.replace(/\n$/, '')
     const index = env.codeBlocks.length
     env.codeBlocks[index] = { lang, code }
     const langAttr = lang.length > 0 ? ` class="language-${escapeHtml(lang)}"` : ''
@@ -173,4 +173,4 @@ export type {
   MarkdownDirective,
   MarkdownCodeBlock,
   RenderedMarkdown,
-} from '@/domain/services/markdown-renderer'
+} from '@/domain/services/markdown/markdown-renderer'

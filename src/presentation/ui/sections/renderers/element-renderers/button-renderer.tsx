@@ -6,37 +6,49 @@
  */
 
 import { type ReactElement } from 'react'
-import { renderCrudDeleteButton, type CrudFormAction } from './crud-form-renderer'
+import {
+  buildAuthDataAttributes,
+  buildAutomationDataAttributes,
+  buildClickDataAttributes,
+  buildFetchDataAttributes,
+  buildRecordContext,
+  isAuthAction,
+  isAutomationAction,
+  isCrudDeleteAction,
+  isFetchAction,
+  resolveInputDataRecordVars,
+  type AuthButtonAction,
+  type AutomationAction,
+  type FetchAction,
+} from './button-action-builders'
+import { renderCrudDeleteButton } from './crud-form-renderer'
 import type { ElementProps } from './html-element-renderer'
 import type { Tables } from '@/domain/models/app/tables'
-import type { RouteParams } from '@/domain/utils/route-matcher'
+import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
-function buildClickDataAttributes(clickInteraction: {
-  animation?: string
-  navigate?: string
-  openUrl?: string
-  openInNewTab?: boolean
-  scrollTo?: string
-  toggleElement?: string
-  submitForm?: string
-  modal?: string
-}): Record<string, string> {
-  return {
-    ...(clickInteraction.animation && { 'data-click-animation': clickInteraction.animation }),
-    ...(clickInteraction.navigate && { 'data-click-navigate': clickInteraction.navigate }),
-    ...(clickInteraction.openUrl && { 'data-click-open-url': clickInteraction.openUrl }),
-    ...(clickInteraction.openInNewTab !== undefined && {
-      'data-click-open-in-new-tab': String(clickInteraction.openInNewTab),
-    }),
-    ...(clickInteraction.scrollTo && { 'data-click-scroll-to': clickInteraction.scrollTo }),
-    ...(clickInteraction.toggleElement && {
-      'data-click-toggle-element': clickInteraction.toggleElement,
-    }),
-    ...(clickInteraction.submitForm && {
-      'data-click-submit-form': clickInteraction.submitForm,
-    }),
-    ...(clickInteraction.modal && { 'data-click-modal': clickInteraction.modal }),
-  }
+function renderActionButton(
+  props: ElementProps,
+  content: string | undefined,
+  children: readonly React.ReactNode[],
+  actionAttrs: Record<string, string>
+): ReactElement {
+  const label = (props.label ?? props['data-label']) as string | undefined
+  const {
+    label: _label,
+    'data-label': _dataLabel,
+    _record: _rec,
+    _dataSourceBound: _dsb,
+    ...restProps
+  } = props as Record<string, unknown>
+  const buttonContent = content || (children.length > 0 ? children : undefined) || label
+  return (
+    <button
+      {...restProps}
+      {...actionAttrs}
+    >
+      {buttonContent}
+    </button>
+  )
 }
 
 type RenderButtonOptions = {
@@ -50,71 +62,13 @@ type RenderButtonOptions = {
   readonly loading?: boolean
 }
 
-type AutomationAction = {
-  type: 'automation'
-  name: string
-  await?: boolean
-  onSuccess?: { toast?: { message?: string; variant?: string } }
-}
-
-function isAutomationAction(action: unknown): action is AutomationAction {
-  return (action as { type?: string })?.type === 'automation'
-}
-
-function buildAutomationDataAttributes(action: AutomationAction): Record<string, string> {
-  return {
-    'data-action-type': 'automation',
-    'data-action-name': action.name,
-    'data-action-await': String(action.await ?? false),
-    ...(action.onSuccess?.toast?.message && {
-      'data-on-success-message': action.onSuccess.toast.message,
-    }),
-    ...(action.onSuccess?.toast?.variant && {
-      'data-on-success-variant': action.onSuccess.toast.variant,
-    }),
-  }
-}
-
-function isCrudDeleteAction(action: unknown): action is CrudFormAction {
-  return (
-    (action as CrudFormAction)?.type === 'crud' &&
-    (action as CrudFormAction)?.operation === 'delete'
-  )
-}
-
-type FetchToastResponse = {
-  type: 'toast'
-  message: string
-  variant?: string
-  duration?: number
-  actionLabel?: string
-  actionUrl?: string
-}
-
-type FetchAction = {
-  type: 'fetch'
-  url: string
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  headers?: Record<string, string>
-  body?: Record<string, unknown>
-  onSuccess?: FetchToastResponse
-  onError?: FetchToastResponse
-}
-
-function isFetchAction(action: unknown): action is FetchAction {
-  return (action as { type?: string })?.type === 'fetch'
-}
-
-function buildFetchDataAttributes(action: FetchAction): Record<string, string> {
-  return {
-    'data-action-type': 'fetch',
-    'data-action-url': action.url,
-    'data-action-method': action.method ?? 'GET',
-    ...(action.headers && { 'data-action-headers': JSON.stringify(action.headers) }),
-    ...(action.body && { 'data-action-body': JSON.stringify(action.body) }),
-    ...(action.onSuccess && { 'data-on-success': JSON.stringify(action.onSuccess) }),
-    ...(action.onError && { 'data-on-error': JSON.stringify(action.onError) }),
-  }
+function renderAuthButton(
+  props: ElementProps,
+  content: string | undefined,
+  children: readonly React.ReactNode[],
+  action: AuthButtonAction
+): ReactElement {
+  return renderActionButton(props, content, children, buildAuthDataAttributes(action))
 }
 
 function renderFetchButton(
@@ -123,37 +77,27 @@ function renderFetchButton(
   children: readonly React.ReactNode[],
   action: FetchAction
 ): ReactElement {
-  const fetchAttrs = buildFetchDataAttributes(action)
-  const label = (props.label ?? props['data-label']) as string | undefined
-  const { label: _label, 'data-label': _dataLabel, ...restProps } = props as Record<string, unknown>
-  const buttonContent = content || (children.length > 0 ? children : undefined) || label
-  return (
-    <button
-      {...restProps}
-      {...fetchAttrs}
-    >
-      {buttonContent}
-    </button>
-  )
+  return renderActionButton(props, content, children, buildFetchDataAttributes(action))
 }
 
-function renderAutomationButton(
-  props: ElementProps,
-  content: string | undefined,
-  children: readonly React.ReactNode[],
-  action: AutomationAction
-): ReactElement {
-  const automationAttrs = buildAutomationDataAttributes(action)
-  const label = (props.label ?? props['data-label']) as string | undefined
-  const { label: _label, 'data-label': _dataLabel, ...restProps } = props as Record<string, unknown>
-  const buttonContent = content || (children.length > 0 ? children : undefined) || label
-  return (
-    <button
-      {...restProps}
-      {...automationAttrs}
-    >
-      {buttonContent}
-    </button>
+function renderAutomationButton(opts: {
+  readonly props: ElementProps
+  readonly content: string | undefined
+  readonly children: readonly React.ReactNode[]
+  readonly action: AutomationAction
+  readonly routeParams: RouteParams | undefined
+}): ReactElement {
+  const { props, content, children, action, routeParams } = opts
+  const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
+  const recordContext = buildRecordContext(boundRecord, routeParams)
+  const resolvedInputData = action.inputData
+    ? resolveInputDataRecordVars(action.inputData, recordContext)
+    : undefined
+  return renderActionButton(
+    props,
+    content,
+    children,
+    buildAutomationDataAttributes(action, resolvedInputData)
   )
 }
 
@@ -214,7 +158,11 @@ export function renderButton({
   }
 
   if (isAutomationAction(action)) {
-    return renderAutomationButton(props, content, children, action)
+    return renderAutomationButton({ props, content, children, action, routeParams })
+  }
+
+  if (isAuthAction(action)) {
+    return renderAuthButton(props, content, children, action)
   }
 
   if (isFetchAction(action)) {

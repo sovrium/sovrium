@@ -20,6 +20,10 @@ export const isRelationshipField = (
 ): field is Fields[number] & { type: 'relationship'; relatedTable: string } =>
   field.type === 'relationship' && 'relatedTable' in field && typeof field.relatedTable === 'string'
 
+export const relationshipFieldCreatesForeignKey = (field: Fields[number]): boolean =>
+  !('relationType' in field) ||
+  (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
+
 export const isAutoTimestampField = (field: Fields[number]): boolean =>
   field.type === 'created-at' || field.type === 'updated-at'
 

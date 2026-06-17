@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { parseEcoDesignLayer } from '@/domain/models/env/eco-design-layer'
+import { parseEcoDesignLayer } from '@/domain/models/env/eco/eco-design-layer'
 import { generateArbitraryVarSafelist } from '@/infrastructure/css/arbitrary-var-safelist'
 import {
   getCSSCacheKey,
@@ -124,6 +124,32 @@ const LAYOUT_UTILITY_SAFELIST = [
   'lg:grid-cols-10',
   'lg:grid-cols-11',
   'lg:grid-cols-12',
+  'flex-row',
+  'flex-row-reverse',
+  'flex-col',
+  'flex-col-reverse',
+  'flex-wrap',
+  'flex-nowrap',
+  'flex-wrap-reverse',
+  'justify-start',
+  'justify-center',
+  'justify-end',
+  'justify-between',
+  'justify-around',
+  'justify-evenly',
+  'items-start',
+  'items-center',
+  'items-end',
+  'items-stretch',
+  'items-baseline',
+  'gap-0',
+  'gap-1',
+  'gap-2',
+  'gap-3',
+  'gap-4',
+  'gap-5',
+  'gap-6',
+  'gap-8',
 ].join(' ')
 
 const ARBITRARY_VAR_CLASS_SAFELIST = generateArbitraryVarSafelist().join(' ')
@@ -134,6 +160,17 @@ const ARBITRARY_VAR_SAFELIST_DIRECTIVE = ARBITRARY_VAR_CLASS_SAFELIST
 
 const STATIC_IMPORTS = `@import 'tailwindcss';
     @import 'tw-animate-css';
+    /* Tailwind v4 registers JS plugins via the @plugin directive in the CSS
+       input (no tailwind.config.js in Sovrium's programmatic compiler). The
+       typography plugin mints the \`prose\` family (\`prose\`, \`prose-invert\`,
+       \`prose-slate\`, \`prose-sm\`, …) used by markdown article layouts
+       (MarkdownArticle.tsx) and the rich-text editor island. Without it those
+       classes are INERT. Placed after the \`@import 'tailwindcss'\` so the
+       plugin's utilities register against the core theme. Flows through the
+       native PostCSS path here; the native-free binary path resolves the
+       \`prose\` utilities from the candidate set + embedded plugin (see
+       generated-css-assets regeneration). */
+    @plugin "@tailwindcss/typography";
     /*---break---
      */
     @source inline("${LAYOUT_UTILITY_SAFELIST}");
@@ -295,27 +332,35 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
     }
   })
 
+const resolveProductionCSS = (
+  app: App | undefined,
+  cacheKey: string
+): Effect.Effect<CompiledCSS, CSSCompilationError> =>
+  getOrComputeCachedCSS(
+    cacheKey,
+    Effect.gen(function* () {
+      if (canServePrecompiledFile(app)) {
+        const precompiled = yield* loadPrecompiledCSS()
+        if (precompiled) {
+          logDebug('[CSS] Loaded from pre-compiled file')
+          return precompiled
+        }
+        logWarning(
+          '[CSS] Pre-compiled CSS not found. Falling back to runtime compilation. ' +
+            'Run "sovrium build" for faster startup.'
+        )
+      }
+      return yield* compileCSSRaw(app)
+    })
+  )
+
 export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
     const theme = app?.theme
     const cacheKey = getCSSCacheKey(theme, resolveNativeFreeCandidates(app))
 
     if (isProduction) {
-      return yield* getOrComputeCachedCSS(
-        cacheKey,
-        Effect.gen(function* () {
-          const precompiled = yield* loadPrecompiledCSS()
-          if (precompiled) {
-            logDebug('[CSS] Loaded from pre-compiled file')
-            return precompiled
-          }
-          logWarning(
-            '[CSS] Pre-compiled CSS not found. Falling back to runtime compilation. ' +
-              'Run "sovrium build" for faster startup.'
-          )
-          return yield* compileCSSRaw(app)
-        })
-      )
+      return yield* resolveProductionCSS(app, cacheKey)
     }
 
     const canUsePrecompiledFile = canServePrecompiledFile(app)

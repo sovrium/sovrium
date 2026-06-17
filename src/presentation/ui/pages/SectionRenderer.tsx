@@ -20,7 +20,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
 import type { SessionInfo } from '@/domain/types/session-info'
-import type { RouteParams } from '@/domain/utils/route-matcher'
+import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
 export interface SectionRendererProps {
   readonly sections: ReadonlyArray<Component | SimpleComponentReference | ComponentReference>
@@ -31,6 +31,7 @@ export interface SectionRendererProps {
   readonly currentLang: string
   readonly tables?: Tables
   readonly buckets?: Buckets
+  readonly landingPath?: string
   readonly routeParams?: RouteParams
   readonly session?: SessionInfo
 }
@@ -44,6 +45,7 @@ export function SectionRenderer({
   currentLang,
   tables,
   buckets,
+  landingPath,
   routeParams,
   session,
 }: SectionRendererProps): Readonly<ReactElement> {
@@ -63,6 +65,7 @@ export function SectionRenderer({
         currentLang={currentLang}
         tables={tables}
         buckets={buckets}
+        landingPath={landingPath}
         routeParams={routeParams}
         session={session}
       />

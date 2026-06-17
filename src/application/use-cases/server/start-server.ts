@@ -18,23 +18,27 @@ import {
   generateBootstrapTokenIfNeeded,
   type BootstrapTokenBootContext,
 } from '@/application/use-cases/auth/bootstrap-token'
+import { validateCloudGate } from '@/application/use-cases/automations/validate-cloud-gate'
 import { validateTriggerConfigs } from '@/application/use-cases/automations/validate-trigger-configs'
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
 import { normalizeAppConfig } from '@/application/use-cases/server/normalize-app-config'
 import { AppSchema } from '@/domain/models/app'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { PackageResolver } from '@/infrastructure/automations/package-resolver'
 import { TypeScriptValidator } from '@/infrastructure/automations/typescript-validator'
+import { installHostLogDrain } from '@/infrastructure/cloud/log-drain'
+import { installHostMetricsCollector } from '@/infrastructure/cloud/metrics-collector'
 import { db } from '@/infrastructure/database'
 import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
-import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/bootstrap-token-repository-live'
+import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/auth/bootstrap-token-repository-live'
+import { ensureCloudIngressRoutesTable } from '@/infrastructure/database/repositories/cloud/cloud-ingress-repository-live'
 import { Logger } from '@/infrastructure/logging/logger'
 import { seedConfigFileVersionIfChanged } from '@/infrastructure/server/route-setup/config-file-seeder'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { ServerInstance } from '@/application/models/server'
-import type { AuthRepository } from '@/application/ports/repositories/auth-repository'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/infrastructure/auth/better-auth'
 import type { PackageResolutionError } from '@/infrastructure/automations/package-resolver'
@@ -49,6 +53,11 @@ import type { SchemaInitializationError } from '@/infrastructure/errors/schema-i
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { Context } from 'effect'
+
+const isCloudModeEnabled = (): boolean => {
+  const flag = process.env.SOVRIUM_CLOUD_MODE
+  return typeof flag === 'string' && flag.trim().length > 0
+}
 
 export interface StartOptions {
   readonly port?: number
@@ -117,6 +126,7 @@ const decodeAndValidateApp = (
     yield* validateTriggerConfigs(normalizedApp).pipe(
       Effect.mapError((error) => new AppValidationError(error))
     )
+    yield* validateCloudGate(normalizedApp)
     return yield* Schema.decodeUnknown(AppSchema)(normalizedApp).pipe(
       Effect.mapError((error) => new AppValidationError(error))
     )
@@ -141,6 +151,9 @@ const runBootSequenceAndBootstrap = (
 > =>
   Effect.gen(function* () {
     yield* runMigrations(parseDatabaseDialectConfig())
+    if (isCloudModeEnabled()) {
+      yield* Effect.promise(() => ensureCloudIngressRoutesTable().catch(() => undefined))
+    }
     yield* Effect.promise(() => seedConfigFileVersionIfChanged(validatedApp))
     return yield* bootstrapAdminAndToken(validatedApp, logger)
   })
@@ -164,6 +177,51 @@ const bootstrapAdminAndToken = (
       })
     )
   })
+
+interface CreateServerDeps {
+  readonly serverFactory: Context.Tag.Service<typeof ServerFactory>
+  readonly pageRenderer: Context.Tag.Service<typeof PageRenderer>
+  readonly bootstrapToken: string | undefined
+}
+
+const createServerWithDrain = (
+  validatedApp: App,
+  options: StartOptions,
+  deps: CreateServerDeps
+): Effect.Effect<
+  ServerInstance,
+  | ServerCreationError
+  | CSSCompilationError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError
+  | TransformPresetError
+  | Error,
+  never
+> => {
+  const create = deps.serverFactory.create({
+    app: validatedApp,
+    port: options.port,
+    hostname: options.hostname,
+    publicDir: options.publicDir,
+    configHash: options.configHash,
+    configPath: options.configPath,
+    renderPage: deps.pageRenderer.renderPage,
+    renderNotFoundPage: deps.pageRenderer.renderNotFound,
+    renderErrorPage: deps.pageRenderer.renderError,
+    renderRssFeed: deps.pageRenderer.renderRssFeed,
+    bootstrapToken: deps.bootstrapToken,
+  })
+  return isCloudModeEnabled()
+    ? create.pipe(
+        Effect.tap(() =>
+          Effect.sync(() => {
+            installHostLogDrain(validatedApp)
+            installHostMetricsCollector(validatedApp)
+          })
+        )
+      )
+    : create
+}
 
 export const startServer = (
   app: unknown,
@@ -202,17 +260,9 @@ export const startServer = (
 
     const bootstrapToken = yield* runBootSequenceAndBootstrap(validatedApp, logger)
 
-    return yield* serverFactory.create({
-      app: validatedApp,
-      port: options.port,
-      hostname: options.hostname,
-      publicDir: options.publicDir,
-      configHash: options.configHash,
-      configPath: options.configPath,
-      renderPage: pageRenderer.renderPage,
-      renderNotFoundPage: pageRenderer.renderNotFound,
-      renderErrorPage: pageRenderer.renderError,
-      renderRssFeed: pageRenderer.renderRssFeed,
+    return yield* createServerWithDrain(validatedApp, options, {
+      serverFactory,
+      pageRenderer,
       bootstrapToken,
     })
   })

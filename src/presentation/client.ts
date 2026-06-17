@@ -104,6 +104,7 @@ function setupFilterFormHandlers(): void {
 }
 
 
+
 type ToastOptions = {
   variant?: string
   duration?: number
@@ -164,19 +165,72 @@ function showToast(message: string, options: ToastOptions = {}): void {
 }
 
 
-function setupAutomationButtonHandlers(): void {
+function bindActionButtons(actionType: string, onClick: (button: HTMLButtonElement) => void): void {
   document
-    .querySelectorAll<HTMLButtonElement>('button[data-action-type="automation"]')
+    .querySelectorAll<HTMLButtonElement>(`button[data-action-type="${actionType}"]`)
     .forEach((button) => {
       button.addEventListener('click', () => {
-        const awaitValue = button.getAttribute('data-action-await') === 'true'
-        const successMessage = button.getAttribute('data-on-success-message')
-        const successVariant = button.getAttribute('data-on-success-variant') ?? undefined
-        if (!awaitValue && successMessage) {
-          showToast(successMessage, { variant: successVariant })
-        }
+        onClick(button)
       })
     })
+}
+
+
+function parseActionInput(raw: string | null): Record<string, unknown> {
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed && typeof parsed === 'object') return parsed as Record<string, unknown>
+    return {}
+  } catch {
+    return {}
+  }
+}
+
+function setupAutomationButtonHandlers(): void {
+  bindActionButtons('automation', async (button) => {
+    const name = button.getAttribute('data-action-name')
+    if (!name) return
+    const awaitValue = button.getAttribute('data-action-await') === 'true'
+    const successMessage = button.getAttribute('data-on-success-message')
+    const successVariant = button.getAttribute('data-on-success-variant') ?? undefined
+    const inputData = parseActionInput(button.getAttribute('data-action-input'))
+
+    if (!awaitValue && successMessage) {
+      showToast(successMessage, { variant: successVariant })
+    }
+
+    try {
+      const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputData }),
+      })
+      if (response.ok && awaitValue && successMessage) {
+        showToast(successMessage, { variant: successVariant })
+      }
+    } catch {
+    }
+  })
+}
+
+
+function setupAuthButtonHandlers(): void {
+  bindActionButtons('auth', async (button) => {
+    const method = button.getAttribute('data-auth-method')
+    if (method !== 'logout') return
+    const navigate = button.getAttribute('data-auth-navigate')
+    try {
+      await fetch('/api/auth/sign-out', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    } finally {
+      if (navigate && navigate.startsWith('/')) {
+        window.location.assign(navigate)
+      }
+    }
+  })
 }
 
 
@@ -213,39 +267,35 @@ function dispatchToastResponse(response: FetchToastResponse | undefined): void {
 }
 
 function setupFetchButtonHandlers(): void {
-  document
-    .querySelectorAll<HTMLButtonElement>('button[data-action-type="fetch"]')
-    .forEach((button) => {
-      button.addEventListener('click', async () => {
-        const url = button.getAttribute('data-action-url')
-        if (!url) return
-        const method = button.getAttribute('data-action-method') ?? 'GET'
-        const headersRaw = button.getAttribute('data-action-headers')
-        const bodyRaw = button.getAttribute('data-action-body')
-        const onSuccess = parseToastResponse(button.getAttribute('data-on-success'))
-        const onError = parseToastResponse(button.getAttribute('data-on-error'))
+  bindActionButtons('fetch', async (button) => {
+    const url = button.getAttribute('data-action-url')
+    if (!url) return
+    const method = button.getAttribute('data-action-method') ?? 'GET'
+    const headersRaw = button.getAttribute('data-action-headers')
+    const bodyRaw = button.getAttribute('data-action-body')
+    const onSuccess = parseToastResponse(button.getAttribute('data-on-success'))
+    const onError = parseToastResponse(button.getAttribute('data-on-error'))
 
-        const headers: Record<string, string> = headersRaw
-          ? (JSON.parse(headersRaw) as Record<string, string>)
-          : {}
-        const init: RequestInit = { method, headers }
-        if (bodyRaw) {
-          init.body = bodyRaw
-          if (!headers['Content-Type']) headers['Content-Type'] = 'application/json'
-        }
+    const headers: Record<string, string> = headersRaw
+      ? (JSON.parse(headersRaw) as Record<string, string>)
+      : {}
+    const init: RequestInit = { method, headers }
+    if (bodyRaw) {
+      init.body = bodyRaw
+      if (!headers['Content-Type']) headers['Content-Type'] = 'application/json'
+    }
 
-        try {
-          const response = await fetch(url, init)
-          if (response.ok) {
-            dispatchToastResponse(onSuccess)
-          } else {
-            dispatchToastResponse(onError)
-          }
-        } catch {
-          dispatchToastResponse(onError)
-        }
-      })
-    })
+    try {
+      const response = await fetch(url, init)
+      if (response.ok) {
+        dispatchToastResponse(onSuccess)
+      } else {
+        dispatchToastResponse(onError)
+      }
+    } catch {
+      dispatchToastResponse(onError)
+    }
+  })
 }
 
 
@@ -265,6 +315,7 @@ function initClientRuntime(): void {
   setupModalHandlers()
   setupIslandFormGuards()
   setupAutomationButtonHandlers()
+  setupAuthButtonHandlers()
   setupFetchButtonHandlers()
 }
 

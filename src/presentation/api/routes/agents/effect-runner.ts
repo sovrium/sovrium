@@ -12,7 +12,7 @@ import type { ApprovalRecord } from './approval-store'
 import type {
   ApprovalMirrorRecord,
   ApprovalRepository,
-} from '@/application/ports/repositories/approval-repository'
+} from '@/application/ports/repositories/ai/approval-repository'
 
 export const toMirrorRecord = (record: Readonly<ApprovalRecord>): ApprovalMirrorRecord => ({
   id: record.id,

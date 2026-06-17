@@ -63,11 +63,58 @@ export const RowLevelPredicateSchema = Schema.Struct({
 
 export type RowLevelPredicate = Schema.Schema.Type<typeof RowLevelPredicateSchema>
 
+export interface RowLevelPredicateGroup {
+  readonly logic?: 'and' | 'or'
+  readonly conditions: ReadonlyArray<RowLevelPredicate | RowLevelPredicateGroup>
+}
+
+export const RowLevelPredicateGroupSchema: Schema.Schema<RowLevelPredicateGroup> = Schema.Struct({
+  logic: Schema.optional(
+    Schema.Literal('and', 'or').pipe(
+      Schema.annotations({
+        description:
+          'Logical operator: and (all conditions must match) or or (any condition matches). Default: and',
+      })
+    )
+  ),
+  conditions: Schema.Array(
+    Schema.Union(
+      RowLevelPredicateSchema,
+      Schema.suspend((): Schema.Schema<RowLevelPredicateGroup> => RowLevelPredicateGroupSchema)
+    )
+  ).pipe(
+    Schema.minItems(1),
+    Schema.annotations({
+      description: 'One or more predicates (each a triple or a nested group) to combine',
+    })
+  ),
+}).pipe(
+  Schema.annotations({
+    identifier: 'RowLevelPredicateGroup',
+    title: 'Row-Level Predicate Group',
+    description:
+      'Composite AND/OR group of row-level predicates. A record passes when the group evaluates true.',
+  })
+)
+
+export const RowLevelWhenSchema = Schema.Union(
+  RowLevelPredicateSchema,
+  RowLevelPredicateGroupSchema
+).pipe(
+  Schema.annotations({
+    identifier: 'RowLevelWhen',
+    title: 'Row-Level When Predicate',
+    description: 'A single predicate triple or a composite AND/OR predicate group.',
+  })
+)
+
+export type RowLevelWhen = Schema.Schema.Type<typeof RowLevelWhenSchema>
+
 export const RowLevelPermissionsSchema = Schema.Struct({
-  read: Schema.optional(Schema.Struct({ when: RowLevelPredicateSchema })),
-  write: Schema.optional(Schema.Struct({ when: RowLevelPredicateSchema })),
-  create: Schema.optional(Schema.Struct({ when: RowLevelPredicateSchema })),
-  delete: Schema.optional(Schema.Struct({ when: RowLevelPredicateSchema })),
+  read: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
+  write: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
+  create: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
+  delete: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
 }).pipe(
   Schema.annotations({
     identifier: 'RowLevelPermissions',

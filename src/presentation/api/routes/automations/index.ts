@@ -10,7 +10,7 @@ import {
   AutomationRunRepository,
   type PersistedRun,
   type PersistedStep,
-} from '@/application/ports/repositories/automation-run-repository'
+} from '@/application/ports/repositories/automations/automation-run-repository'
 import { dispatchAutomationOnce } from '@/application/use-cases/automations/dispatch-automation-trigger'
 import {
   replayAutomationRun,
@@ -25,33 +25,34 @@ import {
   listAutomationRuns,
   type AutomationRunRecord,
 } from '@/application/use-cases/automations/run-history-store'
-import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideAutomationLive } from './effect-runner'
-import { handleCancelRun, handleReplayRunById } from './runs-handlers'
+import { chainRunControlRoutes } from './runs-handlers'
+import { selectTriggerProgram } from './trigger-program-selector'
 import { handleWebhookRequest } from './webhook-handler'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 const triggerResultBody = (result: RunAutomationResult) => {
-  const toPublicStatus = (
-    s: RunAutomationResult['status']
-  ): 'completed' | 'completed-with-errors' | 'failed' | 'skipped' | 'cancelled' => {
-    if (s === 'success') return 'completed'
-    if (s === 'completed-with-errors') return 'completed-with-errors'
-    if (s === 'skipped') return 'skipped'
-    if (s === 'cancelled') return 'cancelled'
-    return 'failed'
-  }
   return {
     success: true,
     id: result.runId,
-    status: toPublicStatus(result.status),
+    status: toPublicTriggerStatus(result.status),
     ...(result.lastOutput !== undefined ? { output: result.lastOutput } : {}),
     ...(result.error !== undefined ? { error: result.error } : {}),
   }
 }
+
+const PUBLIC_TRIGGER_STATUS: Readonly<Record<string, string>> = {
+  success: 'completed',
+  'completed-with-errors': 'completed-with-errors',
+  skipped: 'skipped',
+  cancelled: 'cancelled',
+  'waiting-approval': 'waiting-approval',
+}
+const toPublicTriggerStatus = (s: RunAutomationResult['status']): string =>
+  PUBLIC_TRIGGER_STATUS[s] ?? 'failed'
 
 const computeCronNextRunOverlay = (
   trigger: Readonly<Record<string, unknown>>
@@ -129,13 +130,12 @@ async function handleManualTrigger(c: Context, app: App) {
 
   const body = await c.req.json().catch(() => undefined)
 
-  const program = runManualAutomation({
+  const program = selectTriggerProgram({
     name,
     app,
-    processEnv: process.env,
     userRole,
-    triggerData: { body },
-    ...(session?.userId !== undefined ? { userId: session.userId } : {}),
+    body,
+    userId: session?.userId,
   })
   const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
 
@@ -365,7 +365,8 @@ async function handleFormAction(c: Context, app: App) {
   }
 
   const body = (await c.req.json().catch(() => ({}))) as { inputData?: Record<string, unknown> }
-  const triggerData = { body: body.inputData ?? {} }
+  const inputData = body.inputData ?? {}
+  const triggerData = { body: inputData, input: inputData }
   const session = getSessionContext(c)
 
   const program = dispatchAutomationOnce({
@@ -428,7 +429,7 @@ async function handleReplayRun(c: Context, app: App) {
 }
 
 export function chainAutomationRoutes<T extends Hono>(honoApp: T, app: App): T {
-  return honoApp
+  const withCore = honoApp
     .get('/api/automations', (c) => handleListAutomations(c, app))
     .on(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], '/api/automations/:name/webhook', (c) =>
       handleWebhookRequest(c, app)
@@ -439,6 +440,5 @@ export function chainAutomationRoutes<T extends Hono>(honoApp: T, app: App): T {
     .get('/api/automations/runs/:id', (c) => handleGetRunDetail(c, app))
     .get('/api/automations/:name/runs', (c) => handleListRunsByName(c, app))
     .post('/api/automations/:name/runs/:id/replay', (c) => handleReplayRun(c, app))
-    .post('/api/automations/runs/:id/replay', (c) => handleReplayRunById(c, app))
-    .post('/api/automations/runs/:id/cancel', (c) => handleCancelRun(c, app)) as T
+  return chainRunControlRoutes(withCore, app) as T
 }

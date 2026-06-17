@@ -6,7 +6,7 @@
  */
 
 import { sql, type SQL, type Column } from 'drizzle-orm'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 
 
 const currentDialect = (): 'postgres' | 'sqlite' => parseDatabaseDialectConfig().dialect

@@ -9,6 +9,11 @@
 import { type Context } from 'hono'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import {
+  isInsecureOptOut,
+  isLoopbackHost,
+  resolveBindHostname,
+} from '@/infrastructure/utils/security-posture'
+import {
   type DraftRow,
   type Snapshot,
   readActiveVersionSnapshot,
@@ -105,12 +110,18 @@ const resolveCaller = async (
   }
 }
 
+const isNoAuthBypassAllowed = (): boolean =>
+  isLoopbackHost(resolveBindHostname()) || isInsecureOptOut()
+
 export const withAdmin = async (
   c: Readonly<Context>,
   app: Readonly<App>,
   handler: (caller: CallerContext) => Promise<Response>
 ): Promise<Response> => {
   if (!app.auth) {
+    if (!isNoAuthBypassAllowed()) {
+      return jsonError(c, 404, { code: 'NOT_FOUND', message: 'Schema-edit API is not enabled' })
+    }
     return handler({ userId: 'system', role: 'admin' })
   }
   const caller = await resolveCaller(c, app)

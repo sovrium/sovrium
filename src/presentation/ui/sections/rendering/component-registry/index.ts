@@ -14,12 +14,14 @@ import { islandComponents } from './island-components'
 import { mediaComponents } from './media-components'
 import { navigationComponents } from './navigation-components'
 import { progressComponent } from './progress-component'
+import { recordFieldComponent } from './record-field-component'
 import { reorderableListComponent } from './reorderable-list-component'
 import { skeletonComponent } from './skeleton-component'
 import { commentsComponent, commentCountComponent } from './social-components'
 import { specialComponents } from './special-components'
 import { structuralComponents } from './structural-components'
 import { textComponents } from './text-components'
+import { themeToggleComponent } from './theme-toggle-component'
 import { tocComponent } from './toc-component'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -34,6 +36,7 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   ...navigationComponents,
   ...islandComponents,
   'ai-chat': aiChatComponent,
+  'record-field': recordFieldComponent,
   progress: progressComponent,
   skeleton: skeletonComponent,
   'reorderable-list': reorderableListComponent,
@@ -41,6 +44,7 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   'command-palette': commandPaletteComponent,
   comments: commentsComponent,
   commentCount: commentCountComponent,
+  'theme-toggle': themeToggleComponent,
   toc: tocComponent,
 } as Partial<Record<Component['type'], ComponentRenderer>> & Record<string, ComponentRenderer>
 

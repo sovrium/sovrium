@@ -6,7 +6,7 @@
  */
 
 import { Data } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 
 
 export class UnsupportedInSqliteError extends Data.TaggedError('UnsupportedInSqliteError')<{

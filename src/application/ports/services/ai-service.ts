@@ -6,10 +6,10 @@
  */
 
 import { Context, Data } from 'effect'
-import type { ChatToolDefinition } from '@/domain/services/ai-chat-tools'
+import type { ChatToolDefinition } from '@/domain/services/ai-chat/ai-chat-tools'
 import type { Effect, Stream } from 'effect'
 
-export type { ChatToolDefinition } from '@/domain/services/ai-chat-tools'
+export type { ChatToolDefinition } from '@/domain/services/ai-chat/ai-chat-tools'
 
 
 export class AiProviderError extends Data.TaggedError('AiProviderError')<{

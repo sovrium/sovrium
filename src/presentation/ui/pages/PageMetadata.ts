@@ -69,47 +69,76 @@ function determineDirection(languages: Languages | undefined, lang: string): 'lt
   return langConfig?.direction || 'ltr'
 }
 
-function determineTitle(page: Page, lang: string, languages: Languages | undefined): string {
+function resolveFrontmatterPattern(
+  value: string,
+  frontmatter: Readonly<Record<string, string>> | undefined
+): string {
+  const prefix = '$frontmatter.'
+  if (!value.startsWith(prefix)) return value
+  const key = value.slice(prefix.length)
+  return frontmatter?.[key] ?? ''
+}
+
+function determineTitle(
+  page: Page,
+  lang: string,
+  languages: Languages | undefined,
+  frontmatter: Readonly<Record<string, string>> | undefined
+): string {
   if (page.meta?.i18n?.[lang]?.title) {
     return page.meta.i18n[lang].title
   }
 
-  const rawTitle = page.meta?.title || page.name || page.path
+  const rawTitle = resolveFrontmatterPattern(
+    page.meta?.title || page.name || page.path,
+    frontmatter
+  )
   return resolveTranslationPattern(rawTitle, lang, languages)
 }
 
-function determineDescription(page: Page, lang: string, languages: Languages | undefined): string {
+function determineDescription(
+  page: Page,
+  lang: string,
+  languages: Languages | undefined,
+  frontmatter: Readonly<Record<string, string>> | undefined
+): string {
   if (page.meta?.i18n?.[lang]?.description) {
     return page.meta.i18n[lang].description
   }
 
-  const rawDescription = page.meta?.description || ''
+  const rawDescription = resolveFrontmatterPattern(page.meta?.description || '', frontmatter)
   return resolveTranslationPattern(rawDescription, lang, languages)
 }
 
 function determineKeywords(
   page: Page,
   lang: string,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  frontmatter: Readonly<Record<string, string>> | undefined
 ): string | undefined {
   if (!page.meta?.keywords) {
     return undefined
   }
 
-  return resolveTranslationPattern(page.meta.keywords, lang, languages)
+  const rawKeywords = resolveFrontmatterPattern(page.meta.keywords, frontmatter)
+  return resolveTranslationPattern(rawKeywords, lang, languages)
 }
 
 export function extractPageMetadata(
   page: Page,
   theme: Theme | undefined,
   languages: Languages | undefined,
-  detectedLanguage: string | undefined
+  options?: {
+    readonly detectedLanguage?: string
+    readonly frontmatter?: Readonly<Record<string, string>>
+  }
 ): Readonly<PageMetadata> {
+  const { detectedLanguage, frontmatter } = options ?? {}
   const lang = determineLanguage(page, languages, detectedLanguage)
   const direction = determineDirection(languages, lang)
-  const title = determineTitle(page, lang, languages)
-  const description = determineDescription(page, lang, languages)
-  const keywords = determineKeywords(page, lang, languages)
+  const title = determineTitle(page, lang, languages, frontmatter)
+  const description = determineDescription(page, lang, languages, frontmatter)
+  const keywords = determineKeywords(page, lang, languages, frontmatter)
   const canonical = page.meta?.canonical
   const bodyStyle = buildBodyStyle(theme)
 

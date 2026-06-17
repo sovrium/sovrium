@@ -14,6 +14,8 @@ import { logDebug } from '@/infrastructure/logging'
 import {
   formatHtmlWithPrettier,
   generateClientHydrationScript,
+  generateLlmsFullTxtContent,
+  generateLlmsTxtContent,
   generateRobotsContent,
   generateSitemapContent,
   type HreflangConfig,
@@ -215,11 +217,19 @@ export function generateSitemapFile(
         const languages = app.languages && options.languages ? options.languages : undefined
         const hreflangConfig = buildHreflangConfig(app, options)
 
-        const sitemap = generateSitemapContent(
-          pages,
-          options.baseUrl || 'https://example.com',
-          languages || hreflangConfig ? { languages, hreflangConfig } : undefined
-        )
+        const sitemap = yield* Effect.tryPromise({
+          try: () =>
+            generateSitemapContent(
+              pages,
+              options.baseUrl || 'https://example.com',
+              languages || hreflangConfig ? { languages, hreflangConfig } : undefined
+            ),
+          catch: (error) =>
+            new StaticGenerationError({
+              message: 'Failed to generate sitemap.xml',
+              cause: error,
+            }),
+        })
         yield* Effect.tryPromise({
           try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),
           catch: (error) =>
@@ -259,6 +269,60 @@ export function generateRobotsFile(
             }),
         })
         return ['robots.txt'] as const
+      }),
+    onFalse: () => Effect.succeed([] as readonly string[]),
+  })
+}
+
+function writeLlmsFullFile(app: App, outputDir: string, fs: FileSystemLike) {
+  return Effect.if(app.llms?.full !== false, {
+    onTrue: () =>
+      Effect.gen(function* () {
+        const full = yield* Effect.tryPromise({
+          try: () => generateLlmsFullTxtContent(app),
+          catch: (error) =>
+            new StaticGenerationError({
+              message: 'Failed to generate llms-full.txt',
+              cause: error,
+            }),
+        })
+        yield* Effect.tryPromise({
+          try: () => fs.writeFile(`${outputDir}/llms-full.txt`, full, 'utf-8'),
+          catch: (error) =>
+            new StaticGenerationError({ message: 'Failed to write llms-full.txt', cause: error }),
+        })
+        return ['llms-full.txt'] as const
+      }),
+    onFalse: () => Effect.succeed([] as readonly string[]),
+  })
+}
+
+export function generateLlmsFiles(
+  app: App,
+  outputDir: string,
+  options: GenerateStaticOptions,
+  fs: FileSystemLike
+) {
+  const llmsEnabled =
+    app.llms?.enabled !== false && (app.pages ?? []).some((page) => page.contentDir !== undefined)
+
+  return Effect.if(llmsEnabled, {
+    onTrue: () =>
+      Effect.gen(function* () {
+        logDebug('Generating llms.txt...')
+        const baseUrl = options.baseUrl?.replace(/\/$/, '') ?? ''
+        const llms = yield* Effect.tryPromise({
+          try: () => generateLlmsTxtContent(app, baseUrl),
+          catch: (error) =>
+            new StaticGenerationError({ message: 'Failed to generate llms.txt', cause: error }),
+        })
+        yield* Effect.tryPromise({
+          try: () => fs.writeFile(`${outputDir}/llms.txt`, llms, 'utf-8'),
+          catch: (error) =>
+            new StaticGenerationError({ message: 'Failed to write llms.txt', cause: error }),
+        })
+        const fullFiles = yield* writeLlmsFullFile(app, outputDir, fs)
+        return ['llms.txt', ...fullFiles] as readonly string[]
       }),
     onFalse: () => Effect.succeed([] as readonly string[]),
   })

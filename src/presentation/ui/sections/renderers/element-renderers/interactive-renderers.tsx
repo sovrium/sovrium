@@ -22,6 +22,7 @@ import {
 } from './interactive-content-default-classes'
 import type { ElementProps } from './html-element-renderer'
 import type { Buckets } from '@/domain/models/app/buckets'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 
@@ -44,21 +45,25 @@ export interface RenderFormConfig {
   readonly tables?: Tables
   readonly buckets?: Buckets
   readonly component?: Component
+  readonly lang?: string
+  readonly languages?: Languages
+  readonly landingPath?: string
 }
 
 function renderCrudFormVariant(config: RenderFormConfig): ReactElement {
-  const { props, action, tables, buckets, component } = config
+  const { props, action, tables, buckets, component, lang, languages } = config
   const crudAction = action as unknown as CrudFormAction
+  const renderContext = { lang, languages }
   if (crudAction.operation === 'update') {
-    return renderCrudUpdateForm(props, crudAction, tables, component, buckets)
+    return renderCrudUpdateForm(props, crudAction, tables, component, buckets, renderContext)
   }
-  return renderCrudCreateForm(props, crudAction, tables, component, buckets)
+  return renderCrudCreateForm(props, crudAction, tables, component, buckets, renderContext)
 }
 
 function renderAuthFormVariant(config: RenderFormConfig): ReactElement {
-  const { props, action, tables, component } = config
+  const { props, action, tables, component, lang, languages, landingPath } = config
   if (action?.type === 'auth' && action.strategy === 'oauth') return renderOAuthForm(props, action)
-  return renderAuthForm(props, action!, tables, component)
+  return renderAuthForm(props, action!, { tables, component, lang, languages, landingPath })
 }
 
 function maybeSynthesizeCrudUpdateAction(config: RenderFormConfig): RenderFormConfig['action'] {

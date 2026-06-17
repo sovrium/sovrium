@@ -6,7 +6,7 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import {
   users as authUsersPg,
   sessions as authSessionsPg,

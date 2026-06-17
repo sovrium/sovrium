@@ -6,14 +6,20 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
-import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automation-digest-repository-live'
-import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automation-repository-live'
-import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automation-run-repository-live'
-import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automation-state-repository-live'
-import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connection-repository-live'
-import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connection-token-repository-live'
-import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/user-access-repository-live'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
+import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/auth/user-access-repository-live'
+import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
+import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-repository-live'
+import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
+import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
+import { CloudHostRegistryRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-host-registry-repository-live'
+import { CloudIngressRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-ingress-repository-live'
+import { CloudQuotaRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-quota-repository-live'
+import { CloudSupervisorRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-supervisor-repository-live'
+import { CloudTenantDatabasesRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-tenant-databases-repository-live'
+import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
+import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
+import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 
 export { checkForExistingRecords } from '@/infrastructure/database/table-queries/query-helpers/check-existing-records'
@@ -26,7 +32,13 @@ const TableWithAutomationsLive = Layer.mergeAll(
   AutomationDigestRepositoryLive,
   ConnectionRepositoryLive,
   ConnectionTokenRepositoryLive,
-  AnalyticsRepositoryLive
+  AnalyticsRepositoryLive,
+  DataSourceRepositoryLive,
+  CloudHostRegistryRepositoryLive,
+  CloudIngressRepositoryLive,
+  CloudQuotaRepositoryLive,
+  CloudSupervisorRepositoryLive,
+  CloudTenantDatabasesRepositoryLive
 )
 
 const UserAccessLive = UserAccessRepositoryLive

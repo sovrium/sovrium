@@ -10,8 +10,9 @@ import {
   inviteUser as inviteUserUseCase,
 } from '@/application/use-cases/auth/admin-invitation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { resolvePasswordPolicy } from '@/domain/utils/password-policy'
+import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
 import { logError } from '@/infrastructure/logging/logger'
+import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
@@ -313,16 +314,24 @@ const createAcceptInvitationPageHandler =
   }
 
 export const chainAdminInvitationRoutes = (
-  app: Readonly<Hono>,
+  honoApp: Readonly<Hono>,
   authInstance: AuthInstance,
-  authConfig: Auth | undefined,
-  emailHandlers: EmailHandlers
+  emailHandlers: EmailHandlers,
+  app?: Readonly<App>
 ): Readonly<Hono> => {
+  const authConfig = app?.auth
   const inviteHandler = createInviteUserHandler(authInstance, authConfig, emailHandlers)
   const acceptApiHandler = createAcceptInvitationHandler(authInstance, authConfig)
-  const acceptPageHandler = createAcceptInvitationPageHandler(authConfig)
-  return app
+  const appWithApiRoutes = honoApp
     .post('/api/auth/admin/invite-user', inviteHandler)
     .post('/api/auth/admin/accept-invitation', acceptApiHandler)
-    .get('/accept-invitation', acceptPageHandler)
+
+  const hasCustomAcceptPage =
+    app?.pages?.some((page) => page.path === '/accept-invitation') ?? false
+  if (hasCustomAcceptPage) {
+    return appWithApiRoutes
+  }
+
+  const acceptPageHandler = createAcceptInvitationPageHandler(authConfig)
+  return appWithApiRoutes.get('/accept-invitation', acceptPageHandler)
 }

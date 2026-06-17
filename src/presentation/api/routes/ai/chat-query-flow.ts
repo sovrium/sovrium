@@ -6,12 +6,12 @@
  */
 
 
-import { parseQueryIntent } from '@/domain/services/ai-chat-query-parser'
+import { parseQueryIntent } from '@/domain/services/ai-chat/ai-chat-query-parser'
 import { runQuery, type QueryTableWithPerms } from './chat-query'
 import { projectAppTables } from './chat-table-projection'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
-import type { ContextPageScope } from '@/domain/services/ai-chat-context'
+import type { ContextPageScope } from '@/domain/services/ai-chat/ai-chat-context'
 
 export type QueryTurnResult =
   | { readonly kind: 'none' }

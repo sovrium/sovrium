@@ -15,7 +15,7 @@ import {
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
 import { provideDynamicRecordRepoLive } from '@/presentation/api/routes/ai/effect-runner'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
-import type { QueryIntent, QueryTable } from '@/domain/services/ai-chat-query-parser'
+import type { QueryIntent, QueryTable } from '@/domain/services/ai-chat/ai-chat-query-parser'
 
 export type QueryTableWithPerms = QueryTable & { readonly permissions?: unknown }
 

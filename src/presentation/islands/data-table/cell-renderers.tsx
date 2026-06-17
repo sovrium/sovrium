@@ -23,7 +23,7 @@ import {
   computeUserAvatarClasses,
   computeUserNameClasses,
   computeUserPillClasses,
-} from '../cell-affordances-default-classes'
+} from '../recipes/cell-affordances-default-classes'
 
 
 interface StatusOptionMeta {

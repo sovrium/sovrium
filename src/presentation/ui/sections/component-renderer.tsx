@@ -45,7 +45,7 @@ import type { VariantOverrides } from '@/domain/models/app/pages/components/resp
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
 import type { SessionInfo } from '@/domain/types/session-info'
-import type { RouteParams } from '@/domain/utils/route-matcher'
+import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
 type ComponentRendererProps = {
   readonly component: Component | SimpleComponentReference | ComponentReference
@@ -59,6 +59,7 @@ type ComponentRendererProps = {
   readonly childIndex?: number
   readonly tables?: Tables
   readonly buckets?: Buckets
+  readonly landingPath?: string
   readonly routeParams?: RouteParams
   readonly session?: SessionInfo
 }
@@ -86,6 +87,7 @@ function renderComponentReference(
       currentLang={props.currentLang}
       tables={props.tables}
       buckets={props.buckets}
+      landingPath={props.landingPath}
       routeParams={props.routeParams}
       session={props.session}
     />
@@ -113,6 +115,7 @@ function renderChildren(
         childIndex={index}
         tables={props.tables}
         buckets={props.buckets}
+        landingPath={props.landingPath}
         routeParams={props.routeParams}
         session={props.session}
       />
@@ -360,12 +363,14 @@ function RenderDirectComponent({
     renderedChildren: finalChildren,
     theme: props.theme,
     languages: props.languages,
+    currentLang: props.currentLang,
     interactions,
     action: substitutedComponent.action,
     component: substitutedComponent,
     rawProps: mergedPropsWithVisibility as Record<string, unknown> | undefined,
     tables: props.tables,
     buckets: props.buckets,
+    landingPath: props.landingPath,
     routeParams: props.routeParams,
     session: props.session,
   })

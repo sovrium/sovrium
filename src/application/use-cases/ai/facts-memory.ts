@@ -10,7 +10,7 @@ import {
   AiFactsRepository,
   type AiFact,
   type AiFactsDatabaseError,
-} from '@/application/ports/repositories/ai-facts-repository'
+} from '@/application/ports/repositories/ai/ai-facts-repository'
 
 
 export const extractAndStoreFact = (input: {

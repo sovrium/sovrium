@@ -7,7 +7,7 @@
 
 
 import { Effect } from 'effect'
-import { DataSourceRepository } from '@/application/ports/repositories/data-source-repository'
+import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import {
   collectAssignmentScopeTables,
   loadCurrentUserContext,
@@ -19,8 +19,11 @@ import { rawListRecordsProgram } from '@/application/use-cases/tables/raw-list-p
 import { hasPermission } from '@/domain/models/app/tables/permissions'
 import {
   evaluateRecordAgainstPredicate,
+  isPredicateGroup,
   projectPredicateToFilter,
+  projectWhenToFilter,
   type CurrentUserContext,
+  type RowLevelFilterNode,
 } from '@/domain/validators/row-level-evaluator'
 import { provideTableLive, runTableProgram } from '@/infrastructure/layers/table-layer'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from './response-helpers'
@@ -115,7 +118,13 @@ type ProjectedClause = {
   readonly value: unknown
 }
 
-export type ProjectedClauseResult = 'bypass' | 'no-rlp' | 'empty' | undefined | ProjectedClause
+export type ProjectedClauseResult =
+  | 'bypass'
+  | 'no-rlp'
+  | 'empty'
+  | undefined
+  | ProjectedClause
+  | RowLevelFilterNode
 
 const projectOpPredicateClause = (
   rlp: RowLevelPermissions | undefined,
@@ -125,6 +134,12 @@ const projectOpPredicateClause = (
   const predicate = rlp ? predicateFor(rlp, op) : undefined
   if (!predicate) return 'no-rlp'
   if (ctx.isUnrestricted) return 'bypass'
+
+  if (isPredicateGroup(predicate)) {
+    const node = projectWhenToFilter(predicate, ctx)
+    return node ?? undefined
+  }
+
   const projected = projectPredicateToFilter(predicate, ctx)
   if (!projected) return undefined
   if (

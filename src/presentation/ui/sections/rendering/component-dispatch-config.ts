@@ -11,7 +11,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
 import type { SessionInfo } from '@/domain/types/session-info'
-import type { RouteParams } from '@/domain/utils/route-matcher'
+import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 import type { ReactElement } from 'react'
 
 export interface ComponentDispatchConfig {
@@ -22,12 +22,14 @@ export interface ComponentDispatchConfig {
   readonly renderedChildren: readonly ReactElement[]
   readonly theme: Theme | undefined
   readonly languages: Languages | undefined
+  readonly currentLang?: string
   readonly interactions?: Component['interactions']
   readonly action?: Component['action']
   readonly component?: Component
   readonly rawProps?: Record<string, unknown>
   readonly tables?: Tables
   readonly buckets?: Buckets
+  readonly landingPath?: string
   readonly routeParams?: RouteParams
   readonly session?: SessionInfo
 }

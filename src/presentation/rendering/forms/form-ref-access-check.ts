@@ -7,6 +7,8 @@
 
 
 import { evaluateFormAccess } from '@/domain/models/shared/form-access-flow'
+import { collectFromComponentTree } from '@/presentation/rendering/component-walker'
+import { isComponentHiddenForSession } from '@/presentation/rendering/visibility-filter'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -19,25 +21,18 @@ function readFormRef(node: unknown): string | undefined {
   return typeof obj.formRef === 'string' ? obj.formRef : undefined
 }
 
-function collectFormRefsFromNode(node: unknown): readonly string[] {
-  if (Array.isArray(node)) {
-    return node.flatMap((child) => collectFormRefsFromNode(child))
-  }
-  const ref = readFormRef(node)
-  const selfRefs = ref === undefined ? [] : [ref]
-  if (typeof node !== 'object' || node === null) return selfRefs
-  const { children, component: wrapped } = node as {
-    readonly children?: ReadonlyArray<unknown>
-    readonly component?: unknown
-  }
-  const childRefs = children === undefined ? [] : collectFormRefsFromNode(children)
-  const wrappedRefs = wrapped === undefined ? [] : collectFormRefsFromNode(wrapped)
-  return [...selfRefs, ...childRefs, ...wrappedRefs]
-}
-
-function collectFormRefs(components: Page['components']): readonly string[] {
+function collectFormRefs(
+  components: Page['components'],
+  session: SessionInfo | undefined
+): readonly string[] {
   if (!components) return []
-  return collectFormRefsFromNode(components as ReadonlyArray<Component | unknown>)
+  return collectFromComponentTree(components as ReadonlyArray<Component | unknown>, {
+    visit: (node) => {
+      const ref = readFormRef(node)
+      return ref === undefined ? [] : [ref]
+    },
+    shouldSkip: (node) => isComponentHiddenForSession(node, session),
+  })
 }
 
 function toFormAccessSession(
@@ -58,7 +53,7 @@ export function evaluateEmbeddedFormRefsAccess(
   page: Readonly<Page>,
   session: SessionInfo | undefined
 ): 'allow' | 'denied' {
-  const refs = collectFormRefs(page.components)
+  const refs = collectFormRefs(page.components, session)
   if (refs.length === 0) return 'allow'
   const formSession = toFormAccessSession(session)
   const anyDenied = refs.some((ref) => {

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import type { Context } from 'hono'
 
 export function validateRequiredFieldsForRecord(
@@ -112,27 +113,27 @@ export function checkReadonlyIdField(requestedFields: Record<string, unknown>, c
   return undefined
 }
 
-export function checkDefaultFields(
+export function checkReadonlyComputedFields(
   table:
     | {
         readonly fields?: ReadonlyArray<{
           readonly name: string
-          readonly default?: unknown
+          readonly type: string
         }>
       }
     | undefined,
   requestedFields: Record<string, unknown>,
   c: Context
 ) {
-  const fieldsWithDefaults =
-    table?.fields?.filter((f) => 'default' in f && f.default !== undefined) ?? []
-  const attemptedDefaultField = fieldsWithDefaults.find((f) => f.name in requestedFields)
+  const readonlyComputedFields =
+    table?.fields?.filter((f) => isReadonlyComputedFieldType(f.type)) ?? []
+  const attemptedComputedField = readonlyComputedFields.find((f) => f.name in requestedFields)
 
-  if (attemptedDefaultField) {
+  if (attemptedComputedField) {
     return c.json(
       {
         success: false,
-        message: `Cannot write to readonly field '${attemptedDefaultField.name}'`,
+        message: `Cannot write to readonly field '${attemptedComputedField.name}'`,
         code: 'FORBIDDEN',
       },
       403

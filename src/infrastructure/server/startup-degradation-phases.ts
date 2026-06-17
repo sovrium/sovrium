@@ -7,16 +7,17 @@
 
 import { stat } from 'node:fs/promises'
 import { Effect } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth-repository'
-import { parseStorageEnvConfig, type StorageEnvConfig } from '@/domain/models/env/storage'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { resolveAdminRole } from '@/domain/models/app/auth/roles'
+import { parseStorageEnvConfig, type StorageEnvConfig } from '@/domain/models/env/storage/storage'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/logger'
 import { collectInsecureEnvWarning, getNodeEnv } from '@/infrastructure/utils/env'
 import type { App } from '@/domain/models/app'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import type { StartupPhase } from '@/infrastructure/logging/logger'
 
 
@@ -83,9 +84,10 @@ export const collectPublicDirPhases = async (
 
 export const collectAdminPhases = (app: Readonly<App>): Promise<readonly StartupPhase[]> => {
   if (!app.auth) return Promise.resolve([])
+  const adminRole = resolveAdminRole(app)
   const program = Effect.gen(function* () {
     const repo = yield* AuthRepository
-    const admin = yield* repo.findFirstAdmin()
+    const admin = yield* repo.findFirstAdmin(adminRole)
     if (admin) {
       return [{ label: `Admin: ${admin.email}`, type: 'success' as const }] as const
     }
@@ -108,8 +110,9 @@ export const buildStartupPhases = (params: {
   readonly infraPhases: readonly StartupPhase[]
   readonly cssLabel: string
   readonly durationMs: number
+  readonly bindHost?: string
 }): readonly StartupPhase[] => {
-  const insecureEnvPhase = collectInsecureEnvWarning()
+  const insecureEnvPhase = collectInsecureEnvWarning(params.bindHost)
   const mode = getNodeEnv() === 'production' ? 'production' : 'development'
   return [
     ...(insecureEnvPhase ? [insecureEnvPhase] : []),

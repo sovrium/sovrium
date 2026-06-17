@@ -7,6 +7,11 @@
 
 
 import { renderEmbeddedFormBody } from './form-renderer'
+import {
+  isInlinePrefill,
+  resolveRecordPrefillMap,
+  type InlinePrefillShape,
+} from './record-prefill-resolver'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -16,13 +21,6 @@ interface FormRefComponent {
   readonly originalProps: Record<string, unknown> | undefined
   readonly inlinePrefill: InlinePrefillShape | undefined
 }
-
-interface InlinePrefillShape {
-  readonly prefill: Readonly<Record<string, PrefillValue>>
-  readonly lockPrefill?: boolean
-}
-
-type PrefillValue = string | number | boolean | readonly string[] | readonly number[]
 
 function asFormRefComponent(component: Component): FormRefComponent | undefined {
   if (component.type !== 'form') return undefined
@@ -34,12 +32,6 @@ function asFormRefComponent(component: Component): FormRefComponent | undefined 
     originalProps: component.props,
     inlinePrefill: isInlinePrefill(inlinePrefillRaw) ? inlinePrefillRaw : undefined,
   }
-}
-
-function isInlinePrefill(value: unknown): value is InlinePrefillShape {
-  if (typeof value !== 'object' || value === null) return false
-  const candidate = value as { readonly prefill?: unknown }
-  return typeof candidate.prefill === 'object' && candidate.prefill !== null
 }
 
 function composeWrapperClass(variant: unknown, className: unknown): string {
@@ -68,37 +60,6 @@ function buildWrapperProps(
   }
 }
 
-function resolvePrefillValue(
-  value: PrefillValue,
-  parentRecord: Readonly<Record<string, unknown>> | undefined
-): PrefillValue | undefined {
-  if (typeof value !== 'string') return value
-  if (!value.startsWith('$parent.')) return value
-  if (parentRecord === undefined) return undefined
-  const segment = value.slice('$parent.'.length)
-  const resolved = parentRecord[segment]
-  if (resolved === undefined || resolved === null) return undefined
-  if (Array.isArray(resolved)) {
-    return resolved.filter((item): item is string => typeof item === 'string')
-  }
-  if (typeof resolved === 'number' || typeof resolved === 'boolean') return resolved
-  return String(resolved)
-}
-
-function resolvePrefillMap(
-  inlinePrefill: InlinePrefillShape | undefined,
-  parentRecord: Readonly<Record<string, unknown>> | undefined
-): Readonly<Record<string, PrefillValue>> {
-  if (inlinePrefill === undefined) return {}
-  const entries = Object.entries(inlinePrefill.prefill)
-    .map(([key, raw]): readonly [string, PrefillValue | undefined] => [
-      key,
-      resolvePrefillValue(raw, parentRecord),
-    ])
-    .filter((entry): entry is readonly [string, PrefillValue] => entry[1] !== undefined)
-  return Object.fromEntries(entries)
-}
-
 export interface FormRefExpansionContext {
   readonly parentRecord?: Readonly<Record<string, unknown>>
 }
@@ -113,7 +74,7 @@ function expandFormRefComponent(
   const form = app.forms?.find((f) => f.name === formRefInfo.formRef)
   if (form === undefined) return component
 
-  const resolvedPrefill = resolvePrefillMap(formRefInfo.inlinePrefill, ctx.parentRecord)
+  const resolvedPrefill = resolveRecordPrefillMap(formRefInfo.inlinePrefill, ctx.parentRecord)
   const lockPrefill = formRefInfo.inlinePrefill?.lockPrefill === true
 
   const formBodyHtml = renderEmbeddedFormBody(app, form, {
@@ -135,6 +96,29 @@ export function expandFormRefs(
   if (!components) return components
   return components.map((item) => {
     if ('component' in item || '$ref' in item) return item
-    return expandFormRefComponent(item as Component, app, ctx)
+    return expandDialogFormRef(expandFormRefComponent(item as Component, app, ctx), app, ctx)
   })
+}
+
+function expandDialogFormRef(
+  component: Component,
+  app: App,
+  ctx: FormRefExpansionContext
+): Component {
+  if (component.type !== 'dialog') return component
+  const ref = (component as { readonly formRef?: unknown }).formRef
+  if (typeof ref !== 'string') return component
+  const form = app.forms?.find((f) => f.name === ref)
+  if (form === undefined) return component
+
+  const inlinePrefillRaw = (component as { readonly inlinePrefill?: unknown }).inlinePrefill
+  const inlinePrefill = isInlinePrefill(inlinePrefillRaw) ? inlinePrefillRaw : undefined
+  const resolvedPrefill = resolveRecordPrefillMap(inlinePrefill, ctx.parentRecord)
+  const lockPrefill = inlinePrefill?.lockPrefill === true
+
+  const formBodyHtml = renderEmbeddedFormBody(app, form, {
+    prefill: resolvedPrefill,
+    lockPrefill,
+  })
+  return { ...(component as Record<string, unknown>), _formRefHtml: formBodyHtml } as Component
 }

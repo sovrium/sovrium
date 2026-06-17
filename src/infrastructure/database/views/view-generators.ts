@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { quoteSqlIdentifier } from '@/domain/utils/sql-formatting'
+import { quoteSqlIdentifier } from '@/domain/utils/database/sql-formatting'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {

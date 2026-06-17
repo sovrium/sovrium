@@ -6,7 +6,11 @@
  */
 
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { isRelationshipField, isUserField } from '../sql/sql-generators'
+import {
+  isRelationshipField,
+  isUserField,
+  relationshipFieldCreatesForeignKey,
+} from '../sql/sql-generators'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -108,12 +112,7 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
   }
   const relationshipIndexes = table.fields
     .filter(isRelationshipField)
-    .filter((field) => {
-      return (
-        !('relationType' in field) ||
-        (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
-      )
-    })
+    .filter(relationshipFieldCreatesForeignKey)
     .map((field) => fkIndexSql(field.name))
 
   const userFieldIndexes = table.fields.filter(isUserField).map((field) => fkIndexSql(field.name))

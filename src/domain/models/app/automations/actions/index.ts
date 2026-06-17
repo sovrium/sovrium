@@ -11,6 +11,7 @@ import { AnalyticsActionSchema } from './analytics'
 import { ApprovalActionSchema } from './approval'
 import { AuthActionSchema } from './auth'
 import { AutomationActionSchema } from './automation'
+import { CloudActionSchema } from './cloud'
 import { CodeActionSchema } from './code'
 import { CryptoActionSchema } from './crypto'
 import { DataActionSchema } from './data'
@@ -511,6 +512,13 @@ export type Action =
         readonly value: string
       }>)
   | (ActionBase & {
+      readonly type: 'data'
+      readonly operator: 'validate-config'
+    } & Props<{
+        readonly config: string
+        readonly format?: 'json' | 'yaml'
+      }>)
+  | (ActionBase & {
       readonly type: 'state'
       readonly operator: 'get'
     } & Props<{
@@ -612,6 +620,59 @@ export type Action =
         readonly connection?: string
       }>)
   | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'provision-db'
+    } & Props<{
+        readonly dbName: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'spawn-app'
+    } & Props<{
+        readonly appSlug: string
+        readonly configRef: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'route-add'
+    } & Props<{
+        readonly domain: string
+        readonly port: number
+      }>)
+  | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'disable-app'
+    } & Props<{
+        readonly appSlug: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'destroy-app'
+    } & Props<{
+        readonly appSlug: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'scale-app'
+    } & Props<{
+        readonly appSlug: string
+        readonly containerSize: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'set-version'
+    } & Props<{
+        readonly appSlug: string
+        readonly version: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'cloud'
+      readonly operator: 'tail-logs'
+    } & Props<{
+        readonly appSlug: string
+        readonly lines?: number
+      }>)
+  | (ActionBase & {
       readonly type: 'ref'
       readonly $ref: string
       readonly $vars?: { readonly [key: string]: unknown }
@@ -639,6 +700,7 @@ export const ActionSchema: Schema.Schema<Action, unknown> = Schema.Union(
   DigestActionSchema,
   CryptoActionSchema,
   FlowActionSchema,
+  CloudActionSchema,
   ActionRefSchema
 ).pipe(
   Schema.annotations({
@@ -655,6 +717,7 @@ export * from './approval'
 export * from './auth'
 export * from './automation'
 export * from './base'
+export * from './cloud'
 export * from './code'
 export * from './crypto'
 export * from './data'

@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 
 export function provideAnalyticsLive<A, E, R>(
   program: Effect.Effect<A, E, R>

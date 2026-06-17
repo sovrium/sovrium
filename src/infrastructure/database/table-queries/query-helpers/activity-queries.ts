@@ -17,7 +17,7 @@ import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzl
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { extractUserFromRow } from '../shared/user-join-helpers'
 import { castToInt } from './aggregation-helpers'
-import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
+import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)

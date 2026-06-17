@@ -7,8 +7,8 @@
 
 
 import { Effect } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth-repository'
-import { parseMutationIntent } from '@/domain/services/ai-chat-mutation-parser'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { parseMutationIntent } from '@/domain/services/ai-chat/ai-chat-mutation-parser'
 import { provideAuthRepoLive } from '@/presentation/api/routes/ai/effect-runner'
 import {
   applyMutation,
@@ -20,7 +20,7 @@ import {
 import { projectAppTables } from './chat-table-projection'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
-import type { MutationTable } from '@/domain/services/ai-chat-mutation-parser'
+import type { MutationTable } from '@/domain/services/ai-chat/ai-chat-mutation-parser'
 
 type MutationTableWithPerms = MutationTable & { readonly permissions?: unknown }
 

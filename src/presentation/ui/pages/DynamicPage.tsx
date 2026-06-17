@@ -23,7 +23,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
 import type { SessionInfo } from '@/domain/types/session-info'
-import type { RouteParams } from '@/domain/utils/route-matcher'
+import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 import type { ResolvedMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
 import type { ResolvedSidebarSection } from '@/presentation/rendering/sidebar-resolver'
 
@@ -34,6 +34,7 @@ type DynamicPageProps = {
   readonly languages?: Languages
   readonly tables?: Tables
   readonly buckets?: Buckets
+  readonly landingPath?: string
   readonly detectedLanguage?: string
   readonly routeParams?: RouteParams
   readonly builtInAnalyticsEnabled?: boolean
@@ -57,6 +58,7 @@ type DynamicPageHeadProps = {
   readonly scripts: ReturnType<typeof groupScriptsByPosition>
   readonly builtInAnalyticsEnabled?: boolean
   readonly builtInAnalyticsSessionTimeout?: number
+  readonly contentDirSeo?: ResolvedMarkdownPage['seo']
 }
 
 const ISLAND_ACTION_TYPES = new Set(['auth', 'crud', 'automation'])
@@ -97,18 +99,27 @@ function hasIslandComponents(page: Page): boolean {
   })
 }
 
+const INTERACTIVE_COMPONENT_TYPES = new Set(['form', 'modal', 'data-table', 'dropdown'])
+
+function componentSelfIsInteractive(record: Record<string, unknown>): boolean {
+  const { type } = record
+  if (typeof type === 'string' && INTERACTIVE_COMPONENT_TYPES.has(type)) return true
+  if (record['action']) return true
+  const props = record['props'] as Record<string, unknown> | undefined
+  return Boolean(props?.['action'] || props?.['interactions'])
+}
+
+function componentIsInteractive(item: unknown): boolean {
+  if (item === null || typeof item !== 'object') return false
+  const record = item as Record<string, unknown>
+  if (componentSelfIsInteractive(record)) return true
+  const { children } = record
+  return Array.isArray(children) && children.some((child) => componentIsInteractive(child))
+}
+
 function hasInteractiveFeatures(page: Page): boolean {
   if (!page.components || page.components.length === 0) return false
-
-  const interactiveTypes = new Set(['form', 'modal', 'data-table', 'dropdown'])
-
-  return page.components.some((item) => {
-    if (interactiveTypes.has(item.type)) return true
-    const itemWithAction = item as Record<string, unknown>
-    if (itemWithAction['action']) return true
-    const props = item.props as Record<string, unknown> | undefined
-    return !!(props?.action || props?.interactions)
-  })
+  return page.components.some((item) => componentIsInteractive(item))
 }
 
 function mergeComponentMetaIntoPage(page: Page, components?: Components): Page {
@@ -141,6 +152,7 @@ function DynamicPageHead({
   scripts,
   builtInAnalyticsEnabled,
   builtInAnalyticsSessionTimeout,
+  contentDirSeo,
 }: DynamicPageHeadProps): Readonly<ReactElement> {
   const analyticsScript = builtInAnalyticsEnabled
     ? `(function(){
@@ -178,6 +190,7 @@ window.addEventListener("popstate",u);
         lang={lang}
         languages={languages}
         scripts={scripts}
+        contentDirSeo={contentDirSeo}
       />
       {analyticsScript && (
         <script dangerouslySetInnerHTML={{ __html: analyticsScript }} />
@@ -193,6 +206,7 @@ type DynamicPageBodyProps = {
   readonly languages?: Languages
   readonly tables?: Tables
   readonly buckets?: Buckets
+  readonly landingPath?: string
   readonly direction: 'ltr' | 'rtl'
   readonly scripts: ReturnType<typeof groupScriptsByPosition>
   readonly lang: string
@@ -301,6 +315,7 @@ function DynamicPageBody({
   languages,
   tables,
   buckets,
+  landingPath,
   direction,
   scripts,
   lang,
@@ -319,6 +334,13 @@ function DynamicPageBody({
       {...(bodyStyle && { style: bodyStyle })}
       {...dataAttributes}
     >
+      {}
+      <a
+        href="#main-content"
+        className="sr-only z-50 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-50 focus:not-sr-only focus:absolute focus:top-2 focus:left-2"
+      >
+        Skip to main content
+      </a>
       <PageBodyScripts
         page={page}
         theme={theme}
@@ -337,6 +359,7 @@ function DynamicPageBody({
         currentLang={lang}
         tables={tables}
         buckets={buckets}
+        landingPath={landingPath}
         routeParams={routeParams}
         session={session}
         markdownPayload={markdownPayload}
@@ -350,6 +373,7 @@ function DynamicPageBody({
         direction={direction}
         scripts={scripts}
         position="end"
+        frontmatter={markdownPayload?.frontmatter}
       />
       {hasInteractiveFeatures(page) && (
         <script
@@ -374,6 +398,7 @@ export function DynamicPage({
   languages,
   tables,
   buckets,
+  landingPath,
   detectedLanguage,
   routeParams,
   builtInAnalyticsEnabled,
@@ -383,7 +408,10 @@ export function DynamicPage({
   markdownPayload,
   session,
 }: DynamicPageProps): Readonly<ReactElement> {
-  const metadata = extractPageMetadata(page, theme, languages, detectedLanguage)
+  const metadata = extractPageMetadata(page, theme, languages, {
+    detectedLanguage,
+    frontmatter: markdownPayload?.frontmatter,
+  })
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage)
   const scripts = groupScriptsByPosition(page)
   const pageWithMeta = mergeComponentMetaIntoPage(page, components)
@@ -407,6 +435,7 @@ export function DynamicPage({
         scripts={scripts}
         builtInAnalyticsEnabled={builtInAnalyticsEnabled}
         builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
+        contentDirSeo={markdownPayload?.seo}
       />
       <DynamicPageBody
         page={page}
@@ -415,6 +444,7 @@ export function DynamicPage({
         languages={languages}
         tables={tables}
         buckets={buckets}
+        landingPath={landingPath}
         direction={langConfig.direction}
         scripts={scripts}
         lang={langConfig.lang}

@@ -687,6 +687,12 @@ help is to tell us what you need:
 
 Every issue is read and triaged.
 
+Opening issues is open to everyone. **Submitting code requires becoming a
+certified contributor** — contact **contribute@sovrium.com** to get started. This
+keeps us from being overwhelmed by AI-generated pull requests and guarantees a
+high-quality contributor community. See [CONTRIBUTING.md](CONTRIBUTING.md) for
+the full process.
+
 ---
 
 ## Status
@@ -721,7 +727,7 @@ For bug reports and feature requests, see [Contributing](#contributing) above.
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **June 2, 2030**. Commercial hosting licenses:
+**Apache 2.0** on **June 17, 2030**. Commercial hosting licenses:
 license@sovrium.com.
 
 ---

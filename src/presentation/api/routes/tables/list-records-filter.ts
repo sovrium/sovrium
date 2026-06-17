@@ -7,18 +7,9 @@
 
 import { parseFilterParameter } from './filter-parser'
 import { parseFormulaToFilter } from './formula-parser'
+import type { FilterStructure } from './row-level-read-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
-
-type FilterStructure =
-  | {
-      readonly and?: readonly {
-        readonly field: string
-        readonly operator: string
-        readonly value: unknown
-      }[]
-    }
-  | undefined
 
 type FilterResult =
   | { readonly error: false; readonly value: FilterStructure }

@@ -93,6 +93,22 @@ function applyVisibilityToSection(
   }
 }
 
+export function isComponentHiddenForSession(
+  node: unknown,
+  session: SessionInfo | undefined
+): boolean {
+  if (typeof node !== 'object' || node === null) return false
+  const obj = node as { readonly props?: Record<string, unknown>; readonly visibility?: unknown }
+  const visibility =
+    extractVisibilityFromProps(obj.props) ??
+    (typeof obj.visibility === 'object' && obj.visibility !== null
+      ? (obj.visibility as VisibilityConfig)
+      : undefined)
+  if (!visibility) return false
+  if (isConditionOnlyVisibility(visibility)) return false
+  return !isSectionVisible(visibility, session)
+}
+
 export function applyVisibilityToComponents(
   components: Page['components'],
   session: SessionInfo | undefined

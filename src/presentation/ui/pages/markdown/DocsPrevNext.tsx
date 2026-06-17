@@ -18,19 +18,23 @@ export function DocsPrevNext({
   next,
 }: DocsPrevNextProps): Readonly<ReactElement> | undefined {
   if (previous === undefined && next === undefined) return undefined
+  const cardClass =
+    'group flex flex-col gap-1 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3 no-underline transition-colors duration-150 hover:border-warmth-border hover:bg-neutral-900'
   return (
     <div
       data-component="docs-prev-next"
-      className="mt-8 flex items-center justify-between gap-4 border-t pt-6 text-sm"
+      className="mt-12 grid grid-cols-1 gap-4 border-t border-neutral-800 pt-8 text-sm sm:grid-cols-2"
     >
       {previous ? (
         <a
           href={previous.href}
           rel="prev"
-          className="text-link hover:underline"
+          className={`${cardClass} items-start text-left`}
         >
-          {'← '}
-          {previous.label}
+          <span className="text-xs text-neutral-500">{'← Previous'}</span>
+          <span className="font-medium text-neutral-200 group-hover:text-neutral-50">
+            {previous.label}
+          </span>
         </a>
       ) : (
         <span />
@@ -39,10 +43,12 @@ export function DocsPrevNext({
         <a
           href={next.href}
           rel="next"
-          className="text-link hover:underline"
+          className={`${cardClass} items-end text-right`}
         >
-          {next.label}
-          {' →'}
+          <span className="text-xs text-neutral-500">{'Next →'}</span>
+          <span className="font-medium text-neutral-200 group-hover:text-neutral-50">
+            {next.label}
+          </span>
         </a>
       ) : (
         <span />

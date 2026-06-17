@@ -82,7 +82,7 @@ const isRecognizedFieldType = (fieldType: string, knownTypes: readonly string[])
   return !fieldType.includes('_') && !fieldType.includes('-')
 }
 
-const detectUnknownFieldTypes = async (
+export const detectUnknownFieldTypes = async (
   parsed: unknown,
   refSources: ReadonlyMap<string, string>
 ): Promise<readonly string[]> => {
@@ -119,6 +119,107 @@ const detectUnknownFieldTypes = async (
   })
 }
 
+const isCloudModeEnabled = (): boolean => {
+  const flag = Bun.env.SOVRIUM_CLOUD_MODE
+  return typeof flag === 'string' && flag.trim().length > 0
+}
+
+const collectCloudActionNames = (actions: unknown): readonly string[] => {
+  if (!Array.isArray(actions)) return []
+  return actions.flatMap((action: unknown): readonly string[] => {
+    if (typeof action !== 'object' || action === null) return []
+    const a = action as Record<string, unknown>
+    const self = a.type === 'cloud' ? [typeof a.name === 'string' ? a.name : '<unnamed>'] : []
+
+    const props = a.props as Record<string, unknown> | undefined
+    const loopNested = props ? collectCloudActionNames(props.actions) : []
+    const pathNested = Array.isArray(props?.paths)
+      ? props.paths.flatMap((branch: unknown) =>
+          typeof branch === 'object' && branch !== null
+            ? collectCloudActionNames((branch as Record<string, unknown>).actions)
+            : []
+        )
+      : []
+
+    return [...self, ...loopNested, ...pathNested]
+  })
+}
+
+export const detectGatedCloudActions = (parsed: unknown): readonly string[] => {
+  if (isCloudModeEnabled()) return []
+
+  const { automations } = parsed as Record<string, unknown>
+  if (!Array.isArray(automations)) return []
+
+  const offending = automations.flatMap((automation: unknown): readonly string[] => {
+    if (typeof automation !== 'object' || automation === null) return []
+    const auto = automation as Record<string, unknown>
+    const automationName = typeof auto.name === 'string' ? auto.name : '<unnamed>'
+    return collectCloudActionNames(auto.actions).map(
+      (actionName) =>
+        `Action "${actionName}" in automation "${automationName}" uses "type: cloud", which requires the Sovrium Cloud host gate (SOVRIUM_CLOUD_MODE). This config is not running in cloud mode.`
+    )
+  })
+
+  return offending
+}
+
+const runPostDecodeChecks = async (
+  parsed: unknown,
+  refSources: ReadonlyMap<string, string>
+): Promise<readonly string[]> => {
+  const unknownFieldErrors = await detectUnknownFieldTypes(parsed, refSources)
+  if (unknownFieldErrors.length > 0) return unknownFieldErrors
+  return detectGatedCloudActions(parsed)
+}
+
+export const validateAppConfig = async (
+  filePath: string
+): Promise<
+  | { readonly valid: true; readonly name: string }
+  | { readonly valid: false; readonly errors: readonly string[] }
+> => {
+  const format = detectFormat(filePath)
+  if (format === 'unsupported') {
+    return {
+      valid: false,
+      errors: [`Unsupported file format (expected .json, .yaml, .yml, or .ts)`],
+    }
+  }
+
+  const { loadSchemaFromFile: loadFromFile, collectRefSources } = await lazyImportSchema()
+
+  const parseResult = await parseConfigWithRefSources(
+    filePath,
+    format,
+    loadFromFile,
+    collectRefSources
+  ).then(
+    (result) => ({ ok: true as const, ...result }),
+    (error: unknown) => ({ ok: false as const, error })
+  )
+  if (!parseResult.ok) {
+    return {
+      valid: false,
+      errors: [
+        `Failed to parse file: ${parseResult.error instanceof Error ? parseResult.error.message : String(parseResult.error)}`,
+      ],
+    }
+  }
+  const { parsed, refSources } = parseResult
+
+  const { decodeAppConfigObject } = await import('@/application/use-cases/schema/decode-app-config')
+  const decoded = decodeAppConfigObject(parsed)
+  if (!decoded.valid) return decoded
+
+  const unknownFieldErrors = await detectUnknownFieldTypes(parsed, refSources)
+  if (unknownFieldErrors.length > 0) {
+    return { valid: false, errors: unknownFieldErrors }
+  }
+
+  return decoded
+}
+
 export const handleValidateCommand = async (filePath?: string): Promise<void> => {
   if (!filePath) {
     Effect.runSync(
@@ -148,10 +249,10 @@ export const handleValidateCommand = async (filePath?: string): Promise<void> =>
     process.exit(1)
   }
 
-  const unknownFieldErrors = await detectUnknownFieldTypes(parsed, refSources)
+  const postDecodeErrors = await runPostDecodeChecks(parsed, refSources)
 
-  if (unknownFieldErrors.length > 0) {
-    const errorLines = unknownFieldErrors.map((err) => `  ${err}`).join('\n')
+  if (postDecodeErrors.length > 0) {
+    const errorLines = postDecodeErrors.map((err) => `  ${err}`).join('\n')
     Effect.runSync(Console.error(`Validation failed:\n${errorLines}`))
     process.exit(1)
   }

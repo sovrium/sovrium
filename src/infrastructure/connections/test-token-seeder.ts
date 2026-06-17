@@ -6,10 +6,10 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { ConnectionRepository } from '@/application/ports/repositories/connection-repository'
-import { ConnectionTokenRepository } from '@/application/ports/repositories/connection-token-repository'
-import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connection-repository-live'
-import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connection-token-repository-live'
+import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
+import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
+import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { isProduction } from '@/infrastructure/utils/env'
 import { SENTINEL_ACCESS_TOKEN, SENTINEL_REFRESH_TOKEN } from './sentinel-tokens'
 

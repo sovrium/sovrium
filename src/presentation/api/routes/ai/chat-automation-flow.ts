@@ -15,7 +15,7 @@ import { runManualAutomation } from '@/application/use-cases/automations/run-man
 import {
   parseAutomationIntent,
   type AutomationCandidate,
-} from '@/domain/services/ai-chat-automation-parser'
+} from '@/domain/services/ai-chat/ai-chat-automation-parser'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { recordActivityLogRow, recordChatActivity } from './chat-activity-log'
 import { appendConversationTurn } from './chat-conversation-store'

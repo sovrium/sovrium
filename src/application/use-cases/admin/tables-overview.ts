@@ -12,7 +12,7 @@ import {
   TablesOverviewRepository,
   type TableAggregateRow,
   type TablesOverviewError,
-} from '@/application/ports/repositories/tables-overview-repository'
+} from '@/application/ports/repositories/tables/tables-overview-repository'
 import { db } from '@/infrastructure/database'
 import type { PeriodPreset, SeriesInterval } from '@/domain/models/api/admin/_shared/period-preset'
 import type {

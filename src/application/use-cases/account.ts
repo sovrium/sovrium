@@ -13,13 +13,13 @@ import {
   type AccountLinkedRow,
   type AccountSessionRow,
   type AccountUserRow,
-} from '@/application/ports/repositories/account-repository'
+} from '@/application/ports/repositories/auth/account-repository'
 import {
   accountDeleteCancelledResponseSchema,
   accountDeleteScheduledResponseSchema,
   accountExportResponseSchema,
 } from '@/domain/models/api/account/account'
-import { AccountRepositoryLive } from '@/infrastructure/database/repositories/account-repository-live'
+import { AccountRepositoryLive } from '@/infrastructure/database/repositories/auth/account-repository-live'
 
 export const GRACE_PERIOD_DAYS = 7
 

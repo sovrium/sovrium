@@ -39,6 +39,13 @@ export const generateIdColumn = (
   return `id SERIAL NOT NULL${pkConstraint}`
 }
 
+export const resolvePrimaryKeyColumnType = (primaryKeyType: string | undefined): string => {
+  if (primaryKeyType === 'uuid') return isSqliteRuntime() ? 'TEXT' : 'UUID'
+  if (primaryKeyType === 'text') return 'TEXT'
+  if (primaryKeyType === 'bigserial') return isSqliteRuntime() ? 'INTEGER' : 'BIGINT'
+  return 'INTEGER'
+}
+
 export const needsAutomaticIdColumn = (
   table: Table,
   primaryKeyFields: readonly string[]

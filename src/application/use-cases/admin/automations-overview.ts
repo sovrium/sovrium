@@ -12,7 +12,7 @@ import {
   type AdminAutomationOverviewRow,
   type AdminAutomationRunRow,
   type AdminAutomationsDatabaseError,
-} from '@/application/ports/repositories/admin-automations-repository'
+} from '@/application/ports/repositories/automations/admin-automations-repository'
 import {
   resolvePeriodWindow,
   type PeriodPreset,
@@ -26,7 +26,7 @@ import {
   type AutomationsOverviewSeriesPoint,
 } from '@/domain/models/api/admin/automations'
 import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
-import { AdminAutomationsRepositoryLive } from '@/infrastructure/database/repositories/admin-automations-repository-live'
+import { AdminAutomationsRepositoryLive } from '@/infrastructure/database/repositories/automations/admin-automations-repository-live'
 import type { App } from '@/domain/models/app'
 
 const HOUR_MS = 60 * 60 * 1000

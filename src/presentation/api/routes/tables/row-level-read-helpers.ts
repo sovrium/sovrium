@@ -17,13 +17,22 @@ import {
 import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+export interface FilterLeaf {
+  readonly field: string
+  readonly operator: string
+  readonly value: unknown
+}
+
+export type FilterNode =
+  | FilterLeaf
+  | { readonly and: readonly FilterNode[] }
+  | {
+      readonly or: readonly FilterNode[]
+    }
+
 export type FilterStructure =
   | {
-      readonly and?: readonly {
-        readonly field: string
-        readonly operator: string
-        readonly value: unknown
-      }[]
+      readonly and?: readonly FilterNode[]
     }
   | undefined
 
@@ -105,9 +114,12 @@ export async function enforceGetReadPredicate(
   table: Table | undefined
 ): Promise<Response> {
   if (!guard || response.status !== 200 || !table?.rowLevelPermissions) return response
-  const body = (await response.clone().json()) as { readonly fields?: Record<string, unknown> }
-  const fields = body.fields ?? {}
-  return recordPassesPredicate(table.rowLevelPermissions, 'read', fields, guard.current)
+  const body = (await response.clone().json()) as {
+    readonly id?: string | number
+    readonly fields?: Record<string, unknown>
+  }
+  const record = { ...(body.fields ?? {}), id: body.id }
+  return recordPassesPredicate(table.rowLevelPermissions, 'read', record, guard.current)
     ? response
     : NOT_FOUND_RESPONSE(c)
 }

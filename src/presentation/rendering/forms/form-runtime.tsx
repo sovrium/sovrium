@@ -292,8 +292,15 @@ ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
   function buildJsonPayload() {
     var formData = new FormData(form)
     var payload = {}
+    // Repeated keys (multi-select / checkbox groups / array hidden inputs) must
+    // collect into an array — a plain overwrite keeps only the last value.
     formData.forEach(function (value, key) {
-      payload[key] = value
+      if (Object.prototype.hasOwnProperty.call(payload, key)) {
+        if (Array.isArray(payload[key])) payload[key].push(value)
+        else payload[key] = [payload[key], value]
+      } else {
+        payload[key] = value
+      }
     })
     return payload
   }

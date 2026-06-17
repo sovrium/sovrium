@@ -9,7 +9,7 @@ import { Effect, Data } from 'effect'
 import {
   AuthRepository,
   type AuthDatabaseError,
-} from '@/application/ports/repositories/auth-repository'
+} from '@/application/ports/repositories/auth/auth-repository'
 import { getStrategy } from '@/domain/models/app/auth'
 import { isValidEmail } from '@/domain/utils/email-validation'
 import { Auth } from '@/infrastructure/auth/better-auth'
@@ -33,18 +33,20 @@ export interface AdminBootstrapConfig {
   readonly email: string
   readonly password: string
   readonly name: string
+  readonly role?: string
 }
 
 export const parseAdminBootstrapConfig = (): AdminBootstrapConfig | undefined => {
   const email = process.env.AUTH_ADMIN_EMAIL
   const password = process.env.AUTH_ADMIN_PASSWORD
   const name = process.env.AUTH_ADMIN_NAME
+  const role = process.env.AUTH_ADMIN_ROLE
 
   if (!email || !password) {
     return undefined
   }
 
-  return { email, password, name: name || 'Administrator' }
+  return { email, password, name: name || 'Administrator', role: role || 'admin' }
 }
 
 const isValidPassword = (password: string): boolean => {
@@ -68,7 +70,7 @@ const createAdminUser = (
             email: config.email,
             password: config.password,
             name: config.name,
-            role: 'admin',
+            role: (config.role ?? 'admin') as 'admin',
           },
         })
 

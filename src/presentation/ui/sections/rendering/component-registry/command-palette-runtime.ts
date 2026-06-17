@@ -75,6 +75,24 @@ ${COMMAND_PALETTE_RUNTIME_DOM}
       badge.textContent = ' ' + match.tableName;
       li.appendChild(badge);
     }
+    // Content-page body excerpt with the matched span wrapped in <mark>.
+    // Built with createTextNode (never innerHTML) so the snippet text is never
+    // interpreted as markup.
+    if (typeof match.excerpt === 'string' && match.excerpt) {
+      var snippet = document.createElement('div');
+      snippet.setAttribute('data-command-palette-excerpt', '');
+      var range = Array.isArray(match.matchRange) ? match.matchRange : null;
+      if (range && range.length === 2 && range[0] >= 0 && range[1] > range[0]) {
+        snippet.appendChild(document.createTextNode(match.excerpt.slice(0, range[0])));
+        var mark = document.createElement('mark');
+        mark.appendChild(document.createTextNode(match.excerpt.slice(range[0], range[1])));
+        snippet.appendChild(mark);
+        snippet.appendChild(document.createTextNode(match.excerpt.slice(range[1])));
+      } else {
+        snippet.appendChild(document.createTextNode(match.excerpt));
+      }
+      li.appendChild(snippet);
+    }
     li.addEventListener('click', function () { activate(li); });
     return li;
   }

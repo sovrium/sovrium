@@ -40,7 +40,15 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@/specs/*": ["specs/*"]
+      "@/specs/*": ["specs/*"],
+      "@apps/*": ["apps/*"],
+      // Resolve the workspace package to its source instead of the built
+      // dist/ output. dist/ is a gitignored build artifact (only produced by
+      // `bun run build:types`), so without this mapping a clean checkout fails
+      // typecheck with TS2307 the moment anything in the program imports
+      // @sovrium/types — e.g. the apps/* configs. Points at source, matching
+      // the @apps/* / @/* source-alias pattern above.
+      "@sovrium/types": ["packages/types/src/index.ts"]
     },
 
     "plugins": [

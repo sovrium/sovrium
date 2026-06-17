@@ -159,7 +159,7 @@ function readTestId(elementProps: Record<string, unknown>): string | undefined {
 }
 
 function sessionIsAdmin(session: SessionInfo | undefined): boolean {
-  return session?.isUnrestricted === true || session?.role === 'admin'
+  return session?.isUnrestricted === true
 }
 
 export function buildCommentThreadIslandProps(input: {

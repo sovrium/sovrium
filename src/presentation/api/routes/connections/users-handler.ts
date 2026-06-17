@@ -6,8 +6,8 @@
  */
 
 import { Data, Effect } from 'effect'
-import { ConnectionRepository } from '@/application/ports/repositories/connection-repository'
-import { ConnectionTokenRepository } from '@/application/ports/repositories/connection-token-repository'
+import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
+import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
 import { notFound, requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { provideConnectionLive } from './effect-runner'
 import { connectionError } from './error-envelopes'

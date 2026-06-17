@@ -25,7 +25,7 @@ import {
   type BucketsOverviewResponse,
   type BucketsOverviewSeriesPoint,
 } from '@/domain/models/api/admin/buckets/overview'
-import { parseStorageEnvConfig } from '@/domain/models/env/storage'
+import { parseStorageEnvConfig } from '@/domain/models/env/storage/storage'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'

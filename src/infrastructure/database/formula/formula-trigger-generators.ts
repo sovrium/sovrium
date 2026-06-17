@@ -6,8 +6,10 @@
  */
 
 import {
+  castFormulaDivisionOperands,
   isFormulaVolatile,
   getFormulaFieldsNeedingTrigger,
+  getViewComputedFormulaFields,
   qualifyColumnReferences,
   translateFormulaToPostgres,
 } from './formula-utils'
@@ -19,11 +21,13 @@ const getTriggerFormulaFields = (
   fields: readonly Fields[number][]
 ): readonly TriggerFormulaField[] => {
   const triggerFieldNames = getFormulaFieldsNeedingTrigger(fields)
+  const viewComputedNames = getViewComputedFormulaFields(fields)
 
   const triggerFields = fields.filter((field): field is TriggerFormulaField => {
     if (field.type !== 'formula' || !('formula' in field) || typeof field.formula !== 'string') {
       return false
     }
+    if (viewComputedNames.has(field.name)) return false
     const translatedFormula = translateFormulaToPostgres(field.formula, fields)
     return isFormulaVolatile(translatedFormula) || triggerFieldNames.has(field.name)
   })
@@ -53,7 +57,8 @@ export const generateVolatileFormulaTriggerFunction = (
     .map((field) => {
       const translatedFormula = translateFormulaToPostgres(field.formula, fields)
       const qualifiedFormula = qualifyColumnReferences(translatedFormula, fields, 't')
-      return `  SELECT (${qualifiedFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
+      const castFormula = castFormulaDivisionOperands(qualifiedFormula, fields, 't')
+      return `  SELECT (${castFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
     })
     .join('\n')
 

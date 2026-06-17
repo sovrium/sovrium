@@ -44,7 +44,26 @@ export type { ComponentTemplate } from '@/domain/models/app/components/component
 export type { Automation } from '@/domain/models/app/automations'
 export type { Connection } from '@/domain/models/app/connections'
 export type { EnvVar } from '@/domain/models/app/env'
+export type { Form } from '@/domain/models/app/forms'
 export type { ActionTemplate } from '@/domain/models/app/actions'
+
+// `*Config` aliases mirror the public surface published in dist/index.d.ts
+// (generated from the root src/index.ts by the build script). This file is the
+// `paths` target for `@sovrium/types` during typecheck (tsconfig.json), so the
+// alias surface MUST stay in sync with the build script's TYPE_EXPORTS list —
+// otherwise consumers (apps/*) resolve the package here and hit TS2305 on any
+// name present in dist but missing below.
+export type { Page as PageConfig } from '@/domain/models/app/pages'
+export type { Table as TableConfig } from '@/domain/models/app/tables'
+export type { ComponentTemplate as ComponentConfig } from '@/domain/models/app/components/component'
+export type { Theme as ThemeConfig } from '@/domain/models/app/theme'
+export type { Auth as AuthConfig } from '@/domain/models/app/auth'
+export type { Languages as LanguageConfig } from '@/domain/models/app/languages'
+export type { BuiltInAnalytics as AnalyticsConfig } from '@/domain/models/app/analytics'
+export type { Automation as AutomationConfig } from '@/domain/models/app/automations'
+export type { Connection as ConnectionConfig } from '@/domain/models/app/connections'
+export type { Form as FormConfig } from '@/domain/models/app/forms'
+export type { EnvVar as EnvConfig } from '@/domain/models/app/env'
 
 /**
  * CodeContext - typed context object passed to every runTypescript code action.

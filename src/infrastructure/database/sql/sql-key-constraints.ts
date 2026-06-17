@@ -6,7 +6,12 @@
  */
 
 import { qualifiedAuthTable } from './dialect-ddl'
-import { isRelationshipField, isUserField, shouldUseSerial } from './sql-field-predicates'
+import {
+  isRelationshipField,
+  isUserField,
+  relationshipFieldCreatesForeignKey,
+  shouldUseSerial,
+} from './sql-field-predicates'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -101,12 +106,7 @@ export const generateForeignKeyConstraints = (
 
   const relationshipFieldConstraints = fields
     .filter(isRelationshipField)
-    .filter((field) => {
-      return (
-        !('relationType' in field) ||
-        (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
-      )
-    })
+    .filter(relationshipFieldCreatesForeignKey)
     .map((field) => generateRelationshipConstraint(tableName, field, tableUsesView))
 
   const userReferenceConstraints: readonly string[] = []

@@ -7,9 +7,14 @@
 
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { buildAiComputeProjection } from '@/application/use-cases/ai-compute/status-projection'
 import { SessionContextError } from '@/domain/errors'
+import {
+  buildCreateAuthorshipOverrides,
+  buildUpdateAuthorshipOverrides,
+} from '@/domain/services/authorship-fields'
+import { isGuestSession } from '@/domain/services/guest-session'
 import {
   computeGroupedAggregations,
   reshapeShortcutAggregations,
@@ -26,6 +31,7 @@ import { preserveIdType } from './utils/preserve-id-type'
 import { transformRecord } from './utils/record-transformer'
 import type { TransformedRecord } from './utils/record-transformer'
 import type { UserSession } from '@/application/ports/models/user-session'
+import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 import type {
   ListRecordsResponse,
   GetRecordResponse,
@@ -56,13 +62,7 @@ interface ListRecordsConfig {
   readonly tableName: string
   readonly app: App
   readonly userRole: string
-  readonly filter?: {
-    readonly and?: readonly {
-      readonly field: string
-      readonly operator: string
-      readonly value: unknown
-    }[]
-  }
+  readonly filter?: QueryFilter
   readonly includeDeleted?: boolean
   readonly format?: 'display'
   readonly timezone?: string
@@ -194,13 +194,7 @@ interface ListTrashConfig {
   readonly tableName: string
   readonly app: App
   readonly userRole: string
-  readonly filter?: {
-    readonly and?: readonly {
-      readonly field: string
-      readonly operator: string
-      readonly value: unknown
-    }[]
-  }
+  readonly filter?: QueryFilter
   readonly sort?: string
   readonly limit?: number
   readonly offset?: number
@@ -331,12 +325,36 @@ interface CreateRecordConfig {
   readonly origin?: string
 }
 
+const applyAuthorshipOverrides = (input: {
+  readonly phase: 'create' | 'update'
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly tables: App['tables'] | undefined
+  readonly tableName: string
+  readonly userId: string
+}): Record<string, unknown> => {
+  const { phase, fields, tables, tableName, userId } = input
+  if (isGuestSession(userId)) return { ...fields }
+  const overrides =
+    phase === 'create'
+      ? buildCreateAuthorshipOverrides(tables, tableName, userId)
+      : buildUpdateAuthorshipOverrides(tables, tableName, userId)
+  return { ...fields, ...overrides }
+}
+
 export function createRecordProgram(config: CreateRecordConfig) {
   const { session, tableName, fields, app, userRole, origin } = config
   return Effect.gen(function* () {
     const repo = yield* TableRepository
 
-    const record = yield* repo.createRecord(session, tableName, fields)
+    const fieldsWithAuthorship = applyAuthorshipOverrides({
+      phase: 'create',
+      fields,
+      tables: app?.tables,
+      tableName,
+      userId: session.userId,
+    })
+
+    const record = yield* repo.createRecord(session, tableName, fieldsWithAuthorship)
 
     const enrich = (rec: TransformedRecord): TransformedRecord =>
       enrichRecordWithAttachmentUrls(rec, { app, tableName, origin: origin ?? '' })
@@ -385,7 +403,13 @@ export function updateRecordProgram(
     const repo = yield* TableRepository
 
     const record = yield* repo.updateRecord(session, tableName, recordId, {
-      fields: params.fields,
+      fields: applyAuthorshipOverrides({
+        phase: 'update',
+        fields: params.fields,
+        tables: params.app?.tables,
+        tableName,
+        userId: session.userId,
+      }),
       app: params.app,
     })
 

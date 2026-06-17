@@ -8,11 +8,11 @@
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { parseEcoPageCache } from '@/domain/models/env/eco-page-cache'
+import { parseEcoPageCache } from '@/domain/models/env/eco/eco-page-cache'
 import { computeAppRenderChecksum } from '@/domain/services/app-render-checksum'
-import { isRenderablePathCacheable } from '@/domain/services/page-cacheability'
-import { isSharedViewAccessDenied } from '@/domain/services/page-shared-view-guard'
-import { buildRobotsTxt, buildSitemapXml } from '@/domain/services/sitemap-builder'
+import { buildRobotsTxt, buildSitemapXml } from '@/domain/services/feeds/sitemap-builder'
+import { isRenderablePathCacheable } from '@/domain/services/pages/page-cacheability'
+import { isSharedViewAccessDenied } from '@/domain/services/pages/page-shared-view-guard'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   getCachedPage,
@@ -203,6 +203,17 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
   })
 }
 
+function handleBareLanguageRoute(config: HonoAppConfig) {
+  const { app } = config
+  return async (c: Readonly<Context>, next: () => Promise<void>) => {
+    const urlLanguage = validateLanguageSubdirectory(app, c.req.path)
+    if (urlLanguage === undefined) {
+      return next()
+    }
+    return c.redirect(`/${urlLanguage}/`, 301)
+  }
+}
+
 function handleLanguageHomepageRoute(config: HonoAppConfig) {
   const { app, renderNotFoundPage, renderErrorPage } = config
   return async (c: Readonly<Context>) => {
@@ -211,15 +222,15 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       const session = await extractSession(config, c.req.raw.headers)
       const cookies = getCookie(c)
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
+      const urlLanguage = validateLanguageSubdirectory(app, path)
       const previewMode = resolvePreviewMode(c, session)
       const exact = await renderWithCache(
         config,
         path,
-        { detectedLanguage, session, cookies, previewMode },
+        { detectedLanguage: urlLanguage ?? detectedLanguage, session, cookies, previewMode },
         c
       )
       if (exact) return exact
-      const urlLanguage = validateLanguageSubdirectory(app, path)
       if (!urlLanguage) {
         return c.html(await renderNotFoundPage(app, detectedLanguage), 404)
       }
@@ -245,16 +256,16 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
     const session = await extractSession(config, c.req.raw.headers)
     const cookies = getCookie(c)
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
+    const urlLanguage = validateLanguageSubdirectory(app, path)
     const previewMode = resolvePreviewMode(c, session)
     try {
       const exact = await renderWithCache(
         config,
         path,
-        { detectedLanguage, session, cookies, previewMode },
+        { detectedLanguage: urlLanguage ?? detectedLanguage, session, cookies, previewMode },
         c
       )
       if (exact) return exact
-      const urlLanguage = validateLanguageSubdirectory(app, path)
       if (!urlLanguage) {
         return c.html(await renderNotFoundPage(app, detectedLanguage), 404)
       }
@@ -278,6 +289,7 @@ export function setupLanguageRoutes(
   config: HonoAppConfig
 ): Readonly<Hono> {
   return honoApp
+    .get('/:lang', handleBareLanguageRoute(config))
     .get('/:lang/', handleLanguageHomepageRoute(config))
     .get('/:lang/*', handleLanguagePageRoute(config))
 }

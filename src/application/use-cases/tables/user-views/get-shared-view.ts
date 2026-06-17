@@ -12,7 +12,7 @@ import {
   UserViewNotFoundError,
   UserViewRepository,
   type UserViewResponse,
-} from '@/application/ports/repositories/user-view-repository'
+} from '@/application/ports/repositories/tables/user-view-repository'
 import { hasReadPermissionForRoles } from '@/application/use-cases/tables/permissions/permissions'
 import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'

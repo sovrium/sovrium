@@ -13,9 +13,9 @@ import {
   type UpdateUserTablePreferencesInput,
   type UserPreferencesDbError,
   type UserPreferencesWriteError,
-} from '@/application/ports/repositories/user-table-preferences-repository'
+} from '@/application/ports/repositories/tables/user-table-preferences-repository'
 
-export type { UpdatePreferencesResult } from '@/application/ports/repositories/user-table-preferences-repository'
+export type { UpdatePreferencesResult } from '@/application/ports/repositories/tables/user-table-preferences-repository'
 
 export const updateUserTablePreferences = (
   input: UpdateUserTablePreferencesInput

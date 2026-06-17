@@ -11,7 +11,7 @@ import {
   UsersOverviewRepository,
   type UsersOverviewDatabaseError,
   type UserOverviewRow,
-} from '@/application/ports/repositories/users-overview-repository'
+} from '@/application/ports/repositories/tables/users-overview-repository'
 import {
   resolvePeriodWindow,
   type PeriodPreset,
@@ -21,7 +21,7 @@ import {
   type UsersOverviewResponse,
   type UsersOverviewSeriesPoint,
 } from '@/domain/models/api/admin/users'
-import { UsersOverviewRepositoryLive } from '@/infrastructure/database/repositories/users-overview-repository-live'
+import { UsersOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/users-overview-repository-live'
 
 
 const HOUR_MS = 60 * 60 * 1000

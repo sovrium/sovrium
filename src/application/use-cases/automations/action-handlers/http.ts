@@ -60,6 +60,27 @@ const readResponseBodySafe = async (response: Response): Promise<string | undefi
   }
 }
 
+const isJsonContentType = (headers: Record<string, string>): boolean => {
+  const entry = Object.entries(headers).find(([k]) => k.toLowerCase() === 'content-type')
+  const value = (entry?.[1] ?? '').toLowerCase()
+  return value.includes('application/json') || value.includes('+json')
+}
+
+const parseJsonResponseBody = (
+  body: string | undefined,
+  headers: Record<string, string>
+): unknown => {
+  if (body === undefined || body === '') return undefined
+  const looksJson = isJsonContentType(headers)
+  try {
+    const parsed: unknown = JSON.parse(body)
+    if (typeof parsed === 'object' && parsed !== null) return parsed
+    return looksJson ? parsed : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const performHttpWithResponseOutput = async (
   url: string,
   method: string,
@@ -88,14 +109,16 @@ const performHttpWithResponseOutput = async (
       headers: responseHeaders,
       ...(body !== undefined ? { body } : {}),
     }
+    const parsedBody = parseJsonResponseBody(body, responseHeaders)
+    const parsedBodyField = parsedBody !== undefined ? { body: parsedBody } : {}
     if (!response.ok) {
       return {
         status: 'failure',
         error: classifyHttpError(response.status, body?.slice(0, 200)),
-        output: { response: responseEnvelope },
+        output: { response: responseEnvelope, ...parsedBodyField },
       }
     }
-    return { status: 'success', output: { response: responseEnvelope } }
+    return { status: 'success', output: { response: responseEnvelope, ...parsedBodyField } }
   } catch (error) {
     return {
       status: 'failure',

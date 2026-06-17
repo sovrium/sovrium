@@ -22,9 +22,11 @@ import { DescriptionSchema } from './description'
 import { EnvVarsSchema } from './env'
 import { FormsSchema } from './forms'
 import { LanguagesSchema } from './languages'
+import { LlmsSchema } from './llms'
 import { NameSchema } from './name'
 import { validateAllPageAccessGroups } from './page-access-validation'
 import { PagesSchema } from './pages'
+import { PaletteSchema } from './palette'
 import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
 import { AppScriptsSchema } from './scripts'
 import { validateAllTablePermissionGroups } from './table-permission-validation'
@@ -68,6 +70,10 @@ export const AppSchema = Schema.Struct({
   buckets: Schema.optional(BucketsSchema),
 
   scripts: Schema.optional(AppScriptsSchema),
+
+  llms: Schema.optional(LlmsSchema),
+
+  palette: Schema.optional(PaletteSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'App',
@@ -473,9 +479,11 @@ export * from './connections'
 export * from './description'
 export * from './env'
 export * from './languages'
+export * from './llms'
 export * from './name'
 export * from './auth'
 export * from './pages'
+export * from './palette'
 export * from './requires-email'
 export * from '@/domain/models/shared'
 export * from './tables'

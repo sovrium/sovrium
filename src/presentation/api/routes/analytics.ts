@@ -7,7 +7,7 @@
 
 import { zValidator } from '@hono/zod-validator'
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '@/application/ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import { collectPageView } from '@/application/use-cases/analytics/collect-page-view'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { queryCampaigns } from '@/application/use-cases/analytics/query-campaigns'
@@ -20,7 +20,7 @@ import {
   analyticsCollectSchema,
   analyticsQuerySchema,
 } from '@/domain/models/api/analytics/analytics'
-import { matchesAnyGlobPattern } from '@/domain/utils/glob-matcher'
+import { matchesAnyGlobPattern } from '@/domain/utils/matching/glob-matcher'
 import { unauthorized, validationError } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideAnalyticsLive } from './analytics/effect-runner'

@@ -10,8 +10,10 @@ import {
   CommandSearchRepository,
   type CommandSearchDatabaseError,
 } from '@/application/ports/repositories/command-search-repository'
-import { sanitizeTableName } from '@/domain/utils/table-naming'
+import { extractMatchExcerpt, stripMarkdownToPlainText } from '@/domain/utils/content-dir-excerpt'
+import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { CommandSearchRepositoryLive } from '@/infrastructure/database/repositories/command-search-repository-live'
+import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { App } from '@/domain/models/app'
 
 
@@ -24,6 +26,8 @@ export interface CommandSearchResult {
   readonly label: string
   readonly favorited: boolean
   readonly detailPath?: string
+  readonly excerpt?: string
+  readonly matchRange?: readonly [number, number]
 }
 
 const collectComponentDataSources = (
@@ -87,6 +91,46 @@ const searchPages = (app: App, query: string): readonly CommandSearchResult[] =>
   })
 }
 
+const searchContentDirPages = async (
+  app: App,
+  query: string
+): Promise<readonly CommandSearchResult[]> => {
+  const needle = query.toLowerCase()
+  const perPage = await Promise.all(
+    (app.pages ?? [])
+      .filter((page) => page.contentDir !== undefined && typeof page.path === 'string')
+      .map(async (page) => {
+        const bodies = await readContentDirBodies(page.contentDir!, page.path)
+        return bodies.flatMap(({ entry, body }): readonly CommandSearchResult[] => {
+          const titleMatch = `${entry.title} ${entry.slug}`.toLowerCase().includes(needle)
+          const plain = stripMarkdownToPlainText(body)
+          const bodyMatch = plain.toLowerCase().includes(needle)
+          if (!titleMatch && !bodyMatch) return []
+
+          const base = {
+            entityType: 'page' as const,
+            entityId: entry.path,
+            label: entry.title,
+            favorited: false,
+            detailPath: entry.path,
+          }
+          if (bodyMatch) {
+            const { excerpt, matchStart, matchEnd } = extractMatchExcerpt(plain, query)
+            return [
+              {
+                ...base,
+                excerpt,
+                ...(matchStart >= 0 ? { matchRange: [matchStart, matchEnd] as const } : {}),
+              },
+            ]
+          }
+          return [base]
+        })
+      })
+  )
+  return perPage.flat()
+}
+
 const searchableColumns = (table: NonNullable<App['tables']>[number]): readonly string[] =>
   (table.fields ?? [])
     .filter((field) => TEXT_FIELD_TYPES.has(field.type))
@@ -140,8 +184,9 @@ export const SearchCommandPalette = (
     ].slice(0, 25)
 
     const pages = searchPages(app, query)
+    const contentDirPages = yield* Effect.promise(() => searchContentDirPages(app, query))
 
-    return [...pages, ...rankedRecords]
+    return [...pages, ...contentDirPages, ...rankedRecords]
   })
 
 export const CommandSearchLayer = Layer.mergeAll(CommandSearchRepositoryLive)

@@ -57,6 +57,24 @@ const ContentDirNavSchema = Schema.Struct({
       })
     )
   ),
+
+  groupLabels: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
+      Schema.annotations({
+        description:
+          'Map of raw groupBy keys to display labels (e.g., { Guides: "Developer Guides" })',
+      })
+    )
+  ),
+
+  collapsed: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotations({
+        description:
+          'Collapse sidebar group sections by default, expanding only the active group (default: false)',
+      })
+    )
+  ),
 }).pipe(
   Schema.annotations({
     identifier: 'ContentDirNav',

@@ -7,7 +7,7 @@
 
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { SessionContextError } from '@/domain/errors'
 

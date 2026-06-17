@@ -6,6 +6,7 @@
  */
 
 
+import typography from '@tailwindcss/typography'
 import { Effect } from 'effect'
 import { compile, type Polyfills } from 'tailwindcss'
 import {
@@ -39,6 +40,20 @@ const loadStylesheet = (
     new Error(
       `Native-free CSS compiler cannot resolve @import '${id}'. ` +
         'Only tailwindcss and tw-animate-css are embedded in the binary.'
+    )
+  )
+}
+
+const loadModule = (
+  id: string
+): Promise<{ readonly path: string; readonly base: string; readonly module: unknown }> => {
+  if (id === '@tailwindcss/typography') {
+    return Promise.resolve({ path: id, base: '/', module: typography })
+  }
+  return Promise.reject(
+    new Error(
+      `Native-free CSS compiler cannot resolve @plugin '${id}'. ` +
+        'Only @tailwindcss/typography is embedded in the binary.'
     )
   )
 }
@@ -83,6 +98,7 @@ export const compileCSSNativeFree = (
         base: '/',
         polyfills: 3 as Polyfills,
         loadStylesheet,
+        loadModule: loadModule as NonNullable<Parameters<typeof compile>[1]>['loadModule'],
       })
       const css = compiled.build([...candidates])
       logDebug(`[CSS] Native-free compile produced ${css.length} bytes`)

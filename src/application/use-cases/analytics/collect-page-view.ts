@@ -6,10 +6,10 @@
  */
 
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '../../ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
 import { parseUserAgent } from './ua-parser'
 import { computeSessionHash, computeVisitorHash } from './visitor-hash'
-import type { AnalyticsDatabaseError } from '../../ports/repositories/analytics-repository'
+import type { AnalyticsDatabaseError } from '../../ports/repositories/analytics/analytics-repository'
 
 export interface CollectPageViewInput {
   readonly appName: string

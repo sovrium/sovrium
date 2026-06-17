@@ -15,12 +15,24 @@ import {
   type ChatToolDefinition,
   type AiError,
 } from '@/application/ports/services/ai-service'
-import { runRawDynamicQuery } from '@/application/use-cases/ai/dynamic-record-query'
+import {
+  countDynamicRecords,
+  listDynamicRecords,
+} from '@/application/use-cases/ai/dynamic-record-query'
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
 import { recordActivityLogRow, recordChatActivity } from './chat-activity-log'
 import { appendConversationTurn } from './chat-conversation-store'
 import { persistTurnDurably } from './chat-durable-memory'
-import { projectAppTables } from './chat-table-projection'
+import {
+  projectAppTables,
+  readableColumnsForRole,
+  type ProjectedField,
+} from './chat-table-projection'
+import {
+  buildStructuredCount,
+  buildStructuredQuery,
+  type StructuredQueryValidation,
+} from './chat-tool-structured-query'
 import { provideAiLive, provideDynamicRecordRepoLive } from './effect-runner'
 import type { ChatAction, ChatResponse } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
@@ -29,6 +41,8 @@ import type { Context } from 'hono'
 export interface ToolCallTable {
   readonly name: string
   readonly permissions?: unknown
+  readonly fields: ReadonlyArray<ProjectedField>
+  readonly readableColumns: ReadonlyArray<string>
 }
 
 export const toToolCallTables = (
@@ -46,6 +60,8 @@ export const toToolCallTables = (
     )
     .map((table) => ({
       name: table.name,
+      fields: table.fields,
+      readableColumns: readableColumnsForRole(table.fields, table.permissions, userRole),
       ...(table.permissions !== undefined && { permissions: table.permissions }),
     }))
 }
@@ -76,8 +92,17 @@ const resolveMaxToolIterations = (): number => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_TOOL_ITERATIONS
 }
 
-const tableFromToolName = (toolName: string): string | undefined =>
-  toolName.startsWith('query_') ? toolName.slice('query_'.length) : undefined
+interface ParsedToolName {
+  readonly kind: 'query' | 'count' | 'unknown'
+  readonly table?: string
+}
+const parseToolName = (toolName: string): ParsedToolName => {
+  if (toolName.startsWith('query_'))
+    return { kind: 'query', table: toolName.slice('query_'.length) }
+  if (toolName.startsWith('count_'))
+    return { kind: 'count', table: toolName.slice('count_'.length) }
+  return { kind: 'unknown' }
+}
 
 interface ToolExecution {
   readonly content: string
@@ -88,17 +113,31 @@ interface ToolExecution {
 const RBAC_DENIED_REPLY =
   'I cannot complete that request — you do not have permission to access the requested data.'
 
+const callArgs = (call: ChatToolCall): Record<string, unknown> =>
+  call.arguments !== null && typeof call.arguments === 'object'
+    ? (call.arguments as Record<string, unknown>)
+    : {}
+
+const projectRow = (
+  row: Record<string, unknown>,
+  readableColumns: ReadonlyArray<string>
+): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(row).filter(([key]) => readableColumns.includes(key)))
+
 const executeToolCall = async (
   call: ChatToolCall,
   input: ToolCallingInput
 ): Promise<ToolExecution> => {
-  const tableName = tableFromToolName(call.name)
-  const table = input.tables.find((candidate) => candidate.name === tableName)
-  const description = `Tool ${call.name} executed.`
+  const parsed = parseToolName(call.name)
+  const table = input.tables.find((candidate) => candidate.name === parsed.table)
   const action: ChatAction = {
     type: 'query',
-    ...(tableName !== undefined && { table: tableName }),
-    description,
+    ...(parsed.table !== undefined && { table: parsed.table }),
+    description: `Tool ${call.name} executed.`,
+  }
+
+  if (parsed.kind === 'unknown') {
+    return { content: `Error: unknown tool "${call.name}".`, action, denied: false }
   }
 
   if (
@@ -110,23 +149,43 @@ const executeToolCall = async (
     )
   ) {
     return {
-      content: `Error: permission denied — you cannot access the "${tableName ?? call.name}" data.`,
+      content: `Error: permission denied — you cannot access the "${parsed.table ?? call.name}" data.`,
       action,
       denied: true,
     }
   }
 
-  const query = typeof call.arguments['query'] === 'string' ? call.arguments['query'] : undefined
-  if (query === undefined) {
+  return parsed.kind === 'count'
+    ? executeCount(call, table, action)
+    : executeQuery(call, table, action)
+}
+
+const executeQuery = async (
+  call: ChatToolCall,
+  table: ToolCallTable,
+  action: ChatAction
+): Promise<ToolExecution> => {
+  const validation: StructuredQueryValidation = buildStructuredQuery(
+    callArgs(call),
+    table.readableColumns
+  )
+  if (!validation.ok) {
     return {
-      content: 'Error: the tool call did not include a SQL query.',
+      content: `Error: invalid query arguments — ${validation.error}`,
       action,
       denied: false,
     }
   }
-
+  const { inputs } = validation
   const result = await Effect.runPromise(
-    runRawDynamicQuery({ sql: query }).pipe(provideDynamicRecordRepoLive, Effect.either)
+    listDynamicRecords({
+      table: table.name,
+      ...(inputs.columns !== undefined && { columns: inputs.columns }),
+      conditions: inputs.conditions,
+      ...(inputs.sortColumn !== undefined && { sortColumn: inputs.sortColumn }),
+      ...(inputs.sortDirection !== undefined && { sortDirection: inputs.sortDirection }),
+      limit: inputs.limit,
+    }).pipe(provideDynamicRecordRepoLive, Effect.either)
   )
   if (result._tag === 'Left') {
     const { cause } = result.left
@@ -138,7 +197,40 @@ const executeToolCall = async (
       denied: false,
     }
   }
-  return { content: JSON.stringify({ rows: result.right }), action, denied: false }
+  const rows = result.right.map((row) => projectRow(row, table.readableColumns))
+  return { content: JSON.stringify({ rows }), action, denied: false }
+}
+
+const executeCount = async (
+  call: ChatToolCall,
+  table: ToolCallTable,
+  action: ChatAction
+): Promise<ToolExecution> => {
+  const validation = buildStructuredCount(callArgs(call), table.readableColumns)
+  if (!validation.ok) {
+    return {
+      content: `Error: invalid count arguments — ${validation.error}`,
+      action,
+      denied: false,
+    }
+  }
+  const result = await Effect.runPromise(
+    countDynamicRecords({ table: table.name, conditions: validation.inputs.conditions }).pipe(
+      provideDynamicRecordRepoLive,
+      Effect.either
+    )
+  )
+  if (result._tag === 'Left') {
+    const { cause } = result.left
+    return {
+      content: `Error: count execution failed — ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+      action,
+      denied: false,
+    }
+  }
+  return { content: JSON.stringify({ count: result.right }), action, denied: false }
 }
 
 const callProvider = (

@@ -9,7 +9,7 @@ export {
   ActivityLogRepository,
   ActivityLogDatabaseError,
   type ActivityLog,
-} from './activity-log-repository'
+} from './analytics/activity-log-repository'
 export {
   AnalyticsRepository,
   AnalyticsDatabaseError,
@@ -22,10 +22,14 @@ export {
   type BreakdownEntry,
   type DeviceBreakdown,
   type CampaignEntry,
-} from './analytics-repository'
-export { ActivityRepository, type ActivityHistoryEntry } from './activity-repository'
-export { AuthRepository, AuthDatabaseError } from './auth-repository'
-export { BatchRepository, type BatchValidationError, type UpsertResult } from './batch-repository'
+} from './analytics/analytics-repository'
+export { ActivityRepository, type ActivityHistoryEntry } from './analytics/activity-repository'
+export { AuthRepository, AuthDatabaseError } from './auth/auth-repository'
+export {
+  BatchRepository,
+  type BatchValidationError,
+  type UpsertResult,
+} from './tables/batch-repository'
 export {
   CommentRepository,
   type CommentWithUser,
@@ -38,25 +42,28 @@ export {
   type QueryFilter,
   type AggregateQuery,
   type AggregationResult,
-} from './table-repository'
+} from './tables/table-repository'
 export {
   DataSourceRepository,
   DataSourceDatabaseError,
   type DataSourceQueryOptions,
-} from './data-source-repository'
+} from './tables/data-source-repository'
 export {
   AppVersionRepository,
   AppVersionDatabaseError,
   type CreateAppVersionInput,
-} from './app-version-repository'
+} from './app/app-version-repository'
 export {
   AppDraftRepository,
   AppDraftDatabaseError,
   type UpsertAppDraftInput,
-} from './app-draft-repository'
-export { BootstrapTokenRepository, BootstrapTokenDatabaseError } from './bootstrap-token-repository'
+} from './app/app-draft-repository'
+export {
+  BootstrapTokenRepository,
+  BootstrapTokenDatabaseError,
+} from './auth/bootstrap-token-repository'
 export {
   PreviewSessionRepository,
   PreviewSessionDatabaseError,
   type CreatePreviewSessionInput,
-} from './preview-session-repository'
+} from './app/preview-session-repository'

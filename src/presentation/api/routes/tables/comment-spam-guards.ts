@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { classifyCommentBySpam } from '@/domain/services/comment-spam-classification'
+import { classifyCommentBySpam } from '@/domain/services/comments/comment-spam-classification'
 import { checkAndRecord, type RateLimitPolicy } from '@/infrastructure/forms/form-rate-limiter'
 import { hashIp, readIpHashSalt } from '@/infrastructure/forms/ip-hash'
 import type { App } from '@/domain/models/app'
 import type {
   CommentSpamProtectionConfig,
   CommentSpamStatus,
-} from '@/domain/services/comment-spam-classification'
+} from '@/domain/services/comments/comment-spam-classification'
 import type { Context } from 'hono'
 
 

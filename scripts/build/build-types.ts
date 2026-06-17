@@ -23,6 +23,10 @@ const TYPE_EXPORTS = [
   { exported: 'AuthConfig', source: 'AuthConfig' },
   { exported: 'LanguageConfig', source: 'LanguageConfig' },
   { exported: 'AnalyticsConfig', source: 'AnalyticsConfig' },
+  { exported: 'AutomationConfig', source: 'AutomationConfig' },
+  { exported: 'ConnectionConfig', source: 'ConnectionConfig' },
+  { exported: 'FormConfig', source: 'FormConfig' },
+  { exported: 'EnvConfig', source: 'EnvConfig' },
   { exported: 'StartOptions', source: 'StartOptions' },
   { exported: 'GenerateStaticOptions', source: 'GenerateStaticOptions' },
 ] as const

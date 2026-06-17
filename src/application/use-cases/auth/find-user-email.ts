@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 
 export async function findUserEmailById(userId: string): Promise<string | undefined> {
   const program = Effect.gen(function* () {

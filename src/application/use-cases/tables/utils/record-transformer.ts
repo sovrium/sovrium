@@ -41,7 +41,9 @@ const toISOString = (value: unknown): string => {
     return value.toISOString()
   }
   if (typeof value === 'string') {
-    return value
+    if (value.includes('T')) return value
+    const normalized = new Date(`${value.replace(' ', 'T')}Z`)
+    return Number.isNaN(normalized.getTime()) ? value : normalized.toISOString()
   }
   return new Date().toISOString()
 }

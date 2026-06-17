@@ -19,6 +19,7 @@ export interface AutomationRunRecord {
     | 'completed-with-errors'
     | 'skipped'
     | 'cancelled'
+    | 'waiting-approval'
     | 'queued'
     | 'running'
   readonly steps: ReadonlyArray<{

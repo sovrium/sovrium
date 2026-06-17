@@ -11,7 +11,7 @@ import {
   UserViewRepository,
   type UserViewDbError,
   type UserViewResponse,
-} from '@/application/ports/repositories/user-view-repository'
+} from '@/application/ports/repositories/tables/user-view-repository'
 
 export interface ListUserViewsInput {
   readonly userId: string

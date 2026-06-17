@@ -11,7 +11,7 @@ import { deriveSlugFromBody, isValidSlugFormat } from '@/domain/utils/slug'
 import { FieldFormatError, ValidationContext } from '../../middleware/validation'
 import {
   validateReadonlyIdField,
-  validateDefaultFields,
+  validateReadonlyComputedFields,
   validateRequiredFields,
   filterAllowedFields,
   validateFieldWritePermissions,
@@ -90,7 +90,7 @@ export function validateRecordCreation(
   return Effect.gen(function* () {
     yield* validateReadonlyIdField(requestedFields)
 
-    yield* validateDefaultFields(requestedFields)
+    yield* validateReadonlyComputedFields(requestedFields)
 
     const { allowedData, forbiddenFields } = yield* filterAllowedFields(requestedFields)
 
@@ -126,7 +126,7 @@ export function validateRecordUpdate(
   return Effect.gen(function* () {
     yield* validateReadonlyIdField(requestedFields)
 
-    yield* validateDefaultFields(requestedFields)
+    yield* validateReadonlyComputedFields(requestedFields)
 
     const { allowedData, forbiddenFields } = yield* filterAllowedFields(requestedFields)
 

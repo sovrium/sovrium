@@ -10,7 +10,7 @@ import { Effect } from 'effect'
 import {
   UserTablePreferencesRepository,
   type UserPreferencesDbError,
-} from '@/application/ports/repositories/user-table-preferences-repository'
+} from '@/application/ports/repositories/tables/user-table-preferences-repository'
 
 export interface DeleteUserPreferencesInput {
   readonly userId: string

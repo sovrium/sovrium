@@ -7,7 +7,17 @@
 
 
 import { normalizeCurrentUserRef } from '@/domain/utils/current-user-ref'
-import type { RowLevelPredicate } from '@/domain/models/app/tables/permissions'
+import type {
+  RowLevelPredicate,
+  RowLevelPredicateGroup,
+  RowLevelWhen,
+} from '@/domain/models/app/tables/permissions'
+
+export const isPredicateGroup = (when: RowLevelWhen): when is RowLevelPredicateGroup =>
+  typeof when === 'object' &&
+  when !== null &&
+  'conditions' in when &&
+  Array.isArray((when as RowLevelPredicateGroup).conditions)
 
 export interface CurrentUserContext {
   readonly userId: string
@@ -101,7 +111,40 @@ export const projectPredicateToFilter = (
   return { field: predicate.field, operator: op, value: resolved }
 }
 
-export const evaluateRecordAgainstPredicate = (
+
+export interface RowLevelLeafClause {
+  readonly field: string
+  readonly operator: 'equals' | 'notEquals' | 'in'
+  readonly value: unknown
+}
+
+export type RowLevelFilterNode =
+  | RowLevelLeafClause
+  | { readonly and: readonly RowLevelFilterNode[] }
+  | { readonly or: readonly RowLevelFilterNode[] }
+
+const MATCH_NOTHING_LEAF: RowLevelLeafClause = {
+  field: 'id',
+  operator: 'in',
+  value: [] as readonly string[],
+}
+
+export const projectWhenToFilter = (
+  when: RowLevelWhen,
+  ctx: CurrentUserContext
+): RowLevelFilterNode | undefined => {
+  if (!isPredicateGroup(when)) {
+    return projectPredicateToFilter(when, ctx)
+  }
+  const children = when.conditions.map((child) =>
+    isPredicateGroup(child)
+      ? (projectWhenToFilter(child, ctx) ?? MATCH_NOTHING_LEAF)
+      : (projectPredicateToFilter(child, ctx) ?? MATCH_NOTHING_LEAF)
+  )
+  return when.logic === 'or' ? { or: children } : { and: children }
+}
+
+const evaluateTriple = (
   record: Readonly<Record<string, unknown>>,
   predicate: RowLevelPredicate,
   ctx: CurrentUserContext
@@ -111,6 +154,21 @@ export const evaluateRecordAgainstPredicate = (
 
   const fieldValue = record[predicate.field]
   return compareValues(predicate.operator, fieldValue, resolved)
+}
+
+export const evaluateRecordAgainstPredicate = (
+  record: Readonly<Record<string, unknown>>,
+  predicate: RowLevelWhen,
+  ctx: CurrentUserContext
+): boolean => {
+  if (isPredicateGroup(predicate)) {
+    const evaluateChild = (child: RowLevelWhen): boolean =>
+      evaluateRecordAgainstPredicate(record, child, ctx)
+    return predicate.logic === 'or'
+      ? predicate.conditions.some(evaluateChild)
+      : predicate.conditions.every(evaluateChild)
+  }
+  return evaluateTriple(record, predicate, ctx)
 }
 
 const compareValues = (

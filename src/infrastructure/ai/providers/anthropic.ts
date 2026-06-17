@@ -6,7 +6,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
-import type { AiEnvConfig } from '@/domain/models/env/ai'
+import type { AiEnvConfig } from '@/domain/models/env/ai/ai'
 
 export const createAnthropicClient = (config: AiEnvConfig): Anthropic =>
   new Anthropic({

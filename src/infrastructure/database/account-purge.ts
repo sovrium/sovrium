@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { sanitizeTableName } from '@/domain/utils/table-naming'
+import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { appendAuditEntryToDbTx } from '@/infrastructure/audit-log/drizzle-store'
 import { db } from '@/infrastructure/database'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'

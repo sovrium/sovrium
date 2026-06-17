@@ -7,7 +7,10 @@
 
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { parseAiProviderPrecedence, resolveOllamaBaseUrl } from '@/domain/models/env/ai-eco-routing'
+import {
+  parseAiProviderPrecedence,
+  resolveOllamaBaseUrl,
+} from '@/domain/models/env/ai/ai-eco-routing'
 
 export const validateEcoAiRouting = (
   processEnv: Readonly<Record<string, string | undefined>>,

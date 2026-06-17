@@ -6,12 +6,12 @@
  */
 
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '../../ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
 import type {
   AnalyticsDatabaseError,
   AnalyticsSummary,
   TimeSeriesPoint,
-} from '../../ports/repositories/analytics-repository'
+} from '../../ports/repositories/analytics/analytics-repository'
 
 export interface QueryOverviewInput {
   readonly appName: string

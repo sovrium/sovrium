@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isViewComputedFormula } from '../formula/formula-utils'
 import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
 import { generateColumnDefinition, generateTableConstraints } from '../sql/sql-generators'
 import { shouldCreateDatabaseColumn, sanitizeTableName } from '../table-queries/shared/field-utils'
@@ -29,7 +30,8 @@ export const generateCreateTableSQL = (
   table: Table,
   tableUsesView?: ReadonlyMap<string, boolean>,
   skipForeignKeys?: boolean,
-  hasAuthConfig: boolean = true
+  hasAuthConfig: boolean = true,
+  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string => {
   const sanitized = sanitizeTableName(table.name)
   const tableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
@@ -45,11 +47,20 @@ export const generateCreateTableSQL = (
   const columnDefinitions = table.fields
     .filter(
       (field) =>
-        shouldCreateDatabaseColumn(field) && field.type !== 'lookup' && field.type !== 'rollup'
+        shouldCreateDatabaseColumn(field) &&
+        field.type !== 'lookup' &&
+        field.type !== 'rollup' &&
+        !isViewComputedFormula(field, table.fields)
     )
     .map((field) => {
       const isPrimaryKey = primaryKeyFields.includes(field.name) && primaryKeyFields.length === 1
-      return generateColumnDefinition(field, isPrimaryKey, table.fields, hasAuthConfig)
+      return generateColumnDefinition(
+        field,
+        isPrimaryKey,
+        table.fields,
+        hasAuthConfig,
+        tablePrimaryKeyTypes
+      )
     })
 
   const tableConstraints = generateTableConstraints(table, tableUsesView, skipForeignKeys)

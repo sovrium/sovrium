@@ -24,6 +24,14 @@ export const ThemeSchema = Schema.Struct({
     })
   ),
 
+  colorScheme: Schema.optional(
+    Schema.Literal('light', 'dark', 'system').annotations({
+      title: 'Default Color Scheme',
+      description:
+        "Default color scheme before content renders: 'light', 'dark', or 'system' (follow prefers-color-scheme).",
+    })
+  ),
+
   colors: Schema.optional(ColorsConfigSchema),
 
   darkColors: Schema.optional(ColorsConfigSchema),

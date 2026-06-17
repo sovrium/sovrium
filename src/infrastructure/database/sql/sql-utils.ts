@@ -6,10 +6,14 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { escapeSqlString } from '@/domain/utils/sql-formatting'
+import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
-export { escapeSqlString, formatSqlValue, formatLikePattern } from '@/domain/utils/sql-formatting'
+export {
+  escapeSqlString,
+  formatSqlValue,
+  formatLikePattern,
+} from '@/domain/utils/database/sql-formatting'
 
 export const jsonbLiteral = (value: unknown) => {
   const literal = escapeSqlString(JSON.stringify(value))

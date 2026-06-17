@@ -7,8 +7,8 @@
 
 
 import { Effect } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import type { Actor, ActorRole } from '@/domain/models/api/admin/_shared/actor'
 
 const DEFAULT_ROLE = 'member'

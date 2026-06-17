@@ -35,4 +35,8 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'pageSearch',
   'comments',
   'commentCount',
+  'schema-json-editor',
+  'schema-yaml-editor',
+  'schema-form-editor',
+  'schema-ai-agent',
 ])

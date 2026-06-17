@@ -16,6 +16,7 @@ import {
   buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
   checkAuthorshipColumns,
+  type FilterNode,
 } from '../query-helpers/aggregation-helpers'
 import { buildTrashFilters, addTrashSorting } from '../query-helpers/trash-helpers'
 import { wrapDatabaseError } from '../shared/error-handling'
@@ -29,11 +30,7 @@ export function listRecords(config: {
   readonly tableName: string
   readonly table?: { readonly permissions?: { readonly organizationScoped?: boolean } }
   readonly filter?: {
-    readonly and?: readonly {
-      readonly field: string
-      readonly operator: string
-      readonly value: unknown
-    }[]
+    readonly and?: readonly FilterNode[]
   }
   readonly includeDeleted?: boolean
   readonly sort?: string
@@ -66,11 +63,7 @@ export function computeAggregations(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
   readonly filter?: {
-    readonly and?: readonly {
-      readonly field: string
-      readonly operator: string
-      readonly value: unknown
-    }[]
+    readonly and?: readonly FilterNode[]
   }
   readonly includeDeleted?: boolean
   readonly aggregate: {
@@ -224,11 +217,7 @@ export function listTrash(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
   readonly filter?: {
-    readonly and?: readonly {
-      readonly field: string
-      readonly operator: string
-      readonly value: unknown
-    }[]
+    readonly and?: readonly FilterNode[]
   }
   readonly sort?: string
 }): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {

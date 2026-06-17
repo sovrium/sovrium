@@ -20,12 +20,16 @@ import {
   deleteRecordProgram,
   updateRecordProgram,
 } from '@/application/use-cases/tables/programs'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { hasPermission } from '@/domain/models/app/tables/permissions'
 import { isAiAccessEnabled } from '@/domain/models/shared/ai-access'
 import {
   evaluateRecordAgainstPredicate,
+  isPredicateGroup,
   projectPredicateToFilter,
+  projectWhenToFilter,
   type CurrentUserContext,
+  type RowLevelFilterNode,
 } from '@/domain/validators/row-level-evaluator'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { handleActionCall, resolveActionTemplateTool } from './action-call'
@@ -173,7 +177,7 @@ async function executeList(input: ExecBranchInput): Promise<Response> {
   const offsetArg = envelope.args['offset']
   const offset = typeof offsetArg === 'number' ? offsetArg : undefined
 
-  const userCtx = await resolveUserContextOrUndefined(caller, table)
+  const userCtx = await resolveUserContextOrUndefined(caller, table, app)
   const filter = buildReadListFilter(table, userCtx)
   if (filter === 'empty') {
     return jsonRpcSuccess(c, envelope.responseId, [])
@@ -208,7 +212,7 @@ async function executeRead(input: ExecBranchInput): Promise<Response> {
     return jsonRpcError(c, envelope.responseId, -32_602, "Missing 'id' parameter")
   }
 
-  const userCtx = await resolveUserContextOrUndefined(caller, table)
+  const userCtx = await resolveUserContextOrUndefined(caller, table, app)
   return runProgramAsToolResult({
     c,
     responseId: envelope.responseId,
@@ -369,28 +373,31 @@ function synthesizeSession(userId: string | undefined): UserSession {
   }
 }
 
+function projectSingleTripleReadFilter(
+  predicate: Parameters<typeof projectPredicateToFilter>[0],
+  ctx: CurrentUserContext
+): 'empty' | 'reject' | { readonly and: readonly RowLevelFilterNode[] } {
+  const projected = projectPredicateToFilter(predicate, ctx)
+  if (!projected) return 'reject'
+  const isEmptyIn =
+    projected.operator === 'in' && Array.isArray(projected.value) && projected.value.length === 0
+  return isEmptyIn ? 'empty' : { and: [projected] }
+}
+
 function buildReadListFilter(
   table: Table,
   ctx: CurrentUserContext | undefined
-):
-  | undefined
-  | 'empty'
-  | 'reject'
-  | { readonly and: readonly { field: string; operator: string; value: unknown }[] } {
+): undefined | 'empty' | 'reject' | { readonly and: readonly RowLevelFilterNode[] } {
   const rlp = table.rowLevelPermissions
   if (!rlp?.read?.when) return undefined
   if (!ctx || ctx.isUnrestricted) return undefined
 
-  const projected = projectPredicateToFilter(rlp.read.when, ctx)
-  if (!projected) return 'reject'
-  if (
-    projected.operator === 'in' &&
-    Array.isArray(projected.value) &&
-    projected.value.length === 0
-  ) {
-    return 'empty'
+  if (isPredicateGroup(rlp.read.when)) {
+    const node = projectWhenToFilter(rlp.read.when, ctx)
+    return node ? { and: [node] } : 'reject'
   }
-  return { and: [projected] }
+
+  return projectSingleTripleReadFilter(rlp.read.when, ctx)
 }
 
 function recordPassesReadPredicate(
@@ -406,12 +413,13 @@ function recordPassesReadPredicate(
 
 async function resolveUserContextOrUndefined(
   caller: McpCaller,
-  table: Table
+  table: Table,
+  app: App
 ): Promise<CurrentUserContext | undefined> {
   if (!caller.userId) return undefined
   const projection = toSessionProjection(
     { userId: caller.userId },
-    { role: caller.role, isUnrestricted: caller.role === 'admin' }
+    { role: caller.role, isUnrestricted: isAdminEquivalent(caller.role, app) }
   )
   const scopeTables = collectAssignmentScopeTables(table.rowLevelPermissions)
   return Effect.runPromise(provideTableLive(loadCurrentUserContext(projection, scopeTables)))

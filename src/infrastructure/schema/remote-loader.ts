@@ -11,11 +11,19 @@ import {
   detectFormatFromUrl,
   parseSchemaContent,
 } from '@/domain/utils'
+import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
 import type { AppEncoded } from '@/domain/models/app'
 
 export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
+  const validation = validateOutboundUrl(url)
+  if (!validation.ok) {
+    throw new Error(
+      `Blocked outbound schema URL ${url}: ${validation.issue.reason} targets are not allowed (SSRF guard). ` +
+        `Set SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1 to permit private/loopback outbound targets.`
+    )
+  }
   try {
-    const response = await fetch(url)
+    const response = await fetch(validation.url)
 
     if (!response.ok) {
       throw new Error(`Failed to fetch schema from ${url}: HTTP ${response.status}`)

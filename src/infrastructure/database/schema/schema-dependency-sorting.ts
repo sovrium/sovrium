@@ -6,7 +6,7 @@
  */
 
 
-import { isRelationshipField } from '../sql/sql-generators'
+import { isRelationshipField, relationshipFieldCreatesForeignKey } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/tables'
 
 export const detectCircularDependenciesWithOptionalFK = (
@@ -46,6 +46,7 @@ export const sortTablesByDependencies = (tables: readonly Table[]): readonly Tab
       const deps = new Set(
         table.fields
           .filter(isRelationshipField)
+          .filter(relationshipFieldCreatesForeignKey)
           .map((f) => f.relatedTable)
           .filter((name): name is string => name !== undefined && name !== table.name)
       )

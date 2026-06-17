@@ -25,7 +25,10 @@ import { provideDynamicRecordRepoLive } from '@/presentation/api/routes/ai/effec
 import { recordActivityLogRow } from './chat-activity-log'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { TableFieldPermissions } from '@/domain/models/app/tables/permissions'
-import type { MutationIntent, MutationTable } from '@/domain/services/ai-chat-mutation-parser'
+import type {
+  MutationIntent,
+  MutationTable,
+} from '@/domain/services/ai-chat/ai-chat-mutation-parser'
 
 export interface PendingConfirmation {
   readonly action: string

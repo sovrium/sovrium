@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { castDivisionOperands, isNumericFieldRef, numericCastType } from './formula-numeric-cast'
+
 const SQL_RESERVED_KEYWORDS = new Set([
   'select',
   'insert',
@@ -190,6 +192,53 @@ export const getFormulaFieldsNeedingTrigger = (
   return expandDependencies(directlyNeedsTrigger)
 }
 
+const VIEW_ONLY_FIELD_TYPES = new Set(['rollup', 'lookup', 'count'])
+
+export const formulaReferencesViewOnlyField = (
+  formula: string,
+  allFields: readonly { name: string; type: string }[]
+): boolean =>
+  allFields.some(
+    (f) => VIEW_ONLY_FIELD_TYPES.has(f.type) && formulaReferencesField(formula, f.name)
+  )
+
+export const getViewComputedFormulaFields = (
+  allFields: readonly { name: string; type: string }[]
+): ReadonlySet<string> => {
+  const formulaFields = allFields.filter(
+    (f): f is { name: string; type: string; formula: string } =>
+      f.type === 'formula' &&
+      'formula' in f &&
+      typeof (f as { formula?: string }).formula === 'string'
+  )
+
+  if (formulaFields.length === 0) return new Set()
+
+  const directlyViewComputed = new Set(
+    formulaFields
+      .filter((f) => formulaReferencesViewOnlyField(f.formula, allFields))
+      .map((f) => f.name)
+  )
+
+  const expand = (current: ReadonlySet<string>): ReadonlySet<string> => {
+    const next = formulaFields.reduce((acc, f) => {
+      if (acc.has(f.name)) return acc
+      const referencesViewComputed = formulaFields.some(
+        (other) => acc.has(other.name) && formulaReferencesField(f.formula, other.name)
+      )
+      return referencesViewComputed ? new Set([...acc, f.name]) : acc
+    }, current)
+    return next.size === current.size ? next : expand(next)
+  }
+
+  return expand(directlyViewComputed)
+}
+
+export const isViewComputedFormula = (
+  field: Readonly<{ name: string; type: string }>,
+  allFields: readonly { name: string; type: string }[]
+): boolean => field.type === 'formula' && getViewComputedFormulaFields(allFields).has(field.name)
+
 const arrayReturningFunctions = ['STRING_TO_ARRAY']
 
 export const isFormulaReturningArray = (formula: string): boolean => {
@@ -363,6 +412,8 @@ const EXTRACT_KEYWORDS = new Set([
   'timezone_minute',
 ])
 
+export { isNumericFieldRef, numericCastType }
+
 export const qualifyColumnReferences = (
   formula: string,
   allFields: readonly { name: string; type: string }[],
@@ -383,3 +434,12 @@ export const qualifyColumnReferences = (
     const fieldRegex = new RegExp(`(?<![."])\\b${field.name}\\b(?!["'(])`, 'gi')
     return acc.replace(fieldRegex, `${prefix}.${field.name}`)
   }, formula)
+
+export const castFormulaDivisionOperands = (
+  formula: string,
+  allFields: readonly { name: string; type: string; resultType?: string }[],
+  prefix?: string
+): string =>
+  castDivisionOperands(formula, allFields, (name) =>
+    prefix !== undefined ? `${prefix}.${name}` : name
+  )

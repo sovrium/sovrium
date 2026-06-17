@@ -14,8 +14,8 @@ import {
   tablesOverviewQuerySchema,
   tablesOverviewResponseSchema,
 } from '@/domain/models/api/admin/tables/overview'
-import { sanitizeTableName } from '@/domain/utils/table-naming'
-import { TablesOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables-overview-repository-live'
+import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { TablesOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/tables-overview-repository-live'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'

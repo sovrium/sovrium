@@ -7,10 +7,14 @@
 
 
 import { Data, Effect } from 'effect'
-import { ConnectionRepository } from '@/application/ports/repositories/connection-repository'
-import { ConnectionTokenRepository } from '@/application/ports/repositories/connection-token-repository'
+import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
+import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
 import { OAuthStateStore } from '@/application/ports/services/oauth-state-store'
-import { computeCodeChallenge, generateCodeVerifier, generateOAuthState } from '@/domain/utils/pkce'
+import {
+  computeCodeChallenge,
+  generateCodeVerifier,
+  generateOAuthState,
+} from '@/domain/utils/auth/pkce'
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/utils/timeouts'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'

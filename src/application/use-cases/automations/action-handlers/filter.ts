@@ -19,8 +19,8 @@ const evaluateCondition = (cond: Readonly<Record<string, unknown>>): boolean => 
 const evaluateGroup = (group: Readonly<Record<string, unknown>>): boolean => {
   const conditions = (group['conditions'] as readonly Readonly<Record<string, unknown>>[]) ?? []
   if (conditions.length === 0) return true
-  const groupOp = String(group['operator'] ?? 'and').toLowerCase()
-  if (groupOp === 'or') return conditions.some(evaluateCondition)
+  const groupLogic = String(group['logic'] ?? 'and').toLowerCase()
+  if (groupLogic === 'or') return conditions.some(evaluateCondition)
   return conditions.every(evaluateCondition)
 }
 

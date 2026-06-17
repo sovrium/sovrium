@@ -65,3 +65,57 @@ export const runCronAutomation = ({
       userId: undefined,
     })
   })
+
+export interface RunCronAutomationOnDemandOptions {
+  readonly name: string
+  readonly app: App
+  readonly processEnv: Readonly<Record<string, string | undefined>>
+  readonly userRole: string | undefined
+  readonly triggerData?: TriggerData
+  readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
+  readonly userId?: string
+}
+
+export const runCronAutomationOnDemand = ({
+  name,
+  app,
+  processEnv,
+  userRole,
+  triggerData,
+  handlers = defaultActionHandlers,
+}: RunCronAutomationOnDemandOptions): Effect.Effect<
+  RunAutomationResult,
+  RunAutomationError,
+  ExecuteAutomationRunRequirements
+> =>
+  Effect.gen(function* () {
+    const automation = app.automations?.find((a) => a.name === name)
+    if (!automation || automation.enabled === false) {
+      return yield* Effect.fail({ _tag: 'AutomationNotFound' as const, name })
+    }
+    if (automation.trigger.type !== 'cron') {
+      return yield* Effect.fail({ _tag: 'AutomationNotManualTriggered' as const, name })
+    }
+
+    const requiredRole = 'admin'
+    const callerSatisfiesRole = userRole === requiredRole || userRole === 'admin'
+    if (!callerSatisfiesRole) {
+      return yield* Effect.fail({
+        _tag: 'AutomationManualRoleRequired' as const,
+        name,
+        required: requiredRole,
+      } satisfies RunAutomationError)
+    }
+
+    return yield* runCronAutomation({
+      name,
+      app,
+      processEnv,
+      triggerData: triggerData ?? {
+        type: 'cron',
+        firedAt: new Date().toISOString(),
+        invokedOnDemand: true,
+      },
+      handlers,
+    })
+  })

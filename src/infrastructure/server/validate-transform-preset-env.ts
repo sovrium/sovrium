@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { parsePresetEnv } from '@/domain/services/image-transform-presets'
+import { parsePresetEnv } from '@/domain/services/image-transform/image-transform-presets'
 import { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 
 export const validateTransformPresetEnv = (): Effect.Effect<void, TransformPresetError> => {

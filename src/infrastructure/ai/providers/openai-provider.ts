@@ -6,7 +6,7 @@
  */
 
 import OpenAI from 'openai'
-import type { AiEnvConfig } from '@/domain/models/env/ai'
+import type { AiEnvConfig } from '@/domain/models/env/ai/ai'
 
 export const createOpenAIClient = (config: AiEnvConfig): OpenAI =>
   new OpenAI({

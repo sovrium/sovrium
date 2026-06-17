@@ -83,14 +83,6 @@ export const AiExtractActionSchema = Schema.Struct({
         })
       )
     ),
-
-    baseUrl: Schema.optional(
-      TemplateStringSchema.pipe(
-        Schema.annotations({
-          description: 'Base URL for ollama/custom providers (e.g., "http://localhost:11434")',
-        })
-      )
-    ),
   }),
 }).pipe(
   Schema.annotations({

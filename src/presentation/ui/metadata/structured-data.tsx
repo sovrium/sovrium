@@ -88,18 +88,38 @@ function renderOrchestratorJsonLd(structuredData: object): Readonly<ReactElement
   )
 }
 
-export function StructuredDataScript({
-  page,
-}: {
-  readonly page: Page
-}): Readonly<ReactElement | undefined> {
-  const structuredData = page.meta?.schema ?? page.meta?.structuredData
-  if (!structuredData) return undefined
+function isStructuredDataToggle(value: unknown): boolean {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  return 'enabled' in (value as Record<string, unknown>)
+}
 
-  if (Array.isArray(structuredData)) return renderTaggedJsonLdArray(structuredData)
+function renderDirectJsonLdArray(
+  documents: readonly Record<string, unknown>[]
+): Readonly<ReactElement | undefined> {
+  if (documents.length === 0) return undefined
+  return (
+    <>
+      {documents.map((doc, index) => (
+        <script
+          key={`synth-${index}`}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(doc),
+          }}
+        />
+      ))}
+    </>
+  )
+}
 
-  if (typeof structuredData !== 'object' || structuredData === null) return undefined
+function resolveAuthoredStructuredData(page: Page): unknown {
+  const aliasData = isStructuredDataToggle(page.meta?.structuredData)
+    ? undefined
+    : page.meta?.structuredData
+  return page.meta?.schema ?? aliasData
+}
 
+function renderAuthoredStructuredData(structuredData: object): Readonly<ReactElement | undefined> {
   if ('@context' in structuredData && '@type' in structuredData) {
     return (
       <script
@@ -110,6 +130,23 @@ export function StructuredDataScript({
       />
     )
   }
-
   return renderOrchestratorJsonLd(structuredData)
+}
+
+export function StructuredDataScript({
+  page,
+  synthesized,
+}: {
+  readonly page: Page
+  readonly synthesized?: readonly Record<string, unknown>[]
+}): Readonly<ReactElement | undefined> {
+  const structuredData = resolveAuthoredStructuredData(page)
+
+  if (!structuredData) return renderDirectJsonLdArray(synthesized ?? [])
+
+  if (Array.isArray(structuredData)) return renderTaggedJsonLdArray(structuredData)
+
+  if (typeof structuredData !== 'object') return undefined
+
+  return renderAuthoredStructuredData(structuredData)
 }

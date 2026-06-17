@@ -7,9 +7,13 @@
 
 
 import { Data, Effect } from 'effect'
-import { FormSubmissionRepository } from '@/application/ports/repositories/form-submission-repository'
-import { buildGuestSession } from '@/application/use-cases/automations/build-guest-session'
+import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
+import {
+  buildGuestSession,
+  buildSyntheticSession,
+} from '@/application/use-cases/automations/build-guest-session'
 import { triggerFormSubmissionAutomations } from '@/application/use-cases/automations/trigger-form-submission'
+import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { coerceScalarsForArrayColumns } from '@/application/use-cases/forms/coerce-array-columns'
 import { emitFormSubmissionAnalyticsEvent } from '@/application/use-cases/forms/emit-form-analytics-event'
 import {
@@ -29,6 +33,7 @@ import {
   isFieldVisible,
 } from '@/domain/models/shared/form-field-helpers'
 import { collectFieldsInSkippedSteps } from '@/domain/models/shared/multi-step-flow'
+import { buildCreateAuthorshipOverrides } from '@/domain/services/authorship-fields'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -350,6 +355,31 @@ interface PersistOutcome {
   readonly linkedRecordId: string | undefined
 }
 
+const writeBoundTableRecord = (input: {
+  readonly app: Readonly<App>
+  readonly form: Readonly<Form>
+  readonly mapped: Readonly<Record<string, unknown>>
+  readonly submitterUserId: string | undefined
+}) =>
+  Effect.gen(function* () {
+    const { app, form, mapped, submitterUserId } = input
+    if (form.submitTo.table === undefined) return undefined
+    const tableName = form.submitTo.table
+    return yield* createRecordProgram({
+      session:
+        submitterUserId !== undefined
+          ? buildSyntheticSession(submitterUserId)
+          : buildGuestSession(),
+      tableName,
+      fields: {
+        ...coerceScalarsForArrayColumns(filterTableBoundFields(mapped, form), app, tableName),
+        ...(submitterUserId !== undefined
+          ? buildCreateAuthorshipOverrides(app.tables, tableName, submitterUserId)
+          : {}),
+      },
+    })
+  })
+
 const persistSubmission = (input: {
   readonly app: Readonly<App>
   readonly form: Readonly<Form>
@@ -372,18 +402,7 @@ const persistSubmission = (input: {
           })
         : undefined
 
-    const linkedRecord =
-      form.submitTo.table !== undefined
-        ? yield* createRecordProgram({
-            session: buildGuestSession(),
-            tableName: form.submitTo.table,
-            fields: coerceScalarsForArrayColumns(
-              filterTableBoundFields(mapped, form),
-              app,
-              form.submitTo.table
-            ),
-          })
-        : undefined
+    const linkedRecord = yield* writeBoundTableRecord({ app, form, mapped, submitterUserId })
     const linkedRecordId = coerceLinkedRecordId(linkedRecord)
 
     const submissionId =
@@ -403,6 +422,29 @@ const persistSubmission = (input: {
       linkedRecordId,
     } satisfies PersistOutcome
   })
+
+const fireBoundTableRecordCreateAutomations = (input: {
+  readonly app: Readonly<App>
+  readonly form: Readonly<Form>
+  readonly mapped: Readonly<Record<string, unknown>>
+  readonly outcome: PersistOutcome
+  readonly processEnv: Readonly<Record<string, string | undefined>>
+  readonly submitterUserId: string | undefined
+}) => {
+  const { app, form, mapped, outcome, processEnv, submitterUserId } = input
+  const { linkedRecordPresent, linkedRecordId } = outcome
+  if (!linkedRecordPresent || form.submitTo.table === undefined || linkedRecordId === undefined) {
+    return Effect.void
+  }
+  return triggerRecordEventAutomations({
+    app,
+    tableName: form.submitTo.table,
+    event: 'create',
+    record: { id: linkedRecordId, ...mapped },
+    processEnv,
+    ...(submitterUserId !== undefined ? { userId: submitterUserId } : {}),
+  })
+}
 
 export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
   Effect.gen(function* () {
@@ -448,6 +490,15 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       form,
       submissionId,
       submitterIpHash,
+    })
+
+    yield* fireBoundTableRecordCreateAutomations({
+      app,
+      form,
+      mapped,
+      outcome: { submissionId, linkedRecordPresent, linkedRecordId },
+      processEnv: processEnv ?? {},
+      submitterUserId,
     })
 
     yield* triggerFormSubmissionAutomations({

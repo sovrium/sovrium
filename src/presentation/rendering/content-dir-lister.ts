@@ -7,8 +7,10 @@
 
 
 import { isAbsolute, resolve } from 'node:path'
-import { splitFrontmatter } from '@/domain/services/markdown-renderer'
-import { matchesContentDirFilter } from '@/domain/utils/content-dir-filter'
+import { splitFrontmatter } from '@/domain/services/markdown/markdown-renderer'
+import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
+import { getContentBaseDir } from '@/presentation/rendering/content-base-dir'
+import { humanizeFieldName } from '@/presentation/utils/string-utils'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 
 export interface CollectionNavEntry {
@@ -16,6 +18,7 @@ export interface CollectionNavEntry {
   readonly href: string
   readonly label: string
   readonly group: string | undefined
+  readonly groupLabel: string | undefined
   readonly order: number | undefined
   readonly isCurrent: boolean
 }
@@ -29,6 +32,7 @@ export interface CollectionNavData {
   readonly sidebar: readonly CollectionNavEntry[]
   readonly previous: CollectionPrevNext | undefined
   readonly next: CollectionPrevNext | undefined
+  readonly collapsed: boolean
 }
 
 interface ContentDirFile {
@@ -51,7 +55,7 @@ const readContentDirFile = async (
   try {
     const absolutePath = isAbsolute(directory)
       ? `${directory}/${relativePath}`
-      : resolve(process.cwd(), directory, relativePath)
+      : resolve(getContentBaseDir(), directory, relativePath)
     const file = Bun.file(absolutePath)
     if (!(await file.exists())) return undefined
     const text = await file.text()
@@ -64,7 +68,7 @@ const readContentDirFile = async (
 
 const scanMarkdownFiles = async (directory: string): Promise<readonly string[]> => {
   try {
-    const absoluteDir = isAbsolute(directory) ? directory : resolve(process.cwd(), directory)
+    const absoluteDir = isAbsolute(directory) ? directory : resolve(getContentBaseDir(), directory)
     const glob = new Bun.Glob('**/*.md')
     return await Array.fromAsync(glob.scan({ cwd: absoluteDir }))
   } catch {
@@ -110,6 +114,14 @@ const buildHref = (pagePath: string, slug: string): string => {
   return `${normalisedPrefix}/${slug}`
 }
 
+const resolveGroupLabel = (
+  group: string | undefined,
+  groupLabels: Readonly<Record<string, string>> | undefined
+): string | undefined => {
+  if (group === undefined) return undefined
+  return groupLabels?.[group] ?? humanizeFieldName(group)
+}
+
 const buildSidebarEntries = (
   files: readonly ContentDirFile[],
   contentDir: ContentDir,
@@ -118,14 +130,17 @@ const buildSidebarEntries = (
 ): readonly CollectionNavEntry[] => {
   const labelFrom = contentDir.nav?.labelFrom
   const groupBy = contentDir.nav?.groupBy
+  const groupLabels = contentDir.nav?.groupLabels
   return files.map((file) => {
     const orderRaw = file.frontmatter['order']
     const orderNum = orderRaw === undefined ? undefined : Number(orderRaw)
+    const group = typeof groupBy === 'string' ? file.frontmatter[groupBy] : undefined
     return {
       slug: file.slug,
       href: buildHref(pagePath, file.slug),
       label: deriveLabel(file, labelFrom),
-      group: typeof groupBy === 'string' ? file.frontmatter[groupBy] : undefined,
+      group,
+      groupLabel: resolveGroupLabel(group, groupLabels),
       order: Number.isFinite(orderNum) ? orderNum : undefined,
       isCurrent: currentSlug !== undefined && file.slug === currentSlug,
     }
@@ -168,5 +183,5 @@ export const listContentDir = async (
   const files = await loadFilteredFiles(contentDir)
   const sidebar = buildSidebarEntries(files, contentDir, pagePath, currentSlug)
   const { previous, next } = buildPrevNext(sidebar, currentSlug)
-  return { sidebar, previous, next }
+  return { sidebar, previous, next, collapsed: contentDir.nav?.collapsed === true }
 }

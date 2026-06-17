@@ -6,6 +6,7 @@
  */
 
 
+import { isAdminRole } from '@/domain/models/shared/permissions'
 import type { App } from '@/domain/models/app'
 
 export interface ProjectedField {
@@ -52,4 +53,34 @@ export const projectAppTables = (
       fields: table.fields.map((field) => projectField(field, includeRequired)),
       ...(table.permissions !== undefined && { permissions: table.permissions }),
     }))
+}
+
+interface RawFieldPermission {
+  readonly field: string
+  readonly read?: unknown
+}
+
+export const readableColumnsForRole = (
+  fields: ReadonlyArray<ProjectedField>,
+  permissions: unknown,
+  userRole: string
+): ReadonlyArray<string> => {
+  const isAdmin = isAdminRole(userRole)
+  const fieldPerms = (permissions as { fields?: ReadonlyArray<RawFieldPermission> } | undefined)
+    ?.fields
+  const restricted = new Map<string, unknown>(
+    (fieldPerms ?? [])
+      .filter((perm) => perm.read !== undefined)
+      .map((perm) => [perm.field, perm.read])
+  )
+  return fields
+    .filter((field) => {
+      if (!restricted.has(field.name)) return true
+      if (isAdmin) return true
+      const read = restricted.get(field.name)
+      return Array.isArray(read)
+        ? (read as ReadonlyArray<string>).includes(userRole)
+        : read === 'all' || read === 'authenticated'
+    })
+    .map((field) => field.name)
 }

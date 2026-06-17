@@ -7,9 +7,9 @@
 
 import { Effect, Layer } from 'effect'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
-import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
-import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/data-source-repository-live'
-import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/form-submission-repository-live'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
+import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/forms/form-submission-repository-live'
+import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 

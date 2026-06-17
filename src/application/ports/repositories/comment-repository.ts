@@ -84,6 +84,27 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly recordId: string
     }) => Effect.Effect<readonly string[], SessionContextError>
 
+    readonly listAuthorEmailsForRecord: (config: {
+      readonly session: Readonly<UserSession>
+      readonly recordId: string
+    }) => Effect.Effect<
+      readonly { readonly userId: string; readonly email: string }[],
+      SessionContextError
+    >
+
+    readonly getUserEmailById: (config: {
+      readonly session: Readonly<UserSession>
+      readonly userId: string
+    }) => Effect.Effect<string | undefined, SessionContextError>
+
+    readonly getUserMetadataById: (config: {
+      readonly session: Readonly<UserSession>
+      readonly userId: string
+    }) => Effect.Effect<
+      { readonly id: string; readonly email: string; readonly name: string } | undefined,
+      SessionContextError
+    >
+
     readonly getWithUser: (config: {
       readonly session: Readonly<UserSession>
       readonly commentId: string

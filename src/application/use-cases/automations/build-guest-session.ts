@@ -5,11 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { GUEST_USER_ID, SYSTEM_USER_ID } from '@/domain/services/guest-session'
 import type { UserSession } from '@/application/ports/models/user-session'
 
-export const buildGuestSession = (): UserSession => ({
+export const buildSyntheticSession = (userId: string): UserSession => ({
   id: 'automation',
-  userId: 'guest',
+  userId,
   token: '',
   expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   createdAt: new Date(),
@@ -19,3 +20,7 @@ export const buildGuestSession = (): UserSession => ({
   impersonatedBy: null,
   activeOrganizationId: null,
 })
+
+export const buildGuestSession = (): UserSession => buildSyntheticSession(GUEST_USER_ID)
+
+export const buildSystemSession = (): UserSession => buildSyntheticSession(SYSTEM_USER_ID)

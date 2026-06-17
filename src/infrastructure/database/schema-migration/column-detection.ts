@@ -6,6 +6,7 @@
  */
 
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { isViewComputedFormula } from '../formula/formula-utils'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
 import { shouldCreateDatabaseColumn } from '../table-queries/shared/field-utils'
 import {
@@ -40,6 +41,7 @@ export const findColumnsToAdd = (
 ): readonly Fields[number][] =>
   table.fields.filter((field) => {
     if (!shouldCreateDatabaseColumn(field)) return false
+    if (isViewComputedFormula(field, table.fields)) return false
     if (renamedNewNames.has(field.name)) return false
     if (!existingColumns.has(field.name)) return true
     return false
@@ -76,6 +78,7 @@ export const filterModifiableFields = (
 ): readonly Fields[number][] =>
   fields.filter((field) => {
     if (!shouldCreateDatabaseColumn(field)) return false
+    if (isViewComputedFormula(field, fields)) return false
     if (renamedNewNames.has(field.name)) return false
     if (!existingColumns.has(field.name)) return false
     return true
@@ -202,15 +205,29 @@ export const buildColumnStatements = (options: {
   readonly columnsToAdd: readonly Fields[number][]
   readonly primaryKeyFields: readonly string[]
   readonly allFields: readonly Fields[number][]
+  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 }): { readonly dropStatements: readonly string[]; readonly addStatements: readonly string[] } => {
-  const { tableName, columnsToDrop, columnsToAdd, primaryKeyFields, allFields } = options
+  const {
+    tableName,
+    columnsToDrop,
+    columnsToAdd,
+    primaryKeyFields,
+    allFields,
+    tablePrimaryKeyTypes,
+  } = options
   const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
   const dropStatements = columnsToDrop.map(
     (columnName) => `ALTER TABLE ${tableName} DROP COLUMN ${columnName}${cascadeSuffix}`
   )
   const addStatements = columnsToAdd.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
-    const columnDef = generateColumnDefinition(field, isPrimaryKey, allFields)
+    const columnDef = generateColumnDefinition(
+      field,
+      isPrimaryKey,
+      allFields,
+      true,
+      tablePrimaryKeyTypes
+    )
     return `ALTER TABLE ${tableName} ADD COLUMN ${columnDef}`
   })
   return { dropStatements, addStatements }

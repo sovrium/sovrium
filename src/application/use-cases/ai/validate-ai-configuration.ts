@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { validateModelString } from '@/domain/models/env/ai-model-string'
+import { validateModelString } from '@/domain/models/env/ai/ai-model-string'
 import {
   SUPPORTED_AI_PROVIDERS,
   apiKeyAliasEnvVar,
@@ -20,7 +20,7 @@ import {
   resolveApiKey,
   resolveAiProvider,
   resolveBaseUrl,
-} from '@/domain/models/env/ai-providers'
+} from '@/domain/models/env/ai/ai-providers'
 import type { App } from '@/domain/models/app'
 
 const hasAgents = (app: Readonly<App>): boolean => (app.agents?.length ?? 0) > 0

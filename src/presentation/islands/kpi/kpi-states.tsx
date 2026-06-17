@@ -23,15 +23,31 @@ export function KpiLoading(): ReactElement {
   )
 }
 
-export function KpiError({ error }: { readonly error: unknown }): ReactElement {
+export function KpiError({
+  error,
+  label,
+}: {
+  readonly error: unknown
+  readonly label?: string
+}): ReactElement {
   return (
     <div
-      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
+      className="border-error-border bg-error-bg rounded border p-3 text-sm"
       data-component="kpi"
       data-kpi-state="error"
       role="alert"
     >
-      Failed to load KPI records: {error instanceof Error ? error.message : String(error)}
+      {label && (
+        <div
+          data-role="kpi-label"
+          className="text-foreground-muted mb-1 font-medium"
+        >
+          {label}
+        </div>
+      )}
+      <div className="text-error-fg">
+        Failed to load KPI records: {error instanceof Error ? error.message : String(error)}
+      </div>
     </div>
   )
 }

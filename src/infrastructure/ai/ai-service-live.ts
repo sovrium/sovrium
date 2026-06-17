@@ -19,7 +19,7 @@ import {
   type AiError,
   type EmbedInput,
 } from '@/application/ports/services/ai-service'
-import { resolveAiEcoRouting, resolveOllamaBaseUrl } from '@/domain/models/env/ai-eco-routing'
+import { resolveAiEcoRouting, resolveOllamaBaseUrl } from '@/domain/models/env/ai/ai-eco-routing'
 import {
   DEFAULT_CLOUD_EMBEDDING_MODEL,
   DEFAULT_OLLAMA_EMBEDDING_MODEL,

@@ -7,7 +7,7 @@
 
 
 import { Effect } from 'effect'
-import { AutomationRunRepository } from '@/application/ports/repositories/automation-run-repository'
+import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { recordAutomationRun, type AutomationRunRecord } from '../run-history-store'
 import { toApiStatus, toApiStepStatus } from './run-status'
 import type { ExecutedStep, RunAccumulator } from './types'
@@ -73,6 +73,7 @@ type FinaliseRunInput = {
     | 'completed-with-errors'
     | 'skipped'
     | 'cancelled'
+    | 'waiting-approval'
     | 'queued'
     | 'running'
   readonly engineError: string | undefined

@@ -13,11 +13,12 @@ export interface AuthFormField {
   readonly inputType: 'email' | 'password' | 'text'
 }
 
-export type AuthMethod = 'login' | 'signup' | 'resetPassword' | 'setNewPassword'
+export type AuthMethod = 'login' | 'signup' | 'logout' | 'resetPassword' | 'setNewPassword'
 
 const SUBMIT_LABELS: Record<AuthMethod, string> = {
   login: 'Sign In',
   signup: 'Sign Up',
+  logout: 'Log Out',
   resetPassword: 'Send Reset Link',
   setNewPassword: 'Set New Password',
 }

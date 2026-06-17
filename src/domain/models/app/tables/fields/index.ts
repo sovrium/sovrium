@@ -252,3 +252,14 @@ export const validateComputedFieldRelationship = (params: {
 
   return true
 }
+
+export const READONLY_COMPUTED_FIELD_TYPES: ReadonlySet<string> = new Set([
+  'formula',
+  'rollup',
+  'count',
+  'lookup',
+  'autonumber',
+])
+
+export const isReadonlyComputedFieldType = (fieldType: string): boolean =>
+  READONLY_COMPUTED_FIELD_TYPES.has(fieldType)

@@ -10,7 +10,7 @@ import { Effect, Data, type ConfigError } from 'effect'
 import {
   parseDatabaseDialectConfig,
   type DatabaseDialectConfig,
-} from '@/domain/models/env/database-dialect'
+} from '@/domain/models/env/database/database-dialect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
@@ -100,6 +100,11 @@ const buildTableUsesViewMap = (
 ): ReadonlyMap<string, boolean> =>
   new Map(tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)]))
 
+const buildTablePrimaryKeyTypesMap = (
+  tables: readonly Table[]
+): ReadonlyMap<string, string | undefined> =>
+  new Map(tables.map((table) => [table.name, table.primaryKey?.type]))
+
 const upgradeFormReferencedAttachments = (
   tables: readonly Table[],
   app: Readonly<App>
@@ -184,6 +189,7 @@ type CreateMigrateTablesConfig = {
   readonly tx: TransactionLike
   readonly sortedTables: readonly Table[]
   readonly tableUsesView: ReadonlyMap<string, boolean>
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
   readonly circularTables: ReadonlySet<string>
   readonly previousSchema: { readonly tables: readonly object[] } | undefined
   readonly lookupViewModule: typeof lookupViewGenerators
@@ -198,6 +204,7 @@ const createMigrateTables = (
       tx,
       sortedTables,
       tableUsesView,
+      tablePrimaryKeyTypes,
       circularTables,
       previousSchema,
       lookupViewModule,
@@ -215,6 +222,7 @@ const createMigrateTables = (
         table,
         exists,
         tableUsesView,
+        tablePrimaryKeyTypes,
         previousSchema,
         skipForeignKeys: circularTables.has(table.name),
         hasAuthConfig,
@@ -319,6 +327,7 @@ const executeMigrationSteps = (
       tx,
       sortedTables: tablesForCreation,
       tableUsesView,
+      tablePrimaryKeyTypes: buildTablePrimaryKeyTypesMap(tablesForCreation),
       circularTables,
       previousSchema,
       lookupViewModule: lookupViewGenerators,

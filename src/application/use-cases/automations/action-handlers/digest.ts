@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { AutomationDigestRepository } from '@/application/ports/repositories/automation-digest-repository'
+import { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
 import {
   buildRunContextView,
   rawActionProps,
@@ -14,7 +14,7 @@ import {
 } from './run-context-resolution'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionRunContext } from './shared'
-import type { DigestReleaseSort } from '@/application/ports/repositories/automation-digest-repository'
+import type { DigestReleaseSort } from '@/application/ports/repositories/automations/automation-digest-repository'
 
 const resolvedProp = (
   fallbackProps: Readonly<Record<string, unknown>>,

@@ -19,7 +19,7 @@ import { logDebug } from '@/infrastructure/logging/logger'
 import { isCompiled } from '@/infrastructure/utils/package-paths'
 import * as schema from './schema'
 import * as schemaSqlite from './schema-sqlite'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 
 const journalSegments = (subdir: string): readonly string[] =>
   subdir ? ['drizzle', subdir, 'meta', '_journal.json'] : ['drizzle', 'meta', '_journal.json']

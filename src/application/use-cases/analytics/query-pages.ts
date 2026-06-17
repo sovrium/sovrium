@@ -6,8 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '../../ports/repositories/analytics-repository'
-import type { AnalyticsDatabaseError, TopPage } from '../../ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
+import type {
+  AnalyticsDatabaseError,
+  TopPage,
+} from '../../ports/repositories/analytics/analytics-repository'
 
 export interface QueryPagesInput {
   readonly appName: string

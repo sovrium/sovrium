@@ -6,7 +6,7 @@
  */
 
 
-import { type EcoIndexGrade } from '@/domain/models/env/eco-index-header'
+import { type EcoIndexGrade } from '@/domain/models/env/eco/eco-index-header'
 
 export interface EcoIndexTrackerSnapshot {
   readonly currentGrade: EcoIndexGrade

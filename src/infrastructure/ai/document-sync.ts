@@ -9,12 +9,16 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Effect } from 'effect'
-import { AiEmbeddingRepository } from '@/application/ports/repositories/ai-embedding-repository'
-import { chunkText, resolveChunkSettings, type ChunkSettings } from '@/domain/services/rag-chunking'
+import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
+import {
+  chunkText,
+  resolveChunkSettings,
+  type ChunkSettings,
+} from '@/domain/services/rag/rag-chunking'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { isSupportedDocument, parseDocument } from './document-parser'
 import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
-import type { NewEmbedding } from '@/application/ports/repositories/ai-embedding-repository'
+import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 
 const DEFAULT_KNOWLEDGE_DIR = './knowledge'

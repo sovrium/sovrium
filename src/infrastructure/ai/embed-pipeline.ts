@@ -13,7 +13,7 @@ import { AiLive } from './layer'
 import type {
   AiEmbeddingRepository,
   NewEmbedding,
-} from '@/application/ports/repositories/ai-embedding-repository'
+} from '@/application/ports/repositories/ai/ai-embedding-repository'
 
 export const RagSyncLayer: Layer.Layer<AiService | AiEmbeddingRepository> = Layer.merge(
   AiLive,

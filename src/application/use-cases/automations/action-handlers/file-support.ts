@@ -5,9 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
+import {
+  validateOutboundUrl,
+  type OutboundUrlReason,
+} from '@/infrastructure/utils/validate-outbound-url'
 
 
 
@@ -53,6 +57,10 @@ export interface ResolvedSource {
   readonly detectedMime?: string
 }
 
+export class OutboundUrlBlockedError extends Data.TaggedError('OutboundUrlBlockedError')<{
+  readonly reason: OutboundUrlReason
+}> {}
+
 const parseDataUri = (source: string): ResolvedSource | undefined => {
   const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(source)
   if (!match) return undefined
@@ -77,12 +85,19 @@ const fetchRemote = async (source: string): Promise<ResolvedSource> => {
   }
 }
 
-const fetchSource = (source: string): Effect.Effect<ResolvedSource, never, never> =>
-  Effect.promise(() => fetchRemote(source))
+const fetchSource = (
+  source: string
+): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, never> => {
+  const validation = validateOutboundUrl(source)
+  if (!validation.ok) {
+    return Effect.fail(new OutboundUrlBlockedError({ reason: validation.issue.reason }))
+  }
+  return Effect.promise(() => fetchRemote(source))
+}
 
 export const resolveSource = (
   source: string
-): Effect.Effect<ResolvedSource, never, StorageService> => {
+): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, StorageService> => {
   const dataUri = parseDataUri(source)
   if (dataUri) return Effect.succeed(dataUri)
   if (/^https?:\/\//.test(source)) return fetchSource(source)

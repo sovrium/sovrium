@@ -6,6 +6,7 @@
  */
 
 import { islandDataComponents } from './island-data-components'
+import { islandEditorComponents } from './island-editor-components'
 import { islandFormComponents } from './island-form-components'
 import { islandOverlayComponents } from './island-overlay-components'
 import type { ComponentRenderer } from '../component-dispatch-config'
@@ -15,4 +16,5 @@ export const islandComponents: Partial<Record<Component['type'], ComponentRender
   ...islandDataComponents,
   ...islandOverlayComponents,
   ...islandFormComponents,
+  ...islandEditorComponents,
 }

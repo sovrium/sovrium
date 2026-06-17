@@ -140,6 +140,19 @@ function buildInputClassName(
   return authorClassName ? `${defaults} ${authorClassName}` : defaults
 }
 
+const renderFormFromDispatch: ComponentRenderer = (cfg) =>
+  Renderers.renderForm({
+    props: cfg.elementProps,
+    children: cfg.renderedChildren,
+    action: cfg.action,
+    tables: cfg.tables,
+    buckets: cfg.buckets,
+    component: cfg.component,
+    lang: cfg.currentLang,
+    languages: cfg.languages,
+    landingPath: cfg.landingPath,
+  })
+
 export const interactiveComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
   button: ({
     elementProps,
@@ -193,25 +206,9 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     )
   },
 
-  form: ({ elementProps, renderedChildren, action, tables, buckets, component }) =>
-    Renderers.renderForm({
-      props: elementProps,
-      children: renderedChildren,
-      action,
-      tables,
-      buckets,
-      component,
-    }),
+  form: (cfg) => renderFormFromDispatch(cfg),
 
-  'data-form': ({ elementProps, renderedChildren, action, tables, buckets, component }) =>
-    Renderers.renderForm({
-      props: elementProps,
-      children: renderedChildren,
-      action,
-      tables,
-      buckets,
-      component,
-    }),
+  'data-form': (cfg) => renderFormFromDispatch(cfg),
 
   input: ({ elementProps }) => {
     const mergedClassName = buildInputClassName(

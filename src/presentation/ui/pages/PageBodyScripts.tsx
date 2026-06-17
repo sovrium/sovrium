@@ -28,6 +28,7 @@ type PageBodyScriptsProps = {
   readonly direction: 'ltr' | 'rtl'
   readonly scripts: GroupedScripts
   readonly position: 'start' | 'end'
+  readonly frontmatter?: Readonly<Record<string, string>>
 }
 
 function renderScripts(
@@ -64,13 +65,15 @@ function LanguageSwitcherScripts({
   languages,
   theme,
   direction,
+  frontmatter,
 }: {
   readonly page: Page
   readonly languages: Languages
   readonly theme: Theme | undefined
   readonly direction: 'ltr' | 'rtl'
+  readonly frontmatter?: Readonly<Record<string, string>>
 }): ReactElement {
-  const enrichedMeta = buildPageMetadataI18n(page, languages)
+  const enrichedMeta = buildPageMetadataI18n(page, languages, frontmatter)
 
   return (
     <>
@@ -145,8 +148,9 @@ function renderConditionalScripts(config: {
   readonly theme: Theme | undefined
   readonly languages: Languages | undefined
   readonly direction: 'ltr' | 'rtl'
+  readonly frontmatter?: Readonly<Record<string, string>>
 }): ReactElement {
-  const { page, theme, languages, direction } = config
+  const { page, theme, languages, direction, frontmatter } = config
   return (
     <>
       <ScrollAnimationScript
@@ -159,6 +163,7 @@ function renderConditionalScripts(config: {
           languages={languages}
           theme={theme}
           direction={direction}
+          frontmatter={frontmatter}
         />
       )}
       <FeatureFlagsScript page={page} />
@@ -168,7 +173,9 @@ function renderConditionalScripts(config: {
 
 const autoResizeScript = `!function(){function grow(el){el.style.height='auto';el.style.height=el.scrollHeight+'px'}var els=document.querySelectorAll('textarea[data-auto-resize]');for(var i=0;i<els.length;i++){(function(el){el.style.overflow='hidden';el.style.resize='none';el.addEventListener('input',function(){grow(el)});grow(el)})(els[i])}}();`
 
-const clickScript = `!function(){function openModal(id){var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.focus()}}function closeModal(c){c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r);f&&"FORM"===f.tagName&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;g.style.display=h?"":"none"}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
+const clickScript = `!function(){function openModal(id){window.__sovriumOpenModals=window.__sovriumOpenModals||{};window.__sovriumOpenModals[id]=true;var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.focus()}}function closeModal(c){c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r);f&&"FORM"===f.tagName&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;g.style.display=h?"":"none"}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
+
+const themeToggleScript = `!function(){document.addEventListener("click",function(t){var e=t.target.closest("[data-theme-toggle]");if(!e)return;var root=document.documentElement;var willEnable=!root.classList.contains("dark");if(willEnable){root.classList.add("dark")}else{root.classList.remove("dark")}try{window.localStorage.setItem("theme",willEnable?"dark":"light")}catch(err){}})}();`
 
 function DevLiveReloadScript(): ReactElement | undefined {
   if (!isLocalDevDefault(process.env.NODE_ENV)) return undefined
@@ -186,12 +193,13 @@ function renderBodyEndScripts(config: {
   readonly languages: Languages | undefined
   readonly direction: 'ltr' | 'rtl'
   readonly scripts: GroupedScripts
+  readonly frontmatter?: Readonly<Record<string, string>>
 }): ReactElement {
-  const { page, theme, languages, direction, scripts } = config
+  const { page, theme, languages, direction, scripts, frontmatter } = config
   return (
     <>
       {renderScripts(scripts.external.bodyEnd, scripts.inline.bodyEnd, 'body-end')}
-      {renderConditionalScripts({ page, theme, languages, direction })}
+      {renderConditionalScripts({ page, theme, languages, direction, frontmatter })}
       {}
       {page.scripts?.config &&
         renderWindowConfig({
@@ -200,8 +208,9 @@ function renderBodyEndScripts(config: {
           reactKey: 'window-app-config-body',
         })}
       {}
-      {}
-      <script dangerouslySetInnerHTML={{ __html: clickScript + autoResizeScript }} />
+      <script
+        dangerouslySetInnerHTML={{ __html: clickScript + autoResizeScript + themeToggleScript }}
+      />
       <DevLiveReloadScript />
     </>
   )
@@ -214,10 +223,11 @@ export function PageBodyScripts({
   direction,
   scripts,
   position,
+  frontmatter,
 }: PageBodyScriptsProps): Readonly<ReactElement> {
   if (position === 'start') {
     return renderScripts(scripts.external.bodyStart, scripts.inline.bodyStart, 'body-start')
   }
 
-  return renderBodyEndScripts({ page, theme, languages, direction, scripts })
+  return renderBodyEndScripts({ page, theme, languages, direction, scripts, frontmatter })
 }

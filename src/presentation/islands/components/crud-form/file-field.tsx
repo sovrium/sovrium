@@ -13,7 +13,7 @@ import {
   computeAttachmentTileFileIconClasses,
   computeAttachmentTileFilenameClasses,
   computeAttachmentTileImageClasses,
-} from '../../field-affordances-default-classes'
+} from '../../recipes/field-affordances-default-classes'
 import { type FieldDef, labelOf } from './field-def'
 
 export interface UploadedFile {

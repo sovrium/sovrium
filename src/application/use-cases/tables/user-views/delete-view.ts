@@ -11,7 +11,7 @@ import {
   UserViewRepository,
   type UserViewDbError,
   type UserViewNotFoundError,
-} from '@/application/ports/repositories/user-view-repository'
+} from '@/application/ports/repositories/tables/user-view-repository'
 
 export interface DeleteUserViewInput {
   readonly userId: string

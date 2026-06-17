@@ -7,11 +7,15 @@
 
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
+  castFormulaDivisionOperands,
   isFormulaVolatile,
   getFormulaFieldsNeedingTrigger,
   isFormulaReturningArray,
+  isViewComputedFormula,
   translateFormulaToPostgres,
 } from '../formula/formula-utils'
+import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
+import { SQLITE_ISO_NOW } from './dialect-ddl'
 import { isAutoTimestampField, isFieldNotNull, shouldUseSerial } from './sql-field-predicates'
 import { mapFieldTypeToDialect, mapFormulaResultTypeToDialect } from './sql-type-mappings'
 import { escapeSqlString } from './sql-utils'
@@ -57,7 +61,7 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
     return ' DEFAULT CURRENT_DATE'
   }
   if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
-    return isSqliteRuntime() ? ' DEFAULT CURRENT_TIMESTAMP' : ' DEFAULT NOW()'
+    return isSqliteRuntime() ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT NOW()'
   }
   if (field.type === 'duration' && typeof defaultValue === 'number') {
     return isSqliteRuntime()
@@ -70,9 +74,12 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
   return undefined
 }
 
+const autoTimestampDefaultClause = (): string =>
+  isSqliteRuntime() ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT CURRENT_TIMESTAMP'
+
 const generateDefaultClause = (field: Fields[number]): string => {
   if (isAutoTimestampField(field)) {
-    return ' DEFAULT CURRENT_TIMESTAMP'
+    return autoTimestampDefaultClause()
   }
 
   if (field.type === 'progress' && field.required === true && !('default' in field)) {
@@ -95,6 +102,11 @@ const generateDefaultClause = (field: Fields[number]): string => {
   return ''
 }
 
+const formulaEmitsPlainColumn = (
+  field: Fields[number] & { readonly type: 'formula'; readonly formula: string },
+  allFields?: readonly Fields[number][]
+): boolean => (allFields ? isViewComputedFormula(field, allFields) : false) || isSqliteRuntime()
+
 const generateFormulaColumn = (
   field: Fields[number] & { readonly type: 'formula'; readonly formula: string },
   allFields?: readonly Fields[number][]
@@ -104,7 +116,7 @@ const generateFormulaColumn = (
       ? mapFormulaResultTypeToDialect(field.resultType)
       : 'TEXT'
 
-  if (isSqliteRuntime()) {
+  if (formulaEmitsPlainColumn(field, allFields)) {
     return `${field.name} ${baseResultType}`
   }
 
@@ -120,14 +132,28 @@ const generateFormulaColumn = (
     return `${field.name} ${resultType}`
   }
 
-  return `${field.name} ${resultType} GENERATED ALWAYS AS (${translatedFormula}) STORED`
+  const castFormula = allFields
+    ? castFormulaDivisionOperands(translatedFormula, allFields)
+    : translatedFormula
+  return `${field.name} ${resultType} GENERATED ALWAYS AS (${castFormula}) STORED`
+}
+
+const resolveRelationshipColumnType = (
+  field: Fields[number] & { readonly type: 'relationship'; readonly relatedTable: string },
+  tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined> | undefined
+): string => {
+  if (tablePrimaryKeyTypes?.has(field.relatedTable)) {
+    return resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable))
+  }
+  return mapFieldTypeToDialect(field)
 }
 
 export const generateColumnDefinition = (
   field: Fields[number],
   isPrimaryKey: boolean,
   allFields?: readonly Fields[number][],
-  hasAuthConfig: boolean = true
+  hasAuthConfig: boolean = true,
+  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string => {
   if (shouldUseSerial(field, isPrimaryKey)) {
     return generateSerialColumn(field.name, isPrimaryKey)
@@ -137,7 +163,10 @@ export const generateColumnDefinition = (
     return generateFormulaColumn(field, allFields)
   }
 
-  const columnType = mapFieldTypeToDialect(field)
+  const columnType =
+    field.type === 'relationship' && 'relatedTable' in field && field.relatedTable
+      ? resolveRelationshipColumnType(field, tablePrimaryKeyTypes)
+      : mapFieldTypeToDialect(field)
   const notNull = generateNotNullConstraint(field, isPrimaryKey, hasAuthConfig)
   const defaultValue = generateDefaultClause(field)
   return `${field.name} ${columnType}${notNull}${defaultValue}`

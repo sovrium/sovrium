@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 
 
 export const nowExpr = () =>

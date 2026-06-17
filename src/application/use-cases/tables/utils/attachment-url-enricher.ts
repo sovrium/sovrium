@@ -6,7 +6,7 @@
  */
 
 import { createHmac } from 'node:crypto'
-import { resolveStoragePublicAccess } from '@/domain/models/env/storage-public-access'
+import { resolveStoragePublicAccess } from '@/domain/models/env/storage/storage-public-access'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'
 

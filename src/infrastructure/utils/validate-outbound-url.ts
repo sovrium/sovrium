@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSsrfRelaxed } from '@/infrastructure/utils/security-posture'
+
 export type OutboundUrlReason =
   | 'invalid-url'
   | 'unsupported-protocol'
@@ -28,7 +30,7 @@ export function validateOutboundUrl(rawUrl: string): ValidateOutboundUrlResult {
     return reject(rawUrl, 'unsupported-protocol')
   }
 
-  if (process.env['NODE_ENV'] !== 'production') {
+  if (isSsrfRelaxed()) {
     return { ok: true, url: parsed }
   }
 

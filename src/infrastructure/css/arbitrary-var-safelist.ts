@@ -50,15 +50,19 @@ function loadTokens(): Readonly<Record<string, string>> {
 }
 
 function readRecipeFiles(): readonly string[] {
-  return RECIPE_DIRS.flatMap((dir) => {
-    try {
-      return readdirSync(dir)
-        .filter((file) => file.endsWith('-default-classes.ts'))
-        .map((file) => join(dir, file))
-    } catch {
-      return []
-    }
-  })
+  return RECIPE_DIRS.flatMap((dir) => walkRecipeDir(dir))
+}
+
+function walkRecipeDir(dir: string): readonly string[] {
+  try {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) return walkRecipeDir(path)
+      return entry.name.endsWith('-default-classes.ts') ? [path] : []
+    })
+  } catch {
+    return []
+  }
 }
 
 function classesForSource(

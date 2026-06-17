@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export * from './format-detection'
-export * from './content-parsing'
-export * from './sql-formatting'
-export * from './table-naming'
-export * from './glob-matcher'
+export * from './config-parsing/format-detection'
+export * from './config-parsing/content-parsing'
+export * from './database/sql-formatting'
+export * from './database/table-naming'
+export * from './matching/glob-matcher'

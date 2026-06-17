@@ -6,12 +6,17 @@
  */
 
 import { Data, Effect } from 'effect'
-import type { AnalyticsRepository } from '@/application/ports/repositories/analytics-repository'
-import type { AutomationDigestRepository } from '@/application/ports/repositories/automation-digest-repository'
-import type { AutomationStateRepository } from '@/application/ports/repositories/automation-state-repository'
-import type { ConnectionRepository } from '@/application/ports/repositories/connection-repository'
-import type { ConnectionTokenRepository } from '@/application/ports/repositories/connection-token-repository'
-import type { TableRepository } from '@/application/ports/repositories/table-repository'
+import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
+import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
+import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
+import type { CloudHostRegistryRepository } from '@/application/ports/repositories/cloud/cloud-host-registry-repository'
+import type { CloudIngressRepository } from '@/application/ports/repositories/cloud/cloud-ingress-repository'
+import type { CloudQuotaRepository } from '@/application/ports/repositories/cloud/cloud-quota-repository'
+import type { CloudSupervisorRepository } from '@/application/ports/repositories/cloud/cloud-supervisor-repository'
+import type { CloudTenantDatabasesRepository } from '@/application/ports/repositories/cloud/cloud-tenant-databases-repository'
+import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
+import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
@@ -24,12 +29,14 @@ export interface ActionOutcome {
   readonly output?: Record<string, unknown>
   readonly responseOverride?: Readonly<Record<string, unknown>>
   readonly returnData?: Readonly<Record<string, unknown>>
+  readonly pause?: boolean
 }
 
 export interface AutomationContext {
   readonly name: string
   readonly id: string
   readonly userId?: string
+  readonly runId?: string
 }
 
 export interface ActionRunContext {
@@ -56,6 +63,8 @@ export interface ActionRunContext {
   }) => Promise<{ readonly result: Readonly<Record<string, unknown>> }>
 
   readonly attempt?: number
+
+  readonly stepIndex?: number
 }
 
 export type ActionHandler = (
@@ -69,6 +78,11 @@ export type ActionHandler = (
   | TableRepository
   | AutomationStateRepository
   | AutomationDigestRepository
+  | CloudHostRegistryRepository
+  | CloudIngressRepository
+  | CloudQuotaRepository
+  | CloudSupervisorRepository
+  | CloudTenantDatabasesRepository
   | ConnectionRepository
   | ConnectionTokenRepository
   | PackageResolver

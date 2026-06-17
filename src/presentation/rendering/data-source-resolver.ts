@@ -8,6 +8,7 @@
 import { hasReadPermission } from '@/domain/models/app/tables/permissions'
 import { resolveFilters, hasCurrentUserRef } from './current-user-resolver'
 import { applyFieldLevelPermissions, getRestrictedFields } from './field-permission-filter'
+import { buildRecordTemplatePatch, substituteRecordInProps } from './record-template-substitution'
 import type { App } from '@/domain/models/app'
 import type {
   ComponentReference,
@@ -102,8 +103,12 @@ function substituteRecordInDataSource(
 
 export function substituteRecordInComponent(
   component: Component,
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
+  tableName?: string
 ): Component {
+  if (component.type === 'record-field') {
+    return injectRecordFieldValue(component, record, tableName)
+  }
   return {
     ...component,
     props: component.props ? substituteRecordInProps(component.props, record) : component.props,
@@ -117,8 +122,26 @@ export function substituteRecordInComponent(
     children: component.children?.map((child: Component | string) =>
       typeof child === 'string'
         ? substituteRecordVars(child, record)
-        : substituteRecordInComponent(child, record)
+        : substituteRecordInComponent(child, record, tableName)
     ),
+  }
+}
+
+function injectRecordFieldValue(
+  component: Component,
+  record: Record<string, unknown>,
+  tableName: string | undefined
+): Component {
+  const baseProps = component.props ? substituteRecordInProps(component.props, record) : {}
+  const fieldName = baseProps['field']
+  const value = typeof fieldName === 'string' ? record[fieldName] : undefined
+  return {
+    ...component,
+    props: {
+      ...baseProps,
+      _recordValue: value,
+      ...(tableName !== undefined ? { _recordTable: tableName } : {}),
+    },
   }
 }
 
@@ -133,12 +156,14 @@ export function substituteRecordInCollectionTemplate(
     typeof component.content === 'string'
       ? substituteRecordVars(component.content, record)
       : component.content
+  const templatePatch = buildRecordTemplatePatch(component, record)
 
   if (component.dataSource) {
     return {
       ...component,
       props: baseProps,
       content: baseContent,
+      ...templatePatch,
       dataSource: substituteRecordInDataSource(component.dataSource, record),
     }
   }
@@ -147,24 +172,13 @@ export function substituteRecordInCollectionTemplate(
     ...component,
     props: baseProps,
     content: baseContent,
+    ...templatePatch,
     children: component.children?.map((child: Component | string) =>
       typeof child === 'string'
         ? substituteRecordVars(child, record)
         : substituteRecordInCollectionTemplate(child, record)
     ),
   }
-}
-
-function substituteRecordInProps(
-  props: Record<string, unknown>,
-  record: Record<string, unknown>
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(props).map(([key, value]) => [
-      key,
-      typeof value === 'string' ? substituteRecordVars(value, record) : value,
-    ])
-  )
 }
 
 export interface PaginationMeta {
@@ -224,7 +238,7 @@ function applySingleRecordToComponent(
   record: Record<string, unknown>,
   tableName: string
 ): Component {
-  const substituted = substituteRecordInComponent(component, record)
+  const substituted = substituteRecordInComponent(component, record, tableName)
   const existingChildren = (substituted.children ?? []) as ReadonlyArray<Component | string>
   return {
     ...substituted,

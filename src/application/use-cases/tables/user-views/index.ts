@@ -19,4 +19,4 @@ export {
   type CreateUserViewInput,
   type UpdateUserViewInput,
   type UserViewResponse,
-} from '@/application/ports/repositories/user-view-repository'
+} from '@/application/ports/repositories/tables/user-view-repository'

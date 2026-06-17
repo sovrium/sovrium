@@ -7,7 +7,7 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
 import {
   columnExists,
@@ -151,20 +151,48 @@ export function checkDeletedAtColumn(
   })
 }
 
+export interface FilterLeaf {
+  readonly field: string
+  readonly operator: string
+  readonly value: unknown
+}
+
+export type FilterNode =
+  | FilterLeaf
+  | { readonly and: readonly FilterNode[] }
+  | { readonly or: readonly FilterNode[] }
+
+const isLeaf = (node: FilterNode): node is FilterLeaf => 'field' in node && 'operator' in node
+
+const isAndGroup = (node: FilterNode): node is { readonly and: readonly FilterNode[] } =>
+  'and' in node && Array.isArray((node as { readonly and?: unknown }).and)
+
+const isOrGroup = (node: FilterNode): node is { readonly or: readonly FilterNode[] } =>
+  'or' in node && Array.isArray((node as { readonly or?: unknown }).or)
+
+function renderFilterNode(node: FilterNode): Readonly<SQL> {
+  if (isLeaf(node)) {
+    validateColumnName(node.field)
+    return generateSqlConditionFragment(node.field, node.operator, node.value)
+  }
+  if (isOrGroup(node)) {
+    if (node.or.length === 0) return sql`(1 = 0)`
+    const parts = node.or.map(renderFilterNode)
+    return sql`(${sql.join(parts, sql` OR `)})`
+  }
+  if (isAndGroup(node)) {
+    if (node.and.length === 0) return sql`(1 = 1)`
+    const parts = node.and.map(renderFilterNode)
+    return sql`(${sql.join(parts, sql` AND `)})`
+  }
+  return sql`(1 = 0)`
+}
+
 export function buildUserFilterConditions(filter?: {
-  readonly and?: readonly {
-    readonly field: string
-    readonly operator: string
-    readonly value: unknown
-  }[]
+  readonly and?: readonly FilterNode[]
 }): readonly Readonly<SQL>[] {
   if (!filter?.and || filter.and.length === 0) return []
-
-  const andConditions = filter.and ?? []
-  return andConditions.map((f) => {
-    validateColumnName(f.field)
-    return generateSqlConditionFragment(f.field, f.operator, f.value)
-  })
+  return filter.and.map((node) => renderFilterNode(node))
 }
 
 function findFieldDefinition(
@@ -243,11 +271,7 @@ export function buildWhereClause(
   hasDeletedAt: boolean,
   includeDeleted: boolean | undefined,
   filter?: {
-    readonly and?: readonly {
-      readonly field: string
-      readonly operator: string
-      readonly value: unknown
-    }[]
+    readonly and?: readonly FilterNode[]
   }
 ): Readonly<SQL> {
   const userFilterConditions = buildUserFilterConditions(filter)

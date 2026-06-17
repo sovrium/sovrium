@@ -6,7 +6,7 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { DataSourceRepository } from '@/application/ports/repositories/data-source-repository'
+import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { buildIslands } from '@/infrastructure/server/route-setup/static-assets'
 import { renderErrorPage, renderNotFoundPage } from '@/presentation/rendering/render-error-pages'

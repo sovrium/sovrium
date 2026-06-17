@@ -6,5 +6,5 @@
  */
 
 
-export { parseAiEnvConfig } from '@/domain/models/env/ai'
-export type { AiEnvConfig } from '@/domain/models/env/ai'
+export { parseAiEnvConfig } from '@/domain/models/env/ai/ai'
+export type { AiEnvConfig } from '@/domain/models/env/ai/ai'

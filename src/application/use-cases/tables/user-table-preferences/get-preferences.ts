@@ -11,7 +11,7 @@ import {
   UserTablePreferencesRepository,
   type UserPreferencesDbError,
   type UserTablePreferencesResponse,
-} from '@/application/ports/repositories/user-table-preferences-repository'
+} from '@/application/ports/repositories/tables/user-table-preferences-repository'
 
 export interface GetUserPreferencesInput {
   readonly userId: string

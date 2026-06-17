@@ -7,8 +7,8 @@
 
 import { Effect, Layer } from 'effect'
 import { OAuthStateStoreLive } from '@/infrastructure/connections/oauth-state-store-live'
-import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connection-repository-live'
-import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connection-token-repository-live'
+import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
+import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 
 const ConnectionRuntimeLayer = Layer.mergeAll(
   ConnectionRepositoryLive,

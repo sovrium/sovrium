@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement, type ReactNode } from 'react'
+import { computeFormFieldClasses, computeFormFieldLabelClasses } from './forms-default-classes'
 
 type CrudFieldShellField = {
   readonly name: string
@@ -29,10 +30,10 @@ export function CrudFieldShell({
 }: CrudFieldShellProps): ReactElement {
   return (
     <label
-      className="flex flex-col gap-1.5"
+      className={computeFormFieldClasses()}
       {...labelProps}
     >
-      <span className="text-foreground text-sm font-medium">
+      <span className={computeFormFieldLabelClasses()}>
         {labelText(field)}
         {field.required && (
           <span

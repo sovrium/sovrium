@@ -39,6 +39,7 @@ export function buildAlertDialogProps(
     cancelLabel: pickAlertField(comp, rawProps, 'cancelLabel', 'Cancel'),
     confirmLabel: pickAlertField(comp, rawProps, 'confirmLabel', 'Continue'),
     variant: rawProps?.['variant'] ?? 'default',
+    action: comp['action'] ?? rawProps?.['action'],
     className: elementProps['className'],
     id: elementProps['id'],
     'data-testid': elementProps['data-testid'],

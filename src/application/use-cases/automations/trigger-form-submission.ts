@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { FormSubmissionRepository } from '@/application/ports/repositories/form-submission-repository'
+import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'

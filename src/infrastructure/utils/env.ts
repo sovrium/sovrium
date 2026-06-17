@@ -6,6 +6,7 @@
  */
 
 import { isLocalDevDefault } from '@/domain/utils/dev-mode'
+import { isInsecureOptOut, isLoopbackHost } from '@/infrastructure/utils/security-posture'
 import type { StartupPhase } from '@/infrastructure/logging/logger'
 
 const env = process.env as Record<string, string | undefined>
@@ -23,10 +24,16 @@ export const isLiveReloadEligible = (): boolean => isLocalDevDefault(getNodeEnv(
 
 export const isFormAnalyticsEnabled = (): boolean => env['ECO_FORM_ANALYTICS'] !== 'off'
 
-export const collectInsecureEnvWarning = (): StartupPhase | undefined => {
-  const nodeEnv = getNodeEnv()
-  if (nodeEnv === undefined || nodeEnv === '' || nodeEnv === 'development') {
+export const collectInsecureEnvWarning = (bindHost?: string): StartupPhase | undefined => {
+  if (isLoopbackHost(bindHost)) {
     return undefined
+  }
+  if (isInsecureOptOut()) {
+    return {
+      label:
+        'SOVRIUM_ALLOW_INSECURE is set on a non-loopback bind — CSRF protection and secure cookies are DISABLED on a publicly-reachable interface',
+      type: 'warning' as const,
+    }
   }
   return undefined
 }

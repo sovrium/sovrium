@@ -64,6 +64,10 @@ export function useKpiRecords(dataSource: KpiRecordsDataSource | undefined) {
         query,
       })
 
+      if (res.status === 401 || res.status === 403) {
+        return { records: [] }
+      }
+
       if (!res.ok) {
         const body = await res.text()
         throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`)

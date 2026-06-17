@@ -17,8 +17,8 @@ import {
   storageStatusResponseSchema,
   type StorageStatusResponse,
 } from '@/domain/models/api/admin/storage/status'
-import { resolveRuntimeLabel } from '@/domain/models/env/database-dialect'
-import { parseStorageEnvConfig } from '@/domain/models/env/storage'
+import { resolveRuntimeLabel } from '@/domain/models/env/database/database-dialect'
+import { parseStorageEnvConfig } from '@/domain/models/env/storage/storage'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
 import { handleGetAuditLog } from '@/presentation/api/routes/admin/audit-log'
 import { createHandleGetTablesOverview } from '@/presentation/api/routes/admin/tables-overview'

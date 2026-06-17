@@ -14,8 +14,8 @@ import {
 } from '@/application/ports/services/ai-service'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { chatRequestSchema, type ChatResponse, type ChatAction } from '@/domain/models/api/ai/chat'
-import { type ContextPageScope } from '@/domain/services/ai-chat-context'
-import { buildChatToolDefinitions } from '@/domain/services/ai-chat-tools'
+import { type ContextPageScope } from '@/domain/services/ai-chat/ai-chat-context'
+import { buildChatToolDefinitions } from '@/domain/services/ai-chat/ai-chat-tools'
 import { handleAgentChat } from '@/presentation/api/routes/agents/agent-chat'
 import {
   recordActivityLogRow,
@@ -240,7 +240,9 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
   const errorConfig = resolveChatErrorConfig()
 
   const toolTables = toToolCallTables(input.app, input.userRole)
-  const tools: ReadonlyArray<ChatToolDefinition> = buildChatToolDefinitions(toolTables)
+  const tools: ReadonlyArray<ChatToolDefinition> = buildChatToolDefinitions(
+    toolTables.map((table) => ({ name: table.name, columns: table.readableColumns }))
+  )
 
   const baseMessages: ReadonlyArray<ChatMessage> = [
     { role: 'system', content: input.systemPrompt },

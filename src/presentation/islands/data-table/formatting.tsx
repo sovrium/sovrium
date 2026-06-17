@@ -6,7 +6,7 @@
  */
 
 
-import { computeCurrencyDisplayClasses } from '../field-affordances-default-classes'
+import { computeCurrencyDisplayClasses } from '../recipes/field-affordances-default-classes'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { TableRecord } from '../shared/types'

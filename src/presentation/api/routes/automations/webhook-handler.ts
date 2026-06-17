@@ -202,11 +202,18 @@ interface BuildResponseInput {
 
 const toWebhookResponseStatus = (
   status: RunAutomationResult['status']
-): 'completed' | 'completed-with-errors' | 'failed' | 'skipped' | 'cancelled' => {
+):
+  | 'completed'
+  | 'completed-with-errors'
+  | 'failed'
+  | 'skipped'
+  | 'cancelled'
+  | 'waiting-approval' => {
   if (status === 'success') return 'completed'
   if (status === 'completed-with-errors') return 'completed-with-errors'
   if (status === 'skipped') return 'skipped'
   if (status === 'cancelled') return 'cancelled'
+  if (status === 'waiting-approval') return 'waiting-approval'
   return 'failed'
 }
 

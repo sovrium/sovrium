@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
+import { computeFormLayoutClasses } from '@/presentation/utils/design/form-layout-classes'
 import { type FieldDef } from '../components/crud-form/fields'
 import { FormBody } from '../components/crud-form/layout'
 import { findMissingRequiredFields, submitCrudForm } from './submit-pipeline'
@@ -95,7 +96,7 @@ function CrudFormElement(props: {
       method={useNativeForm ? 'POST' : undefined}
       action={formAction}
       onSubmit={onSubmit}
-      className={cn(className)}
+      className={cn(computeFormLayoutClasses(), className)}
       id={island.id}
       data-testid={island['data-testid']}
       data-action-type="crud"

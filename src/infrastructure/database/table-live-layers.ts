@@ -6,11 +6,11 @@
  */
 
 import { Layer } from 'effect'
-import { ActivityRepositoryLive } from './repositories/activity-repository-live'
-import { BatchRepositoryLive } from './repositories/batch-repository-live'
+import { ActivityRepositoryLive } from './repositories/analytics/activity-repository-live'
 import { CommentRepositoryLive } from './repositories/comment-repository-live'
-import { DataSourceRepositoryLive } from './repositories/data-source-repository-live'
-import { TableRepositoryLive } from './repositories/table-repository-live'
+import { BatchRepositoryLive } from './repositories/tables/batch-repository-live'
+import { DataSourceRepositoryLive } from './repositories/tables/data-source-repository-live'
+import { TableRepositoryLive } from './repositories/tables/table-repository-live'
 
 export const TableLive = Layer.mergeAll(
   TableRepositoryLive,

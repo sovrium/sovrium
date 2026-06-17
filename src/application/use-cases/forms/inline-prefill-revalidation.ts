@@ -7,8 +7,8 @@
 
 
 import { Effect } from 'effect'
-import { DataSourceRepository } from '@/application/ports/repositories/data-source-repository'
-import { findMatchingRoute } from '@/domain/utils/route-matcher'
+import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'

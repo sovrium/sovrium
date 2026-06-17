@@ -18,7 +18,7 @@ export {
 
 export {
   validateReadonlyIdField,
-  validateDefaultFields,
+  validateReadonlyComputedFields,
   validateRequiredFields,
   filterAllowedFields,
   validateFieldWritePermissions,

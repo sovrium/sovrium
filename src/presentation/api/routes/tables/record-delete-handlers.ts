@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { hasDeletePermission } from '@/application/use-cases/tables/permissions/permissions'

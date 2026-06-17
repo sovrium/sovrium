@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
 export const fieldTypeToPostgresMap: Record<string, string> = {

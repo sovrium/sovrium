@@ -8,16 +8,22 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
-import { isFilePublic, resolveStoragePublicAccess } from '@/domain/models/env/storage-public-access'
+import {
+  isFilePublic,
+  resolveStoragePublicAccess,
+} from '@/domain/models/env/storage/storage-public-access'
 import {
   buildTransformCacheKey,
   buildTransformETag,
-} from '@/domain/services/image-transform-cache-key'
+} from '@/domain/services/image-transform/image-transform-cache-key'
 import {
   hasTransformParams,
   defaultTransformParams,
-} from '@/domain/services/image-transform-params'
-import { parsePresetEnv, resolvePresetTransform } from '@/domain/services/image-transform-presets'
+} from '@/domain/services/image-transform/image-transform-params'
+import {
+  parsePresetEnv,
+  resolvePresetTransform,
+} from '@/domain/services/image-transform/image-transform-presets'
 import { inferMimeFromKey, isImageKey } from '@/domain/utils/mime-types'
 import {
   applyImageTransform,
@@ -40,7 +46,7 @@ import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
-import type { TransformParams } from '@/domain/services/image-transform-params'
+import type { TransformParams } from '@/domain/services/image-transform/image-transform-params'
 import type { Context, Hono } from 'hono'
 
 function createHandleGetBucketFile(app: App) {

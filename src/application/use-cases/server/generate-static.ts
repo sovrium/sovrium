@@ -31,6 +31,7 @@ import {
   applyHtmlOptimizations,
   generateSitemapFile,
   generateRobotsFile,
+  generateLlmsFiles,
   generateGitHubPagesFiles,
   type FileSystemLike,
 } from './generate-static-helpers'
@@ -168,9 +169,10 @@ function generateSupportingFiles(
   return Effect.gen(function* () {
     const sitemapFiles = yield* generateSitemapFile(app, outputDir, options, fs)
     const robotsFiles = yield* generateRobotsFile(app, outputDir, options, fs)
+    const llmsFiles = yield* generateLlmsFiles(app, outputDir, options, fs)
     const githubFiles = yield* generateGitHubPagesFiles(outputDir, options, fs)
 
-    return [...sitemapFiles, ...robotsFiles, ...githubFiles] as readonly string[]
+    return [...sitemapFiles, ...robotsFiles, ...llmsFiles, ...githubFiles] as readonly string[]
   })
 }
 

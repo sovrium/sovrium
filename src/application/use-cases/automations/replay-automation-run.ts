@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { AutomationRunRepository } from '@/application/ports/repositories/automation-run-repository'
+import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import {
   executeAutomationRun,

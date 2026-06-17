@@ -6,7 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
-import { resolveStoragePublicAccess } from '@/domain/models/env/storage-public-access'
+import { resolveStoragePublicAccess } from '@/domain/models/env/storage/storage-public-access'
 
 class StoragePublicAccessEnvError extends Data.TaggedError('StoragePublicAccessEnvError')<{
   readonly cause: unknown

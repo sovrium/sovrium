@@ -9,9 +9,9 @@ import { Schema } from 'effect'
 
 export const PrefillSourceSchema = Schema.Union(
   Schema.String.pipe(
-    Schema.pattern(/^\$(query|user|parent)\.[a-zA-Z_][a-zA-Z0-9_.]*$/, {
+    Schema.pattern(/^\$(query|user|parent|record)\.[a-zA-Z_][a-zA-Z0-9_.]*$/, {
       message: () =>
-        'Prefill source must be a literal value or a reference like $query.<name>, $user.<prop>, or $parent.<path>',
+        'Prefill source must be a literal value or a reference like $query.<name>, $user.<prop>, $parent.<path>, or $record.<path>',
     })
   ),
   Schema.String,
@@ -21,7 +21,7 @@ export const PrefillSourceSchema = Schema.Union(
   identifier: 'PrefillSource',
   title: 'Prefill Source',
   description:
-    'A literal default value or a $query.{name} / $user.{prop} / $parent.{path} reference',
+    'A literal default value or a $query.{name} / $user.{prop} / $parent.{path} / $record.{path} reference',
 })
 
 export const PrefillSchema = Schema.Record({

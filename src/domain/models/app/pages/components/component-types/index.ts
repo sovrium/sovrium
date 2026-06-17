@@ -76,7 +76,19 @@ import {
   listItemFields,
   SpeechBubbleTypeLiteral,
   speechBubbleFields,
+  RecordFieldTypeLiteral,
+  recordFieldFields,
 } from './display'
+import {
+  SchemaJsonEditorTypeLiteral,
+  schemaJsonEditorFields,
+  SchemaYamlEditorTypeLiteral,
+  schemaYamlEditorFields,
+  SchemaFormEditorTypeLiteral,
+  schemaFormEditorFields,
+  SchemaAiAgentTypeLiteral,
+  schemaAiAgentFields,
+} from './editors'
 import {
   SkeletonTypeLiteral,
   skeletonFields,
@@ -124,6 +136,8 @@ import {
   linkFields,
   ButtonGroupTypeLiteral,
   buttonGroupFields,
+  ThemeToggleTypeLiteral,
+  themeToggleFields,
 } from './interactive'
 import {
   ContainerTypeLiteral,
@@ -210,6 +224,7 @@ export * from './feedback'
 export * from './specialty'
 export * from './structural'
 export * from './ai'
+export * from './editors'
 export * from './custom'
 export * from './modules'
 
@@ -262,6 +277,7 @@ const allComponents = [
   [AlertTypeLiteral, alertFields],
   [LinkTypeLiteral, linkFields],
   [ButtonGroupTypeLiteral, buttonGroupFields],
+  [ThemeToggleTypeLiteral, themeToggleFields],
   [BreadcrumbTypeLiteral, breadcrumbFields],
   [DropdownMenuTypeLiteral, dropdownMenuFields],
   [ContextMenuTypeLiteral, contextMenuFields],
@@ -287,6 +303,7 @@ const allComponents = [
   [TimelineTypeLiteral, timelineFields],
   [ListItemTypeLiteral, listItemFields],
   [SpeechBubbleTypeLiteral, speechBubbleFields],
+  [RecordFieldTypeLiteral, recordFieldFields],
   [SkeletonTypeLiteral, skeletonFields],
   [ProgressTypeLiteral, progressFields],
   [SpinnerTypeLiteral, spinnerFields],
@@ -302,6 +319,10 @@ const allComponents = [
   [DividerTypeLiteral, dividerFields],
   [SpacerTypeLiteral, spacerFields],
   [AiChatTypeLiteral, aiChatFields],
+  [SchemaJsonEditorTypeLiteral, schemaJsonEditorFields],
+  [SchemaYamlEditorTypeLiteral, schemaYamlEditorFields],
+  [SchemaFormEditorTypeLiteral, schemaFormEditorFields],
+  [SchemaAiAgentTypeLiteral, schemaAiAgentFields],
   [CustomHtmlTypeLiteral, customHtmlFields],
 ] as const
 
@@ -354,6 +375,7 @@ export const ComponentTypeSchema = Schema.Union(
   AlertTypeLiteral,
   LinkTypeLiteral,
   ButtonGroupTypeLiteral,
+  ThemeToggleTypeLiteral,
   BreadcrumbTypeLiteral,
   DropdownMenuTypeLiteral,
   ContextMenuTypeLiteral,
@@ -379,6 +401,7 @@ export const ComponentTypeSchema = Schema.Union(
   TimelineTypeLiteral,
   ListItemTypeLiteral,
   SpeechBubbleTypeLiteral,
+  RecordFieldTypeLiteral,
   SkeletonTypeLiteral,
   ProgressTypeLiteral,
   SpinnerTypeLiteral,
@@ -394,6 +417,10 @@ export const ComponentTypeSchema = Schema.Union(
   DividerTypeLiteral,
   SpacerTypeLiteral,
   AiChatTypeLiteral,
+  SchemaJsonEditorTypeLiteral,
+  SchemaYamlEditorTypeLiteral,
+  SchemaFormEditorTypeLiteral,
+  SchemaAiAgentTypeLiteral,
   CustomHtmlTypeLiteral
 ).annotations({
   title: 'Component Type',

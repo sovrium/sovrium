@@ -15,6 +15,7 @@ export const toApiStatus = (
     | 'completed-with-errors'
     | 'skipped'
     | 'cancelled'
+    | 'waiting-approval'
     | 'queued'
     | 'running'
 ):
@@ -25,6 +26,7 @@ export const toApiStatus = (
   | 'completed-with-errors'
   | 'skipped'
   | 'cancelled'
+  | 'waiting-approval'
   | 'queued'
   | 'running' => {
   if (engineStatus === 'success') return 'completed'
@@ -33,6 +35,7 @@ export const toApiStatus = (
   if (engineStatus === 'completed-with-errors') return 'completed-with-errors'
   if (engineStatus === 'skipped') return 'skipped'
   if (engineStatus === 'cancelled') return 'cancelled'
+  if (engineStatus === 'waiting-approval') return 'waiting-approval'
   if (engineStatus === 'queued') return 'queued'
   if (engineStatus === 'running') return 'running'
   return 'failed'

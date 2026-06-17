@@ -6,7 +6,9 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveTranslationPattern } from '@/presentation/translations/translation-resolver'
 import { renderMetaTags } from './meta-utils'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 
 const twitterCardFieldMapping = [
@@ -57,14 +59,31 @@ function buildTwitterCardFields(
 
 export function TwitterCardMeta({
   page,
+  lang,
+  languages,
 }: {
   readonly page: Page
+  readonly lang?: string
+  readonly languages?: Languages
 }): Readonly<ReactElement | undefined> {
   const twitterCard = page.meta?.twitter ?? page.meta?.twitterCard
   if (!twitterCard) {
     return undefined
   }
 
-  const fields = buildTwitterCardFields(twitterCard)
+  const resolvedCard =
+    lang && languages
+      ? {
+          ...twitterCard,
+          ...(typeof twitterCard.title === 'string' && {
+            title: resolveTranslationPattern(twitterCard.title, lang, languages),
+          }),
+          ...(typeof twitterCard.description === 'string' && {
+            description: resolveTranslationPattern(twitterCard.description, lang, languages),
+          }),
+        }
+      : twitterCard
+
+  const fields = buildTwitterCardFields(resolvedCard)
   return renderMetaTags({ fields, prefix: 'twitter', attributeType: 'name' })
 }

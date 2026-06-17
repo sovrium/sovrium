@@ -6,8 +6,12 @@
  */
 
 
-import { buildChatToolDefinitions, type ChatToolDefinition } from '@/domain/services/ai-chat-tools'
+import {
+  buildChatToolDefinitions,
+  type ChatToolDefinition,
+} from '@/domain/services/ai-chat/ai-chat-tools'
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
+import { readableColumnsForRole } from '../ai/chat-table-projection'
 import { resolveAgentModel, resolveAgentTemperature } from './agent-ai-config'
 import { postChatCompletion } from './openai-chat-fetch'
 import type { App } from '@/domain/models/app'
@@ -59,7 +63,22 @@ const buildAgentChatTools = (app: App, agent: Agent): ReadonlyArray<ChatToolDefi
     allowlist === undefined
       ? readableTables
       : readableTables.filter((table) => allowlist.includes(table.name))
-  return buildChatToolDefinitions(allowedReadableTables.map((table) => ({ name: table.name })))
+  return buildChatToolDefinitions(
+    allowedReadableTables.map((table) => {
+      const fields = table.fields.map((field) => ({
+        name: (field as { name: string }).name,
+        type: (field as { type: string }).type,
+      }))
+      return {
+        name: table.name,
+        columns: readableColumnsForRole(
+          fields,
+          (table as { permissions?: unknown }).permissions,
+          agent.role
+        ),
+      }
+    })
+  )
 }
 
 const DEFAULT_TEMPERATURE = 0.7

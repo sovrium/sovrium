@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { AutomationStateRepository } from '@/application/ports/repositories/automation-state-repository'
+import { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
 import { parseDuration } from '@/domain/utils/parse-duration'
 import { numberProp, stringProp } from './shared'
 import type { ActionHandler } from './shared'

@@ -13,7 +13,7 @@ import {
   resolveCommentModerationStatus,
   requiresAuthenticationForComment,
   type CommentModerationConfig,
-} from '@/domain/services/comment-moderation-policy'
+} from '@/domain/services/comments/comment-moderation-policy'
 import { isAuthenticatedSession } from '@/domain/services/guest-session'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
@@ -23,7 +23,7 @@ import { buildTriggerDispatchArgs, dispatchCommentPostedTrigger } from './commen
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
-import type { CommentSpamStatus } from '@/domain/services/comment-spam-classification'
+import type { CommentSpamStatus } from '@/domain/services/comments/comment-spam-classification'
 import type { Context } from 'hono'
 
 interface CreateCommentBody {

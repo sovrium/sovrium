@@ -9,7 +9,7 @@ import { Effect } from 'effect'
 import {
   UserAccessRepository,
   type UserAccessRow,
-} from '@/application/ports/repositories/user-access-repository'
+} from '@/application/ports/repositories/auth/user-access-repository'
 import { validateUserAccessInput } from '@/domain/validators/user-access-validators'
 import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'

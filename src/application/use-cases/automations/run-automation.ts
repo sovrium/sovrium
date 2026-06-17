@@ -10,7 +10,7 @@ import { Duration, Effect } from 'effect'
 import {
   AutomationRepository,
   type AutomationDatabaseError,
-} from '@/application/ports/repositories/automation-repository'
+} from '@/application/ports/repositories/automations/automation-repository'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { notifyPlatformFailure } from './notify-platform-failure'
@@ -140,6 +140,7 @@ const buildStepContext = (input: {
   readonly userId: string | undefined
   readonly callDepth?: number
   readonly visitedAutomations?: ReadonlySet<string>
+  readonly runId?: string
 }): StepContext => {
   const { name, automationId, app, automation, processEnv, triggerData, handlers, userId } = input
   const callDepth = input.callDepth ?? 0
@@ -150,7 +151,12 @@ const buildStepContext = (input: {
     processEnv,
     handlers,
     templateContext: buildAutomationContext(triggerData),
-    automation: { name, id: automationId, ...(userId !== undefined ? { userId } : {}) },
+    automation: {
+      name,
+      id: automationId,
+      ...(userId !== undefined ? { userId } : {}),
+      ...(input.runId !== undefined ? { runId: input.runId } : {}),
+    },
     triggerData: triggerData as Readonly<Record<string, unknown>>,
     automationRetry: toResolvedRetry(automation.retry),
     callDepth,
@@ -278,12 +284,12 @@ export const executeAutomationRun = (
   Effect.gen(function* () {
     const { name, automation, automationId, app, processEnv, triggerData } = input
     const startedAtDate = new Date()
-    const ctx = buildStepContext(input)
     const rawActions = expandAutomationActions(app, automation)
     const runTimeoutMs = resolveRunTimeoutMs(automation)
     const skipActionNames = input.skipActionNames ?? new Set<string>()
 
     const runId = yield* enqueueAndAdmit(input, startedAtDate)
+    const ctx = buildStepContext({ ...input, runId })
     const finalState = yield* runActionsWithTimeout(rawActions, ctx, runTimeoutMs, skipActionNames)
     const finishedAtDate = new Date()
     const { observedRunId, effectiveState } = yield* finaliseAndRelease({

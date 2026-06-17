@@ -158,6 +158,7 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
   kpi: ({ elementProps }) => {
     const islandProps = extractKpiProps(elementProps)
     const propsJson = JSON.stringify(islandProps)
+    const kpiLabel = typeof elementProps.label === 'string' ? elementProps.label : undefined
 
     return (
       <div
@@ -172,7 +173,16 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
           aria-label="Loading KPI..."
           role="status"
         >
-          <div className="bg-background-subtle mb-2 h-4 w-32 animate-pulse rounded" />
+          {kpiLabel ? (
+            <div
+              data-role="kpi-label"
+              className="text-foreground-muted mb-2 text-sm font-medium"
+            >
+              {kpiLabel}
+            </div>
+          ) : (
+            <div className="bg-background-subtle mb-2 h-4 w-32 animate-pulse rounded" />
+          )}
           <div className="bg-background-subtle h-8 w-24 animate-pulse rounded" />
         </div>
       </div>

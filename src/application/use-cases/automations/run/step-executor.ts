@@ -303,6 +303,22 @@ const foldOutcome = (input: {
       halted: true,
     }
   }
+  if (outcome.pause === true) {
+    const stepName = String(rawAction['name'] ?? '')
+    const out =
+      outcome.output !== undefined && stepName !== ''
+        ? (outcome.output as Record<string, unknown>)
+        : undefined
+    const { actions, lastOutput } = foldStepOutput(acc, stepName, out)
+    return {
+      ...acc,
+      steps: [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)],
+      runStatus: 'waiting-approval',
+      actions,
+      lastOutput,
+      halted: true,
+    }
+  }
   return appendStepToAccumulator({
     acc,
     rawAction,
@@ -336,6 +352,7 @@ export const executeStep = (
       triggerData: ctx.triggerData,
       rawAction,
       envLookup: ctx.envLookup,
+      stepIndex: acc.steps.length,
       invokeTemplate: buildTemplateInvoker(ctx, acc, new Set()),
       invokeNativeAction: buildNativeActionInvoker(ctx, acc, new Set()),
       invokeAutomation: buildAutomationInvoker(ctx),

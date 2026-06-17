@@ -7,7 +7,7 @@
 
 
 import { extractText, getDocumentProxy } from 'unpdf'
-import { markdownToText } from '@/domain/services/markdown-to-text'
+import { markdownToText } from '@/domain/services/markdown/markdown-to-text'
 
 export const SUPPORTED_DOCUMENT_EXTENSIONS: ReadonlySet<string> = new Set(['.pdf', '.md', '.txt'])
 

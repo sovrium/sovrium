@@ -7,18 +7,19 @@
 
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
-import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import {
   collectAssignmentScopeTables,
   loadCurrentUserContext,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import { createdByFieldNames } from '@/domain/services/authorship-fields'
 import { evaluateRecordAgainstPredicate } from '@/domain/validators/row-level-evaluator'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { DataSourceRepository } from '@/application/ports/repositories/data-source-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables/table'
 
@@ -60,16 +61,56 @@ const matchesCommentTrigger = (
   return true
 }
 
-const resolveThreadParticipants = (
+const readOwnerId = (
+  record: Readonly<Record<string, unknown>>,
+  createdByNames: readonly string[]
+): string | undefined => {
+  const candidates = [...createdByNames, 'created_by', 'createdBy']
+  const owner = candidates
+    .map((name) => record[name])
+    .find((value): value is string => typeof value === 'string' && value.length > 0)
+  return owner
+}
+
+const resolveOwnerFallbackEmails = (
   session: Readonly<UserSession>,
-  recordId: string,
-  newAuthorId: string
+  record: Readonly<Record<string, unknown>>,
+  newAuthorId: string,
+  createdByNames: readonly string[]
 ): Effect.Effect<readonly string[], never, CommentRepository> =>
   Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const authorsResult = yield* Effect.either(comments.listAuthorsForRecord({ session, recordId }))
-    if (authorsResult._tag === 'Left') return [] as readonly string[]
-    return authorsResult.right.filter((authorId) => authorId !== newAuthorId)
+    const ownerId = readOwnerId(record, createdByNames)
+    if (ownerId === undefined) return [] as readonly string[]
+    if (ownerId === newAuthorId) return [] as readonly string[]
+    const emailResult = yield* Effect.either(
+      comments.getUserEmailById({ session, userId: ownerId })
+    )
+    if (emailResult._tag === 'Left' || !emailResult.right) return [] as readonly string[]
+    return [emailResult.right]
+  })
+
+const resolveThreadParticipants = (params: {
+  readonly session: Readonly<UserSession>
+  readonly record: Readonly<Record<string, unknown>>
+  readonly recordId: string
+  readonly newAuthorId: string
+  readonly createdByNames: readonly string[]
+}): Effect.Effect<readonly string[], never, CommentRepository> =>
+  Effect.gen(function* () {
+    const { session, record, recordId, newAuthorId, createdByNames } = params
+    const comments = yield* CommentRepository
+    const authorsResult = yield* Effect.either(
+      comments.listAuthorEmailsForRecord({ session, recordId })
+    )
+    const priorEmails =
+      authorsResult._tag === 'Left'
+        ? ([] as readonly string[])
+        : authorsResult.right
+            .filter((author) => author.userId !== newAuthorId)
+            .map((author) => author.email)
+    if (priorEmails.length > 0) return priorEmails
+    return yield* resolveOwnerFallbackEmails(session, record, newAuthorId, createdByNames)
   })
 
 const buildCommentTriggerData = (
@@ -174,11 +215,14 @@ export const triggerCommentEventAutomations = (
     const record = yield* fetchParentRecord(input.session, input.tableName, input.recordId)
     if (!record) return
 
-    const threadParticipants = yield* resolveThreadParticipants(
-      input.session,
-      input.recordId,
-      input.author.id
-    )
+    const createdByNames = createdByFieldNames(input.app.tables, input.tableName)
+    const threadParticipants = yield* resolveThreadParticipants({
+      session: input.session,
+      record,
+      recordId: input.recordId,
+      newAuthorId: input.author.id,
+      createdByNames,
+    })
 
     const triggerData = buildCommentTriggerData(input, record, threadParticipants)
     const table = input.app.tables?.find((t) => t.name === input.tableName)

@@ -20,6 +20,7 @@ export interface TriggerData {
   readonly depth?: number
   readonly type?: string
   readonly firedAt?: string
+  readonly invokedOnDemand?: boolean
   readonly record?: Readonly<Record<string, unknown>>
   readonly previousRecord?: Readonly<Record<string, unknown>>
   readonly records?: ReadonlyArray<Readonly<Record<string, unknown>>>
@@ -42,6 +43,10 @@ const formatValue = (value: unknown): string => {
   if (value === undefined || value === null) return ''
   if (typeof value === 'string') return value
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const { id } = value as Record<string, unknown>
+    if (typeof id === 'string' || typeof id === 'number') return String(id)
+  }
   return String(value)
 }
 
@@ -78,6 +83,7 @@ export const buildAutomationContext = (
   )
   const TOPLEVEL_KEYS = [
     'comment',
+    'record',
     'threadParticipants',
     'mentions',
     'input',

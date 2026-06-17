@@ -11,10 +11,10 @@ import { Data, Effect } from 'effect'
 import {
   AuthRepository,
   type AuthDatabaseError,
-} from '@/application/ports/repositories/auth-repository'
-import { BootstrapTokenRepository } from '@/application/ports/repositories/bootstrap-token-repository'
+} from '@/application/ports/repositories/auth/auth-repository'
+import { BootstrapTokenRepository } from '@/application/ports/repositories/auth/bootstrap-token-repository'
 import { Auth } from '@/infrastructure/auth/better-auth'
-import type { BootstrapTokenDatabaseError } from '@/application/ports/repositories/bootstrap-token-repository'
+import type { BootstrapTokenDatabaseError } from '@/application/ports/repositories/auth/bootstrap-token-repository'
 import type { BootstrapTokenError } from '@/domain/models/system'
 
 

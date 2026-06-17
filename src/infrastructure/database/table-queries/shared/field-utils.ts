@@ -7,7 +7,7 @@
 
 import type { Fields } from '@/domain/models/app/tables/fields'
 
-export { sanitizeTableName } from '@/domain/utils/table-naming'
+export { sanitizeTableName } from '@/domain/utils/database/table-naming'
 
 export const isManyToManyRelationship = (
   field: Fields[number]

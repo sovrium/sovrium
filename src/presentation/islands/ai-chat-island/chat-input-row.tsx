@@ -10,7 +10,7 @@ import {
   computeAiChatInputClasses,
   computeAiChatInputRowClasses,
   computeAiChatSendButtonClasses,
-} from '../specialty-islands-default-classes'
+} from '../recipes/specialty-islands-default-classes'
 import type { ReactElement } from 'react'
 
 

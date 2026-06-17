@@ -10,7 +10,7 @@ import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { hasPermission } from '@/domain/models/shared/permissions'
-import { inferMimeFromKey, isImageKey } from '@/domain/utils/mime-types'
+import { inferMimeFromKey, isInlineSafeImageKey } from '@/domain/utils/mime-types'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
@@ -317,7 +317,7 @@ function stripUuidPrefix(key: string): string {
 }
 
 function buildSignedContentDisposition(path: string): string {
-  const disposition = isImageKey(path) ? 'inline' : 'attachment'
+  const disposition = isInlineSafeImageKey(path) ? 'inline' : 'attachment'
   const segments = stripUuidPrefix(path).split('/')
   const filename = segments.at(-1) ?? path
   if (/^[\x20-\x7E]*$/.test(filename)) {
@@ -346,6 +346,7 @@ async function streamSignedDownload(c: Context, path: string): Promise<Response>
     headers: {
       'Content-Type': inferMimeFromKey(path),
       'Content-Disposition': buildSignedContentDisposition(path),
+      'Content-Security-Policy': "default-src 'none'",
       'X-Content-Type-Options': 'nosniff',
     },
   })

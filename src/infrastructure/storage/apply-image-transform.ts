@@ -5,8 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { DEFAULT_QUALITY } from '@/domain/services/image-transform-params'
-import type { TransformFormat, TransformParams } from '@/domain/services/image-transform-params'
+import { DEFAULT_QUALITY } from '@/domain/services/image-transform/image-transform-params'
+import type {
+  TransformFormat,
+  TransformParams,
+} from '@/domain/services/image-transform/image-transform-params'
 import type SharpNamespace from 'sharp'
 
 type Sharp = typeof SharpNamespace

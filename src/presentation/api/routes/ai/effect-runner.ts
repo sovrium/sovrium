@@ -7,11 +7,11 @@
 
 import { Effect } from 'effect'
 import { AiLive } from '@/infrastructure/ai/layer'
-import { AiActivityLogRepositoryLive } from '@/infrastructure/database/repositories/ai-activity-log-repository-live'
-import { AiFactsRepositoryLive } from '@/infrastructure/database/repositories/ai-facts-repository-live'
-import { AiMemoryRepositoryLive } from '@/infrastructure/database/repositories/ai-memory-repository-live'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
-import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/dynamic-record-repository-live'
+import { AiActivityLogRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-activity-log-repository-live'
+import { AiFactsRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-facts-repository-live'
+import { AiMemoryRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-memory-repository-live'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
+import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/tables/dynamic-record-repository-live'
 
 export function provideAiLive<A, E, R>(
   program: Effect.Effect<A, E, R>

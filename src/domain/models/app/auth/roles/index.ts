@@ -173,3 +173,38 @@ export const DefaultRoleSchema = Schema.String.pipe(
 )
 
 export type DefaultRole = Schema.Schema.Type<typeof DefaultRoleSchema>
+
+
+export interface AdminRoleResolvable {
+  readonly auth?: {
+    readonly roles?: readonly {
+      readonly name: string
+      readonly level?: number
+    }[]
+  }
+}
+
+const resolveRoleLevel = (role: { readonly name: string; readonly level?: number }): number => {
+  if (typeof role.level === 'number') return role.level
+  return BUILT_IN_ROLE_LEVELS[role.name] ?? BUILT_IN_ROLE_LEVELS['member']!
+}
+
+export const resolveAdminRole = (app: AdminRoleResolvable): string => {
+  const roles = app.auth?.roles ?? []
+  if (roles.length === 0) return 'admin'
+  const top = roles.reduce((best, role) =>
+    resolveRoleLevel(role) > resolveRoleLevel(best) ? role : best
+  )
+  return top.name
+}
+
+export const isAdminEquivalent = (roleName: string, app: AdminRoleResolvable): boolean => {
+  if (roleName === resolveAdminRole(app)) return true
+  if (roleName === 'admin') {
+    const roles = app.auth?.roles ?? []
+    if (roles.length === 0) return true
+    const topLevel = Math.max(...roles.map(resolveRoleLevel))
+    return BUILT_IN_ROLE_LEVELS['admin']! >= topLevel
+  }
+  return false
+}

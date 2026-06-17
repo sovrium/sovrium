@@ -16,7 +16,7 @@ import { startServer } from '@/application/use-cases/server/start-server'
 import { AppSchema } from '@/domain/models/app'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import { generateAppJsonSchema as generateSchema } from '@/domain/services/json-schema'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
@@ -31,7 +31,11 @@ import type { StartOptions } from '@/application/use-cases/server/start-server'
 import type { AppEncoded } from '@/domain/models/app'
 import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
 import type { Auth } from '@/domain/models/app/auth'
+import type { Automation } from '@/domain/models/app/automations'
 import type { ComponentTemplate } from '@/domain/models/app/components/component'
+import type { Connection } from '@/domain/models/app/connections'
+import type { EnvVar } from '@/domain/models/app/env'
+import type { Form } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Table } from '@/domain/models/app/tables'
@@ -226,6 +230,14 @@ export type AuthConfig = Auth
 export type LanguageConfig = Languages
 
 export type AnalyticsConfig = BuiltInAnalytics
+
+export type AutomationConfig = Automation
+
+export type ConnectionConfig = Connection
+
+export type FormConfig = Form
+
+export type EnvConfig = EnvVar
 
 export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
 

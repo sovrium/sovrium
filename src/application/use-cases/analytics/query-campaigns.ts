@@ -6,11 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { AnalyticsRepository } from '../../ports/repositories/analytics-repository'
+import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
 import type {
   AnalyticsDatabaseError,
   CampaignEntry,
-} from '../../ports/repositories/analytics-repository'
+} from '../../ports/repositories/analytics/analytics-repository'
 
 export interface QueryCampaignsInput {
   readonly appName: string

@@ -11,7 +11,7 @@ import {
   type AiMemoryConversationSummary,
   type AiMemoryDatabaseError,
   type AiMemoryMessage,
-} from '@/application/ports/repositories/ai-memory-repository'
+} from '@/application/ports/repositories/ai/ai-memory-repository'
 
 
 export const persistChatTurn = (input: {

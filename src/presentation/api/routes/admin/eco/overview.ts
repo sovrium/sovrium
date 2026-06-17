@@ -13,7 +13,7 @@ import {
   type StorageConsumerInput,
 } from '@/application/use-cases/admin/eco/get-eco-overview'
 import { ecoOverviewResponseSchema } from '@/domain/models/api/admin/eco/overview'
-import { sanitizeTableName } from '@/domain/utils/table-naming'
+import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { readEcoIndexTrackerSnapshot } from '@/infrastructure/utils/eco-index-tracker'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import type { App } from '@/domain/models/app'

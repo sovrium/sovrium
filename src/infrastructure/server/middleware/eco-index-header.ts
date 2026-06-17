@@ -6,7 +6,7 @@
  */
 
 
-import { gradeBytes, parseEcoIndexHeader } from '@/domain/models/env/eco-index-header'
+import { gradeBytes, parseEcoIndexHeader } from '@/domain/models/env/eco/eco-index-header'
 import { recordGradedResponse } from '@/infrastructure/utils/eco-index-tracker'
 import type { Context, MiddlewareHandler, Next } from 'hono'
 

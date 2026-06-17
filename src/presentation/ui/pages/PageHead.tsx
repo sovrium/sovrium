@@ -7,6 +7,10 @@
 
 import { type ReactElement } from 'react'
 import { normalizeFavicons } from '@/application/metadata/favicon-transformer'
+import {
+  mergeContentDirOpenGraph,
+  type ContentDirSeoMeta,
+} from '@/domain/utils/content-dir/content-dir-seo-meta'
 import { renderInlineScriptTag, renderScriptTag } from '@/presentation/scripts/script-renderers'
 import { resolveTranslationPattern } from '@/presentation/translations/translation-resolver'
 import {
@@ -20,6 +24,8 @@ import {
   StructuredDataScript,
   TwitterCardMeta,
 } from '@/presentation/ui/metadata'
+import { HreflangSection } from './PageHeadSeo'
+import { ThemeColorSchemeScript } from './ThemeColorSchemeScript'
 import type { GroupedScripts } from './PageScripts'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -37,6 +43,7 @@ type PageHeadProps = {
   readonly lang: string
   readonly languages?: Languages
   readonly scripts: GroupedScripts
+  readonly contentDirSeo?: ContentDirSeoMeta
 }
 
 function hasCustomViewportMeta(customElements: readonly CustomElement[] | undefined): boolean {
@@ -71,17 +78,25 @@ function extractOpenGraphData(
   return Object.keys(merged).length > 0 ? merged : undefined
 }
 
+function resolveRobotsDirective(page: Page): string | undefined {
+  const robots = page.meta?.robots
+  if (typeof robots === 'string' && robots.length > 0) return robots
+  return page.meta?.noindex === true ? 'noindex' : undefined
+}
+
 function BasicMetaTags({
   title,
   description,
   keywords,
   canonical,
+  robots,
   hasCustomViewport,
 }: {
   readonly title: string
   readonly description: string
   readonly keywords?: string
   readonly canonical?: string
+  readonly robots?: string
   readonly hasCustomViewport: boolean
 }): ReactElement {
   return (
@@ -104,6 +119,12 @@ function BasicMetaTags({
         <meta
           name="keywords"
           content={keywords}
+        />
+      )}
+      {robots && (
+        <meta
+          name="robots"
+          content={robots}
         />
       )}
       {canonical && (
@@ -213,57 +234,30 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
   )
 }
 
-function HreflangLinks({
-  page,
-  languages,
-}: {
-  readonly page: Page
-  readonly languages: Languages | undefined
-}): ReactElement | undefined {
-  if (!languages || languages.supported.length <= 1) {
-    return undefined
+function computeHeadMeta(props: PageHeadProps): {
+  readonly openGraphData: OpenGraph | undefined
+  readonly effectiveCanonical: string | undefined
+  readonly synthesizedJsonLd: readonly Record<string, unknown>[]
+} {
+  const { page, lang, languages, canonical, contentDirSeo } = props
+  return {
+    openGraphData: mergeContentDirOpenGraph(
+      extractOpenGraphData(page, lang, languages),
+      contentDirSeo
+    ),
+    effectiveCanonical: contentDirSeo?.canonical ?? canonical,
+    synthesizedJsonLd: contentDirSeo?.structuredData ?? [],
   }
-
-  const basePath = page.path === '/' ? '' : page.path
-
-  return (
-    <>
-      {languages.supported.map((lang) => {
-        const hreflang = lang.locale || lang.code
-        return (
-          <link
-            key={lang.code}
-            rel="alternate"
-            hrefLang={hreflang}
-            href={`/${lang.code}${basePath}/`}
-          />
-        )
-      })}
-      <link
-        key="x-default"
-        rel="alternate"
-        hrefLang="x-default"
-        href={`/${languages.default}${basePath}/`}
-      />
-    </>
-  )
 }
 
-export function PageHead({
-  page,
-  theme,
-  directionStyles,
-  title,
-  description,
-  keywords,
-  canonical,
-  lang,
-  languages,
-  scripts,
-}: PageHeadProps): Readonly<ReactElement> {
+export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
+  const { page, theme, directionStyles, title, description, keywords, lang, languages, scripts } =
+    props
+  const { contentDirSeo } = props
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
-  const openGraphData = extractOpenGraphData(page, lang, languages)
   const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
+  const robots = resolveRobotsDirective(page)
+  const { openGraphData, effectiveCanonical, synthesizedJsonLd } = computeHeadMeta(props)
 
   return (
     <>
@@ -271,21 +265,35 @@ export function PageHead({
         title={title}
         description={description}
         keywords={keywords}
-        canonical={canonical}
+        canonical={effectiveCanonical}
+        robots={robots}
         hasCustomViewport={hasCustomViewport}
+      />
+      {}
+      <ThemeColorSchemeScript
+        page={page}
+        theme={theme}
       />
       <OpenGraphMeta
         openGraph={openGraphData}
         lang={lang}
         languages={languages}
       />
-      <TwitterCardMeta page={page} />
-      <StructuredDataScript page={page} />
+      <TwitterCardMeta
+        page={page}
+        lang={lang}
+        languages={languages}
+      />
+      <StructuredDataScript
+        page={page}
+        synthesized={synthesizedJsonLd}
+      />
       <PreloadLinks preload={page.meta?.preload} />
       <DnsPrefetchLinks dnsPrefetch={page.meta?.dnsPrefetch} />
-      <HreflangLinks
+      <HreflangSection
         page={page}
         languages={languages}
+        contentDirSeo={contentDirSeo}
       />
       <AnalyticsHead analytics={page.meta?.analytics} />
       <CustomElementsHead customElements={page.meta?.customElements} />

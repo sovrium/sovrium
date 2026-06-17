@@ -210,6 +210,12 @@ function buildScrollInteractionProps(config: ElementPropsConfig): Record<string,
 function buildEmptyElementStyles(config: ElementPropsConfig): Record<string, unknown> {
   if (config.hasContent) return {}
 
+  if (config.type === 'image') {
+    return config.styleWithShadow && Object.keys(config.styleWithShadow).length > 0
+      ? { style: { ...config.styleWithShadow } }
+      : {}
+  }
+
   if (config.componentName || config.childIndex !== undefined) {
     return {
       style: {

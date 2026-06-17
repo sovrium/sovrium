@@ -7,6 +7,10 @@
 
 
 
+import {
+  computeFormFieldClasses,
+  computeFormFieldLabelClasses,
+} from '@/presentation/utils/design/form-layout-classes'
 import { CodeEditorField } from '../code-editor-field'
 import { RichTextEditorField } from '../rich-text-editor-field'
 import { type ConditionRule, type FieldDef, labelOf } from './field-def'
@@ -26,7 +30,7 @@ const INPUT_TYPE_MAP: Record<string, string> = {
   url: 'url',
 }
 
-const LABEL_CLASS = 'text-foreground flex flex-col gap-1 text-sm font-medium'
+const LABEL_CLASS = `${computeFormFieldClasses()} ${computeFormFieldLabelClasses()}`
 const CONTROL_CLASS =
   'border-border bg-background text-foreground focus:border-primary focus:ring-primary rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none'
 const CHECKBOX_LABEL_CLASS = 'text-foreground flex items-center gap-2 text-sm font-medium'

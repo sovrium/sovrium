@@ -7,6 +7,16 @@
 
 
 
+import {
+  computeFormFieldClasses,
+  computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
+} from '@/presentation/utils/design/form-layout-classes'
+
+const FIELD_WRAPPER_CLASS = `form-field ${computeFormFieldClasses()}`
+const FIELD_LABEL_CLASS = computeFormFieldLabelClasses()
+const HELP_TEXT_CLASS = `help-text ${computeFormHelpTextClasses()}`
+
 export interface ResolvedFormField {
   readonly name: string
   readonly inputElement: string
@@ -38,8 +48,13 @@ const TextareaInput = ({
   readonly field: ResolvedFormField
   readonly defaultValue: string | undefined
 }) => (
-  <div className="form-field">
-    <label htmlFor={`field-${field.name}`}>{field.label}</label>
+  <div className={FIELD_WRAPPER_CLASS}>
+    <label
+      htmlFor={`field-${field.name}`}
+      className={FIELD_LABEL_CLASS}
+    >
+      {field.label}
+    </label>
     <textarea
       id={`field-${field.name}`}
       name={field.name}
@@ -47,7 +62,7 @@ const TextareaInput = ({
       placeholder={field.placeholder || undefined}
       defaultValue={defaultValue ?? undefined}
     />
-    {field.helpText && <small className="help-text">{field.helpText}</small>}
+    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
   </div>
 )
 
@@ -58,8 +73,13 @@ const SelectInput = ({
   readonly field: ResolvedFormField
   readonly defaultValue: string | undefined
 }) => (
-  <div className="form-field">
-    <label htmlFor={`field-${field.name}`}>{field.label}</label>
+  <div className={FIELD_WRAPPER_CLASS}>
+    <label
+      htmlFor={`field-${field.name}`}
+      className={FIELD_LABEL_CLASS}
+    >
+      {field.label}
+    </label>
     <select
       id={`field-${field.name}`}
       name={field.name}
@@ -75,7 +95,7 @@ const SelectInput = ({
         </option>
       ))}
     </select>
-    {field.helpText && <small className="help-text">{field.helpText}</small>}
+    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
   </div>
 )
 
@@ -87,13 +107,13 @@ const RadioInput = ({
   readonly defaultValue: string | undefined
 }) => (
   <div
-    className="form-field form-field-radio"
+    className={`form-field form-field-radio ${computeFormFieldClasses()}`}
     role="radiogroup"
     aria-labelledby={`field-${field.name}-legend`}
   >
     <div
       id={`field-${field.name}-legend`}
-      className="form-field-legend"
+      className={`form-field-legend ${FIELD_LABEL_CLASS}`}
     >
       {field.label}
     </div>
@@ -116,23 +136,28 @@ const RadioInput = ({
         </div>
       )
     })}
-    {field.helpText && <small className="help-text">{field.helpText}</small>}
+    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
   </div>
 )
 
 const SignatureInput = ({ field }: { readonly field: ResolvedFormField }) => (
   <div
-    className="form-field"
+    className={FIELD_WRAPPER_CLASS}
     data-island="signature"
     data-field-name={field.name}
   >
-    <label htmlFor={`field-${field.name}`}>{field.label}</label>
+    <label
+      htmlFor={`field-${field.name}`}
+      className={FIELD_LABEL_CLASS}
+    >
+      {field.label}
+    </label>
     <canvas
       id={`field-${field.name}`}
       className="signature"
       data-name={field.name}
     />
-    {field.helpText && <small className="help-text">{field.helpText}</small>}
+    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
   </div>
 )
 
@@ -143,8 +168,13 @@ const TextInput = ({
   readonly field: ResolvedFormField
   readonly defaultValue: string | undefined
 }) => (
-  <div className="form-field">
-    <label htmlFor={`field-${field.name}`}>{field.label}</label>
+  <div className={FIELD_WRAPPER_CLASS}>
+    <label
+      htmlFor={`field-${field.name}`}
+      className={FIELD_LABEL_CLASS}
+    >
+      {field.label}
+    </label>
     <input
       id={`field-${field.name}`}
       type={field.htmlInputType}
@@ -153,7 +183,7 @@ const TextInput = ({
       placeholder={field.placeholder || undefined}
       defaultValue={defaultValue ?? undefined}
     />
-    {field.helpText && <small className="help-text">{field.helpText}</small>}
+    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
   </div>
 )
 
@@ -167,12 +197,17 @@ const UserInput = ({
   const multiple = field.allowMultiple === true
   return (
     <div
-      className="form-field form-field-user"
+      className={`form-field form-field-user ${computeFormFieldClasses()}`}
       data-field-type="user"
       data-field-name={field.name}
       data-allow-multiple={multiple ? 'true' : 'false'}
     >
-      <label htmlFor={`field-${field.name}`}>{field.label}</label>
+      <label
+        htmlFor={`field-${field.name}`}
+        className={FIELD_LABEL_CLASS}
+      >
+        {field.label}
+      </label>
       <select
         id={`field-${field.name}`}
         name={field.name}
@@ -182,7 +217,7 @@ const UserInput = ({
       >
         {!multiple && <option value="">{field.placeholder || 'Select a user...'}</option>}
       </select>
-      {field.helpText && <small className="help-text">{field.helpText}</small>}
+      {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
     </div>
   )
 }
@@ -195,10 +230,15 @@ const FileInput = ({
   readonly multiple: boolean
 }) => (
   <div
-    className="form-field form-field-file"
+    className={`form-field form-field-file ${computeFormFieldClasses()}`}
     data-field-name={field.name}
   >
-    <label htmlFor={`field-${field.name}`}>{field.label}</label>
+    <label
+      htmlFor={`field-${field.name}`}
+      className={FIELD_LABEL_CLASS}
+    >
+      {field.label}
+    </label>
     {field.dropZone === true && (
       <div
         className="form-dropzone"
@@ -227,7 +267,7 @@ const FileInput = ({
       className="form-file-chips"
       data-form-file-chips={field.name}
     />
-    {field.helpText && <small className="help-text">{field.helpText}</small>}
+    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
   </div>
 )
 

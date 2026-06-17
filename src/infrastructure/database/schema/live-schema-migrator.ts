@@ -13,7 +13,7 @@ import {
   SchemaMigrationError,
   type SchemaMigrationResult,
 } from '@/application/ports/services/schema-migrator'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import {
   classifySchemaMigration,
   type SchemaMigrationPlan,
@@ -24,17 +24,23 @@ import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialec
 import { executeSQLStatements, type TransactionLike } from '../sql/sql-execution'
 import { createNewTableEffect } from '../table-operations'
 import type { App } from '@/domain/models/app'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+
+type ApplyContext = {
+  readonly hasAuthConfig: boolean
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+}
 
 const applyAdditivePlan = (
   tx: TransactionLike,
   plan: SchemaMigrationPlan,
-  hasAuthConfig: boolean
+  ctx: ApplyContext
 ): Effect.Effect<void, unknown, never> =>
   Effect.gen(function* () {
+    const { hasAuthConfig, tablePrimaryKeyTypes } = ctx
     yield* Effect.forEach(
       plan.tablesToCreate,
-      (table) => createNewTableEffect({ tx, table, hasAuthConfig }),
+      (table) => createNewTableEffect({ tx, table, hasAuthConfig, tablePrimaryKeyTypes }),
       { discard: true }
     )
 
@@ -49,12 +55,24 @@ const applyAdditivePlan = (
           columnsToAdd: [...entry.fields],
           primaryKeyFields,
           allFields: entry.table.fields,
+          tablePrimaryKeyTypes,
         })
         return executeSQLStatements(tx, addStatements)
       },
       { discard: true }
     )
   })
+
+const buildLivePrimaryKeyTypesMap = (app: App): ReadonlyMap<string, string | undefined> => {
+  const scopeTableNames = new Set(app.auth?.scopeTables ?? [])
+  return new Map(
+    (app.tables ?? []).map((table) => {
+      const explicitType = table.primaryKey?.type
+      if (explicitType !== undefined) return [table.name, explicitType] as const
+      return [table.name, scopeTableNames.has(table.name) ? 'text' : undefined] as const
+    })
+  )
+}
 
 const builtApplied = (plan: SchemaMigrationPlan): SchemaMigrationResult['applied'] => [
   ...plan.addedTables,
@@ -64,7 +82,7 @@ const builtApplied = (plan: SchemaMigrationPlan): SchemaMigrationResult['applied
 const runPostgres = (
   config: Extract<DatabaseDialectConfig, { dialect: 'postgres' }>,
   plan: SchemaMigrationPlan,
-  hasAuthConfig: boolean,
+  ctx: ApplyContext,
   runtime: Runtime.Runtime<never>
 ): Effect.Effect<void, SchemaMigrationError, never> =>
   Effect.gen(function* () {
@@ -74,7 +92,7 @@ const runPostgres = (
         try: async () => {
           await db.begin(async (tx) => {
             await Runtime.runPromise(runtime)(
-              applyAdditivePlan(tx, plan, hasAuthConfig) as Effect.Effect<void, never, never>
+              applyAdditivePlan(tx, plan, ctx) as Effect.Effect<void, never, never>
             )
           })
         },
@@ -92,7 +110,7 @@ const runPostgres = (
 const runSqlite = (
   config: Extract<DatabaseDialectConfig, { dialect: 'sqlite' }>,
   plan: SchemaMigrationPlan,
-  hasAuthConfig: boolean,
+  ctx: ApplyContext,
   runtime: Runtime.Runtime<never>
 ): Effect.Effect<void, SchemaMigrationError, never> =>
   Effect.gen(function* () {
@@ -102,7 +120,7 @@ const runSqlite = (
         try: () =>
           runSqliteSchemaTransaction(db, async (tx) => {
             await Runtime.runPromise(runtime)(
-              applyAdditivePlan(tx, plan, hasAuthConfig) as Effect.Effect<void, never, never>
+              applyAdditivePlan(tx, plan, ctx) as Effect.Effect<void, never, never>
             )
           }),
         catch: (cause) =>
@@ -132,7 +150,10 @@ const applyAdditive = (
     }
 
     const config = parseDatabaseDialectConfig()
-    const hasAuthConfig = !!next.auth
+    const ctx: ApplyContext = {
+      hasAuthConfig: !!next.auth,
+      tablePrimaryKeyTypes: buildLivePrimaryKeyTypesMap(next),
+    }
     const runtime = yield* Effect.runtime<never>()
 
     logDebug(
@@ -140,8 +161,8 @@ const applyAdditive = (
     )
 
     yield* config.dialect === 'sqlite'
-      ? runSqlite(config, plan, hasAuthConfig, runtime)
-      : runPostgres(config, plan, hasAuthConfig, runtime)
+      ? runSqlite(config, plan, ctx, runtime)
+      : runPostgres(config, plan, ctx, runtime)
 
     return result
   })

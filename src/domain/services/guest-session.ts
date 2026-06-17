@@ -7,8 +7,14 @@
 
 export const GUEST_USER_ID = 'guest'
 
+export const SYSTEM_USER_ID = 'system'
+
 export function isGuestSession(userId: string | undefined): boolean {
   return userId === GUEST_USER_ID
+}
+
+export function isSystemSession(userId: string | undefined): boolean {
+  return userId === SYSTEM_USER_ID
 }
 
 export function isAuthenticatedSession(userId: string | undefined): boolean {

@@ -6,6 +6,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto'
+import { isDevKeyAllowed } from '@/infrastructure/utils/security-posture'
 
 
 const KEY_LEN = 32
@@ -19,13 +20,14 @@ const resolveMasterKey = (): Buffer => {
   if (typeof envKey === 'string' && envKey.length > 0) {
     return scryptSync(envKey, KEY_SALT, KEY_LEN)
   }
-  const nodeEnv = process.env['NODE_ENV']
-  if (nodeEnv === 'production') {
+  if (!isDevKeyAllowed()) {
     throw new Error(
-      'SOVRIUM_ENCRYPTION_KEY is required in production. ' +
-        'Generate a strong random value (e.g. `openssl rand -base64 32`) and set it in the deployment environment.'
+      'SOVRIUM_ENCRYPTION_KEY is required. ' +
+        'Generate a strong random value (e.g. `openssl rand -base64 32`) and set it in the deployment environment, ' +
+        'or set SOVRIUM_ALLOW_DEV_KEY=1 to use the deterministic dev fallback for local development only.'
     )
   }
+  const nodeEnv = process.env['NODE_ENV']
   if (nodeEnv !== undefined && nodeEnv !== '' && nodeEnv !== 'development') {
     console.warn(
       '[crypto] SOVRIUM_ENCRYPTION_KEY not set; using deterministic dev fallback. Do NOT run this configuration in production.'

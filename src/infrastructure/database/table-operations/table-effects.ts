@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { quoteSqlIdentifier } from '@/domain/utils/sql-formatting'
+import { quoteSqlIdentifier } from '@/domain/utils/database/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   shouldUseView,
@@ -78,11 +78,26 @@ export const createNewTableEffect = (params: {
   readonly tableUsesView?: ReadonlyMap<string, boolean>
   readonly skipForeignKeys?: boolean
   readonly hasAuthConfig?: boolean
+  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 }): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { tx, table, tableUsesView, skipForeignKeys, hasAuthConfig = true } = params
+    const {
+      tx,
+      table,
+      tableUsesView,
+      skipForeignKeys,
+      hasAuthConfig = true,
+      tablePrimaryKeyTypes,
+    } = params
     const createTableSQL = yield* Effect.try({
-      try: () => generateCreateTableSQL(table, tableUsesView, skipForeignKeys, hasAuthConfig),
+      try: () =>
+        generateCreateTableSQL(
+          table,
+          tableUsesView,
+          skipForeignKeys,
+          hasAuthConfig,
+          tablePrimaryKeyTypes
+        ),
       catch: (error) =>
         new SQLExecutionError({
           message: `Failed to generate CREATE TABLE DDL: ${String(error)}`,
@@ -190,10 +205,19 @@ export const createOrMigrateTableEffect = (params: {
   readonly previousSchema?: { readonly tables: readonly object[] }
   readonly skipForeignKeys?: boolean
   readonly hasAuthConfig?: boolean
+  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 }): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { tx, table, exists, tableUsesView, previousSchema, skipForeignKeys, hasAuthConfig } =
-      params
+    const {
+      tx,
+      table,
+      exists,
+      tableUsesView,
+      previousSchema,
+      skipForeignKeys,
+      hasAuthConfig,
+      tablePrimaryKeyTypes,
+    } = params
     if (exists) {
       const existingColumns = yield* getExistingColumns(tx, table.name)
       yield* migrateExistingTableEffect({
@@ -210,6 +234,7 @@ export const createOrMigrateTableEffect = (params: {
         tableUsesView,
         skipForeignKeys,
         hasAuthConfig: hasAuthConfig ?? true,
+        tablePrimaryKeyTypes,
       })
     }
   })

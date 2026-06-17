@@ -13,7 +13,7 @@ import {
   buildAiHealthStatusWithEcoRouting,
   type HealthResponse,
 } from '@/domain/models/api/health/health'
-import { resolveOllamaBaseUrl } from '@/domain/models/env/ai-eco-routing'
+import { resolveOllamaBaseUrl } from '@/domain/models/env/ai/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { clearAuditLogTable } from '@/infrastructure/audit-log/drizzle-store'
 import { resetAuditEntries } from '@/infrastructure/audit-log/in-memory-store'

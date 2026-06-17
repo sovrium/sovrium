@@ -8,7 +8,7 @@
 
 import { Effect, Layer } from 'effect'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
-import { UserTablePreferencesRepositoryLive } from '@/infrastructure/database/repositories/user-table-preferences-repository-live'
+import { UserTablePreferencesRepositoryLive } from '@/infrastructure/database/repositories/tables/user-table-preferences-repository-live'
 
 const UserTablePreferencesRuntimeLayer = Layer.provide(
   UserTablePreferencesRepositoryLive,

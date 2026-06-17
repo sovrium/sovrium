@@ -10,6 +10,30 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Meta } from '@/domain/models/app/pages/meta'
 
+function resolveFrontmatterPattern(
+  value: string,
+  frontmatter: Readonly<Record<string, string>> | undefined
+): string {
+  const prefix = '$frontmatter.'
+  if (!value.startsWith(prefix)) return value
+  return frontmatter?.[value.slice(prefix.length)] ?? ''
+}
+
+function resolveFrontmatterInMeta(
+  meta: Meta,
+  frontmatter: Readonly<Record<string, string>> | undefined
+): Meta {
+  if (frontmatter === undefined) return meta
+  return {
+    ...meta,
+    ...(meta.title && { title: resolveFrontmatterPattern(meta.title, frontmatter) }),
+    ...(meta.description && {
+      description: resolveFrontmatterPattern(meta.description, frontmatter),
+    }),
+    ...(meta.keywords && { keywords: resolveFrontmatterPattern(meta.keywords, frontmatter) }),
+  }
+}
+
 function resolveMetaI18n(
   meta: Meta,
   langCode: string,
@@ -103,13 +127,14 @@ function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages):
 
 export function buildPageMetadataI18n(
   page: Page,
-  languages: Languages | undefined
+  languages: Languages | undefined,
+  frontmatter?: Readonly<Record<string, string>>
 ): Meta | Record<string, never> {
   if (!page.meta || !languages) {
     return (page.meta || {}) as Meta | Record<string, never>
   }
 
-  const { meta } = page
+  const meta = resolveFrontmatterInMeta(page.meta, frontmatter)
   const currentLang = meta.lang || languages.default
 
   const generatedI18n = languages.supported.reduce(

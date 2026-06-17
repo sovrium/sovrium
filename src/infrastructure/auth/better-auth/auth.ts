@@ -15,13 +15,13 @@ import {
   type AuthTriggerEvent,
 } from '@/application/use-cases/automations/trigger-auth-event'
 import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
 import { stripHtmlToText } from '@/domain/utils/html-sanitization'
-import { resolvePasswordPolicy } from '@/domain/utils/password-policy'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { db } from '@/infrastructure/database'
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
-import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
+import { isTransportRelaxed } from '@/infrastructure/utils/security-posture'
 import { createEmailHandlers } from './email-handlers'
 import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
 import { buildAdminPlugin } from './plugins/admin'
@@ -259,9 +259,10 @@ type ConnectionForSeed = {
 }
 
 function buildAdvancedConfig() {
+  const relaxed = isTransportRelaxed()
   return {
-    useSecureCookies: isProductionEnv(),
-    disableCSRFCheck: !isProductionEnv(),
+    useSecureCookies: !relaxed,
+    disableCSRFCheck: relaxed,
   }
 }
 

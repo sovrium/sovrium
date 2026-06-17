@@ -6,15 +6,18 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import { buildResolvedFieldDefs } from './crud-form-field-resolver'
 import { renderSkeletonField, renderUpdateSkeletonField } from './crud-form-skeleton'
+import { computeFormLayoutClasses } from './forms-default-classes'
 import type { ElementProps } from './html-element-renderer'
 import type { Buckets } from '@/domain/models/app/buckets'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type { VisibleWhenCondition } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { Tables } from '@/domain/models/app/tables'
-import type { RouteParams } from '@/domain/utils/route-matcher'
+import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
 export type SuccessPageActionConfig = {
   readonly label: string
@@ -22,10 +25,18 @@ export type SuccessPageActionConfig = {
   readonly url?: string
 }
 
+export type CrudFieldOverride = {
+  readonly name: string
+  readonly label?: string
+  readonly placeholder?: string
+}
+
 export type CrudFormAction = {
   readonly type: string
   readonly operation: string
   readonly table: string
+  readonly submitLabel?: string
+  readonly fields?: readonly CrudFieldOverride[]
   readonly onSuccess?: {
     readonly type?: string
     readonly navigate?: string
@@ -72,6 +83,31 @@ export type ResolvedFieldDef = {
   readonly maxFiles?: number
   readonly maxFileSize?: number
   readonly allowedFileTypes?: readonly string[]
+}
+
+export interface CrudFormRenderContext {
+  readonly lang?: string
+  readonly languages?: Languages
+}
+
+function localize(text: string, context: CrudFormRenderContext): string {
+  const { lang, languages } = context
+  return resolveTranslationPattern(text, lang ?? languages?.default ?? '', languages)
+}
+
+function applyCrudFieldOverrides(
+  fields: readonly ResolvedFieldDef[],
+  overrides: readonly CrudFieldOverride[] | undefined,
+  context: CrudFormRenderContext
+): readonly ResolvedFieldDef[] {
+  const overrideByName = new Map((overrides ?? []).map((o) => [o.name, o] as const))
+  return fields.map((field) => {
+    const override = overrideByName.get(field.name)
+    const displayLabel = localize(override?.label ?? field.displayLabel, context)
+    const rawPlaceholder = override?.placeholder ?? field.placeholder
+    const placeholder = rawPlaceholder !== undefined ? localize(rawPlaceholder, context) : undefined
+    return { ...field, displayLabel, ...(placeholder !== undefined && { placeholder }) }
+  })
 }
 
 
@@ -131,13 +167,20 @@ function readAutoSaveConfig(component?: Component): AutoSaveConfig | undefined {
 }
 
 
-function readSubmitButtonProps(component?: Component): {
+function readSubmitButtonProps(
+  action: CrudFormAction,
+  context: CrudFormRenderContext,
+  component?: Component
+): {
   readonly label?: string
   readonly variant?: string
 } {
   const componentProps = (component?.props ?? {}) as Record<string, unknown>
+  const rawLabel =
+    action.submitLabel ??
+    (typeof componentProps['label'] === 'string' ? (componentProps['label'] as string) : undefined)
   return {
-    label: typeof componentProps['label'] === 'string' ? componentProps['label'] : undefined,
+    label: rawLabel !== undefined ? localize(rawLabel, context) : undefined,
     variant: typeof componentProps['variant'] === 'string' ? componentProps['variant'] : undefined,
   }
 }
@@ -147,10 +190,12 @@ export function renderCrudCreateForm(
   action: CrudFormAction,
   tables?: Tables,
   component?: Component,
-  buckets?: Buckets
+  buckets?: Buckets,
+  context: CrudFormRenderContext = {}
 ): ReactElement {
-  const fields = buildResolvedFieldDefs(tables, action.table, component, buckets)
-  const submitBtn = readSubmitButtonProps(component)
+  const baseFields = buildResolvedFieldDefs(tables, action.table, component, buckets)
+  const fields = applyCrudFieldOverrides(baseFields, action.fields, context)
+  const submitBtn = readSubmitButtonProps(action, context, component)
   const { layout, fieldGroups, wizardSteps } = readLayoutOptions(component)
   const islandProps = buildCrudIslandProps({
     operation: 'create',
@@ -174,6 +219,7 @@ export function renderCrudCreateForm(
     >
       {}
       <form
+        className={computeFormLayoutClasses()}
         aria-label={`Create ${action.table}`}
         data-action-type="crud"
         data-action-method="create"
@@ -234,11 +280,13 @@ export function renderCrudUpdateForm(
   action: CrudFormAction,
   tables?: Tables,
   component?: Component,
-  buckets?: Buckets
+  buckets?: Buckets,
+  context: CrudFormRenderContext = {}
 ): ReactElement {
   const record = (props._record ?? {}) as Record<string, unknown>
-  const rawFields = buildResolvedFieldDefs(tables, action.table, component, buckets)
-  const submitBtn = readSubmitButtonProps(component)
+  const resolvedFields = buildResolvedFieldDefs(tables, action.table, component, buckets)
+  const rawFields = applyCrudFieldOverrides(resolvedFields, action.fields, context)
+  const submitBtn = readSubmitButtonProps(action, context, component)
   const {
     _record: _rec,
     _dataSourceBound: _dsb,
@@ -272,6 +320,7 @@ export function renderCrudUpdateForm(
       data-island-props={islandProps}
     >
       <form
+        className={computeFormLayoutClasses()}
         aria-label={`Edit ${action.table}`}
         method="POST"
         action={formAction}
@@ -350,7 +399,11 @@ export function renderAutomationForm(
   const dataSource = componentRecord['dataSource'] as { table?: string } | undefined
   const tableName = dataSource?.table ?? ''
   const fields = buildResolvedFieldDefs(tables, tableName, component, buckets)
-  const submitBtn = readSubmitButtonProps(component)
+  const submitBtn = readSubmitButtonProps(
+    { type: 'automation', operation: 'automation', table: tableName },
+    {},
+    component
+  )
   const islandProps = buildAutomationIslandProps({
     automationName: action.name,
     inputData: action.inputData,
@@ -370,6 +423,7 @@ export function renderAutomationForm(
       data-island-props={islandProps}
     >
       <form
+        className={computeFormLayoutClasses()}
         aria-label={`Submit ${action.name}`}
         data-action-type="automation"
         data-action-automation={action.name}

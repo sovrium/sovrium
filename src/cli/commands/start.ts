@@ -8,7 +8,7 @@
 import { watch } from 'node:fs'
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
 import { getCurrentVersion, checkForUpdatesInBackground } from '@/cli/update'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
@@ -126,6 +126,10 @@ export const handleStartCommand = async (
   const configContent = filePath ? await readFile(filePath, 'utf-8') : JSON.stringify(app)
   const configHash = computeConfigHash(configContent)
   const configPath = filePath ? resolve(filePath) : ''
+
+  if (configPath && !process.env['SOVRIUM_CONTENT_DIR']) {
+    process.env['SOVRIUM_CONTENT_DIR'] = dirname(configPath)
+  }
 
   const existingLock = await readLockFile()
   if (existingLock) {

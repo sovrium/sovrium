@@ -331,8 +331,12 @@ export type UserAccessRow = Schema.Schema.Type<typeof UserAccessRowSchema>
 export {
   RowLevelFilterOperatorSchema,
   RowLevelPredicateSchema,
+  RowLevelPredicateGroupSchema,
+  RowLevelWhenSchema,
   RowLevelPermissionsSchema,
   type RowLevelFilterOperator,
   type RowLevelPredicate,
+  type RowLevelPredicateGroup,
+  type RowLevelWhen,
   type RowLevelPermissions,
 } from './row-level-permissions'

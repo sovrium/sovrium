@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
 import { isValidEmail } from '@/domain/utils/email-validation'
 import { parseDuration } from '@/domain/utils/parse-duration'
-import { resolvePasswordPolicy } from '@/domain/utils/password-policy'
 import {
   deleteCredentialAccountForUser,
   deletePendingInvitationsForUser,

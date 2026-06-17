@@ -8,7 +8,10 @@
 
 import { Effect, Layer } from 'effect'
 import { StorageService, StorageError } from '@/application/ports/services/storage-service'
-import { parseStorageEnvConfig, validateStorageSizeLimits } from '@/domain/models/env/storage'
+import {
+  parseStorageEnvConfig,
+  validateStorageSizeLimits,
+} from '@/domain/models/env/storage/storage'
 import {
   byteaUpload,
   byteaDownload,

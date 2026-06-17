@@ -7,10 +7,10 @@
 
 
 import { Effect } from 'effect'
-import { AiEmbeddingRepository } from '@/application/ports/repositories/ai-embedding-repository'
+import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { resolveRagConfig } from '@/domain/services/rag-config'
+import { resolveRagConfig } from '@/domain/services/rag/rag-config'
 import {
   discoverDocuments,
   resolveKnowledgeDir,
@@ -78,6 +78,7 @@ const handleSearch = async (c: Readonly<Context>): Promise<Response> => {
     const reply = yield* ai.embed({ text: query })
     return yield* repo.search({
       embedding: reply.embedding,
+      query,
       agentName,
       minSimilarity: ragConfig.similarity,
       maxResults: ragConfig.maxResults,

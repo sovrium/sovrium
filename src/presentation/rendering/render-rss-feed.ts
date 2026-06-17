@@ -6,7 +6,11 @@
  */
 
 
-import { buildRssFeedXml, findRssPage, resolveRssLimit } from '@/domain/services/rss-feed-builder'
+import {
+  buildRssFeedXml,
+  findRssPage,
+  resolveRssLimit,
+} from '@/domain/services/feeds/rss-feed-builder'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'

@@ -15,7 +15,7 @@ import {
   HeadBucketCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import type { S3StorageEnvConfig } from '@/domain/models/env/storage'
+import type { S3StorageEnvConfig } from '@/domain/models/env/storage/storage'
 
 export const createS3Client = (config: S3StorageEnvConfig): S3Client =>
   new S3Client({

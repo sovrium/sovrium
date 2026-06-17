@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { ForbiddenError } from '@/domain/errors'
 import {
   isAdminRole,

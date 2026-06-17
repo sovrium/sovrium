@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { decodeAppConfigObject } from '@/application/use-cases/schema/decode-app-config'
 import {
   asArray,
   buildRunContextView,
@@ -221,5 +222,51 @@ export const handleDataLookup: ActionHandler = (_action, _app, _automation, runC
       const key = strProp(props, ctx, 'key')
       const value = resolveProp(props['value'], ctx)
       return ok({ result: items.find((item) => fieldOf(item, key) === value) })
+    })
+  )
+
+
+interface ValidateConfigResult {
+  readonly valid: boolean
+  readonly errors: readonly string[]
+}
+
+const parseConfigString = (
+  raw: string,
+  format: string | undefined
+):
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly error: string } => {
+  try {
+    const value = format === 'yaml' ? Bun.YAML.parse(raw) : JSON.parse(raw)
+    return { ok: true, value }
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Failed to parse config (${format ?? 'json'}): ${error instanceof Error ? error.message : String(error)}`,
+    }
+  }
+}
+
+const validateConfigOutput = (result: ValidateConfigResult): Record<string, unknown> => ({
+  result,
+  valid: result.valid,
+  errors: result.errors,
+})
+
+export const handleDataValidateConfig: ActionHandler = (_action, _app, _automation, runContext) =>
+  Effect.succeed(
+    withRunContext(runContext, (props, ctx): ActionOutcome => {
+      const raw = strProp(props, ctx, 'config')
+      const format = optStrProp(props, ctx, 'format')
+      const parsed = parseConfigString(raw, format)
+      if (!parsed.ok) {
+        return ok(validateConfigOutput({ valid: false, errors: [parsed.error] }))
+      }
+      const decoded = decodeAppConfigObject(parsed.value)
+      const result: ValidateConfigResult = decoded.valid
+        ? { valid: true, errors: [] }
+        : { valid: false, errors: decoded.errors }
+      return ok(validateConfigOutput(result))
     })
   )

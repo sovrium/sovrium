@@ -81,8 +81,12 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  dialog: ({ rawProps, elementProps, renderedChildren }) => {
-    const childrenHtml = renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
+  dialog: ({ rawProps, elementProps, renderedChildren, component }) => {
+    const formRefHtml = (component as { readonly _formRefHtml?: unknown } | undefined)?._formRefHtml
+    const childrenHtml =
+      typeof formRefHtml === 'string'
+        ? formRefHtml
+        : renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
     const dialogProps = {
       title: rawProps?.title,
       description: rawProps?.description,

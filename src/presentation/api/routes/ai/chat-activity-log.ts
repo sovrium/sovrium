@@ -9,7 +9,7 @@
 import { Effect } from 'effect'
 import { recordAiActivity } from '@/application/use-cases/ai/record-ai-activity'
 import { provideAiActivityLogRepoLive } from '@/presentation/api/routes/ai/effect-runner'
-import type { AiActivityLogRow } from '@/application/ports/repositories/ai-activity-log-repository'
+import type { AiActivityLogRow } from '@/application/ports/repositories/ai/ai-activity-log-repository'
 
 export interface ChatActivityLogEntry {
   readonly action: string

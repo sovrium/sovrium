@@ -8,7 +8,7 @@
 
 import { Effect, Layer } from 'effect'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
-import { UserViewRepositoryLive } from '@/infrastructure/database/repositories/user-view-repository-live'
+import { UserViewRepositoryLive } from '@/infrastructure/database/repositories/tables/user-view-repository-live'
 
 const UserViewRuntimeLayer = Layer.provide(UserViewRepositoryLive, DatabaseLive)
 

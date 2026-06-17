@@ -19,7 +19,7 @@ import { logRollbackOperation } from './migration-audit-trail'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 
 
 export type RunMigrationSteps = (

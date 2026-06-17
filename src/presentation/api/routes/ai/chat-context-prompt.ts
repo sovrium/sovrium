@@ -11,7 +11,7 @@ import {
   type ContextPageScope,
   type ContextTable,
   type ContextAutomation,
-} from '@/domain/services/ai-chat-context'
+} from '@/domain/services/ai-chat/ai-chat-context'
 import { projectAppTables } from './chat-table-projection'
 import type { App } from '@/domain/models/app'
 

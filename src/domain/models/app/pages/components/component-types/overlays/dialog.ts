@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { FormNameSchema } from '../../../../forms/name'
 import { contentFields } from '../modules/content'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
@@ -24,6 +25,12 @@ export const dialogFields = {
   description: Schema.optional(
     Schema.String.annotations({
       description: 'Supporting text rendered beneath the title (use for context, not actions)',
+    })
+  ),
+  formRef: Schema.optional(
+    FormNameSchema.annotations({
+      description:
+        'Reference a top-level form by name (app.forms[].name) rendered inside the dialog body. Renders that form inline (fields + submit + onSuccess).',
     })
   ),
 } as const

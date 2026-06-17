@@ -10,7 +10,8 @@ import { dirname } from 'node:path'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { primeSqliteVec, resetSqliteVecCache } from '../sql/sqlite-vec-extension'
 import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
 import * as schemaPg from './schema'
 import * as schemaSqlite from './schema-sqlite'
@@ -32,6 +33,8 @@ const buildClient = (): DrizzleDB => {
   if (config.path !== ':memory:') {
     mkdirSync(dirname(config.path), { recursive: true })
   }
+
+  primeSqliteVec(config.path)
   const client = new BunSqlite(config.path, { create: true })
   client.exec('PRAGMA foreign_keys = ON')
   client.exec('PRAGMA journal_mode = WAL')
@@ -49,6 +52,7 @@ export const getDb = (): DrizzleDB => {
 
 export const resetDbCache = (): void => {
   cached = undefined
+  resetSqliteVecCache()
 }
 
 export const getPgDb = (): DrizzleDB => {

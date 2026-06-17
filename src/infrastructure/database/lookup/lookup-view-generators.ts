@@ -6,6 +6,7 @@
  */
 
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { getViewFormulaLayers, buildLayeredViewSQL } from '../formula/view-formula-generators'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   generateReverseLookupExpression,
@@ -332,18 +333,34 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
 
   const joins = buildForwardLookupJoins(lookupFields, table.fields)
 
-  const selectClause = [
+  const computedSelectClause = [
     baseFieldsWildcard,
     ...lookupExpressions,
     ...rollupExpressions,
     ...countExpressions,
   ].join(',\n    ')
 
-  return `${isSqliteRuntime() ? 'CREATE VIEW' : 'CREATE OR REPLACE VIEW'} ${sanitized} AS
-  SELECT
-    ${selectClause}
-  FROM ${sanitized}_base AS base
+  const createView = isSqliteRuntime() ? 'CREATE VIEW' : 'CREATE OR REPLACE VIEW'
+
+  const fromClause = `FROM ${sanitized}_base AS base
   ${joins ? joins : ''}`
+
+  const formulaLayers = getViewFormulaLayers(table.fields)
+
+  if (formulaLayers.length === 0) {
+    return `${createView} ${sanitized} AS
+  SELECT
+    ${computedSelectClause}
+  ${fromClause}`
+  }
+
+  return buildLayeredViewSQL({
+    createView,
+    viewName: sanitized,
+    computedSelectClause,
+    fromClause,
+    formulaLayers,
+  })
 }
 
 export const getBaseTableName = (tableName: string): string => `${tableName}_base`

@@ -11,7 +11,7 @@ import {
   AiActivityLogRepository,
   type AiActivityLogDatabaseError,
   type AiActivityLogRow,
-} from '@/application/ports/repositories/ai-activity-log-repository'
+} from '@/application/ports/repositories/ai/ai-activity-log-repository'
 
 export const recordAiActivity = (
   row: AiActivityLogRow

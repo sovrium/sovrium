@@ -11,8 +11,8 @@ import {
   ApprovalRepository,
   type ApprovalDatabaseError,
   type ApprovalMirrorRecord,
-} from '@/application/ports/repositories/approval-repository'
-import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/approval-repository-live'
+} from '@/application/ports/repositories/ai/approval-repository'
+import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/ai/approval-repository-live'
 
 export const MirrorApprovalCreate = (
   record: ApprovalMirrorRecord

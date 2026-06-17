@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { FilterStructure, FilterLeaf, FilterNode } from './row-level-read-helpers'
 import type { Context } from 'hono'
 
 type AggregateParams = {
@@ -15,15 +16,8 @@ type AggregateParams = {
   readonly max?: readonly string[]
 }
 
-type FilterStructure =
-  | {
-      readonly and?: readonly {
-        readonly field: string
-        readonly operator: string
-        readonly value: unknown
-      }[]
-    }
-  | undefined
+const isFilterLeaf = (node: FilterNode): node is FilterLeaf =>
+  'field' in node && typeof node.field === 'string'
 
 function isSensitiveFieldType(fieldType: string): boolean {
   const sensitiveTypes = new Set(['email', 'phone-number', 'currency'])
@@ -84,7 +78,7 @@ export function validateFilterParam(
 ) {
   if (!filter) return undefined
 
-  const filterFields = filter.and?.map((condition) => condition.field) ?? []
+  const filterFields = filter.and?.filter(isFilterLeaf).map((leaf) => leaf.field) ?? []
 
   const inaccessibleField = filterFields.find((fieldName) =>
     shouldExcludeFieldByDefault(fieldName, userRole, table)

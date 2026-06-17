@@ -5,17 +5,28 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 import {
   filterTocHeadings,
   splitFrontmatter,
   type MarkdownHeading,
   type RenderedMarkdown,
-} from '@/domain/services/markdown-renderer'
-import { matchesContentDirFilter } from '@/domain/utils/content-dir-filter'
+} from '@/domain/services/markdown/markdown-renderer'
+import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
+import {
+  buildContentDirSeoMeta,
+  resolvePagePath,
+  type ContentDirSeoMeta,
+} from '@/domain/utils/content-dir/content-dir-seo-meta'
+import {
+  buildContentDirStructuredData,
+  parseStructuredDataConfig,
+} from '@/domain/utils/content-dir/content-dir-structured-data'
 import { sanitizeRichTextHTML } from '@/domain/utils/html-sanitization'
 import { renderMarkdownToHtml } from '@/infrastructure/markdown/markdown-it-renderer'
 import { highlightCodeBlocks } from '@/infrastructure/markdown/shiki-highlighter'
+import { getContentBaseDir } from '@/presentation/rendering/content-base-dir'
 import { listContentDir, type CollectionNavData } from '@/presentation/rendering/content-dir-lister'
 import { spliceMarkdownDirectives } from '@/presentation/rendering/markdown-directives'
 import { resolveMarkdownTranslations } from '@/presentation/rendering/markdown-i18n'
@@ -32,6 +43,7 @@ export interface ResolvedMarkdownPage {
   readonly tocPosition?: 'top' | 'sidebar'
   readonly frontmatter: Readonly<Record<string, string>>
   readonly collectionNav?: CollectionNavData
+  readonly seo?: ContentDirSeoMeta
 }
 
 const DEFAULT_LAYOUT = 'prose' as const
@@ -40,13 +52,20 @@ const DEFAULT_TOC_POSITION = 'top' as const
 
 const readMarkdownFile = async (path: string): Promise<string | undefined> => {
   try {
-    const absolutePath = isAbsolute(path) ? path : resolve(process.cwd(), path)
+    const absolutePath = isAbsolute(path) ? path : resolve(getContentBaseDir(), path)
     const file = Bun.file(absolutePath)
     if (!(await file.exists())) return undefined
     return await file.text()
   } catch {
     return undefined
   }
+}
+
+const contentDirExists = async (directory: string): Promise<boolean> => {
+  const absolutePath = isAbsolute(directory) ? directory : resolve(getContentBaseDir(), directory)
+  return stat(absolutePath)
+    .then((stats) => stats.isDirectory())
+    .catch(() => false)
 }
 
 const loadMarkdownSource = async (
@@ -84,7 +103,9 @@ const deriveContentDirSlug = (
   contentDir: ContentDir,
   routeParams: Readonly<Record<string, string>>
 ): string | undefined => {
-  const values = Object.values(routeParams).filter((v) => typeof v === 'string' && v.length > 0)
+  const values = Object.entries(routeParams)
+    .filter(([key, v]) => key !== 'lang' && typeof v === 'string' && v.length > 0)
+    .map(([, v]) => v)
   if (values.length === 0) return undefined
   if (contentDir.slugFrom === 'filepath') {
     return stripLeadingSlash(values.join('/'))
@@ -98,6 +119,7 @@ const hasContentDirFilter = (contentDir: ContentDir): boolean =>
 
 type ContentDirOutcome =
   | { readonly kind: 'no-source' }
+  | { readonly kind: 'not-found' }
   | { readonly kind: 'excluded' }
   | { readonly kind: 'source'; readonly body: string }
 
@@ -115,17 +137,21 @@ const loadContentDirSource = async (
     return filterActive ? { kind: 'excluded' } : { kind: 'source', body: '' }
   }
 
-  const filePath = `${contentDir.directory.replace(/\/+$/, '')}/${slug}.md`
+  const directory = contentDir.directory.replace(/\/+$/, '')
+  const filePath = `${directory}/${slug}.md`
   const fileContent = await readMarkdownFile(filePath)
 
   if (fileContent === undefined) {
-    return filterActive ? { kind: 'excluded' } : { kind: 'source', body: '' }
+    if (filterActive) return { kind: 'not-found' }
+    return (await contentDirExists(directory))
+      ? { kind: 'not-found' }
+      : { kind: 'source', body: '' }
   }
 
   if (filterActive) {
     const { frontmatter } = splitFrontmatter(fileContent)
     if (!matchesContentDirFilter(contentDir.filter, frontmatter)) {
-      return { kind: 'excluded' }
+      return { kind: 'not-found' }
     }
   }
 
@@ -193,7 +219,9 @@ export const resolveMarkdownPage = async (
 ): Promise<ResolvedMarkdownPage | undefined> => {
   const pageSourceFile = derivePageSourceFile(page)
   const contentDirOutcome = await loadContentDirSource(page, routeParams)
-  if (contentDirOutcome.kind === 'excluded') return undefined
+  if (contentDirOutcome.kind === 'excluded' || contentDirOutcome.kind === 'not-found') {
+    return undefined
+  }
   if (hasNoMarkdownTrigger(contentDirOutcome, page, pageSourceFile)) return undefined
   const markdown: Markdown = page.markdown ?? {}
   const source = await pickMarkdownSource(contentDirOutcome, markdown, pageSourceFile)
@@ -203,6 +231,7 @@ export const resolveMarkdownPage = async (
   const toc = buildToc(rendered, markdown.toc)
   const layout = markdown.layout ?? DEFAULT_LAYOUT
   const collectionNav = await buildCollectionNav(page, routeParams)
+  const seo = buildContentDirSeo(page, routeParams, rendered.frontmatter, app)
   return {
     html: composedHtml,
     layout,
@@ -212,5 +241,52 @@ export const resolveMarkdownPage = async (
     }),
     frontmatter: rendered.frontmatter,
     ...(collectionNav !== undefined && { collectionNav }),
+    ...(seo !== undefined && { seo }),
   }
+}
+
+const buildContentDirSeo = (
+  page: Page,
+  routeParams: Readonly<Record<string, string>>,
+  frontmatter: Readonly<Record<string, string>>,
+  app: App | undefined
+): ContentDirSeoMeta | undefined => {
+  if (page.contentDir === undefined) return undefined
+  const baseUrl = typeof Bun.env.BASE_URL === 'string' ? Bun.env.BASE_URL : undefined
+  return buildContentDirSeoMeta({
+    pattern: page.path,
+    routeParams,
+    frontmatter,
+    languages: app?.languages,
+    baseUrl,
+    structuredData: buildContentDirSynthesisedJsonLd(page, routeParams, frontmatter, baseUrl),
+  })
+}
+
+const buildContentDirSynthesisedJsonLd = (
+  page: Page,
+  routeParams: Readonly<Record<string, string>>,
+  frontmatter: Readonly<Record<string, string>>,
+  baseUrl: string | undefined
+): readonly Record<string, unknown>[] => {
+  if (page.meta?.schema !== undefined) return []
+  const config = parseStructuredDataConfig(page.meta?.structuredData)
+  if (config === undefined) return []
+  const resolvedPath = resolvePagePath(page.path, routeParams)
+  const url = baseUrl ? `${baseUrl.replace(/\/$/, '')}${resolvedPath}` : resolvedPath
+  return buildContentDirStructuredData({
+    config,
+    frontmatter,
+    url,
+    groupBy: page.contentDir?.nav?.groupBy,
+  })
+}
+
+export const isContentDirSlugNotFound = async (
+  page: Page,
+  routeParams: Readonly<Record<string, string>> = {}
+): Promise<boolean> => {
+  if (page.contentDir === undefined) return false
+  const outcome = await loadContentDirSource(page, routeParams)
+  return outcome.kind === 'not-found'
 }

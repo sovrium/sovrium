@@ -1,3 +1,336 @@
+## [0.11.0](https://github.com/sovrium/sovrium/compare/v0.10.0...v0.11.0) (2026-06-17)
+
+### Features
+
+- **website**: extend hero accent (warm wash + accent eyebrow) to all landing pages
+- **website**: ambitious hero redesign + sitewide customer trust band
+- **website**: add competitor-comparison SEO library (/compare, 31 pages)
+- **website**: real customer logos, shared trust band, Partner navbar CTA
+- RAG Phase 2 — opt-in sqlite-vec ANN + FTS5 hybrid retrieval (DEC-029)
+- **automations**: drain approval-register roundtrip specs to GREEN
+- **pages**: alert-dialog confirm dispatches its configured automation action (DEC-037)
+- **automations**: approval action pauses run, resolves via run-scoped approve/reject (DEC-037)
+- record-context submit fields for schema-config editors
+- hydrate reverse one-to-many collections in record-trigger envelope (GAP-J2)
+- docs-article breadcrumb + "View as Markdown" header
+- **docs**: navbar/search overhaul + palette opt-out + collapsed sidebar
+- implement tail-logs host effect for host log drain
+- icon variant for theme-toggle component
+- TOC scroll-spy + prose spacing fixes for docs markdown
+- collapsible docs sidebar via contentDir.nav.collapsed
+- content-body search with highlighted excerpts in command palette
+- add commandPalette opt-out to AppSchema
+- **cloud**: host metrics sampling hook populates app metrics for running apps (B2, DEC-034)
+- **pages,forms,automations**: KPI SSR label, $record prefill, relationship hydration, validate-config (Clusters I+J)
+- **cloud**: usage rollup + monthly invoicing live; activate usage/invoicing specs (16/17, Batch 5)
+- **apps/docs**: adopt groupLabels, JSON-LD synthesis, generated llms.txt, theme toggle with light mode
+- **theming**: theme-toggle component, theme.colorScheme, no-FOUC color-scheme head script
+- **seo**: auto-generate /llms.txt and /llms-full.txt from contentDir pages
+- **seo**: auto-synthesize TechArticle + BreadcrumbList JSON-LD for contentDir pages
+- **pages**: contentDir nav groupLabels + humanize, skip link, code-copy button
+- **automations,tables**: comment-thread email recipients + composite row-level predicates (Cluster E)
+- **pages**: read-only record-field display + dialog mounts closed (platform gap Cluster D)
+- **islands**: structured-form & AI-agent schema-config editors (platform gap B10)
+- **automations**: host env-var injection with secret resolution (platform gap B9)
+- **cloud**: host log drain into app_logs (platform gap B8)
+- **automations**: per-app resource-quota registry (platform gap B5)
+- **automations**: reverse-proxy ingress + custom-domain TLS (platform gap B4)
+- **automations**: multi-version process supervisor registry (platform gap B2)
+- **automations**: per-tenant database provisioning registry (platform gap B3)
+- **automations**: cloud orchestration action handler (platform gap B1)
+- **islands**: JSON & YAML schema-config editors (platform gap B10)
+- **apps**: move partner marketing to the website; make partner a portal-only app
+- **apps/website**: rebuild marketing site on the default design system
+- **auth**: role-aware login landing (onSuccess role-landing)
+- **forms**: configurable/localizable CRUD labels + dialog formRef
+
+### Bug Fixes
+
+- **website**: resolve broken comparison-library links to locale-aware hrefs
+- resolve ESLint issues from the docs UX-fix campaign
+- do not force inline display:inline-block on image elements
+- **css**: apply precompiled-file gate in production CSS branch
+- **forms,partner**: visibility-gated formRefs don't 404 the page — resolve FORMS-017
+- **automations**: hydrated record fields stringify as their FK id
+- **cloud**: final re-flip — 139/152 cloud specs green (13 residual fixme)
+- **pages,forms**: automation/logout buttons + embedded-form runtime (Cluster H)
+- **auth**: respect display:none hide-gate on full-width auth-form wrapper
+- **cloud**: activate signup + public-surface specs (16/24, Batch 1)
+- **seo**: recognize hardcoded-language page paths in sitemap and hreflang alternates
+- **partner**: final re-flip — all automations + billing green (1 fixme left)
+- **automations**: hydrate USER fields in record-event trigger envelope (Cluster G2 / GAP-20)
+- **seo**: synthesize canonical, hreflang alternates, and Open Graph meta for contentDir pages
+- **seo**: expand contentDir pages in sitemap + index them in command-search
+- **automations**: http JSON response body + comment owner-fallback custom created-by (Cluster G1)
+- **pages**: 301-redirect bare /:lang and return real 404 for unknown contentDir slugs
+- **records,forms**: records-API custom created-by + form-create fires record automations (Cluster F)
+- **records**: narrow readonly write-reject to truly-computed types (Cluster B follow-up)
+- **automations,tables**: filter OR logic + cron run-now + formula int-division CAST (Cluster C)
+- **automations,records**: connection $env. resolution + overridable field defaults (Cluster B)
+- **records**: authorship for automation + form record writes (platform gap Cluster A)
+- **partner**: activate Plans + Billing specs (10/26; billing blocked on platform gaps)
+- **partner**: activate Forms + Onboarding specs + fix dropped onboarding forms (23/27)
+- **partner**: activate Engineer specs + fix empty client-identity card (13/15)
+- **security**: SSRF-guard file:upload action source resolution (Finding #8)
+- **tables**: single-record GET row-level read 404'd users on their own id-scoped record
+- **partner**: activate Portal E2E specs + unblock customer projet access
+- remediate 7 security findings (AI-SQL, SVG XSS, NODE_ENV coupling, fail-closed, committed secrets)
+- restore Partner app boot + branded accept-invitation page
+- **db**: emit ISO-8601 timestamps for SQLite auto-timestamp defaults
+- resolve raw $t: tokens in Twitter card meta tags
+- **ui**: correct docs markdown layout and polish the docs site
+- **auth**: render auth form full-width to match design-system auth layout
+- **docs**: correct markdown locale, empty article body, and frontmatter meta
+- **auth**: treat the highest-level role as admin-equivalent
+- **css**: honor string-valued flex/grid layout props
+- exclude non-FK relationship edges from table-creation dependency sort
+- compute view-only-referencing formulas in the VIEW (rollup/lookup/count)
+- resolve relationship FK column type from referenced table's primary key
+
+### Refactoring
+
+- **website**: drop unused table tokens from styles.ts
+- document RAG Phase 2 scaling posture + setCustomSQLite ordering caveat
+- **automations**: document the approval-resolution capability-token threat model
+- correct editor lockPrefill enforcement doc to match actual guarantee
+- rename commandPalette AppSchema property to palette
+- use destructuring for id access in resolve-trigger-data
+- persist-safe GAP-J2 reverse collection (drop hybrid array)
+- **repositories**: mirror entity-domain subdirectories across ports and live implementations
+- **domain**: group services and utils into semantic subdirectories
+- **domain**: group env models into semantic subdirectories
+- **islands**: group ~89 top-level island files into feature subdirectories
+- **presentation,automations**: dedup campaign-era substitution, hydration, and client handlers
+- **security**: remove dead latent-SSRF baseUrl prop from AI actions (#9)
+- **cloud**: replace B8 boot-seed with a live stdout/stderr log drain
+- **server**: derive authConfig from app in invitation routes
+- **ui**: style docs markdown with @tailwindcss/typography prose
+- type business-app configs as AppConfig, drop unsafe casts
+- drop custom theming from business apps for native design system
+- business-app E2E specs boot the real apps/ configs
+- **progress**: retire the "TDD Automation" report section
+- **progress**: relocate FEATURES.md/priority utils out of tdd-automation
+
+### Documentation
+
+- **patterns**: document the bare /{lang} + meta.lang i18n anti-pattern
+- **progress**: regenerate after fixme-drain campaign — 0 remaining specs
+- **specs**: fix stale sqlite-vec-search path in phase-2 spec banner
+- **progress**: regenerate after fixme-drain waves 5-6 merge
+- require contributor certification for code submissions
+- **progress**: regenerate after docs UX-fix campaign merge
+- **agent-memory**: record docs UX-fix campaign platform fixes & gotchas
+- **progress**: regenerate SPEC-PROGRESS after docs UX-fix campaign
+- **us**: align GAP-J2 semantics with persist-safe first-row hydration
+- **docs-app**: license/trademark/contributing pages + footer rebuild
+- **progress**: regenerate after SPEC-WARNINGS cleanup — 0 errors, 0 warnings
+- resolve SPEC-WARNINGS content-quality issues (orphan, US flips, YAML, README)
+- **progress**: regenerate progress tracking after Cloud platform-gap campaign
+- **git-infra**: correct runner archived-state facts after live verification
+- **git-infra**: align runbooks, ADRs, and scripts with post-de-Coolify live state
+- fix stale content across infrastructure docs, CLAUDE.md, and docs index
+- **apps/docs**: fix llms.txt links+counts, document missing CLI commands, add templates-examples + runtime-customization articles, a11y fixes
+- **specs**: reconcile user-story AC markers; fix partner billing env drift
+- **spec-progress**: regenerate progress report and reconcile US markers
+- **spec-progress**: regenerate after sqlite-timestamp fix merge
+- **spec-progress**: regenerate after website-redesign merge
+- **spec-progress**: regenerate dashboard after partner/website consolidation
+- **apps/docs**: correct French intro content so /fr/ docs render green
+- **user-stories**: reconcile AC status markers + add RAG phase-2 spec
+- **apps/docs**: French documentation content
+- **progress**: add YAML coverage for action fields[] override (0 warnings)
+- **spec-progress**: regenerate dashboard after website rebuild merge
+- **apps/docs**: comprehensive feature reference (EN + FR)
+- **progress**: reflow auth FEATURES + role-landing US tables (regenerated)
+- reflow tables US markdown tables; regenerate SPEC-PROGRESS
+- reflow git-infra markdown tables (prettier alignment)
+- split user-stories + progress report by Sovrium binary vs business apps
+- de-Coolify host/harden.sh framing + refresh scaleway-infra-maintainer memory for git-infra layout
+- consolidate forgejo/ + sovrium-git/ into unified git-infra/ (host + runner + archive)
+- archive pre-de-Coolify cohab runbooks + fix inverted forgejo/sovrium-git framing
+- retire dead Traefik proxy configs + reframe response-headers backstop to Caddy
+- align doc-tree with executed de-Coolify (Coolify/Traefik retired)
+- refresh SPEC-PROGRESS.md timestamp after partner spec import
+- normalize partner US acceptance-criteria status to specified marker
+- add Sovrium Partner business-app user stories
+- remove TDD Automation Pipeline section from CLAUDE.md
+- refresh SPEC-PROGRESS.md timestamp after business-app spec import
+- repoint internal coolify path links to sovrium-git (de-Coolify W1 follow-up)
+- add Sovrium Docs business-app user stories
+- reinstate Forgejo ADR-005 (Caddy) and archive Coolify ADRs (de-Coolify W1)
+- de-Coolify CLAUDE.md topology and remove Coolify MCP server (de-Coolify W1)
+- add Sovrium Website business-app user stories
+- add Caddy ingress config for dedicated Forgejo host (de-Coolify W1)
+- add Sovrium Cloud business-app user stories
+- split Sovrium Cloud plan into de-Coolify + apps/cloud plans
+- drop public `sovrium cloud` CLI from Cloud design plan
+- add Sovrium Cloud migration & design plan (draft, not executed)
+
+### Styles
+
+- **assets**: realign logo README markdown tables
+- **apps**: propagate element-cell logo to business apps' brand assets
+- **assets**: evolve logo into periodic-table element cell + JPG kit
+- **us**: realign markdown tables after palette rename
+- fix import order in app schema index after palette merge
+- apply Prettier formatting to docs UX-fix campaign files
+- destructure id in resolve-trigger-data to satisfy prefer-destructuring
+- **apps/partner**: prettier line-join in enrich-client-from-siret automation
+- prettier table realignment on US and docs content files
+- **specs**: apply prettier formatting to partner rollups spec
+- **apps**: prettier-format brand-lockup US + specs
+- **apps**: unify header brand lockup "[Sovrium mark] Sovrium <AppName>"
+- **cloud**: prettier-format merged Cloud PaaS specs + US
+- **user-stories**: prettier-format partner/website business-app markdown
+- reflow crud-form override ternary (prettier)
+- **apps/partner**: reflow long className strings (prettier)
+- **apps/website**: clean-UI redesign — real className styling + SVG icons
+- **apps/docs**: drop emoji badge + tokenize mobile-menu background
+- **apps/partner**: clean-UI redesign on native design system
+- **forms**: extend the shared field-spacing default to auth forms
+- **forms**: unify default field spacing across embedded and standalone forms
+- format partner config and specs to the monorepo Prettier style
+- clear pre-existing lint in progress/validate business-app validators
+- re-pad markdown table after TDD archive-path repoint
+- prettier-format de-Coolify doc edits (de-Coolify W1)
+- apply Prettier to Sovrium Cloud plan docs
+- wrap long call in validateAppConfig to satisfy Prettier
+
+### Tests
+
+- **fixtures**: restrict timeout-retry and 10s attempt bound to GETs only
+- **fixtures**: respawn AI mock on unexpected clean exit too
+- **e2e**: harden AI mock resilience and fix flaky specs from run 6222
+- **website**: split comparison specs one-per-user-story with AC tables
+- **website**: E2E specs + user stories for the comparison library
+- **specs**: isolate per-step port + lock dir in server-management regression
+- **fixtures**: stop ai-mock-server respawn log spam on graceful exit
+- **specs**: fix skip-link selectors, /fr locale-prefix, dev-port isolation, cloud poll budgets
+- **cloud**: drain last 5 cloud fixmes — destroy-confirm + orchestration
+- **automations**: amend approval-register roundtrip to Wave-6 pause-resume + reset-password token
+- author approval pause/resume + alert-dialog confirm-action platform contracts (DEC-037)
+- **editors**: specify record-context submit fields for config editors (US-005)
+- **pages**: platform US + spec for commandPalette opt-out
+- **docs**: app specs + US for navbar CTAs, collapsed sidebar, search & legal pages
+- scope nav-group-label assertions to the sidebar
+- add reverse one-to-many relationship hydration coverage (GAP-J2)
+- **cloud**: add literal settled-value assertions after expect.poll (validator)
+- add tail-logs host-effect spec coverage to host log drain
+- **website**: fix bootWithAdmin call-site typing (drop excess signIn fixture)
+- **infra**: specify host metrics sampling hook (B2 residual, DEC-034)
+- drain website auth fixmes via admin-bootstrap fixture
+- **cloud**: add literal settled-value assertions after expect.poll waits
+- add literal expect assertions to expect.poll-only specs + regression steps
+- **cloud**: activate orchestration + ops specs (14/30, Batch 4)
+- **cloud**: activate app-cockpit tab specs (resources/env/params/activities-logs/metrics/configuration)
+- **cloud**: activate app-resources specs with bound resources form
+- **e2e**: harden AI mock lifecycle and accept SSRF-guard error message
+- **cloud**: activate console-core specs (35/39, Batch 2)
+- **partner**: open the Nouveau client dialog via its trigger (Cluster D contract)
+- **partner**: drop unused PARTNER_TEST_ENV consts (fix TS6133)
+- **docs-quality**: add US + RED specs for contentDir fixes, llms.txt, JSON-LD synthesis, theme toggle
+- **partner**: re-flip automations after platform fixes (+14 green)
+- **partner**: re-flip billing + remaining lighter specs after Cluster F (+9 green)
+- **partner**: re-flip lighter areas after platform fixes (+13 green)
+- **partner**: activate Automations specs (7/24; HMAC fixed spec-side)
+- **partner**: activate Projets + Demandes specs (15/20)
+- **partner**: activate Auth/RBAC E2E specs (7 files, 25 tests)
+- **security**: file:upload SSRF spec + user story (finding #8)
+- **apps/partner**: mark brand-lockup specs fixme — blocked by partner boot bug
+- **forms**: match form-layout assertion to the load-bearing w-full token
+- spec Cloud PaaS platform gaps + day-2 orchestration ops (US + red specs)
+- **apps/cloud**: spec full Cloud PaaS UX — user stories + red E2E specs
+- **design-system**: refresh crud-form baseline for default field spacing
+- give each @spec ID its own test.step in partner regression tests
+- add Sovrium Partner automations E2E specs
+- add Sovrium Partner forms E2E specs
+- add Sovrium Partner engineer-admin E2E specs
+- add Sovrium Partner demande-detail E2E specs
+- add Sovrium Partner projet-detail E2E specs
+- add Sovrium Partner portal E2E specs
+- add Sovrium Partner auth & RBAC E2E specs
+- add E2E specs + regressions for Sovrium Docs (apps/docs)
+- add E2E specs + regressions for Sovrium Website (apps/website)
+- add @regression tests for Sovrium Cloud signup specs
+- add E2E specs for Sovrium Cloud signup (apps/cloud)
+- isolate server.test.ts DB to a temp SQLite file
+
+### Chores
+
+- **agents**: add per-surface design references and design-system stewardship to app-design-finalizer
+- **agent-memory**: record runner protection-flag billing incident
+- **agents**: add app-design-finalizer agent with copywriting and SEO expertise
+- **assets**: regenerate embedded runtime and CSS candidate assets
+- record trigger-data replay round-trip constraint in auditor memory
+- **assets**: regenerate embedded runtime and CSS candidate assets
+- **quality**: baseline grpc-js advisories + format logo README
+- **specs**: remove dead provisionTenantOwner helper (knip gate)
+- **agents**: record codebase-refactor-auditor memory from deep-audit run
+- record progress --strict suggestion-blocking + validator false-positive notes in agent memory
+- **specs**: remove dead provisionTenantOwner helper from cloud spec helpers
+- regenerate SPEC-PROGRESS.md post-merge
+- regenerate SPEC-PROGRESS.md
+- regen css assets for dark-variant utilities + agent memory notes
+- **agents**: update codebase-refactor-auditor memory (automation env-secret persistence)
+- remove dead files and archive completed docs
+- **agents**: fix stale paths, isolation regression, and runner-lifecycle facts in agent configs
+- **test**: drop redundant functional/no-let disables in file-support SSRF test
+- **memory**: persist security-remediation agent learnings
+- **types**: resolve @sovrium/types via tsconfig paths to source
+- **agent-memory**: record business-app chrome/brand spec gotchas
+- **website**: redesign marketing site — pricing, IA, SEO, demo visuals
+- **apps**: add Sovrium "element" logo + wire favicons into business-app heads
+- **apps/partner**: subscription Plans + Stripe/Pennylane billing US & specs
+- **agent-memory**: record prose-typography markdown pipeline learning
+- **css**: wire @tailwindcss/typography into the compiler; fix stale docs version
+- **quality**: clear bun quality errors + warnings
+- schema editor models, website user stories, decisions, misc
+- **apps/cloud**: cloud app expansion (config, user stories, specs)
+- **apps**: co-locate each app preview's .sovrium data dir under apps/<app>/
+- **apps**: consolidate dev-preview env into a single committed .env.dev per app
+- **apps**: remove brand-charter page; bootstrap-seed cloud login spec
+- **apps/cloud**: native console login page + home/onboarding clean-UI polish
+- **auth**: native-styled, localizable embedded auth forms + AUTH_ADMIN_ROLE
+- **apps**: drive app:* previews from per-app .env (auth secret, bootstrap admin, cloud mode)
+- update FEATURES.md and regenerate feature-priorities
+- register relationship FK sibling specs in progress US-spec mapping
+- regenerate feature-priorities after FEATURES.md binary/business-apps split
+- repoint product-specs-architect refs off deleted sovrium-cloud plan
+- **mirror**: generate curated public package.json for GitHub mirror
+- scaffold apps/cloud control console + cloud action schema shape
+- **dev**: add app:<name> live-preview scripts for MCP-driven spec authoring
+- **docs,agents**: fix stale references, versions, and removed-package docs
+- regenerate SPEC-PROGRESS.md after merging main
+- align business-app specs to canonical specs/apps/ + fix partner spec types
+- **agent-memory**: update agent-maintainer roster for de-Coolified scaleway scope
+- **agents**: remove Coolify references (de-Coolify effort)
+- **agents**: fix infra-architect pipeline-step count + e2e-test-fixer opener
+- **agents**: correct scaleway runner topology + past-tense rename notes
+- **agents**: register sovrium-design skill + soften gerund naming rule
+- **memory**: record sovrium-website full decommission
+- import sovrium-partner business app config
+- tidy stragglers after TDD-pipeline decommission
+- tag exports orphaned by TDD-pipeline archival as @public
+- drop generated build output from apps/docs/public, normalize imported content
+- exclude apps/** from src-layer lint and apps/*/public from prettier
+- **agents**: delete tdd-pipeline-maintainer and strip TDD-pipeline references
+- archive TDD automation pipeline (docs, scripts, workflows)
+- de-Coolify .forgejo cleanup comments, legal docs, and security paths (de-Coolify W1)
+- import sovrium-docs business app config (apps/docs)
+- exclude docs/archive from tooling globs
+- de-Coolify provisioning scripts to Forgejo + Caddy host (de-Coolify W1)
+- rename coolify dir to sovrium-git and repoint drift-check (de-Coolify W1)
+- import sovrium-website business app config (apps/website)
+- import sovrium-cloud business app config (apps/cloud)
+- **memory**: record Sovrium Cloud orchestration action design consultation
+- extend product-specs-architect to own Sovrium business-app specs
+- extend progress/quality validators to cover business-app content
+- record server.test.ts DB-isolation lesson in agent memory
+
+### CI
+
+- collapse test.yml to linear lint → typecheck+unit → e2e
+
 ## [0.10.0](https://github.com/sovrium/sovrium/compare/v0.9.0...v0.10.0) (2026-06-02)
 
 ### Features

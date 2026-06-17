@@ -6,7 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
-import { FormSubmissionRepository } from '@/application/ports/repositories/form-submission-repository'
+import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import type { Form } from '@/domain/models/app/forms'
 
