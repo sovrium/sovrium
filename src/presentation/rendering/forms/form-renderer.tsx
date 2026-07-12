@@ -176,17 +176,18 @@ function renderFlatFormFields({
   )
 }
 
-const HONEYPOT_HIDDEN_STYLE = { display: 'none' } as const
+const HONEYPOT_INNER_HTML = {
+  __html:
+    '<input type="text" name="_hp" tabindex="-1" aria-hidden="true" autocomplete="off" style="display:none" />',
+} as const
+
+const HONEYPOT_WRAPPER_STYLE = { display: 'contents' } as const
 
 function HoneypotInput() {
   return (
-    <input
-      type="text"
-      name="_hp"
-      tabIndex={-1}
-      aria-hidden="true"
-      style={HONEYPOT_HIDDEN_STYLE}
-      {...{ autocomplete: 'off' }}
+    <span
+      style={HONEYPOT_WRAPPER_STYLE}
+      dangerouslySetInnerHTML={HONEYPOT_INNER_HTML}
     />
   )
 }
@@ -212,7 +213,12 @@ function FormBodyFlat({
       >
         {antiSpamHoneypot && <HoneypotInput />}
         {renderFlatFormFields({ resolvedFields, fieldGroups, prefillMap, lockPrefill })}
-        <button type="submit">{submitLabel}</button>
+        <button
+          type="submit"
+          className="btn btn-primary mt-2 w-full sm:w-auto sm:self-start"
+        >
+          {submitLabel}
+        </button>
       </form>
     </>
   )

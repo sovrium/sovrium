@@ -12,12 +12,12 @@ import {
   computeFileUploadDropzoneHintClasses,
   computeFileUploadDropzoneIconClasses,
   computeFileUploadDropzoneTextClasses,
-} from './forms-default-classes'
+} from './recipes/forms-default-classes'
 import {
   computeTimePickerAmPmClasses,
   computeTimePickerFieldClasses,
   computeTimePickerWrapperClasses,
-} from './specialty-ssr-default-classes'
+} from './recipes/specialty-ssr-default-classes'
 import type { ElementProps } from './html-element-renderer'
 
 export interface RenderFileUploadIslandConfig {

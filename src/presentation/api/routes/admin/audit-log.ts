@@ -16,10 +16,12 @@ import type { Context } from 'hono'
 export async function handleGetAuditLog(c: Context): Promise<Response> {
   const actorId = c.req.query('actorId')
   const action = c.req.query('action')
+  const transport = c.req.query('transport')
 
   const items = await listAuditEvents({
     ...(actorId ? { actorId } : {}),
     ...(action ? { action } : {}),
+    ...(transport ? { transport } : {}),
   })
 
   const response: AuditLogListResponse = { items: items.slice(), nextCursor: null }

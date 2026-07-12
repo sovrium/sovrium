@@ -60,6 +60,73 @@ export function SearchToolbar({ search, value, onChange }: SearchToolbarProps) {
 }
 
 
+interface ExportControlProps {
+  readonly systemExportEndpoint?: string
+  readonly readOnly: boolean
+  readonly showExport: boolean
+  readonly tableName: string
+  readonly table: ReturnType<typeof useReactTable<TableRecord>>
+  readonly activeFilter: ActiveFilter | undefined
+  readonly exportMenuOpen: boolean
+  readonly onToggleExportMenu: () => void
+  readonly onCloseExportMenu: () => void
+}
+
+function ExportControl({
+  systemExportEndpoint,
+  readOnly,
+  showExport,
+  tableName,
+  table,
+  activeFilter,
+  exportMenuOpen,
+  onToggleExportMenu,
+  onCloseExportMenu,
+}: ExportControlProps) {
+  const onSystemExportClick = useCallback(() => {
+    if (!systemExportEndpoint) return
+    const separator = systemExportEndpoint.includes('?') ? '&' : '?'
+    window.location.href = `${systemExportEndpoint}${separator}format=csv`
+  }, [systemExportEndpoint])
+
+  if (readOnly && showExport && systemExportEndpoint) {
+    return (
+      <button
+        type="button"
+        className={DROPDOWN_TRIGGER_CLASS}
+        aria-label="Exporter"
+        onClick={onSystemExportClick}
+      >
+        Exporter
+      </button>
+    )
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className={DROPDOWN_TRIGGER_CLASS}
+        aria-label="Export"
+        aria-haspopup="true"
+        aria-expanded={exportMenuOpen}
+        onClick={onToggleExportMenu}
+      >
+        Export
+      </button>
+      {exportMenuOpen && (
+        <ExportMenu
+          tableName={tableName}
+          table={table}
+          activeFilter={activeFilter}
+          onClose={onCloseExportMenu}
+        />
+      )}
+    </div>
+  )
+}
+
+
 interface DataTableToolbarBarProps {
   readonly table: ReturnType<typeof useReactTable<TableRecord>>
   readonly tableName: string
@@ -85,6 +152,10 @@ interface DataTableToolbarBarProps {
   readonly onToggleExportMenu: () => void
   readonly onCloseExportMenu: () => void
   readonly onRefresh: () => void
+  readonly canCreate: boolean
+  readonly onCreate: () => void
+  readonly readOnly?: boolean
+  readonly systemExportEndpoint?: string
   readonly currentDensity: RowDensity
   readonly onSelectDensity: (density: RowDensity) => void
   readonly onResetPreferences?: () => void
@@ -130,6 +201,10 @@ export function DataTableToolbarBar({
   onToggleExportMenu,
   onCloseExportMenu,
   onRefresh,
+  canCreate,
+  onCreate,
+  readOnly = false,
+  systemExportEndpoint,
   currentDensity,
   onSelectDensity,
   onResetPreferences,
@@ -170,6 +245,16 @@ export function DataTableToolbarBar({
       aria-hidden={importDialogOpen || undefined}
       className="border-border flex items-center gap-2 border-b p-3"
     >
+      {canCreate && (
+        <button
+          type="button"
+          aria-label="Nouvel enregistrement"
+          onClick={onCreate}
+          className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-3 py-1 text-sm font-medium"
+        >
+          + Nouvel enregistrement
+        </button>
+      )}
       {showSearch && searchConfig && (
         <SearchToolbar
           search={searchConfig}
@@ -222,13 +307,15 @@ export function DataTableToolbarBar({
       )}
       {saveStatus && saveStatus !== 'idle' && <SaveStatusIndicator status={saveStatus} />}
       <div className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          className={DROPDOWN_TRIGGER_CLASS}
-          onClick={onOpenImportDialog}
-        >
-          Import
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            className={DROPDOWN_TRIGGER_CLASS}
+            onClick={onOpenImportDialog}
+          >
+            Import
+          </button>
+        )}
         <button
           type="button"
           className="hover:bg-background-subtle inline-flex items-center gap-1 rounded border px-3 py-1 text-sm"
@@ -341,26 +428,17 @@ export function DataTableToolbarBar({
             Export selected
           </button>
         )}
-        <div className="relative">
-          <button
-            type="button"
-            className={DROPDOWN_TRIGGER_CLASS}
-            aria-label="Export"
-            aria-haspopup="true"
-            aria-expanded={exportMenuOpen}
-            onClick={onToggleExportMenu}
-          >
-            Export
-          </button>
-          {exportMenuOpen && (
-            <ExportMenu
-              tableName={tableName}
-              table={table}
-              activeFilter={activeFilter}
-              onClose={onCloseExportMenu}
-            />
-          )}
-        </div>
+        <ExportControl
+          {...(systemExportEndpoint !== undefined && { systemExportEndpoint })}
+          readOnly={readOnly}
+          showExport={toolbarConfig?.export === true}
+          tableName={tableName}
+          table={table}
+          activeFilter={activeFilter}
+          exportMenuOpen={exportMenuOpen}
+          onToggleExportMenu={onToggleExportMenu}
+          onCloseExportMenu={onCloseExportMenu}
+        />
         {toolbarConfig?.refresh && (
           <button
             type="button"

@@ -50,9 +50,12 @@ import {
   chainFormRoutes,
   chainSharedViewRoute,
 } from '@/presentation/api/routes'
+import { chainAdminAgentsRoutes } from '@/presentation/api/routes/admin/agents'
 import { chainAdminAuditLogRoutes } from '@/presentation/api/routes/admin/audit-log'
 import { chainAdminAutomationsRoutes } from '@/presentation/api/routes/admin/automations'
 import { chainAdminBucketsRoutes } from '@/presentation/api/routes/admin/buckets'
+import { chainAdminConnectionsRoutes } from '@/presentation/api/routes/admin/connections'
+import { chainAdminConnectionActionRoutes } from '@/presentation/api/routes/admin/connections-actions'
 import { chainAdminEcoRoutes } from '@/presentation/api/routes/admin/eco'
 import { chainAdminFormsRoutes } from '@/presentation/api/routes/admin/forms'
 import { chainAdminFormsAnalyticsExportRoutes } from '@/presentation/api/routes/admin/forms-analytics-export'
@@ -274,6 +277,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithActivityRateLimit = applyActivityRateLimitMiddleware(honoWithTablesRateLimit)
 
   const resolveAppForGuestCommentExemption = (): App => (getLiveApp() as App | undefined) ?? app
+  const resolveAppForTier = (): App => (getLiveApp() as App | undefined) ?? app
   const honoWithAuth = app.auth
     ? honoWithActivityRateLimit
         .use('/api/tables', authMiddleware(auth))
@@ -289,52 +293,62 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/activity/*', requireAuth())
         .use('/api/admin/storage/status', authMiddleware(auth))
         .use('/api/admin/storage/status', requireAuth())
-        .use('/api/admin/storage/status', requireAdmin())
+        .use('/api/admin/storage/status', requireAdmin(resolveAppForTier))
         .use('/api/admin/buckets/quota', authMiddleware(auth))
         .use('/api/admin/buckets/quota', requireAuth())
-        .use('/api/admin/buckets/quota', requireAdmin())
+        .use('/api/admin/buckets/quota', requireAdmin(resolveAppForTier))
         .use('/api/admin/buckets/overview', authMiddleware(auth))
-        .use('/api/admin/buckets/overview', requireAdminTier())
+        .use('/api/admin/buckets/overview', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/buckets/*', authMiddleware(auth))
+        .use('/api/admin/buckets/*', requireAdminTier(resolveAppForTier))
         .use('/api/admin/buckets', authMiddleware(auth))
-        .use('/api/admin/buckets', requireAdminTier())
+        .use('/api/admin/buckets', requireAdminTier(resolveAppForTier))
         .use('/api/admin/forms', authMiddleware(auth))
-        .use('/api/admin/forms', requireAdminTier())
+        .use('/api/admin/forms', requireAdminTier(resolveAppForTier))
         .use('/api/admin/forms/*', authMiddleware(auth))
-        .use('/api/admin/forms/*', requireAdminTier())
+        .use('/api/admin/forms/*', requireAdminTier(resolveAppForTier))
         .use('/api/admin/audit-log', authMiddleware(auth))
-        .use('/api/admin/audit-log', requireAdminTier())
+        .use('/api/admin/audit-log', requireAdminTier(resolveAppForTier))
         .use('/api/admin/config/version', authMiddleware(auth))
-        .use('/api/admin/config/version', requireAdminTier())
+        .use('/api/admin/config/version', requireAdminTier(resolveAppForTier))
         .use('/api/admin/tables/overview', authMiddleware(auth))
-        .use('/api/admin/tables/overview', requireAdminTier())
-        .use('/api/admin/audit-log', authMiddleware(auth))
-        .use('/api/admin/audit-log', requireAdminTier())
+        .use('/api/admin/tables/overview', requireAdminTier(resolveAppForTier))
         .use('/api/admin/eco/overview', authMiddleware(auth))
-        .use('/api/admin/eco/overview', requireAdminTier())
+        .use('/api/admin/eco/overview', requireAdminTier(resolveAppForTier))
         .use('/api/admin/automations', authMiddleware(auth))
-        .use('/api/admin/automations', requireAdminTier())
+        .use('/api/admin/automations', requireAdminTier(resolveAppForTier))
         .use('/api/admin/automations/*', authMiddleware(auth))
-        .use('/api/admin/automations/*', requireAdminTier())
+        .use('/api/admin/automations/*', requireAdminTier(resolveAppForTier))
         .use('/api/admin/users/overview', authMiddleware(auth))
-        .use('/api/admin/users/overview', requireAdminTier())
+        .use('/api/admin/users/overview', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/users', authMiddleware(auth))
+        .use('/api/admin/users', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/agents/*', authMiddleware(auth))
+        .use('/api/admin/agents/*', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/connections/*', authMiddleware(auth))
+        .use('/api/admin/connections/*', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/connections', authMiddleware(auth))
+        .use('/api/admin/connections', requireAdminTier(resolveAppForTier))
         .use('/api/admin/storage/transform-cache', authMiddleware(auth))
         .use('/api/admin/storage/transform-cache', requireAuth())
-        .use('/api/admin/storage/transform-cache', requireAdmin())
+        .use('/api/admin/storage/transform-cache', requireAdmin(resolveAppForTier))
+        .use('/api/admin/*', authMiddleware(auth))
+        .use('/api/admin/*', requireAdminTier(resolveAppForTier))
         .use('/api/analytics/overview', authMiddleware(auth))
         .use('/api/analytics/overview', requireAuth())
-        .use('/api/analytics/overview', requireAdmin())
+        .use('/api/analytics/overview', requireAdmin(resolveAppForTier))
         .use('/api/analytics/pages', authMiddleware(auth))
         .use('/api/analytics/pages', requireAuth())
-        .use('/api/analytics/pages', requireAdmin())
+        .use('/api/analytics/pages', requireAdmin(resolveAppForTier))
         .use('/api/analytics/referrers', authMiddleware(auth))
         .use('/api/analytics/referrers', requireAuth())
-        .use('/api/analytics/referrers', requireAdmin())
+        .use('/api/analytics/referrers', requireAdmin(resolveAppForTier))
         .use('/api/analytics/devices', authMiddleware(auth))
         .use('/api/analytics/devices', requireAuth())
-        .use('/api/analytics/devices', requireAdmin())
+        .use('/api/analytics/devices', requireAdmin(resolveAppForTier))
         .use('/api/analytics/campaigns', authMiddleware(auth))
         .use('/api/analytics/campaigns', requireAuth())
-        .use('/api/analytics/campaigns', requireAdmin())
+        .use('/api/analytics/campaigns', requireAdmin(resolveAppForTier))
         .use('/api/analytics/events', authMiddleware(auth))
         .use('/api/automations/*', authMiddleware(auth))
         .use('/api/automations', authMiddleware(auth))
@@ -362,28 +376,31 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', requireAuth())
         .use('/api/admin/storage/status', requireAuth())
-        .use('/api/admin/storage/status', requireAdmin())
+        .use('/api/admin/storage/status', requireAdmin(resolveAppForTier))
         .use('/api/admin/buckets/quota', requireAuth())
-        .use('/api/admin/buckets/quota', requireAdmin())
-        .use('/api/admin/buckets/overview', requireAdminTier())
-        .use('/api/admin/buckets', requireAdminTier())
-        .use('/api/admin/forms', requireAdminTier())
-        .use('/api/admin/forms/*', requireAdminTier())
-        .use('/api/admin/audit-log', requireAdminTier())
-        .use('/api/admin/eco/overview', requireAdminTier())
-        .use('/api/admin/automations', requireAdminTier())
-        .use('/api/admin/automations/*', requireAdminTier())
-        .use('/api/admin/users/overview', requireAdminTier())
+        .use('/api/admin/buckets/quota', requireAdmin(resolveAppForTier))
+        .use('/api/admin/buckets/overview', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/buckets', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/forms', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/forms/*', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/audit-log', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/eco/overview', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/automations', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/automations/*', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/users/overview', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/agents/*', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/connections/*', requireAdminTier(resolveAppForTier))
+        .use('/api/admin/connections', requireAdminTier(resolveAppForTier))
         .use('/api/analytics/overview', requireAuth())
-        .use('/api/analytics/overview', requireAdmin())
+        .use('/api/analytics/overview', requireAdmin(resolveAppForTier))
         .use('/api/analytics/pages', requireAuth())
-        .use('/api/analytics/pages', requireAdmin())
+        .use('/api/analytics/pages', requireAdmin(resolveAppForTier))
         .use('/api/analytics/referrers', requireAuth())
-        .use('/api/analytics/referrers', requireAdmin())
+        .use('/api/analytics/referrers', requireAdmin(resolveAppForTier))
         .use('/api/analytics/devices', requireAuth())
-        .use('/api/analytics/devices', requireAdmin())
+        .use('/api/analytics/devices', requireAdmin(resolveAppForTier))
         .use('/api/analytics/campaigns', requireAuth())
-        .use('/api/analytics/campaigns', requireAdmin())
+        .use('/api/analytics/campaigns', requireAdmin(resolveAppForTier))
 
   const resolveLiveApp = (): App => (getLiveApp() as App | undefined) ?? app
   const honoWithTables = chainTableRoutes(honoWithAuth, app, resolveLiveApp)
@@ -428,7 +445,16 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   const honoWithAdminUsers = chainAdminUsersRoutes(honoWithAdminAutomations)
 
-  const honoWithAiChat = chainAiChatRoutes(honoWithAdminUsers, app)
+  const honoWithAdminAgents = chainAdminAgentsRoutes(honoWithAdminUsers, resolveLiveApp)
+
+  const honoWithAdminConnections = chainAdminConnectionsRoutes(honoWithAdminAgents)
+
+  const honoWithAdminConnectionActions = chainAdminConnectionActionRoutes(
+    honoWithAdminConnections,
+    app
+  )
+
+  const honoWithAiChat = chainAiChatRoutes(honoWithAdminConnectionActions, app)
 
   const honoWithAgents = chainAgentScheduleRoutes(
     chainAgentApprovalRoutes(chainAiMcpStatusRoutes(honoWithAiChat, app), app),

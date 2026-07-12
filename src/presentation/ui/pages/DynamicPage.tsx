@@ -7,6 +7,10 @@
 
 import { type ReactElement } from 'react'
 import { extractComponentMetaFromSections } from '@/presentation/ui/metadata/extract-component-meta'
+import {
+  COMMAND_PALETTE_CAPTURE_SCRIPT,
+  hasCommandPaletteHost,
+} from '@/presentation/ui/pages/CommandPaletteCapture'
 import { PageBodyScripts } from '@/presentation/ui/pages/PageBodyScripts'
 import { PageHead } from '@/presentation/ui/pages/PageHead'
 import { resolvePageLanguage } from '@/presentation/ui/pages/PageLangResolver'
@@ -15,6 +19,8 @@ import { extractPageMetadata } from '@/presentation/ui/pages/PageMetadata'
 import { groupScriptsByPosition } from '@/presentation/ui/pages/PageScripts'
 import { PageSidebar } from '@/presentation/ui/pages/PageSidebar'
 import { ISLAND_COMPONENT_TYPES } from '@/presentation/utils/island-component-types'
+import { isListIslandMode } from '@/presentation/utils/list-island-mode'
+import { isRecordFieldSystemMode } from '@/presentation/utils/system-detail-mode'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Components } from '@/domain/models/app/components'
 import type { Languages } from '@/domain/models/app/languages'
@@ -71,9 +77,17 @@ function isSingleRecordBoundForm(item: Component): boolean {
   )
 }
 
+function hasDataIslandProp(item: Component): boolean {
+  const props = (item as Record<string, unknown>).props as Record<string, unknown> | undefined
+  return typeof props?.['data-island'] === 'string'
+}
+
 function itemSelfNeedsIslands(item: Component): boolean {
   if (ISLAND_COMPONENT_TYPES.has(item.type)) return true
+  if (hasDataIslandProp(item)) return true
   if (item.dataSource?.mode === 'search') return true
+  if (isListIslandMode(item)) return true
+  if (isRecordFieldSystemMode(item)) return true
   if (isSingleRecordBoundForm(item)) return true
   const action = (item as Record<string, unknown>).action as { type?: string } | undefined
   return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
@@ -101,10 +115,17 @@ function hasIslandComponents(page: Page): boolean {
 
 const INTERACTIVE_COMPONENT_TYPES = new Set(['form', 'modal', 'data-table', 'dropdown'])
 
+function componentIsSessionBound(record: Record<string, unknown>): boolean {
+  if (typeof record['session'] === 'string') return true
+  const { content } = record
+  return typeof content === 'string' && content.includes('$session.')
+}
+
 function componentSelfIsInteractive(record: Record<string, unknown>): boolean {
   const { type } = record
   if (typeof type === 'string' && INTERACTIVE_COMPONENT_TYPES.has(type)) return true
   if (record['action']) return true
+  if (componentIsSessionBound(record)) return true
   const props = record['props'] as Record<string, unknown> | undefined
   return Boolean(props?.['action'] || props?.['interactions'])
 }
@@ -179,6 +200,10 @@ window.addEventListener("popstate",u);
 
   return (
     <head>
+      {}
+      {hasCommandPaletteHost(mergedPage.components) && (
+        <script dangerouslySetInnerHTML={{ __html: COMMAND_PALETTE_CAPTURE_SCRIPT }} />
+      )}
       <PageHead
         page={mergedPage}
         theme={theme}

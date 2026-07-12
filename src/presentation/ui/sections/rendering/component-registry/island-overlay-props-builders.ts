@@ -26,6 +26,15 @@ export function pickCompField<T>(
   return (comp?.[key] as T | undefined) ?? (rawProps?.[key] as T | undefined)
 }
 
+export function resolveUploadActionUrl(uploadAction: unknown): string | undefined {
+  if (typeof uploadAction === 'string') return uploadAction
+  if (uploadAction && typeof uploadAction === 'object') {
+    const { url } = uploadAction as { readonly url?: unknown }
+    if (typeof url === 'string') return url
+  }
+  return undefined
+}
+
 export function buildAlertDialogProps(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,

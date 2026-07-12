@@ -24,6 +24,10 @@ import {
   updateCommentStatus,
 } from '@/infrastructure/database/table-queries/query-helpers/comment-queries'
 import {
+  markRecordCommentsRead,
+  getUnreadCommentCount,
+} from '@/infrastructure/database/table-queries/query-helpers/comment-read-state-queries'
+import {
   checkRecordExists,
   getUserById,
 } from '@/infrastructure/database/table-queries/query-helpers/record-validation-queries'
@@ -43,4 +47,6 @@ export const CommentRepositoryLive = Layer.succeed(CommentRepository, {
   getCount: getCommentsCount,
   update: updateComment,
   updateStatus: updateCommentStatus,
+  markRead: markRecordCommentsRead,
+  countUnread: getUnreadCommentCount,
 })

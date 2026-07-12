@@ -21,6 +21,7 @@ import {
 } from './lookup-view-helpers'
 import {
   getBaseFields,
+  getInsertValueExpressions,
   generateInsertTrigger,
   generateUpdateTrigger,
   generateDeleteTrigger,
@@ -210,9 +211,10 @@ const generateRollupExpression = (
   )
 
   const baseCondition = `${alias}.${foreignKeyColumn} = ${tableName}.id`
+  const notDeleted = `${alias}.deleted_at IS NULL`
   const whereConditions = filters
-    ? [baseCondition, buildWhereClause(filters, alias)]
-    : [baseCondition]
+    ? [baseCondition, notDeleted, buildWhereClause(filters, alias)]
+    : [baseCondition, notDeleted]
 
   const whereClause = whereConditions.join(' AND ')
 
@@ -258,11 +260,13 @@ const generateCountExpression = (
 
   const baseCondition = `${alias}.${foreignKeyColumn} = ${tableName}.id`
 
+  const notDeleted = `${alias}.deleted_at IS NULL`
+
   const filterConditions = filters
     ? flattenFilterNode(filters).map((condition) => buildWhereClause(condition, alias))
     : []
 
-  const whereConditions = [baseCondition, ...filterConditions]
+  const whereConditions = [baseCondition, notDeleted, ...filterConditions]
   const whereClause = whereConditions.join(' AND ')
 
   return `COALESCE(
@@ -377,17 +381,18 @@ export const generateLookupViewTriggers = (table: Table): readonly string[] => {
   const baseTableName = getBaseTableName(sanitized)
   const viewName = sanitized
   const baseFields = getBaseFields(table)
+  const insertValues = getInsertValueExpressions(table)
 
   if (isSqliteRuntime()) {
     return [
-      ...generateInsertTriggerSqlite(viewName, baseTableName, baseFields),
+      ...generateInsertTriggerSqlite(viewName, baseTableName, baseFields, insertValues),
       ...generateUpdateTriggerSqlite(viewName, baseTableName, baseFields),
       ...generateDeleteTriggerSqlite(viewName, baseTableName),
     ]
   }
 
   return [
-    ...generateInsertTrigger(viewName, baseTableName, baseFields),
+    ...generateInsertTrigger(viewName, baseTableName, baseFields, insertValues),
     ...generateUpdateTrigger(viewName, baseTableName, baseFields),
     ...generateDeleteTrigger(viewName, baseTableName),
   ]

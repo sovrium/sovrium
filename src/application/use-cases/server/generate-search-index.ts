@@ -98,11 +98,11 @@ const tokenize = (text: string): readonly string[] =>
 
 
 const extractTitle = (html: string): string => {
-  const titleMatch = /<title[^>]*>([^<]*)<\/title>/iu.exec(html)
+  const titleMatch = /<title[^>]*>([^<]*)<\/title(?:\s[^>]*)?>/iu.exec(html)
   if (titleMatch && titleMatch[1]) {
     return decodeHtmlEntities(titleMatch[1]).trim()
   }
-  const h1Match = /<h1[^>]*>([\s\S]*?)<\/h1>/iu.exec(html)
+  const h1Match = /<h1[^>]*>([\s\S]*?)<\/h1(?:\s[^>]*)?>/iu.exec(html)
   if (h1Match && h1Match[1]) {
     return decodeHtmlEntities(stripTags(h1Match[1])).trim()
   }
@@ -116,7 +116,7 @@ const extractSearchBodySubtree = (html: string): string | undefined => {
   if (!tagName) return undefined
 
   const start = openMatch.index + openMatch[0].length
-  const closer = new RegExp(`</${tagName}\\s*>`, 'iu')
+  const closer = new RegExp(`</${tagName}(?:\\s[^>]*)?>`, 'iu')
   const closeMatch = closer.exec(html.slice(start))
   if (!closeMatch) return undefined
 
@@ -126,9 +126,9 @@ const extractSearchBodySubtree = (html: string): string | undefined => {
 const extractBodyText = (html: string): string => {
   const source = extractSearchBodySubtree(html) ?? html
 
-  const withoutScripts = source.replace(/<script[\s\S]*?<\/script\s*>/giu, ' ')
-  const withoutStyles = withoutScripts.replace(/<style[\s\S]*?<\/style\s*>/giu, ' ')
-  const withoutHead = withoutStyles.replace(/<head[\s\S]*?<\/head\s*>/giu, ' ')
+  const withoutScripts = source.replace(/<script[\s\S]*?<\/script(?:\s[^>]*)?>/giu, ' ')
+  const withoutStyles = withoutScripts.replace(/<style[\s\S]*?<\/style(?:\s[^>]*)?>/giu, ' ')
+  const withoutHead = withoutStyles.replace(/<head[\s\S]*?<\/head(?:\s[^>]*)?>/giu, ' ')
   const text = stripTags(withoutHead)
   return decodeHtmlEntities(text).replace(/\s+/gu, ' ').trim()
 }

@@ -13,6 +13,7 @@ import {
   MIGRATION_FILES as RAW_MIGRATIONS,
   AGENT_FILES as RAW_AGENTS,
   EXAMPLE_FILES as RAW_EXAMPLES,
+  DASHBOARD_FILES as RAW_DASHBOARD,
 } from './embedded-static-assets.generated'
 
 export type EmbeddedDialect = 'pg' | 'sqlite'
@@ -25,6 +26,7 @@ interface MigrationSet {
 const MIGRATIONS = RAW_MIGRATIONS as unknown as Readonly<Record<EmbeddedDialect, MigrationSet>>
 const AGENTS = RAW_AGENTS as unknown as Readonly<Record<string, string>>
 const EXAMPLES = RAW_EXAMPLES as unknown as Readonly<Record<string, string>>
+const DASHBOARD = RAW_DASHBOARD as unknown as Readonly<Record<string, string>>
 
 export const materializeMigrations = async (dialect: EmbeddedDialect): Promise<string> => {
   const set = MIGRATIONS[dialect]
@@ -56,4 +58,14 @@ export const embeddedExampleDir = (name: string): Readonly<Record<string, string
     ([key, path]) => (key.startsWith(prefix) ? [[key.slice(prefix.length), path] as const] : [])
   )
   return Object.fromEntries(entries)
+}
+
+export const readEmbeddedDashboardConfig = async (): Promise<string | undefined> => {
+  const embeddedPath = DASHBOARD['dashboard-app.yaml']
+  if (embeddedPath === undefined) return undefined
+  try {
+    return await Bun.file(embeddedPath).text()
+  } catch {
+    return undefined
+  }
 }

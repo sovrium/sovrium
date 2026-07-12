@@ -6,11 +6,17 @@
  */
 
 
+import { isAbsolute, resolve } from 'node:path'
 import {
+  buildMarkdownRssItems,
   buildRssFeedXml,
+  buildRssFeedXmlFromItems,
   findRssPage,
+  parseMarkdownFeedSections,
   resolveRssLimit,
 } from '@/domain/services/feeds/rss-feed-builder'
+import { slugify } from '@/infrastructure/markdown/markdown-it-renderer'
+import { getContentBaseDir } from '@/presentation/rendering/content-base-dir'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
@@ -26,6 +32,36 @@ function resolveRssSort(app: App, page: Page): readonly DataSort[] {
     : [{ field: 'id', direction: 'desc' }]
 }
 
+async function readMarkdownFeedSource(path: string): Promise<string | undefined> {
+  try {
+    const absolutePath = isAbsolute(path) ? path : resolve(getContentBaseDir(), path)
+    const file = Bun.file(absolutePath)
+    if (!(await file.exists())) return undefined
+    return await file.text()
+  } catch {
+    return undefined
+  }
+}
+
+async function renderMarkdownRssFeed(
+  app: App,
+  page: Page,
+  baseUrl: string
+): Promise<string | undefined> {
+  const file = page.markdown?.file
+  if (typeof file !== 'string' || file.length === 0) return undefined
+
+  const source = await readMarkdownFeedSource(file)
+  if (source === undefined) return undefined
+
+  const sections = parseMarkdownFeedSections(source)
+  if (sections.length === 0) return undefined
+
+  const limit = resolveRssLimit(page.rss)
+  const items = buildMarkdownRssItems({ sections, page, baseUrl, limit, slugify })
+  return buildRssFeedXmlFromItems({ app, baseUrl, items })
+}
+
 export async function renderRssFeed(
   app: App,
   baseUrl: string,
@@ -36,7 +72,7 @@ export async function renderRssFeed(
 
   const { collection } = page
   if (collection === undefined) {
-    return undefined
+    return renderMarkdownRssFeed(app, page, baseUrl)
   }
 
   const limit = resolveRssLimit(page.rss)

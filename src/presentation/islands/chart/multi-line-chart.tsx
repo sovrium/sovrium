@@ -31,6 +31,7 @@ interface MultiLineChartProps {
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
   readonly tooltipFormat?: string
+  readonly accessibleName?: string
 }
 
 interface PlottedPoint {
@@ -214,6 +215,7 @@ interface SvgChartProps {
   readonly hidden: ReadonlySet<string>
   readonly tooltip: TooltipState | undefined
   readonly tooltipFormat: string | undefined
+  readonly accessibleName?: string
   readonly onHover: (state: TooltipState | undefined) => void
 }
 
@@ -226,6 +228,7 @@ function MultiLineSvg({
   hidden,
   tooltip,
   tooltipFormat,
+  accessibleName,
   onHover,
 }: SvgChartProps): ReactElement {
   const innerWidth = Math.max(0, width - CHART_MARGIN.left - CHART_MARGIN.right)
@@ -245,7 +248,7 @@ function MultiLineSvg({
       width={width}
       height={height}
       role="img"
-      aria-label="Line chart"
+      aria-label={accessibleName ?? 'Line chart'}
     >
       <Group
         left={CHART_MARGIN.left}
@@ -280,6 +283,7 @@ export function MultiLineChart({
   legendPosition,
   legendVisible,
   tooltipFormat,
+  accessibleName,
 }: MultiLineChartProps): ReactElement {
   const [tooltip, setTooltip] = useState<TooltipState | undefined>(undefined)
 
@@ -299,6 +303,7 @@ export function MultiLineChart({
           hidden={hidden}
           tooltip={tooltip}
           tooltipFormat={tooltipFormat}
+          accessibleName={accessibleName}
           onHover={setTooltip}
         />
       )}

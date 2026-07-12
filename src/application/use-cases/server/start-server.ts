@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { count } from 'drizzle-orm'
+import { countDistinct, eq } from 'drizzle-orm'
 import { Data, Effect, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
@@ -30,12 +30,11 @@ import { TypeScriptValidator } from '@/infrastructure/automations/typescript-val
 import { installHostLogDrain } from '@/infrastructure/cloud/log-drain'
 import { installHostMetricsCollector } from '@/infrastructure/cloud/metrics-collector'
 import { db } from '@/infrastructure/database'
-import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { authUsersTable, authAccountsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/auth/bootstrap-token-repository-live'
 import { ensureCloudIngressRoutesTable } from '@/infrastructure/database/repositories/cloud/cloud-ingress-repository-live'
 import { Logger } from '@/infrastructure/logging/logger'
-import { seedConfigFileVersionIfChanged } from '@/infrastructure/server/route-setup/config-file-seeder'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { ServerInstance } from '@/application/models/server'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -78,7 +77,12 @@ class BootstrapTokenBootError extends Data.TaggedError('BootstrapTokenBootError'
 const userTableIsEmpty = (): Effect.Effect<boolean, never> =>
   Effect.tryPromise({
     try: async () => {
-      const rows = await db.select({ value: count() }).from(authUsersTable())
+      const users = authUsersTable()
+      const accounts = authAccountsTable()
+      const rows = await db
+        .select({ value: countDistinct(users.id) })
+        .from(users)
+        .innerJoin(accounts, eq(accounts.userId, users.id))
       const userCount = Number(rows[0]?.value ?? 0)
       return userCount === 0
     },
@@ -154,7 +158,6 @@ const runBootSequenceAndBootstrap = (
     if (isCloudModeEnabled()) {
       yield* Effect.promise(() => ensureCloudIngressRoutesTable().catch(() => undefined))
     }
-    yield* Effect.promise(() => seedConfigFileVersionIfChanged(validatedApp))
     return yield* bootstrapAdminAndToken(validatedApp, logger)
   })
 

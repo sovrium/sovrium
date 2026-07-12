@@ -15,7 +15,7 @@ import {
   computeStaticTableCellClasses,
   computeStaticTableHeaderRowClasses,
   computeStaticTableShellClasses,
-} from '../../renderers/element-renderers/display-default-classes'
+} from '../../renderers/element-renderers/recipes/display-default-classes'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'

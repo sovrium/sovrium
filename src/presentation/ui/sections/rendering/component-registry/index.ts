@@ -19,6 +19,7 @@ import { reorderableListComponent } from './reorderable-list-component'
 import { skeletonComponent } from './skeleton-component'
 import { commentsComponent, commentCountComponent } from './social-components'
 import { specialComponents } from './special-components'
+import { splitPaneComponent } from './split-pane-component'
 import { structuralComponents } from './structural-components'
 import { textComponents } from './text-components'
 import { themeToggleComponent } from './theme-toggle-component'
@@ -36,6 +37,7 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   ...navigationComponents,
   ...islandComponents,
   'ai-chat': aiChatComponent,
+  'split-pane': splitPaneComponent,
   'record-field': recordFieldComponent,
   progress: progressComponent,
   skeleton: skeletonComponent,

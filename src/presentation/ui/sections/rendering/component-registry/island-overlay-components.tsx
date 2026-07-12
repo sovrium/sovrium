@@ -229,6 +229,40 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
+  'record-drawer': ({ rawProps, elementProps, component }) => {
+    const comp = (component ?? {}) as Record<string, unknown>
+    const title = (rawProps?.['title'] as string | undefined) ?? "Détail de l'enregistrement"
+    const role = comp['role'] === 'region' ? 'region' : 'dialog'
+    const dataSource = comp['dataSource'] as
+      | { readonly table?: string; readonly system?: unknown }
+      | undefined
+    const props = {
+      id: comp['id'] as string | undefined,
+      title,
+      role,
+      table: dataSource?.table,
+      system: dataSource?.system,
+      recordFields: comp['recordFields'],
+      actions: comp['actions'],
+      canEdit: dataSource?.system === undefined && comp['canEdit'] !== false,
+    }
+    return (
+      <div
+        data-island="record-drawer"
+        data-island-props={JSON.stringify(props)}
+        data-testid={elementProps['data-testid'] as string | undefined}
+        style={HIDDEN_STYLE}
+      >
+        <div
+          role={role}
+          aria-label={title}
+        >
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
+  },
+
   'dropdown-menu': ({ rawProps, elementProps, component }) => {
     const comp = (component ?? {}) as Record<string, unknown>
     const triggerLabelRaw = pickCompField<string>(comp, rawProps, 'triggerLabel')

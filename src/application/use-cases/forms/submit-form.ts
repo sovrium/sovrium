@@ -366,6 +366,7 @@ const writeBoundTableRecord = (input: {
     if (form.submitTo.table === undefined) return undefined
     const tableName = form.submitTo.table
     return yield* createRecordProgram({
+      app,
       session:
         submitterUserId !== undefined
           ? buildSyntheticSession(submitterUserId)

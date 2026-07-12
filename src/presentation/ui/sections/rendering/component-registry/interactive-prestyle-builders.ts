@@ -6,14 +6,14 @@
  */
 
 
-import { type ButtonVariant } from '../../renderers/element-renderers/button-default-classes'
+import { type ButtonVariant } from '../../renderers/element-renderers/recipes/button-default-classes'
 import {
   computeIconClasses,
   computeLinkClasses,
   type IconSize,
   type IconTone,
   type LinkVariant,
-} from '../../renderers/element-renderers/interactive-content-default-classes'
+} from '../../renderers/element-renderers/recipes/interactive-content-default-classes'
 
 const BTN_CLASS_TO_VARIANT: Record<string, ButtonVariant> = {
   'btn-primary': 'default',

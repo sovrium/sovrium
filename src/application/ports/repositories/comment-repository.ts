@@ -147,6 +147,18 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly includeAllStatuses?: boolean
     }) => Effect.Effect<number, SessionContextError>
 
+    readonly markRead: (config: {
+      readonly session: Readonly<UserSession>
+      readonly tableId: string
+      readonly recordId: string
+    }) => Effect.Effect<void, SessionContextError>
+
+    readonly countUnread: (config: {
+      readonly session: Readonly<UserSession>
+      readonly tableId: string
+      readonly recordId: string
+    }) => Effect.Effect<number, SessionContextError>
+
     readonly update: (config: {
       readonly session: Readonly<UserSession>
       readonly commentId: string

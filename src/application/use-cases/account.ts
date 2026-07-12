@@ -18,6 +18,7 @@ import {
   accountDeleteCancelledResponseSchema,
   accountDeleteScheduledResponseSchema,
   accountExportResponseSchema,
+  accountPendingErasureResponseSchema,
 } from '@/domain/models/api/account/account'
 import { AccountRepositoryLive } from '@/infrastructure/database/repositories/auth/account-repository-live'
 
@@ -72,7 +73,7 @@ function buildExportPayload(
       email: user.email,
       name: user.name,
       image: user.image,
-      emailVerified: user.emailVerified,
+      emailVerified: Boolean(user.emailVerified),
       role: normalizeRole(user.role),
       createdAt: new Date(user.createdAt).toISOString(),
       updatedAt: new Date(user.updatedAt).toISOString(),
@@ -173,6 +174,38 @@ export const CancelAccountDeletion = (
     const repo = yield* AccountRepository
     yield* repo.cancelErasure(userId)
     return accountDeleteCancelledResponseSchema.parse({ status: 'cancelled' })
+  })
+
+
+export const LoadPendingErasure = (
+  userId: string
+): Effect.Effect<
+  ReturnType<typeof accountPendingErasureResponseSchema.parse>,
+  AccountDatabaseError,
+  AccountRepository
+> =>
+  Effect.gen(function* () {
+    const repo = yield* AccountRepository
+    const scheduledAt = yield* repo.loadScheduledErasure(userId)
+    if (scheduledAt === undefined) {
+      return accountPendingErasureResponseSchema.parse({ items: [] })
+    }
+    const user = yield* repo.loadProfile(userId)
+    if (user === undefined) {
+      return accountPendingErasureResponseSchema.parse({ items: [] })
+    }
+    const requestedAt = new Date(scheduledAt.getTime() - GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000)
+    return accountPendingErasureResponseSchema.parse({
+      items: [
+        {
+          id: userId,
+          email: user.email,
+          scheduledErasureAt: scheduledAt.toISOString(),
+          requestedAt: requestedAt.toISOString(),
+          gracePeriodDays: GRACE_PERIOD_DAYS,
+        },
+      ],
+    })
   })
 
 export const AccountLayer = Layer.mergeAll(AccountRepositoryLive)

@@ -16,7 +16,7 @@ export interface KpiAggregateConfig {
   readonly field?: string
 }
 
-export type KpiFormatType = 'number' | 'currency' | 'percentage' | 'compact'
+export type KpiFormatType = 'number' | 'currency' | 'percentage' | 'compact' | 'bytes'
 
 export interface KpiFormatConfig {
   readonly type: KpiFormatType
@@ -45,10 +45,28 @@ export function formatKpiValue(value: number, format: KpiFormatConfig | undefine
   }
 
   if (format.type === 'percentage') {
-    return `${new Intl.NumberFormat('en-US').format(value)}%`
+    return formatPercentage(value, format.options?.scale)
+  }
+
+  if (format.type === 'bytes') {
+    return formatBytes(value)
   }
 
   return new Intl.NumberFormat('en-US', { notation: 'compact' }).format(value)
+}
+
+function formatPercentage(value: number, scaleOption: string | undefined): string {
+  const scale = Number(scaleOption)
+  const display = Number.isFinite(scale) && scale !== 0 ? Math.round(value * scale) : value
+  return `${new Intl.NumberFormat('en-US').format(display)}%`
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes)) return '0 o'
+  if (bytes < 1024) return `${String(bytes)} o`
+  if (bytes < 1024 * 1024) return `${String(Math.round(bytes / 1024))} Ko`
+  if (bytes < 1024 * 1024 * 1024) return `${String(Math.round(bytes / (1024 * 1024)))} Mo`
+  return `${String(Math.round(bytes / (1024 * 1024 * 1024)))} Go`
 }
 
 export interface KpiThresholdConfig {

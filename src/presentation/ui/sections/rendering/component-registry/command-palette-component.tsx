@@ -30,9 +30,35 @@ interface PalettePage {
   readonly title: string
 }
 
+function renderAdminCommandPalette(): ReactElement {
+  const adminConfigJson = JSON.stringify({ adminSearch: true })
+  return (
+    <>
+      <script
+        type="application/json"
+        data-command-palette-config="true"
+        dangerouslySetInnerHTML={{ __html: adminConfigJson }}
+      />
+      <div
+        data-island="admin-search-palette"
+        data-island-props="{}"
+        className="hidden"
+      >
+        <span className="sr-only" />
+      </div>
+    </>
+  )
+}
+
 export const commandPaletteComponent: ComponentRenderer = (
   config: ComponentDispatchConfig
 ): ReactElement => {
+  const adminSearch = (config.component?.props as { readonly adminSearch?: boolean } | undefined)
+    ?.adminSearch
+  if (adminSearch === true) {
+    return renderAdminCommandPalette()
+  }
+
   const tables = ((config.tables ?? []) as ReadonlyArray<PaletteTable>).map((table) => ({
     name: table.name,
     fields: (table.fields ?? [])

@@ -82,6 +82,17 @@ export const PickerLandingSchema = Schema.String.pipe(
   })
 )
 
+export const DashboardTierSchema = Schema.Literal('admin-editor', 'admin-viewer').pipe(
+  Schema.annotations({
+    title: 'Dashboard Tier',
+    description:
+      'Native Admin Dashboard access tier. admin-editor = full read + write (publish); admin-viewer = read-only. admin-editor ⊇ admin-viewer.',
+    examples: ['admin-editor', 'admin-viewer'],
+  })
+)
+
+export type DashboardTier = Schema.Schema.Type<typeof DashboardTierSchema>
+
 export const RoleDefinitionSchema = Schema.Struct({
   name: RoleNameSchema,
   description: Schema.optional(
@@ -99,6 +110,7 @@ export const RoleDefinitionSchema = Schema.Struct({
   ),
   defaultLanding: Schema.optional(DefaultLandingSchema),
   pickerLanding: Schema.optional(PickerLandingSchema),
+  dashboardTier: Schema.optional(DashboardTierSchema),
 }).pipe(
   Schema.filter((role) => {
     if (role.pickerLanding && !role.defaultLanding) {
@@ -180,6 +192,7 @@ export interface AdminRoleResolvable {
     readonly roles?: readonly {
       readonly name: string
       readonly level?: number
+      readonly dashboardTier?: DashboardTier
     }[]
   }
 }
@@ -208,3 +221,28 @@ export const isAdminEquivalent = (roleName: string, app: AdminRoleResolvable): b
   }
   return false
 }
+
+
+const resolveBuiltInTier = (roleName: string): DashboardTier | undefined => {
+  if (roleName === 'admin') return 'admin-editor'
+  if (roleName === 'admin-editor' || roleName === 'admin-viewer') return roleName
+  if (roleName === 'operator') return 'admin-viewer'
+  return undefined
+}
+
+export const resolveDashboardTier = (
+  roleName: string,
+  app: AdminRoleResolvable
+): DashboardTier | undefined => {
+  const builtIn = resolveBuiltInTier(roleName)
+  if (builtIn !== undefined) return builtIn
+  const declared = (app.auth?.roles ?? []).find((r) => r.name === roleName)
+  if (declared?.dashboardTier) return declared.dashboardTier
+  if ((app.auth?.roles ?? []).length > 0 && roleName === resolveAdminRole(app)) {
+    return 'admin-editor'
+  }
+  return undefined
+}
+
+export const isAdminTier = (roleName: string, app: AdminRoleResolvable): boolean =>
+  resolveDashboardTier(roleName, app) !== undefined

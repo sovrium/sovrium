@@ -11,6 +11,7 @@ import {
   type ChatToolDefinition,
 } from '@/domain/services/ai-chat/ai-chat-tools'
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
+import { resolveAgentChatBackend } from '@/presentation/api/utils/agent-chat-env'
 import { readableColumnsForRole } from '../ai/chat-table-projection'
 import { resolveAgentModel, resolveAgentTemperature } from './agent-ai-config'
 import { postChatCompletion } from './openai-chat-fetch'
@@ -146,14 +147,11 @@ export const handleAgentChat = async (
     }
   }
 
-  const baseUrl = process.env.AI_BASE_URL
-  const apiKey = process.env.AI_API_KEY
-  if (baseUrl === undefined || apiKey === undefined) {
-    return {
-      status: 503,
-      body: { error: 'AI_BASE_URL and AI_API_KEY must be set for agent chat to function.' },
-    }
+  const aiEnv = resolveAgentChatBackend(process.env)
+  if ('error' in aiEnv) {
+    return { status: 503, body: { error: aiEnv.error } }
   }
+  const { baseUrl, apiKey } = aiEnv
 
   const systemPrompt = buildAgentSystemPrompt(app, agent)
   const tools = buildAgentChatTools(app, agent)

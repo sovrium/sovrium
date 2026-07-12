@@ -6,6 +6,7 @@
  */
 
 import type { Session } from '@/application/ports/models/user-session'
+import type { AdminRoleResolvable } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
 
 interface BetterAuthLike {
@@ -189,20 +190,15 @@ export function requireAuth() {
   return requireAuthHandler
 }
 
-function makeRoleGuard(allowedRoles: ReadonlyArray<string>, notFoundOnMissingSession: boolean) {
+type ResolveTierApp = () => AdminRoleResolvable | undefined
+
+function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveTierApp) {
   return async (c: ContextWithSession, next: Next) => {
     const { session } = c.var
 
     if (!session) {
       if (notFoundOnMissingSession) {
-        return c.json(
-          {
-            success: false,
-            message: 'Not found',
-            code: 'NOT_FOUND',
-          },
-          404
-        )
+        return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
       }
       return c.json(
         {
@@ -216,27 +212,22 @@ function makeRoleGuard(allowedRoles: ReadonlyArray<string>, notFoundOnMissingSes
     }
 
     const { getUserRole } = await import('@/application/use-cases/tables/user-role')
+    const { isAdminTier } = await import('@/domain/models/app')
     const role = await getUserRole(session.userId)
+    const app = resolveApp?.() ?? {}
 
-    if (!allowedRoles.includes(role)) {
-      return c.json(
-        {
-          success: false,
-          message: 'Not found',
-          code: 'NOT_FOUND',
-        },
-        404
-      )
+    if (!isAdminTier(role, app)) {
+      return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
     }
 
     await next()
   }
 }
 
-export function requireAdmin() {
-  return makeRoleGuard(['admin'], false)
+export function requireAdmin(resolveApp?: ResolveTierApp) {
+  return makeAdminGuard(false, resolveApp)
 }
 
-export function requireAdminTier() {
-  return makeRoleGuard(['admin', 'operator'], true)
+export function requireAdminTier(resolveApp?: ResolveTierApp) {
+  return makeAdminGuard(true, resolveApp)
 }

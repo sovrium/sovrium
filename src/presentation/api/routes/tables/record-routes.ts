@@ -16,14 +16,15 @@ import {
   updateRecordRequestSchema,
 } from '@/domain/models/api/tables/records'
 import { handleGetRecordHistory } from './activity-handlers'
-import { handleFormBulkDelete, handleFormBulkUpdate } from './bulk-form-handlers'
+import { handleFormBulkDelete, handleFormBulkUpdate } from './batch/bulk-form-handlers'
 import {
   handleCreateComment,
   handleDeleteComment,
   handleGetComment,
   handleListComments,
+  handleMarkCommentsRead,
   handleUpdateComment,
-} from './comment-handlers'
+} from './comment/comment-handlers'
 import {
   handleListRecords,
   handleListTrash,
@@ -34,7 +35,7 @@ import {
   handleDeleteRecord,
   handleFormDeleteRecord,
   handleRestoreRecord,
-} from './record-handlers'
+} from './record/record-handlers'
 import { handleSubscribe } from './subscribe-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -88,6 +89,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
       '/api/tables/:tableId/records/:recordId/comments',
       zValidator('json', createCommentRequestSchema, validationErrorHook),
       (c) => handleCreateComment(c, resolveApp())
+    )
+    .post('/api/tables/:tableId/records/:recordId/comments/read', (c) =>
+      handleMarkCommentsRead(c, resolveApp())
     )
     .get('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
       handleGetComment(c, resolveApp())

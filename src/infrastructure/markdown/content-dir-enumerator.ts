@@ -158,3 +158,12 @@ export const readContentDirBodies = async (
     body: file.body,
   }))
 }
+
+export const readContentDirBodyForSlug = async (
+  contentDir: ContentDir,
+  slug: string
+): Promise<string | undefined> => {
+  const sorted = await collectSortedFiles(contentDir)
+  const match = sorted.find((file) => deriveSlug(file.relativePath, contentDir.slugFrom) === slug)
+  return match?.body
+}

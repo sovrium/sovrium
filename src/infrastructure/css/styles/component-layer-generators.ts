@@ -43,7 +43,28 @@ export function buildBadgeClasses(): string {
 }
 
 export function buildInputClasses(): string {
-  return 'border border-border bg-background text-foreground focus:ring-2 focus:ring-focus-ring focus:ring-offset-2'
+  return [
+    'block',
+    'w-full',
+    'rounded-md',
+    'border',
+    'border-border',
+    'bg-background',
+    'px-3',
+    'py-2',
+    'text-sm',
+    'leading-tight',
+    'text-foreground',
+    'placeholder:text-foreground-subtle',
+    'transition-colors',
+    'focus:border-focus-ring',
+    'focus:ring-2',
+    'focus:ring-focus-ring',
+    'focus:ring-offset-2',
+    'focus:outline-none',
+    'disabled:cursor-not-allowed',
+    'disabled:opacity-60',
+  ].join(' ')
 }
 
 export function buildModalClasses(): {
@@ -146,6 +167,25 @@ function generateButtonAndBadgeRules(): string {
       .badge-outline { @apply ${badgeVariants.outline}; }`
 }
 
+function buildFormShellRules(): string {
+  return `
+      .form-page {
+        @apply mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10 sm:px-6 md:py-16;
+      }
+      .form-page > form {
+        @apply rounded-lg border border-border bg-background-raised p-6 shadow-sm sm:p-8;
+      }
+      .form-title {
+        @apply text-foreground text-3xl font-semibold tracking-tight;
+      }
+      .form-description {
+        @apply text-foreground-muted -mt-3 max-w-prose text-base leading-relaxed;
+      }
+      .form-group-label {
+        @apply text-foreground border-border border-b pb-2 text-base font-semibold;
+      }`
+}
+
 function generateLayoutRules(): string {
   const modalClasses = buildModalClasses()
   const alertClasses = buildAlertClasses()
@@ -163,7 +203,8 @@ function generateLayoutRules(): string {
       .alert-error { @apply ${alertClasses.error}; }
       .alert-success { @apply ${alertClasses.success}; }
       .data-table th { @apply ${dataTableClasses.header}; }
-      .data-table tbody tr:hover { @apply ${dataTableClasses.rowHover}; }`
+      .data-table tbody tr:hover { @apply ${dataTableClasses.rowHover}; }
+${buildFormShellRules()}`
 }
 
 export function generateComponentsLayer(theme?: Theme): string {

@@ -9,6 +9,7 @@
 export type SovriumEventName =
   | 'sovrium:crud-success'
   | 'sovrium:open-drawer'
+  | 'sovrium:refetch'
   | 'sovrium:view-saved'
   | 'sovrium:view-applied'
   | 'sovrium:view-deleted'
@@ -22,6 +23,10 @@ export interface CrudSuccessDetail {
 export interface OpenDrawerDetail {
   readonly id: string
   readonly record: Record<string, unknown>
+}
+
+export interface RefetchDetail {
+  readonly id: string
 }
 
 export interface ViewSavedDetail {
@@ -45,6 +50,7 @@ export interface ViewDeletedDetail {
 export interface SovriumEventPayloads {
   readonly 'sovrium:crud-success': CrudSuccessDetail
   readonly 'sovrium:open-drawer': OpenDrawerDetail
+  readonly 'sovrium:refetch': RefetchDetail
   readonly 'sovrium:view-applied': ViewAppliedDetail
   readonly 'sovrium:view-deleted': ViewDeletedDetail
   readonly 'sovrium:view-saved': ViewSavedDetail

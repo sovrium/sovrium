@@ -12,7 +12,7 @@ import {
   computeProgressCircleTrackStroke,
   computeProgressLabelClasses,
   computeProgressTrackClasses,
-} from '../../renderers/element-renderers/feedback-default-classes'
+} from '../../renderers/element-renderers/recipes/feedback-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'

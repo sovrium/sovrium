@@ -6,31 +6,20 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import * as LucideIcons from 'lucide-react'
+import { useCallback, type ReactElement, type ReactNode } from 'react'
+import { authClient } from '@/presentation/islands/shared/auth-client'
+import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
 import {
   computeMenuItemClasses,
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
 } from './overlay-default-classes'
-import type { ComponentType, ReactElement } from 'react'
 
-function kebabToPascalCase(name: string): string {
-  return name
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('')
-}
-
-function resolveLucideIcon(
-  iconName: string | undefined
-): ComponentType<any> | undefined {
-  if (!iconName) return undefined
-  const component = (LucideIcons as Record<string, unknown>)[kebabToPascalCase(iconName)]
-  if (typeof component === 'function')
-    return component as ComponentType<any>
-  if (typeof component === 'object' && component !== null)
-    return component as ComponentType<any>
-  return undefined
+interface MenuItemAction {
+  readonly type?: string
+  readonly method?: string
+  readonly path?: string
+  readonly onSuccess?: { readonly navigate?: string }
 }
 
 interface MenuItem {
@@ -40,6 +29,7 @@ interface MenuItem {
   readonly disabled?: boolean
   readonly separator?: boolean
   readonly variant?: 'default' | 'destructive'
+  readonly action?: MenuItemAction
 }
 
 interface MenuIslandProps {
@@ -48,9 +38,24 @@ interface MenuIslandProps {
   readonly floatingAlign?: 'start' | 'center' | 'end'
   readonly triggerHtml?: string
   readonly triggerLabel?: string
+  readonly triggerContent?: ReactNode
+  readonly triggerClassName?: string
+  readonly triggerAriaLabel?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+}
+
+async function performLogout(redirectTo: string): Promise<void> {
+  try {
+    await authClient.signOut()
+  } finally {
+    window.location.assign(redirectTo)
+  }
+}
+
+function isExternalPath(path: string): boolean {
+  return /^https?:\/\//i.test(path)
 }
 
 function MenuItemIcon({ icon }: { readonly icon?: string }): ReactElement | null {
@@ -68,6 +73,68 @@ function MenuItemIcon({ icon }: { readonly icon?: string }): ReactElement | null
   )
 }
 
+function MenuItemBody({ item }: { readonly item: MenuItem }): ReactElement {
+  return (
+    <>
+      <MenuItemIcon icon={item.icon} />
+      <span className="flex-1">{item.label}</span>
+      {item.shortcut && (
+        <span className="text-foreground-subtle ml-4 text-xs">{item.shortcut}</span>
+      )}
+    </>
+  )
+}
+
+function PlainMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
+  return (
+    <Menu.Item
+      disabled={item.disabled}
+      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
+    >
+      <MenuItemBody item={item} />
+    </Menu.Item>
+  )
+}
+
+function LogoutMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
+  const redirectTo = item.action?.onSuccess?.navigate ?? '/'
+  const handleClick = useCallback(() => {
+    void performLogout(redirectTo)
+  }, [redirectTo])
+  return (
+    <Menu.Item
+      disabled={item.disabled}
+      onClick={handleClick}
+      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
+    >
+      <MenuItemBody item={item} />
+    </Menu.Item>
+  )
+}
+
+function NavigateMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
+  const path = item.action?.path ?? '#'
+  const external = isExternalPath(path)
+  const anchor = external ? (
+    <a
+      href={path}
+      target="_blank"
+      rel="noopener noreferrer"
+    />
+  ) : (
+    <a href={path} />
+  )
+  return (
+    <Menu.Item
+      disabled={item.disabled}
+      render={anchor}
+      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
+    >
+      <MenuItemBody item={item} />
+    </Menu.Item>
+  )
+}
+
 function renderMenuEntry(item: MenuItem, index: number): ReactElement {
   if (item.separator) {
     return (
@@ -77,19 +144,45 @@ function renderMenuEntry(item: MenuItem, index: number): ReactElement {
       />
     )
   }
+  const { action } = item
+  if (action?.type === 'auth' && action.method === 'logout') {
+    return (
+      <LogoutMenuItem
+        key={`item-${index}`}
+        item={item}
+      />
+    )
+  }
+  if (action?.type === 'navigate') {
+    return (
+      <NavigateMenuItem
+        key={`item-${index}`}
+        item={item}
+      />
+    )
+  }
   return (
-    <Menu.Item
+    <PlainMenuItem
       key={`item-${index}`}
-      disabled={item.disabled}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
-    >
-      <MenuItemIcon icon={item.icon} />
-      <span className="flex-1">{item.label}</span>
-      {item.shortcut && (
-        <span className="text-foreground-subtle ml-4 text-xs">{item.shortcut}</span>
-      )}
-    </Menu.Item>
+      item={item}
+    />
   )
+}
+
+function TriggerContent({
+  triggerContent,
+  triggerHtml,
+  triggerLabel,
+}: {
+  readonly triggerContent?: ReactNode
+  readonly triggerHtml?: string
+  readonly triggerLabel?: string
+}): ReactNode {
+  if (triggerContent !== undefined) return triggerContent
+  if (triggerHtml) {
+    return <span dangerouslySetInnerHTML={{ __html: triggerHtml }} />
+  }
+  return <span>{triggerLabel ?? 'Menu'}</span>
 }
 
 export default function MenuIsland({
@@ -98,34 +191,40 @@ export default function MenuIsland({
   floatingAlign = 'start',
   triggerHtml,
   triggerLabel,
+  triggerContent,
+  triggerClassName,
+  triggerAriaLabel,
   className,
   id,
   'data-testid': testId,
 }: MenuIslandProps): ReactElement {
   return (
-    <Menu.Root>
-      <Menu.Trigger
-        className={className}
-        id={id}
-        data-testid={testId}
-      >
-        {triggerHtml ? (
-          <span dangerouslySetInnerHTML={{ __html: triggerHtml }} />
-        ) : (
-          <span>{triggerLabel ?? 'Menu'}</span>
-        )}
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          side={floatingSide}
-          align={floatingAlign}
-          sideOffset={4}
+    <div data-component-type="dropdown-menu">
+      <Menu.Root>
+        <Menu.Trigger
+          className={triggerClassName ?? className}
+          aria-label={triggerAriaLabel}
+          id={id}
+          data-testid={testId}
         >
-          <Menu.Popup className={computeMenuPopupClasses()}>
-            {menuItems.map((item, index) => renderMenuEntry(item, index))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+          <TriggerContent
+            triggerContent={triggerContent}
+            triggerHtml={triggerHtml}
+            triggerLabel={triggerLabel}
+          />
+        </Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner
+            side={floatingSide}
+            align={floatingAlign}
+            sideOffset={4}
+          >
+            <Menu.Popup className={computeMenuPopupClasses()}>
+              {menuItems.map((item, index) => renderMenuEntry(item, index))}
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    </div>
   )
 }

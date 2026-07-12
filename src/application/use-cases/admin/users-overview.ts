@@ -15,62 +15,21 @@ import {
 import {
   resolvePeriodWindow,
   type PeriodPreset,
+  type PeriodWindow,
 } from '@/domain/models/api/admin/_shared/period-preset'
 import {
   usersOverviewResponseSchema,
   type UsersOverviewResponse,
   type UsersOverviewSeriesPoint,
 } from '@/domain/models/api/admin/users'
+import {
+  bucketRowsByTimestamp,
+  buildDenseBucketGrid,
+  coerceTimestampToMs,
+  HOUR_MS,
+  intervalStepMs,
+} from '@/domain/utils/time-series-bucketing'
 import { UsersOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/users-overview-repository-live'
-
-
-const HOUR_MS = 60 * 60 * 1000
-const DAY_MS = 24 * HOUR_MS
-
-function tsToMs(value: Readonly<Date> | string | number): number {
-  if (value instanceof Date) return value.getTime()
-  if (typeof value === 'number') return value
-  return new Date(value).getTime()
-}
-
-function buildDenseSeries(
-  fromIso: string,
-  toIso: string,
-  interval: '1h' | '1d',
-  rowsByBucket: ReadonlyMap<string, { readonly signups: number; readonly sessions_started: number }>
-): readonly UsersOverviewSeriesPoint[] {
-  const stepMs = interval === '1h' ? HOUR_MS : DAY_MS
-  const fromMs = new Date(fromIso).getTime()
-  const toMs = new Date(toIso).getTime()
-  const firstBucketMs = Math.floor(fromMs / stepMs) * stepMs
-  const lastBucketMs = Math.floor(toMs / stepMs) * stepMs
-  const expectedCount = Math.max(1, Math.round((lastBucketMs - firstBucketMs) / stepMs) + 1)
-  const bucketIndexes: readonly number[] = Array.from({ length: expectedCount }, (_unused, i) => i)
-  return bucketIndexes.map((i) => {
-    const timestamp = new Date(firstBucketMs + i * stepMs).toISOString()
-    const found = rowsByBucket.get(timestamp)
-    return {
-      timestamp,
-      signups: found?.signups ?? 0,
-      sessions_started: found?.sessions_started ?? 0,
-    }
-  })
-}
-
-function bucketTimestamps(
-  rows: ReadonlyArray<{ readonly createdAt: Readonly<Date> | string | number }>,
-  fromMs: number,
-  stepMs: number
-): ReadonlyMap<string, number> {
-  const keys = rows
-    .filter((row) => tsToMs(row.createdAt) >= fromMs)
-    .map((row) => new Date(Math.floor(tsToMs(row.createdAt) / stepMs) * stepMs).toISOString())
-  const counts = keys.reduce<Readonly<Record<string, number>>>(
-    (acc, key) => ({ ...acc, [key]: (acc[key] ?? 0) + 1 }),
-    {}
-  )
-  return new Map(Object.entries(counts))
-}
 
 
 function classifyRole(raw: string | null | undefined): 'admin' | 'operator' | 'member' {
@@ -95,7 +54,7 @@ const tallyUserRows = (rows: ReadonlyArray<UserOverviewRow>, fromMs: number): Us
   rows.reduce<UserTotals>(
     (acc, row) => {
       const cls = classifyRole(row.role)
-      const inPeriod = tsToMs(row.createdAt) >= fromMs
+      const inPeriod = coerceTimestampToMs(row.createdAt) >= fromMs
       return {
         totalUsers: acc.totalUsers + 1,
         admins: acc.admins + (cls === 'admin' ? 1 : 0),
@@ -133,6 +92,34 @@ const mergeBuckets = (
   )
 }
 
+function buildUsersSeries(
+  window: PeriodWindow,
+  signupRows: ReadonlyArray<{ readonly createdAt: Readonly<Date> | string | number }>,
+  sessionRows: ReadonlyArray<{ readonly createdAt: Readonly<Date> | string | number }>
+): readonly UsersOverviewSeriesPoint[] {
+  const stepMs = intervalStepMs(window.interval)
+  const fromMs = new Date(window.from).getTime()
+  const countRows = (
+    rows: ReadonlyArray<{ readonly createdAt: Readonly<Date> | string | number }>
+  ): ReadonlyMap<string, number> =>
+    bucketRowsByTimestamp({
+      rows,
+      getTimestamp: (row) => row.createdAt,
+      stepMs,
+      initial: 0,
+      accumulate: (count) => count + 1,
+      fromMs,
+    })
+  const merged = mergeBuckets(countRows(signupRows), countRows(sessionRows))
+  return buildDenseBucketGrid({
+    fromIso: window.from,
+    toIso: window.to,
+    stepMs,
+    rowsByBucket: merged,
+    emptyValue: { signups: 0, sessions_started: 0 },
+  })
+}
+
 
 export type UsersOverviewOutcome =
   | { readonly _tag: 'Ok'; readonly body: UsersOverviewResponse }
@@ -157,12 +144,7 @@ export const BuildUsersOverview = (
 
     const sessionRowsInPeriod = yield* repo.listSessionRowsSince(fromDate)
 
-    const stepMs = window.interval === '1h' ? HOUR_MS : DAY_MS
-    const merged = mergeBuckets(
-      bucketTimestamps(totals.signupRowsInPeriod, fromMs, stepMs),
-      bucketTimestamps(sessionRowsInPeriod, fromMs, stepMs)
-    )
-    const points = buildDenseSeries(window.from, window.to, window.interval, merged)
+    const points = buildUsersSeries(window, totals.signupRowsInPeriod, sessionRowsInPeriod)
 
     const body = {
       totals: {

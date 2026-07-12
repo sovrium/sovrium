@@ -8,9 +8,9 @@
 // @ts-nocheck
 
 import _a0 from '../../../drizzle/meta/_journal.json' with { type: 'file' }
-import _a1 from '../../../drizzle/0000_icy_northstar.sql' with { type: 'file' }
+import _a1 from '../../../drizzle/0000_lying_mandrill.sql' with { type: 'file' }
 import _a2 from '../../../drizzle/sqlite/meta/_journal.json' with { type: 'file' }
-import _a3 from '../../../drizzle/sqlite/0000_mute_cassandra_nova.sql' with { type: 'file' }
+import _a3 from '../../../drizzle/sqlite/0000_graceful_tombstone.sql' with { type: 'file' }
 import _a4 from '../../../agents/README.md' with { type: 'file' }
 import _a5 from '../../../agents/api-editor.md' with { type: 'file' }
 import _a6 from '../../../agents/blog-editor.md' with { type: 'file' }
@@ -100,18 +100,19 @@ import _a89 from '../../../examples/member-portal/config/theme.yaml' with { type
 import _a90 from '../../../examples/member-portal/public/.gitkeep' with { type: 'file' }
 import _a91 from '../../../examples/member-portal/public/README.md' with { type: 'file' }
 import _a92 from '../../../examples/README.md' with { type: 'file' }
+import _a93 from './dashboard/dashboard-app.yaml' with { type: 'file' }
 
 export const MIGRATION_FILES = {
   pg: {
     journal: _a0,
     migrations: {
-      "0000_icy_northstar.sql": _a1,
+      "0000_lying_mandrill.sql": _a1,
     },
   },
   sqlite: {
     journal: _a2,
     migrations: {
-      "0000_mute_cassandra_nova.sql": _a3,
+      "0000_graceful_tombstone.sql": _a3,
     },
   },
 }
@@ -209,4 +210,8 @@ export const EXAMPLE_FILES = {
   "member-portal/public/.gitkeep": _a90,
   "member-portal/public/README.md": _a91,
   "README.md": _a92,
+}
+
+export const DASHBOARD_FILES = {
+  "dashboard-app.yaml": _a93,
 }

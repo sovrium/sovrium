@@ -59,6 +59,10 @@ export class AccountRepository extends Context.Tag('AccountRepository')<
       userId: string
     ) => Effect.Effect<readonly AccountLinkedRow[], AccountDatabaseError>
 
+    readonly loadScheduledErasure: (
+      userId: string
+    ) => Effect.Effect<Date | undefined, AccountDatabaseError>
+
     readonly tablesWithCreatedBy: (
       tableNames: readonly string[]
     ) => Effect.Effect<readonly string[], AccountDatabaseError>

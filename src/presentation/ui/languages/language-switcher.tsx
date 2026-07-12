@@ -9,7 +9,7 @@ import { type ReactElement } from 'react'
 import {
   computeLanguageSwitcherDropdownClasses,
   computeLanguageSwitcherTriggerClasses,
-} from '@/presentation/ui/sections/renderers/element-renderers/specialty-ssr-default-classes'
+} from '@/presentation/ui/sections/renderers/element-renderers/recipes/specialty-ssr-default-classes'
 import type { Languages } from '@/domain/models/app/languages'
 
 const HIDDEN_STYLE = { display: 'none' } as const

@@ -10,8 +10,8 @@ import { hasReadPermission } from '@/application/use-cases/tables/permissions/pe
 import { createListRecordsProgram } from '@/application/use-cases/tables/programs'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
-import { passesTableRoleGate, resolveGuardForTable } from './row-level-guard'
-import { buildListFilter, type FilterStructure } from './row-level-read-helpers'
+import { passesTableRoleGate, resolveGuardForTable } from './record/row-level-guard'
+import { buildListFilter, type FilterStructure } from './record/row-level-read-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -182,7 +182,7 @@ function buildEmptyExportResponse(format: string, tableName: string, tableFieldN
 export async function handleExportTableCsv(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(session, userRole, table)
+  const guard = await resolveGuardForTable(session, userRole, table, app)
 
   const gateError = checkExportReadGate({ c, app, table, userRole, guard })
   if (gateError) return gateError

@@ -5,7 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { hasReadPermission } from '@/domain/models/app/tables/permissions'
+
+import { resolveSystemSource } from '@/domain/models/app/systemSources'
+import { hasCreatePermission, hasReadPermission } from '@/domain/models/app/tables/permissions'
+import { isListIslandMode } from '@/presentation/utils/list-island-mode'
+import {
+  isRecordDrawerSystemMode,
+  isRecordFieldSystemMode,
+} from '@/presentation/utils/system-detail-mode'
 import { resolveFilters, hasCurrentUserRef } from './current-user-resolver'
 import { applyFieldLevelPermissions, getRestrictedFields } from './field-permission-filter'
 import { buildRecordTemplatePatch, substituteRecordInProps } from './record-template-substitution'
@@ -354,6 +361,46 @@ function buildSearchProps(
   }
 }
 
+function buildListIslandProps(component: Component): Record<string, unknown> {
+  const { listDisplay } = component as { listDisplay?: unknown }
+  return {
+    ...(component.props ?? {}),
+    _listIslandMode: true,
+    _listDataSource: JSON.stringify(component.dataSource),
+    ...(listDisplay !== undefined ? { _listDisplay: JSON.stringify(listDisplay) } : {}),
+  }
+}
+
+function buildRecordFieldSystemProps(
+  component: Component,
+  routeParams: Readonly<Record<string, string>>
+): Record<string, unknown> {
+  const { system } = component.dataSource as { system?: { param?: string } }
+  const paramName = system?.param ?? 'id'
+  return {
+    ...(component.props ?? {}),
+    _recordFieldSystemMode: true,
+    _recordFieldDataSource: JSON.stringify(component.dataSource),
+    _recordFieldSystemId: routeParams[paramName] ?? '',
+  }
+}
+
+function resolveIslandShortCircuit(
+  component: Component,
+  routeParams: Readonly<Record<string, string>>
+): Component | undefined {
+  if (isListIslandMode(component)) {
+    return { ...component, props: buildListIslandProps(component) }
+  }
+  if (isRecordFieldSystemMode(component)) {
+    return { ...component, props: buildRecordFieldSystemProps(component, routeParams) }
+  }
+  if (isRecordDrawerSystemMode(component)) {
+    return component
+  }
+  return undefined
+}
+
 async function resolveSearchMode(
   db: DataSourceDb,
   component: Component,
@@ -391,6 +438,17 @@ function emptyDataBoundComponent(component: Component): Component {
   }
 }
 
+function withCanCreateGate(ctx: {
+  readonly component: Component
+  readonly app: App
+  readonly table: NonNullable<ReturnType<NonNullable<App['tables']>['find']>>
+  readonly session: SessionInfo | undefined
+}): Component {
+  if (ctx.component.type !== 'data-table' || !ctx.app.auth) return ctx.component
+  const _canCreate = hasCreatePermission(ctx.table, ctx.session?.role ?? '', ctx.app.tables)
+  return { ...ctx.component, props: { ...(ctx.component.props ?? {}), _canCreate } }
+}
+
 function resolveByMode(ctx: {
   readonly component: Component
   readonly app: App
@@ -403,8 +461,9 @@ function resolveByMode(ctx: {
   const restricted = ctx.app.auth
     ? getRestrictedFields(ctx.table.permissions, ctx.session?.role ?? '')
     : new Set<string>()
+  const gated = withCanCreateGate(ctx)
   const { component: fc, fields: ff } = applyFieldLevelPermissions(
-    ctx.component,
+    gated,
     requestedFields,
     restricted
   )
@@ -439,6 +498,16 @@ function validateDataSourcePrereqs(
   return undefined
 }
 
+function desugarSystemSourceRef(component: Component, app: App): Component {
+  const dataSource = component.dataSource as { readonly systemSource?: unknown } | undefined
+  const ref = dataSource?.systemSource
+  if (typeof ref !== 'string') return component
+  const entry = resolveSystemSource(ref, app.systemSources)
+  if (!entry) return component
+  const { name: _name, ...system } = entry
+  return { ...component, dataSource: { system } as Component['dataSource'] }
+}
+
 async function resolveComponent(
   item: Component | SimpleComponentReference | ComponentReference,
   ctx: {
@@ -451,8 +520,11 @@ async function resolveComponent(
 ): Promise<DataSourceSectionResult> {
   const { app, routeParams, session, cookies, db } = ctx
   if ('component' in item || '$ref' in item) return item
-  const component = item as Component
+  const component = desugarSystemSourceRef(item as Component, app)
   if (!component.dataSource) return component
+
+  const islandStamped = resolveIslandShortCircuit(component, routeParams)
+  if (islandStamped) return islandStamped
 
   const { table: tableName, fields: requestedFields } = component.dataSource
   const matchedTable = (app.tables ?? []).find((t) => t.name === tableName)

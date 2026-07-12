@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-
 import { computeCurrencyDisplayClasses } from '../recipes/field-affordances-default-classes'
+import { ActionButton } from './action-cell'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { TableRecord } from '../shared/types'
 import type {
+  ActionColumn,
   ActionColumnItem,
   CellStyleCondition,
   ColumnFormat,
@@ -41,8 +42,21 @@ function formatRelativeDate(value: unknown): string {
   return `${Math.floor(diffDays / 365)} years ago`
 }
 
+export function resolvePageLocale(): string {
+  if (typeof document === 'undefined') return 'en-US'
+  const { lang } = document.documentElement
+  return lang.length > 0 ? lang : 'en-US'
+}
 
-function formatCellValue(value: unknown, format: ColumnFormat): string {
+function formatRelativeTime(value: unknown, locale: string): string {
+  const date = value instanceof Date ? value : new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  const diffDays = Math.round((date.getTime() - Date.now()) / 86_400_000)
+  return new Intl.RelativeTimeFormat(locale, { style: 'short' }).format(diffDays, 'day')
+}
+
+
+function formatCellValue(value: unknown, format: ColumnFormat, locale: string): string {
   if (value === undefined || value === null) return ''
   const str = String(value)
 
@@ -63,6 +77,7 @@ function formatCellValue(value: unknown, format: ColumnFormat): string {
       return Number.isNaN(num) ? str : Intl.NumberFormat('en', { notation: 'compact' }).format(num)
     },
     'relative-date': () => formatRelativeDate(value),
+    'relative-time': () => formatRelativeTime(value, locale),
     'short-date': () => formatDate(value, { month: 'short', day: 'numeric', year: 'numeric' }),
     'long-date': () => formatDate(value, { month: 'long', day: 'numeric', year: 'numeric' }),
     datetime: () =>
@@ -83,13 +98,15 @@ function formatCellValue(value: unknown, format: ColumnFormat): string {
 
 function matchesCondition(
   operator: string,
-  expected: string | number | boolean,
+  expected: unknown,
   strValue: string,
   numValue: number
 ): boolean {
   const matchers: Record<string, () => boolean> = {
     eq: () => strValue === String(expected),
     neq: () => strValue !== String(expected),
+    in: () => Array.isArray(expected) && expected.some((entry) => String(entry) === strValue),
+    notIn: () => Array.isArray(expected) && !expected.some((entry) => String(entry) === strValue),
     contains: () => strValue.includes(String(expected)),
     gt: () => !Number.isNaN(numValue) && numValue > Number(expected),
     lt: () => !Number.isNaN(numValue) && numValue < Number(expected),
@@ -99,72 +116,99 @@ function matchesCondition(
   return matchers[operator]?.() ?? false
 }
 
+function matchesConditionOperators(operators: CellStyleCondition['when'], value: unknown): boolean {
+  const strValue = String(value)
+  const numValue = Number(value)
+  return Object.entries(operators)
+    .filter(([, expected]) => expected !== undefined)
+    .every(([operator, expected]) => matchesCondition(operator, expected, strValue, numValue))
+}
+
 export function evaluateCellStyle(
   value: unknown,
   conditions: readonly CellStyleCondition[]
 ): string {
-  const strValue = String(value)
-  const numValue = Number(value)
-
-  const matched = conditions.find((condition) =>
-    Object.entries(condition.when)
-      .filter(([, v]) => v !== undefined)
-      .every(([operator, expected]) =>
-        matchesCondition(operator, expected as string | number | boolean, strValue, numValue)
-      )
-  )
+  const matched = conditions.find((condition) => matchesConditionOperators(condition.when, value))
   return matched?.className ?? ''
+}
+
+function isActionVisible(action: ActionColumnItem, record: TableRecord): boolean {
+  if (!action.visibleWhen) return true
+  const { field, ...operators } = action.visibleWhen
+  return matchesConditionOperators(operators, record[field])
 }
 
 
 const NUMERIC_DISPLAY_FORMATS = new Set<ColumnFormat>(['currency', 'percentage'])
 
-function buildFieldCellRenderer(col: FieldColumn, fieldMeta?: FieldMetaMap) {
+function wrapWithClass(content: React.ReactNode, className: string): React.ReactNode {
+  return className ? <span className={className}>{content}</span> : content
+}
+
+function buildFieldCellRenderer(col: FieldColumn, locale: string, fieldMeta?: FieldMetaMap) {
   const fieldTypeRenderer = fieldMeta?.[col.field]?.type
     ? FIELD_TYPE_TO_CELL_RENDERER[fieldMeta[col.field]!.type]
     : undefined
 
-  if (!col.format && !col.cellStyle && !fieldTypeRenderer) return undefined
+  if (!col.format && !col.cellStyle && !fieldTypeRenderer && !col.valueLabels) return undefined
 
   return ({ getValue }: { getValue: () => unknown }) => {
     const value = getValue()
     const conditionalClass = col.cellStyle ? evaluateCellStyle(value, col.cellStyle) : ''
 
+    const label = col.valueLabels?.[String(value)]
+    if (label !== undefined) return wrapWithClass(label, conditionalClass)
+
     if (col.format) {
-      const displayValue = formatCellValue(value, col.format)
+      const displayValue = formatCellValue(value, col.format, locale)
       const numericClass = NUMERIC_DISPLAY_FORMATS.has(col.format)
         ? computeCurrencyDisplayClasses()
         : ''
       const composed = [numericClass, conditionalClass].filter(Boolean).join(' ')
-      return composed ? <span className={composed}>{displayValue}</span> : displayValue
+      return wrapWithClass(displayValue, composed)
     }
 
-    if (fieldTypeRenderer) {
-      const rendered = fieldTypeRenderer({ value })
-      return conditionalClass ? <span className={conditionalClass}>{rendered}</span> : rendered
-    }
+    if (fieldTypeRenderer) return wrapWithClass(fieldTypeRenderer({ value }), conditionalClass)
 
-    const displayValue = String(value ?? '')
-    return conditionalClass ? (
-      <span className={conditionalClass}>{displayValue}</span>
-    ) : (
-      displayValue
-    )
+    return wrapWithClass(String(value ?? ''), conditionalClass)
   }
 }
 
 
+function buildActionCellRenderer(col: ActionColumn, onActionClick?: RowActionHandler) {
+  return ({ row }: CellContext<TableRecord, unknown>) => (
+    <div className="flex gap-1">
+      {col.actions
+        .filter((action) => isActionVisible(action, row.original))
+        .map((action, actionIndex) => (
+          <ActionButton
+            key={`action-${String(actionIndex)}`}
+            action={action}
+            record={row.original}
+            onActionClick={onActionClick}
+          />
+        ))}
+    </div>
+  )
+}
+
+export interface MapColumnsOptions {
+  readonly locale: string
+  readonly groupByField?: string
+  readonly onActionClick?: RowActionHandler
+  readonly fieldMeta?: FieldMetaMap
+}
+
 export function mapColumnsToColumnDefs(
   columns: readonly DataTableColumn[],
-  groupByField?: string,
-  onActionClick?: RowActionHandler,
-  fieldMeta?: FieldMetaMap
+  options: MapColumnsOptions
 ): readonly ColumnDef<TableRecord>[] {
+  const { locale, groupByField, onActionClick, fieldMeta } = options
   const visibleColumns = columns.filter((col) => !('field' in col && col.visible === false))
 
   return visibleColumns.map((col, index) => {
     if ('field' in col) {
-      const cellRenderer = buildFieldCellRenderer(col, fieldMeta)
+      const cellRenderer = buildFieldCellRenderer(col, locale, fieldMeta)
       return {
         accessorKey: col.field,
         header: col.label ?? col.field,
@@ -187,28 +231,7 @@ export function mapColumnsToColumnDefs(
       header: col.label ?? '',
       enableSorting: false,
       enableColumnFilter: false,
-      cell: ({ row }: CellContext<TableRecord, unknown>) => (
-        <div className="flex gap-1">
-          {col.actions.map((action, actionIndex) => (
-            <button
-              key={`action-${String(actionIndex)}`}
-              type="button"
-              className="text-primary hover:bg-primary-subtle rounded px-2 py-1 text-xs disabled:opacity-50"
-              data-action-type={'type' in action.action ? action.action.type : action.action.action}
-              disabled={!onActionClick}
-              onClick={
-                onActionClick
-                  ? () => {
-                      void onActionClick(action, row.original)
-                    }
-                  : undefined
-              }
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-      ),
+      cell: buildActionCellRenderer(col, onActionClick),
     } satisfies ColumnDef<TableRecord>
   })
 }

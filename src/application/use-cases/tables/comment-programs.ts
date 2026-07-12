@@ -242,6 +242,8 @@ interface ListCommentsConfig {
   readonly offset?: number
   readonly sortOrder?: 'asc' | 'desc'
   readonly viewerIsAdmin?: boolean
+  readonly tableId?: string
+  readonly readTracking?: boolean
 }
 
 function formatCommentsList(
@@ -412,6 +414,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
       readonly offset: number
       readonly hasMore: boolean
     }
+    readonly unreadCount?: number
   },
   SessionContextError,
   CommentRepository
@@ -419,6 +422,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
     const { session, recordId, tableName, limit, offset, sortOrder, viewerIsAdmin } = config
+    const { tableId, readTracking } = config
 
     const includeAllStatuses = viewerIsAdmin === true
 
@@ -442,9 +446,15 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
           })
         : undefined
 
+    const unreadCount =
+      readTracking === true && tableId !== undefined
+        ? yield* comments.countUnread({ session, tableId, recordId })
+        : undefined
+
     return {
       comments: formatCommentsList(commentsList),
       ...(pagination && { pagination }),
+      ...(unreadCount !== undefined && { unreadCount }),
     }
   })
 }

@@ -8,9 +8,11 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { Suspense, useEffect, useState, type ReactElement } from 'react'
 import { flushSync } from 'react-dom'
-import { createRoot } from 'react-dom/client'
+import { createRoot, type Root } from 'react-dom/client'
 import { ISLANDS } from './island-registry'
 import { createIslandQueryClient } from './shared/query-client'
+
+const islandRoots = new WeakMap<HTMLElement, Root>()
 
 
 function parseIslandProps(raw: string | undefined): Record<string, unknown> | undefined {
@@ -61,15 +63,17 @@ function extractFormValues(el: HTMLElement): Record<string, string> {
   return Object.fromEntries(entries)
 }
 
-function mountIslands(): void {
-  const markers = document.querySelectorAll<HTMLElement>('[data-island]')
+export function mountIslandsWithin(root: ParentNode = document.body): void {
+  const markers = root.querySelectorAll<HTMLElement>('[data-island]')
 
   markers.forEach((el) => {
+    if (el.dataset.islandMounted === 'true') return
     const type = el.dataset.island
     if (!type || !(type in ISLANDS)) return
 
     const Component = ISLANDS[type]
     if (!Component) return
+    el.dataset.islandMounted = 'true'
 
     const props = parseIslandProps(el.dataset.islandProps)
     if (!props) return
@@ -81,6 +85,7 @@ function mountIslands(): void {
     const fallback = <div dangerouslySetInnerHTML={{ __html: fallbackHtml }} />
 
     const root = createRoot(el)
+    islandRoots.set(el, root)
     flushSync(() => {
       root.render(
         <IslandWrapper
@@ -95,8 +100,20 @@ function mountIslands(): void {
   })
 }
 
+export function unmountIslandsWithin(root: ParentNode = document.body): void {
+  const markers = root.querySelectorAll<HTMLElement>('[data-island]')
+  markers.forEach((el) => {
+    const mounted = islandRoots.get(el)
+    if (mounted) {
+      mounted.unmount()
+      islandRoots.delete(el)
+    }
+    delete el.dataset.islandMounted
+  })
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', mountIslands)
+  document.addEventListener('DOMContentLoaded', () => mountIslandsWithin())
 } else {
-  mountIslands()
+  mountIslandsWithin()
 }

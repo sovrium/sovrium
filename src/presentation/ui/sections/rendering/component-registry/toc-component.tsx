@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeTocLinkClasses } from '../../renderers/element-renderers/navigation-default-classes'
+import { computeTocLinkClasses } from '../../renderers/element-renderers/recipes/navigation-default-classes'
 import type { ComponentDispatchConfig, ComponentRenderer } from '../component-dispatch-config'
 import type { TocHeading } from '@/presentation/rendering/toc-resolver'
 import type { ReactElement } from 'react'

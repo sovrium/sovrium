@@ -17,6 +17,8 @@ import {
   permanentlyDeleteRecord,
   restoreRecord,
   computeAggregations,
+  linkManyToMany,
+  readManyToMany,
 } from '@/infrastructure/database/table-queries'
 
 export const TableRepositoryLive = Layer.succeed(TableRepository, {
@@ -29,4 +31,6 @@ export const TableRepositoryLive = Layer.succeed(TableRepository, {
   permanentlyDeleteRecord,
   restoreRecord,
   computeAggregations,
+  linkManyToMany,
+  readManyToMany,
 })

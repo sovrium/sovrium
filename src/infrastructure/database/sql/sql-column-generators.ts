@@ -102,6 +102,11 @@ const generateDefaultClause = (field: Fields[number]): string => {
   return ''
 }
 
+export const getColumnDefaultExpression = (field: Fields[number]): string | undefined => {
+  const clause = generateDefaultClause(field)
+  return clause === '' ? undefined : clause.replace(/^ DEFAULT /, '')
+}
+
 const formulaEmitsPlainColumn = (
   field: Fields[number] & { readonly type: 'formula'; readonly formula: string },
   allFields?: readonly Fields[number][]

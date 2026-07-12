@@ -50,7 +50,7 @@ const buildDetailPathMap = (app: App): ReadonlyMap<string, string> => {
     )
     const allSources = [page.dataSource, ...componentSources]
     return allSources.flatMap((source) =>
-      source && source.mode === 'single' && typeof page.path === 'string'
+      source && 'table' in source && source.mode === 'single' && typeof page.path === 'string'
         ? ([[source.table, page.path]] as const)
         : []
     )

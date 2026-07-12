@@ -6,40 +6,50 @@
  */
 
 import { isViewComputedFormula } from '../formula/formula-utils'
+import { getColumnDefaultExpression } from '../sql/sql-column-generators'
 import type { Table } from '@/domain/models/app/tables'
+import type { Fields } from '@/domain/models/app/tables/fields'
+
+const isBaseColumnField = (
+  field: Fields[number],
+  allFields: readonly Fields[number][]
+): boolean => {
+  if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'count') return false
+  if (isViewComputedFormula(field, allFields)) return false
+  if (
+    field.type === 'relationship' &&
+    'relationType' in field &&
+    (field.relationType === 'one-to-many' || field.relationType === 'many-to-many')
+  ) {
+    return false
+  }
+  if (field.name === 'id') return false
+  return true
+}
 
 export const getBaseFields = (table: Table): readonly string[] =>
+  table.fields.filter((field) => isBaseColumnField(field, table.fields)).map((field) => field.name)
+
+export const getInsertValueExpressions = (table: Table): readonly string[] =>
   table.fields
-    .filter((field) => {
-      if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'count') {
-        return false
-      }
-      if (isViewComputedFormula(field, table.fields)) {
-        return false
-      }
-      if (
-        field.type === 'relationship' &&
-        'relationType' in field &&
-        (field.relationType === 'one-to-many' || field.relationType === 'many-to-many')
-      ) {
-        return false
-      }
-      if (field.name === 'id') {
-        return false
-      }
-      return true
+    .filter((field) => isBaseColumnField(field, table.fields))
+    .map((field) => {
+      const defaultExpr = getColumnDefaultExpression(field)
+      return defaultExpr === undefined
+        ? `NEW.${field.name}`
+        : `COALESCE(NEW.${field.name}, ${defaultExpr})`
     })
-    .map((field) => field.name)
 
 export const generateInsertTrigger = (
   viewName: string,
   baseTableName: string,
-  baseFields: readonly string[]
+  baseFields: readonly string[],
+  insertValues?: readonly string[]
 ): readonly string[] => {
   const insertTriggerFunction = `${viewName}_instead_of_insert`
   const insertTrigger = `${viewName}_insert_trigger`
   const insertFieldsList = baseFields.join(', ')
-  const insertValuesList = baseFields.map((name) => `NEW.${name}`).join(', ')
+  const insertValuesList = (insertValues ?? baseFields.map((name) => `NEW.${name}`)).join(', ')
 
   return [
     `CREATE OR REPLACE FUNCTION ${insertTriggerFunction}()
@@ -113,11 +123,12 @@ EXECUTE FUNCTION ${deleteTriggerFunction}()`,
 export const generateInsertTriggerSqlite = (
   viewName: string,
   baseTableName: string,
-  baseFields: readonly string[]
+  baseFields: readonly string[],
+  insertValues?: readonly string[]
 ): readonly string[] => {
   const triggerName = `${viewName}_insert_trigger`
   const insertFieldsList = baseFields.join(', ')
-  const insertValuesList = baseFields.map((name) => `NEW.${name}`).join(', ')
+  const insertValuesList = (insertValues ?? baseFields.map((name) => `NEW.${name}`)).join(', ')
 
   return [
     `DROP TRIGGER IF EXISTS ${triggerName}`,

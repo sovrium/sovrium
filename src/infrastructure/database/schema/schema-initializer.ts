@@ -37,6 +37,7 @@ import {
   createTableViewsEffect,
 } from '../table-queries/table-operations'
 import * as viewGenerators from '../views/view-generators'
+import { ensureCommentReadStateTable } from './comment-read-state-table'
 import {
   getPreviousSchema,
   recordMigration,
@@ -296,6 +297,22 @@ const createAllViews = (
     )
   })
 
+const ensureConditionalSystemTables = (
+  tx: TransactionLike,
+  app: App
+): Effect.Effect<void, SQLExecutionError, never> =>
+  Effect.gen(function* () {
+    if (app.auth?.scopeTables && app.auth.scopeTables.length > 0) {
+      yield* ensureUserAccessTable(tx)
+    }
+    if ((app.tables ?? []).some((t) => (t.webhooks ?? []).length > 0)) {
+      yield* ensureWebhookDeliveriesTable(tx)
+    }
+    if ((app.tables ?? []).some((t) => t.comments?.readTracking === true)) {
+      yield* ensureCommentReadStateTable(tx)
+    }
+  })
+
 const executeMigrationSteps = (
   tx: TransactionLike,
   tables: readonly Table[],
@@ -341,13 +358,7 @@ const executeMigrationSteps = (
 
     yield* createAllViews(tx, sortedTables, viewGenerators)
 
-    if (app.auth?.scopeTables && app.auth.scopeTables.length > 0) {
-      yield* ensureUserAccessTable(tx)
-    }
-
-    if ((app.tables ?? []).some((t) => (t.webhooks ?? []).length > 0)) {
-      yield* ensureWebhookDeliveriesTable(tx)
-    }
+    yield* ensureConditionalSystemTables(tx, app)
 
     yield* recordMigration(tx, app)
     yield* storeSchemaChecksum(tx, app)

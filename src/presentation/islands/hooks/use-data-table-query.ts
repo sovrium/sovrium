@@ -7,18 +7,22 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createRecordsClient } from '@/presentation/api/client'
+import { fetchSystemEndpoint } from './use-system-source-fetch'
+import type { FetchResult } from './use-system-source-fetch'
 import type { TableRecord } from '../shared/types'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { DataTableSystemSource } from '@/domain/models/app/pages/components/data-table'
 import type { SortingState, PaginationState } from '@tanstack/react-table'
 
 
-export interface FetchResult {
-  readonly records: readonly TableRecord[]
-  readonly total: number
-}
+export type { FetchResult }
 
 interface UseDataTableQueryParams {
   readonly table: string
+  readonly system?: DataTableSystemSource
+  readonly systemQuery?: Record<string, string>
+  readonly sourceId?: string
+  readonly sharedFilterParams?: Record<string, string>
   readonly pagination: PaginationState
   readonly sorting: SortingState
   readonly globalFilter: string
@@ -68,6 +72,11 @@ interface FetchQuery {
   readonly sortParam?: string
   readonly globalFilter: string
   readonly filterParam?: string
+  readonly sharedFilterParams?: Record<string, string>
+}
+
+function dropEmptyParams(params: Record<string, string> | undefined): Record<string, string> {
+  return Object.fromEntries(Object.entries(params ?? {}).filter(([, value]) => value !== ''))
 }
 
 async function fetchTableRecords({
@@ -76,13 +85,15 @@ async function fetchTableRecords({
   sortParam,
   globalFilter,
   filterParam,
+  sharedFilterParams,
 }: FetchQuery): Promise<FetchResult> {
-  const query = {
+  const query: Record<string, string> = {
     page: String(pagination.pageIndex + 1),
     ...(pagination.pageSize && { limit: String(pagination.pageSize) }),
     ...(sortParam && { sort: sortParam }),
     ...(globalFilter && { q: globalFilter }),
     ...(filterParam && { filter: filterParam }),
+    ...dropEmptyParams(sharedFilterParams),
   }
 
   const res = await apiClient.api.tables[':tableId'].records.$get({
@@ -112,9 +123,76 @@ async function fetchTableRecords({
 }
 
 
+function resolveRefetchInterval(
+  refreshMode: UseDataTableQueryParams['refreshMode'],
+  pollIntervalMs: number | undefined
+): number | false {
+  if (refreshMode === 'poll') return pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
+  if (refreshMode === 'realtime') return REALTIME_FALLBACK_POLL_MS
+  return false
+}
+
+interface ResolvedQuery {
+  readonly table: string
+  readonly system?: DataTableSystemSource
+  readonly systemQuery?: Record<string, string>
+  readonly sourceId?: string
+  readonly sharedFilterParams?: Record<string, string>
+  readonly pagination: PaginationState
+  readonly sortParam?: string
+  readonly globalFilter: string
+  readonly filterParam?: string
+}
+
+function buildQueryKey(q: ResolvedQuery, sortParam: string | undefined): readonly unknown[] {
+  return q.system
+    ? [
+        'system-rows',
+        q.system.endpoint,
+        q.system.query,
+        q.systemQuery,
+        q.pagination,
+        sortParam,
+        q.globalFilter,
+      ]
+    : [
+        'table-records',
+        q.table,
+        q.pagination,
+        sortParam,
+        q.globalFilter,
+        q.filterParam,
+        q.sharedFilterParams,
+      ]
+}
+
+function runDataTableFetch(q: ResolvedQuery): Promise<FetchResult> {
+  return q.system
+    ? fetchSystemEndpoint({
+        system: q.system,
+        systemQuery: q.systemQuery,
+        sourceId: q.sourceId,
+        pagination: q.pagination,
+        sortParam: q.sortParam,
+        globalFilter: q.globalFilter,
+      })
+    : fetchTableRecords({
+        table: q.table,
+        pagination: q.pagination,
+        sortParam: q.sortParam,
+        globalFilter: q.globalFilter,
+        filterParam: q.filterParam,
+        sharedFilterParams: q.sharedFilterParams,
+      })
+}
+
 export function useDataTableQuery(params: UseDataTableQueryParams) {
   const {
     table,
+    system,
+    systemQuery,
+    sourceId,
+    sharedFilterParams,
     pagination,
     sorting,
     globalFilter,
@@ -133,20 +211,24 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
 
   const filterParam = buildFilterParam(dataSourceFilter)
 
-  const queryKey = ['table-records', table, pagination, sortParam, globalFilter, filterParam]
-
-  const refetchInterval =
-    refreshMode === 'poll'
-      ? (pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS)
-      : refreshMode === 'realtime'
-        ? REALTIME_FALLBACK_POLL_MS
-        : false
+  const resolved: ResolvedQuery = {
+    table,
+    system,
+    systemQuery,
+    sourceId,
+    sharedFilterParams,
+    pagination,
+    sortParam,
+    globalFilter,
+    filterParam,
+  }
+  const queryKey = buildQueryKey(resolved, sortParam)
+  const refetchInterval = resolveRefetchInterval(refreshMode, pollIntervalMs)
 
   const result = useQuery({
     queryKey,
     refetchInterval,
-    queryFn: (): Promise<FetchResult> =>
-      fetchTableRecords({ table, pagination, sortParam, globalFilter, filterParam }),
+    queryFn: (): Promise<FetchResult> => runDataTableFetch(resolved),
   })
 
   return { ...result, queryKey }

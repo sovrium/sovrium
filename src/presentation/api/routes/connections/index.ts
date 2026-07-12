@@ -5,25 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-
 import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
 import { OAuthStateStore } from '@/application/ports/services/oauth-state-store'
-import {
-  computeCodeChallenge,
-  generateCodeVerifier,
-  generateOAuthState,
-} from '@/domain/utils/auth/pkce'
-import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/utils/timeouts'
+import { isAdminTier } from '@/domain/models/app'
+import { generateCodeVerifier, generateOAuthState } from '@/domain/utils/auth/pkce'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
-import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
 import { requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { provideConnectionLive } from './effect-runner'
 import { connectionError } from './error-envelopes'
+import {
+  buildAuthorizeUrl,
+  exchangeCodeForToken,
+  isPkceActive,
+  resolveOAuth2PropsEnv,
+  type OAuthTokenResponse,
+} from './oauth-flow'
 import { requireAuthCodeFields, type OAuth2AuthCodeProps, type OAuth2Props } from './oauth2-props'
-import { RESERVED_AUTH_PARAMS, RESERVED_TOKEN_PARAMS, applyExtraParamsExcludingReserved } from './oauth2-reserved-params'
 import { handleListUsers } from './users-handler'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -67,42 +66,18 @@ const resolveConnectionId = (
     return String(row['id'] ?? '')
   })
 
-const isPkceActive = (pkce: OAuth2Props['pkce']): pkce is 'S256' | 'plain' =>
-  pkce === 'S256' || pkce === 'plain'
-
-const buildAuthorizeUrl = (
-  props: OAuth2AuthCodeProps,
-  state: string,
-  codeVerifier: string | undefined
-) => {
-  const url = new URL(props.authorizationUrl)
-  url.searchParams.set('client_id', props.clientId)
-  url.searchParams.set('response_type', 'code')
-  url.searchParams.set('redirect_uri', props.redirectUri)
-  url.searchParams.set('scope', (props.scopes ?? []).join(' '))
-  url.searchParams.set('state', state)
-  if (codeVerifier !== undefined && isPkceActive(props.pkce)) {
-    url.searchParams.set('code_challenge', computeCodeChallenge(codeVerifier, props.pkce))
-    url.searchParams.set('code_challenge_method', props.pkce)
-  }
-  if (props.audience !== undefined && props.audience !== '') {
-    url.searchParams.set('audience', props.audience)
-  }
-  applyExtraParamsExcludingReserved(url.searchParams, props.extraAuthParams, RESERVED_AUTH_PARAMS)
-  return url.toString()
-}
-
 const effectiveScope = (props: OAuth2Props): 'app' | 'user' => props.scope ?? 'app'
 
 const gateAdminForAppScope = async (
   c: Context,
   conn: ReturnType<typeof findConnection>,
-  userId: string
+  userId: string,
+  app: App
 ): Promise<Response | undefined> => {
   if (conn === undefined || !isOAuth2(conn)) return undefined
   if (effectiveScope(conn.props) !== 'app') return undefined
   const role = await resolveUserRole(userId)
-  if (role === 'admin') return undefined
+  if (isAdminTier(role, app)) return undefined
   return connectionError(c, 404, 'connection_not_found')
 }
 
@@ -120,10 +95,10 @@ async function handleAuthorize(c: Context, app: App) {
   if (conn === undefined) return connectionError(c, 404, 'connection_not_found')
   if (!isOAuth2(conn)) return connectionError(c, 400, 'connection_not_oauth2')
 
-  const scopeGate = await gateAdminForAppScope(c, conn, session.userId)
+  const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 
-  const fieldsCheck = requireAuthCodeFields(c, conn.props)
+  const fieldsCheck = requireAuthCodeFields(c, resolveOAuth2PropsEnv(conn.props, app))
   if ('response' in fieldsCheck) return fieldsCheck.response
   const { props } = fieldsCheck
 
@@ -146,75 +121,6 @@ async function handleAuthorize(c: Context, app: App) {
   }
 
   return c.redirect(buildAuthorizeUrl(props, state, codeVerifier), 302)
-}
-
-interface OAuthTokenResponse {
-  readonly access_token?: string
-  readonly refresh_token?: string
-  readonly expires_in?: number
-  readonly token_type?: string
-}
-
-const buildTokenExchangeBody = (
-  props: OAuth2AuthCodeProps,
-  code: string,
-  codeVerifier: string | undefined
-): URLSearchParams => {
-  const body = new URLSearchParams()
-  body.set('grant_type', 'authorization_code')
-  body.set('code', code)
-  body.set('redirect_uri', props.redirectUri)
-  body.set('client_id', props.clientId)
-  body.set('client_secret', props.clientSecret)
-  if (codeVerifier !== undefined) {
-    body.set('code_verifier', codeVerifier)
-  }
-  if (props.audience !== undefined && props.audience !== '') {
-    body.set('audience', props.audience)
-  }
-  applyExtraParamsExcludingReserved(body, props.extraTokenParams, RESERVED_TOKEN_PARAMS)
-  return body
-}
-
-const exchangeCodeForToken = async (
-  props: OAuth2AuthCodeProps,
-  code: string,
-  codeVerifier: string | undefined
-): Promise<
-  | { readonly ok: true; readonly tokens: OAuthTokenResponse }
-  | { readonly ok: false; readonly error: string }
-> => {
-  const validation = validateOutboundUrl(props.tokenUrl)
-  if (!validation.ok) {
-    return { ok: false, error: `token_invalid_url_${validation.issue.reason}` }
-  }
-
-  const body = buildTokenExchangeBody(props, code, codeVerifier)
-
-  try {
-    const response = await withFetchTimeout(
-      props.tokenUrl,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
-        body: body.toString(),
-      },
-      OAUTH_CALLBACK_TIMEOUT_MS
-    )
-    if (!response.ok) {
-      return { ok: false, error: `token_endpoint_${String(response.status)}` }
-    }
-    const tokens = (await response.json()) as OAuthTokenResponse
-    return { ok: true, tokens }
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'token_exchange_failed',
-    }
-  }
 }
 
 interface CallbackInputs {
@@ -302,7 +208,9 @@ const resolveCallbackContext = async (
     return { response: connectionError(c, 404, 'connection_not_found') }
   }
 
-  const fieldsCheck = requireAuthCodeFields(c, conn.props)
+  const resolvedProps = resolveOAuth2PropsEnv(conn.props, app)
+
+  const fieldsCheck = requireAuthCodeFields(c, resolvedProps)
   if ('response' in fieldsCheck) return { response: fieldsCheck.response }
 
   const refinedConn = { ...conn, props: fieldsCheck.props } as ConnectionDef & {
@@ -390,7 +298,7 @@ async function handleStatus(c: Context, app: App) {
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
   if (conn === undefined) return connectionError(c, 404, 'connection_not_found')
-  const scopeGate = await gateAdminForAppScope(c, conn, session.userId)
+  const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 
   const result = await Effect.runPromise(
@@ -423,7 +331,7 @@ async function handleDisconnect(c: Context, app: App) {
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
   if (conn === undefined) return connectionError(c, 404, 'connection_not_found')
-  const scopeGate = await gateAdminForAppScope(c, conn, session.userId)
+  const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 
   const program = Effect.gen(function* () {

@@ -6,16 +6,9 @@
  */
 
 
-
 export interface LiveAppShape {
   readonly name: string
   readonly [key: string]: unknown
 }
 
-const liveAppStore = new Map<'current', LiveAppShape>()
-
-export const setLiveApp = (app: LiveAppShape): void => {
-  liveAppStore.set('current', app)
-}
-
-export const getLiveApp = (): LiveAppShape | undefined => liveAppStore.get('current')
+export const getLiveApp = (): LiveAppShape | undefined => undefined

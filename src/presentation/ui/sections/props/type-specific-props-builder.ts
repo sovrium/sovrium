@@ -97,7 +97,7 @@ export function resolveTypeSpecificInputs(
 }
 
 const TYPE_BUILDERS: Record<string, (args: BuilderArgs) => Record<string, unknown>> = {
-  'data-table': ({ baseElementPropsWithType, component, resolved }) => ({
+  'data-table': ({ baseElementPropsWithType, component, componentProps, resolved }) => ({
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     columns: component.columns,
@@ -112,6 +112,7 @@ const TYPE_BUILDERS: Record<string, (args: BuilderArgs) => Record<string, unknow
     striped: component.striped,
     bordered: component.bordered,
     emptyMessage: component.emptyMessage,
+    noMatchMessage: component.noMatchMessage,
     showRowNumbers: component.showRowNumbers,
     onRowClick: component.onRowClick,
     autoSave: component.autoSave,
@@ -119,6 +120,7 @@ const TYPE_BUILDERS: Record<string, (args: BuilderArgs) => Record<string, unknow
     fieldMeta: resolved.dataTableFieldMeta,
     tablePermissions: resolved.dataTablePermissions,
     tableViews: resolved.dataTableViews,
+    canCreate: (componentProps as { _canCreate?: boolean } | undefined)?._canCreate,
   }),
 
   kanban: ({ baseElementPropsWithType, component, resolved }) => ({
@@ -167,6 +169,7 @@ const TYPE_BUILDERS: Record<string, (args: BuilderArgs) => Record<string, unknow
     tooltip: component.tooltip,
     chartAggregate: component.chartAggregate,
     emptyMessage: component.emptyMessage,
+    emptyState: component.emptyState,
   }),
 
   kpi: ({ baseElementPropsWithType, component }) => ({

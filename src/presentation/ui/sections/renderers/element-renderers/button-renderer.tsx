@@ -21,7 +21,7 @@ import {
   type AutomationAction,
   type FetchAction,
 } from './button-action-builders'
-import { renderCrudDeleteButton } from './crud-form-renderer'
+import { renderCrudDeleteButton } from './crud-form/crud-form-renderer'
 import type { ElementProps } from './html-element-renderer'
 import type { Tables } from '@/domain/models/app/tables'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
@@ -41,10 +41,16 @@ function renderActionButton(
     ...restProps
   } = props as Record<string, unknown>
   const buttonContent = content || (children.length > 0 ? children : undefined) || label
+  const confirmLabelSource = content ?? label
+  const confirmLabel =
+    typeof restProps['data-confirm'] === 'string' && typeof confirmLabelSource === 'string'
+      ? confirmLabelSource
+      : undefined
   return (
     <button
       {...restProps}
       {...actionAttrs}
+      {...(confirmLabel ? { 'data-confirm-label': confirmLabel } : {})}
     >
       {buttonContent}
     </button>

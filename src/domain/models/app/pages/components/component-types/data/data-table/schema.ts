@@ -6,10 +6,12 @@
  */
 
 import { Schema } from 'effect'
+import { SystemSourceRefSchema } from '../../../../../systemSources'
 import { ActionSchema } from '../../../action'
 import { ComponentSearchSchema } from '../../../component-search'
 import { DataFilterSchema, DataSortSchema } from '../../../data-source'
 import { DataTablePaginationSchema } from '../../../pagination'
+import { SystemSourceSchema } from '../../../system-source'
 import { DataTableBulkActionSchema } from './bulk-actions'
 import { DataTableColumnSchema } from './columns'
 import { DataTableGroupBySchema } from './group-by'
@@ -24,31 +26,52 @@ export const RowHeightSchema = Schema.Literal('short', 'medium', 'tall').annotat
 })
 
 
-export const DataTableSchema = Schema.Struct({
-  dataSource: Schema.Struct({
-    table: Schema.String.annotations({
-      description: 'Table name to bind to (validated against app.tables)',
-    }),
-    view: Schema.optional(
-      Schema.String.annotations({
-        description: 'View name to inherit configuration from (filters, sorts, fields)',
-      })
-    ),
-    filter: Schema.optional(
-      Schema.Array(DataFilterSchema).annotations({
-        description: 'Filter conditions applied server-side with AND logic',
-      })
-    ),
-    sort: Schema.optional(
-      Schema.Array(DataSortSchema).annotations({
-        description: 'Default sort rules applied server-side in order',
-      })
-    ),
-  }).annotations({
-    title: 'Data Table Data Source',
-    description:
-      'Data binding for the table: which table (and optional view), plus default filter/sort applied server-side',
+export const DataTableDbDataSourceSchema = Schema.Struct({
+  table: Schema.String.annotations({
+    description: 'Table name to bind to (validated against app.tables)',
   }),
+  view: Schema.optional(
+    Schema.String.annotations({
+      description: 'View name to inherit configuration from (filters, sorts, fields)',
+    })
+  ),
+  filter: Schema.optional(
+    Schema.Array(DataFilterSchema).annotations({
+      description: 'Filter conditions applied server-side with AND logic',
+    })
+  ),
+  sort: Schema.optional(
+    Schema.Array(DataSortSchema).annotations({
+      description: 'Default sort rules applied server-side in order',
+    })
+  ),
+}).annotations({
+  title: 'Data Table DB Data Source',
+  description:
+    'Data binding for the table: which table (and optional view), plus default filter/sort applied server-side',
+})
+
+export const DataTableSystemSourceSchema = SystemSourceSchema
+
+export const DataTableDataSourceSchema = Schema.Union(
+  DataTableDbDataSourceSchema,
+  Schema.Struct({
+    system: DataTableSystemSourceSchema,
+  }).annotations({
+    title: 'Data Table System Data Source',
+    description: 'System read-endpoint binding for the data table',
+  }),
+  SystemSourceRefSchema
+).annotations({
+  identifier: 'DataTableDataSource',
+  title: 'Data Table Data Source',
+  description:
+    'Data binding for the grid: a DB table (table + optional view + filter/sort), an inline system read endpoint, OR a named app.systemSources reference',
+})
+
+
+export const DataTableSchema = Schema.Struct({
+  dataSource: DataTableDataSourceSchema,
 
   columns: Schema.optional(
     Schema.Array(DataTableColumnSchema).pipe(
@@ -68,8 +91,15 @@ export const DataTableSchema = Schema.Struct({
   ),
   emptyMessage: Schema.optional(
     Schema.String.annotations({
-      description: 'Message displayed when no records match',
+      description: 'Message displayed when the dataset is empty (zero records loaded)',
       examples: ['No orders found', 'No results'],
+    })
+  ),
+  noMatchMessage: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Message shown when a search/filter reduces a non-empty dataset to zero rows (the no-match state, distinct from emptyMessage). Rendered in an aria-live status region; a {query} token is replaced with the active search string so the message echoes the query. Falls back to emptyMessage when omitted.',
+      examples: ['No results for "{query}"', 'Aucun utilisateur ne correspond à « {query} »'],
     })
   ),
   showRowNumbers: Schema.optional(
@@ -124,14 +154,26 @@ export function validateDataTableColumns(
   dataTable: DataTable,
   availableTables: ReadonlyMap<string, readonly string[]>
 ): { readonly valid: boolean; readonly errors: readonly string[] } {
-  const tableFields = availableTables.get(dataTable.dataSource.table)
+  const { dataSource } = dataTable
+  if (!('table' in dataSource)) {
+    return { valid: true, errors: [] }
+  }
+  return validateDbTableColumns(dataTable, dataSource, availableTables)
+}
+
+function validateDbTableColumns(
+  dataTable: DataTable,
+  dbSource: DataTableDbDataSource,
+  availableTables: ReadonlyMap<string, readonly string[]>
+): { readonly valid: boolean; readonly errors: readonly string[] } {
+  const tableFields = availableTables.get(dbSource.table)
 
   if (tableFields === undefined) {
     const tableNames = [...availableTables.keys()]
     return {
       valid: false,
       errors: [
-        `Table '${dataTable.dataSource.table}' not found. Available: ${tableNames.join(', ') || '(none)'}`,
+        `Table '${dbSource.table}' not found. Available: ${tableNames.join(', ') || '(none)'}`,
       ],
     }
   }
@@ -140,7 +182,7 @@ export function validateDataTableColumns(
     tableFields.includes(field)
       ? []
       : [
-          `${context}: field '${field}' not found in table '${dataTable.dataSource.table}'. Available: ${tableFields.join(', ')}`,
+          `${context}: field '${field}' not found in table '${dbSource.table}'. Available: ${tableFields.join(', ')}`,
         ]
 
   const columnErrors: readonly string[] = (dataTable.columns ?? []).flatMap((col) => {
@@ -166,12 +208,12 @@ export function validateDataTableColumns(
     checkField(f.field, 'defaultFilters')
   )
 
-  const dataSourceSortErrors: readonly string[] = (dataTable.dataSource.sort ?? []).flatMap((s) =>
+  const dataSourceSortErrors: readonly string[] = (dbSource.sort ?? []).flatMap((s) =>
     checkField(s.field, 'dataSource.sort')
   )
 
-  const dataSourceFilterErrors: readonly string[] = (dataTable.dataSource.filter ?? []).flatMap(
-    (f) => checkField(f.field, 'dataSource.filter')
+  const dataSourceFilterErrors: readonly string[] = (dbSource.filter ?? []).flatMap((f) =>
+    checkField(f.field, 'dataSource.filter')
   )
 
   const errors = [
@@ -205,7 +247,7 @@ export { DataTableToolbarSchema } from './toolbar'
 export { DataTableBulkActionSchema } from './bulk-actions'
 
 
-export type { ColumnFormat, CellStyleCondition, ActionColumnItem } from './columns'
+export type { ColumnFormat, CellStyleCondition, EditSelect, ActionColumnItem } from './columns'
 export type { FieldColumn, ActionColumn, DataTableColumn } from './columns'
 export type { DataTableSelection } from './selection'
 export type { DataTablePagination } from '../../../pagination'
@@ -215,4 +257,7 @@ export type { SummaryFunction, DataTableSummaryItem } from './summary'
 export type { DataTableToolbar } from './toolbar'
 export type { DataTableBulkAction } from './bulk-actions'
 export type RowHeight = Schema.Schema.Type<typeof RowHeightSchema>
+export type DataTableDbDataSource = Schema.Schema.Type<typeof DataTableDbDataSourceSchema>
+export type DataTableSystemSource = Schema.Schema.Type<typeof DataTableSystemSourceSchema>
+export type DataTableDataSource = Schema.Schema.Type<typeof DataTableDataSourceSchema>
 export type DataTable = Schema.Schema.Type<typeof DataTableSchema>

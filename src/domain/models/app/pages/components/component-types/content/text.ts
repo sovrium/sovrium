@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { sessionFields } from '../../session-binding'
 import { contentFields } from '../modules/content'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
@@ -41,6 +42,7 @@ export const textFields = {
   ...responsiveFields,
   ...visibilityFields,
   ...i18nFields,
+  ...sessionFields,
   element: Schema.optional(TextElementSchema),
   required: Schema.optional(
     Schema.Boolean.annotations({

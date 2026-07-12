@@ -8,7 +8,7 @@
 import { validateTable, enrichUserRole } from '@/presentation/api/middleware/table'
 import { chainUserTablePreferenceRoutes } from '@/presentation/api/routes/user-table-preferences'
 import { chainUserViewRoutes } from '@/presentation/api/routes/user-views'
-import { chainBatchRoutesMethods } from './batch-routes'
+import { chainBatchRoutesMethods } from './batch/batch-routes'
 import { chainRecordRoutesMethods } from './record-routes'
 import { chainTableRoutesMethods } from './table-routes'
 import { handleCreateUserAccessRecord, handleListUserAccessRecords } from './user-access-handlers'

@@ -27,6 +27,7 @@ interface MultiBarChartProps {
   readonly series: readonly ChartSeriesConfig[]
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
+  readonly accessibleName?: string
 }
 
 function isStacked(series: readonly ChartSeriesConfig[]): boolean {
@@ -131,6 +132,7 @@ interface MultiBarSvgProps {
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
   readonly hidden: ReadonlySet<string>
+  readonly accessibleName?: string
 }
 
 function computeMaxY(args: {
@@ -202,6 +204,7 @@ function MultiBarSvg({
   xField,
   series,
   hidden,
+  accessibleName,
 }: MultiBarSvgProps): ReactElement {
   const { keys, xScale, innerWidth, innerHeight, bars } = buildLayout({
     width,
@@ -217,7 +220,7 @@ function MultiBarSvg({
       width={width}
       height={height}
       role="img"
-      aria-label="Bar chart"
+      aria-label={accessibleName ?? 'Bar chart'}
     >
       <Group
         left={CHART_MARGIN.left}
@@ -252,6 +255,7 @@ export function MultiBarChart({
   series,
   legendPosition,
   legendVisible,
+  accessibleName,
 }: MultiBarChartProps): ReactElement {
   return (
     <ChartShell
@@ -267,6 +271,7 @@ export function MultiBarChart({
           xField={xField}
           series={series}
           hidden={hidden}
+          accessibleName={accessibleName}
         />
       )}
     </ChartShell>

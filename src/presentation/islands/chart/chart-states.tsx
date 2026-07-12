@@ -43,7 +43,32 @@ export function ChartError({ error }: { readonly error: unknown }): ReactElement
   )
 }
 
-export function ChartEmpty({ message }: { readonly message: string | undefined }): ReactElement {
+export interface ChartEmptyStateConfig {
+  readonly role: 'region'
+  readonly name: string
+  readonly title?: string
+}
+
+export function ChartEmpty({
+  message,
+  emptyState,
+}: {
+  readonly message: string | undefined
+  readonly emptyState?: ChartEmptyStateConfig
+}): ReactElement {
+  if (emptyState) {
+    return (
+      <section
+        className="border-border bg-background-subtle text-foreground-muted rounded border p-6 text-center text-sm"
+        data-component="chart"
+        data-chart-state="empty"
+        role="region"
+        aria-label={emptyState.name}
+      >
+        {emptyState.title ?? message ?? 'No data available'}
+      </section>
+    )
+  }
   return (
     <div
       className="border-border bg-background-subtle text-foreground-muted rounded border p-6 text-center text-sm"

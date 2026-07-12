@@ -32,12 +32,15 @@ import {
 import { resolveOpenDrawerDispatches } from '@/presentation/rendering/open-drawer-dispatch-resolver'
 import { resolveCollectionPage } from '@/presentation/rendering/page-collection-resolver'
 import { resolvePageParentRecord } from '@/presentation/rendering/page-parent-resolver'
+import { applyPageLevelRecordBinding } from '@/presentation/rendering/page-system-record-binding'
 import { resolvePageSidebar } from '@/presentation/rendering/sidebar-resolver'
 import { resolvePageToc } from '@/presentation/rendering/toc-resolver'
 import { applyVisibilityToComponents } from '@/presentation/rendering/visibility-filter'
 import { DefaultHomePage } from '@/presentation/ui/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
 import { ISLAND_COMPONENT_TYPES } from '@/presentation/utils/island-component-types'
+import { isListIslandMode } from '@/presentation/utils/list-island-mode'
+import { isRecordFieldSystemMode } from '@/presentation/utils/system-detail-mode'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -260,6 +263,7 @@ function applyPageComponentFilters(
   const updatePermFiltered = applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
   const expanded = expandFormRefs(updatePermFiltered, app, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
+    session,
   })
   const editorResolved = resolveEditorContext(expanded, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
@@ -285,9 +289,17 @@ function isSingleRecordBoundForm(s: Component): boolean {
   )
 }
 
+function hasDataIslandProp(s: Component): boolean {
+  const props = (s as Record<string, unknown>).props as Record<string, unknown> | undefined
+  return typeof props?.['data-island'] === 'string'
+}
+
 function selfNeedsIslands(s: Component): boolean {
   if (ISLAND_COMPONENT_TYPES.has(s.type)) return true
+  if (hasDataIslandProp(s)) return true
   if (s.dataSource?.mode === 'search') return true
+  if (isListIslandMode(s)) return true
+  if (isRecordFieldSystemMode(s)) return true
   if (isSingleRecordBoundForm(s)) return true
   const action = (s as Record<string, unknown>).action as { type?: string } | undefined
   return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
@@ -541,7 +553,9 @@ async function resolveAndFilterPage(input: {
 
   const hostRecord = parentResolution.kind === 'record' ? parentResolution.record : collectionRecord
 
-  const filteredPage = applyPageComponentFilters(rawPage, app, session, hostRecord)
+  const boundPage = applyPageLevelRecordBinding(rawPage, routeParams, hostRecord)
+
+  const filteredPage = applyPageComponentFilters(boundPage, app, session, hostRecord)
 
   const resolved = await resolvePageDataSources(filteredPage, app, routeParams, {
     session,

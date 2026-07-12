@@ -7,7 +7,7 @@
 
 <h1 align="center">Sovrium</h1>
 
-<h3 align="center">Build business apps with config. Own your data forever.</h3>
+<h3 align="center">One Config. Complete App. Full Control.</h3>
 
 <p align="center">
   The open-source alternative to Airtable, Retool, and Notion.<br />
@@ -291,12 +291,12 @@ Legend: ✅ implemented &nbsp;·&nbsp; 🔭 planned.
 
 ### Logic & intelligence
 
-| Status | Domain          | What you get                                                                                                                                                  |
-| :----: | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   ✅   | **Automations** | Triggers (webhook, schedule, record, form, auth, automation-call) and 20+ action types (HTTP, email, code, AI, approvals, branching, loops).                  |
-|   ✅   | **AI & agents** | AI computed fields, conversational chat over your data, RAG pipelines, AI agents, and MCP integration — all declarative, with `local-first` provider routing. |
-|   ✅   | **Analytics**   | Privacy-first, cookie-free page analytics — views, visitors, referrers, campaigns, and a unified events model.                                                |
-|   ✅   | **Admin Space** | A `/admin` console for managing tables, pages, automations, users, and theme — a self-service "wp-admin" for your app.                                        |
+| Status | Domain          | What you get                                                                                                                                                                                                                            |
+| :----: | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   | **Automations** | Triggers (webhook, schedule, record, form, auth, automation-call) and 20+ action types (HTTP, email, code, AI, approvals, branching, loops).                                                                                            |
+|   ✅   | **AI & agents** | AI computed fields, conversational chat over your data, RAG pipelines, AI agents, and MCP integration — all declarative, with `local-first` provider routing.                                                                           |
+|   ✅   | **Analytics**   | Privacy-first, cookie-free page analytics — views, visitors, referrers, campaigns, and a unified events model.                                                                                                                          |
+|   ✅   | **Admin Space** | A `/admin` operational **data** console — browse/manage record data, monitor automation runs, and review submissions, accounts, and analytics. Configuration (tables, pages, automations, theme) stays in code (files + Git), not here. |
 
 ### Storage & developer experience
 
@@ -448,12 +448,17 @@ copy-paste defaults.
 
 ### Eco-conception
 
-Sovrium treats environmental footprint as a platform property — every `ECO_*`
-variable defaults to the eco-aligned setting; operators opt _out_, never in.
+Sovrium is fast and full-featured by default. The defaults below are win-win —
+AVIF image transcoding and static-page caching cut bytes _and_ speed up
+delivery, and local-first AI routing keeps inference on your own hardware.
+Eco-conception's deeper, experience-affecting frugality (low-data mode,
+data-retention purge) is a first-class **opt-in** posture you switch on when you
+want it — never a paid tier, never a greenwashed badge. The table reflects the
+current `ECO_*` defaults.
 
 | Variable                     | Default       | Purpose                                                                         |
 | ---------------------------- | ------------- | ------------------------------------------------------------------------------- |
-| `ECO_MODE`                   | `on`          | Master toggle (`on` · `off` · `auto`).                                          |
+| `ECO_MODE`                   | `on`          | Master eco posture (`on` · `off` · `auto`).                                     |
 | `ECO_IMAGE_FORMAT`           | `avif`        | Server-side image transcoding format (`avif` · `webp` · `jpeg` · `png`).        |
 | `ECO_AI_PROVIDER_PRECEDENCE` | `local-first` | AI routing precedence (`local-first` · `cloud-first` · `local-only`).           |
 | `ECO_PAGE_CACHE`             | `on`          | In-memory static-page HTML cache (skips re-render for request-invariant pages). |
@@ -727,13 +732,18 @@ For bug reports and feature requests, see [Contributing](#contributing) above.
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **June 17, 2030**. Commercial hosting licenses:
-license@sovrium.com.
+**Apache 2.0** on **July 12, 2030**. A move to **full open source sooner** is
+under active evaluation. Commercial hosting licenses: license@sovrium.com.
+
+The **engine is free forever** in self-hosted mode (no license keys, no feature
+gating). What's paid is the companionship around it — **Sovrium Cloud** (managed
+hosting + a hosted visual/AI config editor), **Sovrium Partner** (implementation
+& migration), and **Sovrium Academy** (training) — never sovereignty itself.
 
 ---
 
 <p align="center">
-  <strong>Own your data. Own your tools. Own your future.</strong>
+  <strong>One Config. Complete App. Full Control.</strong>
 </p>
 
 <p align="center">

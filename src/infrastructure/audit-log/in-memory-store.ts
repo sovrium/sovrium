@@ -9,6 +9,7 @@
 export interface AuditListFilter {
   readonly actorId?: string | undefined
   readonly action?: string | undefined
+  readonly transport?: string | undefined
 }
 
 export function resetAuditEntries(): void {

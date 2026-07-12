@@ -205,6 +205,7 @@ export function useSavedViews(tableName: string): UseSavedViewsResult {
   const { data } = useSuspenseQuery<readonly SavedView[]>({
     queryKey: ['user-saved-views', tableName],
     queryFn: async () => {
+      if (!tableName) return EMPTY_VIEWS
       const response = await fetch(`/api/tables/${tableName}/user-views`, {
         credentials: 'include',
       })

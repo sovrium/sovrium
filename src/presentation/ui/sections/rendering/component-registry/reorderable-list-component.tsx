@@ -8,7 +8,7 @@
 import {
   computeReorderableHandleClasses,
   computeReorderableListClasses,
-} from '@/presentation/ui/sections/renderers/element-renderers/specialty-ssr-default-classes'
+} from '@/presentation/ui/sections/renderers/element-renderers/recipes/specialty-ssr-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 

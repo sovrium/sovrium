@@ -7,10 +7,10 @@
 
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
+  buildAiComputeTriggerStatements,
   buildSourceContentExpr,
   buildTextArrayLiteral,
   escapeSqlString,
-  resolveTriggerTiming,
 } from './ai-field-triggers'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -87,51 +87,32 @@ const buildNotifySql = (sanitized: string, fieldName: string): string =>
 
   RETURN NEW;`
 
-const buildCategorizeFunctionSql = (
-  field: AiCategorizeField,
-  sanitized: string,
-  functionName: string
-): string => {
-  const fieldName = field.name
-  const categoriesLiteral = buildTextArrayLiteral(field.categories)
-  const sourceExpr = buildSourceContentExpr(field.sourceFields)
-
-  return `CREATE OR REPLACE FUNCTION ${functionName}()
-RETURNS TRIGGER AS $$
-DECLARE
-  categories text[] := ${categoriesLiteral};
-  source_content text := ${sourceExpr};
-  chosen text := NULL;
-  lower_content text;
-  category text;
-  notify_payload text;
-BEGIN
-${buildGuardSql(fieldName)}
-
-${CATEGORY_SELECTION_SQL}
-
-${buildNotifySql(sanitized, fieldName)}
-END;
-$$ LANGUAGE plpgsql`
-}
-
 const buildCategorizeTriggerSql = (
   field: AiCategorizeField,
   sanitized: string
 ): readonly string[] => {
   const fieldName = field.name
-  const functionName = `compute_${sanitized}_${fieldName}_category`
-  const triggerName = `trigger_${sanitized}_${fieldName}_ai_categorize`
-  const triggerTiming = resolveTriggerTiming(field.computeOn)
+  const functionBody = `${buildGuardSql(fieldName)}
 
-  return [
-    buildCategorizeFunctionSql(field, sanitized, functionName),
-    `DROP TRIGGER IF EXISTS ${triggerName} ON ${sanitized}`,
-    `CREATE TRIGGER ${triggerName}
-${triggerTiming} ON ${sanitized}
-FOR EACH ROW
-EXECUTE FUNCTION ${functionName}()`,
-  ]
+${CATEGORY_SELECTION_SQL}
+
+${buildNotifySql(sanitized, fieldName)}`
+
+  return buildAiComputeTriggerStatements({
+    sanitized,
+    fieldName,
+    kindSlug: 'categorize',
+    functionNameSlug: 'category',
+    computeOn: field.computeOn,
+    functionBody,
+    sourceExpr: buildSourceContentExpr(field.sourceFields),
+    extraDeclarations: [
+      `categories text[] := ${buildTextArrayLiteral(field.categories)}`,
+      'chosen text := NULL',
+      'lower_content text',
+      'category text',
+    ],
+  })
 }
 
 export const generateAiCategorizeTriggers = (table: Table): readonly string[] => {

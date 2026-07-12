@@ -6,6 +6,7 @@
  */
 
 
+import { markdownToText } from '@/domain/services/markdown/markdown-to-text'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -60,6 +61,13 @@ function pickItemTitle(record: Readonly<Record<string, unknown>>, slugField: str
   return typeof slug === 'string' ? slug : ''
 }
 
+export interface RssFeedItem {
+  readonly title: string
+  readonly link: string
+  readonly description: string
+  readonly pubDate?: string
+}
+
 interface BuildRssFeedXmlInput {
   readonly app: App
   readonly page: Page
@@ -67,11 +75,14 @@ interface BuildRssFeedXmlInput {
   readonly baseUrl: string
 }
 
-export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
-  const { app, page, records, baseUrl } = input
-  const slugField = page.collection?.slugField ?? 'slug'
-  const limit = resolveRssLimit(page.rss)
-  const limitedRecords = records.slice(0, limit)
+interface BuildRssFeedXmlFromItemsInput {
+  readonly app: App
+  readonly baseUrl: string
+  readonly items: readonly RssFeedItem[]
+}
+
+export function buildRssFeedXmlFromItems(input: BuildRssFeedXmlFromItemsInput): string {
+  const { app, baseUrl, items } = input
 
   const channelTitle = escapeXml(app.name)
   const channelDescription = escapeXml(app.description ?? 'Application built with Sovrium')
@@ -80,11 +91,11 @@ export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
   const feedUrl = escapeXml(`${trimmedBase}/feed.xml`)
   const lastBuildDate = new Date().toUTCString()
 
-  const items = limitedRecords.map((record) => {
-    const title = escapeXml(pickItemTitle(record, slugField))
-    const description = escapeXml(pickItemDescription(record))
-    const link = escapeXml(`${trimmedBase}${expandPagePath(page, record)}`)
-    const pubDate = formatRfc822(record['published_at']) ?? lastBuildDate
+  const itemsXml = items.map((item) => {
+    const title = escapeXml(item.title)
+    const description = escapeXml(item.description)
+    const link = escapeXml(item.link)
+    const pubDate = item.pubDate ?? lastBuildDate
     return `    <item>
       <title>${title}</title>
       <link>${link}</link>
@@ -102,9 +113,105 @@ export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
     <description>${channelDescription}</description>
     <atom:link href="${feedUrl}" rel="self" type="application/rss+xml"/>
     <lastBuildDate>${lastBuildDate}</lastBuildDate>
-${items.join('\n')}
+${itemsXml.join('\n')}
   </channel>
 </rss>`
+}
+
+export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
+  const { app, page, records, baseUrl } = input
+  const slugField = page.collection?.slugField ?? 'slug'
+  const limit = resolveRssLimit(page.rss)
+  const trimmedBase = baseUrl.replace(/\/$/, '')
+
+  const items = records.slice(0, limit).map((record): RssFeedItem => {
+    const pubDate = formatRfc822(record['published_at'])
+    return {
+      title: pickItemTitle(record, slugField),
+      link: `${trimmedBase}${expandPagePath(page, record)}`,
+      description: pickItemDescription(record),
+      ...(pubDate !== undefined ? { pubDate } : {}),
+    }
+  })
+
+  return buildRssFeedXmlFromItems({ app, baseUrl, items })
+}
+
+export interface MarkdownFeedSection {
+  readonly heading: string
+  readonly body: string
+}
+
+const LEVEL2_HEADING_RE = /^##[ \t]+(.+?)[ \t]*$/
+
+interface SectionScanState {
+  readonly sections: readonly { readonly heading: string; readonly lines: readonly string[] }[]
+  readonly current: { readonly heading: string; readonly lines: readonly string[] } | undefined
+}
+
+export function parseMarkdownFeedSections(markdown: string): readonly MarkdownFeedSection[] {
+  const lines = markdown.split(/\r?\n/)
+  const finalState = lines.reduce<SectionScanState>(
+    (state, line) => {
+      const match = LEVEL2_HEADING_RE.exec(line)
+      if (match !== null) {
+        const heading = (match[1] ?? '').trim()
+        const flushed =
+          state.current !== undefined ? [...state.sections, state.current] : state.sections
+        return { sections: flushed, current: { heading, lines: [] } }
+      }
+      if (state.current === undefined) return state
+      return {
+        sections: state.sections,
+        current: { heading: state.current.heading, lines: [...state.current.lines, line] },
+      }
+    },
+    { sections: [], current: undefined }
+  )
+  const all =
+    finalState.current !== undefined
+      ? [...finalState.sections, finalState.current]
+      : finalState.sections
+  return all.map((section) => ({ heading: section.heading, body: section.lines.join('\n').trim() }))
+}
+
+function extractHeadingDatePhrase(heading: string): string | undefined {
+  const emDashIdx = heading.lastIndexOf('—')
+  if (emDashIdx >= 0) {
+    const phrase = heading.slice(emDashIdx + 1).trim()
+    return phrase.length > 0 ? phrase : undefined
+  }
+  const hyphenMatch = / - ([^-]+)$/.exec(heading)
+  if (hyphenMatch !== null) {
+    const phrase = (hyphenMatch[1] ?? '').trim()
+    return phrase.length > 0 ? phrase : undefined
+  }
+  return undefined
+}
+
+interface BuildMarkdownRssItemsInput {
+  readonly sections: readonly MarkdownFeedSection[]
+  readonly page: Page
+  readonly baseUrl: string
+  readonly limit: number
+  readonly slugify: (heading: string) => string
+}
+
+export function buildMarkdownRssItems(input: BuildMarkdownRssItemsInput): readonly RssFeedItem[] {
+  const { sections, page, baseUrl, limit, slugify } = input
+  const trimmedBase = baseUrl.replace(/\/$/, '')
+  return sections.slice(0, limit).map((section): RssFeedItem => {
+    const slug = slugify(section.heading)
+    const plainBody = markdownToText(section.body)
+    const description = plainBody.length > 280 ? `${plainBody.slice(0, 280)}...` : plainBody
+    const pubDate = formatRfc822(extractHeadingDatePhrase(section.heading))
+    return {
+      title: section.heading,
+      link: `${trimmedBase}${page.path}#${slug}`,
+      description,
+      ...(pubDate !== undefined ? { pubDate } : {}),
+    }
+  })
 }
 
 export function findRssPage(app: App): Page | undefined {

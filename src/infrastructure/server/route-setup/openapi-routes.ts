@@ -28,7 +28,7 @@ const unauthorizedResponse = (c: GuardContext) =>
 const notFoundResponse = (c: GuardContext) =>
   c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
 
-function createAdminGuard(authInstance: Readonly<ReturnType<typeof createAuthInstance>>) {
+function createAdminGuard(authInstance: Readonly<ReturnType<typeof createAuthInstance>>, app: App) {
   return async (c: GuardContext, next: () => Promise<void>) => {
     try {
       const authHeader = c.req.header('authorization')
@@ -45,9 +45,10 @@ function createAdminGuard(authInstance: Readonly<ReturnType<typeof createAuthIns
       }
 
       const { getUserRole } = await import('@/application/use-cases/tables/user-role')
+      const { isAdminTier } = await import('@/domain/models/app')
       const role = await getUserRole(sessionResult.session.userId)
 
-      if (role !== 'admin') {
+      if (!isAdminTier(role, app)) {
         return notFoundResponse(c)
       }
 
@@ -65,7 +66,7 @@ export function setupOpenApiRoutes(honoApp: Readonly<Hono>, app?: App): Readonly
   }
 
   const authInstance = createAuthInstance(app.auth)
-  const adminGuard = createAdminGuard(authInstance)
+  const adminGuard = createAdminGuard(authInstance, app)
 
   return honoApp
     .use('/api/openapi.json', adminGuard)

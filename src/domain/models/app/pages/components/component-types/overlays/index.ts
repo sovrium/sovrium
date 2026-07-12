@@ -8,6 +8,11 @@
 export { AlertDialogTypeLiteral, alertDialogFields } from './alert-dialog'
 export { DialogTypeLiteral, dialogFields } from './dialog'
 export { DrawerTypeLiteral, drawerFields } from './drawer'
+export {
+  RecordDrawerTypeLiteral,
+  RecordDrawerFieldSchema,
+  recordDrawerFields,
+} from './record-drawer'
 export { PopoverTypeLiteral, popoverFields } from './popover'
 export { TooltipTypeLiteral, tooltipFields } from './tooltip'
 export { HoverCardTypeLiteral, hoverCardFields } from './hover-card'

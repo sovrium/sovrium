@@ -20,7 +20,11 @@ const DISABLED_INLINE = 'data-[disabled]:cursor-not-allowed data-[disabled]:opac
 
 const TABS_LIST_LAYOUT = 'flex'
 
-const TABS_LIST_BORDER_HORIZONTAL = ['border-b', `border-[${v('sv-border', T.border)}]`].join(' ')
+const TABS_LIST_BORDER_HORIZONTAL = [
+  'overflow-x-auto',
+  'border-b',
+  `border-[${v('sv-border', T.border)}]`,
+].join(' ')
 
 const TABS_LIST_BORDER_VERTICAL = [
   'flex-col border-r',

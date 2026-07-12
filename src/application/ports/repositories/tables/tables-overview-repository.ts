@@ -26,5 +26,16 @@ export class TablesOverviewRepository extends Context.Tag('TablesOverviewReposit
     readonly aggregateTables: (
       tableNames: ReadonlyArray<string>
     ) => Effect.Effect<ReadonlyArray<TableAggregateRow>, TablesOverviewError>
+
+    readonly countWritesPerTable: (
+      tableNames: ReadonlyArray<string>,
+      windowStart: Readonly<Date>,
+      windowEnd: Readonly<Date>
+    ) => Effect.Effect<ReadonlyArray<number>, TablesOverviewError>
+
+    readonly countWritesPerBucket: (
+      tableNames: ReadonlyArray<string>,
+      buckets: ReadonlyArray<{ readonly start: Readonly<Date>; readonly end: Readonly<Date> }>
+    ) => Effect.Effect<ReadonlyArray<number>, TablesOverviewError>
   }
 >() {}

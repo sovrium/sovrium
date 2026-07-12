@@ -9,7 +9,7 @@ import {
   computeDataTableHeaderClasses,
   computeDataTableShellClasses,
   computeKanbanColumnClasses,
-} from '../../renderers/element-renderers/data-default-classes'
+} from '../../renderers/element-renderers/recipes/data-default-classes'
 import { renderComponentSearchBar } from './component-search-bar'
 import { islandCalendarComponent } from './island-calendar-component'
 import { islandChartComponent } from './island-chart-component'
@@ -19,6 +19,8 @@ import type { Component } from '@/domain/models/app/pages/components'
 
 function extractDataTableProps(elementProps: Record<string, unknown>): Record<string, unknown> {
   return {
+    ariaLabel: elementProps['aria-label'],
+    searchSourceId: elementProps.id,
     dataSource: elementProps.dataSource,
     columns: elementProps.columns,
     pagination: elementProps.pagination,
@@ -28,6 +30,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     striped: elementProps.striped,
     bordered: elementProps.bordered,
     emptyMessage: elementProps.emptyMessage,
+    noMatchMessage: elementProps.noMatchMessage,
     showRowNumbers: elementProps.showRowNumbers,
     rowHeight: elementProps.rowHeight,
     bulkActions: elementProps.bulkActions,
@@ -36,6 +39,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     fieldMeta: elementProps.fieldMeta,
     tablePermissions: elementProps.tablePermissions,
     tableViews: elementProps.tableViews,
+    canCreate: elementProps.canCreate,
     groupBy: elementProps.groupBy,
     summary: elementProps.summary,
     onRowClick: elementProps.onRowClick,

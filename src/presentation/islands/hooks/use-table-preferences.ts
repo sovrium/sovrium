@@ -91,6 +91,7 @@ function usePreferencesQuery(tableName: string) {
   return useSuspenseQuery<UserTablePreferences>({
     queryKey: queryKeyFor(tableName),
     queryFn: async () => {
+      if (!tableName) return EMPTY_PREFS
       const response = await fetch(`/api/tables/${tableName}/user-preferences`, {
         credentials: 'include',
       })

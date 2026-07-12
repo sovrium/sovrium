@@ -56,7 +56,6 @@ import { applyBootstrapTokenToSummary } from '@/infrastructure/server/bootstrap-
 import {
   computeConfigHash,
   getLockFilePath,
-  getReloadMessageFilePath,
   writeLockFile as writeLockFileToDisk,
 } from '@/infrastructure/server/lock-file'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
@@ -67,16 +66,13 @@ import {
   setupAuthRoutes,
 } from '@/infrastructure/server/route-setup/auth-routes'
 import { setupBootstrapRoutes } from '@/infrastructure/server/route-setup/bootstrap-routes'
-import { appendReloadVersionIfChanged } from '@/infrastructure/server/route-setup/config-file-seeder'
 import { setupDevReloadRoute } from '@/infrastructure/server/route-setup/dev-reload-routes'
-import { composeConfigHeader } from '@/infrastructure/server/route-setup/drift-posture'
 import { setupMcpRoutes } from '@/infrastructure/server/route-setup/mcp/routes'
 import { setupOpenApiRoutes } from '@/infrastructure/server/route-setup/openapi-routes'
 import {
   setupPageRoutes,
   type HonoAppConfig,
 } from '@/infrastructure/server/route-setup/page-routes'
-import { setupSchemaRoutes } from '@/infrastructure/server/route-setup/schema-routes'
 import { setupSeoRoutes } from '@/infrastructure/server/route-setup/seo-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
 import {
@@ -172,7 +168,7 @@ export async function createHonoApp(
   if (currentConfigHash) {
     honoApp.use('*', async (c, next) => {
       await next()
-      c.header('X-Sovrium-Config', await composeConfigHeader(currentConfigHash))
+      c.header('X-Sovrium-Config', currentConfigHash)
     })
   }
 
@@ -198,7 +194,6 @@ export async function createHonoApp(
 
   const honoWithLogger = honoApp.use('*', requestLogger)
   const honoWithBootstrap = setupBootstrapRoutes(honoWithLogger, app)
-  const honoWithSchema = setupSchemaRoutes(honoWithBootstrap as Hono, app)
 
   const honoWithRoutes = setupPageRoutes(
     setupDevReloadRoute(
@@ -207,7 +202,7 @@ export async function createHonoApp(
           setupMcpRoutes(
             setupAuthRoutes(
               setupAuthMiddleware(
-                setupOpenApiRoutes(createApiRoutes(app, honoWithSchema as Hono), app),
+                setupOpenApiRoutes(createApiRoutes(app, honoWithBootstrap as Hono), app),
                 app
               ),
               app,
@@ -465,36 +460,7 @@ const registerLockFileCleanup = (honoApp: Readonly<Hono>, configPath: string): v
       if (setter) setter(newHash)
     } catch {
     }
-    const reloadMessage = ((): string | undefined => {
-      try {
-        const value = readFileSync(getReloadMessageFilePath(), 'utf-8')
-        rmSync(getReloadMessageFilePath(), { force: true })
-        return value
-      } catch {
-        return undefined
-      }
-    })()
-
-    appendReloadFromFile(configPath, reloadMessage)
   })
-}
-
-const appendReloadFromFile = async (
-  configPath: string,
-  message: string | undefined
-): Promise<void> => {
-  try {
-    const { loadSchemaFromFile } = await import('@/infrastructure/schema/file-loader')
-    const { Schema: S } = await import('effect')
-    const { AppSchema } = await import('@/domain/models/app')
-    const parsed = await loadSchemaFromFile(configPath)
-    const decoded = S.decodeUnknownSync(AppSchema)(parsed) as {
-      readonly name: string
-      readonly [key: string]: unknown
-    }
-    await appendReloadVersionIfChanged(decoded, message)
-  } catch {
-  }
 }
 
 const renderStartup = (

@@ -11,10 +11,16 @@ import { parseTsv, type ParsedTsv } from './parse-tsv'
 interface UsePasteListenerParams {
   readonly containerRef: React.RefObject<HTMLDivElement | null>
   readonly onPasteDetected: (parsed: ParsedTsv) => void
+  readonly enabled?: boolean
 }
 
-export function usePasteListener({ containerRef, onPasteDetected }: UsePasteListenerParams): void {
+export function usePasteListener({
+  containerRef,
+  onPasteDetected,
+  enabled = true,
+}: UsePasteListenerParams): void {
   useLayoutEffect(() => {
+    if (!enabled) return undefined
     const container = containerRef.current
     if (!container) return undefined
 
@@ -45,5 +51,5 @@ export function usePasteListener({ containerRef, onPasteDetected }: UsePasteList
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [containerRef, onPasteDetected])
+  }, [containerRef, onPasteDetected, enabled])
 }

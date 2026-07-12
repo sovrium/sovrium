@@ -150,6 +150,19 @@ const LAYOUT_UTILITY_SAFELIST = [
   'gap-5',
   'gap-6',
   'gap-8',
+  'hidden',
+  'md:flex',
+  'md:hidden',
+  'md:block',
+  'overflow-x-auto',
+  'fixed',
+  'inset-0',
+  'inset-y-0',
+  'left-0',
+  'z-30',
+  'z-40',
+  'shadow-xl',
+  'bg-scrim/50',
 ].join(' ')
 
 const ARBITRARY_VAR_CLASS_SAFELIST = generateArbitraryVarSafelist().join(' ')

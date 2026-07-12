@@ -9,9 +9,11 @@
 import { Effect } from 'effect'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import { BuildUsersDirectory } from '@/application/use-cases/admin/users-directory'
 import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { usersOverviewQuerySchema } from '@/domain/models/api/admin/users'
+import { provideUsersDirectoryLive } from '@/presentation/api/routes/admin/users-directory/effect-runner'
 import { provideUsersOverviewLive } from '@/presentation/api/routes/admin/users-overview/effect-runner'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
@@ -53,7 +55,25 @@ async function handleUsersOverview(c: Context): Promise<Response> {
 }
 
 
+async function handleUsersDirectory(c: Context): Promise<Response> {
+  const outcome = await Effect.runPromise(BuildUsersDirectory().pipe(provideUsersDirectoryLive))
+
+  if (outcome._tag === 'ValidationFailed') {
+    console.error('[admin] users directory response validation failed', outcome.error)
+    return c.json(
+      { success: false, message: 'Failed to build users directory', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  c.header('Cache-Control', 'no-store')
+  return c.json(outcome.body, 200)
+}
+
+
 export function chainAdminUsersRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp.get('/api/admin/users/overview', handleUsersOverview) as T
+  return honoApp
+    .get('/api/admin/users/overview', handleUsersOverview)
+    .get('/api/admin/users', handleUsersDirectory) as T
 }
 

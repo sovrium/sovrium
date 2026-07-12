@@ -17,6 +17,7 @@ interface UsePasteImportParams {
   readonly tableFields: readonly string[]
   readonly fieldMeta?: FieldMetaMap
   readonly onImported?: () => void
+  readonly enabled?: boolean
 }
 
 export function usePasteImport({
@@ -25,9 +26,10 @@ export function usePasteImport({
   tableFields,
   fieldMeta,
   onImported,
+  enabled = true,
 }: UsePasteImportParams) {
   const state = usePasteState({ tableName, tableFields, fieldMeta, onImported })
-  usePasteListener({ containerRef, onPasteDetected: state.openWith })
+  usePasteListener({ containerRef, onPasteDetected: state.openWith, enabled })
 
   const dialog = state.parsed ? (
     <PastePreviewDialog

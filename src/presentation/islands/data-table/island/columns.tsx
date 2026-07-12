@@ -10,6 +10,7 @@ import {
   autoGenerateColumns,
   autoGenerateColumnsFromFields,
   mapColumnsToColumnDefs,
+  resolvePageLocale,
   type RowActionHandler,
 } from '../formatting'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
@@ -70,9 +71,18 @@ export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecor
     autoColumnsEditable,
   } = options
 
+  const locale = resolvePageLocale()
+
   const baseColumns: ColumnDef<TableRecord>[] =
     columnConfig && columnConfig.length > 0
-      ? [...mapColumnsToColumnDefs(columnConfig, groupByField, onActionClick, fieldMeta)]
+      ? [
+          ...mapColumnsToColumnDefs(columnConfig, {
+            locale,
+            groupByField,
+            onActionClick,
+            fieldMeta,
+          }),
+        ]
       : tableFields && tableFields.length > 0
         ? [
             ...autoGenerateColumnsFromFields(

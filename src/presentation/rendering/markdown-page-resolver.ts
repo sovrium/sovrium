@@ -13,12 +13,14 @@ import {
   type MarkdownHeading,
   type RenderedMarkdown,
 } from '@/domain/services/markdown/markdown-renderer'
+import { buildContentDirEditUrl } from '@/domain/utils/content-dir/content-dir-edit-url'
 import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
 import {
   buildContentDirSeoMeta,
   resolvePagePath,
   type ContentDirSeoMeta,
 } from '@/domain/utils/content-dir/content-dir-seo-meta'
+import { deriveContentDirSlugFromRouteParams } from '@/domain/utils/content-dir/content-dir-slug'
 import {
   buildContentDirStructuredData,
   parseStructuredDataConfig,
@@ -44,6 +46,9 @@ export interface ResolvedMarkdownPage {
   readonly frontmatter: Readonly<Record<string, string>>
   readonly collectionNav?: CollectionNavData
   readonly seo?: ContentDirSeoMeta
+  readonly lastUpdated?: string
+  readonly editUrl?: string
+  readonly lang?: string
 }
 
 const DEFAULT_LAYOUT = 'prose' as const
@@ -96,24 +101,6 @@ const buildToc = (
 
 const isMarkdownFile = (path: string): boolean => path.toLowerCase().endsWith('.md')
 
-const stripLeadingSlash = (value: string): string =>
-  value.startsWith('/') ? value.slice(1) : value
-
-const deriveContentDirSlug = (
-  contentDir: ContentDir,
-  routeParams: Readonly<Record<string, string>>
-): string | undefined => {
-  const values = Object.entries(routeParams)
-    .filter(([key, v]) => key !== 'lang' && typeof v === 'string' && v.length > 0)
-    .map(([, v]) => v)
-  if (values.length === 0) return undefined
-  if (contentDir.slugFrom === 'filepath') {
-    return stripLeadingSlash(values.join('/'))
-  }
-  const first = values[0]
-  return first === undefined ? undefined : stripLeadingSlash(first)
-}
-
 const hasContentDirFilter = (contentDir: ContentDir): boolean =>
   contentDir.filter !== undefined && Object.keys(contentDir.filter).length > 0
 
@@ -130,7 +117,7 @@ const loadContentDirSource = async (
   const { contentDir } = page
   if (contentDir === undefined) return { kind: 'no-source' }
 
-  const slug = deriveContentDirSlug(contentDir, routeParams)
+  const slug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
   const filterActive = hasContentDirFilter(contentDir)
 
   if (slug === undefined) {
@@ -207,9 +194,97 @@ const buildCollectionNav = async (
   const { contentDir } = page
   if (contentDir === undefined) return undefined
   if (contentDir.nav?.enabled !== true) return undefined
-  const currentSlug = deriveContentDirSlug(contentDir, routeParams)
+  const currentSlug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
   return listContentDir(contentDir, page.path, currentSlug)
 }
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+
+const formatHumanDate = (input: string | Date): string | undefined => {
+  const date = typeof input === 'string' ? new Date(input) : input
+  if (Number.isNaN(date.getTime())) return undefined
+  const month = MONTH_NAMES[date.getUTCMonth()]
+  if (month === undefined) return undefined
+  return `${month} ${date.getUTCDate()}, ${date.getUTCFullYear()}`
+}
+
+const statMtime = async (path: string): Promise<Date | undefined> => {
+  try {
+    const absolutePath = isAbsolute(path) ? path : resolve(getContentBaseDir(), path)
+    const stats = await stat(absolutePath)
+    return stats.mtime
+  } catch {
+    return undefined
+  }
+}
+
+const resolveContentFilePath = (
+  page: Page,
+  routeParams: Readonly<Record<string, string>>
+): string | undefined => {
+  const { contentDir } = page
+  if (contentDir !== undefined) {
+    const slug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
+    if (slug === undefined) return undefined
+    const directory = contentDir.directory.replace(/\/+$/, '')
+    return `${directory}/${slug}.md`
+  }
+  if (typeof page.markdown?.file === 'string') return page.markdown.file
+  return derivePageSourceFile(page)
+}
+
+const resolveLastUpdated = async (
+  page: Page,
+  routeParams: Readonly<Record<string, string>>,
+  frontmatter: Readonly<Record<string, string>>,
+  layout: ResolvedMarkdownPage['layout']
+): Promise<string | undefined> => {
+  if (layout !== 'docs') return undefined
+  const frontmatterDate = frontmatter['updated'] ?? frontmatter['date']
+  if (typeof frontmatterDate === 'string' && frontmatterDate.trim().length > 0) {
+    return formatHumanDate(frontmatterDate.trim())
+  }
+  const filePath = resolveContentFilePath(page, routeParams)
+  if (filePath === undefined) return undefined
+  const mtime = await statMtime(filePath)
+  return mtime === undefined ? undefined : formatHumanDate(mtime)
+}
+
+const resolveEditUrl = (
+  page: Page,
+  routeParams: Readonly<Record<string, string>>,
+  currentLang: string | undefined
+): string | undefined => {
+  const { contentDir } = page
+  if (contentDir?.editUrl === undefined) return undefined
+  const slug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
+  if (slug === undefined) return undefined
+  return buildContentDirEditUrl({ template: contentDir.editUrl, slug, lang: currentLang })
+}
+
+const buildChromeFields = (
+  editUrl: string | undefined,
+  currentLang: string | undefined
+): Pick<ResolvedMarkdownPage, 'editUrl' | 'lang'> => ({
+  ...(editUrl !== undefined && { editUrl }),
+  ...(currentLang !== undefined && { lang: currentLang }),
+})
+
+const isNonRenderableOutcome = (outcome: ContentDirOutcome): boolean =>
+  outcome.kind === 'excluded' || outcome.kind === 'not-found'
 
 export const resolveMarkdownPage = async (
   page: Page,
@@ -219,7 +294,7 @@ export const resolveMarkdownPage = async (
 ): Promise<ResolvedMarkdownPage | undefined> => {
   const pageSourceFile = derivePageSourceFile(page)
   const contentDirOutcome = await loadContentDirSource(page, routeParams)
-  if (contentDirOutcome.kind === 'excluded' || contentDirOutcome.kind === 'not-found') {
+  if (isNonRenderableOutcome(contentDirOutcome)) {
     return undefined
   }
   if (hasNoMarkdownTrigger(contentDirOutcome, page, pageSourceFile)) return undefined
@@ -232,6 +307,8 @@ export const resolveMarkdownPage = async (
   const layout = markdown.layout ?? DEFAULT_LAYOUT
   const collectionNav = await buildCollectionNav(page, routeParams)
   const seo = buildContentDirSeo(page, routeParams, rendered.frontmatter, app)
+  const lastUpdated = await resolveLastUpdated(page, routeParams, rendered.frontmatter, layout)
+  const editUrl = resolveEditUrl(page, routeParams, currentLang)
   return {
     html: composedHtml,
     layout,
@@ -242,6 +319,8 @@ export const resolveMarkdownPage = async (
     frontmatter: rendered.frontmatter,
     ...(collectionNav !== undefined && { collectionNav }),
     ...(seo !== undefined && { seo }),
+    ...(lastUpdated !== undefined && { lastUpdated }),
+    ...buildChromeFields(editUrl, currentLang),
   }
 }
 

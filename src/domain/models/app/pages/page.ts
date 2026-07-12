@@ -9,6 +9,7 @@ import { Schema } from 'effect'
 import { PageAccessSchema } from './access'
 import { PageComponentsSchema } from './components'
 import { DataFilterSchema } from './components/data-source'
+import { SystemDetailSourceSchema } from './components/system-detail-source'
 import { ContentDirSchema } from './content-dir'
 import { DataSourceSchema } from './data-source'
 import { PageIdSchema } from './id'
@@ -107,7 +108,22 @@ export const PageSchema = Schema.Struct({
     )
   ),
 
-  dataSource: Schema.optional(DataSourceSchema),
+  dataSource: Schema.optional(
+    Schema.Union(
+      DataSourceSchema,
+      Schema.Struct({
+        system: SystemDetailSourceSchema,
+      }).annotations({
+        title: 'Page System Detail Source',
+        description: 'System detail-endpoint binding for a page-level single-record context',
+      })
+    ).annotations({
+      identifier: 'PageDataSourceBinding',
+      title: 'Page Data Source',
+      description:
+        'DB-table single-record binding (DataSource) OR a system detail-endpoint binding',
+    })
+  ),
 
   allowedTables: Schema.optional(
     Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(

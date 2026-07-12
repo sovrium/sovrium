@@ -9,6 +9,10 @@ import { useRef, type ChangeEventHandler, type ReactElement, type Ref } from 're
 import { cn } from '@/presentation/islands/lib/cn'
 import { FileNameList } from './file-name-list'
 import { useFileUploadState } from './use-file-upload-state'
+import type {
+  FetchSuccessResponse,
+  FetchToastResponse,
+} from '@/domain/models/app/pages/components/action'
 
 interface FileUploadIslandProps {
   readonly accept?: string
@@ -18,6 +22,9 @@ interface FileUploadIslandProps {
   readonly disabled?: boolean
   readonly label?: string
   readonly id?: string
+  readonly uploadAction?: string
+  readonly onSuccess?: FetchSuccessResponse
+  readonly onError?: FetchToastResponse
 }
 
 interface UploadLabelProps {
@@ -80,6 +87,29 @@ function UploadLabel({ inputId, dropZone, disabled, buttonText }: UploadLabelPro
   )
 }
 
+interface FileUploadFeedbackProps {
+  readonly error: string | undefined
+  readonly fileNames: readonly string[]
+}
+
+function FileUploadFeedback({
+  error,
+  fileNames,
+}: FileUploadFeedbackProps): ReactElement | undefined {
+  if (error) {
+    return (
+      <p
+        role="alert"
+        className="text-destructive text-sm"
+      >
+        {error}
+      </p>
+    )
+  }
+  if (fileNames.length > 0) return <FileNameList fileNames={fileNames} />
+  return undefined
+}
+
 export default function FileUploadIsland({
   accept,
   maxFiles,
@@ -88,12 +118,22 @@ export default function FileUploadIsland({
   disabled = false,
   label,
   id,
+  uploadAction,
+  onSuccess,
+  onError,
 }: FileUploadIslandProps): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null)
-  const { error, fileNames, handleChange } = useFileUploadState({ maxFiles, maxFileSize })
+  const { error, fileNames, submitting, handleChange } = useFileUploadState({
+    maxFiles,
+    maxFileSize,
+    uploadAction,
+    onSuccess,
+    onError,
+  })
   const allowMultiple = typeof maxFiles === 'number' ? maxFiles > 1 : false
   const inputId = id ? `${id}-input` : undefined
   const buttonText = label ?? 'Upload file'
+  const controlsDisabled = disabled || submitting
 
   return (
     <div
@@ -105,7 +145,7 @@ export default function FileUploadIsland({
       <UploadLabel
         inputId={inputId}
         dropZone={dropZone}
-        disabled={disabled}
+        disabled={controlsDisabled}
         buttonText={buttonText}
       />
       <UploadInput
@@ -113,19 +153,14 @@ export default function FileUploadIsland({
         inputId={inputId}
         accept={accept}
         allowMultiple={allowMultiple}
-        disabled={disabled}
+        disabled={controlsDisabled}
         buttonText={buttonText}
         onChange={handleChange}
       />
-      {error && (
-        <p
-          role="alert"
-          className="text-destructive text-sm"
-        >
-          {error}
-        </p>
-      )}
-      {fileNames.length > 0 && !error && <FileNameList fileNames={fileNames} />}
+      <FileUploadFeedback
+        error={error}
+        fileNames={fileNames}
+      />
     </div>
   )
 }

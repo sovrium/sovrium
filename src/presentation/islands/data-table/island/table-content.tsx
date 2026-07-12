@@ -17,6 +17,8 @@ import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 
 interface TableContentProps {
   readonly table: ReturnType<typeof useReactTable<TableRecord>>
+  readonly ariaLabel?: string
+  readonly useGridRole?: boolean
   readonly records: readonly TableRecord[]
   readonly allColumns: readonly ColumnDef<TableRecord>[]
   readonly isLoading: boolean
@@ -25,6 +27,8 @@ interface TableContentProps {
   readonly cellClass: string
   readonly borderClass: string
   readonly emptyMessage: string
+  readonly noMatchMessage?: string
+  readonly globalFilter?: string
   readonly selectionMode?: 'none' | 'single' | 'multiple'
   readonly groupByConfig?: DataTableGroupBy
   readonly summaryConfig?: readonly DataTableSummaryItem[]
@@ -41,12 +45,23 @@ interface TableContentProps {
   readonly onToggleGroupCollapsed?: (groupValue: string) => void
 }
 
+function resolveTableAria(
+  ariaLabel: string | undefined,
+  useGridRole: boolean | undefined
+): { readonly hasAriaLabel: boolean; readonly gridRole: boolean } {
+  const hasAriaLabel = ariaLabel !== undefined && ariaLabel.length > 0
+  return { hasAriaLabel, gridRole: hasAriaLabel && useGridRole !== false }
+}
+
 export function TableContent(props: TableContentProps) {
   const { table, records, striped, currentRowHeight, cellClass, groupByConfig, summaryConfig } =
     props
+  const { hasAriaLabel, gridRole } = resolveTableAria(props.ariaLabel, props.useGridRole)
   return (
     <div className="overflow-x-auto">
       <table
+        {...(gridRole && { role: 'grid' })}
+        {...(hasAriaLabel && { 'aria-label': props.ariaLabel })}
         className="divide-border min-w-full divide-y"
         data-striped={String(striped)}
         data-row-height={currentRowHeight}
@@ -61,7 +76,11 @@ export function TableContent(props: TableContentProps) {
           borderClass={props.borderClass}
           striped={striped}
           emptyMessage={props.emptyMessage}
+          {...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage })}
+          globalFilter={props.globalFilter}
+          hasRecords={records.length > 0}
           selectionMode={props.selectionMode}
+          gridRole={gridRole}
           rowModel={groupByConfig ? table.getExpandedRowModel() : undefined}
           editingCell={props.editingCell}
           fieldMeta={props.fieldMeta}

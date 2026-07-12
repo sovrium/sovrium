@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/tables/permissions'
 
@@ -83,6 +84,8 @@ export function filterReadableFields<T extends Record<string, unknown>>(
 
   const table = app.tables?.find((t) => t.name === tableName)
 
+  const isUnrestricted = isAdminEquivalent(userRole, app)
+
   if (!table?.permissions?.fields) {
     return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
       if (isSystemField(fieldName)) {
@@ -108,7 +111,7 @@ export function filterReadableFields<T extends Record<string, unknown>>(
       return { ...acc, [fieldName]: record[fieldName] }
     }
 
-    if (hasFieldReadPermission(fieldPermission.read, userRole)) {
+    if (isUnrestricted || hasFieldReadPermission(fieldPermission.read, userRole)) {
       return { ...acc, [fieldName]: record[fieldName] }
     }
 

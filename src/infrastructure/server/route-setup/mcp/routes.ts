@@ -42,12 +42,6 @@ import {
   recordMcpRequest,
   type McpRateLimitConfig,
 } from '@/infrastructure/server/route-setup/mcp/rate-limit'
-import { handleSchemaToolCall } from '@/infrastructure/server/route-setup/mcp/schema-tool-call'
-import {
-  compileSchemaTools,
-  isSchemaEditEnabled,
-  isSchemaTool,
-} from '@/infrastructure/server/route-setup/mcp/schema-tools'
 import { handleToolsCall } from '@/infrastructure/server/route-setup/mcp/tool-call'
 import {
   compileMcpTools,
@@ -74,8 +68,7 @@ export function setupMcpRoutes(
     appName: app.name,
     exposeInternals: config.exposeInternals,
   })
-  const schemaTools = compileSchemaTools(app.name, isSchemaEditEnabled(env))
-  const tools = [...userTools, ...internalTools, ...schemaTools]
+  const tools = [...userTools, ...internalTools]
   const serverInfo = {
     name: `sovrium-${app.name}`,
     version: app.version ?? '0.0.0',
@@ -252,16 +245,6 @@ interface DispatchToolsCallInput {
 const dispatchToolsCall = (input: DispatchToolsCallInput): Response | Promise<Response> => {
   const { c, params, responseId, dispatch, caller } = input
   const parsed = parseToolsCallParams(params)
-  if (isSchemaTool(dispatch.app.name, parsed.toolName)) {
-    return handleSchemaToolCall({
-      c,
-      caller,
-      responseId,
-      appName: dispatch.app.name,
-      toolName: parsed.toolName,
-      args: parsed.args,
-    })
-  }
   if (isInternalAuditListTool(parsed.toolName, dispatch.app.name)) {
     return handleAuditListCall({ c, caller, responseId, args: parsed.args })
   }

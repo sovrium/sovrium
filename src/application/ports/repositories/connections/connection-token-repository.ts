@@ -58,6 +58,9 @@ export class ConnectionTokenRepository extends Context.Tag('ConnectionTokenRepos
       readonly connectionId: string
       readonly userId: string
     }) => Effect.Effect<boolean, ConnectionTokenDatabaseError>
+    readonly deleteForConnection: (
+      connectionId: string
+    ) => Effect.Effect<number, ConnectionTokenDatabaseError>
     readonly countForConnection: (
       connectionId: string
     ) => Effect.Effect<number, ConnectionTokenDatabaseError>

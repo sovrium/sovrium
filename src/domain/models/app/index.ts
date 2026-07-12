@@ -29,6 +29,8 @@ import { PagesSchema } from './pages'
 import { PaletteSchema } from './palette'
 import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
 import { AppScriptsSchema } from './scripts'
+import { validateAllSystemSourceReferences } from './system-source-validation'
+import { SystemSourceCatalogSchema } from './systemSources'
 import { validateAllTablePermissionGroups } from './table-permission-validation'
 import { TablesSchema } from './tables'
 import { ThemeSchema } from './theme'
@@ -74,6 +76,8 @@ export const AppSchema = Schema.Struct({
   llms: Schema.optional(LlmsSchema),
 
   palette: Schema.optional(PaletteSchema),
+
+  systemSources: Schema.optional(SystemSourceCatalogSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'App',
@@ -461,6 +465,8 @@ export const AppSchema = Schema.Struct({
     if (knowledgeError !== true) return knowledgeError
     const pageAccessError = validateAllPageAccessGroups(app)
     if (pageAccessError !== true) return pageAccessError
+    const systemSourceError = validateAllSystemSourceReferences(app)
+    if (systemSourceError !== true) return systemSourceError
     return validateAllTablePermissionGroups(app)
   })
 )
@@ -486,6 +492,7 @@ export * from './pages'
 export * from './palette'
 export * from './requires-email'
 export * from '@/domain/models/shared'
+export * from './systemSources'
 export * from './tables'
 export * from './theme'
 export * from './version'

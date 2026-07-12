@@ -6,6 +6,7 @@
  */
 
 
+import { isComponentHiddenForSession } from '@/presentation/rendering/visibility-filter'
 import { renderEmbeddedFormBody } from './form-renderer'
 import {
   isInlinePrefill,
@@ -15,6 +16,7 @@ import {
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { SessionInfo } from '@/domain/types/session-info'
 
 interface FormRefComponent {
   readonly formRef: string
@@ -62,6 +64,12 @@ function buildWrapperProps(
 
 export interface FormRefExpansionContext {
   readonly parentRecord?: Readonly<Record<string, unknown>>
+  readonly session?: SessionInfo | undefined
+}
+
+function isFormRefEmbedding(component: Component): boolean {
+  if (component.type !== 'form' && component.type !== 'dialog') return false
+  return typeof (component as { readonly formRef?: unknown }).formRef === 'string'
 }
 
 function expandFormRefComponent(
@@ -94,9 +102,13 @@ export function expandFormRefs(
   ctx: FormRefExpansionContext = {}
 ): Page['components'] {
   if (!components) return components
-  return components.map((item) => {
-    if ('component' in item || '$ref' in item) return item
-    return expandDialogFormRef(expandFormRefComponent(item as Component, app, ctx), app, ctx)
+  return components.flatMap((item) => {
+    if ('component' in item || '$ref' in item) return [item]
+    const component = item as Component
+    if (isFormRefEmbedding(component) && isComponentHiddenForSession(component, ctx.session)) {
+      return []
+    }
+    return [expandDialogFormRef(expandFormRefComponent(component, app, ctx), app, ctx)]
   })
 }
 

@@ -8,3 +8,4 @@
 export * from './shared/validation'
 export * from './crud/crud'
 export * from './batch/batch'
+export { linkManyToMany, readManyToMany } from './mutation-helpers/many-to-many-helpers'

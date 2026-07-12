@@ -42,6 +42,7 @@ import {
   createHandleSignedServe,
   createHandleSignedUpload,
 } from '@/presentation/api/routes/buckets/signed-urls'
+import { buildUploadStorageKey } from '@/presentation/api/routes/buckets/upload-key'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
 import type { App } from '@/domain/models/app'
@@ -354,7 +355,7 @@ async function persistUpload(c: Context, file: File, explicitPath?: string): Pro
   const arrayBuffer = await file.arrayBuffer()
   const content = new Uint8Array(arrayBuffer)
   const mimeType = file.type || 'application/octet-stream'
-  const key = explicitPath ?? `${crypto.randomUUID()}-${file.name}`
+  const key = explicitPath ?? buildUploadStorageKey(file.name)
 
   const quotaResponse = await checkStorageQuota(c, content.length)
   if (quotaResponse) return quotaResponse

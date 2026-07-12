@@ -301,7 +301,7 @@ export const ToastActionSchema = Schema.Struct({
   description: 'Pure notification action — shows a transient toast with no side-effect',
 })
 
-const FetchToastResponseSchema = Schema.Struct({
+export const FetchToastResponseSchema = Schema.Struct({
   type: Schema.Literal('toast'),
   message: Schema.String.annotations({
     description: 'Toast notification message. Supports $variable references.',
@@ -338,11 +338,70 @@ const FetchToastResponseSchema = Schema.Struct({
   description: 'Toast notification rendered after a fetch action completes',
 })
 
+const FetchSuccessStatusSchema = Schema.Struct({
+  target: Schema.String.annotations({
+    description:
+      'props.id of the sibling element the status message is written into (promoted to role=status).',
+    examples: ['export-status', 'save-indicator'],
+  }),
+  message: Schema.String.annotations({
+    description:
+      'Persistent status message written into the target region. Supports $variable references.',
+    examples: ['Export généré', 'Saved'],
+  }),
+}).annotations({
+  title: 'Fetch Success Status',
+  description:
+    'A persistent inline role="status" region populated on success (the persistent counterpart to a transient toast).',
+})
+
+const FetchSuccessRefetchSchema = Schema.Union(
+  Schema.String,
+  Schema.Array(Schema.String).pipe(Schema.minItems(1))
+).annotations({
+  title: 'Fetch Success Refetch',
+  description:
+    'props.id (or array of ids) of sibling data-bound component(s) to re-query on success. Works for both a DB-table dataSource and a dataSource.system read endpoint.',
+})
+
+export const FetchSuccessResponseSchema = Schema.Struct({
+  ...FetchToastResponseSchema.fields,
+  status: Schema.optional(FetchSuccessStatusSchema),
+  refetch: Schema.optional(FetchSuccessRefetchSchema),
+}).annotations({
+  title: 'Fetch Success Response',
+  description:
+    'Success handler for a fetch action: the toast slot plus optional client-state effects — a persistent inline status region (status) and a sibling data-bound refetch (refetch).',
+})
+
+export const FetchActionModeSchema = Schema.Literal(
+  'fetch',
+  'navigate',
+  'download',
+  'oauth'
+).annotations({
+  title: 'Fetch Action Mode',
+  description:
+    'Dispatch mode: fetch (default, client fetch + toast), navigate (browser navigation, e.g. ?format=csv export), download (native file download), oauth (authorize → provider → callback round-trip)',
+})
+
+export const FetchResponseEnvelopeSchema = Schema.Literal(
+  'sovrium',
+  'better-auth',
+  'raw'
+).annotations({
+  title: 'Fetch Response Envelope',
+  description:
+    'Response-envelope interpretation: sovrium (default), better-auth (always-200 enumeration-safe envelope at /api/auth/admin/*), raw (status-only, no body assumptions)',
+})
+
 export const FetchActionSchema = Schema.Struct({
   type: Schema.Literal('fetch'),
   url: Schema.String.annotations({
-    description: 'Target URL for the fetch call (e.g. /api/tables/contacts/records)',
+    description:
+      'Target URL (any absolute path or fully-qualified URL; not prefix-restricted). e.g. /api/tables/contacts/records, /api/auth/admin/ban-user, /api/buckets/default/files/<key>',
   }),
+  mode: Schema.optional(FetchActionModeSchema),
   method: Schema.optional(
     Schema.Literal('GET', 'POST', 'PUT', 'PATCH', 'DELETE').annotations({
       description: 'HTTP method (defaults to GET)',
@@ -355,14 +414,48 @@ export const FetchActionSchema = Schema.Struct({
   ),
   body: Schema.optional(
     Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
-      description: 'JSON request body (serialized with JSON.stringify)',
+      description:
+        'JSON request body (serialized with JSON.stringify). String values support $record.<field> and the $session.<field> token (resolved client-side from the caller session, e.g. { confirm: "$session.email" }).',
     })
   ),
-  onSuccess: Schema.optional(FetchToastResponseSchema),
+  confirm: Schema.optional(
+    Schema.Boolean.annotations({
+      description: 'If true, shows a confirmation prompt before executing the action',
+    })
+  ),
+  confirmMessage: Schema.optional(
+    Schema.String.annotations({
+      description: 'Custom confirmation message. Defaults to a generic confirmation prompt.',
+      examples: ['Bannir ce compte ?', "L'effacement est définitif et irréversible."],
+    })
+  ),
+  filename: Schema.optional(
+    Schema.String.annotations({
+      description: 'Suggested download filename. Only meaningful when mode is "download".',
+      examples: ['mon-compte.json', 'export.csv', '$record.name'],
+    })
+  ),
+  redirectKey: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Response field holding the OAuth provider redirect URL (default "url"). Only meaningful when mode is "oauth".',
+      examples: ['authorizationUrl', 'url'],
+    })
+  ),
+  callbackPath: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'OAuth provider return path (the registered redirect_uri). Only meaningful when mode is "oauth".',
+      examples: ['/api/admin/connections/slack/callback'],
+    })
+  ),
+  responseEnvelope: Schema.optional(FetchResponseEnvelopeSchema),
+  onSuccess: Schema.optional(FetchSuccessResponseSchema),
   onError: Schema.optional(FetchToastResponseSchema),
 }).annotations({
   title: 'Fetch Action',
-  description: 'Client-side fetch action with optional success/error toast response',
+  description:
+    'Client-side operate action: fetch (default) / navigate / download / oauth, with optional confirm gating, arbitrary target path, and non-Sovrium response-envelope tolerance',
 })
 
 export const OpenDrawerActionSchema = Schema.Struct({
@@ -416,6 +509,10 @@ export type FilterAction = Schema.Schema.Type<typeof FilterActionSchema>
 export type NavigateAction = Schema.Schema.Type<typeof NavigateActionSchema>
 export type ToastAction = Schema.Schema.Type<typeof ToastActionSchema>
 export type FetchAction = Schema.Schema.Type<typeof FetchActionSchema>
+export type FetchSuccessResponse = Schema.Schema.Type<typeof FetchSuccessResponseSchema>
+export type FetchToastResponse = Schema.Schema.Type<typeof FetchToastResponseSchema>
+export type FetchActionMode = Schema.Schema.Type<typeof FetchActionModeSchema>
+export type FetchResponseEnvelope = Schema.Schema.Type<typeof FetchResponseEnvelopeSchema>
 export type OpenDrawerAction = Schema.Schema.Type<typeof OpenDrawerActionSchema>
 export type ActionResponse = Schema.Schema.Type<typeof ActionResponseSchema>
 export type ActionResponseType = Schema.Schema.Type<typeof ActionResponseTypeSchema>

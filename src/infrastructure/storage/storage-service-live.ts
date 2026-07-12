@@ -160,9 +160,12 @@ export const StorageServiceLive = Layer.effect(
           new StorageError({ cause: `Local storage directory "${dir}" is not accessible: ${e}` }),
       })
       return StorageService.of({
-        upload: (key: string, content: Uint8Array, _mimeType: string) =>
+        upload: (key: string, content: Uint8Array, mimeType: string) =>
           Effect.tryPromise({
-            try: () => localUpload(dir, key, content),
+            try: () =>
+              localUpload(dir, key, content).then(() =>
+                writeFileMetadata(key, mimeType, content.length, 'local')
+              ),
             catch: (e: unknown) => makeError(e),
           }),
         download: (key: string) =>
@@ -172,9 +175,18 @@ export const StorageServiceLive = Layer.effect(
           }),
         delete: (key: string) =>
           Effect.tryPromise({
-            try: () => localDelete(dir, key),
+            try: () => deleteFileMetadata(key),
             catch: (e: unknown) => makeError(e),
-          }),
+          }).pipe(
+            Effect.flatMap((found) =>
+              found
+                ? Effect.tryPromise({
+                    try: () => localDelete(dir, key),
+                    catch: (e: unknown) => makeError(e),
+                  })
+                : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+            )
+          ),
         getSignedUrl: (_key: string, _expiresIn: number) =>
           Effect.fail(new StorageError({ cause: 'Signed URLs not supported for local storage' })),
         getSignedUploadUrl: (_key: string, _expiresIn: number, _contentType?: string) =>

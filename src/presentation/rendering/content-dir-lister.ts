@@ -19,6 +19,7 @@ export interface CollectionNavEntry {
   readonly label: string
   readonly group: string | undefined
   readonly groupLabel: string | undefined
+  readonly groupIcon: string | undefined
   readonly order: number | undefined
   readonly isCurrent: boolean
 }
@@ -122,6 +123,14 @@ const resolveGroupLabel = (
   return groupLabels?.[group] ?? humanizeFieldName(group)
 }
 
+const resolveGroupIcon = (
+  group: string | undefined,
+  groupIcons: Readonly<Record<string, string>> | undefined
+): string | undefined => {
+  if (group === undefined) return undefined
+  return groupIcons?.[group]
+}
+
 const buildSidebarEntries = (
   files: readonly ContentDirFile[],
   contentDir: ContentDir,
@@ -131,6 +140,7 @@ const buildSidebarEntries = (
   const labelFrom = contentDir.nav?.labelFrom
   const groupBy = contentDir.nav?.groupBy
   const groupLabels = contentDir.nav?.groupLabels
+  const groupIcons = contentDir.nav?.groupIcons
   return files.map((file) => {
     const orderRaw = file.frontmatter['order']
     const orderNum = orderRaw === undefined ? undefined : Number(orderRaw)
@@ -141,6 +151,7 @@ const buildSidebarEntries = (
       label: deriveLabel(file, labelFrom),
       group,
       groupLabel: resolveGroupLabel(group, groupLabels),
+      groupIcon: resolveGroupIcon(group, groupIcons),
       order: Number.isFinite(orderNum) ? orderNum : undefined,
       isCurrent: currentSlug !== undefined && file.slug === currentSlug,
     }

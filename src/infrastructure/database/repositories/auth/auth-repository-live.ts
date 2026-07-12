@@ -5,14 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asc, count, eq } from 'drizzle-orm'
+import { asc, count, countDistinct, eq } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AuthRepository,
   AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
 import { db } from '@/infrastructure/database'
-import { authUsersTable, authSessionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  authUsersTable,
+  authSessionsTable,
+  authAccountsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 const wrap = makeDbWrap((error) => new AuthDatabaseError({ cause: error }))
@@ -77,6 +81,19 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       const rows = yield* wrap(async () => {
         const users = authUsersTable()
         return await db.select({ value: count() }).from(users)
+      })
+      return Number(rows[0]?.value ?? 0)
+    }),
+
+  countHumanUsers: () =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        const accounts = authAccountsTable()
+        return await db
+          .select({ value: countDistinct(users.id) })
+          .from(users)
+          .innerJoin(accounts, eq(accounts.userId, users.id))
       })
       return Number(rows[0]?.value ?? 0)
     }),

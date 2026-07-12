@@ -5,28 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import * as LucideIcons from 'lucide-react'
 import { type ReactElement } from 'react'
+import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
 import type { ElementProps } from './html-element-renderer'
-
-function kebabToPascalCase(name: string): string {
-  return name
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('')
-}
-
-function resolveLucideIcon(
-  iconName: string | undefined
-): React.ComponentType<Record<string, unknown>> | undefined {
-  if (!iconName) return undefined
-  const component = (LucideIcons as Record<string, unknown>)[kebabToPascalCase(iconName)]
-  if (typeof component === 'function')
-    return component as React.ComponentType<Record<string, unknown>>
-  if (typeof component === 'object' && component !== null)
-    return component as React.ComponentType<Record<string, unknown>>
-  return undefined
-}
 
 export function renderIcon(
   props: ElementProps,

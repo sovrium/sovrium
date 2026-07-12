@@ -6,8 +6,9 @@
  */
 
 
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
+import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 
 
 export const byteaValidateAndInit = async (): Promise<void> => {
@@ -104,25 +105,20 @@ export const writeFileMetadata = async (
 ): Promise<void> => {
   const filename = key.split('/').at(-1) ?? key
   const baseMimeType = (mimeType.split(';').at(0) ?? mimeType).trim()
-  await db.execute(sql`
-    INSERT INTO system.file_storage_metadata
-      (key, filename, mime_type, size, storage_provider)
-    VALUES (${key}, ${filename}, ${baseMimeType}, ${size}, ${storageProvider})
-    ON CONFLICT (key) DO UPDATE SET
-      filename = EXCLUDED.filename,
-      mime_type = EXCLUDED.mime_type,
-      size = EXCLUDED.size,
-      storage_provider = EXCLUDED.storage_provider
-  `)
+  const files = fileStorageMetadataTable()
+  await db
+    .insert(files)
+    .values({ key, filename, mimeType: baseMimeType, size, storageProvider })
+    .onConflictDoUpdate({
+      target: files.key,
+      set: { filename, mimeType: baseMimeType, size, storageProvider },
+    })
 }
 
 export const deleteFileMetadata = async (key: string): Promise<boolean> => {
-  const result = (await db.execute(sql`
-    DELETE FROM system.file_storage_metadata
-    WHERE key = ${key}
-    RETURNING key
-  `)) as readonly Record<string, unknown>[]
-  return result.length > 0
+  const files = fileStorageMetadataTable()
+  const deleted = await db.delete(files).where(eq(files.key, key)).returning({ key: files.key })
+  return deleted.length > 0
 }
 
 export const readFileMetadata = async (
@@ -130,19 +126,19 @@ export const readFileMetadata = async (
 ): Promise<
   { readonly contentType: string; readonly size: number; readonly lastModified: string } | undefined
 > => {
-  const result = (await db.execute(sql`
-    SELECT mime_type, size, created_at AS modified
-    FROM system.file_storage_metadata
-    WHERE key = ${key}
-    LIMIT 1
-  `)) as readonly Record<string, unknown>[]
-  const row = result[0] as
-    | { mime_type: string; size: string | number; modified: string | Date }
-    | undefined
+  const files = fileStorageMetadataTable()
+  const rows = await db
+    .select({ mimeType: files.mimeType, size: files.size, modified: files.createdAt })
+    .from(files)
+    .where(eq(files.key, key))
+    .limit(1)
+  const row = rows[0]
   if (!row) return undefined
   const modified =
-    row.modified instanceof Date ? row.modified.toISOString() : new Date(row.modified).toISOString()
-  return { contentType: row.mime_type, size: Number(row.size), lastModified: modified }
+    row.modified instanceof Date
+      ? row.modified.toISOString()
+      : new Date(row.modified as unknown as string).toISOString()
+  return { contentType: row.mimeType, size: Number(row.size), lastModified: modified }
 }
 
 export const byteaExists = async (key: string): Promise<boolean> => {

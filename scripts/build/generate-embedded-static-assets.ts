@@ -80,6 +80,9 @@ const exampleEntries = walkExamples(EXAMPLES_ROOT).map((abs) => {
   return `  ${JSON.stringify(key)}: ${addImport(`examples/${key}`)},`
 })
 
+const dashboardVar = nextVar()
+imports.push({ varName: dashboardVar, importPath: './dashboard/dashboard-app.yaml' })
+
 
 const header = `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES
@@ -114,6 +117,11 @@ ${agentEntries.join('\n')}
 /** Example filename → embedded path. */
 export const EXAMPLE_FILES = {
 ${exampleEntries.join('\n')}
+}
+
+/** Native Admin Dashboard system app config (ADR-021) → embedded path. */
+export const DASHBOARD_FILES = {
+  "dashboard-app.yaml": ${dashboardVar},
 }
 `
 

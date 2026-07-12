@@ -7,6 +7,12 @@
 
 import { Schema } from 'effect'
 import { FormNameSchema } from '../../../../../forms/name'
+import {
+  FetchResponseEnvelopeSchema,
+  FetchSuccessResponseSchema,
+  FetchToastResponseSchema,
+} from '../../../action'
+import { DataSourceSchema } from '../../../data-source'
 import { actionFields } from '../../modules/action'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
@@ -51,6 +57,31 @@ export const InlinePrefillSchema = Schema.Struct({
     'Auto-prefill relationship/scalar fields on an embedded form using values from the host page record.',
 })
 
+export const FormEndpointSchema = Schema.Struct({
+  url: Schema.String.annotations({
+    description:
+      'Custom submit URL (any path; not the records API). e.g. /api/auth/admin/create-user',
+  }),
+  method: Schema.optional(
+    Schema.Literal('POST', 'PUT', 'PATCH').annotations({
+      description: 'HTTP method for the custom-endpoint submit (defaults to POST)',
+    })
+  ),
+  responseEnvelope: Schema.optional(FetchResponseEnvelopeSchema),
+  submitLabel: Schema.optional(
+    Schema.String.annotations({
+      description: 'Submit button label (defaults to the form submit label)',
+      examples: ['Créer le compte', 'Envoyer'],
+    })
+  ),
+  onSuccess: Schema.optional(FetchSuccessResponseSchema),
+  onError: Schema.optional(FetchToastResponseSchema),
+}).annotations({
+  title: 'Form Endpoint',
+  description:
+    'Custom-endpoint submit target for a form: POST collected field values as JSON to an arbitrary url, with response-envelope tolerance and the shipped onSuccess effects (status + sibling refetch).',
+})
+
 export const formFields = {
   ...coreFields,
   ...responsiveFields,
@@ -58,6 +89,7 @@ export const formFields = {
   ...actionFields,
   ...i18nFields,
   ...dataBoundFields,
+  dataSource: Schema.optional(DataSourceSchema),
   wizard: Schema.optional(
     Schema.Struct({
       steps: Schema.NonEmptyArray(
@@ -82,6 +114,7 @@ export const formFields = {
     })
   ),
   inlinePrefill: Schema.optional(InlinePrefillSchema),
+  endpoint: Schema.optional(FormEndpointSchema),
   fields: Schema.optional(
     Schema.Array(FormFieldConfigSchema).pipe(
       Schema.minItems(1),

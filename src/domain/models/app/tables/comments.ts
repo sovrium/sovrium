@@ -101,6 +101,15 @@ export const CommentsConfigSchema = Schema.Struct({
     )
   ),
 
+  readTracking: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotations({
+        description:
+          'Opt-in per-user comment read/unread tracking; adds unreadCount to the read response and a mark-read endpoint (default: false, see DEC-045)',
+      })
+    )
+  ),
+
   moderation: Schema.optional(Schema.Union(Schema.Boolean, ModerationModeSchema)),
 
   autoApprove: Schema.optional(AutoApproveSchema),

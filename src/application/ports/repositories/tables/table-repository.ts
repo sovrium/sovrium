@@ -126,5 +126,24 @@ export class TableRepository extends Context.Tag('TableRepository')<
       readonly includeDeleted?: boolean
       readonly aggregate: AggregateQuery
     }) => Effect.Effect<AggregationResult, SessionContextError>
+
+    readonly linkManyToMany: (input: {
+      readonly sourceTable: string
+      readonly sourceId: string | number
+      readonly links: readonly {
+        readonly relatedTable: string
+        readonly relatedIds: readonly (string | number)[]
+        readonly hasReciprocal: boolean
+      }[]
+    }) => Effect.Effect<void, SessionContextError>
+
+    readonly readManyToMany: (input: {
+      readonly sourceTable: string
+      readonly sourceIds: readonly (string | number)[]
+      readonly fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
+    }) => Effect.Effect<
+      Record<string, Record<string, readonly (string | number)[]>>,
+      SessionContextError
+    >
   }
 >() {}

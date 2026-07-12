@@ -18,10 +18,25 @@ import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
 import { authTableRef } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
-import { executeRaw, executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import {
+  executeRaw,
+  executeRawTyped,
+  type RawSqlRunner,
+} from '@/infrastructure/database/sql/dialect-execute'
+import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 const wrap = makeDbWrap((cause) => new AccountDatabaseError({ cause }))
+
+function toOptionalDate(value: unknown) {
+  if (value instanceof Date) return value
+  if (typeof value === 'number' || typeof value === 'string') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? undefined : date
+  }
+  return undefined
+}
 
 const tablesWithCreatedByImpl = async (
   tableNames: readonly string[]
@@ -29,17 +44,14 @@ const tablesWithCreatedByImpl = async (
   const sanitized = [...new Set(tableNames.map(sanitizeTableName))].filter((n) => n.length > 0)
   if (sanitized.length === 0) return []
 
-  const nameList = sql.join(
-    sanitized.map((name) => sql`${name}`),
-    sql`, `
+  const runner = db as unknown as RawSqlRunner
+  const matched = await Promise.all(
+    sanitized.map(async (name) => {
+      const columns = await getExistingColumnNames(runner, name, [AUTHORSHIP_FIELDS.CREATED_BY])
+      return columns.has(AUTHORSHIP_FIELDS.CREATED_BY) ? name : undefined
+    })
   )
-  const rows = (await db.execute(
-    sql`SELECT DISTINCT table_name FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND column_name = ${AUTHORSHIP_FIELDS.CREATED_BY}
-          AND table_name IN (${nameList})`
-  )) as unknown as readonly { table_name: string }[]
-  return rows.map((row) => row.table_name)
+  return matched.filter((name): name is string => name !== undefined)
 }
 
 export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
@@ -76,6 +88,16 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
       )
     ),
 
+  loadScheduledErasure: (userId) =>
+    wrap(async () => {
+      const rows = await executeRawTyped<{ readonly scheduledErasureAt: unknown }>(
+        db,
+        sql`SELECT "scheduledErasureAt" AS "scheduledErasureAt"
+            FROM ${authTableRef('user')} WHERE id = ${userId}`
+      )
+      return toOptionalDate(rows[0]?.scheduledErasureAt)
+    }),
+
   tablesWithCreatedBy: (tableNames) => wrap(async () => tablesWithCreatedByImpl(tableNames)),
 
   readAuthoredRecords: (tableName, userId) =>
@@ -96,10 +118,11 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
 
   scheduleErasure: (userId, scheduledAt) =>
     wrap(async () => {
+      const scheduledValue = isSqliteRuntime() ? scheduledAt.getTime() : scheduledAt
       await db.transaction(async (tx) => {
         await executeRaw(
           tx,
-          sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = ${scheduledAt} WHERE id = ${userId}`
+          sql`UPDATE ${authTableRef('user')} SET "scheduledErasureAt" = ${scheduledValue} WHERE id = ${userId}`
         )
         await executeRaw(tx, sql`DELETE FROM ${authTableRef('session')} WHERE user_id = ${userId}`)
       })

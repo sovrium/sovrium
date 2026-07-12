@@ -6,7 +6,23 @@
     "module": "Preserve",
     "moduleDetection": "force",
     "jsx": "react-jsx",
-    "allowJs": true,
+    // MUST stay false. The generated `embedded-runtime-assets.generated.ts`
+    // asset-imports ~470 pre-built `dist/island-chunks/*.js` bundles via
+    // `import _r from '../../../dist/*.js' with { type: 'file' }` (opaque file
+    // handles consumed by Bun's bundler, never as typed modules). With
+    // `allowJs: true`, tsc resolved those bundled JS artifacts INTO the program
+    // (relative imports bypass `exclude`) and tried to infer + serialize their
+    // deeply-nested type graphs for the incremental `.tsbuildinfo` /
+    // declaration emit — overflowing the call stack
+    // (`serializeTypeForDeclaration` → RangeError) whenever `dist/` was present
+    // on disk. No `.ts`/`.tsx` source depends on JS type-checking, and the only
+    // plain `.js` files in src/ (presentation/scripts/client/*.js) are
+    // standalone browser scripts that are never module-imported, so disabling
+    // JS parsing is purely correct here. Also protects the release
+    // declaration-emit build (tsconfig.build.json), which inherits this and
+    // would crash identically. See the "no dist → clean / with dist → crash"
+    // bisection. DO NOT flip back to true.
+    "allowJs": false,
 
     // Bundler mode
     "moduleResolution": "bundler",

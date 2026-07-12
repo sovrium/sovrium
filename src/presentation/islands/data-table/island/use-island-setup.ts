@@ -12,6 +12,7 @@ import { useDataTableQuery } from '../../hooks/use-data-table-query'
 import { useDataTableState, ROW_HEIGHT_CLASSES } from '../../hooks/use-data-table-state'
 import { useInlineEditing, type FieldMetaMap } from '../../hooks/use-inline-editing'
 import { useIslandSearch } from '../../hooks/use-island-search'
+import { useIslandSystemQuery } from '../../hooks/use-island-system-query'
 import { useRealtimeReconciliation } from '../../hooks/use-realtime-reconciliation'
 import { useRealtimeSubscription } from '../../hooks/use-realtime-subscription'
 import {
@@ -20,6 +21,7 @@ import {
   type SavedView,
   type SavedViewConfigPayload,
 } from '../../hooks/use-saved-views'
+import { useSharedFilter } from '../../hooks/use-shared-filter'
 import {
   densityToHeight,
   heightToDensity,
@@ -50,6 +52,7 @@ import type {
   DataTablePagination,
   DataTableSearch,
   DataTableSelection,
+  DataTableSystemSource,
   DataTableToolbar,
   RowHeight,
 } from '@/domain/models/app/pages/components/data-table'
@@ -58,12 +61,15 @@ export type { SaveIndicatorSettings } from './island-setup-helpers'
 
 interface IslandSetupParams {
   readonly dataSource: {
-    readonly table: string
+    readonly table?: string
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
     readonly refreshMode?: 'none' | 'poll' | 'realtime'
     readonly pollIntervalMs?: number
+    readonly bindTo?: string
+    readonly sharedFilter?: { readonly params?: readonly string[] }
+    readonly system?: DataTableSystemSource
   }
   readonly columnConfig?: readonly DataTableColumn[]
   readonly paginationConfig?: DataTablePagination
@@ -127,8 +133,11 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
   const queryClient = useQueryClient()
   const ui = useDataTableUiState()
 
-  const prefs = useTablePreferences(dataSource.table)
-  const savedViews = useSavedViews(dataSource.table)
+  const isSystemSource = dataSource.system !== undefined
+  const tableKey = dataSource.table ?? ''
+
+  const prefs = useTablePreferences(tableKey)
+  const savedViews = useSavedViews(tableKey)
 
   const controlledRowHeight = prefs.preferences.rowDensity
     ? densityToHeight(prefs.preferences.rowDensity)
@@ -166,8 +175,22 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     [ui.activeSorts, tableState.sorting]
   )
 
+  const legacySystemQuery = useIslandSystemQuery(searchSourceId)
+
+  const sharedFilterParams = useSharedFilter({
+    bindTo: dataSource.system?.bindTo ?? dataSource.bindTo,
+    sharedFilter: dataSource.system?.sharedFilter ?? dataSource.sharedFilter,
+  })
+
+  const systemQuery = useMemo(
+    () => ({ ...legacySystemQuery, ...sharedFilterParams }),
+    [legacySystemQuery, sharedFilterParams]
+  )
+
   const { data, isLoading, isError, error, queryKey } = useDataTableQuery({
-    table: dataSource.table,
+    table: tableKey,
+    ...(dataSource.system && { system: dataSource.system, systemQuery, sourceId: searchSourceId }),
+    ...(!dataSource.system && { sharedFilterParams }),
     pagination: tableState.pagination,
     sorting: effectiveSorting,
     globalFilter: tableState.globalFilter,
@@ -183,6 +206,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
   )
 
   useEffect(() => {
+    if (!dataSource.table) return undefined
     const targetTable = dataSource.table.toLowerCase()
     return subscribeIslandEvent('sovrium:crud-success', (detail) => {
       if (detail.table.toLowerCase() !== targetTable) return
@@ -190,14 +214,22 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     })
   }, [dataSource.table, handleRefresh])
 
+  useEffect(() => {
+    if (!searchSourceId) return undefined
+    return subscribeIslandEvent('sovrium:refetch', (detail) => {
+      if (detail.id !== searchSourceId) return
+      handleRefresh()
+    })
+  }, [searchSourceId, handleRefresh])
+
   const connectionStatus = useRealtimeSubscription({
-    enabled: dataSource.refreshMode === 'realtime',
-    table: dataSource.table,
+    enabled: !isSystemSource && dataSource.refreshMode === 'realtime',
+    table: tableKey,
     onChange: handleRefresh,
   })
 
   const inlineEditing = useInlineEditing({
-    tableName: dataSource.table,
+    tableName: tableKey,
     fieldMeta,
     onSave: handleRefresh,
     autoSave: autoSaveConfig,
@@ -255,7 +287,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     totalRecords,
   })
 
-  useColumnSizingPersistence(dataSource.table, tableState.columnSizing, prefs.updatePreferences)
+  useColumnSizingPersistence(tableKey, tableState.columnSizing, prefs.updatePreferences)
 
   const onSelectDensity = useCallback(
     (density: RowDensity) => {
@@ -307,7 +339,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     [ui.activeSorts, tableState.sorting]
   )
   const viewsOrchestration = useSavedViewsOrchestration({
-    tableName: dataSource.table,
+    tableName: tableKey,
     tableViews,
     personalViews: savedViews.views,
     activeFilters: ui.activeFilters,
@@ -350,9 +382,9 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     },
     [applyUiState]
   )
-  useUrlSyncedActiveView({ tableName: dataSource.table, onApplySharedView })
+  useUrlSyncedActiveView({ tableName: tableKey, onApplySharedView })
 
-  const viewsEnabled = toolbarConfig?.views === true
+  const viewsEnabled = !isSystemSource && toolbarConfig?.views === true
 
   return {
     ui,

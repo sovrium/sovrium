@@ -105,13 +105,13 @@ export function createDefaultHomePageConfig(app: App): Page {
 function createErrorSection(
   code: string,
   message: string,
-  codeColor: string = 'text-gray-900'
+  codeColor: string = 'text-foreground'
 ): ReadonlyArray<Component> {
   return [
     {
       type: 'container',
       props: {
-        className: 'flex min-h-screen items-center justify-center bg-gray-50',
+        className: 'flex min-h-screen items-center justify-center bg-background',
       },
       children: [
         {
@@ -132,7 +132,7 @@ function createErrorSection(
               type: 'text',
               element: 'p',
               props: {
-                className: 'mb-8 text-xl text-gray-600',
+                className: 'mb-8 text-xl text-muted-foreground',
               },
               content: message,
             },
@@ -140,7 +140,7 @@ function createErrorSection(
               type: 'link',
               props: {
                 href: '/',
-                className: 'font-medium text-blue-600 hover:text-blue-700',
+                className: 'font-medium text-primary',
               },
               content: 'Go back home',
             },

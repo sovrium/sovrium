@@ -19,10 +19,42 @@ export { ConditionOperatorSchema, VisibleWhenSchema, VisibleWhenConditionSchema 
 export type { ConditionOperator, VisibleWhen, VisibleWhenCondition }
 
 
+export const FormFieldControlSchema = Schema.Literal(
+  'text',
+  'email',
+  'password',
+  'number',
+  'tel',
+  'url',
+  'textarea',
+  'select'
+).annotations({
+  title: 'Form Field Control',
+  description:
+    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select). Omitted for table-bound forms (control derived from the column type).',
+})
+
 export const FormFieldConfigSchema = Schema.Struct({
   field: Schema.String.annotations({
-    description: 'Field name from the table schema',
+    description:
+      'Field identifier: a table column name (table-bound form) OR the JSON body key (endpoint-bound form)',
   }),
+  control: Schema.optional(FormFieldControlSchema),
+  options: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        value: Schema.String.annotations({ description: 'Option value submitted on choice' }),
+        label: Schema.optional(
+          Schema.String.annotations({ description: 'Option display label (defaults to value)' })
+        ),
+      })
+    ).pipe(
+      Schema.minItems(1),
+      Schema.annotations({
+        description: 'Dropdown options for a control: select field ({ value, label? })',
+      })
+    )
+  ),
   label: Schema.optional(
     Schema.String.annotations({
       description: 'Custom label text (overrides default field name)',
@@ -108,6 +140,7 @@ export const FormFieldGroupSchema = Schema.Struct({
 })
 
 
+export type FormFieldControl = Schema.Schema.Type<typeof FormFieldControlSchema>
 export type FormFieldConfig = Schema.Schema.Type<typeof FormFieldConfigSchema>
 export type FormLayout = Schema.Schema.Type<typeof FormLayoutSchema>
 export type FormFieldGroup = Schema.Schema.Type<typeof FormFieldGroupSchema>

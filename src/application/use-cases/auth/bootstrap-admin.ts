@@ -183,10 +183,10 @@ export const bootstrapAdmin = (
     if (!config) return
 
     const authRepo = yield* AuthRepository
-    const existingUserCount = yield* authRepo.countUsers()
+    const existingUserCount = yield* authRepo.countHumanUsers()
     if (existingUserCount > 0) {
       logDebug(
-        `[bootstrap-admin] Skipped: ${existingUserCount} user(s) already exist — env-var bootstrap is a no-op once any user is present`
+        `[bootstrap-admin] Skipped: ${existingUserCount} human user(s) already exist — env-var bootstrap is a no-op once a real admin is present`
       )
       return
     }

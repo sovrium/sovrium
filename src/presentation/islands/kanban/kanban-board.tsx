@@ -35,10 +35,8 @@ export function KanbanBoard({
       collisionDetection={kanbanCollisionDetection}
       onDragEnd={onDragEnd}
     >
-      <div
-        data-component="kanban"
-        className="flex w-full gap-4 overflow-x-auto p-2"
-      >
+      {}
+      <div className="flex w-full gap-4 overflow-x-auto p-2">
         {columns.map((column) => (
           <KanbanColumn
             key={column.value}

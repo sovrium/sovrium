@@ -20,6 +20,7 @@ import {
   oauthAccessTokens as authOauthAccessTokensPg,
 } from '@/infrastructure/auth/better-auth/schema'
 import { formSubmissions as formSubmissionsPg } from './schema/form-submissions'
+import { fileStorageMetadata as fileStorageMetadataPg } from './schema/storage'
 import {
   users as authUsersSqlite,
   sessions as authSessionsSqlite,
@@ -33,6 +34,7 @@ import {
   oauthAccessTokens as authOauthAccessTokensSqlite,
 } from './schema-sqlite/auth-tables'
 import { formSubmissions as formSubmissionsSqlite } from './schema-sqlite/form-submissions'
+import { fileStorageMetadata as fileStorageMetadataSqlite } from './schema-sqlite/storage'
 
 let CACHED_DIALECT: 'postgres' | 'sqlite' | undefined
 
@@ -49,6 +51,11 @@ export const formSubmissionsTable = (): typeof formSubmissionsPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (formSubmissionsSqlite as unknown as typeof formSubmissionsPg)
     : formSubmissionsPg
+
+export const fileStorageMetadataTable = (): typeof fileStorageMetadataPg =>
+  parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? (fileStorageMetadataSqlite as unknown as typeof fileStorageMetadataPg)
+    : fileStorageMetadataPg
 
 export const authUsersTable = (): typeof authUsersPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'

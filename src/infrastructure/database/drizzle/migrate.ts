@@ -15,6 +15,7 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
 import { migrate as migrateSqlite } from 'drizzle-orm/bun-sqlite/migrator'
 import { Effect, Data } from 'effect'
 import { materializeMigrations } from '@/infrastructure/assets/embedded-static-assets'
+import { adminSearchFtsBootStatements } from '@/infrastructure/database/lookup/admin-search-fts-ddl'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { isCompiled } from '@/infrastructure/utils/package-paths'
 import * as schema from './schema'
@@ -131,6 +132,15 @@ const runSqliteMigrations = (
       catch: (error) =>
         new MigrationError({
           message: `Migration failed: ${String(error)}`,
+          cause: error,
+        }),
+    })
+
+    yield* Effect.try({
+      try: () => adminSearchFtsBootStatements().forEach((statement) => client.exec(statement)),
+      catch: (error) =>
+        new MigrationError({
+          message: `Admin-search FTS5 setup failed: ${String(error)}`,
           cause: error,
         }),
     })

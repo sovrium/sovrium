@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react'
+import { hasDataBinding } from '../shared/data-binding'
 import { GalleryGrid } from './gallery-grid'
 import { GalleryEmpty, GalleryError, GalleryLoading, GalleryMissingTable } from './gallery-states'
 import { LoadMoreButton } from './load-more-button'
@@ -16,6 +17,7 @@ import type {
   GalleryGridColumns,
 } from '@/domain/models/app/pages/components/component-types/data/gallery'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { ReactElement } from 'react'
 
 interface PaginationConfig {
@@ -25,7 +27,8 @@ interface PaginationConfig {
 
 interface GalleryIslandProps {
   readonly dataSource?: {
-    readonly table: string
+    readonly table?: string
+    readonly system?: SystemSource
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
@@ -114,7 +117,7 @@ export default function GalleryIsland({
 }: GalleryIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useGalleryRecords(dataSource)
 
-  if (!dataSource?.table) return <GalleryMissingTable />
+  if (!hasDataBinding(dataSource)) return <GalleryMissingTable />
   if (isLoading) return <GalleryLoading />
   if (isError) return <GalleryError error={error} />
 

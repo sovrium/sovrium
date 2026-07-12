@@ -11,7 +11,7 @@ import {
   computeIframeClasses,
   computeImageClasses,
   computeVideoPlayerClasses,
-} from '../../renderers/element-renderers/interactive-content-default-classes'
+} from '../../renderers/element-renderers/recipes/interactive-content-default-classes'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'

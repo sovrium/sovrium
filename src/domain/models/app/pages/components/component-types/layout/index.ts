@@ -7,6 +7,7 @@
 
 export { ContainerTypeLiteral, ContainerElementSchema, containerFields } from './container'
 export { FlexTypeLiteral, flexFields } from './flex'
+export { SplitPaneTypeLiteral, SplitPaneOrientationSchema, splitPaneFields } from './split-pane'
 export { GridTypeLiteral, gridFields } from './grid'
 export { ResponsiveGridTypeLiteral, responsiveGridFields } from './responsive-grid'
 export { SidebarTypeLiteral, sidebarFields } from './sidebar'

@@ -9,6 +9,7 @@ import { ImportCsvDialog } from '../import-csv-dialog'
 import { SaveStatusIndicator } from '../save-status-indicator'
 import { BulkActionBar } from './bulk-actions'
 import { ConflictToast } from './conflict-toast'
+import { CreateRecordDialog } from './create-record-dialog'
 import { DeleteViewConfirmDialog } from './delete-view-confirm-dialog'
 import { FilterOverlay } from './filter-overlay'
 import { PaginationControls } from './pagination'
@@ -44,6 +45,7 @@ import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 interface DataTableViewProps {
   readonly containerRef?: React.Ref<HTMLDivElement>
   readonly table: ReturnType<typeof useReactTable<TableRecord>>
+  readonly ariaLabel?: string
   readonly tableName: string
   readonly records: readonly TableRecord[]
   readonly allColumns: readonly ColumnDef<TableRecord>[]
@@ -65,6 +67,7 @@ interface DataTableViewProps {
   readonly cellClass: string
   readonly borderClass: string
   readonly emptyMessage: string
+  readonly noMatchMessage?: string
   readonly selectedCount: number
   readonly showSearch: boolean
   readonly editingCell?: EditingCell
@@ -78,6 +81,13 @@ interface DataTableViewProps {
   readonly onEditSave: (newValue: unknown) => Promise<void>
   readonly onEditCancel: () => void
   readonly onRefresh: () => void
+  readonly canCreate: boolean
+  readonly creating: boolean
+  readonly onCreate: () => void
+  readonly onCancelCreate: () => void
+  readonly onSubmitCreate: (values: Record<string, string>) => void
+  readonly readOnly?: boolean
+  readonly systemExportEndpoint?: string
   readonly currentDensity: RowDensity
   readonly onSelectDensity: (density: RowDensity) => void
   readonly onResetPreferences?: () => void
@@ -100,6 +110,7 @@ interface DataTableViewProps {
 export function DataTableView({
   containerRef,
   table,
+  ariaLabel,
   tableName,
   records,
   allColumns,
@@ -121,6 +132,7 @@ export function DataTableView({
   cellClass,
   borderClass,
   emptyMessage,
+  noMatchMessage,
   selectedCount,
   showSearch,
   editingCell,
@@ -134,6 +146,13 @@ export function DataTableView({
   onEditSave,
   onEditCancel,
   onRefresh,
+  canCreate,
+  creating,
+  onCreate,
+  onCancelCreate,
+  onSubmitCreate,
+  readOnly = false,
+  systemExportEndpoint,
   currentDensity,
   onSelectDensity,
   onResetPreferences,
@@ -217,6 +236,10 @@ export function DataTableView({
           onToggleExportMenu={ui.onToggleExportMenu}
           onCloseExportMenu={ui.onCloseExportMenu}
           onRefresh={onRefresh}
+          canCreate={canCreate}
+          onCreate={onCreate}
+          readOnly={readOnly}
+          {...(systemExportEndpoint !== undefined && { systemExportEndpoint })}
           currentDensity={currentDensity}
           onSelectDensity={onSelectDensity}
           {...(onResetPreferences && { onResetPreferences })}
@@ -235,6 +258,14 @@ export function DataTableView({
           onDeleteView={(entry) => ui.onOpenDeleteViewDialog({ id: entry.id, name: entry.name })}
           onSaveModifiedView={onSaveModifiedView}
           saveStatus={showToolbarIndicator ? indicatorStatus : undefined}
+        />
+      )}
+      {creating && (
+        <CreateRecordDialog
+          fields={tableFields ?? []}
+          {...(fieldMeta && { fieldMeta })}
+          onCancel={onCancelCreate}
+          onSubmit={onSubmitCreate}
         />
       )}
       <SaveViewDialog
@@ -291,6 +322,8 @@ export function DataTableView({
       {!ui.importDialogOpen && (
         <TableContent
           table={table}
+          {...(ariaLabel && { ariaLabel })}
+          useGridRole={!readOnly}
           records={records}
           allColumns={allColumns}
           isLoading={isLoading}
@@ -299,6 +332,8 @@ export function DataTableView({
           cellClass={cellClass}
           borderClass={borderClass}
           emptyMessage={emptyMessage}
+          {...(noMatchMessage !== undefined && { noMatchMessage })}
+          globalFilter={globalFilter}
           selectionMode={selectionConfig?.mode}
           groupByConfig={groupByConfig}
           summaryConfig={summaryConfig}

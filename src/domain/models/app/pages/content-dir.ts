@@ -67,6 +67,15 @@ const ContentDirNavSchema = Schema.Struct({
     )
   ),
 
+  groupIcons: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
+      Schema.annotations({
+        description:
+          'Map of raw groupBy keys to Lucide icon names (kebab-case, e.g. { tables: "compass" })',
+      })
+    )
+  ),
+
   collapsed: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotations({
@@ -113,6 +122,16 @@ export const ContentDirSchema = Schema.Struct({
   ),
 
   nav: Schema.optional(ContentDirNavSchema),
+
+  editUrl: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description:
+          'Edit-this-page URL template for docs articles. Placeholders: {slug} (resolved article slug), {path} (source file path relative to directory, = {slug}.md), {lang} (active request language, empty when no /:lang/ prefix). Absent = no edit link (opt-in, default off). E.g. https://github.com/acme/repo/edit/main/docs/{lang}/{slug}.md',
+      })
+    )
+  ),
 }).pipe(
   Schema.annotations({
     identifier: 'ContentDir',

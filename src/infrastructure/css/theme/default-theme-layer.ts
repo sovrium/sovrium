@@ -395,7 +395,10 @@ const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
 
     --sv-fg: var(--sv-neutral-50);
     --sv-fg-muted: var(--sv-neutral-400);
-    --sv-fg-subtle: var(--sv-neutral-500);
+    /* fg-subtle is a TEXT token, so it is pinned slightly lighter than
+       --sv-neutral-500 (oklch L 0.56) to clear WCAG AA (>= 4.5:1) on
+       bg-background in dark mode while staying clearly darker than fg-muted. */
+    --sv-fg-subtle: oklch(0.59 0.011 60);
     --sv-fg-disabled: var(--sv-neutral-700);
     --sv-fg-inverse: var(--sv-neutral-950);
     --sv-fg-humane: oklch(0.91 0.015 65);
@@ -502,7 +505,10 @@ export const V1_ALIAS_BRIDGE = `:root {
     /* fg-subtle/-disabled/-inverse use the neutral default directly to avoid
        the --color-foreground-* to --sv-fg-* to --color-foreground-* cycle (see border note
        above). Author override still flows through --color-foreground-*. */
-    --sv-fg-subtle: var(--sv-neutral-500);
+    /* fg-subtle is a TEXT token, so it is pinned slightly darker than
+       --sv-neutral-500 (oklch L 0.56) to clear WCAG AA (>= 4.5:1) on
+       bg-background in light mode while staying clearly lighter than fg-muted. */
+    --sv-fg-subtle: oklch(0.54 0.011 60);
     --sv-fg-disabled: var(--sv-neutral-400);
     --sv-fg-inverse: var(--sv-neutral-50);
     /* --sv-fg-humane has a literal light value set in V1_ROOT_LIGHT */

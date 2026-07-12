@@ -14,6 +14,10 @@ import {
   BuildAutomationsOverview,
 } from '@/application/use-cases/admin/automations-overview'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import {
+  retryAutomationRun,
+  type RetryAutomationRunOptions,
+} from '@/application/use-cases/automations/retry-automation-run'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   automationsOverviewQuerySchema,
@@ -22,6 +26,8 @@ import {
   type AutomationRunAdminItem,
 } from '@/domain/models/api/admin/automations'
 import { provideAdminAutomationsLive } from '@/presentation/api/routes/admin/automations/effect-runner'
+import { provideAutomationLive } from '@/presentation/api/routes/automations/effect-runner'
+import type { ReplayAutomationRunError } from '@/application/use-cases/automations/replay-automation-run'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
@@ -159,9 +165,55 @@ async function handleRunDetail(c: Context, app: App): Promise<Response> {
 }
 
 
+function retryErrorResponse(c: Context, error: ReplayAutomationRunError): Response {
+  if (
+    error._tag === 'AutomationNotFound' ||
+    error._tag === 'AutomationRunNotFound' ||
+    error._tag === 'AutomationRunMismatch'
+  ) {
+    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+  if (error._tag === 'AutomationRegistrySeedError') {
+    return c.json(
+      { success: false, message: 'Failed to register automation', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+  return c.json({ success: false, message: 'Run not retryable', code: 'BAD_REQUEST' }, 400)
+}
+
+async function handleRetryRun(c: Context, app: App): Promise<Response> {
+  const session = (c as ContextWithSession).var.session!
+
+  const parsedParams = automationsRunsDetailParamsSchema.safeParse({
+    runId: c.req.param('runId'),
+  })
+  if (!parsedParams.success) {
+    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+  const { runId } = parsedParams.data
+
+  const options: RetryAutomationRunOptions = {
+    runId,
+    app,
+    processEnv: process.env,
+    userId: session.userId,
+  }
+  const result = await Effect.runPromise(
+    Effect.either(provideAutomationLive(retryAutomationRun(options)))
+  )
+  if (result._tag === 'Left') {
+    return retryErrorResponse(c, result.left)
+  }
+
+  return c.json({ runId: result.right.runId, status: 'accepted' }, 202)
+}
+
+
 export function chainAdminAutomationsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
   return honoApp
     .get('/api/admin/automations/overview', (c) => handleAutomationsOverview(c, resolveApp()))
+    .post('/api/admin/automations/runs/:runId/retry', (c) => handleRetryRun(c, resolveApp()))
     .get('/api/admin/automations/runs/:runId', (c) => handleRunDetail(c, resolveApp()))
     .get('/api/admin/automations/runs', (c) => handleListRuns(c, resolveApp())) as T
 }

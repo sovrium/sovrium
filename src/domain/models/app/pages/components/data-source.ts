@@ -140,6 +140,26 @@ export const RefreshModeSchema = Schema.Literal('none', 'poll', 'realtime').anno
 
 export type RefreshMode = Schema.Schema.Type<typeof RefreshModeSchema>
 
+export const SharedFilterBindingSchema = Schema.Struct({
+  params: Schema.optional(
+    Schema.Array(Schema.String).pipe(
+      Schema.minItems(1),
+      Schema.annotations({
+        description:
+          "Request-param keys this subscriber consumes from the shared publisher's value bag (omit to merge the full bag verbatim)",
+        examples: [['status'], ['automationName', 'status'], ['from', 'to']],
+      })
+    )
+  ),
+}).annotations({
+  identifier: 'SharedFilterBinding',
+  title: 'Shared Filter Binding',
+  description:
+    "Companion to bindTo: marks the bound component as a shared filter/period publisher whose published params are merged into this data source's request (the dynamic counterpart to a system source's static query).",
+})
+
+export type SharedFilterBinding = Schema.Schema.Type<typeof SharedFilterBindingSchema>
+
 export const DataSourceSchema = Schema.Struct({
   table: Schema.String.annotations({
     description: 'Table name to bind to (validated against app.tables)',
@@ -208,13 +228,20 @@ export const DataSourceSchema = Schema.Struct({
   ),
   targetId: Schema.optional(
     Schema.String.annotations({
-      description: 'Identifier for cross-component data source references',
+      description:
+        "Publisher-side identifier for cross-component references — addressable by a FilterAction (targetDataSource) and by a sibling subscriber's bindTo (shared filter/period state)",
     })
   ),
   bindTo: Schema.optional(
     Schema.String.annotations({
       description:
-        'ID of a searchInput component whose query drives this data source (cross-component binding)',
+        'ID of a publisher component whose value drives this data source (cross-component binding). By default a searchInput whose query string drives the search; when sharedFilter is also set, a shared filter/period selector whose published params are merged into every request',
+    })
+  ),
+  sharedFilter: Schema.optional(
+    SharedFilterBindingSchema.annotations({
+      description:
+        'Companion to bindTo: the bound publisher is a shared filter/period selector whose published params are merged into every request this data source issues. One selector can drive many sibling subscribers. Inert without bindTo.',
     })
   ),
   refreshMode: Schema.optional(

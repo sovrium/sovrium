@@ -123,6 +123,15 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
       return deleted.length > 0
     }),
 
+  deleteForConnection: (connectionId) =>
+    wrap(async () => {
+      const deleted = await db
+        .delete(connectionTokens)
+        .where(eq(connectionTokens.connectionId, connectionId))
+        .returning({ id: connectionTokens.id })
+      return deleted.length
+    }),
+
   countForConnection: (connectionId) =>
     wrap(async () => {
       const rows = await db

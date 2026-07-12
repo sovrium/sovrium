@@ -45,7 +45,11 @@ interface TableBodyRowsProps {
   readonly borderClass: string
   readonly striped: boolean
   readonly emptyMessage: string
+  readonly noMatchMessage?: string
+  readonly globalFilter?: string
+  readonly hasRecords?: boolean
   readonly selectionMode?: 'none' | 'single' | 'multiple'
+  readonly gridRole?: boolean
   readonly editingCell?: EditingCell
   readonly fieldMeta?: FieldMetaMap
   readonly tableName?: string
@@ -227,6 +231,7 @@ function GroupedDataRow({
   borderClass,
   striped,
   selectionMode,
+  gridRole,
 }: {
   readonly row: Row<TableRecord>
   readonly rowIndex: number
@@ -234,6 +239,7 @@ function GroupedDataRow({
   readonly borderClass: string
   readonly striped: boolean
   readonly selectionMode?: 'none' | 'single' | 'multiple'
+  readonly gridRole?: boolean
 }): ReactElement {
   const handleRowClick = () => {
     if (selectionMode !== 'single') return
@@ -261,6 +267,7 @@ function GroupedDataRow({
         return (
           <td
             key={cell.id}
+            {...(gridRole && { role: 'gridcell' })}
             className={`${cellClass} ${borderClass} whitespace-nowrap ${conditionalClass}`}
             {...(meta?.field && { 'data-field': meta.field })}
           >
@@ -279,6 +286,7 @@ function GroupedTableBodyRows({
   borderClass,
   striped,
   selectionMode,
+  gridRole,
   collapsedGroups,
   onToggleGroupCollapsed,
 }: {
@@ -288,6 +296,7 @@ function GroupedTableBodyRows({
   readonly borderClass: string
   readonly striped: boolean
   readonly selectionMode?: 'none' | 'single' | 'multiple'
+  readonly gridRole?: boolean
   readonly collapsedGroups: ReadonlyArray<string>
   readonly onToggleGroupCollapsed?: (groupValue: string) => void
 }): ReactElement {
@@ -340,6 +349,7 @@ function GroupedTableBodyRows({
                   borderClass={borderClass}
                   striped={striped}
                   selectionMode={selectionMode}
+                  gridRole={gridRole}
                 />
               ))}
           </tbody>
@@ -357,7 +367,11 @@ export function TableBodyRows({
   borderClass,
   striped,
   emptyMessage,
+  noMatchMessage,
+  globalFilter,
+  hasRecords,
   selectionMode,
+  gridRole,
   rowModel,
   editingCell,
   fieldMeta,
@@ -381,6 +395,28 @@ export function TableBodyRows({
   }
 
   if (rows.length === 0) {
+    const query = globalFilter ?? ''
+    if (hasRecords === true && query.trim().length > 0 && noMatchMessage !== undefined) {
+      const resolved = noMatchMessage.replace(/\{query\}/g, query)
+      return (
+        <tbody className="divide-border bg-background-raised divide-y">
+          <tr>
+            <td
+              colSpan={allColumns.length}
+              className="py-8 text-center text-sm"
+            >
+              <div
+                role="status"
+                aria-live="polite"
+                className="text-foreground-muted"
+              >
+                {resolved}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      )
+    }
     return (
       <tbody className="divide-border bg-background-raised divide-y">
         <tr>
@@ -404,6 +440,7 @@ export function TableBodyRows({
         borderClass={borderClass}
         striped={striped}
         selectionMode={selectionMode}
+        gridRole={gridRole}
         collapsedGroups={collapsedGroups ?? []}
         {...(onToggleGroupCollapsed && { onToggleGroupCollapsed })}
       />
@@ -466,6 +503,7 @@ export function TableBodyRows({
             return (
               <td
                 key={cell.id}
+                {...(gridRole && { role: 'gridcell' })}
                 className={`${cellClass} ${borderClass} whitespace-nowrap ${conditionalClass}`}
                 {...(meta?.field && { 'data-field': meta.field })}
                 {...(onDoubleClick && { onDoubleClick })}

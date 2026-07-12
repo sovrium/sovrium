@@ -11,7 +11,8 @@ export const KPIFormatTypeSchema = Schema.Literal(
   'number',
   'currency',
   'percentage',
-  'compact'
+  'compact',
+  'bytes'
 ).annotations({
   title: 'KPI Format Type',
   description: 'Display format for the KPI metric value',

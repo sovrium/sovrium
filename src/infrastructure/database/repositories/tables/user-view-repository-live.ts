@@ -17,12 +17,16 @@ import {
   type UpdateUserViewInput,
   type UserViewResponse,
 } from '@/application/ports/repositories/tables/user-view-repository'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { Database } from '@/infrastructure/database/drizzle/layer'
-import { userSavedViews } from '@/infrastructure/database/drizzle/schema/user-views'
+import { userSavedViews as userSavedViewsPg } from '@/infrastructure/database/drizzle/schema/user-views'
+import { userSavedViews as userSavedViewsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/user-views'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { DrizzleDB } from '@/infrastructure/database/drizzle/db'
 
-type SavedViewRow = Readonly<typeof userSavedViews.$inferSelect>
+const userSavedViews = resolveDialectSchema(userSavedViewsPg, userSavedViewsSqlite)
+
+type SavedViewRow = Readonly<typeof userSavedViewsPg.$inferSelect>
 
 const isUniqueViolation = (err: unknown): boolean => {
   const message = err instanceof Error ? err.message : String(err)

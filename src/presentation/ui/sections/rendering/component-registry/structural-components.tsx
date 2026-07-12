@@ -10,13 +10,13 @@ import {
   computeListItemClasses,
   computeTimelineContainerClasses,
   computeTimelineRailClasses,
-} from '../../renderers/element-renderers/display-default-classes'
+} from '../../renderers/element-renderers/recipes/display-default-classes'
 import {
   computeCardClasses,
   computeDividerLabelTextClasses,
   computeDividerLabelWrapperClasses,
   computeDividerRuleClasses,
-} from '../../renderers/element-renderers/layout-default-classes'
+} from '../../renderers/element-renderers/recipes/layout-default-classes'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'

@@ -6,6 +6,17 @@
  */
 
 
+import { executeFetchAction } from '@/presentation/islands/shared/action-executor'
+import {
+  openFetchConfirmObjectGate,
+  parseConfirmObjectConfig,
+} from '@/presentation/islands/shared/confirm-gate-runtime'
+import {
+  fetchSessionUser,
+  resolveSessionTemplate,
+} from '@/presentation/islands/shared/session-resolver'
+import type { FetchAction } from '@/domain/models/app/pages/components/action'
+
 
 function openModal(modalId: string): void {
   const modal = document.getElementById(modalId)
@@ -243,19 +254,6 @@ type FetchToastResponse = {
   actionUrl?: string
 }
 
-function parseToastResponse(raw: string | null): FetchToastResponse | undefined {
-  if (!raw) return undefined
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (parsed && typeof parsed === 'object' && 'message' in parsed) {
-      return parsed as FetchToastResponse
-    }
-    return undefined
-  } catch {
-    return undefined
-  }
-}
-
 function dispatchToastResponse(response: FetchToastResponse | undefined): void {
   if (!response) return
   showToast(response.message, {
@@ -266,35 +264,167 @@ function dispatchToastResponse(response: FetchToastResponse | undefined): void {
   })
 }
 
+function parseFetchActionConfig(raw: string | null): FetchAction | undefined {
+  if (!raw) return undefined
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed && typeof parsed === 'object' && (parsed as { type?: unknown }).type === 'fetch') {
+      return parsed as FetchAction
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+function createGateButton(opts: {
+  label: string
+  className: string
+  ariaLabel?: string
+  onClick: () => void
+}): HTMLButtonElement {
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.className = opts.className
+  if (opts.ariaLabel) btn.setAttribute('aria-label', opts.ariaLabel)
+  btn.textContent = opts.label
+  btn.addEventListener('click', opts.onClick)
+  return btn
+}
+
+function openFetchConfirmGate(
+  trigger: HTMLButtonElement,
+  message: string,
+  confirmLabel: string,
+  onConfirm: () => void
+): void {
+  if (trigger.nextElementSibling?.hasAttribute('data-confirm-dialog')) return
+
+  const dialog = document.createElement('div')
+  dialog.setAttribute('role', 'alertdialog')
+  dialog.setAttribute('aria-modal', 'false')
+  dialog.setAttribute('aria-label', message)
+  dialog.setAttribute('data-confirm-dialog', '')
+  dialog.className =
+    'border-border bg-background-raised mt-2 flex items-center gap-2 rounded-md border p-2'
+
+  const messageSpan = document.createElement('span')
+  messageSpan.className = 'text-foreground-subtle text-xs'
+  messageSpan.textContent = message
+  dialog.appendChild(messageSpan)
+
+  dialog.appendChild(
+    createGateButton({
+      label: confirmLabel,
+      className:
+        'bg-error-bg text-error-fg rounded-md px-2 py-1 text-xs font-medium transition-opacity hover:opacity-90',
+      onClick: () => {
+        dialog.remove()
+        onConfirm()
+      },
+    })
+  )
+  dialog.appendChild(
+    createGateButton({
+      label: 'Annuler',
+      ariaLabel: 'Annuler',
+      className:
+        'border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-2 py-1 text-xs transition-colors',
+      onClick: () => dialog.remove(),
+    })
+  )
+
+  trigger.insertAdjacentElement('afterend', dialog)
+}
+
 function setupFetchButtonHandlers(): void {
-  bindActionButtons('fetch', async (button) => {
-    const url = button.getAttribute('data-action-url')
-    if (!url) return
-    const method = button.getAttribute('data-action-method') ?? 'GET'
-    const headersRaw = button.getAttribute('data-action-headers')
-    const bodyRaw = button.getAttribute('data-action-body')
-    const onSuccess = parseToastResponse(button.getAttribute('data-on-success'))
-    const onError = parseToastResponse(button.getAttribute('data-on-error'))
+  bindActionButtons('fetch', (button) => {
+    const config = parseFetchActionConfig(button.getAttribute('data-action-config'))
+    if (!config) return
 
-    const headers: Record<string, string> = headersRaw
-      ? (JSON.parse(headersRaw) as Record<string, string>)
-      : {}
-    const init: RequestInit = { method, headers }
-    if (bodyRaw) {
-      init.body = bodyRaw
-      if (!headers['Content-Type']) headers['Content-Type'] = 'application/json'
+    const dispatch = async (): Promise<void> => {
+      const result = await executeFetchAction(config)
+      if (result) dispatchToastResponse(result.ok ? config.onSuccess : config.onError)
     }
 
-    try {
-      const response = await fetch(url, init)
-      if (response.ok) {
-        dispatchToastResponse(onSuccess)
-      } else {
-        dispatchToastResponse(onError)
-      }
-    } catch {
-      dispatchToastResponse(onError)
+    const confirmObject = parseConfirmObjectConfig(button.getAttribute('data-confirm-config'))
+    if (confirmObject) {
+      openFetchConfirmObjectGate(button, confirmObject, () => void dispatch())
+      return
     }
+    const confirmMessage = button.getAttribute('data-confirm')
+    if (confirmMessage) {
+      const confirmLabel =
+        button.getAttribute('data-confirm-label') ?? button.textContent?.trim() ?? 'Confirmer'
+      openFetchConfirmGate(button, confirmMessage, confirmLabel, () => void dispatch())
+      return
+    }
+
+    void dispatch()
+  })
+}
+
+
+type EndpointFormConfig = {
+  url: string
+  method?: string
+  responseEnvelope?: string
+  onSuccess?: FetchToastResponse
+  onError?: FetchToastResponse
+}
+
+function parseEndpointFormConfig(raw: string | null): EndpointFormConfig | undefined {
+  if (!raw) return undefined
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof (parsed as EndpointFormConfig).url === 'string'
+    ) {
+      return parsed as EndpointFormConfig
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+function setupEndpointFormHandlers(): void {
+  document
+    .querySelectorAll<HTMLFormElement>('form[data-action-type="endpoint"]')
+    .forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault()
+        const config = parseEndpointFormConfig(form.getAttribute('data-endpoint-config'))
+        if (!config) return
+        const body = Object.fromEntries(new FormData(form)) as Record<string, unknown>
+        const action = {
+          type: 'fetch',
+          url: config.url,
+          method: config.method ?? 'POST',
+          body,
+          ...(config.responseEnvelope && { responseEnvelope: config.responseEnvelope }),
+          ...(config.onSuccess && { onSuccess: config.onSuccess }),
+          ...(config.onError && { onError: config.onError }),
+        } as FetchAction
+        void executeFetchAction(action).then((result) => {
+          if (result) dispatchToastResponse(result.ok ? config.onSuccess : config.onError)
+        })
+      })
+    })
+}
+
+
+function setupSessionBoundText(): void {
+  const elements = document.querySelectorAll<HTMLElement>('[data-session-template]')
+  if (elements.length === 0) return
+  void fetchSessionUser().then((user) => {
+    elements.forEach((el) => {
+      const template = el.getAttribute('data-session-template')
+      if (template === null) return
+      el.replaceChildren(resolveSessionTemplate(template, user))
+    })
   })
 }
 
@@ -317,6 +447,8 @@ function initClientRuntime(): void {
   setupAutomationButtonHandlers()
   setupAuthButtonHandlers()
   setupFetchButtonHandlers()
+  setupEndpointFormHandlers()
+  setupSessionBoundText()
 }
 
 if (document.readyState === 'loading') {

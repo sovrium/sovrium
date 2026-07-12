@@ -91,7 +91,7 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
     if (admin) {
       return [{ label: `Admin: ${admin.email}`, type: 'success' as const }] as const
     }
-    const userCount = yield* repo.countUsers()
+    const userCount = yield* repo.countHumanUsers()
     if (userCount === 0) return [] as const
     return [
       {

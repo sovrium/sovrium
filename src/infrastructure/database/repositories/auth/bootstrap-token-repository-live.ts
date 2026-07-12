@@ -19,8 +19,8 @@ import {
 } from '@/domain/models/system'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
-import { sovriumBootstrapTokens as sovriumBootstrapTokensPg } from '@/infrastructure/database/drizzle/schema/app-versioning'
-import { sovriumBootstrapTokens as sovriumBootstrapTokensSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/app-versioning'
+import { sovriumBootstrapTokens as sovriumBootstrapTokensPg } from '@/infrastructure/database/drizzle/schema/bootstrap-tokens'
+import { sovriumBootstrapTokens as sovriumBootstrapTokensSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/bootstrap-tokens'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 const sovriumBootstrapTokens = resolveDialectSchema(

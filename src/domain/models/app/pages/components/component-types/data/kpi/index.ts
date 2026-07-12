@@ -13,6 +13,7 @@ import { i18nFields } from '../../modules/i18n'
 import { responsiveFields } from '../../modules/responsive'
 import { visibilityFields } from '../../modules/visibility'
 import { KPIAggregateSchema } from './aggregate'
+import { KpiDataSourceSchema } from './data-source'
 import { KPIFormatSchema } from './format'
 import { KPISparklineSchema } from './sparkline'
 import { KPIThresholdSchema } from './thresholds'
@@ -28,6 +29,7 @@ export const kpiFields = {
   ...visibilityFields,
   ...i18nFields,
   ...dataBoundFields,
+  dataSource: Schema.optional(KpiDataSourceSchema),
   label: Schema.optional(
     Schema.String.annotations({
       description: 'Descriptive text displayed above the KPI metric value',
@@ -70,6 +72,13 @@ export {
 } from './trend'
 
 export { KPIFormatTypeSchema, KPIFormatSchema, type KPIFormatType, type KPIFormat } from './format'
+
+export {
+  KpiDbDataSourceSchema,
+  KpiSystemSourceSchema,
+  KpiDataSourceSchema,
+  type KpiSystemSource,
+} from './data-source'
 
 export { KPIThresholdSchema, type KPIThreshold } from './thresholds'
 

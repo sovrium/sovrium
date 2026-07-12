@@ -7,6 +7,7 @@
 
 export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'data-table',
+  'split-pane',
   'kanban',
   'calendar',
   'gallery',
@@ -20,6 +21,7 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'dialog',
   'alert-dialog',
   'drawer',
+  'record-drawer',
   'popover',
   'tooltip',
   'dropdown-menu',

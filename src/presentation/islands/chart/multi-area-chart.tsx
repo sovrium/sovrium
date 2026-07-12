@@ -28,6 +28,7 @@ interface MultiAreaChartProps {
   readonly series: readonly ChartSeriesConfig[]
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
+  readonly accessibleName?: string
 }
 
 interface PlottedPoint {
@@ -62,16 +63,20 @@ interface MultiAreaSvgProps {
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
   readonly hidden: ReadonlySet<string>
+  readonly accessibleName?: string
 }
 
-function MultiAreaSvg({
-  width,
-  height,
-  records,
-  xField,
-  series,
-  hidden,
-}: MultiAreaSvgProps): ReactElement {
+interface AreaLayout {
+  readonly innerWidth: number
+  readonly innerHeight: number
+  readonly keys: readonly string[]
+  readonly visibleSeries: readonly ChartSeriesConfig[]
+  readonly xScale: ReturnType<typeof scalePoint<string>>
+  readonly yScale: ReturnType<typeof scaleLinear<number>>
+}
+
+function buildAreaLayout(args: MultiAreaSvgProps): AreaLayout {
+  const { width, height, records, xField, series, hidden } = args
   const innerWidth = Math.max(0, width - CHART_MARGIN.left - CHART_MARGIN.right)
   const innerHeight = Math.max(0, height - CHART_MARGIN.top - CHART_MARGIN.bottom)
   const keys = xKeys(records, xField)
@@ -83,13 +88,19 @@ function MultiAreaSvg({
     range: [innerHeight, 0],
     nice: true,
   })
+  return { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale }
+}
+
+function MultiAreaSvg(props: MultiAreaSvgProps): ReactElement {
+  const { width, height, records, xField, series, accessibleName } = props
+  const { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale } = buildAreaLayout(props)
 
   return (
     <svg
       width={width}
       height={height}
       role="img"
-      aria-label="Area chart"
+      aria-label={accessibleName ?? 'Area chart'}
     >
       <Group
         left={CHART_MARGIN.left}
@@ -131,6 +142,7 @@ export function MultiAreaChart({
   series,
   legendPosition,
   legendVisible,
+  accessibleName,
 }: MultiAreaChartProps): ReactElement {
   return (
     <ChartShell
@@ -146,6 +158,7 @@ export function MultiAreaChart({
           xField={xField}
           series={series}
           hidden={hidden}
+          accessibleName={accessibleName}
         />
       )}
     </ChartShell>

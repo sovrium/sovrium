@@ -94,6 +94,32 @@ function renderRichText(
   )
 }
 
+function renderRecordFieldSystemIsland(props: Record<string, unknown>): ReactElement {
+  const dataSource = JSON.parse((props['_recordFieldDataSource'] as string) ?? '{}') as unknown
+  const islandProps = JSON.stringify({
+    dataSource,
+    recordId: props['_recordFieldSystemId'] as string | undefined,
+    field: props['field'] as string | undefined,
+    'data-testid': props['data-testid'] as string | undefined,
+  })
+  return (
+    <div
+      id={props['id'] as string | undefined}
+      data-island="record-field-system"
+      data-component="record-field"
+      data-testid={props['data-testid'] as string | undefined}
+      data-island-props={islandProps}
+    >
+      {}
+      <span
+        role="status"
+        aria-label="Loading field..."
+        className="bg-background-subtle inline-block h-4 w-16 animate-pulse rounded"
+      />
+    </div>
+  )
+}
+
 function renderPlainText(
   id: string | undefined,
   testId: string | undefined,
@@ -113,6 +139,9 @@ function renderPlainText(
 
 export const recordFieldComponent: ComponentRenderer = ({ rawProps, tables }): ReactElement => {
   const props = rawProps ?? {}
+
+  if (props['_recordFieldSystemMode']) return renderRecordFieldSystemIsland(props)
+
   const id = props['id'] as string | undefined
   const testId = props['data-testid'] as string | undefined
   const fieldName = props['field'] as string | undefined

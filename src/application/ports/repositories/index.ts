@@ -49,21 +49,6 @@ export {
   type DataSourceQueryOptions,
 } from './tables/data-source-repository'
 export {
-  AppVersionRepository,
-  AppVersionDatabaseError,
-  type CreateAppVersionInput,
-} from './app/app-version-repository'
-export {
-  AppDraftRepository,
-  AppDraftDatabaseError,
-  type UpsertAppDraftInput,
-} from './app/app-draft-repository'
-export {
   BootstrapTokenRepository,
   BootstrapTokenDatabaseError,
 } from './auth/bootstrap-token-repository'
-export {
-  PreviewSessionRepository,
-  PreviewSessionDatabaseError,
-  type CreatePreviewSessionInput,
-} from './app/preview-session-repository'

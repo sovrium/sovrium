@@ -112,6 +112,43 @@ export const accountDeleteResponseSchema = z
   .openapi('AccountDeleteResponse')
 
 
+export const accountPendingErasureItemSchema = z
+  .object({
+    id: z
+      .string()
+      .describe(
+        "The caller's user id — a stable row id so a data-table system binding (idKey) and refetch can key off it"
+      ),
+    email: z
+      .email()
+      .describe(
+        "The caller's OWN email address — session-bound (not a PII leak), so the pending-erasure table can render whose account is scheduled for erasure"
+      ),
+    scheduledErasureAt: z.iso
+      .datetime()
+      .describe(
+        'ISO 8601 — when the account will be hard-deleted (end of the grace window); the date a relative-time column renders as "dans N j"'
+      ),
+    requestedAt: z.iso
+      .datetime()
+      .describe('ISO 8601 — when the erasure was requested (scheduledErasureAt − gracePeriodDays)'),
+    gracePeriodDays: z
+      .literal(7)
+      .describe('Number of days the erasure can still be cancelled before it is purged'),
+  })
+  .openapi('AccountPendingErasureItem')
+
+export const accountPendingErasureResponseSchema = z
+  .object({
+    items: z
+      .array(accountPendingErasureItemSchema)
+      .describe(
+        "The caller's OWN pending erasure — exactly one item while scheduled, empty once cancelled or never requested"
+      ),
+  })
+  .openapi('AccountPendingErasureResponse')
+
+
 export type AccountExportProfile = z.infer<typeof accountExportProfileSchema>
 export type AccountExportSession = z.infer<typeof accountExportSessionSchema>
 export type AccountExportLinkedAccount = z.infer<typeof accountExportLinkedAccountSchema>
@@ -123,3 +160,5 @@ export type AccountDeleteRequest = z.infer<typeof accountDeleteRequestSchema>
 export type AccountDeleteScheduledResponse = z.infer<typeof accountDeleteScheduledResponseSchema>
 export type AccountDeleteCancelledResponse = z.infer<typeof accountDeleteCancelledResponseSchema>
 export type AccountDeleteResponse = z.infer<typeof accountDeleteResponseSchema>
+export type AccountPendingErasureItem = z.infer<typeof accountPendingErasureItemSchema>
+export type AccountPendingErasureResponse = z.infer<typeof accountPendingErasureResponseSchema>

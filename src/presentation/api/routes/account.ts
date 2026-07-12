@@ -10,6 +10,7 @@ import {
   CancelAccountDeletion,
   ExportAccount,
   GRACE_PERIOD_DAYS,
+  LoadPendingErasure,
   ScheduleAccountDeletion,
 } from '@/application/use-cases/account'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
@@ -44,6 +45,15 @@ async function handleExport(c: Context, app: App): Promise<Response> {
   )
   if (outcome._tag === 'Unauthorized') return unauthorized(c)
   return c.json(outcome.body, 200)
+}
+
+
+async function handlePendingErasure(c: Context): Promise<Response> {
+  const session = getSessionContext(c)
+  if (session === undefined) return unauthorized(c)
+
+  const body = await Effect.runPromise(LoadPendingErasure(session.userId).pipe(provideAccountLive))
+  return c.json(body, 200)
 }
 
 
@@ -112,6 +122,7 @@ async function handlePurgeDue(c: Context, app: App): Promise<Response> {
 export function chainAccountRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
     .get('/api/account/export', async (c) => handleExport(c, app))
+    .get('/api/account/pending-erasure', async (c) => handlePendingErasure(c))
     .post('/api/account/delete', async (c) => handleDelete(c))
     .post('/api/account/purge-due', async (c) => handlePurgeDue(c, app)) as T
 }

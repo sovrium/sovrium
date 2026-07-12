@@ -1,0 +1,169 @@
+# Sovrium Native Admin Dashboard — platform-provided system app config (ADR-021).
+#
+# This is the DOGFOODED operator console: a declarative Sovrium app config,
+# authored once, embedded in the binary (version-locked to the release) and
+# auto-mounted by the runtime at `/_admin` into EVERY running app. It is NOT
+# part of the operator's editable config — it travels with the binary, never
+# with the app, so a bad operator edit can never brick it (ADR-021 D1/D2).
+#
+# Tier 0 scope (this file): the minimal shell skeleton the system-config-mount
+# specs assert — a `main` landmark plus the three named sidebar `navigation`
+# landmarks (Données & Logique / Plateforme / Opérations). The full shell
+# (count badges, ⌘K palette, breadcrumb, split-pane Config tab, per-domain
+# surfaces) is layered on in Tier 1+ and is intentionally absent here.
+name: sovrium-admin-dashboard
+description: Sovrium Native Admin Dashboard — the dogfooded operator console.
+
+pages:
+  - id: dashboard-home
+    name: dashboard-home
+    path: /
+    meta:
+      title: Sovrium — Console
+    components:
+      - type: container
+        element: div
+        props:
+          className: flex min-h-screen bg-background text-foreground
+        children:
+          # Sidebar — the three config-family navigation groups, each its own
+          # named `navigation` landmark (getByRole('navigation', { name })).
+          - type: container
+            element: aside
+            props:
+              className: w-64 shrink-0 border-r border-border bg-background-raised p-4 flex flex-col gap-6
+              aria-label: Navigation du tableau de bord
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-lg font-semibold
+                content: Console
+              - type: container
+                element: nav
+                props:
+                  className: flex flex-col gap-1
+                  aria-label: Données & Logique
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-xs font-medium uppercase tracking-wide text-muted-foreground
+                    content: Données & Logique
+              - type: container
+                element: nav
+                props:
+                  className: flex flex-col gap-1
+                  aria-label: Plateforme
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-xs font-medium uppercase tracking-wide text-muted-foreground
+                    content: Plateforme
+              - type: container
+                element: nav
+                props:
+                  className: flex flex-col gap-1
+                  aria-label: Opérations
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-xs font-medium uppercase tracking-wide text-muted-foreground
+                    content: Opérations
+          # Main content region. The page renderer already wraps every page in a
+          # single `<main id="main-content">` landmark (PageMain), so this region
+          # uses a plain `div` — a second `element: main` would create a duplicate
+          # `main` landmark and break `getByRole('main')` strict-mode resolution.
+          - type: container
+            element: div
+            props:
+              className: flex-1 p-8
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-2xl font-semibold mb-2
+                content: Tableau de bord
+              - type: text
+                element: p
+                props:
+                  className: text-muted-foreground
+                content: Administrez votre application Sovrium.
+
+  # Public operator sign-in surface (US-ADMIN-DASHBOARD-LOGIN). The ONLY
+  # unguarded page under `/_admin` — the auth seam exempts `/_admin/login`
+  # so an anonymous operator can sign in; `/_admin` itself stays 404-anonymous
+  # (S1). Mirrors the business-app login pattern (apps/cloud/config/pages/
+  # login.ts) one-to-one: a centred card holding a `form`/`auth`/`login`/`email`
+  # action that renders through the shared `auth-form` island, submits to Better
+  # Auth `POST /api/auth/sign-in/email`, and redirects to `/_admin` on success.
+  - id: dashboard-login
+    name: dashboard-login
+    path: /login
+    meta:
+      title: Sovrium — Connexion
+      noindex: true
+    components:
+      # The page renderer already wraps every page in a single `<main
+      # id="main-content">` (PageMain), so this uses a plain `div` — an
+      # `element: main` here would create a SECOND `main` landmark and break
+      # `getByRole('main')` strict-mode resolution (a11y: one main per page).
+      - type: container
+        element: div
+        props:
+          className: min-h-screen flex flex-col items-center justify-center gap-8 px-6 py-16 bg-background text-foreground
+        children:
+          - type: container
+            props:
+              className: flex flex-col items-center gap-3 text-center
+            children:
+              - type: text
+                element: span
+                content: S
+                props:
+                  className: inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
+              - type: text
+                element: h1
+                content: Connexion à la console
+                props:
+                  className: text-2xl font-bold tracking-tight leading-tight text-foreground
+              - type: text
+                element: p
+                content: Connectez-vous pour administrer votre application Sovrium.
+                props:
+                  className: text-sm leading-relaxed text-muted-foreground max-w-sm
+          - type: card
+            props:
+              className: w-full max-w-sm bg-background-raised border border-border rounded-lg p-7
+            children:
+              - type: form
+                props:
+                  id: admin-login-form
+                action:
+                  type: auth
+                  method: login
+                  strategy: email
+                  # French voice (login.md Implementation Note + US-ADMIN-DASHBOARD-
+                  # LOGIN AC-006): the dashboard's chrome is French, so the sign-in
+                  # form's field labels and submit button are French. This is a
+                  # per-form i18n config of the SHARED `auth-form` island — the
+                  # business-app logins (apps/cloud, apps/website) keep their English
+                  # defaults because they declare no override (cloud) or `$t:` keys
+                  # (website). `fields[]` overrides target a field by `name` and
+                  # replace its visible label; the email/password input types are
+                  # unchanged.
+                  submitLabel: Se connecter
+                  fields:
+                    - name: email
+                      label: Adresse e-mail
+                    - name: password
+                      label: Mot de passe
+                  onSuccess:
+                    navigate: /_admin
+          - type: text
+            element: p
+            content: La configuration vit dans le code. Ici, vous observez ce qui tourne.
+            props:
+              className: text-foreground-subtle font-serif text-sm italic

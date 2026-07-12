@@ -7,7 +7,7 @@
 
 import { type ReactElement, Fragment } from 'react'
 import { renderIcon } from '../../renderers/element-renderers/icon-renderer'
-import { computeButtonGroupClasses } from '../../renderers/element-renderers/interactive-content-default-classes'
+import { computeButtonGroupClasses } from '../../renderers/element-renderers/recipes/interactive-content-default-classes'
 import {
   computeBreadcrumbItemClasses,
   computeBreadcrumbListClasses,
@@ -15,7 +15,7 @@ import {
   computePaginationButtonClasses,
   computePaginationEllipsisClasses,
   computePaginationListClasses,
-} from '../../renderers/element-renderers/navigation-default-classes'
+} from '../../renderers/element-renderers/recipes/navigation-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 

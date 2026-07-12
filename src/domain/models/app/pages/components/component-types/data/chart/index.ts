@@ -13,6 +13,7 @@ import { responsiveFields } from '../../modules/responsive'
 import { visibilityFields } from '../../modules/visibility'
 import { ChartAggregateSchema } from './aggregate'
 import { ChartAxisSchema } from './axis'
+import { ChartDataSourceSchema } from './data-source'
 import { ChartLegendSchema } from './legend'
 import { ChartSeriesSchema } from './series'
 import { ChartTooltipSchema } from './tooltip'
@@ -41,6 +42,7 @@ export const chartFields = {
   ...visibilityFields,
   ...i18nFields,
   ...dataBoundFields,
+  dataSource: Schema.optional(ChartDataSourceSchema),
   chartType: Schema.optional(ChartTypeSchema),
   xAxis: Schema.optional(ChartAxisSchema),
   yAxis: Schema.optional(ChartAxisSchema),
@@ -59,6 +61,32 @@ export const chartFields = {
       examples: ['No sales data available', 'No metrics yet'],
     })
   ),
+  emptyState: Schema.optional(
+    Schema.Struct({
+      role: Schema.Literal('region').annotations({
+        description: 'ARIA landmark role for the empty-state region (currently only "region")',
+      }),
+      name: Schema.String.pipe(
+        Schema.minLength(1),
+        Schema.annotations({
+          description:
+            'Accessible name (aria-label) for the empty-state region, rendered when the chart data source returns zero rows',
+          examples: ['Aucune donnée', 'No data'],
+        })
+      ),
+      title: Schema.optional(
+        Schema.String.annotations({
+          description:
+            'Body text inside the empty-state region (falls back to emptyMessage, then a default, when omitted)',
+          examples: ['Aucune visite sur la période'],
+        })
+      ),
+    }).annotations({
+      title: 'Chart Empty State',
+      description:
+        'When set, the chart renders a NAMED ARIA region (role + accessible name) instead of the default unnamed empty placeholder when its data source returns zero rows. Present-when-empty, absent-when-populated.',
+    })
+  ),
 } as const
 
 
@@ -70,6 +98,13 @@ export {
   type AxisScale,
   type ChartAxis,
 } from './axis'
+
+export {
+  ChartDbDataSourceSchema,
+  ChartSystemSourceSchema,
+  ChartDataSourceSchema,
+  type ChartSystemSource,
+} from './data-source'
 
 export { ChartSeriesSchema, type ChartSeries } from './series'
 

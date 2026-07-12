@@ -12,9 +12,10 @@ import { appendAuditEntryToDbTx } from '@/infrastructure/audit-log/drizzle-store
 import { db } from '@/infrastructure/database'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
 import { logInfo } from '@/infrastructure/logging/logger'
+import { nowEpochMsSqlLiteral } from './sql/dialect-ddl'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { getExistingColumnNames } from './sql/dialect-introspection'
-import { authTableRef, nowExpr } from './sql/dialect-sql'
+import { authTableRef } from './sql/dialect-sql'
 import type { AuditLogEntry } from '@/domain/models/api/admin/audit-log/entry'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
@@ -82,6 +83,7 @@ export async function purgeAccount(
       resource: { type: 'user', id: userId },
       severity: 'critical',
       result: 'success',
+      transport: 'api',
       metadata: {
         erasedUserId: userId,
         ...(erasedEmail ? { erasedEmail } : {}),
@@ -99,7 +101,7 @@ export async function purgeDueAccounts(appTableNames: readonly string[]): Promis
   const dueRows = (await executeRaw(
     db,
     sql`SELECT id FROM ${authTableRef('user')}
-        WHERE "scheduledErasureAt" IS NOT NULL AND "scheduledErasureAt" <= ${nowExpr()}`
+        WHERE "scheduledErasureAt" IS NOT NULL AND "scheduledErasureAt" <= ${sql.raw(nowEpochMsSqlLiteral())}`
   )) as unknown as readonly { id: string }[]
 
   for (const row of dueRows) {

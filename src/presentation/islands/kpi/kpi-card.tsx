@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import * as LucideIcons from 'lucide-react'
+import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
 import { KpiSparkline } from './kpi-sparkline'
 import type { ReactElement } from 'react'
 
@@ -31,25 +31,6 @@ const THRESHOLD_COLOR_CLASS: Record<string, string> = {
   yellow: 'text-warning-fg',
   blue: 'text-primary',
   gray: 'text-foreground-muted',
-}
-
-function kebabToPascalCase(name: string): string {
-  return name
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('')
-}
-
-function resolveLucideIcon(
-  iconName: string | undefined
-): React.ComponentType<Record<string, unknown>> | undefined {
-  if (!iconName) return undefined
-  const component = (LucideIcons as Record<string, unknown>)[kebabToPascalCase(iconName)]
-  if (typeof component === 'function')
-    return component as React.ComponentType<Record<string, unknown>>
-  if (typeof component === 'object' && component !== null)
-    return component as React.ComponentType<Record<string, unknown>>
-  return undefined
 }
 
 const TREND_COLOR_CLASS: Record<NonNullable<KpiTrendConfig['color']>, string> = {

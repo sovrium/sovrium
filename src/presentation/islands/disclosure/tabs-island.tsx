@@ -6,6 +6,7 @@
  */
 
 import { Tabs } from '@base-ui/react/tabs'
+import { useCallback, useEffect, useRef, type ReactElement } from 'react'
 import { cn } from '@/presentation/islands/lib/cn'
 import {
   computeTabClasses,
@@ -13,7 +14,6 @@ import {
   computeTabPanelClasses,
   computeTabsListClasses,
 } from './disclosure-default-classes'
-import type { ReactElement } from 'react'
 
 interface TabItem {
   readonly id: string
@@ -29,6 +29,23 @@ interface TabsIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  readonly ariaLabel?: string
+}
+
+function useNestedIslandMount(rootRef: React.RefObject<HTMLDivElement | null>): () => void {
+  const scan = useCallback(() => {
+    const root = rootRef.current
+    if (!root) return
+    void import('@/presentation/islands/island-client').then(({ mountIslandsWithin }) => {
+      mountIslandsWithin(root)
+    })
+  }, [rootRef])
+  useEffect(scan, [scan])
+  return scan
+}
+
+function isHorizontalTabList(orientation: 'horizontal' | 'vertical'): 'true' | undefined {
+  return orientation === 'horizontal' ? 'true' : undefined
 }
 
 export default function TabsIsland({
@@ -38,18 +55,27 @@ export default function TabsIsland({
   className,
   id,
   'data-testid': testId,
+  ariaLabel,
 }: TabsIslandProps): ReactElement {
   const defaultValue = defaultTab ?? items[0]?.id
+  const rootRef = useRef<HTMLDivElement>(null)
+  const rescanNestedIslands = useNestedIslandMount(rootRef)
 
   return (
     <Tabs.Root
+      ref={rootRef}
       defaultValue={defaultValue}
       orientation={tabsOrientation}
       className={cn(className)}
       id={id}
       data-testid={testId}
+      onValueChange={rescanNestedIslands}
     >
-      <Tabs.List className={computeTabsListClasses({ orientation: tabsOrientation })}>
+      <Tabs.List
+        className={computeTabsListClasses({ orientation: tabsOrientation })}
+        aria-label={ariaLabel}
+        data-scrollable={isHorizontalTabList(tabsOrientation)}
+      >
         {items.map((tab) => (
           <Tabs.Tab
             key={tab.id}
@@ -62,7 +88,6 @@ export default function TabsIsland({
         ))}
         <Tabs.Indicator className={computeTabIndicatorClasses()} />
       </Tabs.List>
-
       {items.map((tab) => (
         <Tabs.Panel
           key={tab.id}

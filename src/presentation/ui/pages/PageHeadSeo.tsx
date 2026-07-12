@@ -11,6 +11,17 @@ import type { Page } from '@/domain/models/app/pages'
 import type { ContentDirSeoMeta } from '@/domain/utils/content-dir/content-dir-seo-meta'
 
 
+const resolveHreflangOrigin = (canonical: string | undefined): string => {
+  if (canonical && /^https?:\/\//i.test(canonical)) {
+    try {
+      return new URL(canonical).origin
+    } catch {
+    }
+  }
+  const baseUrl = Bun.env.BASE_URL
+  return baseUrl ? baseUrl.replace(/\/$/, '') : ''
+}
+
 function HreflangLinks({
   page,
   languages,
@@ -23,6 +34,7 @@ function HreflangLinks({
   }
 
   const basePath = page.path === '/' ? '' : page.path
+  const origin = resolveHreflangOrigin(page.meta?.canonical)
 
   return (
     <>
@@ -33,7 +45,7 @@ function HreflangLinks({
             key={lang.code}
             rel="alternate"
             hrefLang={hreflang}
-            href={`/${lang.code}${basePath}/`}
+            href={`${origin}/${lang.code}${basePath}/`}
           />
         )
       })}
@@ -41,7 +53,7 @@ function HreflangLinks({
         key="x-default"
         rel="alternate"
         hrefLang="x-default"
-        href={`/${languages.default}${basePath}/`}
+        href={`${origin}/${languages.default}${basePath}/`}
       />
     </>
   )

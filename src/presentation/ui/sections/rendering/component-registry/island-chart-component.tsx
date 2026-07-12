@@ -5,13 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeChartShellClasses } from '../../renderers/element-renderers/data-default-classes'
+import { computeChartShellClasses } from '../../renderers/element-renderers/recipes/data-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 
 const CHART_SKELETON_HEIGHTS = ['h-[40%]', 'h-[55%]', 'h-[70%]', 'h-[60%]', 'h-[85%]', 'h-[50%]']
 
 function extractChartProps(elementProps: Record<string, unknown>): Record<string, unknown> {
   return {
+    ariaLabel: elementProps['aria-label'],
     dataSource: elementProps.dataSource,
     chartType: elementProps.chartType,
     xAxis: elementProps.xAxis,
@@ -21,6 +22,7 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
     tooltip: elementProps.tooltip,
     chartAggregate: elementProps.chartAggregate,
     emptyMessage: elementProps.emptyMessage,
+    emptyState: elementProps.emptyState,
   }
 }
 

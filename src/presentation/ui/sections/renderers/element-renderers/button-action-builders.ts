@@ -8,7 +8,8 @@
 
 import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
 import { substituteRecordInInputData } from '@/presentation/rendering/record-template-substitution'
-import type { CrudFormAction } from './crud-form-renderer'
+import type { CrudFormAction } from './crud-form/crud-form-renderer'
+import type { FetchAction } from '@/domain/models/app/pages/components/action'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
 export function buildClickDataAttributes(clickInteraction: {
@@ -114,37 +115,30 @@ export function isCrudDeleteAction(action: unknown): action is CrudFormAction {
   )
 }
 
-export type FetchToastResponse = {
-  type: 'toast'
-  message: string
-  variant?: string
-  duration?: number
-  actionLabel?: string
-  actionUrl?: string
-}
-
-export type FetchAction = {
-  type: 'fetch'
-  url: string
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  headers?: Record<string, string>
-  body?: Record<string, unknown>
-  onSuccess?: FetchToastResponse
-  onError?: FetchToastResponse
-}
+export type { FetchAction }
 
 export function isFetchAction(action: unknown): action is FetchAction {
   return (action as { type?: string })?.type === 'fetch'
 }
 
+export function buildConfirmAttributes(
+  rawConfirm: unknown,
+  elementProps: Record<string, unknown>
+): Record<string, string> {
+  if (typeof rawConfirm === 'string') {
+    return elementProps['data-confirm'] === undefined ? { 'data-confirm': rawConfirm } : {}
+  }
+  if (rawConfirm !== null && typeof rawConfirm === 'object') {
+    return elementProps['data-confirm-config'] === undefined
+      ? { 'data-confirm-config': JSON.stringify(rawConfirm) }
+      : {}
+  }
+  return {}
+}
+
 export function buildFetchDataAttributes(action: FetchAction): Record<string, string> {
   return {
     'data-action-type': 'fetch',
-    'data-action-url': action.url,
-    'data-action-method': action.method ?? 'GET',
-    ...(action.headers && { 'data-action-headers': JSON.stringify(action.headers) }),
-    ...(action.body && { 'data-action-body': JSON.stringify(action.body) }),
-    ...(action.onSuccess && { 'data-on-success': JSON.stringify(action.onSuccess) }),
-    ...(action.onError && { 'data-on-error': JSON.stringify(action.onError) }),
+    'data-action-config': JSON.stringify(action),
   }
 }

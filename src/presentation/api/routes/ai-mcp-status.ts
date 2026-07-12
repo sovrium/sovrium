@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { defaultModelForProvider } from '@/domain/models/env/ai/ai-providers'
 import { persistAgentTurnDurably } from '@/presentation/api/routes/ai/chat-durable-memory'
+import { resolveAgentChatBackend } from '@/presentation/api/utils/agent-chat-env'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import {
   computeAgentMcpToolCatalog,
@@ -206,19 +208,11 @@ interface AiEnv {
 }
 
 const readAiEnv = (env: NodeJS.ProcessEnv, agent: Agent): AiEnv | { readonly error: string } => {
-  const provider = env.AI_PROVIDER
-  if (provider === undefined || provider === '') {
-    return {
-      error:
-        'AI_PROVIDER is not configured. Agent chat requires AI_PROVIDER to be set so the platform can reach the LLM backend.',
-    }
-  }
-  const baseUrl = env.AI_BASE_URL
-  const apiKey = env.AI_API_KEY
-  if (baseUrl === undefined || apiKey === undefined) {
-    return { error: 'AI_BASE_URL and AI_API_KEY must be set for agent chat to function.' }
-  }
-  return { baseUrl, apiKey, model: agent.model ?? env.AI_MODEL ?? 'mock-model' }
+  const backend = resolveAgentChatBackend(env)
+  if ('error' in backend) return backend
+  const model =
+    agent.model ?? env.AI_MODEL ?? defaultModelForProvider(backend.provider) ?? 'mock-model'
+  return { baseUrl: backend.baseUrl, apiKey: backend.apiKey, model }
 }
 
 const FALLBACK_REPLY =

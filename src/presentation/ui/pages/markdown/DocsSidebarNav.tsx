@@ -6,10 +6,35 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
+import {
+  type TabId,
+  TAB_ORDER,
+  TAB_LABELS,
+  TABS_SCRIPT_HTML,
+  TABS_STYLE_HTML,
+  deriveLang,
+  sectionHasTab,
+  tabOfSection,
+} from './DocsSidebarTabs'
 import type {
   CollectionNavData,
   CollectionNavEntry,
 } from '@/presentation/rendering/content-dir-lister'
+
+const renderSectionIcon = (iconName: string | undefined): Readonly<ReactElement> | undefined => {
+  const LucideIcon = resolveLucideIcon(iconName)
+  if (!LucideIcon) return undefined
+  return (
+    <LucideIcon
+      aria-hidden="true"
+      size={16}
+      color="currentColor"
+      strokeWidth={2}
+      className="shrink-0"
+    />
+  )
+}
 
 interface DocsSidebarNavProps {
   readonly nav: CollectionNavData
@@ -18,6 +43,7 @@ interface DocsSidebarNavProps {
 interface NavGroup {
   readonly name: string | undefined
   readonly label: string | undefined
+  readonly icon: string | undefined
   readonly entries: readonly CollectionNavEntry[]
 }
 
@@ -33,19 +59,21 @@ const bucketByGroup = (entries: readonly CollectionNavEntry[]): readonly NavGrou
     return {
       name,
       label: groupEntries[0]?.groupLabel ?? name,
+      icon: groupEntries[0]?.groupIcon,
       entries: groupEntries,
     }
   })
   const ungrouped = entries.filter((entry) => entry.group === undefined)
   if (ungrouped.length === 0) return grouped
-  if (grouped.length === 0) return [{ name: undefined, label: undefined, entries: ungrouped }]
-  return [...grouped, { name: undefined, label: undefined, entries: ungrouped }]
+  if (grouped.length === 0)
+    return [{ name: undefined, label: undefined, icon: undefined, entries: ungrouped }]
+  return [...grouped, { name: undefined, label: undefined, icon: undefined, entries: ungrouped }]
 }
 
 const ENTRY_BASE_CLASS =
   'block rounded-md px-3 py-1.5 text-sm transition-colors duration-150 border-l-2'
-const ENTRY_ACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-warmth-border bg-neutral-900 font-medium text-neutral-50`
-const ENTRY_INACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-transparent text-neutral-400 hover:bg-neutral-900/60 hover:text-neutral-100`
+const ENTRY_ACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-warmth-border bg-background-overlay font-medium text-foreground`
+const ENTRY_INACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-transparent text-foreground-muted hover:bg-background-overlay/60 hover:text-foreground`
 
 const renderEntry = (entry: CollectionNavEntry): Readonly<ReactElement> => (
   <li
@@ -64,7 +92,8 @@ const renderEntry = (entry: CollectionNavEntry): Readonly<ReactElement> => (
 
 const groupIsActive = (group: NavGroup): boolean => group.entries.some((entry) => entry.isCurrent)
 
-const GROUP_LABEL_CLASS = 'mb-2 px-3 text-xs font-semibold tracking-wide text-neutral-500 uppercase'
+const GROUP_LABEL_CLASS =
+  'mb-2 px-3 text-xs font-semibold tracking-wide text-foreground-subtle uppercase'
 
 const renderGroup = (
   group: NavGroup,
@@ -95,10 +124,13 @@ const renderGroup = (
         <summary
           className={`${GROUP_LABEL_CLASS} flex cursor-pointer items-center justify-between [&::-webkit-details-marker]:hidden`}
         >
-          {group.label}
+          <span className="flex min-w-0 items-center gap-2">
+            {renderSectionIcon(group.icon)}
+            {group.label}
+          </span>
           <span
             aria-hidden="true"
-            className="ml-2 text-neutral-600 transition-transform duration-150"
+            className="text-foreground-subtle ml-2 transition-transform duration-150"
           >
             ▾
           </span>
@@ -112,24 +144,102 @@ const renderGroup = (
     <section
       key={group.name}
       data-nav-group={group.name}
-      className="mb-6"
+      className="border-border mb-6 border-t pt-6 first:border-t-0 first:pt-0"
     >
-      <p className={GROUP_LABEL_CLASS}>{group.label}</p>
+      <p className={`${GROUP_LABEL_CLASS} flex items-center gap-2`}>
+        {renderSectionIcon(group.icon)}
+        {group.label}
+      </p>
       {list}
     </section>
+  )
+}
+
+const NAV_WRAPPER_CLASS =
+  'border-border sticky top-16 hidden h-[calc(100dvh-4rem)] w-60 shrink-0 self-start overflow-y-auto border-r py-8 pr-4 text-sm lg:block'
+
+const TAB_BTN_CLASS =
+  'text-foreground-muted hover:text-foreground cursor-pointer bg-transparent px-2 py-1.5 text-xs font-medium transition-colors duration-150'
+
+const renderTabButton = (
+  tab: TabId,
+  activeTab: TabId,
+  lang: 'en' | 'fr'
+): Readonly<ReactElement> => (
+  <button
+    key={tab}
+    type="button"
+    role="tab"
+    id={`docs-tab-${tab}`}
+    data-docs-tab-btn={tab}
+    aria-selected={tab === activeTab ? 'true' : 'false'}
+    aria-controls={`docs-tabpanel-${tab}`}
+    tabIndex={tab === activeTab ? 0 : -1}
+    className={TAB_BTN_CLASS}
+  >
+    {TAB_LABELS[lang][tab]}
+  </button>
+)
+
+const renderTabPanel = (
+  tab: TabId,
+  tabGroups: readonly NavGroup[],
+  activeTab: TabId
+): Readonly<ReactElement> => (
+  <div
+    key={tab}
+    role="tabpanel"
+    id={`docs-tabpanel-${tab}`}
+    data-docs-tab-panel={tab}
+    aria-labelledby={`docs-tab-${tab}`}
+    hidden={tab === activeTab ? undefined : true}
+  >
+    {tabGroups.map((group, index) => renderGroup(group, index, false))}
+  </div>
+)
+
+const renderTabbedNav = (
+  groups: readonly NavGroup[],
+  lang: 'en' | 'fr'
+): Readonly<ReactElement> => {
+  const groupsByTab: Readonly<Record<TabId, readonly NavGroup[]>> = {
+    'data-logic': groups.filter((group) => tabOfSection(group.name) === 'data-logic'),
+    platform: groups.filter((group) => tabOfSection(group.name) === 'platform'),
+    operations: groups.filter((group) => tabOfSection(group.name) === 'operations'),
+  }
+  const visibleTabs = TAB_ORDER.filter((tab) => groupsByTab[tab].length > 0)
+  const activeTab =
+    TAB_ORDER.find((tab) => groupsByTab[tab].some(groupIsActive)) ?? visibleTabs[0] ?? 'data-logic'
+  return (
+    <>
+      <style dangerouslySetInnerHTML={TABS_STYLE_HTML} />
+      <div
+        role="tablist"
+        aria-label="Documentation sections"
+        data-docs-tabs
+        className="border-border mb-5 flex flex-wrap gap-x-4 gap-y-1 border-b px-3"
+      >
+        {visibleTabs.map((tab) => renderTabButton(tab, activeTab, lang))}
+      </div>
+      {visibleTabs.map((tab) => renderTabPanel(tab, groupsByTab[tab], activeTab))}
+      <script dangerouslySetInnerHTML={TABS_SCRIPT_HTML} />
+    </>
   )
 }
 
 export function DocsSidebarNav({ nav }: DocsSidebarNavProps): Readonly<ReactElement> {
   const groups = bucketByGroup(nav.sidebar)
   const collapsed = nav.collapsed === true
+  const tabbable = !collapsed && groups.some((group) => sectionHasTab(group.name))
   return (
     <nav
       data-component="docs-sidebar-nav"
       aria-label="Documentation"
-      className="sticky top-16 hidden max-h-[calc(100dvh-4rem)] w-60 shrink-0 self-start overflow-y-auto border-r border-neutral-800 py-8 pr-4 text-sm lg:block"
+      className={NAV_WRAPPER_CLASS}
     >
-      {groups.map((group, index) => renderGroup(group, index, collapsed))}
+      {tabbable
+        ? renderTabbedNav(groups, deriveLang(nav.sidebar))
+        : groups.map((group, index) => renderGroup(group, index, collapsed))}
     </nav>
   )
 }

@@ -93,3 +93,27 @@ export const automationsRunsDetailResponseSchema = automationRunAdminItemSchema.
 )
 
 export type AutomationsRunsDetailResponse = z.infer<typeof automationsRunsDetailResponseSchema>
+
+export const adminRunStepSchema = z
+  .object({
+    name: z.string().describe('Action step name (the automation action `name`).'),
+    status: z.string().describe('Step execution status (e.g. completed / failed / skipped).'),
+    input: z.unknown().nullable().describe('Step input — the action `props` (Entrée panel).'),
+    output: z.unknown().nullable().describe('Step output data (Sortie panel; null when none).'),
+    error: z.string().nullable().describe('Error message if the step failed.'),
+  })
+  .openapi('AdminRunStep')
+
+export type AdminRunStep = z.infer<typeof adminRunStepSchema>
+
+export const automationsRunsDetailWithStepsResponseSchema = automationRunAdminItemSchema
+  .extend({
+    steps: z
+      .array(adminRunStepSchema)
+      .describe('Per-step execution rows with input (props) + output, ordered by step index.'),
+  })
+  .openapi('AutomationsRunsDetailWithStepsResponse')
+
+export type AutomationsRunsDetailWithStepsResponse = z.infer<
+  typeof automationsRunsDetailWithStepsResponseSchema
+>

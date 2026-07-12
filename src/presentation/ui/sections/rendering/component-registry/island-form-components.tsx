@@ -178,6 +178,7 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
       defaultTab: c['defaultTab'] as string | undefined,
       tabsOrientation:
         (c['tabsOrientation'] as 'horizontal' | 'vertical' | undefined) ?? 'horizontal',
+      ariaLabel: elementProps['aria-label'] as string | undefined,
       ...baseProps(elementProps),
     }
     return (

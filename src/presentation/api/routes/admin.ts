@@ -8,11 +8,15 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { buildAdminOverview } from '@/application/use-cases/admin/overview'
+import { AdminSearchLayer, SearchAdminGlobal } from '@/application/use-cases/admin/search'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   configVersionResponseSchema,
   type ConfigVersionResponse,
 } from '@/domain/models/api/admin/config/version'
+import { adminOverviewResponseSchema } from '@/domain/models/api/admin/overview/overview'
+import { adminSearchResponseSchema } from '@/domain/models/api/admin/search/search'
 import {
   storageStatusResponseSchema,
   type StorageStatusResponse,
@@ -141,8 +145,52 @@ function handleDeleteTransformCache(c: Context): Response {
   return c.json({ success: true, message: 'Transform cache cleared' }, 200)
 }
 
+function createHandleGetOverview(app: App) {
+  return async function handleGetOverview(c: Context): Promise<Response> {
+    const overview = await Effect.runPromise(buildAdminOverview(app))
+
+    const parsed = adminOverviewResponseSchema.safeParse(overview)
+    if (!parsed.success) {
+      console.error('[admin] overview response validation failed', parsed.error)
+      return c.json(
+        { success: false, message: 'Failed to build overview', code: 'INTERNAL_ERROR' },
+        500
+      )
+    }
+
+    c.header('Cache-Control', 'no-store')
+    return c.json(parsed.data, 200)
+  }
+}
+
+function createHandleGetSearch(app: App) {
+  return async function handleGetSearch(c: Context): Promise<Response> {
+    const query = c.req.query('q') ?? ''
+    const response = await Effect.runPromise(
+      SearchAdminGlobal(app, query).pipe(
+        Effect.provide(AdminSearchLayer),
+        Effect.orElseSucceed(() => ({ query: query.trim(), groups: [] }))
+      )
+    )
+
+    const parsed = adminSearchResponseSchema.safeParse(response)
+    if (!parsed.success) {
+      console.error('[admin] search response validation failed', parsed.error)
+      return c.json(
+        { success: false, message: 'Failed to run search', code: 'INTERNAL_ERROR' },
+        500
+      )
+    }
+
+    c.header('Cache-Control', 'no-store')
+    return c.json(parsed.data, 200)
+  }
+}
+
 export function chainAdminRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
+    .get('/api/admin/overview', createHandleGetOverview(app))
+    .get('/api/admin/search', createHandleGetSearch(app))
     .get('/api/admin/storage/status', handleGetStorageStatus)
     .get('/api/admin/buckets/quota', handleGetBucketsQuota)
     .get('/api/admin/config/version', handleGetConfigVersion)

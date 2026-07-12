@@ -32,6 +32,7 @@ interface BarChartProps {
   readonly data?: readonly BarDatum[]
   readonly xAxis?: ChartAxisDisplay
   readonly yAxis?: ChartAxisDisplay
+  readonly accessibleName?: string
 }
 
 function buildBarData(
@@ -60,6 +61,7 @@ interface BarChartSvgProps {
   readonly height: number
   readonly xAxis?: ChartAxisDisplay
   readonly yAxis?: ChartAxisDisplay
+  readonly accessibleName?: string
 }
 
 const MARGIN = { top: 16, right: 16, bottom: 56, left: 72 }
@@ -281,6 +283,7 @@ function BarChartSvg({
   data: preAggregated,
   xAxis,
   yAxis,
+  accessibleName,
 }: BarChartSvgProps): ReactElement {
   const data = preAggregated ?? buildBarData(records, xField, yField)
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
@@ -293,7 +296,7 @@ function BarChartSvg({
       width={width}
       height={height}
       role="img"
-      aria-label="Bar chart"
+      aria-label={accessibleName ?? 'Bar chart'}
     >
       <Group
         left={MARGIN.left}
@@ -339,6 +342,7 @@ export function BarChartCanvas({
   data,
   xAxis,
   yAxis,
+  accessibleName,
 }: BarChartProps): ReactElement {
   return (
     <div
@@ -358,6 +362,7 @@ export function BarChartCanvas({
               data={data}
               xAxis={xAxis}
               yAxis={yAxis}
+              accessibleName={accessibleName}
             />
           )
         }}

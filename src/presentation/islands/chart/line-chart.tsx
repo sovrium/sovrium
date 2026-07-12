@@ -14,6 +14,7 @@ import type { ReactElement } from 'react'
 
 interface LineChartProps {
   readonly data: readonly BarDatum[]
+  readonly accessibleName?: string
 }
 
 interface LineChartSvgProps extends LineChartProps {
@@ -91,7 +92,7 @@ function plotPoints(
   return data.map((d) => ({ key: d.key, x: xScale(d.key) ?? 0, y: yScale(d.value) }))
 }
 
-function LineChartSvg({ width, height, data }: LineChartSvgProps): ReactElement {
+function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps): ReactElement {
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
   const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom)
   const points = plotPoints(data, innerWidth, innerHeight)
@@ -101,7 +102,7 @@ function LineChartSvg({ width, height, data }: LineChartSvgProps): ReactElement 
       width={width}
       height={height}
       role="img"
-      aria-label="Line chart"
+      aria-label={accessibleName ?? 'Line chart'}
     >
       <Group
         left={MARGIN.left}
@@ -137,7 +138,7 @@ function LineChartSvg({ width, height, data }: LineChartSvgProps): ReactElement 
 
 const CHART_CONTAINER_CLASSES = 'w-full h-80'
 
-export function LineChartCanvas({ data }: LineChartProps): ReactElement {
+export function LineChartCanvas({ data, accessibleName }: LineChartProps): ReactElement {
   return (
     <div
       data-component="chart"
@@ -151,6 +152,7 @@ export function LineChartCanvas({ data }: LineChartProps): ReactElement {
               width={width}
               height={height}
               data={data}
+              accessibleName={accessibleName}
             />
           )
         }}

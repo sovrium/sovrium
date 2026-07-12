@@ -1,3 +1,637 @@
+## [0.12.0](https://github.com/sovrium/sovrium/compare/v0.11.0...v0.12.0) (2026-07-12)
+
+### Features
+
+- **pages**: add contentDir.editUrl + localize docs-article chrome (P13)
+- per-page markdown export, copy/view-as-markdown, last-updated stamp
+- **pages**: source RSS feed items from a markdown-file page
+- render named empty-state region for system-bound charts
+- honor chart props[aria-label] as the SVG accessible name
+- **data-table**: render query-echoing no-match status distinct from empty state
+- **pages**: wire inline-select-edit column action + custom-endpoint form submit
+- **pages**: inline-select-edit column action + custom-endpoint form submit
+- **file-upload**: wire upload-submission runtime + onSuccess/onError effects
+- **pages**: file-upload submission + onSuccess effects (foundation, RED)
+- **account**: pending-erasure returns the caller's email
+- **gdpr**: pending-erasure read, relative-time column, download onSuccess effects
+- **pages**: wire object-form confirm, session-bound text, onSuccess effects
+- **pages**: add confirm-object, session-bound text, and action onSuccess status/refetch vocabularies
+- **record-drawer**: compose the actions/role/renderAs trio with system bindings
+- **record-drawer**: wire actions footer, configurable role/name, structured fields
+- **record-drawer**: add actions slot, configurable role/name, structured field renderer
+- **button**: wire standalone button fetch-action runtime (download + confirm gate)
+- **button**: accept fetch actions + confirm-gate destructive fetches
+- **admin**: convert connections directory to config data-table
+- **action**: wire mode:oauth runtime in shared action-executor
+- **data-table**: wire visibleWhen action gating + valueLabels render runtime
+- **data-table**: add visibleWhen action gating and valueLabels column display map
+- **admin**: rewire admin chrome to config-native command-palette + dropdown-menu (CAP-5 C3)
+- **islands**: convert runs filter bar onto the config shared-filter binding — CAP-5 C2 admin
+- **islands**: cross-component shared-filter binding (config sharedFilter/bindTo) — CAP-5 C2 generic
+- **admin**: compose bucket file-browser from config data-table + download action + quota kpi (CAP-5 C1)
+- **admin**: global-search results surface via named system-source binding (CAP-4)
+- **pages**: system-source catalog resolution via SSR desugar (CAP-4)
+- **admin**: automation-run retry endpoint + config action (CAP-3)
+- **islands**: data-users system actions via Better-Auth config fetch actions (CAP-3)
+- **islands**: thread row record into data-table fetch-action dispatch
+- **islands**: buckets file-row download via config mode:download action
+- **islands**: action-executor download + navigate modes + GDPR export download
+- **islands**: system operate action — core-mutate executor + GDPR erase/cancel conversion
+- **islands**: wire page-level system single-record binding (CAP-2)
+- **islands**: wire record-drawer system detail-endpoint binding (CAP-2)
+- **islands**: wire CAP-2 system detail/single binding for record-field
+- **islands**: wire CAP-1 system-source rows binding for list
+- **islands**: wire CAP-1 system-source rows binding for data-timeline
+- **islands**: wire CAP-1 system-source rows binding for calendar
+- **islands**: wire CAP-1 system-source rows binding for kanban
+- **islands**: wire CAP-1 system-source rows binding for gallery
+- **chart**: add a system read-endpoint series data source binding
+- **kpi**: add a system read-endpoint value-path data source binding
+- **admin**: connect / reconnect / disconnect row actions on the connections directory
+- **admin**: OAuth2 connect/callback/disconnect admin action endpoints
+- **partner**: add a Google OAuth2 connection to the partner app
+- **data-table**: add a permission-gated "Nouvel enregistrement" create flow to the data-table toolbar
+- **admin**: sidebar global search UI grouped by type + record deep-link drawer
+- **admin**: GET /api/admin/search global indexed search endpoint (dual-dialect FTS)
+- **admin**: _admin_search_index dual-dialect migrations + SQLite FTS5 DDL
+- **admin**: add dashboard overview at /_admin root
+- **admin**: account page — identity card + "Mon compte" naming (Wave 3 F)
+- **admin**: start a new agent conversation from the Conversations page (Wave 3 M)
+- **admin**: admin bucket file-upload endpoint + wire the upload modal (Wave 3 N)
+- **admin**: sidebar object toggles + automation/agent run filters (Wave 2 C+D)
+- **admin**: Wave 1 dashboard IA + affordance polish (sidebar, profile menu, modals)
+- **admin**: surface per-form analytics panel on the Soumissions selected-form page
+- **admin**: add the App Connections data page to the operational console
+- **admin**: add the Agents Conversations data page to the operational console
+- **admin**: add the Buckets Files data page to the operational console
+- **admin-dashboard**: Data-tab Statistiques page (page analytics)
+- **admin-dashboard**: Data-tab Utilisateurs page (account directory)
+- **admin**: rich config-list table — metadata columns, row actions, create/rename modals, per-item unpublished state
+- **admin**: per-element config metadata, diff, rename-cascade + duplicate
+- **admin-dashboard**: Data-tab Soumissions page (form submissions inbox)
+- **admin-dashboard**: Data-tab Exécutions page (automation run history)
+- **admin-dashboard**: Data-tab Enregistrements page (table records grid)
+- **admin-dashboard**: top-level Config/Données sidebar tab + Data routing
+- **admin-dashboard**: content-only (SPA) shell navigation
+- **admin-dashboard**: cross-cutting a11y + responsive + parity (completes Tier 2)
+- **admin-dashboard**: cross-cutting — search palette, operators, MCP connect, GDPR
+- **admin-dashboard**: Tier 2f per-domain metrics backends + page edit history
+- **admin-dashboard**: Tier 2b Tier-B CRUD + Tier 2d drift watcher/banner
+- **admin-dashboard**: Tier 2e sandbox preview TTL + Aperçu lifecycle
+- **admin-dashboard**: Tier 2c transport taxonomy + activity feed + versioning
+- **admin-dashboard**: Tier 2a Agents dashboard + in-product chat (completes 2a)
+- **admin-dashboard**: Tier 2a Theme + Languages + Env + Notifications
+- **admin-dashboard**: Tier 2a Connections + Components + Actions + Scripts
+- **admin-dashboard**: Tier 2a Forms + Auth + Buckets dashboards
+- **admin-dashboard**: Tier 2a Pages + Automations dashboards
+- **admin-dashboard**: Tier 2a Tables domain dashboard (tables + tables-data)
+- **admin-dashboard**: Tier 2 fidelity foundation + spec reconciliation + fixes
+- **admin-dashboard**: Tier 1 editing surfaces — shell, editor, publish, login (MVP)
+- **admin-dashboard**: Tier 0 foundations + /_admin/login spec
+- **pages**: config-driven docs nav-section icons (contentDir.nav.groupIcons)
+- **docs**: redesign docs navigation, Welcome page, and install guide
+- **docs-app**: add admin auth + analytics dashboard page
+
+### Bug Fixes
+
+- **tables**: don't run view-backed id resolution on composite-key tables
+- **tables**: correct DEC-048 many-to-many types and clear batch-3 quality drift
+- **website**: sync /install script with the canonical install.sh
+- complete m2m-on-create for view-backed tables and the form path (DEC-048)
+- split many-to-many fields on record create and resolve them on read (DEC-048)
+- view-backed insert applies base DEFAULTs and returns the real id (DEC-047)
+- **comments**: opt-in per-user comment read/unread state (DEC-045)
+- **theme**: raise --sv-fg-subtle to WCAG AA contrast in light and dark
+- **pages**: render the default 404/500 pages with theme tokens
+- exclude soft-deleted child rows from rollup and count aggregates
+- apply admin-equivalent override to field-level read filtering
+- enforce permissions.comment server-side (DEC-046)
+- **pages**: emit absolute hreflang alternates sharing the canonical origin
+- **partner**: GREEN org-projects backbone specs + hide role-gated embedded formRefs
+- **tables**: resolved top custom role bypasses row-level scoping (GAP #1)
+- **partner**: repoint temps rowLevelPermissions to project/projects slugs
+- clamp cron setTimeout delay to avoid 32-bit overflow busy-loop
+- **auth**: route every admin-tier guard through one isAdminTier predicate
+- **partner**: declare the Google OAuth env vars in the partner env block
+- **connections**: resolve $env.VAR in oauth2 props before the provider flow
+- admit custom top-role operators to OpenAPI docs endpoints
+- **tables**: make user-preferences + saved-views repos dialect-aware (SQLite 500)
+- **admin**: render typed create-form controls in the record grid
+- **ai**: make Ollama agent chat work out of the box (no API key)
+- **account**: make GDPR self-service export work on the SQLite default
+- **build**: stop license script from double-stamping generated CSS assets
+- **auth**: exclude agent service users from admin-bootstrap preconditions
+- **progress**: recognize directory-based admin API schema modules in coverage check
+- **admin**: diff against effective baseline (published-else-booted)
+- **progress**: classify fixme-spec'd stories as Specified-Not-Implemented (🟡), not Needs-Specification (🔴)
+- **progress**: correct Planned-US spec-ownership heuristic + prototype index Feature Area (clear 7 content warnings)
+- **admin-dashboard**: correct forms.spec.ts inline schema to AppSchema form shape
+- **security**: tolerate attribute/junk HTML end tags in search-index regexes
+
+### Refactoring
+
+- **partner**: symmetric pain-intensity model — every intensity is a pain_votes note (0d)
+- **pages**: hoist contentDir slug derivation into a shared domain util
+- delegate comment-grant eval to shared permission helper
+- extract helpers to satisfy complexity/statement limits
+- **partner**: resilient pain-vote model + view-backed create workarounds
+- **partner**: build pain points + demandes collaboration core (batch 2)
+- **partner**: repoint pages/forms/auth/app.ts to backbone slugs; neutralize Stripe billing
+- **partner**: transform tables to interview-derived backbone (WIP checkpoint)
+- **apps**: drop the unused BTN_OUTLINE import from the compare page
+- **apps**: reframe pricing around Partner, with Cloud as private beta
+- **apps**: collapse the /compare cluster into one honest comparison page
+- **apps**: reorient the website home page around community + AI-native
+- **apps**: restructure the website header nav + fix the 375px mobile overflow
+- **admin**: convert MCP connect panel to static generic config
+- **apps**: add the Sovrium Apps community gallery to the website
+- **admin**: convert GDPR self-service surface to generic config
+- **apps**: delete the standalone apps/docs app
+- **admin**: convert users directory to generic system-source data-table
+- **apps**: point the footer License/Trademark links at the in-site docs pages
+- **apps**: merge docs config zone into apps/website
+- **admin**: delete 7 orphaned admin-dashboard islands (-931 LOC)
+- **apps**: move docs content + docs-specific public assets into apps/website
+- **test**: merge buckets bespoke page + download @regression workflows into one
+- **test**: merge gdpr bespoke + converted @regression workflows into one
+- **test**: merge overlapping automations-runs @regression workflows into one
+- **test**: de-dialect presentational @regression workflows to single postgres run
+- **admin**: convert page-analytics surface to generic Sovrium config
+- **admin**: dogfood bucket file-browser via generic config
+- **admin**: dogfood automation-run detail via record-drawer
+- **admin**: render Données record grid via generic data-table
+- **admin**: form submissions render via generic data-table + download export + kpi
+- **islands**: unify $record url substitution across all fetch-action modes
+- **islands**: unify the two CAP-2 system-detail mode predicates
+- **islands**: consolidate list-family records fetch + hasDataBinding
+- **domain**: lift dataSource.system into shared SystemSourceSchema
+- **islands**: share the system-query URL builder across kpi + chart
+- **admin**: convert the dashboard overview to config-driven kpi tiles
+- **admin**: add a first-class JSON content/code reference-config card to MCP docs
+- **admin**: compose API docs from first-class code+tabs component-types
+- **admin**: remove the orphaned admin-automation-runs list island
+- **data-table**: green the Pass 3A system-source WIP (lint/quality)
+- **admin**: redirect bare data object-pages to first item + drop duplicate in-pane rail
+- **admin**: derive admin-search use-case types from the canonical API model
+- **admin**: drop the /data URL segment from the dashboard (no back-compat)
+- **forms**: emit honeypot as static HTML to silence SSR autocomplete warning
+- **admin**: remove orphaned Tier 2f per-domain metrics endpoints
+- group sprawling route/renderer/island dirs into subdirectories
+- **admin**: extract shared time-series bucketing + fix tables-overview layer
+- **api**: dedupe admin route guards + add defense-in-depth catch-all
+- **db**: consolidate ai-compute trigger generators onto shared hub
+- **cli**: drop defunct reload --message flag and dead drift-gate
+- **auth**: single admin guard + remove config-search & live migrator
+- **db**: drop config version/draft/preview tables + migrations
+- **server**: remove orphaned config-mutation callees + config drift
+- **admin**: reduce dashboard surface builder to a pure data console
+- **admin-sidebar**: collapse to a Data-only navigation sidebar
+- **islands**: remove config-editing + observability admin islands
+- **server**: remove config-mutation REST schema routes (config code-only)
+- **mcp**: remove config-mutation schema tools (config code-only)
+- **admin**: remove native config-edition code, MCP server, and versioning
+- **admin**: split oversized family-index islands to clear ESLint warnings
+- **admin-dashboard**: extract shared Data-page intro + object workspace helpers
+- **admin**: clarify why SPA nav events stay off the typed island bus
+- **admin**: add stable content-region marker for SPA shell swaps
+- **admin**: make admin sidebar navigation-only on every surface
+- **admin-dashboard**: collapse duplicated metrics-island primitives
+- **presentation**: consolidate Lucide icon resolver into a shared util
+- **docs**: hoist MarkdownArticle inline dangerouslySetInnerHTML payloads
+
+### Documentation
+
+- regenerate spec progress after batch-3 merge
+- **marketing**: record the executed Scalingo migration in the readiness plan
+- **partner**: correct plans-billing @spec count in reconciliation note
+- **partner**: reconcile plans-billing + onboarding US to observed config
+- **partner**: describe the symmetric pain-intensity model in pain-points US
+- **website**: add newsletter section to the privacy policy (EN + FR)
+- prettier-format the Scalingo migration runbook
+- sovrium.com Scalingo migration discovery + plan, stage runner egress
+- **marketing**: add website production-readiness plan
+- **marketing**: close the website-checklist campaign (M6 final validation sweep)
+- author platform US for m2m-on-create (DEC-048), promote DEC-047 to authored, refresh readTracking JSDoc
+- **marketing**: record M5c (edit-this-page shipped, docs-chrome i18n, honest non-adoption)
+- **marketing**: record M5b Blocks 1&2 (docs-UX + AI-era markdown-out) + gate plan
+- **website**: add troubleshooting page + MCP client-connect walkthrough (M5b Block 3)
+- **marketing**: record M5a (P2/P1/P3/P6/P10 closed) + flip checklist
+- **partner**: reconcile pain-points + demandes AC/FEATURES to GREEN state
+- **partner**: fix stale seed-automation comment in nouveau-pain
+- regenerate SPEC-PROGRESS and SPEC-WARNINGS after partner batch 2
+- **partner**: update pain-points + demandes US (config paths, model note, blocked ACs)
+- **platform**: route comment read/unread, comment-permission, and view-backed-table gaps
+- **marketing**: record M4 spec outcome (30/30 GREEN)
+- **website**: document the M4 trust & conversion surfaces (newsletter, numbers, BSL, footer)
+- **marketing**: record M4 in the website-checklist campaign
+- **marketing**: record M3 in the website-checklist campaign
+- **platform**: route the last isUnrestricted-parity straggler to a platform US + DEC-044
+- **partner**: reconcile org-projects backbone docs with GREEN state
+- **marketing**: record M2 in the website-checklist campaign
+- **growth**: add Sovrium Partner lead-acquisition system (audit + roadmap + assets)
+- regenerate spec progress tracking for partner backbone + platform gaps
+- **platform**: route two Sovrium Partner dogfooding gaps to platform US + DEC
+- **marketing**: record M1 in the website-checklist campaign
+- **growth**: relocate marketing docs under docs/growth/
+- **growth**: add Scalezia content corpus for Partner lead-gen research
+- **vision**: replace partner FEATURES.md and user stories from the new vision
+- **vision**: rewrite partner VISION.md from the founder interview kit
+- **marketing**: add professional framework-website checklist
+- **vision**: add partner interview 06 recording extraction under 2026-07-11/
+- **vision**: add partner interview 05 recording extraction under 2026-07-11/
+- **vision**: add partner interview 04 recording extraction under 2026-07-11/
+- **vision**: add partner interview 03 recording extraction under 2026-07-10/
+- **vision**: add partner interview 02 recording extraction under 2026-07-10/
+- **vision**: add partner interview 01 recording extraction under 2026-07-08/
+- **vision**: date-scope partner interview answers under 2026-07-06/
+- **user-stories**: reconcile website US + FEATURES to shipped Stage-3 reorientation
+- close the Admin Dashboard dogfooding campaign (governance + scorecard)
+- **progress**: mark the Apps gallery Covered and regenerate SPEC-PROGRESS
+- **user-stories**: reconcile the Apps gallery US to shipped Stage-2 reality
+- **user-stories**: reconcile the docs zone to Stage 1 of the website merge
+- **apps**: rewrite docs internal cross-links to the /docs URL prefix
+- **vision**: draft AI-authored answers for the partner business-app interview kit
+- **decisions**: record DEC-041 (Merge Docs into Website, Stage 0) + regen SPEC-PROGRESS
+- **user-stories**: add the Website-unification user stories + merge FEATURES
+- **user-stories**: unify Website VISION and re-home the Docs user stories
+- **git-infra**: reconcile docs to reality after Scaleway cost-cutting pass
+- resolve content-quality warnings to baseline (1 error + 10 warnings → 0/2)
+- **data-table**: add US for the no-match status capability
+- **marketing**: add "The Journey" build-in-public content kit
+- log DEC-040 (file-upload submission foundation design decision)
+- **dev**: update admin-dashboard dogfooding follow-up notes
+- **vision**: reorient business-app interview kit to first-person dogfooding
+- **memory**: record confirmed GDPR-conversion blocker (session revocation)
+- **gdpr**: user stories + DEC-039 for the final two GDPR-conversion gaps
+- **vision**: clarify business-app interview order and deconflict §5 north-star
+- **decisions**: log DEC-038 — three generic config capabilities for the admin GDPR dogfood
+- **user-stories**: add US for confirm-object, session-bound text, and action onSuccess effects
+- **dev**: add admin-dashboard dogfooding follow-up vocabulary campaign plan
+- **admin**: fix stale recordGridIsland reference in drawer-id comment
+- **vision**: remove sample interview transcripts from interview kit
+- **website**: prettier-format VISION.md prose reflow
+- **website**: reconcile US/VISION to brand-voice reframe (naming, yaml→ts, resolved tensions)
+- **vision**: add per-app business-app interview-script kit
+- **apps**: correct stale partner template counts in apps/README
+- **user-stories**: add per-app vision docs for the four business apps
+- **vision**: align interviews table column widths with scripts/ link paths
+- **vision**: move interview scripts into scripts/ and repoint their links
+- **vision**: remove the vision-consistency-audit ledger and repoint its references
+- **vision**: apply Interview-06 brand findings — tagline retirement + voice-contract reversal banner
+- **vision**: incorporate answered interviews 05 (customers/JTBD) and 06 (brand/voice)
+- **vision**: make docs/vision/ the canonical vision source and reconcile project to it
+- **vision**: add interview 11 transcript (large-v3) and mapped answers
+- **vision**: add interview 10 transcript (large-v3) and mapped answers
+- **vision**: add interview 09 transcript (large-v3) and mapped answers
+- **vision**: add interview 08 transcript (large-v3) and mapped answers
+- add US for the Développeurs API & MCP docs pages
+- **vision**: add interview 07 transcript (large-v3) and mapped answers
+- **vision**: add interview 06 transcript (large-v3) and mapped answers
+- **progress**: regenerate SPEC-PROGRESS / SPEC-WARNINGS / FEATURES for the Pass 1 batch
+- **progress**: regenerate SPEC-PROGRESS after dashboard overview
+- **vision**: add interview 05 transcript (large-v3) and mapped answers
+- **admin**: add US-ADMIN-FORMS-ANALYTICS + retire dangling metrics-US links
+- **vision**: add interview 04 transcript (large-v3) and mapped answers
+- **vision**: add interview 03 transcript (large-v3) and mapped answers
+- **adr**: record monetization + MCP-scope decisions (free self-host, paid Cloud config-editing)
+- **vision**: re-add main's founder-interview scripts + transcripts onto the truth branch
+- prune stale config-edition refs after config-code-only removal
+- **vision**: upgrade interview 01 transcript to large-v3, recover Q12 opening
+- **vision**: add interview 02 transcript (large-v3) and mapped answers
+- **vision**: rename reference interview test/ to example/
+- regenerate SPEC-PROGRESS.md and drop now-empty SPEC-WARNINGS.md
+- add aiAccess YAML example for tables/automations/actions schema coverage
+- **vision**: add interview 01 transcript and mapped answers
+- drop dangling POST-MVP references after registry removal
+- remove POST-MVP deferred-features registry
+- **progress**: regenerate SPEC-PROGRESS after R6 dashboard spec verification
+- **admin**: reconcile dashboard US AC tables to the pure data console (R6)
+- **progress**: regenerate SPEC-PROGRESS after R6 data-console spec reconciliation
+- regenerate SPEC-PROGRESS (final)
+- drop dangling MCP-server-OAuth consumer ref from oauth-server US/spec
+- regenerate SPEC-PROGRESS after residual config-edit cleanup
+- scrub stale config-edit cross-references from kept dashboard US
+- regenerate SPEC-PROGRESS after config-edition removal
+- reframe product contract for config-as-code + data-only admin dashboard
+- remove config-edition user stories; reframe dashboard US to data-only
+- commit first vision interview transcript; ignore audio
+- add founder-interview scripts under docs/vision/
+- **vision**: config code-only — admin space is a read-only data console
+- **adr**: reverse ADR-020 D2 (free flagship deleted; flag open monetization question)
+- **adr**: supersede ADR-021 with ADR-022 (read-only data console, config code-only)
+- **admin-dashboard**: re-home the SHELL-SPA US + reconcile indexes; regen SPEC-PROGRESS
+- **features**: retire the config-editing feature entries (config code-only)
+- **admin-dashboard**: remove the config-editing index/sequencing US
+- **agent-memory**: record Data-tab Pass-1 completion + key gotchas
+- regenerate SPEC-PROGRESS.md for Data-tab pages
+- spec the Data-tab Utilisateurs + Statistiques pages (US)
+- add content-only (SPA) navigation ACs to admin dashboard shell US
+- correct stale "not built yet" comments in admin dashboard login surface
+- **admin-dashboard**: sync user stories, SPEC-PROGRESS + progress artifacts
+- **admin-dashboard**: correct stale spawnPreviewServer isolation comment
+- **admin-dashboard**: refine readiness US/specs (gdpr, shell, mount, index, FEATURES)
+- **admin-dashboard**: re-render prototype for readiness — agents 5-tab (drop Outils), tables no-rows empty state, GDPR self-service
+- **admin-dashboard**: readiness fixes — /_admin mount US, agents 5-tab reconcile, GDPR self-service, SHELL gate symbols, doc minors
+- **admin-dashboard**: promote tier-b-crud + split monitoring-gaps into 7 spec-backed US (.fixme) + implementation-order
+- **admin-dashboard**: promote decided + component US to spec-backed (.fixme specs + AC)
+- **admin-dashboard**: sync spec acceptance-criteria status + spec/US updates for the implementation pass
+- **admin-dashboard**: v2 Phase 2b-ii part 2 — split-screen, Airtable drawer/views, config-content search, workflow chains
+- **admin-dashboard**: v2 Phase 2b-ii part 1 — run search/I-O, dogfood shell, tab consistency
+- **admin-dashboard**: v2 Phase 2b-i — family-index, GDPR, agent-chat US + RED specs
+- **admin-dashboard**: v2 Phase 2a — extend prototype (list pages, split-screen, Airtable drawer, run I/O, GDPR, agent-chat)
+- **admin-dashboard**: v2 Phase 1 — dogfooding ADR-021 + net-new component Planned US
+- **docs**: apply Tier-2 voice/parity light fixes
+- **admin-dashboard**: resolve F6 (dashboard tiers) + F5 (default-on opt-out)
+- **agents**: update scaleway-infra-maintainer DR-strategy memory
+- **admin-dashboard**: author Wave D (remaining 9 domains) per-domain US + RED specs
+- **admin-dashboard**: author Wave C (forms/buckets/auth) per-domain US + RED specs
+- **admin-dashboard**: author Wave B (tables/pages/automations) per-domain US + RED specs
+- **admin-dashboard**: author Epic 1 cross-cutting + 1b US + RED specs
+- **admin-dashboard**: author platform-gap + Epic 0 foundation US + RED specs
+- **admin-dashboard**: add complete visual prototype reference base
+- **infra**: remove Tailscale admin fence from sovrium-cloud Caddy
+- **sovrium-cloud**: expand resource-limit and OOM-incident notes
+- **sovrium-cloud**: document resource limits and OOM incident 2026-06-17
+- **docs-app**: update FEATURES and auth user stories
+- **adr**: add ADR 020 — monetization (free self-host, paid hosting)
+- **infra**: commit canonical sovrium-cloud Caddyfile
+- **infra**: add sovrium-cloud app-plane ADR + deploy runbook
+
+### Styles
+
+- fix RSS feed test lint/format and refresh stale generated CSS asset
+- prettier-format batch-2 authoring files
+- **website**: use text-warmth-fg for the accent eyebrow (WCAG AA)
+- **website**: fix header horizontal overflow at 768-1279px (M4 Part A)
+- prettier-format partner batch platform-gap docs + spec
+- **apps**: align remaining Cloud CTAs to the private-beta waitlist + de-hype
+- **docs**: prettier-format the reconciled website FEATURES.md/apps.md
+- **apps**: apply Prettier formatting to the apps-gallery config
+- apply Prettier formatting across the merged docs zone
+- **apps**: make the shared site logo theme-aware for dark mode
+- **git-infra**: prettier-format ADR-022 reconciliation docs
+- **docs**: prettier-format the dogfood follow-up plan
+- **website**: de-echo hero eyebrow (EN + FR)
+- **website**: StoryBrand reframe + FR vous→tu reversal (FR marketing)
+- **website**: StoryBrand reframe + naming reconcile (EN) — checkpoint
+- **docs**: normalize italic markers in interview 06 answers
+- **admin**: prettier-format the Pass 2a spec/US + openapi guard files
+- **admin**: green the Pass 2a build — format, import-order, regen css assets
+- **partner**: French submit labels on the two forms that fell back to "Submit"
+- **admin,forms**: polished form defaults, dual version chips, auto-expand nav
+- **docs**: prettier-align the global-search FEATURES row
+- **admin**: prettier-format admin-search endpoint + repo + port
+- **partner**: apply prettier line-wrap to create-qonto-invoice spec
+- prettier-format api-schema-structure check in check-progress.ts
+- **admin**: polish the pure data console — reshape ⌘K, drop config-editing remnants (R7)
+- **docs**: prettier-format vision fundraising script and README table
+- prettier-format reframed contract docs
+- **admin**: reformat + refresh shell doc-comment for the data console
+- **admin-dashboard**: prettier-format the Data-tab US docs
+- **admin-dashboard**: lint + format the Data-tab Utilisateurs/Statistiques islands
+- prettier-format config-list overhaul specs, stories, and sources
+- **admin**: gender-correct French config-list copy + drop dead delete control
+- **admin**: cache family-index lists via TanStack Query + loading skeleton
+- **admin**: viewport-pinned shell, "Rechercher" placeholder, drop Notifications nav
+- **infra**: normalize markdown emphasis in ADR-021 note
+- **changelog**: escape markdown asterisks (prettier)
+
+### Tests
+
+- **pages**: assert inline-select refetch end-state instead of racing the GET
+- **pages**: assert refetch end-state instead of racing the GET request
+- **website**: scope Apps header-entry-point assertion to <nav>
+- **partner**: enforce projects.plan required for PLANS-BILLING-002
+- **partner**: green catalog (PLANS-BILLING-001) + invitation-gating (ONBOARDING-001/002)
+- **partner**: add RED specs for plans-billing + onboarding (batch 3 money)
+- **partner**: realign pain-points specs to the symmetric pain-intensity model
+- **partner**: green DEMANDES-002 pain-link via m2m-on-create + view-backed fixes (0b/0c)
+- add RED fixme specs for m2m-on-create (DEC-048) and view-backed insert (DEC-047)
+- **pages**: cover edit-this-page + docs-chrome i18n; guard website non-adoption
+- **partner**: green DEMANDES-006 via requests comment readTracking (0a)
+- **pages**: add RED specs + US for AI-era per-page markdown export, copy/view, last-updated
+- **theming**: fix lint/type nits in the contrast spec
+- **partner**: green demandes batch-2 specs (file/kanban/monopoly/comment)
+- **partner**: pain-points + demandes collaboration specs, batch 2 (fixme-first)
+- **platform**: RED specs for comment permission enforcement and per-user read/unread state
+- **website**: cover the dedicated newsletter capture page (M4 Part C)
+- **website**: cover footer Newsletter link + pricing BSL license note (M4 C/D)
+- **website**: repoint community discuss card to Discussions + cover honest-numbers strip (M4 B2)
+- **website**: cover the changelog page + footer/install changelog links (M3)
+- **automations**: RED fixme spec for comment-event read-gate top-role parity
+- **website**: cover the community and brand pages
+- **platform**: add RED fixme specs for the two partner dogfooding gaps
+- **website**: cover language switcher, site-wide search, and security/support pages
+- **partner**: author org-projects backbone E2E specs (batch 1, fixme-first)
+- **e2e**: remove legacy partner specs superseded by the re-derived vision
+- **admin**: fix run-retry @regression record-load race under contention
+- **specs**: scope docs-landing CTA locators outside the shared nav
+- **specs**: align website E2E specs to shipped Stage-3 reorientation
+- **admin**: convert MCP docs spec to static-curl contract (RED anchor)
+- **specs**: green the Sovrium Apps gallery specs + swap the docs-chrome proxy
+- **admin**: converted contract for the RGPD self-service surface
+- **specs**: use toHaveCount() in the apps-gallery fixme spec
+- **admin**: fix data-users converted-spec bugs; directory conversion GREEN 22/22
+- **specs**: migrate the re-homed docs specs onto the unified website app
+- **admin**: converted contract for the Utilisateurs directory (data-table + create-form dropped)
+- **admin**: regenerate stale darwin responsive baselines for config-driven dashboard
+- **specs**: add .fixme() E2E specs for the Website-unification features
+- **specs**: re-home docs E2E specs under specs/apps/website/docs/
+- **admin**: regenerate analytics @regression baseline for the calm em-dash panel
+- **admin**: fix ANALYTICS-005 to assert the calm em-dash, not "0"
+- **admin**: restore bespoke users-directory ARIA assertions + park deferred conversion specs
+- **data-chart**: add RED spec + schema for chart named empty-state region
+- **admin**: align page-analytics spec to the baked-default-window scope
+- **data-chart**: add RED specs for configurable chart accessible name
+- **admin**: align users-directory ARIA assertions for data-table conversion
+- **data-table**: add RED specs for the no-match status capability
+- **gdpr**: add RED specs for the final two GDPR-conversion gaps (Phase 2b)
+- **pages**: add RED specs for confirm-object, session-bound text, and action onSuccess effects
+- **admin**: add RED DOM spec for connections-directory → config data-table conversion
+- **action**: add RED spec for FetchAction mode:'oauth' fetch-then-redirect
+- **specs**: update system-source-catalog datatable visual baseline
+- **specs**: assert resolved request URLs in system/shared-filter data-binding specs
+- **cloud**: regenerate darwin visual baselines after data-table restyle
+- **admin**: express config-native admin chrome where honest (CAP-5 C3)
+- **pages**: add CAP-5 cross-component shared-filter binding (C2)
+- **admin**: express the bucket file-browser as composed config (CAP-5 C1)
+- **domain**: add CAP-4 system-source catalog + system-search binding
+- **admin**: add CAP-3 system operate/mutation action binding
+- **pages**: add CAP-2 system detail/single-record binding
+- **pages**: add CAP-1 system-source specs for 5 list components
+- **admin**: cover the API tabs + MCP reference-config docs composition
+- **data-table**: green the system-source binding spec (config + assertions)
+- add system data-source binding for data-table + convert automation-runs directory
+- add admin oauth2 connect/reconnect/disconnect RED specs + US
+- add E2E specs for the Développeurs API & MCP docs pages
+- **admin**: co-locate unit tests for the Pass 2a domain utils
+- **admin**: lock typed create-form controls + SQLite runtime-views endpoints
+- **design-system**: regenerate visual baselines for the polished form/input defaults
+- **admin**: regenerate stale dashboard visual baselines after the UX overhaul
+- **admin**: fix entity-kind set assertion typing in search schema test
+- **admin**: unit tests for the admin global-search response schema
+- **admin**: RED specs + index schema + API model for global indexed admin search
+- **admin**: spec start-a-new-agent-conversation (Wave 3 M, impl pending)
+- **admin**: cover the Application sidebar disclosure expansion (DATA-NAV-012)
+- **admin**: regenerate dashboard visual baselines for Wave 2 IA
+- **admin**: align dashboard specs with Wave 2 IA (no /data, sidebar toggles, run filters)
+- **admin**: regenerate dashboard visual baselines for Wave 1 sidebar regrouping
+- **admin**: align dashboard specs with Wave 1 IA + add nav-section coverage
+- **admin**: sync admin-data-nav taxonomy test to the 8/8-ready console
+- add SHELL-SPA-008 test.step to admin dashboard @regression
+- remove config-edition-orphaned fixture helpers
+- **admin**: regenerate dashboard visual baselines for the pure data console (R6)
+- purge residual config-edit refs from kept specs + fixture
+- **admin**: reconcile shell-spa/mount/gdpr + delete auth-endusers (R6)
+- **admin**: reconcile Data-tab specs to the pure-data-console (R6)
+- **admin**: drop sandbox manual-test fire from automations-runs (preview removed)
+- **admin**: trim mixed dashboard specs to data-only; split family-index
+- **admin**: reconcile data-nav spec to the Data-only sidebar (R6)
+- retire config-mutation specs after data-console removal (R6)
+- **admin**: remove config-edition E2E specs coupled to deleted routes
+- **api**: retire the app-version-history (version ledger) specs+US
+- **api**: drop API-ERRORS-007 (schema/versions 403) from the error-contract sweep
+- **api**: retire the schema-edit / MCP-schema-tool / draft-staleness specs+US
+- **admin-dashboard**: strip the per-form config dashboard from forms (keep Data inbox)
+- **admin-dashboard**: retire the per-object config dashboards
+- **admin-dashboard**: retire the config-editing engine + observability specs/US
+- **admin-dashboard**: GREEN the Data-tab Utilisateurs + Statistiques specs
+- RED specs for Data-tab Utilisateurs + Statistiques pages
+- fix DIFF-002 regression step baseline mismatch in config-element-diff
+- **admin**: re-seed visual baselines for the rich config-list table
+- reconcile config-list diff-baseline + menu-delete spec contradictions
+- turn admin Data-tab page specs GREEN (un-fixme + baselines)
+- add RED specs for the global Data-tab object pages (records/runs/submissions)
+- resolve config-list PART 3 backend specs from hardened directive
+- scaffold config-list PART 3 backend capability specs (DRAFT)
+- add rich config-list CRUD table UX specs (config-list overhaul)
+- retire admin dashboard Notifications surface (not a feature)
+- add RED specs for admin dashboard content-only (SPA) navigation
+- **admin**: GREEN the reconciled navigation-only sidebar NAV specs
+- **docs**: rename navbar spec to match renamed US title (fix US↔spec mapping)
+- **cloud**: de-flake RESOURCES-004 with arm-before-poll guard for scale-app
+- update snapshot baselines (admin activity, layout tab-panel)
+- fix 11 regression specs (docs redesign, better-auth 1.6.19, accordion, editor race)
+- **fixtures**: stop ai-mock-server respawn loop on port conflict
+- **admin-dashboard**: represent unimplemented specs as test.fixme + revert AC to not-started (honest RED state)
+
+### Chores
+
+- **quality**: regenerate public JSON Schema snapshot + add drift sentinel
+- **security**: baseline GHSA-p2fr-6hmx-4528 with unreachability justification
+- **website**: expose the changelog as an RSS feed
+- regenerate generated-css-assets after batch-2 changes
+- **comments**: add opt-in readTracking flag to CommentsConfigSchema
+- **website**: newsletter success replaces the form (onSuccess successPage)
+- **website**: branded, bilingual custom /404 page with site chrome
+- **website**: trust & conversion — newsletter capture, honest numbers, BSL note (M4 B/C/D)
+- **website**: add changelog page + release-cadence links
+- **website**: add community and brand pages
+- **website**: repair header chrome + add security & support pages
+- **agents**: encode app-vs-platform spec separation rule
+- **website**: M0 website-checklist audit — annotate checklist + 2 config fixes
+- **progress**: sync auto-generated progress artifacts
+- **memory**: recover unique agent-memory from the dogfood-2 worktree before removal
+- **assets**: regenerate embedded runtime assets for the unified website merge
+- **memory**: record app-design-finalizer Stage 2/3 website-unification notes
+- **memory**: checkpoint agent-memory before dogfood-finish merge
+- **memory**: record GDPR surface CONVERTED (supersedes 5 deferral passes)
+- **memory**: record the Docs→Website Stage-1 merge completion + gotchas
+- **css**: regenerate embedded CSS assets for the merged docs zone
+- **apps**: drop the app:docs tooling references ahead of retiring apps/docs
+- **memory**: compact e2e-test-fixer index + fold stale-artifact debugging notes
+- **memory**: record the US↔spec path-coupling rule for business-app re-homing
+- **assets**: regenerate embedded CSS assets
+- **progress**: sync auto-generated progress + user-story AC status
+- **memory**: record @regression de-dialect + merge pruning rules and validator gotchas
+- **memory**: record premature-conversion assertion-flip cleanup + kpi em-dash gotcha
+- **memory**: persist Campaign 2 recon + schema-coverage scanner-fix agent notes
+- **memory**: record Scaleway storage/observability cost-cutting operation
+- **scripts**: fix schema-coverage false positives via structural-fingerprint canonicalization
+- **memory**: preserve concurrent-session agent-memory before dogfood merge
+- **memory**: record page-analytics surface conversion (deferred → resolved)
+- **memory**: record data-table schema.ts-vs-index.ts duplication landmine
+- **schema**: sync data-table noMatchMessage onto the page-component union member
+- **data-table**: add noMatchMessage for a query-echoing no-match state
+- **memory**: record editSelect + form-endpoint runtime patterns + US-naming gotcha
+- **memory**: record file-upload submission runtime pattern + gotchas
+- **memory**: record file-upload submission foundation gap + gotchas
+- **progress**: exclude business-app VISION.md from user-story validation
+- add generated SPEC-WARNINGS content-quality report
+- **memory**: persist pending agent-memory notes (gdpr/dogfood/fetch caps)
+- **memory**: record GDPR Phase-2b RED-isolation patterns + validator gotchas (DEC-039)
+- **gdpr**: add pending-erasure read contract + relative-time column format (schema)
+- **memory**: record GDPR-foundation runtime gotchas (confirm/session/effects)
+- **assets**: regenerate embedded CSS candidate manifest
+- **assets**: regenerate embedded-runtime-assets manifest post-dogfood-merge
+- **memory**: record gdpr deferral + campaign conversion learnings
+- **memory**: record app-design-finalizer website brand/voice reframe
+- **memory**: record dogfood conversion + analytics-deferral learnings
+- **partner**: add FORM_IP_HASH_SALT to partner env example
+- **memory**: record Consoles-as-Config conversion-spec pattern
+- **agents**: ground product-specs-architect business-app work in per-app VISION files
+- **memory**: record users-directory dogfood = Tier-2 (write-affordance gaps)
+- **db**: regenerate embedded static assets for squashed migration baseline
+- **db**: squash migration history into fresh single baseline
+- **memory**: record dogfood system-datatable conversion gaps (connections Tier-2)
+- **memory**: record e2e-test-fixer binary-CSS + drift-gate gotchas
+- **assets**: regenerate stale embedded runtime-asset manifest
+- **islands**: wrap over-long substituteRecordInComponent call to satisfy Prettier
+- **memory**: record CAP-2 record-drawer + page-level system single patterns
+- **memory**: record CAP-2 system-detail record-field wiring patterns
+- **quality**: clear consoles-as-config quality-gate debt
+- **memory**: record CAP-1 system-source list-family wiring patterns
+- resolve content-quality backlog to 0 errors / 0 warnings
+- **agents**: add Core Product Update Gate to app-design-finalizer
+- **memory**: persist pending agent memory
+- **assets**: regenerate embedded CSS candidates after docs component-type conversion
+- **progress**: regenerate SPEC-PROGRESS/SPEC-WARNINGS for the new oauth-actions specs
+- **assets**: regenerate embedded css-asset candidates for Pass 2a
+- **assets**: regenerate embedded css-asset candidates for the typed create form
+- **assets**: regenerate stale embedded runtime-asset manifest
+- **memory**: persist sub-agent memory from the admin dashboard UX overhaul
+- **css**: regenerate generated-css-assets to clear embedded-asset drift
+- **assets**: regenerate embedded migrations + CSS candidates for admin search
+- **agent-memory**: persist app-design-finalizer admin UX wave-1 notes
+- **partner**: swap invoicing vendor from Pennylane to Qonto
+- **css**: refresh generated-css-assets for Wave 1 admin polish candidates
+- **css**: stamp copyright header on generated-css-assets
+- **agent-memory**: record isolated-build + generated-assets drift-guard notes
+- **build**: isolate binary-build E2E + add generated-assets drift guard
+- sync generated embedded/CSS assets + add e2e-test-fixer memory notes
+- **agent-memory**: record Effect-diagnostics false-positive determinations
+- config-code-only follow-up cleanup + drop POST-MVP registry
+- **memory**: app-design-finalizer admin-data console notes + buckets screenshot
+- **memory**: update agent memory notes for admin config/data work
+- register data-users sidecar spec for US-ADMIN-DASHBOARD-AUTH-ENDUSERS
+- **admin**: retire the notifications dashboard surface
+- **admin**: regenerate assets and record SPA-nav agent memory
+- register shell-spa sidecar spec for US-ADMIN-DASHBOARD-SHELL
+- **agents**: require dedicated worktree + surgical scoped specs for app-design-finalizer
+- **agents**: make app-design-finalizer pilot the full TDD loop
+- regenerate embedded runtime + CSS assets
+- **deps**: pin Playwright to 1.60.0 (1.61 ESM-loader regression)
+- **knip**: ignore Bun.spawn system binaries flagged by knip 6.17
+- **deps**: bump dependencies via bun update + sync version docs
+- **agent-memory**: record admin-dashboard implementation landmines
+- regenerate SPEC-PROGRESS — admin dashboard fully GREEN (401 ✅)
+- **admin-dashboard**: commit in-flight progress regen on main (superseded by classifier+readiness branch)
+- regenerate spec progress and remove stray docs preview screenshots
+- commit in-flight working-tree changes on main
+- **deps**: bump hono 4.12.23→4.12.25 + baseline 5 transitive advisories
+- **docs**: tabbed-nav spec rewrite, deploy manifests, config-icon spec
+- **admin-dashboard**: format US/specs, regen SPEC-PROGRESS, add docs screenshots
+- **assets**: rebuild logo icon kit with full-bleed masked icons
+- **agents**: update app-design-finalizer config
+- **agents**: extend app-design-finalizer to own native admin dashboard UI/UX
+
+### CI
+
+- **website**: make deploy healthcheck non-blocking on the default-deny runner
+- **website**: rework Scalingo deploy to reuse sovrium/bun-buildpack
+- **website**: add Scalingo deploy vehicle (buildpack + deploy tree + workflow)
+- **release**: set SOVRIUM_ALLOW_DEV_KEY in binary smoke tests
+
 ## [0.11.0](https://github.com/sovrium/sovrium/compare/v0.10.0...v0.11.0) (2026-06-17)
 
 ### Features
@@ -291,7 +925,7 @@
 - **apps**: remove brand-charter page; bootstrap-seed cloud login spec
 - **apps/cloud**: native console login page + home/onboarding clean-UI polish
 - **auth**: native-styled, localizable embedded auth forms + AUTH_ADMIN_ROLE
-- **apps**: drive app:* previews from per-app .env (auth secret, bootstrap admin, cloud mode)
+- **apps**: drive app:\* previews from per-app .env (auth secret, bootstrap admin, cloud mode)
 - update FEATURES.md and regenerate feature-priorities
 - register relationship FK sibling specs in progress US-spec mapping
 - regenerate feature-priorities after FEATURES.md binary/business-apps split
@@ -312,7 +946,7 @@
 - tidy stragglers after TDD-pipeline decommission
 - tag exports orphaned by TDD-pipeline archival as @public
 - drop generated build output from apps/docs/public, normalize imported content
-- exclude apps/** from src-layer lint and apps/*/public from prettier
+- exclude apps/\*_ from src-layer lint and apps/_/public from prettier
 - **agents**: delete tdd-pipeline-maintainer and strip TDD-pipeline references
 - archive TDD automation pipeline (docs, scripts, workflows)
 - de-Coolify .forgejo cleanup comments, legal docs, and security paths (de-Coolify W1)

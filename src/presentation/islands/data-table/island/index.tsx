@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useCallback, useMemo, useState } from 'react'
 import { type FieldMetaMap } from '../../hooks/use-inline-editing'
 import { type DataTableRowClickAction } from '../body'
 import { usePasteImport } from '../paste-preview/use-paste-import'
+import { coerceFieldValues, createRecord } from './create-record-data'
 import { DataTableView } from './data-table-view'
 import { useClipboardCopy } from './use-clipboard-copy'
 import { useDataTableIslandSetup } from './use-island-setup'
@@ -19,6 +21,7 @@ import type {
   DataTablePagination,
   DataTableSearch,
   DataTableSelection,
+  DataTableSystemSource,
   DataTableToolbar,
   DataTableGroupBy,
   DataTableSummaryItem,
@@ -26,13 +29,17 @@ import type {
 } from '@/domain/models/app/pages/components/data-table'
 
 interface DataTableIslandProps {
+  readonly ariaLabel?: string
   readonly dataSource: {
-    readonly table: string
+    readonly table?: string
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
     readonly refreshMode?: 'none' | 'poll' | 'realtime'
     readonly pollIntervalMs?: number
+    readonly bindTo?: string
+    readonly sharedFilter?: { readonly params?: readonly string[] }
+    readonly system?: DataTableSystemSource
   }
   readonly columns?: readonly DataTableColumn[]
   readonly pagination?: DataTablePagination
@@ -43,12 +50,14 @@ interface DataTableIslandProps {
   readonly striped?: boolean
   readonly bordered?: boolean
   readonly emptyMessage?: string
+  readonly noMatchMessage?: string
   readonly showRowNumbers?: boolean
   readonly rowHeight?: RowHeight
   readonly searchSourceId?: string
   readonly tableFields?: readonly string[]
   readonly fieldMeta?: FieldMetaMap
   readonly tablePermissions?: { readonly update?: readonly string[] }
+  readonly canCreate?: boolean
   readonly groupBy?: DataTableGroupBy
   readonly summary?: readonly DataTableSummaryItem[]
   readonly autoSave?: AutoSaveConfig
@@ -87,6 +96,10 @@ function ErrorBanner({ error }: { readonly error: unknown }) {
   )
 }
 
+function isSystemSourceBinding(props: DataTableIslandProps): boolean {
+  return props.dataSource.system !== undefined
+}
+
 function toSetupParams(props: DataTableIslandProps) {
   return {
     dataSource: props.dataSource,
@@ -109,14 +122,16 @@ function toSetupParams(props: DataTableIslandProps) {
 function toPasteParams(
   props: DataTableIslandProps,
   containerRef: React.RefObject<HTMLDivElement | null>,
-  onImported: () => void
+  onImported: () => void,
+  isSystemSource: boolean
 ) {
   return {
     containerRef,
-    tableName: props.dataSource.table,
+    tableName: props.dataSource.table ?? '',
     tableFields: props.tableFields ?? [],
     fieldMeta: props.fieldMeta,
     onImported,
+    enabled: !isSystemSource,
   }
 }
 
@@ -133,11 +148,62 @@ function resolveRowClickAction(
   return undefined
 }
 
+function useDataTableCreateFlow(
+  tableName: string,
+  refresh: () => void,
+  fieldMeta: FieldMetaMap | undefined
+) {
+  const [creating, setCreating] = useState(false)
+  const fieldTypes = useMemo(
+    () =>
+      new Map(Object.entries(fieldMeta ?? {}).map(([name, meta]) => [name, meta.type] as const)),
+    [fieldMeta]
+  )
+  const onCreate = useCallback(() => setCreating(true), [])
+  const onCancelCreate = useCallback(() => setCreating(false), [])
+  const onSubmitCreate = useCallback(
+    (values: Record<string, string>) => {
+      setCreating(false)
+      const filled = Object.fromEntries(
+        Object.entries(values).filter(([, value]) => value.trim().length > 0)
+      )
+      const coerced = coerceFieldValues(filled, fieldTypes)
+      void createRecord(tableName, coerced).then((ok) => {
+        if (ok) refresh()
+      })
+    },
+    [tableName, refresh, fieldTypes]
+  )
+  return { creating, onCreate, onCancelCreate, onSubmitCreate }
+}
+
 export default function DataTableIsland(props: DataTableIslandProps) {
+  const isSystemSource = isSystemSourceBinding(props)
   const setup = useDataTableIslandSetup(toSetupParams(props))
   const clipboardRef = useClipboardCopy()
-  const paste = usePasteImport(toPasteParams(props, clipboardRef, setup.handleRefresh))
+  const paste = usePasteImport(
+    toPasteParams(props, clipboardRef, setup.handleRefresh, isSystemSource)
+  )
   const onRowClickAction = resolveRowClickAction(props.onRowClick)
+
+  const { creating, onCreate, onCancelCreate, onSubmitCreate } = useDataTableCreateFlow(
+    props.dataSource.table ?? '',
+    setup.handleRefresh,
+    props.fieldMeta
+  )
+  const showCreate = !isSystemSource && props.canCreate !== false
+  const viewsEnabled = !isSystemSource && setup.viewsEnabled
+  const optionalProps = {
+    ...(props.ariaLabel && { ariaLabel: props.ariaLabel }),
+    ...(setup.activeViewName && { activeViewName: setup.activeViewName }),
+    ...(props.dataSource.system?.endpoint && {
+      systemExportEndpoint: props.dataSource.system.endpoint,
+    }),
+  }
+  const tableName = props.dataSource.table ?? ''
+  const isLoading = setup.isLoading || setup.isPrefsLoading
+  const striped = props.striped ?? false
+  const emptyMessage = props.emptyMessage ?? 'No records found'
 
   if (setup.isError) return <ErrorBanner error={setup.error} />
 
@@ -148,11 +214,13 @@ export default function DataTableIsland(props: DataTableIslandProps) {
       <DataTableView
         containerRef={clipboardRef}
         table={setup.table}
-        tableName={props.dataSource.table}
+        {...optionalProps}
+        readOnly={isSystemSource}
+        tableName={tableName}
         records={setup.records}
         allColumns={setup.allColumns}
         totalRecords={setup.totalRecords}
-        isLoading={setup.isLoading || setup.isPrefsLoading}
+        isLoading={isLoading}
         searchConfig={props.search}
         selectionConfig={props.selection}
         toolbarConfig={props.toolbar}
@@ -164,11 +232,12 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         fieldMeta={props.fieldMeta}
         globalFilter={setup.globalFilter}
         setGlobalFilter={setup.setGlobalFilter}
-        striped={props.striped ?? false}
+        striped={striped}
         currentRowHeight={setup.currentRowHeight}
         cellClass={setup.cellClass}
         borderClass={setup.borderClass}
-        emptyMessage={props.emptyMessage ?? 'No records found'}
+        emptyMessage={emptyMessage}
+        {...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage })}
         selectedCount={Object.keys(setup.rowSelection).length}
         showSearch={setup.showSearch}
         editingCell={setup.inlineEditing.editingCell}
@@ -182,16 +251,20 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         onEditSave={setup.inlineEditing.saveEdit}
         onEditCancel={setup.inlineEditing.cancelEditing}
         onRefresh={setup.handleRefresh}
+        canCreate={showCreate}
+        creating={creating}
+        onCreate={onCreate}
+        onCancelCreate={onCancelCreate}
+        onSubmitCreate={onSubmitCreate}
         currentDensity={setup.currentDensity}
         onSelectDensity={setup.onSelectDensity}
         onResetPreferences={setup.onResetPreferences}
-        {...(setup.activeViewName && { activeViewName: setup.activeViewName })}
         onBulkExecute={setup.onBulkExecute}
         conflict={setup.conflict}
         onDismissConflict={setup.dismissConflict}
         connectionStatus={setup.connectionStatus}
         ui={setup.ui}
-        viewsEnabled={setup.viewsEnabled}
+        viewsEnabled={viewsEnabled}
         viewEntries={setup.viewEntries}
         canSaveCurrentView={setup.canSaveCurrentView}
         isViewModified={setup.isViewModified}

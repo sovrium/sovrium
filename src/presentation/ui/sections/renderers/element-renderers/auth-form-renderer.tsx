@@ -12,14 +12,14 @@ import {
   defaultAuthFields,
   type AuthFormField,
 } from '@/presentation/utils/auth-form-types'
-import { buildResolvedFieldDefs } from './crud-form-field-resolver'
+import { buildResolvedFieldDefs } from './crud-form/crud-form-field-resolver'
 import {
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
   computeFormLayoutClasses,
-} from './forms-default-classes'
-import { computeInputDefaultClasses } from './input-default-classes'
-import type { ResolvedFieldDef } from './crud-form-renderer'
+} from './recipes/forms-default-classes'
+import { computeInputDefaultClasses } from './recipes/input-default-classes'
+import type { ResolvedFieldDef } from './crud-form/crud-form-renderer'
 import type { ElementProps } from './html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'

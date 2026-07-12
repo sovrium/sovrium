@@ -54,10 +54,48 @@ function normalizeIsoTimestamp(value: string): string {
   return parsed.toISOString()
 }
 
+async function countWritesInWindow(
+  tableName: string,
+  start: Readonly<Date>,
+  end: Readonly<Date>
+): Promise<number> {
+  try {
+    const result = (await db.execute(
+      sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE updated_at >= ${start.toISOString()} AND updated_at < ${end.toISOString()}`
+    )) as unknown as ReadonlyArray<{ readonly count: number | string }>
+    return Number(result[0]?.count ?? 0)
+  } catch {
+    return 0
+  }
+}
+
 export const TablesOverviewRepositoryLive = Layer.succeed(TablesOverviewRepository, {
   aggregateTables: (tableNames) =>
     Effect.tryPromise({
       try: async () => Promise.all(tableNames.map(aggregateOneTable)),
+      catch: (cause) => new TablesOverviewError({ cause }),
+    }),
+
+  countWritesPerTable: (tableNames, windowStart, windowEnd) =>
+    Effect.tryPromise({
+      try: () =>
+        Promise.all(tableNames.map((name) => countWritesInWindow(name, windowStart, windowEnd))),
+      catch: (cause) => new TablesOverviewError({ cause }),
+    }),
+
+  countWritesPerBucket: (tableNames, buckets) =>
+    Effect.tryPromise({
+      try: () =>
+        buckets.reduce<Promise<ReadonlyArray<number>>>(
+          async (accPromise, bucket) => {
+            const acc = await accPromise
+            const perTable = await Promise.all(
+              tableNames.map((name) => countWritesInWindow(name, bucket.start, bucket.end))
+            )
+            return [...acc, perTable.reduce((sum, n) => sum + n, 0)]
+          },
+          Promise.resolve([] as ReadonlyArray<number>)
+        ),
       catch: (cause) => new TablesOverviewError({ cause }),
     }),
 })

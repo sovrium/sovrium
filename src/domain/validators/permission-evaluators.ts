@@ -246,6 +246,31 @@ export function hasReadPermission(
   return true
 }
 
+export function hasCommentPermission(
+  table: Readonly<{ name: string; comments?: unknown; permissions?: TablePermissions }> | undefined,
+  userRole: string,
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+): boolean {
+  if (!table) return false
+
+  const effectivePerms = getEffectivePermissions(table, allTables) as
+    | Readonly<{ comment?: unknown }>
+    | undefined
+
+  if (inheritanceFailed(table, allTables, effectivePerms)) return false
+
+  const commentGrant = effectivePerms?.comment
+  if (commentGrant !== undefined) return evaluateCommentGrant(commentGrant, userRole)
+
+  if (table.comments !== undefined && table.comments !== null) return true
+
+  return effectivePerms === undefined || effectivePerms === null
+}
+
+function evaluateCommentGrant(commentGrant: unknown, userRole: string): boolean {
+  return checkPermissionWithAdminOverride(isAdminRole(userRole), commentGrant, userRole)
+}
+
 export function hasReadPermissionForRoles(
   table: Parameters<typeof hasReadPermission>[0],
   effectiveRoles: readonly string[],

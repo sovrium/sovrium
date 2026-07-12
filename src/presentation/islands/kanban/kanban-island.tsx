@@ -19,10 +19,12 @@ import type {
   KanbanGroupBy,
 } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 
 interface KanbanIslandProps {
   readonly dataSource?: {
-    readonly table: string
+    readonly table?: string
+    readonly system?: SystemSource
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
@@ -33,6 +35,10 @@ interface KanbanIslandProps {
   readonly emptyColumnMessage?: string
   readonly colorField?: string
   readonly columnOptions?: readonly string[]
+}
+
+function resolveDragConfigEnabled(isSystemSource: boolean, drag: KanbanDrag | undefined): boolean {
+  return !isSystemSource && Boolean(drag) && drag?.enabled !== false
 }
 
 export default function KanbanIsland({
@@ -51,7 +57,7 @@ export default function KanbanIsland({
   }, [data?.records])
 
   const groupByField = kanbanGroupBy?.field
-  const dragConfigEnabled = Boolean(drag) && drag?.enabled !== false
+  const dragConfigEnabled = resolveDragConfigEnabled(Boolean(dataSource?.system), drag)
   const tableName = dataSource?.table
 
   const { canDrag } = useDragPermission(tableName, groupByField, dragConfigEnabled)

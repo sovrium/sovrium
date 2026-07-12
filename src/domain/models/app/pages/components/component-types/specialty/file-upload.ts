@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { ActionSchema } from '../../action'
+import { ActionSchema, FetchSuccessResponseSchema, FetchToastResponseSchema } from '../../action'
 import { actionFields } from '../modules/action'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
@@ -51,4 +51,6 @@ export const fileUploadFields = {
     )
   ),
   uploadAction: Schema.optional(FileUploadActionSchema),
+  onSuccess: Schema.optional(FetchSuccessResponseSchema),
+  onError: Schema.optional(FetchToastResponseSchema),
 } as const

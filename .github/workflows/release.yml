@@ -151,6 +151,11 @@ jobs:
       # exercises the identical CSS pipeline code path. A failure blocks the
       # release (publish jobs depend on this job succeeding).
       - name: Smoke test - binary serves compiled CSS
+        env:
+          # Smoke test validates the CSS pipeline only; the binary is
+          # secure-by-default and refuses to boot without an encryption key.
+          # Opt into the deterministic dev key so boot reaches the CSS route.
+          SOVRIUM_ALLOW_DEV_KEY: '1'
         run: |
           PORT=3210 ./sovrium-darwin-arm64 start examples/landing-page/app.yaml &
           SERVER_PID=$!
@@ -234,6 +239,11 @@ jobs:
       # x64 ubuntu runner can execute (linux-arm64 is cross-compiled).
       - name: Smoke test - binary serves compiled CSS
         if: matrix.target == 'linux-x64'
+        env:
+          # Smoke test validates the CSS pipeline only; the binary is
+          # secure-by-default and refuses to boot without an encryption key.
+          # Opt into the deterministic dev key so boot reaches the CSS route.
+          SOVRIUM_ALLOW_DEV_KEY: '1'
         run: |
           PORT=3210 ./sovrium-linux-x64 start examples/landing-page/app.yaml &
           SERVER_PID=$!

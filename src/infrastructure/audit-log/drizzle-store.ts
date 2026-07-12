@@ -12,7 +12,11 @@ import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import type { ActorRole, ActorType } from '@/domain/models/api/admin/_shared/actor'
 import type { Severity } from '@/domain/models/api/admin/_shared/severity'
-import type { AuditLogEntry, AuditResult } from '@/domain/models/api/admin/audit-log/entry'
+import type {
+  AuditLogEntry,
+  AuditResult,
+  AuditTransport,
+} from '@/domain/models/api/admin/audit-log/entry'
 import type { AuditListFilter } from '@/infrastructure/audit-log/in-memory-store'
 import type { DrizzleDB, DrizzleTransaction } from '@/infrastructure/database'
 
@@ -34,6 +38,7 @@ function rowFromEntry(entry: Readonly<AuditLogEntry>): Readonly<NewAuditLogRow> 
     resourceName: entry.resource.name ?? null,
     severity: entry.severity,
     result: entry.result,
+    transport: entry.transport,
     metadata:
       entry.metadata !== undefined ? (jsonbLiteral(entry.metadata) as unknown as null) : null,
   }
@@ -59,6 +64,9 @@ function rowToEntry(row: Readonly<AuditLogRow>): Readonly<AuditLogEntry> {
     },
     severity: row.severity as Severity,
     result: row.result as AuditResult,
+    transport: (typeof row.transport === 'string' && row.transport.length > 0
+      ? row.transport
+      : 'api') as AuditTransport,
     ...(metadata !== null && metadata !== undefined
       ? { metadata: metadata as Record<string, unknown> }
       : {}),
@@ -85,23 +93,26 @@ export async function appendAuditEntryToDbTx(
   await writer.insert(auditLog).values(rowFromEntry(entry))
 }
 
-export async function listAuditEntriesFromDb(
-  filter?: AuditListFilter
-): Promise<readonly AuditLogEntry[]> {
+function buildAuditWhere(filter?: AuditListFilter) {
   const conditions = [
     filter?.actorId !== undefined ? eq(auditLog.actorId, filter.actorId) : undefined,
     filter?.action !== undefined ? eq(auditLog.action, filter.action) : undefined,
+    filter?.transport !== undefined ? eq(auditLog.transport, filter.transport) : undefined,
   ].filter((c): c is NonNullable<typeof c> => c !== undefined)
+  if (conditions.length === 0) return undefined
+  return conditions.length === 1 ? conditions[0] : and(...conditions)
+}
+
+export async function listAuditEntriesFromDb(
+  filter?: AuditListFilter
+): Promise<readonly AuditLogEntry[]> {
+  const where = buildAuditWhere(filter)
 
   try {
     const rows =
-      conditions.length === 0
+      where === undefined
         ? await db.select().from(auditLog).orderBy(desc(auditLog.createdAt))
-        : await db
-            .select()
-            .from(auditLog)
-            .where(conditions.length === 1 ? conditions[0] : and(...conditions))
-            .orderBy(desc(auditLog.createdAt))
+        : await db.select().from(auditLog).where(where).orderBy(desc(auditLog.createdAt))
 
     return rows.map((row) => rowToEntry(row as AuditLogRow))
   } catch (error) {

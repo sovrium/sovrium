@@ -7,10 +7,10 @@
 
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
+  buildAiComputeTriggerStatements,
   buildSourceChangedExpr,
   buildSourceContentExpr,
   escapeSqlString,
-  resolveTriggerTiming,
   sqlNumberLiteral,
   sqlTextLiteral,
 } from './ai-field-triggers'
@@ -107,36 +107,24 @@ const buildSentimentTriggerSql = (
   sanitized: string
 ): readonly string[] => {
   const fieldName = field.name
-  const functionName = `compute_${sanitized}_${fieldName}_sentiment`
-  const triggerName = `trigger_${sanitized}_${fieldName}_ai_sentiment`
-  const triggerTiming = resolveTriggerTiming(field.computeOn)
-  const sourceExpr = buildSourceContentExpr(field.sourceFields)
   const functionBody = `${buildSentimentGuardSql(fieldName, field.sourceFields)}
 
 ${buildSentimentNotifySql(field, sanitized, fieldName)}`
 
-  const functionSql = `CREATE OR REPLACE FUNCTION ${functionName}()
-RETURNS TRIGGER AS $$
-DECLARE
-  source_content text := ${sourceExpr};
-  notify_payload text;
-  sentiment_label text;
-  sentiment_score real;
-  has_positive boolean;
-  has_negative boolean;
-BEGIN
-${functionBody}
-END;
-$$ LANGUAGE plpgsql`
-
-  return [
-    functionSql,
-    `DROP TRIGGER IF EXISTS ${triggerName} ON ${sanitized}`,
-    `CREATE TRIGGER ${triggerName}
-${triggerTiming} ON ${sanitized}
-FOR EACH ROW
-EXECUTE FUNCTION ${functionName}()`,
-  ]
+  return buildAiComputeTriggerStatements({
+    sanitized,
+    fieldName,
+    kindSlug: 'sentiment',
+    computeOn: field.computeOn,
+    functionBody,
+    sourceExpr: buildSourceContentExpr(field.sourceFields),
+    extraDeclarations: [
+      'sentiment_label text',
+      'sentiment_score real',
+      'has_positive boolean',
+      'has_negative boolean',
+    ],
+  })
 }
 
 export const generateAiSentimentTriggers = (table: Table): readonly string[] => {

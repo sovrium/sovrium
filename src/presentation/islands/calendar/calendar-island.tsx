@@ -15,11 +15,13 @@ import type {
   CalendarView,
 } from '@/domain/models/app/pages/components/component-types/data/calendar/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { ReactElement } from 'react'
 
 interface CalendarIslandProps {
   readonly dataSource?: {
-    readonly table: string
+    readonly table?: string
+    readonly system?: SystemSource
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
@@ -58,13 +60,15 @@ export default function CalendarIsland({
     colorField,
   })
 
+  const isSystemSource = Boolean(dataSource?.system)
+
   return (
     <CalendarViewComponent
       events={events}
       defaultView={defaultView}
       maxEventsPerDay={maxEventsPerDay}
       calendarEvent={calendarEvent}
-      calendarInteraction={calendarInteraction}
+      calendarInteraction={isSystemSource ? undefined : calendarInteraction}
       tableName={dataSource?.table}
       dateField={dateField}
       endDateField={endDateField}

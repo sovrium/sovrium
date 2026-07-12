@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { hasDataBinding } from '../shared/data-binding'
 import { buildTimelineItems, type TimelineConfig } from './timeline-compute'
 import {
   TimelineEmpty,
@@ -16,11 +17,13 @@ import {
 import { TimelineView } from './timeline-view'
 import { useTimelineRecords } from './use-timeline-records'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { ReactElement } from 'react'
 
 interface TimelineIslandProps {
   readonly dataSource?: {
-    readonly table: string
+    readonly table?: string
+    readonly system?: SystemSource
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
@@ -46,7 +49,7 @@ export default function TimelineIsland({
 }: TimelineIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useTimelineRecords(dataSource)
 
-  if (!dataSource?.table) return <TimelineMissingTable />
+  if (!hasDataBinding(dataSource)) return <TimelineMissingTable />
   if (!startField) return <TimelineMissingStartField />
   if (isLoading) return <TimelineLoading />
   if (isError) return <TimelineError error={error} />

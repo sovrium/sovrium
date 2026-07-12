@@ -6,7 +6,9 @@
  */
 
 import { Schema } from 'effect'
+import { SystemSourceRefSchema } from '../../../../../systemSources'
 import { ActionSchema } from '../../../action'
+import { DataSourceSchema } from '../../../data-source'
 import { optBool } from '../../../shared-schemas'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
@@ -21,6 +23,7 @@ import {
   DataTableSummaryItemSchema,
   DataTableToolbarSchema,
   DataTableBulkActionSchema,
+  DataTableSystemSourceSchema,
   RowHeightSchema,
 } from './schema'
 
@@ -32,6 +35,23 @@ export const dataTableFields = {
   ...visibilityFields,
   ...i18nFields,
   ...dataBoundFields,
+  dataSource: Schema.optional(
+    Schema.Union(
+      DataSourceSchema,
+      Schema.Struct({
+        system: DataTableSystemSourceSchema,
+      }).annotations({
+        title: 'Data Table System Data Source',
+        description: 'System read-endpoint binding for the data table',
+      }),
+      SystemSourceRefSchema
+    ).annotations({
+      identifier: 'DataTableComponentDataSource',
+      title: 'Data Table Data Source',
+      description:
+        'DB-table binding (DataSource), an inline system read-endpoint binding, OR a named app.systemSources reference',
+    })
+  ),
   columns: Schema.optional(
     Schema.Array(DataTableColumnSchema).pipe(
       Schema.minItems(1),
@@ -59,6 +79,13 @@ export const dataTableFields = {
   bordered: optBool('Show cell borders'),
   emptyMessage: Schema.optional(
     Schema.String.annotations({ description: 'Message when no records match' })
+  ),
+  noMatchMessage: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Message shown when a search/filter reduces a non-empty dataset to zero rows (the no-match state, distinct from emptyMessage). Rendered in an aria-live status region; a {query} token is replaced with the active search string so the message echoes the query. Falls back to emptyMessage when omitted.',
+      examples: ['No results for "{query}"', 'Aucun utilisateur ne correspond à « {query} »'],
+    })
   ),
   showRowNumbers: Schema.optional(
     Schema.Boolean.annotations({ description: 'Show row number column' })

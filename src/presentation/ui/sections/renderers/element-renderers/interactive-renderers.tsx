@@ -14,12 +14,13 @@ import {
   renderCrudUpdateForm,
   type AutomationFormAction,
   type CrudFormAction,
-} from './crud-form-renderer'
-import { computeFormClasses } from './forms-default-classes'
+} from './crud-form/crud-form-renderer'
+import { renderEndpointForm } from './crud-form/endpoint-form-renderer'
+import { computeFormClasses } from './recipes/forms-default-classes'
 import {
   computeSearchInputContainerClasses,
   computeSearchInputFieldClasses,
-} from './interactive-content-default-classes'
+} from './recipes/interactive-content-default-classes'
 import type { ElementProps } from './html-element-renderer'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Languages } from '@/domain/models/app/languages'
@@ -130,6 +131,8 @@ export function renderForm(config: RenderFormConfig): ReactElement {
     )
   }
   if (action?.type === 'auth') return renderAuthFormVariant(effectiveConfig)
+  const endpointForm = renderEndpointForm(props, component)
+  if (endpointForm) return endpointForm
   return renderBareFormVariant(props, children)
 }
 

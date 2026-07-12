@@ -13,6 +13,7 @@ import {
   UniqueConstraintViolationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
+import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { validateColumnName, validateTableName } from '../shared/validation'
@@ -111,6 +112,43 @@ export async function lookupArrayColumnTypes(
   } catch {
     return {}
   }
+}
+
+async function resolveViewBackedInsertRow(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string
+): Promise<Record<string, unknown> | undefined> {
+  const { dialect } = parseDatabaseDialectConfig()
+  const idQuery =
+    dialect === 'postgres'
+      ? sql`SELECT lastval() AS id`
+      : sql`SELECT MAX(id) AS id FROM ${sql.identifier(getBaseTableName(tableName))}`
+  const idRows = await executeRaw(tx, idQuery)
+  const newId = idRows[0]?.id
+  if (newId === null || newId === undefined) return undefined
+  const rows = await executeRaw(
+    tx,
+    sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${newId} LIMIT 1`
+  )
+  return rows[0]
+}
+
+export async function insertAndResolveRow(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  columnsClause: unknown,
+  valuesClause: unknown
+): Promise<Readonly<Record<string, unknown>>> {
+  const insertResult = await executeRaw(
+    tx,
+    sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+  )
+  const raw = insertResult[0] ?? {}
+  if ('id' in raw && raw.id === null) {
+    const resolved = await resolveViewBackedInsertRow(tx, tableName)
+    if (resolved) return resolved
+  }
+  return raw
 }
 
 export function executeInsert(

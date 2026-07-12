@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { ConfirmGateSchema } from '../../confirm-gate'
 import { ButtonVariantSchema, ComponentSizeSchema } from '../../shared-schemas'
 import { actionFields } from '../modules/action'
 import { contentFields } from '../modules/content'
@@ -31,7 +32,5 @@ export const buttonFields = {
     Schema.Boolean.annotations({ description: 'Show a loading spinner inside the button' })
   ),
   label: Schema.optional(Schema.String.annotations({ description: 'Button text label' })),
-  confirm: Schema.optional(
-    Schema.String.annotations({ description: 'Click-time confirmation prompt' })
-  ),
+  confirm: Schema.optional(ConfirmGateSchema),
 } as const

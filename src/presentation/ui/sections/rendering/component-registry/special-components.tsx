@@ -127,6 +127,39 @@ function buildSearchIslandProps(
   })
 }
 
+function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
+  const listDisplay = parseListDisplay(elementProps['_listDisplay'])
+  const dataSource = JSON.parse((elementProps['_listDataSource'] as string) ?? '{}') as unknown
+  const islandProps = JSON.stringify({
+    dataSource,
+    itemTemplate: listDisplay?.itemTemplate,
+    emptyMessage: listDisplay?.emptyMessage,
+    'data-testid': elementProps['data-testid'] as string | undefined,
+  })
+  return (
+    <div
+      id={elementProps['id'] as string | undefined}
+      data-island="list"
+      data-component="list"
+      data-island-props={islandProps}
+    >
+      {}
+      <div
+        role="status"
+        aria-label="Loading list..."
+        className="space-y-2 p-2"
+      >
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={`list-skeleton-${String(i)}`}
+            className="bg-background-subtle h-6 w-full animate-pulse rounded"
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement {
   const listDisplay = parseListDisplay(elementProps['_listDisplay'])
   const records = JSON.parse(
@@ -210,6 +243,10 @@ export const specialComponents: Partial<Record<Component['type'], ComponentRende
   hero: renderHeroSection,
 
   list: ({ elementProps, content, theme, renderedChildren }) => {
+    if (elementProps['_listIslandMode']) {
+      return renderListIsland(elementProps)
+    }
+
     const dataSourceError = elementProps['_dataSourceError'] as string | undefined
     if (dataSourceError) {
       return (

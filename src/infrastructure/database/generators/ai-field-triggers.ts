@@ -6,6 +6,8 @@
  */
 
 
+import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
+
 export const AI_COMPUTE_FIELD_TYPES = [
   'ai-categorize',
   'ai-summary',
@@ -19,7 +21,7 @@ export const AI_COMPUTE_FIELD_TYPES = [
 export const isAiComputeFieldType = (type: string): boolean =>
   (AI_COMPUTE_FIELD_TYPES as readonly string[]).includes(type)
 
-export const escapeSqlString = (value: string): string => value.replace(/'/g, "''")
+export { escapeSqlString }
 
 export type ComputeOn = 'create' | 'update' | 'both' | 'manual' | undefined
 
@@ -54,17 +56,33 @@ export const buildAiComputeTriggerStatements = (params: {
   readonly computeOn: ComputeOn
   readonly functionBody: string
   readonly sourceExpr: string
+  readonly extraDeclarations?: readonly string[]
+  readonly functionNameSlug?: string
 }): readonly string[] => {
-  const { sanitized, fieldName, kindSlug, computeOn, functionBody, sourceExpr } = params
-  const functionName = `compute_${sanitized}_${fieldName}_${kindSlug}`
+  const {
+    sanitized,
+    fieldName,
+    kindSlug,
+    computeOn,
+    functionBody,
+    sourceExpr,
+    extraDeclarations = [],
+    functionNameSlug,
+  } = params
+  const functionName = `compute_${sanitized}_${fieldName}_${functionNameSlug ?? kindSlug}`
   const triggerName = `trigger_${sanitized}_${fieldName}_ai_${kindSlug}`
   const triggerTiming = resolveTriggerTiming(computeOn)
+
+  const declareBlock = [
+    `  source_content text := ${sourceExpr};`,
+    ...extraDeclarations.map((decl) => `  ${decl};`),
+    `  notify_payload text;`,
+  ].join('\n')
 
   const functionSql = `CREATE OR REPLACE FUNCTION ${functionName}()
 RETURNS TRIGGER AS $$
 DECLARE
-  source_content text := ${sourceExpr};
-  notify_payload text;
+${declareBlock}
 BEGIN
 ${functionBody}
 END;

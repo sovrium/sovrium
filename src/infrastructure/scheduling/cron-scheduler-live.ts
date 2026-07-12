@@ -33,11 +33,31 @@ interface ArmTimerInput {
   readonly callback: () => Effect.Effect<void, unknown>
 }
 
-const armTimer = (input: ArmTimerInput): void => {
-  const { jobId, expression, timezone, cron, callback } = input
-  const fireAt = Cron.next(cron, new Date())
-  const delay = Math.max(0, fireAt.getTime() - Date.now())
-  const timer = setTimeout(() => {
+export const MAX_TIMER_MS = 2_147_483_647
+
+export interface TimerPlan {
+  readonly rearmOnly: boolean
+  readonly delayMs: number
+}
+
+export const nextTimerPlan = (fireAtMs: number, nowMs: number): TimerPlan => {
+  const delay = Math.max(0, fireAtMs - nowMs)
+  if (delay > MAX_TIMER_MS) {
+    return { rearmOnly: true, delayMs: MAX_TIMER_MS }
+  }
+  return { rearmOnly: false, delayMs: delay }
+}
+
+export interface ArmTimerDeps {
+  readonly now: () => number
+  readonly setTimer: (handler: () => void, ms: number) => ReturnType<typeof setTimeout>
+  readonly runJob: (jobId: string, callback: () => Effect.Effect<void, unknown>) => void
+}
+
+export const defaultArmTimerDeps: ArmTimerDeps = {
+  now: () => Date.now(),
+  setTimer: (handler, ms) => setTimeout(handler, ms),
+  runJob: (jobId, callback) => {
     Effect.runPromise(Effect.either(callback() as Effect.Effect<void, unknown, never>)).then(
       (result) => {
         if (result._tag === 'Left') {
@@ -48,10 +68,22 @@ const armTimer = (input: ArmTimerInput): void => {
         console.error('[cron-scheduler] callback rejected', { jobId, error: err })
       }
     )
-    if (jobs.has(jobId)) {
-      armTimer(input)
+  },
+}
+
+export const armTimer = (input: ArmTimerInput, deps: ArmTimerDeps = defaultArmTimerDeps): void => {
+  const { jobId, expression, timezone, cron, callback } = input
+  const nowMs = deps.now()
+  const fireAt = Cron.next(cron, new Date(nowMs))
+  const plan = nextTimerPlan(fireAt.getTime(), nowMs)
+  const timer = deps.setTimer(() => {
+    if (!plan.rearmOnly) {
+      deps.runJob(jobId, callback)
     }
-  }, delay)
+    if (jobs.has(jobId)) {
+      armTimer(input, deps)
+    }
+  }, plan.delayMs)
   jobs.set(jobId, { jobId, expression, timezone, timer })
 }
 

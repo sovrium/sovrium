@@ -32,6 +32,8 @@ export const auditLog = pgTable(
     severity: text('severity').notNull(),
     result: text('result').notNull(),
 
+    transport: text('transport').notNull().default('api'),
+
     metadata: jsonb('metadata'),
   },
   (table) => [
@@ -41,6 +43,7 @@ export const auditLog = pgTable(
     index('audit_log_severity_idx').on(table.severity),
     index('audit_log_result_idx').on(table.result),
     index('audit_log_resource_type_idx').on(table.resourceType),
+    index('audit_log_transport_idx').on(table.transport),
   ]
 )
 

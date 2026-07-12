@@ -7,8 +7,9 @@
 
 export * from '../../auth/better-auth/schema'
 export * from './schema/activity-log'
+export * from './schema/admin-search'
 export * from './schema/audit-log'
-export * from './schema/app-versioning'
+export * from './schema/bootstrap-tokens'
 export * from './schema/ai'
 export * from './schema/analytics-events'
 export * from './schema/automation'

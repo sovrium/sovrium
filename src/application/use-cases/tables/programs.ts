@@ -27,6 +27,7 @@ import {
 import { formatFieldForDisplay } from './utils/display-formatter'
 import { filterReadableFields } from './utils/field-read-filter'
 import { processRecords, applyPagination } from './utils/list-helpers'
+import { getManyToManyFieldSpecs, type ManyToManyFieldSpec } from './utils/many-to-many-fields'
 import { preserveIdType } from './utils/preserve-id-type'
 import { transformRecord } from './utils/record-transformer'
 import type { TransformedRecord } from './utils/record-transformer'
@@ -134,35 +135,139 @@ function computeListRecordsAggregationBlock(params: {
   })
 }
 
+
+type ManyToManyWriteLink = {
+  readonly relatedTable: string
+  readonly relatedIds: readonly (string | number)[]
+  readonly hasReciprocal: boolean
+}
+
+type ManyToManyLinkMap = Record<string, Record<string, readonly (string | number)[]>>
+
+const splitManyToManyFields = (
+  fields: Readonly<Record<string, unknown>>,
+  specs: readonly ManyToManyFieldSpec[]
+): {
+  readonly baseFields: Record<string, unknown>
+  readonly links: readonly ManyToManyWriteLink[]
+} => {
+  const names = new Set(specs.map((s) => s.fieldName))
+  const baseFields = Object.fromEntries(Object.entries(fields).filter(([key]) => !names.has(key)))
+  const links = specs
+    .map((spec) => {
+      const raw = fields[spec.fieldName]
+      const relatedIds =
+        raw === undefined || raw === null
+          ? []
+          : Array.isArray(raw)
+            ? (raw as (string | number)[])
+            : [raw as string | number]
+      return { relatedTable: spec.relatedTable, relatedIds, hasReciprocal: spec.hasReciprocal }
+    })
+    .filter((link) => link.relatedIds.length > 0)
+  return { baseFields, links }
+}
+
+const readManyToManyLinks = (
+  app: App | undefined,
+  tableName: string,
+  ids: readonly (string | number)[]
+): Effect.Effect<ManyToManyLinkMap, SessionContextError, TableRepository> =>
+  Effect.gen(function* () {
+    const specs = getManyToManyFieldSpecs(app?.tables, tableName)
+    if (specs.length === 0 || ids.length === 0) return {}
+    const repo = yield* TableRepository
+    return yield* repo.readManyToMany({
+      sourceTable: tableName,
+      sourceIds: ids,
+      fields: specs.map((s) => ({ fieldName: s.fieldName, relatedTable: s.relatedTable })),
+    })
+  })
+
+const mergeManyToManyFields = <V>(
+  fields: Readonly<Record<string, V>>,
+  recordId: string | number,
+  linkMap: ManyToManyLinkMap
+): Record<string, V | readonly (string | number)[]> => {
+  const links = linkMap[String(recordId)]
+  return links ? { ...fields, ...links } : { ...fields }
+}
+
+const writeManyToManyLinks = (
+  repo: TableRepository['Type'],
+  tableName: string,
+  sourceId: string | number,
+  links: readonly ManyToManyWriteLink[]
+): Effect.Effect<void, SessionContextError> =>
+  links.length === 0
+    ? Effect.void
+    : repo.linkManyToMany({ sourceTable: tableName, sourceId, links })
+
+const enrichRecordsWithManyToMany = (
+  app: App | undefined,
+  tableName: string,
+  records: readonly TransformedRecord[]
+): Effect.Effect<readonly TransformedRecord[], SessionContextError, TableRepository> =>
+  Effect.gen(function* () {
+    const linkMap = yield* readManyToManyLinks(
+      app,
+      tableName,
+      records.map((r) => r.id)
+    )
+    return records.map(
+      (record) =>
+        ({
+          ...record,
+          fields: mergeManyToManyFields(record.fields, record.id, linkMap),
+        }) as TransformedRecord
+    )
+  })
+
+const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<string, unknown>[]) =>
+  Effect.gen(function* () {
+    const processed = processRecords({
+      records,
+      app: config.app,
+      tableName: config.tableName,
+      userRole: config.userRole,
+      format: config.format,
+      timezone: config.timezone,
+      fields: config.fields,
+    })
+    const enriched = enrichRecordsWithAttachmentUrls(processed, {
+      app: config.app,
+      tableName: config.tableName,
+      origin: config.origin ?? '',
+    })
+    const { paginatedRecords, pagination } = applyPagination(
+      enriched,
+      records.length,
+      config.limit,
+      config.offset
+    )
+    const withM2m = yield* enrichRecordsWithManyToMany(
+      config.app,
+      config.tableName,
+      paginatedRecords
+    )
+    return { records: withM2m, pagination }
+  })
+
 export function createListRecordsProgram(
   config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
-    const { session, tableName, app, userRole, filter, includeDeleted, aggregate, groupBy } = config
-    const { format, timezone, sort, fields, limit, offset } = config
+    const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config
 
-    const records = yield* repo.listRecords({ session, tableName, filter, includeDeleted, sort })
-    const processedRecords = processRecords({
-      records,
-      app,
+    const records = yield* repo.listRecords({
+      session,
       tableName,
-      userRole,
-      format,
-      timezone,
-      fields,
+      filter,
+      includeDeleted,
+      sort: config.sort,
     })
-    const enrichedProcessed = enrichRecordsWithAttachmentUrls(processedRecords, {
-      app,
-      tableName,
-      origin: config.origin ?? '',
-    })
-    const { paginatedRecords, pagination } = applyPagination(
-      enrichedProcessed,
-      records.length,
-      limit,
-      offset
-    )
+    const { records: pageRecords, pagination } = yield* buildRecordPage(config, records)
 
     const aggBlock = aggregate
       ? yield* computeListRecordsAggregationBlock({
@@ -181,7 +286,7 @@ export function createListRecordsProgram(
       groupBy && !aggregate ? { groups: computeSimpleGroups(records, groupBy) } : {}
 
     return {
-      records: [...paginatedRecords] as TransformedRecord[],
+      records: [...pageRecords] as TransformedRecord[],
       pagination,
       ...aggBlock,
       ...simpleGroupsBlock,
@@ -300,12 +405,15 @@ export function createGetRecordProgram(
 
     const id = preserveIdType(record.id)
 
+    const m2mLinks = yield* readManyToManyLinks(app, tableName, [id])
+    const enrichedFields = mergeManyToManyFields(fields, id, m2mLinks)
+
     const aiCompute = yield* buildAiComputeProjection(app, tableName, id)
 
     return {
-      ...fields,
+      ...enrichedFields,
       id,
-      fields,
+      fields: enrichedFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
       ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
@@ -354,7 +462,13 @@ export function createRecordProgram(config: CreateRecordConfig) {
       userId: session.userId,
     })
 
-    const record = yield* repo.createRecord(session, tableName, fieldsWithAuthorship)
+    const { baseFields, links } = splitManyToManyFields(
+      fieldsWithAuthorship,
+      getManyToManyFieldSpecs(app?.tables, tableName)
+    )
+
+    const record = yield* repo.createRecord(session, tableName, baseFields)
+    yield* writeManyToManyLinks(repo, tableName, record.id as string | number, links)
 
     const enrich = (rec: TransformedRecord): TransformedRecord =>
       enrichRecordWithAttachmentUrls(rec, { app, tableName, origin: origin ?? '' })

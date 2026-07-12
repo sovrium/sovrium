@@ -17,12 +17,19 @@ import {
   type UpdateUserTablePreferencesInput,
   type UserTablePreferencesResponse,
 } from '@/application/ports/repositories/tables/user-table-preferences-repository'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { Database } from '@/infrastructure/database/drizzle/layer'
-import { userTablePreferences } from '@/infrastructure/database/drizzle/schema/user-views'
+import { userTablePreferences as userTablePreferencesPg } from '@/infrastructure/database/drizzle/schema/user-views'
+import { userTablePreferences as userTablePreferencesSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/user-views'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { DrizzleDB } from '@/infrastructure/database/drizzle/db'
 
-type PrefsRow = Readonly<typeof userTablePreferences.$inferSelect>
+const userTablePreferences = resolveDialectSchema(
+  userTablePreferencesPg,
+  userTablePreferencesSqlite
+)
+
+type PrefsRow = Readonly<typeof userTablePreferencesPg.$inferSelect>
 
 const readJson = (raw: unknown): unknown => {
   if (raw === null || raw === undefined) return undefined

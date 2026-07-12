@@ -7,10 +7,10 @@
 
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
+  buildAiComputeTriggerStatements,
   buildSourceContentExpr,
   buildTextArrayLiteral,
   escapeSqlString,
-  resolveTriggerTiming,
   sqlTextLiteral,
 } from './ai-field-triggers'
 import type { Table } from '@/domain/models/app/tables'
@@ -75,48 +75,28 @@ const buildTagNotifySql = (field: AiTagField, sanitized: string, fieldName: stri
   RETURN NEW;`
 }
 
-const buildTagFunctionSql = (
-  field: AiTagField,
-  sanitized: string,
-  functionName: string
-): string => {
+const buildTagTriggerSql = (field: AiTagField, sanitized: string): readonly string[] => {
   const fieldName = field.name
-  const tagsLiteral = buildTextArrayLiteral(field.tags)
-  const sourceExpr = buildSourceContentExpr(field.sourceFields)
-
-  return `CREATE OR REPLACE FUNCTION ${functionName}()
-RETURNS TRIGGER AS $$
-DECLARE
-  tags text[] := ${tagsLiteral};
-  source_content text := ${sourceExpr};
-  chosen text[] := ARRAY[]::text[];
-  lower_content text;
-  tag text;
-  notify_payload text;
-BEGIN
-${buildTagGuardSql(fieldName)}
+  const functionBody = `${buildTagGuardSql(fieldName)}
 
 ${buildTagSelectionSql(field)}
 
-${buildTagNotifySql(field, sanitized, fieldName)}
-END;
-$$ LANGUAGE plpgsql`
-}
+${buildTagNotifySql(field, sanitized, fieldName)}`
 
-const buildTagTriggerSql = (field: AiTagField, sanitized: string): readonly string[] => {
-  const fieldName = field.name
-  const functionName = `compute_${sanitized}_${fieldName}_tag`
-  const triggerName = `trigger_${sanitized}_${fieldName}_ai_tag`
-  const triggerTiming = resolveTriggerTiming(field.computeOn)
-
-  return [
-    buildTagFunctionSql(field, sanitized, functionName),
-    `DROP TRIGGER IF EXISTS ${triggerName} ON ${sanitized}`,
-    `CREATE TRIGGER ${triggerName}
-${triggerTiming} ON ${sanitized}
-FOR EACH ROW
-EXECUTE FUNCTION ${functionName}()`,
-  ]
+  return buildAiComputeTriggerStatements({
+    sanitized,
+    fieldName,
+    kindSlug: 'tag',
+    computeOn: field.computeOn,
+    functionBody,
+    sourceExpr: buildSourceContentExpr(field.sourceFields),
+    extraDeclarations: [
+      `tags text[] := ${buildTextArrayLiteral(field.tags)}`,
+      'chosen text[] := ARRAY[]::text[]',
+      'lower_content text',
+      'tag text',
+    ],
+  })
 }
 
 export const generateAiTagTriggers = (table: Table): readonly string[] => {

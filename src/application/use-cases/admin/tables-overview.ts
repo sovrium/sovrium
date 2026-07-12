@@ -6,14 +6,12 @@
  */
 
 
-import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
   TablesOverviewRepository,
   type TableAggregateRow,
   type TablesOverviewError,
 } from '@/application/ports/repositories/tables/tables-overview-repository'
-import { db } from '@/infrastructure/database'
 import type { PeriodPreset, SeriesInterval } from '@/domain/models/api/admin/_shared/period-preset'
 import type {
   TablesOverviewResponse,
@@ -42,32 +40,6 @@ function resolvePeriodSpec(period: PeriodPreset): PeriodSpec {
   return { interval: '1d', bucketCount: 30, bucketMs: 24 * 60 * 60 * 1000 }
 }
 
-async function countWritesInPeriod(
-  dbTableName: string,
-  windowStart: Readonly<Date>,
-  windowEnd: Readonly<Date>
-): Promise<number> {
-  try {
-    const result = (await db.execute(
-      sql`SELECT COUNT(*) AS count FROM ${sql.identifier(dbTableName)} WHERE updated_at >= ${windowStart.toISOString()} AND updated_at < ${windowEnd.toISOString()}`
-    )) as unknown as ReadonlyArray<{ readonly count: number | string }>
-    return Number(result[0]?.count ?? 0)
-  } catch {
-    return 0
-  }
-}
-
-async function countWritesInBucket(
-  dbTableNames: ReadonlyArray<string>,
-  bucketStart: Readonly<Date>,
-  bucketEnd: Readonly<Date>
-): Promise<number> {
-  const perTable = await Promise.all(
-    dbTableNames.map((name) => countWritesInPeriod(name, bucketStart, bucketEnd))
-  )
-  return perTable.reduce((acc, n) => acc + n, 0)
-}
-
 function buildByTable(
   sortedTables: ReadonlyArray<{ readonly displayName: string; readonly dbName: string }>,
   aggregates: ReadonlyArray<TableAggregateRow>,
@@ -88,24 +60,14 @@ function buildByTable(
   })
 }
 
-async function buildSeriesPoints(
-  dbNames: ReadonlyArray<string>,
+function buildBucketWindows(
   windowStart: Readonly<Date>,
   spec: PeriodSpec
-): Promise<ReadonlyArray<{ readonly timestamp: string; readonly writes: number }>> {
-  const bucketIndexes = Array.from({ length: spec.bucketCount }, (_, i) => i)
-  return bucketIndexes.reduce<
-    Promise<ReadonlyArray<{ readonly timestamp: string; readonly writes: number }>>
-  >(
-    async (accPromise, i) => {
-      const acc = await accPromise
-      const bucketStart = new Date(windowStart.getTime() + i * spec.bucketMs)
-      const bucketEnd = new Date(bucketStart.getTime() + spec.bucketMs)
-      const writes = await countWritesInBucket(dbNames, bucketStart, bucketEnd)
-      return [...acc, { timestamp: bucketStart.toISOString(), writes }]
-    },
-    Promise.resolve([] as ReadonlyArray<{ readonly timestamp: string; readonly writes: number }>)
-  )
+): ReadonlyArray<{ readonly start: Date; readonly end: Date }> {
+  return Array.from({ length: spec.bucketCount }, (_unused, i) => {
+    const start = new Date(windowStart.getTime() + i * spec.bucketMs)
+    return { start, end: new Date(start.getTime() + spec.bucketMs) }
+  })
 }
 
 export const buildTablesOverview = (
@@ -124,18 +86,15 @@ export const buildTablesOverview = (
     const windowEnd = input.now
     const windowStart = new Date(windowEnd.getTime() - spec.bucketCount * spec.bucketMs)
 
-    const perTableWrites = yield* Effect.tryPromise({
-      try: () =>
-        Promise.all(dbNames.map((name) => countWritesInPeriod(name, windowStart, windowEnd))),
-      catch: (cause) => cause as TablesOverviewError,
-    })
-
+    const perTableWrites = yield* repo.countWritesPerTable(dbNames, windowStart, windowEnd)
     const byTable = buildByTable(sortedTables, aggregates, perTableWrites)
 
-    const points = yield* Effect.tryPromise({
-      try: () => buildSeriesPoints(dbNames, windowStart, spec),
-      catch: (cause) => cause as TablesOverviewError,
-    })
+    const buckets = buildBucketWindows(windowStart, spec)
+    const bucketWrites = yield* repo.countWritesPerBucket(dbNames, buckets)
+    const points = buckets.map((bucket, i) => ({
+      timestamp: bucket.start.toISOString(),
+      writes: bucketWrites[i] ?? 0,
+    }))
 
     const totals = {
       tables: byTable.length,

@@ -17,6 +17,12 @@ export const auditResultSchema = z
 
 export type AuditResult = z.infer<typeof auditResultSchema>
 
+export const auditTransportSchema = z
+  .enum(['config-file', 'env', 'api', 'mcp', 'restore'])
+  .describe('How the change was made — the closed transport ("canal") enum.')
+
+export type AuditTransport = z.infer<typeof auditTransportSchema>
+
 export const auditLogEntrySchema = z
   .object({
     id: z.string().describe('Stable opaque identifier for this audit entry.'),
@@ -26,6 +32,9 @@ export const auditLogEntrySchema = z
     resource: resourceSchema,
     severity: severitySchema,
     result: auditResultSchema,
+    transport: auditTransportSchema.describe(
+      'The closed-enum transport ("canal") the change was made through. A first-class, enumerable field stamped by every mutation path.'
+    ),
     metadata: z
       .record(z.string(), z.unknown())
       .optional()
@@ -49,6 +58,7 @@ export const auditLogQuerySchema = z
     actorId: z.string().optional(),
     action: z.string().optional(),
     resourceType: z.string().optional(),
+    transport: auditTransportSchema.optional(),
     cursor: z.string().optional(),
     limit: z.coerce.number().int().positive().max(200).default(50),
   })

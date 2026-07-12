@@ -15,6 +15,7 @@ export {
   hasDeletePermission,
   hasUpdatePermission,
   hasReadPermission,
+  hasCommentPermission,
   hasReadPermissionForRoles,
   hasCreatePermissionForRoles,
   hasUpdatePermissionForRoles,

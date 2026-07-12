@@ -13,24 +13,33 @@ import {
   type AdminAutomationRunRow,
   type AdminAutomationsDatabaseError,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
+import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import {
   resolvePeriodWindow,
   type PeriodPreset,
+  type PeriodWindow,
 } from '@/domain/models/api/admin/_shared/period-preset'
 import {
   automationsOverviewResponseSchema,
-  automationsRunsDetailResponseSchema,
+  automationsRunsDetailWithStepsResponseSchema,
   automationsRunsListResponseSchema,
+  type AdminRunStep,
   type AutomationRunAdminItem,
   type AutomationsOverviewResponse,
   type AutomationsOverviewSeriesPoint,
+  type AutomationsRunsDetailWithStepsResponse,
 } from '@/domain/models/api/admin/automations'
 import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
+import {
+  bucketRowsByTimestamp,
+  buildDenseBucketGrid,
+  coerceTimestampToMs,
+  DAY_MS,
+  intervalStepMs,
+} from '@/domain/utils/time-series-bucketing'
 import { AdminAutomationsRepositoryLive } from '@/infrastructure/database/repositories/automations/admin-automations-repository-live'
+import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import type { App } from '@/domain/models/app'
-
-const HOUR_MS = 60 * 60 * 1000
-const DAY_MS = 24 * HOUR_MS
 
 
 function toIso(value: Readonly<Date> | string | null | undefined): string | null {
@@ -73,54 +82,31 @@ function buildAdminRunItem(
 
 
 function rowTimestampMs(row: AdminAutomationOverviewRow): number {
-  const startedAt = row.startedAt ?? row.createdAt
-  return startedAt instanceof Date ? startedAt.getTime() : new Date(startedAt).getTime()
+  return coerceTimestampToMs(row.startedAt ?? row.createdAt)
 }
 
-function buildOverviewSeries(
-  fromIso: string,
-  toIso: string,
-  interval: '1h' | '1d',
-  rowsByBucket: ReadonlyMap<string, { readonly runs: number; readonly failures: number }>
+function buildAutomationsSeries(
+  window: PeriodWindow,
+  rows: ReadonlyArray<AdminAutomationOverviewRow>
 ): readonly AutomationsOverviewSeriesPoint[] {
-  const stepMs = interval === '1h' ? HOUR_MS : DAY_MS
-  const fromMs = new Date(fromIso).getTime()
-  const toMs = new Date(toIso).getTime()
-  const firstBucketMs = Math.ceil(fromMs / stepMs) * stepMs
-  const lastBucketMs = Math.ceil(toMs / stepMs) * stepMs
-  const expectedCount = Math.max(1, Math.round((lastBucketMs - firstBucketMs) / stepMs))
-  const bucketIndexes: readonly number[] = Array.from({ length: expectedCount }, (_unused, i) => i)
-  return bucketIndexes.map((i) => {
-    const timestamp = new Date(firstBucketMs + i * stepMs).toISOString()
-    const found = rowsByBucket.get(timestamp)
-    return {
-      timestamp,
-      runs: found?.runs ?? 0,
-      failures: found?.failures ?? 0,
-    }
+  const stepMs = intervalStepMs(window.interval)
+  const bucketMap = bucketRowsByTimestamp({
+    rows,
+    getTimestamp: (row) => row.startedAt ?? row.createdAt,
+    stepMs,
+    initial: { runs: 0, failures: 0 },
+    accumulate: (acc, row) => ({
+      runs: acc.runs + 1,
+      failures: acc.failures + (row.status === 'failed' ? 1 : 0),
+    }),
   })
-}
-
-function bucketOverviewRows(
-  rows: ReadonlyArray<AdminAutomationOverviewRow>,
-  stepMs: number
-): ReadonlyMap<string, { readonly runs: number; readonly failures: number }> {
-  const counts = rows.reduce<Readonly<Record<string, { runs: number; failures: number }>>>(
-    (acc, row) => {
-      const bucketMs = Math.ceil(rowTimestampMs(row) / stepMs) * stepMs
-      const key = new Date(bucketMs).toISOString()
-      const prev = acc[key] ?? { runs: 0, failures: 0 }
-      return {
-        ...acc,
-        [key]: {
-          runs: prev.runs + 1,
-          failures: prev.failures + (row.status === 'failed' ? 1 : 0),
-        },
-      }
-    },
-    {}
-  )
-  return new Map(Object.entries(counts))
+  return buildDenseBucketGrid({
+    fromIso: window.from,
+    toIso: window.to,
+    stepMs,
+    rowsByBucket: bucketMap,
+    emptyValue: { runs: 0, failures: 0 },
+  })
 }
 
 function tallyRuns(rows: ReadonlyArray<AdminAutomationOverviewRow>): {
@@ -190,9 +176,7 @@ export const BuildAutomationsOverview = (
     const nowMs = Date.now()
 
     const rows = yield* repo.listOverviewRowsSince(fromDate)
-    const stepMs = window.interval === '1h' ? HOUR_MS : DAY_MS
-    const bucketMap = bucketOverviewRows(rows, stepMs)
-    const points = buildOverviewSeries(window.from, window.to, window.interval, bucketMap)
+    const points = buildAutomationsSeries(window, rows)
 
     const last24hMs = nowMs - DAY_MS
     const totals24h =
@@ -291,9 +275,25 @@ export const BuildAdminRunsList = (
 
 
 export type AdminRunDetailOutcome =
-  | { readonly _tag: 'Ok'; readonly body: AutomationRunAdminItem }
+  | { readonly _tag: 'Ok'; readonly body: AutomationsRunsDetailWithStepsResponse }
   | { readonly _tag: 'NotFound' }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
+
+function buildAdminRunStep(step: {
+  readonly actionName: string
+  readonly status: string
+  readonly input: unknown
+  readonly output: unknown
+  readonly error: string | null
+}): AdminRunStep {
+  return {
+    name: step.actionName,
+    status: step.status,
+    input: step.input ?? null,
+    output: step.output ?? null,
+    error: step.error,
+  }
+}
 
 export const BuildAdminRunDetail = (
   app: App,
@@ -301,7 +301,7 @@ export const BuildAdminRunDetail = (
 ): Effect.Effect<
   AdminRunDetailOutcome,
   AdminAutomationsDatabaseError,
-  AdminAutomationsRepository
+  AdminAutomationsRepository | AutomationRunRepository
 > =>
   Effect.gen(function* () {
     const repo = yield* AdminAutomationsRepository
@@ -311,12 +311,21 @@ export const BuildAdminRunDetail = (
       return { _tag: 'NotFound' } as const
     }
 
+    const runRepo = yield* AutomationRunRepository
+    const stepRows = yield* runRepo
+      .findStepsByRunId(runId)
+      .pipe(Effect.catchAll(() => Effect.succeed([] as const)))
+    const steps = stepRows.map(buildAdminRunStep)
+
     const item = buildAdminRunItem(row, resolveTriggerType(app, row.automationName))
-    const parsed = automationsRunsDetailResponseSchema.safeParse(item)
+    const parsed = automationsRunsDetailWithStepsResponseSchema.safeParse({ ...item, steps })
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return { _tag: 'Ok', body: parsed.data } as const
   })
 
-export const AdminAutomationsLayer = Layer.mergeAll(AdminAutomationsRepositoryLive)
+export const AdminAutomationsLayer = Layer.mergeAll(
+  AdminAutomationsRepositoryLive,
+  AutomationRunRepositoryLive
+)

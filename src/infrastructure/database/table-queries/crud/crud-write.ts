@@ -14,7 +14,6 @@ import {
   UniqueConstraintViolationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
-import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import {
   injectCreateAuthorship,
@@ -22,6 +21,7 @@ import {
 } from '../mutation-helpers/authorship-helpers'
 import {
   buildInsertClauses,
+  insertAndResolveRow,
   isForeignKeyViolation,
   isUniqueConstraintViolation,
   lookupArrayColumnTypes,
@@ -63,11 +63,7 @@ async function executeCreateRecordTx(
     .map(([key]) => key)
   const arrayColumnTypes = await lookupArrayColumnTypes(tx, tableName, arrayColumnNames)
   const { columnsClause, valuesClause } = buildInsertClauses(fieldsWithAuthorship, arrayColumnTypes)
-  const insertResult = await executeRaw(
-    tx,
-    sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
-  )
-  return insertResult[0] ?? {}
+  return await insertAndResolveRow(tx, tableName, columnsClause, valuesClause)
 }
 
 function firstCapture(

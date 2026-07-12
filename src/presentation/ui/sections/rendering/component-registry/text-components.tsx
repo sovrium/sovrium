@@ -19,6 +19,29 @@ const HEADING_LEVELS: Record<string, number> = {
   h6: 6,
 }
 
+const SESSION_TOKEN_PATTERN = /\$session\.\w+/g
+
+function resolveSessionBinding(
+  componentRaw: Record<string, unknown>,
+  elementProps: Record<string, unknown>,
+  content: string | undefined
+): { readonly props: Record<string, unknown>; readonly content: string | undefined } {
+  const sessionField =
+    typeof componentRaw['session'] === 'string' ? componentRaw['session'] : undefined
+  const template =
+    sessionField !== undefined
+      ? `$session.${sessionField}`
+      : typeof content === 'string' && content.includes('$session.')
+        ? content
+        : undefined
+  if (template === undefined) return { props: elementProps, content }
+  return {
+    props: { ...elementProps, 'data-session-template': template },
+    content:
+      sessionField !== undefined ? undefined : template.replaceAll(SESSION_TOKEN_PATTERN, ''),
+  }
+}
+
 export const textComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
   code: ({ elementProps, content, renderedChildren }) => {
     const language = elementProps['language'] as string | undefined
@@ -78,33 +101,35 @@ export const textComponents: Partial<Record<Component['type'], ComponentRenderer
       )
     }
 
+    const { props: sProps, content: sContent } = resolveSessionBinding(c, elementProps, content)
+
     if (headingLevel) {
       return Renderers.renderHeading(
         headingLevel as 1 | 2 | 3 | 4 | 5 | 6,
-        elementProps,
-        content,
+        sProps,
+        sContent,
         renderedChildren
       )
     }
     if (element === 'pre') {
-      return Renderers.renderPre(elementProps, content, renderedChildren)
+      return Renderers.renderPre(sProps, sContent, renderedChildren)
     }
     if (element === 'code') {
-      return Renderers.renderCode(elementProps, content, renderedChildren)
+      return Renderers.renderCode(sProps, sContent, renderedChildren)
     }
     if (element === 'p') {
-      return Renderers.renderParagraph(elementProps, content, renderedChildren)
+      return Renderers.renderParagraph(sProps, sContent, renderedChildren)
     }
     if (element === 'blockquote') {
-      return Renderers.renderBlockquote(elementProps, content, renderedChildren)
+      return Renderers.renderBlockquote(sProps, sContent, renderedChildren)
     }
     if (element === 'label') {
       const required = c['required'] === true
-      const labelText = typeof content === 'string' && content.length > 0 ? content : undefined
+      const labelText = typeof sContent === 'string' && sContent.length > 0 ? sContent : undefined
       const labelContent = required && labelText ? `${labelText} *` : labelText
-      return <label {...elementProps}>{labelContent ?? renderedChildren}</label>
+      return <label {...sProps}>{labelContent ?? renderedChildren}</label>
     }
 
-    return Renderers.renderTextElement(elementProps, content, renderedChildren)
+    return Renderers.renderTextElement(sProps, sContent, renderedChildren)
   },
 }

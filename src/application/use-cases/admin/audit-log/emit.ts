@@ -13,7 +13,11 @@ import {
 } from '@/infrastructure/audit-log/drizzle-store'
 import type { Actor } from '@/domain/models/api/admin/_shared/actor'
 import type { Severity } from '@/domain/models/api/admin/_shared/severity'
-import type { AuditLogEntry, AuditResult } from '@/domain/models/api/admin/audit-log/entry'
+import type {
+  AuditLogEntry,
+  AuditResult,
+  AuditTransport,
+} from '@/domain/models/api/admin/audit-log/entry'
 import type { AuditListFilter } from '@/infrastructure/audit-log/in-memory-store'
 
 export interface EmitAuditInput {
@@ -23,6 +27,7 @@ export interface EmitAuditInput {
   readonly resourceName?: string | undefined
   readonly severity: Severity
   readonly result: AuditResult
+  readonly transport?: AuditTransport | undefined
   readonly metadata?: Readonly<Record<string, unknown>> | undefined
 }
 
@@ -46,6 +51,7 @@ export async function emitAuditEvent(input: EmitAuditInput): Promise<void> {
       : { type: resourceType, id: input.resourceId },
     severity: input.severity,
     result: input.result,
+    transport: input.transport ?? 'api',
     ...(input.metadata ? { metadata: input.metadata } : {}),
   }
 

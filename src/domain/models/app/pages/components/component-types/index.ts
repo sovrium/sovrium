@@ -142,6 +142,8 @@ import {
 import {
   ContainerTypeLiteral,
   containerFields,
+  SplitPaneTypeLiteral,
+  splitPaneFields,
   FlexTypeLiteral,
   flexFields,
   GridTypeLiteral,
@@ -180,6 +182,8 @@ import {
   dialogFields,
   DrawerTypeLiteral,
   drawerFields,
+  RecordDrawerTypeLiteral,
+  recordDrawerFields,
   PopoverTypeLiteral,
   popoverFields,
   TooltipTypeLiteral,
@@ -231,6 +235,7 @@ export * from './modules'
 
 const allComponents = [
   [ContainerTypeLiteral, containerFields],
+  [SplitPaneTypeLiteral, splitPaneFields],
   [FlexTypeLiteral, flexFields],
   [GridTypeLiteral, gridFields],
   [ResponsiveGridTypeLiteral, responsiveGridFields],
@@ -287,6 +292,7 @@ const allComponents = [
   [AlertDialogTypeLiteral, alertDialogFields],
   [DialogTypeLiteral, dialogFields],
   [DrawerTypeLiteral, drawerFields],
+  [RecordDrawerTypeLiteral, recordDrawerFields],
   [PopoverTypeLiteral, popoverFields],
   [TooltipTypeLiteral, tooltipFields],
   [HoverCardTypeLiteral, hoverCardFields],
@@ -329,6 +335,7 @@ const allComponents = [
 
 export const ComponentTypeSchema = Schema.Union(
   ContainerTypeLiteral,
+  SplitPaneTypeLiteral,
   FlexTypeLiteral,
   GridTypeLiteral,
   ResponsiveGridTypeLiteral,
@@ -385,6 +392,7 @@ export const ComponentTypeSchema = Schema.Union(
   AlertDialogTypeLiteral,
   DialogTypeLiteral,
   DrawerTypeLiteral,
+  RecordDrawerTypeLiteral,
   PopoverTypeLiteral,
   TooltipTypeLiteral,
   HoverCardTypeLiteral,
@@ -432,6 +440,7 @@ export type ComponentType = Schema.Schema.Type<typeof ComponentTypeSchema>
 
 const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   'container',
+  'split-pane',
   'flex',
   'grid',
   'responsive-grid',

@@ -6,12 +6,13 @@
  */
 
 import * as Renderers from '../../renderers/element-renderers'
+import { buildConfirmAttributes } from '../../renderers/element-renderers/button-action-builders'
 import {
   computeButtonDefaultClasses,
   type ButtonSize,
   type ButtonState,
   type ButtonVariant,
-} from '../../renderers/element-renderers/button-default-classes'
+} from '../../renderers/element-renderers/recipes/button-default-classes'
 import {
   computeAlertClasses,
   computeBadgeClasses,
@@ -20,14 +21,14 @@ import {
   type AlertVariant,
   type BadgeVariant,
   type StatusDotColor,
-} from '../../renderers/element-renderers/feedback-default-classes'
+} from '../../renderers/element-renderers/recipes/feedback-default-classes'
 import {
   computeInputDefaultClasses,
   type InputState,
-} from '../../renderers/element-renderers/input-default-classes'
+} from '../../renderers/element-renderers/recipes/input-default-classes'
 import { convertBadgeProps } from '../component-registry-helpers'
 import { buildIconClassName, buildLinkClassName, variantFromButtonClassName } from './interactive-prestyle-builders'
-import { pickCompField } from './island-overlay-props-builders'
+import { pickCompField, resolveUploadActionUrl } from './island-overlay-props-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -86,14 +87,10 @@ function overlayButtonSchemaFallbacks(
 ): Record<string, unknown> {
   const topLabel =
     typeof componentRaw['label'] === 'string' ? (componentRaw['label'] as string) : undefined
-  const topConfirm =
-    typeof componentRaw['confirm'] === 'string' ? (componentRaw['confirm'] as string) : undefined
   return {
     ...elementProps,
     ...(topLabel !== undefined && elementProps.label === undefined ? { label: topLabel } : {}),
-    ...(topConfirm !== undefined && elementProps['data-confirm'] === undefined
-      ? { 'data-confirm': topConfirm }
-      : {}),
+    ...buildConfirmAttributes(componentRaw['confirm'], elementProps),
   }
 }
 
@@ -339,8 +336,11 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
     const maxFileSize = pickCompField<number>(c, rawProps, 'maxFileSize')
     const disabled = rawProps?.['disabled'] as boolean | undefined
     const label = rawProps?.['label'] as string | undefined
+    const uploadActionUrl = resolveUploadActionUrl(pickCompField(c, rawProps, 'uploadAction'))
+    const onSuccess = pickCompField(c, rawProps, 'onSuccess')
+    const onError = pickCompField(c, rawProps, 'onError')
 
-    if (dropZone === true) {
+    if (dropZone === true || uploadActionUrl !== undefined) {
       const islandProps = {
         accept,
         maxFiles,
@@ -348,6 +348,9 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
         dropZone,
         disabled,
         label,
+        uploadAction: uploadActionUrl,
+        onSuccess,
+        onError,
         id: elementProps.id as string | undefined,
         className: elementProps.className as string | undefined,
         'data-testid': elementProps['data-testid'] as string | undefined,
