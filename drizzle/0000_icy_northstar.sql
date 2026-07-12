@@ -202,18 +202,6 @@ CREATE TABLE "system"."activity_logs" (
 	"user_agent" text
 );
 --> statement-breakpoint
-CREATE TABLE "system"."_admin_search_index" (
-	"id" serial PRIMARY KEY NOT NULL,
-	"type" text NOT NULL,
-	"entity_id" text NOT NULL,
-	"title" text NOT NULL,
-	"body" text DEFAULT '' NOT NULL,
-	"href" text NOT NULL,
-	"content_tsv" "tsvector" GENERATED ALWAYS AS (to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(body, ''))) STORED NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "admin_search_type_entity_unique" UNIQUE("type","entity_id")
-);
---> statement-breakpoint
 CREATE TABLE "audit_log" (
 	"id" text PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -227,14 +215,43 @@ CREATE TABLE "audit_log" (
 	"resource_name" text,
 	"severity" text NOT NULL,
 	"result" text NOT NULL,
-	"transport" text DEFAULT 'api' NOT NULL,
 	"metadata" jsonb
+);
+--> statement-breakpoint
+CREATE TABLE "system"."sovrium_app_drafts" (
+	"id" text PRIMARY KEY DEFAULT 'singleton' NOT NULL,
+	"snapshot" jsonb NOT NULL,
+	"base_version" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_by_user_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "system"."sovrium_app_versions" (
+	"version_number" serial PRIMARY KEY NOT NULL,
+	"snapshot" jsonb NOT NULL,
+	"checksum" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_by_user_id" text NOT NULL,
+	"source" text DEFAULT 'config-file' NOT NULL,
+	"file_checksum" text,
+	"message" text DEFAULT '' NOT NULL,
+	"restored_from_version" integer
 );
 --> statement-breakpoint
 CREATE TABLE "system"."sovrium_bootstrap_tokens" (
 	"token_hash" text PRIMARY KEY NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"used_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "system"."sovrium_preview_sessions" (
+	"preview_id" text PRIMARY KEY NOT NULL,
+	"port" integer NOT NULL,
+	"draft_snapshot" jsonb NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"status" text DEFAULT 'starting' NOT NULL,
+	"created_by_user_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -754,15 +771,12 @@ CREATE INDEX "activity_logs_created_at_idx" ON "system"."activity_logs" USING bt
 CREATE INDEX "activity_logs_user_created_at_idx" ON "system"."activity_logs" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "activity_logs_table_record_idx" ON "system"."activity_logs" USING btree ("table_name","record_id");--> statement-breakpoint
 CREATE INDEX "activity_logs_action_idx" ON "system"."activity_logs" USING btree ("action");--> statement-breakpoint
-CREATE INDEX "idx_admin_search_tsv" ON "system"."_admin_search_index" USING gin ("content_tsv");--> statement-breakpoint
-CREATE INDEX "idx_admin_search_type" ON "system"."_admin_search_index" USING btree ("type");--> statement-breakpoint
 CREATE INDEX "audit_log_action_idx" ON "audit_log" USING btree ("action");--> statement-breakpoint
 CREATE INDEX "audit_log_actor_id_idx" ON "audit_log" USING btree ("actor_id");--> statement-breakpoint
 CREATE INDEX "audit_log_created_at_idx" ON "audit_log" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "audit_log_severity_idx" ON "audit_log" USING btree ("severity");--> statement-breakpoint
 CREATE INDEX "audit_log_result_idx" ON "audit_log" USING btree ("result");--> statement-breakpoint
 CREATE INDEX "audit_log_resource_type_idx" ON "audit_log" USING btree ("resource_type");--> statement-breakpoint
-CREATE INDEX "audit_log_transport_idx" ON "audit_log" USING btree ("transport");--> statement-breakpoint
 CREATE INDEX "ai_activity_logs_action_idx" ON "system"."ai_activity_logs" USING btree ("action");--> statement-breakpoint
 CREATE INDEX "ai_activity_logs_actorType_idx" ON "system"."ai_activity_logs" USING btree ("actor_type");--> statement-breakpoint
 CREATE INDEX "ai_activity_logs_createdAt_idx" ON "system"."ai_activity_logs" USING btree ("created_at");--> statement-breakpoint

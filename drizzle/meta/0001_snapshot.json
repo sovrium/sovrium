@@ -1,6 +1,6 @@
 {
-  "id": "c1acd453-00e6-4bcc-a62c-ea3358876d7e",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "c90cbd77-1033-4d97-b200-d87d649c081f",
+  "prevId": "c1acd453-00e6-4bcc-a62c-ea3358876d7e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1961,6 +1961,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "transport": {
+          "name": "transport",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'api'"
+        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -2049,6 +2056,21 @@
           "columns": [
             {
               "expression": "resource_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_log_transport_idx": {
+          "name": "audit_log_transport_idx",
+          "columns": [
+            {
+              "expression": "transport",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

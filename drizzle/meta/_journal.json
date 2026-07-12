@@ -5,8 +5,29 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1782554739738,
-      "tag": "0000_lying_mandrill",
+      "when": 1780433687471,
+      "tag": "0000_icy_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781817113872,
+      "tag": "0001_glossy_squadron_supreme",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782052015495,
+      "tag": "0002_bitter_calypso",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782288757280,
+      "tag": "0003_magenta_the_anarchist",
       "breakpoints": true
     }
   ]

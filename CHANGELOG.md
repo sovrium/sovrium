@@ -1,3 +1,21 @@
+## [0.12.1](https://github.com/sovrium/sovrium/compare/v0.12.0...v0.12.1) (2026-07-12)
+
+### Bug Fixes
+
+- **db**: restore released 0000 migration identity, undo illegal squash
+
+### Tests
+
+- **db**: make the PG upgrade-path test opt-in (RUN_PG_MIGRATION_TESTS=1)
+
+### Chores
+
+- regenerate stale generated assets (css utilities + public schema)
+
+### CI
+
+- disable Testcontainers Ryuk in unit tests (socket-proxy blocks its callback)
+
 ## [0.12.0](https://github.com/sovrium/sovrium/compare/v0.11.0...v0.12.0) (2026-07-12)
 
 ### Features

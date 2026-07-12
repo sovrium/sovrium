@@ -245,18 +245,6 @@ CREATE INDEX `activity_logs_created_at_idx` ON `system_activity_logs` (`created_
 CREATE INDEX `activity_logs_user_created_at_idx` ON `system_activity_logs` (`user_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `activity_logs_table_record_idx` ON `system_activity_logs` (`table_name`,`record_id`);--> statement-breakpoint
 CREATE INDEX `activity_logs_action_idx` ON `system_activity_logs` (`action`);--> statement-breakpoint
-CREATE TABLE `system__admin_search_index` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`type` text NOT NULL,
-	`entity_id` text NOT NULL,
-	`title` text NOT NULL,
-	`body` text DEFAULT '' NOT NULL,
-	`href` text NOT NULL,
-	`updated_at` integer NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `idx_admin_search_type` ON `system__admin_search_index` (`type`);--> statement-breakpoint
-CREATE UNIQUE INDEX `admin_search_type_entity_unique` ON `system__admin_search_index` (`type`,`entity_id`);--> statement-breakpoint
 CREATE TABLE `audit_log` (
 	`id` text PRIMARY KEY NOT NULL,
 	`created_at` integer NOT NULL,
@@ -270,7 +258,6 @@ CREATE TABLE `audit_log` (
 	`resource_name` text,
 	`severity` text NOT NULL,
 	`result` text NOT NULL,
-	`transport` text DEFAULT 'api' NOT NULL,
 	`metadata` text,
 	FOREIGN KEY (`actor_id`) REFERENCES `auth_user`(`id`) ON UPDATE no action ON DELETE set null
 );
@@ -281,11 +268,40 @@ CREATE INDEX `audit_log_created_at_idx` ON `audit_log` (`created_at`);--> statem
 CREATE INDEX `audit_log_severity_idx` ON `audit_log` (`severity`);--> statement-breakpoint
 CREATE INDEX `audit_log_result_idx` ON `audit_log` (`result`);--> statement-breakpoint
 CREATE INDEX `audit_log_resource_type_idx` ON `audit_log` (`resource_type`);--> statement-breakpoint
-CREATE INDEX `audit_log_transport_idx` ON `audit_log` (`transport`);--> statement-breakpoint
+CREATE TABLE `system_sovrium_app_drafts` (
+	`id` text PRIMARY KEY DEFAULT 'singleton' NOT NULL,
+	`snapshot` text NOT NULL,
+	`base_version` integer DEFAULT 0 NOT NULL,
+	`updated_at` integer NOT NULL,
+	`updated_by_user_id` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `system_sovrium_app_versions` (
+	`version_number` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`snapshot` text NOT NULL,
+	`checksum` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`created_by_user_id` text NOT NULL,
+	`source` text DEFAULT 'config-file' NOT NULL,
+	`file_checksum` text,
+	`message` text DEFAULT '' NOT NULL,
+	`restored_from_version` integer
+);
+--> statement-breakpoint
 CREATE TABLE `system_sovrium_bootstrap_tokens` (
 	`token_hash` text PRIMARY KEY NOT NULL,
 	`expires_at` integer NOT NULL,
 	`used_at` integer,
+	`created_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `system_sovrium_preview_sessions` (
+	`preview_id` text PRIMARY KEY NOT NULL,
+	`port` integer NOT NULL,
+	`draft_snapshot` text NOT NULL,
+	`expires_at` integer NOT NULL,
+	`status` text DEFAULT 'starting' NOT NULL,
+	`created_by_user_id` text NOT NULL,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
