@@ -18,6 +18,7 @@ export interface FormBodyShared {
   readonly resolvedFields: ReturnType<typeof resolveAllFields>
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
+  readonly titleAs?: 'h1' | 'h2' | 'h3'
   readonly fieldGroups?: NonNullable<Form['fieldGroups']>
   readonly antiSpamHoneypot?: boolean
 }
@@ -143,19 +144,20 @@ function MultiStepFormElement({
 export function FormBodyMultiStep(
   props: FormBodyShared & { readonly steps: NonNullable<Form['steps']> }
 ) {
-  const { title, description, steps } = props
+  const { title, description, steps, titleAs = 'h1' } = props
+  const TitleTag = titleAs
   const activeStep = steps[0]
   if (activeStep === undefined) {
     return (
       <>
-        <h1 className="form-title">{title}</h1>
+        <TitleTag className="form-title">{title}</TitleTag>
         {description && <p className="form-description">{description}</p>}
       </>
     )
   }
   return (
     <>
-      <h1 className="form-title">{title}</h1>
+      <TitleTag className="form-title">{title}</TitleTag>
       {description && <p className="form-description">{description}</p>}
       <FormStepProgress totalVisible={steps.length} />
       <MultiStepFormElement

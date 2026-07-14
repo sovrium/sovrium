@@ -426,13 +426,9 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
   'scroll-area': ({ rawProps, elementProps, component, renderedChildren }) => {
     const c = asRecord(component)
     const scrollAreaHeight = pickFromComponent(c, rawProps, 'scrollAreaHeight') as
-      | string
-      | undefined
+      string | undefined
     const scrollOrientation = pickFromComponent(c, rawProps, 'scrollOrientation') as
-      | 'vertical'
-      | 'horizontal'
-      | 'both'
-      | undefined
+      'vertical' | 'horizontal' | 'both' | undefined
     const childrenHtml = renderedChildren.map((child) => renderToStaticMarkup(child)).join('')
     const props = {
       scrollAreaHeight,

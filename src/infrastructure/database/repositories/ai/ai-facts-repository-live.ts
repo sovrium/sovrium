@@ -40,12 +40,11 @@ const enforceMaxFacts = (namespace: string, maxFacts: number): Promise<void> =>
 
 export const AiFactsRepositoryLive = Layer.succeed(AiFactsRepository, {
   storeFact: ({ namespace, agentName, userId, fact, maxFacts }) =>
-    wrap(
-      (): Promise<void> =>
-        db
-          .insert(aiFacts)
-          .values({ namespace, agentName, userId, fact })
-          .then(() => enforceMaxFacts(namespace, maxFacts))
+    wrap((): Promise<void> =>
+      db
+        .insert(aiFacts)
+        .values({ namespace, agentName, userId, fact })
+        .then(() => enforceMaxFacts(namespace, maxFacts))
     ),
 
   recallFacts: ({ namespace, userId }) =>

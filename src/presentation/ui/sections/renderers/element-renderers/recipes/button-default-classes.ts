@@ -9,13 +9,7 @@
 import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
 
 export type ButtonVariant =
-  | 'default'
-  | 'destructive'
-  | 'outline'
-  | 'secondary'
-  | 'ghost'
-  | 'link'
-  | 'fab'
+  'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link' | 'fab'
 
 export type ButtonSize = 'sm' | 'md' | 'lg'
 

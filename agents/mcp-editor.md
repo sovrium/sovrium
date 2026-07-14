@@ -42,15 +42,15 @@ aiAccess: true
 # Rich form — explicit control (this is what you'll write 90% of the time)
 aiAccess:
   description: One sentence for the LLM explaining when to use this tool.
-  operations: [read, list]               # subset of [read, list, create, update, delete]
-  fieldExposure: permissioned            # or "all" | "whitelist"
-  whitelistFields: [title, body]         # required iff fieldExposure: whitelist
+  operations: [read, list] # subset of [read, list, create, update, delete]
+  fieldExposure: permissioned # or "all" | "whitelist"
+  whitelistFields: [title, body] # required iff fieldExposure: whitelist
   annotations:
-    readOnly: true                       # maps to MCP readOnlyHint → auto-approve
-    destructive: false                   # maps to MCP destructiveHint → require confirm
-    idempotent: true                     # maps to MCP idempotentHint
-    openWorld: false                     # maps to MCP openWorldHint (external network?)
-  requireConfirmation: false             # force destructive=true regardless of op
+    readOnly: true # maps to MCP readOnlyHint → auto-approve
+    destructive: false # maps to MCP destructiveHint → require confirm
+    idempotent: true # maps to MCP idempotentHint
+    openWorld: false # maps to MCP openWorldHint (external network?)
+  requireConfirmation: false # force destructive=true regardless of op
 ```
 
 ### Decision Matrix — What to Expose at What Granularity

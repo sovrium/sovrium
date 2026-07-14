@@ -29,6 +29,13 @@
       "when": 1782288757280,
       "tag": "0003_magenta_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784019579977,
+      "tag": "0004_absurd_zaran",
+      "breakpoints": true
     }
   ]
 }

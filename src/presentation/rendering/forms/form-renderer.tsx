@@ -76,12 +76,14 @@ function buildFormBodyShared({
   embed,
   prefillContext,
   activeLang,
+  titleAs,
 }: {
   readonly app: App
   readonly form: Form
   readonly embed: boolean
   readonly prefillContext: EmbeddedFormPrefillContext | undefined
   readonly activeLang: string | undefined
+  readonly titleAs: 'h1' | 'h2' | 'h3' | undefined
 }): FormBodyShared {
   const { languages } = app
   const lockPrefill = prefillContext?.lockPrefill === true
@@ -92,6 +94,7 @@ function buildFormBodyShared({
     resolvedFields: resolveAllFields(app, form, activeLang),
     prefillMap: prefillContext?.prefill ?? {},
     lockPrefill,
+    titleAs: titleAs ?? 'h1',
     formAttributes: buildFormAttributes(form, embed, lockPrefill),
     ...(form.fieldGroups ? { fieldGroups: form.fieldGroups } : {}),
     ...(effectiveAntiSpam(form).honeypot ? { antiSpamHoneypot: true } : {}),
@@ -105,6 +108,7 @@ function FormBody({
   mountRuntime,
   prefillContext,
   activeLang,
+  titleAs,
 }: {
   readonly app: App
   readonly form: Form
@@ -112,9 +116,10 @@ function FormBody({
   readonly mountRuntime?: boolean
   readonly prefillContext?: EmbeddedFormPrefillContext
   readonly activeLang?: string
+  readonly titleAs?: 'h1' | 'h2' | 'h3'
 }) {
   const shouldMountRuntime = mountRuntime ?? !embed
-  const commonProps = buildFormBodyShared({ app, form, embed, prefillContext, activeLang })
+  const commonProps = buildFormBodyShared({ app, form, embed, prefillContext, activeLang, titleAs })
   const isMultiStep = form.layout === 'multi-step' && form.steps && form.steps.length > 0
   const isOneQuestion = form.layout === 'one-question'
   const body: ReactNode = isMultiStep ? (
@@ -132,7 +137,13 @@ function FormBody({
     <>
       {body}
       {}
-      {shouldMountRuntime && <FormRuntimeMount form={form} />}
+      {shouldMountRuntime && (
+        <FormRuntimeMount
+          form={form}
+          languages={app.languages}
+          activeLang={activeLang}
+        />
+      )}
     </>
   )
 }
@@ -202,10 +213,12 @@ function FormBodyFlat({
   prefillMap,
   lockPrefill,
   antiSpamHoneypot,
+  titleAs = 'h1',
 }: FormBodyShared) {
+  const TitleTag = titleAs
   return (
     <>
-      <h1 className="form-title">{title}</h1>
+      <TitleTag className="form-title">{title}</TitleTag>
       {description && <p className="form-description">{description}</p>}
       <form
         className={computeFormLayoutClasses()}
@@ -376,7 +389,9 @@ export function renderFormStepFragment(
 export function renderEmbeddedFormBody(
   app: Readonly<App>,
   form: Readonly<Form>,
-  prefillContext?: EmbeddedFormPrefillContext
+  prefillContext?: EmbeddedFormPrefillContext,
+  activeLang?: string,
+  opts?: { readonly titleAs?: 'h1' | 'h2' | 'h3' }
 ): string {
   return renderToString(
     <FormBody
@@ -385,6 +400,8 @@ export function renderEmbeddedFormBody(
       embed={false}
       mountRuntime={true}
       prefillContext={prefillContext}
+      activeLang={activeLang}
+      titleAs={opts?.titleAs}
     />
   )
 }

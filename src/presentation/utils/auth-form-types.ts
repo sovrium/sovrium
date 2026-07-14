@@ -27,6 +27,18 @@ export function authSubmitLabel(method: string | undefined): string {
   return SUBMIT_LABELS[method as AuthMethod] ?? SUBMIT_LABELS.login
 }
 
+const PENDING_LABELS: Record<AuthMethod, string> = {
+  login: 'Signing in…',
+  signup: 'Creating account…',
+  logout: 'Logging out…',
+  resetPassword: 'Sending…',
+  setNewPassword: 'Saving…',
+}
+
+export function authPendingLabel(method: string | undefined): string {
+  return PENDING_LABELS[method as AuthMethod] ?? PENDING_LABELS.login
+}
+
 const EMAIL_FIELD: AuthFormField = {
   name: 'email',
   label: 'Email',

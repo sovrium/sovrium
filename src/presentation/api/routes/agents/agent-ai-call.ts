@@ -35,8 +35,7 @@ export const buildSystemPrompt = (agent: Agent): string => {
 const extractTokenUsage = async (response: Response | undefined): Promise<number> => {
   if (response === undefined || !response.ok) return 0
   const payload = (await response.json().catch(() => undefined)) as
-    | { readonly usage?: { readonly total_tokens?: unknown } }
-    | undefined
+    { readonly usage?: { readonly total_tokens?: unknown } } | undefined
   const total = payload?.usage?.total_tokens
   return typeof total === 'number' && Number.isFinite(total) ? total : 0
 }

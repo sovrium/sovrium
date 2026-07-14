@@ -254,12 +254,10 @@ function buildUpdateFormAction(tableName: string, recordId: string): string {
 }
 
 type FieldGroupsArray =
-  | readonly { readonly label: string; readonly fields: readonly string[] }[]
-  | undefined
+  readonly { readonly label: string; readonly fields: readonly string[] }[] | undefined
 
 type WizardStepsArray =
-  | readonly { readonly label: string; readonly fields: readonly string[] }[]
-  | undefined
+  readonly { readonly label: string; readonly fields: readonly string[] }[] | undefined
 
 function readLayoutOptions(component?: Component): {
   readonly layout: string | undefined

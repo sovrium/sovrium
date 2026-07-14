@@ -153,8 +153,7 @@ const persistRefreshedTokens = (input: {
   })
 
 type RefreshOutcome =
-  | { readonly ok: true; readonly token: string }
-  | { readonly ok: false; readonly reason: string }
+  { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string }
 
 const refreshFailure = (conn: ConnectionDef, suffix: string): RefreshOutcome =>
   ({ ok: false, reason: `connection ${conn.name}: ${suffix}` }) as const

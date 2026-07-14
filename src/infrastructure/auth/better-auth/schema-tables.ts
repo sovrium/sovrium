@@ -6,7 +6,7 @@
  */
 
 
-import { boolean, index, jsonb, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, jsonb, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
 
 export const authSchema = pgSchema('auth')
 
@@ -102,6 +102,8 @@ export const twoFactors = authSchema.table(
     secret: text('secret').notNull(),
     backupCodes: text('backup_codes').notNull(),
     verified: boolean('verified').default(true),
+    failedVerificationCount: integer('failed_verification_count').default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
   },
   (table) => [
     index('twoFactor_secret_idx').on(table.secret),

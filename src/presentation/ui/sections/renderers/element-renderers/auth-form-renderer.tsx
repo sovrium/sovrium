@@ -8,6 +8,7 @@
 import { type ReactElement } from 'react'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import {
+  authPendingLabel,
   authSubmitLabel,
   defaultAuthFields,
   type AuthFormField,
@@ -37,6 +38,7 @@ export type AuthFormAction = {
   readonly strategy?: string
   readonly provider?: string
   readonly submitLabel?: string
+  readonly pendingLabel?: string
   readonly fields?: readonly AuthFieldOverride[]
   readonly onSuccess?: {
     readonly type?: string
@@ -114,11 +116,28 @@ function resolveOnSuccessRedirect(
   return action.onSuccess?.navigate
 }
 
+function resolveAuthLabels(
+  action: AuthFormAction,
+  method: string,
+  lang?: string,
+  languages?: Languages
+): { readonly submitLabel: string; readonly pendingLabel: string } {
+  return {
+    submitLabel: action.submitLabel
+      ? localize(action.submitLabel, lang, languages)
+      : authSubmitLabel(method),
+    pendingLabel: action.pendingLabel
+      ? localize(action.pendingLabel, lang, languages)
+      : authPendingLabel(method),
+  }
+}
+
 function buildIslandPropsJson(config: {
   readonly method: string
   readonly action: AuthFormAction
   readonly fields: readonly AuthFormField[]
   readonly submitLabel: string
+  readonly pendingLabel: string
   readonly testId: unknown
   readonly id: unknown
   readonly redirectUrl: string | undefined
@@ -127,6 +146,7 @@ function buildIslandPropsJson(config: {
     method: config.method,
     fields: config.fields,
     submitLabel: config.submitLabel,
+    pendingLabel: config.pendingLabel,
     redirectUrl: config.redirectUrl,
     successToast: config.action.onSuccess?.toast,
     errorToast: config.action.onError?.toast,
@@ -193,6 +213,43 @@ function renderAuthFormField(field: AuthFormField): ReactElement {
   )
 }
 
+function renderAuthFormSkeleton(config: {
+  readonly props: ElementProps
+  readonly formDataAttrs: Record<string, unknown>
+  readonly fields: readonly AuthFormField[]
+  readonly submitLabel: string
+}): ReactElement {
+  const { props, formDataAttrs, fields, submitLabel } = config
+  return (
+    <form
+      {...props}
+      {...formDataAttrs}
+      className={[computeFormLayoutClasses(), props.className as string | undefined]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {fields.map((field) => renderAuthFormField(field))}
+      {}
+      <div
+        data-testid="error-summary"
+        role="alert"
+        hidden
+      />
+      {}
+      <div
+        data-error=""
+        hidden
+      />
+      <button
+        type="submit"
+        className="btn btn-primary w-full"
+      >
+        {submitLabel}
+      </button>
+    </form>
+  )
+}
+
 export function renderAuthForm(
   props: ElementProps,
   action: AuthFormAction,
@@ -201,9 +258,7 @@ export function renderAuthForm(
   const { tables, component, lang, languages, landingPath } = context
   const method = action.method ?? 'login'
   const redirectUrl = resolveOnSuccessRedirect(action, landingPath)
-  const submitLabel = action.submitLabel
-    ? localize(action.submitLabel, lang, languages)
-    : authSubmitLabel(method)
+  const { submitLabel, pendingLabel } = resolveAuthLabels(action, method, lang, languages)
   const baseFields = resolveAuthFormFields(method, tables, component)
   const fields = applyFieldOverrides(baseFields, action.fields, context)
   const islandProps = buildIslandPropsJson({
@@ -211,6 +266,7 @@ export function renderAuthForm(
     action,
     fields,
     submitLabel,
+    pendingLabel,
     testId: props['data-testid'],
     id: props.id,
     redirectUrl,
@@ -226,28 +282,7 @@ export function renderAuthForm(
       style={wrapperStyle}
     >
       {}
-      <form
-        {...props}
-        {...formDataAttrs}
-        className={[computeFormLayoutClasses(), props.className as string | undefined]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {fields.map((field) => renderAuthFormField(field))}
-        {}
-        <div
-          data-testid="error-summary"
-          role="alert"
-          hidden
-        />
-        <div data-error="" />
-        <button
-          type="submit"
-          className="btn btn-primary w-full"
-        >
-          {submitLabel}
-        </button>
-      </form>
+      {renderAuthFormSkeleton({ props, formDataAttrs, fields, submitLabel })}
     </div>
   )
 }

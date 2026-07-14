@@ -48,8 +48,7 @@ const findBoundColumn = (
   if (!formField) return undefined
   const table = app.tables?.find((t) => t.name === tableName)
   return table?.fields.find((c) => c.name === formField.column) as
-    | { readonly type: string; readonly bucket?: string }
-    | undefined
+    { readonly type: string; readonly bucket?: string } | undefined
 }
 
 const resolveColumnBucket = (

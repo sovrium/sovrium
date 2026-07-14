@@ -67,9 +67,7 @@ function resolvePageResult(result: PageRenderResult): ResolvedPage {
 
 function resolveObjectResult(
   result:
-    | { readonly redirect: string }
-    | { readonly error: string }
-    | { readonly unauthorized: true }
+    { readonly redirect: string } | { readonly error: string } | { readonly unauthorized: true }
 ): ResolvedPage {
   if ('redirect' in result) return { redirect: result.redirect }
   if ('error' in result) return { html: renderAccessErrorPage(result.error) }

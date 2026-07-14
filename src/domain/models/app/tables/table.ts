@@ -44,8 +44,7 @@ const validateStructure = (
   }
 
   const indexes = table.indexes as
-    | ReadonlyArray<{ readonly name: string; readonly fields: ReadonlyArray<string> }>
-    | undefined
+    ReadonlyArray<{ readonly name: string; readonly fields: ReadonlyArray<string> }> | undefined
   if (indexes && indexes.length > 0) {
     const indexError = validateIndexes(indexes, fieldNames)
     if (indexError) return indexError
@@ -72,8 +71,7 @@ const validateAccessAndViews = (
   }
 
   const views = table.views as
-    | ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
-    | undefined
+    ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }> | undefined
   if (views && views.length > 0) {
     const viewsError = validateViews(views, fields, fieldNames)
     if (viewsError) return viewsError

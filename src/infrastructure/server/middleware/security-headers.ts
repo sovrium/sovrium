@@ -6,17 +6,13 @@
  */
 
 import { secureHeaders } from 'hono/secure-headers'
+import type { MiddlewareHandler } from 'hono'
 
-export const securityHeaders = secureHeaders({
+const structuralSecureHeaders = secureHeaders({
   strictTransportSecurity: 'max-age=31536000; includeSubDomains',
   referrerPolicy: 'strict-origin-when-cross-origin',
-  contentSecurityPolicyReportOnly: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'"],
-    styleSrc: ["'self'"],
-    imgSrc: ["'self'", 'data:', 'https:'],
-    fontSrc: ["'self'", 'data:'],
-    connectSrc: ["'self'"],
+  xFrameOptions: 'DENY',
+  contentSecurityPolicy: {
     frameAncestors: ["'none'"],
     objectSrc: ["'none'"],
     baseUri: ["'self'"],
@@ -33,3 +29,14 @@ export const securityHeaders = secureHeaders({
     magnetometer: [],
   },
 })
+
+export const securityHeaders: MiddlewareHandler = async (c, next) => {
+  let routeCsp: string | undefined
+  await structuralSecureHeaders(c, async () => {
+    await next()
+    routeCsp = c.res.headers.get('Content-Security-Policy') ?? undefined
+  })
+  if (routeCsp !== undefined) {
+    c.res.headers.set('Content-Security-Policy', routeCsp)
+  }
+}

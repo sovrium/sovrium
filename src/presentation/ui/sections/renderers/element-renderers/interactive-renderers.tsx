@@ -71,8 +71,7 @@ function maybeSynthesizeCrudUpdateAction(config: RenderFormConfig): RenderFormCo
   if (config.action) return config.action
   const componentRecord = (config.component ?? {}) as Record<string, unknown>
   const dataSource = componentRecord['dataSource'] as
-    | { readonly table?: string; readonly mode?: string }
-    | undefined
+    { readonly table?: string; readonly mode?: string } | undefined
   if (!dataSource || dataSource.mode !== 'single' || typeof dataSource.table !== 'string') {
     return undefined
   }

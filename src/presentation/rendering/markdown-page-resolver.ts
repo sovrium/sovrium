@@ -198,27 +198,20 @@ const buildCollectionNav = async (
   return listContentDir(contentDir, page.path, currentSlug)
 }
 
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-] as const
-
-const formatHumanDate = (input: string | Date): string | undefined => {
+const formatHumanDate = (input: string | Date, lang?: string): string | undefined => {
   const date = typeof input === 'string' ? new Date(input) : input
   if (Number.isNaN(date.getTime())) return undefined
-  const month = MONTH_NAMES[date.getUTCMonth()]
-  if (month === undefined) return undefined
-  return `${month} ${date.getUTCDate()}, ${date.getUTCFullYear()}`
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }
+  try {
+    return new Intl.DateTimeFormat(lang ?? 'en', options).format(date)
+  } catch {
+    return new Intl.DateTimeFormat('en', options).format(date)
+  }
 }
 
 const statMtime = async (path: string): Promise<Date | undefined> => {
@@ -246,21 +239,22 @@ const resolveContentFilePath = (
   return derivePageSourceFile(page)
 }
 
-const resolveLastUpdated = async (
+async function resolveLastUpdated(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
   frontmatter: Readonly<Record<string, string>>,
-  layout: ResolvedMarkdownPage['layout']
-): Promise<string | undefined> => {
+  layout: ResolvedMarkdownPage['layout'],
+  currentLang?: string
+): Promise<string | undefined> {
   if (layout !== 'docs') return undefined
   const frontmatterDate = frontmatter['updated'] ?? frontmatter['date']
   if (typeof frontmatterDate === 'string' && frontmatterDate.trim().length > 0) {
-    return formatHumanDate(frontmatterDate.trim())
+    return formatHumanDate(frontmatterDate.trim(), currentLang)
   }
   const filePath = resolveContentFilePath(page, routeParams)
   if (filePath === undefined) return undefined
   const mtime = await statMtime(filePath)
-  return mtime === undefined ? undefined : formatHumanDate(mtime)
+  return mtime === undefined ? undefined : formatHumanDate(mtime, currentLang)
 }
 
 const resolveEditUrl = (
@@ -307,7 +301,13 @@ export const resolveMarkdownPage = async (
   const layout = markdown.layout ?? DEFAULT_LAYOUT
   const collectionNav = await buildCollectionNav(page, routeParams)
   const seo = buildContentDirSeo(page, routeParams, rendered.frontmatter, app)
-  const lastUpdated = await resolveLastUpdated(page, routeParams, rendered.frontmatter, layout)
+  const lastUpdated = await resolveLastUpdated(
+    page,
+    routeParams,
+    rendered.frontmatter,
+    layout,
+    currentLang
+  )
   const editUrl = resolveEditUrl(page, routeParams, currentLang)
   return {
     html: composedHtml,

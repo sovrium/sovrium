@@ -101,9 +101,8 @@ function substituteRecordInDataSource(
   if (!filter || filter.length === 0) return dataSource
   return {
     ...dataSource,
-    filter: filter.map(
-      (f: DataFilter): DataFilter =>
-        typeof f.value === 'string' ? { ...f, value: substituteRecordVars(f.value, record) } : f
+    filter: filter.map((f: DataFilter): DataFilter =>
+      typeof f.value === 'string' ? { ...f, value: substituteRecordVars(f.value, record) } : f
     ),
   }
 }

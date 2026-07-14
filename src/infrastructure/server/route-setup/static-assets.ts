@@ -10,7 +10,9 @@ import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
+import { inferMimeFromKey } from '@/domain/utils/mime-types'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
+import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
 import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import { logError, logDebug } from '@/infrastructure/logging/logger'
@@ -209,6 +211,7 @@ export async function setupPublicDirRoute(
     if (await file.exists()) {
       return new Response(file, {
         headers: {
+          'Content-Type': inferMimeFromKey(targetRealpath),
           'Cache-Control': getCacheControlHeader(),
         },
       })
@@ -243,6 +246,7 @@ export const buildIslands = (() => {
       format: 'esm',
       splitting: true,
       minify: isProduction,
+      plugins: [codemirrorDedupePlugin],
       naming: {
         entry: '[name]-[hash].js',
         chunk: 'chunks/[name]-[hash].js',

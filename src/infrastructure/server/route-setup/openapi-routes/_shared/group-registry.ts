@@ -72,9 +72,10 @@ export const buildTags = (app?: App): readonly TagSpec[] => {
           description: `Endpoints for the '${resource.name}' ${group.tagPrefix.toLowerCase()}`,
         }))
   })
-  const staticTags = STATIC_GROUPS.map(
-    (group): TagSpec => ({ name: group.tag, description: group.tagDescription })
-  )
+  const staticTags = STATIC_GROUPS.map((group): TagSpec => ({
+    name: group.tag,
+    description: group.tagDescription,
+  }))
   const byName = new Map([...staticTags, ...resourceTags].map((tag) => [tag.name, tag]))
   return [...byName.values()]
 }

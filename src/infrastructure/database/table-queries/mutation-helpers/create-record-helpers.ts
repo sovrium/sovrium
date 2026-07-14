@@ -6,13 +6,8 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Effect } from 'effect'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
-import {
-  SessionContextError,
-  UniqueConstraintViolationError,
-  type DrizzleTransaction,
-} from '@/infrastructure/database'
+import { type DrizzleTransaction } from '@/infrastructure/database'
 import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
@@ -149,27 +144,4 @@ export async function insertAndResolveRow(
     if (resolved) return resolved
   }
   return raw
-}
-
-export function executeInsert(
-  tableName: string,
-  columnsClause: unknown,
-  valuesClause: unknown,
-  tx: Readonly<DrizzleTransaction>
-): Effect.Effect<Record<string, unknown>, SessionContextError | UniqueConstraintViolationError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const insertResult = await executeRaw(
-        tx,
-        sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
-      )
-      return insertResult[0] ?? {}
-    },
-    catch: (error) => {
-      if (isUniqueConstraintViolation(error)) {
-        return new UniqueConstraintViolationError('Unique constraint violation', error)
-      }
-      return new SessionContextError(`Failed to create record in ${tableName}`, error)
-    },
-  })
 }

@@ -6,6 +6,7 @@
  */
 
 import { Effect, Layer } from 'effect'
+import { PackageResolverLive } from '@/infrastructure/automations/package-resolver'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/auth/user-access-repository-live'
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
@@ -34,6 +35,7 @@ const TableWithAutomationsLive = Layer.mergeAll(
   ConnectionTokenRepositoryLive,
   AnalyticsRepositoryLive,
   DataSourceRepositoryLive,
+  PackageResolverLive,
   CloudHostRegistryRepositoryLive,
   CloudIngressRepositoryLive,
   CloudQuotaRepositoryLive,

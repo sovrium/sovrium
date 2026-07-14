@@ -8,11 +8,7 @@
 import { isSsrfRelaxed } from '@/infrastructure/utils/security-posture'
 
 export type OutboundUrlReason =
-  | 'invalid-url'
-  | 'unsupported-protocol'
-  | 'private-host'
-  | 'localhost'
-  | 'link-local'
+  'invalid-url' | 'unsupported-protocol' | 'private-host' | 'localhost' | 'link-local'
 
 export interface OutboundUrlIssue {
   readonly url: string

@@ -205,9 +205,7 @@ async function handleTwoFactorEnable(
   sendBackupCodes: TwoFactorBackupCodesHandler
 ): Promise<void> {
   const returned = ctx.context.returned as
-    | { backupCodes?: readonly string[] }
-    | Response
-    | undefined
+    { backupCodes?: readonly string[] } | Response | undefined
   if (!returned) return
   const data = await extractBackupCodes(returned)
   if (!data?.backupCodes) return

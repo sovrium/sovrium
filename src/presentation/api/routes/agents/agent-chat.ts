@@ -125,8 +125,7 @@ const callAgentProvider = async (call: AgentProviderCall): Promise<AgentProvider
     return { ok: false }
   }
   const payload = (await response.json().catch(() => undefined)) as
-    | ChatCompletionResponse
-    | undefined
+    ChatCompletionResponse | undefined
   return { ok: true, reply: extractReply(payload) }
 }
 

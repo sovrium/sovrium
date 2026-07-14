@@ -1,3 +1,146 @@
+## [0.13.0](https://github.com/sovrium/sovrium/compare/v0.12.1...v0.13.0) (2026-07-14)
+
+### Features
+
+- **server**: env-gated legacy-host → canonical-path 301 redirect
+
+### Bug Fixes
+
+- bound the automation email SMTP send so a slow gateway can't stall the request
+- dedupe @codemirror/state so schema-editor islands hydrate
+- add Better Auth 1.6.23 twoFactor columns (failedVerificationCount, lockedUntil)
+- preserve per-route Content-Security-Policy for signed downloads
+- **partner**: repair post-merge typecheck (helper fixture pick, unused import)
+- **partner**: repair post-merge typecheck (helper fixture pick, unused import)
+- **server**: serve public assets with correct Content-Type; enforce structural CSP
+- **admin-login**: surface auth errors, fix cramped card padding, restore pointer cursor
+- **tables**: split many-to-many fields on record update (CALENDAR-010/011/012)
+- **tables**: admin-equivalent roles bypass field-level write permissions (CALENDAR-004/005)
+- **partner**: coerce booking-cap project filter to a string (CALENDAR-003)
+- **database**: support a view-backed table that is also a rollup source
+- **forms**: localize embedded forms per host locale + opt-in title heading level
+- **pages**: localize the docs last-updated date value per active locale
+- **pages**: drive the RSS feed channel identity from the rss page meta
+- **partner**: correct Qonto connection to {login}:{secret} Business API auth
+- **partner**: resolve Qonto client_id via read chain (green pay-via-qonto 003/004)
+- **automations**: provide PackageResolver to record-event code actions
+- attribute record actions to the triggering user via runAs (DEC-049)
+- **lookup**: preserve an explicit id on view-backed INSTEAD OF INSERT
+
+### Refactoring
+
+- **partner**: drop unused SECTION_TIGHT/STACK exports from marketing lib
+- **admin-login**: extract auth-form SSR skeleton; source banner tone from design TOKENS
+- **website**: reduce /products/partner to a short vitrine
+- **tables**: consolidate field-write bypass onto the canonical isAdminEquivalent predicate
+- **website**: collapse the two newsletter forms into one bilingual form
+- **partner**: unify temps + rendez-vous into one events table
+- **automations**: sync runAs type + tidy record-action helpers
+- **partner**: atomic pain deposit (runAs/DEC-049) + Qonto staging wiring
+- **partner**: money-cycle config foundation (plans/billing + onboarding)
+
+### Documentation
+
+- **testing**: fix wrapped-line markdown in doc 19 business-app section
+- **testing**: carve business-app surfaces out of the visual-baseline rule
+- **agents**: thin, behavioral, ARIA-not-pixels business-app specs
+- **user-stories**: add CLI legacy-host-redirect story for landed specs
+- **user-stories**: link landed specs to AC tables + wire theming index
+- regenerate spec progress after batch-5 merge on main
+- regenerate spec progress after batch-5 merge — partner rebuild complete
+- regenerate SPEC-PROGRESS after partner reconciliation
+- reconcile partner FEATURES + VISION §9 to the built V1
+- reconcile batch-5 partner US AC status to spec state
+- file DEC-052 email related-user recipient dereference gap
+- **website-scalingo**: §9 Path A APPLIED + VERIFIED — canonical domain live on sovrium-website
+- **website-scalingo**: record Path A decision (Scalingo canonical-domain toggle) supersedes Path B
+- **website-scalingo**: record docs.sovrium.com redirect fix + reconcile migration doc with live state
+- **website-scalingo**: record docs.sovrium.com redirect fix + reconcile migration doc with live state
+- file per-record RAG retrieval scoping gap (DEC-051)
+- file manual-trigger file-download delivery gap (DEC-050)
+- **partner**: cut AI draft-engineer-replies (US-AI-ASSIST-001)
+- mirror admin-login + auth-form ACs (error banner, padding, cursor, pendingLabel)
+- regenerate spec progress after batch-4 merge
+- regenerate spec progress after batch-4 events/dashboard implementation
+- **partner**: reconcile events-calendar + engineer-dashboard AC status
+- regenerate spec progress after batch-4 events/dashboard specs
+- regenerate spec progress after P6 merge
+- **marketing**: record the P6 Tier-B polish bundle
+- regenerate spec progress after batch-3b merge
+- **marketing**: record v0.12.1 deploy — all release-gated features healed
+- regenerate SPEC-PROGRESS after batch-3b money cycle
+- **partner**: rewrite the pain-points model to the atomic deposit
+- **partner**: mark money-cycle ACs green (plans-billing 005-015, onboarding 003-011)
+- **partner**: document Qonto sandbox/staging env setup
+- DEC-049 + runAs acceptance criteria for record action ownership
+
+### Styles
+
+- **partner**: apply Prettier formatting to batch-5 config, specs and docs
+- **tables**: drop stray blank line after resolveUpdatedBaseRecord
+- fix import order and formatting
+
+### Tests
+
+- allow a per-test server-start budget for heavy runTypescript boots
+- **apps/partner**: assert 404 (not >=400) for non-commentable events
+- update migration-count assertions for the new 0004 migration
+- **apps/cloud**: replace pixel baselines with inline ARIA snapshots
+- reset schema before the record-trigger regression's second boot
+- update stale partner/website specs to match current product
+- **partner**: repair post-merge typecheck in specs + activity-report
+- **specs**: fold 3 GREEN specs into their @regression tests
+- file DEC-052 related-user email-deref platform-gap spec
+- **partner**: add notifications E2E specs (fixme — DEC-052 user-email deref gap)
+- **partner**: add ai-assist project-history specs + file the RAG scoping gap
+- **partner**: add sovereign-handoff E2E specs + file the export platform gap
+- **website**: reconcile partner product-page spec with the short vitrine
+- **partner**: add marketing-site E2E specs (10 ACs, all green)
+- lock in admin-login polish (error banner, card padding, cursor, pendingLabel)
+- **partner**: sharpen DASHBOARD-005 inbox fixme note (records-list unread gap)
+- **partner**: engineer stats view + activate DASHBOARD-008/NAV-REGRESSION
+- **partner**: engineer-console overview + activate dashboard specs (DASHBOARD-001/002/004/006/007/009)
+- **partner**: activate sync-the-calendar events-calendar specs (CALENDAR-008/009)
+- **partner**: activate cancel-or-reschedule events-calendar specs (CALENDAR-006/007)
+- **partner**: activate book-an-event events-calendar specs (CALENDAR-001/002)
+- **tables**: cover a view-backed table that is also a rollup source
+- **partner**: author RED specs for events-calendar + engineer-dashboard (batch 4)
+- **partner**: migrate money-cycle spec seeds temps -> unified events
+- rewrite Qonto staging smoke as a real login:secret round-trip
+- **partner**: add token-gated Qonto sandbox live-staging smoke
+- **partner**: green the pain-points specs on the atomic deposit model
+- **partner**: green the onboarding money-cycle specs
+- add RED fixme specs for runAs triggering-user attribution (DEC-049)
+
+### Chores
+
+- **agent-memory**: snapshot app-design-finalizer memory notes
+- regenerate embedded CSS candidates for the SMTP-timeout source
+- regenerate embedded CSS + runtime assets after island build change
+- **website**: polish landing hero — drop eyebrow, unify subheadline, restyle install command
+- snapshot remaining working-tree changes
+- **check-progress**: hoist spec-test factories + fix readonly param
+- de-scope 3 unbuilt platform features (founder decision)
+- unblock tier-1 quality gates (knip, css assets, eslint scoping)
+- **check-progress**: parse AC rows containing markdown-escaped pipes
+- snapshot working tree (repo-wide prettier reformat + in-flight WIP)
+- **memory**: reflect Path A live + Path B dormant in scaleway-infra-maintainer memory
+- **deploy**: migrate website Scalingo deploy to sovrium/scalingo-buildpack
+- **deploy**: migrate website Scalingo deploy to sovrium/scalingo-buildpack
+- **css**: regenerate embedded CSS candidates after refactor comment rewording
+- **deps**: update nodemailer to v9
+- **partner**: add project history — RAG search + timeline
+- **deps**: bump dependencies and sync documented versions
+- **partner**: add pain-update and weekly activity-report notifications
+- **partner**: add sovereign triptych, setup guidance and full export
+- **partner**: add public marketing site (landing, method, pricing, qualification)
+- regenerate embedded CSS assets after batch-4 identifiers
+- add runAs action-ownership option to record create/update/upsert schemas
+
+### CI
+
+- add partner Scalingo deploy; gate both deploys behind a deploy: marker
+
 ## [0.12.1](https://github.com/sovrium/sovrium/compare/v0.12.0...v0.12.1) (2026-07-12)
 
 ### Bug Fixes
@@ -71,8 +214,8 @@
 - **data-table**: add a permission-gated "Nouvel enregistrement" create flow to the data-table toolbar
 - **admin**: sidebar global search UI grouped by type + record deep-link drawer
 - **admin**: GET /api/admin/search global indexed search endpoint (dual-dialect FTS)
-- **admin**: _admin_search_index dual-dialect migrations + SQLite FTS5 DDL
-- **admin**: add dashboard overview at /_admin root
+- **admin**: \_admin_search_index dual-dialect migrations + SQLite FTS5 DDL
+- **admin**: add dashboard overview at /\_admin root
 - **admin**: account page — identity card + "Mon compte" naming (Wave 3 F)
 - **admin**: start a new agent conversation from the Conversations page (Wave 3 M)
 - **admin**: admin bucket file-upload endpoint + wire the upload modal (Wave 3 N)
@@ -105,7 +248,7 @@
 - **admin-dashboard**: Tier 2a Tables domain dashboard (tables + tables-data)
 - **admin-dashboard**: Tier 2 fidelity foundation + spec reconciliation + fixes
 - **admin-dashboard**: Tier 1 editing surfaces — shell, editor, publish, login (MVP)
-- **admin-dashboard**: Tier 0 foundations + /_admin/login spec
+- **admin-dashboard**: Tier 0 foundations + /\_admin/login spec
 - **pages**: config-driven docs nav-section icons (contentDir.nav.groupIcons)
 - **docs**: redesign docs navigation, Welcome page, and install guide
 - **docs-app**: add admin auth + analytics dashboard page
@@ -349,7 +492,7 @@
 - **admin-dashboard**: correct stale spawnPreviewServer isolation comment
 - **admin-dashboard**: refine readiness US/specs (gdpr, shell, mount, index, FEATURES)
 - **admin-dashboard**: re-render prototype for readiness — agents 5-tab (drop Outils), tables no-rows empty state, GDPR self-service
-- **admin-dashboard**: readiness fixes — /_admin mount US, agents 5-tab reconcile, GDPR self-service, SHELL gate symbols, doc minors
+- **admin-dashboard**: readiness fixes — /\_admin mount US, agents 5-tab reconcile, GDPR self-service, SHELL gate symbols, doc minors
 - **admin-dashboard**: promote tier-b-crud + split monitoring-gaps into 7 spec-backed US (.fixme) + implementation-order
 - **admin-dashboard**: promote decided + component US to spec-backed (.fixme specs + AC)
 - **admin-dashboard**: sync spec acceptance-criteria status + spec/US updates for the implementation pass

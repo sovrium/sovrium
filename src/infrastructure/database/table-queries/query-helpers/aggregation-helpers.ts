@@ -158,9 +158,7 @@ export interface FilterLeaf {
 }
 
 export type FilterNode =
-  | FilterLeaf
-  | { readonly and: readonly FilterNode[] }
-  | { readonly or: readonly FilterNode[] }
+  FilterLeaf | { readonly and: readonly FilterNode[] } | { readonly or: readonly FilterNode[] }
 
 const isLeaf = (node: FilterNode): node is FilterLeaf => 'field' in node && 'operator' in node
 

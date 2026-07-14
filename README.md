@@ -732,7 +732,7 @@ For bug reports and feature requests, see [Contributing](#contributing) above.
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **July 12, 2030**. A move to **full open source sooner** is
+**Apache 2.0** on **July 14, 2030**. A move to **full open source sooner** is
 under active evaluation. Commercial hosting licenses: license@sovrium.com.
 
 The **engine is free forever** in self-hosted mode (no license keys, no feature

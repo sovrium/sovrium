@@ -52,8 +52,7 @@ function resolveSystemValue(system: KpiSystemSource, envelope: unknown): KpiSyst
 const AUTH_DENIAL_STATUSES = new Set([401, 403, 404])
 
 type EnvelopeResult =
-  | { readonly kind: 'envelope'; readonly envelope: unknown }
-  | { readonly kind: 'denied' }
+  { readonly kind: 'envelope'; readonly envelope: unknown } | { readonly kind: 'denied' }
 
 export function useKpiSystemValue(system: KpiSystemSource | undefined) {
   return useQuery({

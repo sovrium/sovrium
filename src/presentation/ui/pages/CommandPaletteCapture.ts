@@ -17,8 +17,7 @@ export function hasCommandPaletteHost(
     if ('component' in item || '$ref' in item) return false
     const component = item as Component
     const props = (component as Record<string, unknown>).props as
-      | Record<string, unknown>
-      | undefined
+      Record<string, unknown> | undefined
     if (
       (component as { readonly type?: string }).type === 'command-palette' &&
       props?.['adminSearch'] === true

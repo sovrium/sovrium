@@ -56,6 +56,4 @@ export class BootstrapTokenAlreadyUsedError extends Data.TaggedError(
 }> {}
 
 export type BootstrapTokenError =
-  | BootstrapTokenNotFoundError
-  | BootstrapTokenExpiredError
-  | BootstrapTokenAlreadyUsedError
+  BootstrapTokenNotFoundError | BootstrapTokenExpiredError | BootstrapTokenAlreadyUsedError

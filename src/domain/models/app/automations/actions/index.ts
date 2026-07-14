@@ -109,6 +109,7 @@ export type Action =
     } & Props<{
         readonly table: string
         readonly data: { readonly [key: string]: unknown }
+        readonly runAs?: 'system' | 'triggering-user'
       }>)
   | (ActionBase & {
       readonly type: 'record'
@@ -124,6 +125,7 @@ export type Action =
         readonly table: string
         readonly data: { readonly [key: string]: unknown }
         readonly filter: ConditionGroup
+        readonly runAs?: 'system' | 'triggering-user'
       }>)
   | (ActionBase & {
       readonly type: 'record'

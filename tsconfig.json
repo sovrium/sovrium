@@ -78,6 +78,6 @@
   // exclude", silently pulling in stray files (examples/, packages/types — which
   // has its own tsconfig + build:types). Dependents that override `include`
   // (tsconfig.build.json → ["src"], tsconfig.eslint.json → []) are unaffected.
-  "include": ["src", "specs", "scripts"],
+  "include": ["src", "specs", "scripts", "apps"],
   "exclude": ["node_modules", "dist", "tmp", "vendor", "docs"]
 }

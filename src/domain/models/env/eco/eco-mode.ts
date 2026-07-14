@@ -17,9 +17,7 @@ export const parseEcoMode = (processEnv: Readonly<Record<string, string | undefi
 }
 
 export type EcoSubKnob =
-  | 'ECO_LOW_DATA_DEFAULT'
-  | 'ECO_AI_MAX_CARBON_CLASS'
-  | 'ECO_RETENTION_PURGE_DAYS'
+  'ECO_LOW_DATA_DEFAULT' | 'ECO_AI_MAX_CARBON_CLASS' | 'ECO_RETENTION_PURGE_DAYS'
 
 export const resolveActivatedSubKnobs = (mode: EcoMode): readonly EcoSubKnob[] => {
   if (mode === 'strict') {

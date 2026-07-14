@@ -47,9 +47,7 @@ export interface ResolveApprovalOptions {
 }
 
 type ResolveRequirements =
-  | AutomationApprovalRepository
-  | AutomationRunRepository
-  | ExecuteAutomationRunRequirements
+  AutomationApprovalRepository | AutomationRunRepository | ExecuteAutomationRunRequirements
 
 const coerceTriggerData = (raw: unknown): TriggerData => {
   if (raw === null || raw === undefined || typeof raw !== 'object') return {}

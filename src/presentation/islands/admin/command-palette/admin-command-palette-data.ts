@@ -7,13 +7,7 @@
 
 
 export type AdminSearchEntityType =
-  | 'record'
-  | 'submission'
-  | 'run'
-  | 'user'
-  | 'file'
-  | 'conversation'
-  | 'connection'
+  'record' | 'submission' | 'run' | 'user' | 'file' | 'conversation' | 'connection'
 
 export interface AdminSearchResult {
   readonly type: AdminSearchEntityType

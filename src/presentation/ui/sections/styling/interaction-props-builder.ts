@@ -24,8 +24,7 @@ export function buildInteractionProps(
   readonly finalElementProps: Record<string, unknown>
   readonly finalElementPropsWithSpacing: Record<string, unknown>
   readonly hoverData:
-    | { readonly attributes: Record<string, string>; readonly styleContent: string }
-    | undefined
+    { readonly attributes: Record<string, string>; readonly styleContent: string } | undefined
 } {
   const hoverData = buildHoverData(interactions?.hover, uniqueId)
   const clickModalProps = interactions?.click?.modal

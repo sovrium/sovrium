@@ -28,6 +28,15 @@ export function getEmailConfig(): EmailConfig | undefined {
   return getEmailConfigFromEffect().config
 }
 
+const DEFAULT_SMTP_TIMEOUT_MS = 10_000
+
+function resolveSmtpTimeout(envVar: string): number {
+  const raw = process.env[envVar]
+  if (raw === undefined) return DEFAULT_SMTP_TIMEOUT_MS
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SMTP_TIMEOUT_MS
+}
+
 export function createTransporter(
   config: Readonly<EmailConfig>
 ): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
@@ -36,6 +45,9 @@ export function createTransporter(
     port: config.port,
     secure: config.secure,
     auth: config.auth,
+    connectionTimeout: resolveSmtpTimeout('SMTP_CONNECTION_TIMEOUT'),
+    greetingTimeout: resolveSmtpTimeout('SMTP_GREETING_TIMEOUT'),
+    socketTimeout: resolveSmtpTimeout('SMTP_SOCKET_TIMEOUT'),
   })
 }
 
@@ -50,8 +62,7 @@ function getLazyConfig(): EmailConfig | undefined {
 }
 
 export function getTransporter():
-  | nodemailer.Transporter<SMTPTransport.SentMessageInfo>
-  | undefined {
+  nodemailer.Transporter<SMTPTransport.SentMessageInfo> | undefined {
   const config = getLazyConfig()
   if (!config) return undefined
   if (!_transporter) {

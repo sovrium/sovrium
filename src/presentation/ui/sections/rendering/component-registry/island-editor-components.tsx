@@ -11,10 +11,7 @@ import type { ReactNode } from 'react'
 
 type ElemProps = Record<string, unknown>
 type EditorIsland =
-  | 'schema-json-editor'
-  | 'schema-yaml-editor'
-  | 'schema-form-editor'
-  | 'schema-ai-agent'
+  'schema-json-editor' | 'schema-yaml-editor' | 'schema-form-editor' | 'schema-ai-agent'
 
 
 function pick(component: Record<string, unknown>, key: string): unknown {

@@ -333,14 +333,14 @@ action:
   type: crud
   operation: create
   table: tasks
-  onSuccess: /tasks           # Redirect after success
+  onSuccess: /tasks # Redirect after success
 
 # Update action
 action:
   type: crud
   operation: update
   table: tasks
-  recordId: '{id}'            # From URL parameter
+  recordId: '{id}' # From URL parameter
   onSuccess: /tasks/{id}
 
 # Delete action (usually on a button, not a form)

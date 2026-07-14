@@ -29,12 +29,7 @@ export interface CurrentUserContext {
 }
 
 export type ResolvedPredicateValue =
-  | string
-  | number
-  | boolean
-  | readonly string[]
-  | readonly number[]
-  | undefined
+  string | number | boolean | readonly string[] | readonly number[] | undefined
 
 export const resolvePredicateValue = (
   value: RowLevelPredicate['value'],

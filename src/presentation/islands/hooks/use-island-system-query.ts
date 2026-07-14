@@ -13,8 +13,7 @@ export function useIslandSystemQuery(sourceId?: string): Record<string, string> 
   useEffect(() => {
     const handler = (e: Event): void => {
       const detail = (e as CustomEvent).detail as
-        | { params?: Record<string, string>; sourceId?: string }
-        | undefined
+        { params?: Record<string, string>; sourceId?: string } | undefined
       if (detail?.params === undefined) return
       if (sourceId && detail.sourceId !== sourceId) return
       setParams(detail.params)

@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { isAdminEquivalent } from '@/domain/models/app'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { hasPermission } from '@/domain/models/app/tables/permissions'
 import { inferMimeFromKey } from '@/domain/utils/mime-types'
@@ -126,13 +127,17 @@ export function filterAllowedFields(
 
     const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
 
-    const forbiddenFields: readonly string[] = Object.keys(fields).filter((fieldName) => {
-      const field = table?.fields?.find((f) => f.name === fieldName)
-      if (!field) return false
+    const isUnrestricted = isAdminEquivalent(ctx.userRole, ctx.app)
 
-      const fieldPermission = table?.permissions?.fields?.find((fp) => fp.field === fieldName)
-      return hasWriteRoleRestriction(fieldPermission, ctx.userRole)
-    })
+    const forbiddenFields: readonly string[] = isUnrestricted
+      ? []
+      : Object.keys(fields).filter((fieldName) => {
+          const field = table?.fields?.find((f) => f.name === fieldName)
+          if (!field) return false
+
+          const fieldPermission = table?.permissions?.fields?.find((fp) => fp.field === fieldName)
+          return hasWriteRoleRestriction(fieldPermission, ctx.userRole)
+        })
 
     const allowedData = Object.fromEntries(
       Object.entries(fields).filter(

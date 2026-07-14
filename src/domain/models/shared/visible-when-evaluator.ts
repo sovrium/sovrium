@@ -9,12 +9,7 @@
 import type { VisibleWhen, VisibleWhenCondition } from './visible-when'
 
 export type FieldValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | ReadonlyArray<string | number | boolean>
+  string | number | boolean | null | undefined | ReadonlyArray<string | number | boolean>
 
 const isAbsent = (value: FieldValue): boolean => {
   if (value === undefined || value === null) return true

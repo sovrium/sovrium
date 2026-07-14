@@ -48,6 +48,7 @@ import {
 import {
   detectCircularDependenciesWithOptionalFK,
   sortTablesByDependencies,
+  sortTablesByViewDependencies,
 } from './schema-dependency-sorting'
 import { executeSchemaInit, checkShouldSkipMigration } from './schema-initializer-execute'
 import {
@@ -287,9 +288,10 @@ const createAllViews = (
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
+    const viewOrderedTables = sortTablesByViewDependencies(sortedTables)
     yield* Effect.all(
-      sortedTables.map((table) => createLookupViewsEffect(tx, table, sortedTables)),
-      { concurrency: 'unbounded' }
+      viewOrderedTables.map((table) => createLookupViewsEffect(tx, table, sortedTables)),
+      { concurrency: 1 }
     )
     yield* Effect.all(
       sortedTables.map((table) => createTableViewsEffect(tx, table)),

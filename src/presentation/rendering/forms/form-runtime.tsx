@@ -8,9 +8,11 @@
 
 
 import { FORM_RUNTIME_FILE_HANDLERS_SCRIPT } from './form-runtime-file-handlers'
+import { resolveOnErrorText, resolveOnSuccessText } from './form-runtime-i18n'
 import { FORM_RUNTIME_MULTI_STEP_SCRIPT } from './form-runtime-multi-step'
 import { FORM_RUNTIME_ONE_QUESTION_SCRIPT } from './form-runtime-one-question'
 import type { Form, FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
+import type { Languages } from '@/domain/models/app/languages'
 
 export interface FormRuntimeConfig {
   readonly formName: string
@@ -21,14 +23,24 @@ export interface FormRuntimeConfig {
   readonly oneQuestion: boolean
 }
 
-export function buildFormRuntimeConfig(form: Readonly<Form>): FormRuntimeConfig {
+export function buildFormRuntimeConfig(
+  form: Readonly<Form>,
+  languages?: Languages,
+  activeLang?: string
+): FormRuntimeConfig {
   const isMultiStep =
     form.layout === 'multi-step' && form.steps !== undefined && form.steps.length > 0
   const isOneQuestion = form.layout === 'one-question'
+  const onSuccess =
+    form.onSuccess !== undefined
+      ? resolveOnSuccessText(form.onSuccess, languages, activeLang)
+      : undefined
+  const onError =
+    form.onError !== undefined ? resolveOnErrorText(form.onError, languages, activeLang) : undefined
   return {
     formName: form.name,
-    ...(form.onSuccess !== undefined ? { onSuccess: form.onSuccess } : {}),
-    ...(form.onError !== undefined ? { onError: form.onError } : {}),
+    ...(onSuccess !== undefined ? { onSuccess } : {}),
+    ...(onError !== undefined ? { onError } : {}),
     multiStep: isMultiStep,
     stepIds: isMultiStep ? form.steps!.map((step) => step.id) : [],
     oneQuestion: isOneQuestion,
@@ -362,8 +374,16 @@ ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
   })
 })()`
 
-export function FormRuntimeMount({ form }: { readonly form: Form }) {
-  const configJson = JSON.stringify(buildFormRuntimeConfig(form))
+export function FormRuntimeMount({
+  form,
+  languages,
+  activeLang,
+}: {
+  readonly form: Form
+  readonly languages?: Languages
+  readonly activeLang?: string
+}) {
+  const configJson = JSON.stringify(buildFormRuntimeConfig(form, languages, activeLang))
   return (
     <>
       <script

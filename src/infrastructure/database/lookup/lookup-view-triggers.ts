@@ -5,17 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isViewComputedFormula } from '../formula/formula-utils'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getColumnDefaultExpression } from '../sql/sql-column-generators'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
-const isBaseColumnField = (
-  field: Fields[number],
-  allFields: readonly Fields[number][]
-): boolean => {
+export const getInsertIdExpression = (table: Table, baseTableName: string): string => {
+  const pkType = table.primaryKey?.type
+  if (isSqliteRuntime()) {
+    return pkType === 'uuid' || pkType === 'text'
+      ? 'COALESCE(NEW.id, (lower(hex(randomblob(16)))))'
+      : 'NEW.id'
+  }
+  if (pkType === 'uuid') return 'COALESCE(NEW.id, gen_random_uuid())'
+  if (pkType === 'text') return 'COALESCE(NEW.id, gen_random_uuid()::text)'
+  return `COALESCE(NEW.id, nextval(pg_get_serial_sequence('${baseTableName}', 'id')))`
+}
+
+const isBaseColumnField = (field: Fields[number]): boolean => {
   if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'count') return false
-  if (isViewComputedFormula(field, allFields)) return false
+  if (field.type === 'formula') return false
   if (
     field.type === 'relationship' &&
     'relationType' in field &&
@@ -28,11 +37,11 @@ const isBaseColumnField = (
 }
 
 export const getBaseFields = (table: Table): readonly string[] =>
-  table.fields.filter((field) => isBaseColumnField(field, table.fields)).map((field) => field.name)
+  table.fields.filter((field) => isBaseColumnField(field)).map((field) => field.name)
 
 export const getInsertValueExpressions = (table: Table): readonly string[] =>
   table.fields
-    .filter((field) => isBaseColumnField(field, table.fields))
+    .filter((field) => isBaseColumnField(field))
     .map((field) => {
       const defaultExpr = getColumnDefaultExpression(field)
       return defaultExpr === undefined

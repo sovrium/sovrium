@@ -70,8 +70,7 @@ const validateInviteInput = (body: {
   readonly role?: unknown
   readonly password?: unknown
 }):
-  | { readonly email: string; readonly name: string; readonly role: string }
-  | InviteUserFailure => {
+  { readonly email: string; readonly name: string; readonly role: string } | InviteUserFailure => {
   if (typeof body.email !== 'string' || body.email.trim().length === 0) {
     return { status: 'invalid-input', message: 'email is required' }
   }

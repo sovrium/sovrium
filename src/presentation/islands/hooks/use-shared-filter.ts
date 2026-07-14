@@ -45,8 +45,7 @@ export function useSharedFilter({
 
     const onSystemQuery = (e: Event): void => {
       const detail = (e as CustomEvent).detail as
-        | { params?: Record<string, string>; sourceId?: string }
-        | undefined
+        { params?: Record<string, string>; sourceId?: string } | undefined
       if (detail?.params === undefined || detail.sourceId !== bindTo) return
       setPublished({ kind: 'bag', value: detail.params })
     }

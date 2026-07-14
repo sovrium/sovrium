@@ -15,6 +15,7 @@ interface OneQuestionBodyProps {
   readonly resolvedFields: ReadonlyArray<ResolvedFormField>
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
+  readonly titleAs?: 'h1' | 'h2' | 'h3'
 }
 
 function FormQuestionWrapper({
@@ -151,14 +152,16 @@ export function FormBodyOneQuestion({
   resolvedFields,
   prefillMap,
   lockPrefill,
+  titleAs = 'h1',
 }: OneQuestionBodyProps) {
+  const TitleTag = titleAs
   const visibleFields = resolvedFields.filter((f) => !f.hidden)
   const transformedVisible = rewriteSelectAsRadio(visibleFields)
   const totalQuestions = transformedVisible.length
   const hiddenFields = resolvedFields.filter((f) => f.hidden)
   return (
     <>
-      <h1 className="form-title">{title}</h1>
+      <TitleTag className="form-title">{title}</TitleTag>
       {description && <p className="form-description">{description}</p>}
       <FormProgressBar totalQuestions={totalQuestions} />
       <OneQuestionForm

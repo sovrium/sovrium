@@ -40,6 +40,4 @@ export const GetActivityById = (activityId: string) =>
   })
 
 export type GetActivityByIdError =
-  | InvalidActivityIdError
-  | ActivityNotFoundError
-  | ActivityDatabaseError
+  InvalidActivityIdError | ActivityNotFoundError | ActivityDatabaseError

@@ -8,6 +8,7 @@
 
 import { existsSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
 
 const CLIENT_SCRIPTS = ['scroll-animation.js', 'language-switcher.js', 'banner-dismiss.js'] as const
 
@@ -46,6 +47,7 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
     splitting: true,
     minify: true,
     define: { 'process.env.NODE_ENV': '"production"' },
+    plugins: [codemirrorDedupePlugin],
     naming: { entry: 'island-entry.js', chunk: '[name]-[hash].js' },
   })
   if (!islandResult.success) {

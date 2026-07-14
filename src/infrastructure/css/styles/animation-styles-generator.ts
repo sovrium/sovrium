@@ -97,8 +97,7 @@ export function generateAnimationStyles(animations?: AnimationsConfig, theme?: T
   if (!animations || Object.keys(animations).length === 0) return ''
 
   const keyframesTokens = animations.keyframes as
-    | Record<string, Record<string, unknown>>
-    | undefined
+    Record<string, Record<string, unknown>> | undefined
 
   const nestedKeyframesCSS =
     keyframesTokens && typeof keyframesTokens === 'object'

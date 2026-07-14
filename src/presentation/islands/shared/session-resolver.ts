@@ -24,8 +24,7 @@ export async function fetchSessionUser(): Promise<SessionUser | undefined> {
     })
     if (!res.ok) return undefined
     const body = (await res.json().catch(() => undefined)) as
-      | { readonly user?: SessionUser }
-      | undefined
+      { readonly user?: SessionUser } | undefined
     return body?.user ?? undefined
   } catch {
     return undefined

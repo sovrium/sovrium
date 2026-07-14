@@ -56,16 +56,14 @@ const readTableRecords = (
         LIMIT 500`
   )
     .then((rows) =>
-      rows.map(
-        (row): AdminSearchUpsertRow => ({
-          type: 'record',
-          entityId: String(row['entity_id']),
-          title: typeof row['title'] === 'string' ? row['title'] : String(row['entity_id']),
-          body: '',
-          href: `/_admin/tables/${displayName}?record=${encodeURIComponent(String(row['entity_id']))}`,
-          updatedAt: new Date(),
-        })
-      )
+      rows.map((row): AdminSearchUpsertRow => ({
+        type: 'record',
+        entityId: String(row['entity_id']),
+        title: typeof row['title'] === 'string' ? row['title'] : String(row['entity_id']),
+        body: '',
+        href: `/_admin/tables/${displayName}?record=${encodeURIComponent(String(row['entity_id']))}`,
+        updatedAt: new Date(),
+      }))
     )
     .catch(() => [])
 }

@@ -7,6 +7,7 @@
 
 
 import { markdownToText } from '@/domain/services/markdown/markdown-to-text'
+import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -79,13 +80,38 @@ interface BuildRssFeedXmlFromItemsInput {
   readonly app: App
   readonly baseUrl: string
   readonly items: readonly RssFeedItem[]
+  readonly channelTitle?: string
+  readonly channelDescription?: string
+}
+
+export function resolveRssChannelIdentity(
+  app: App,
+  page: Page
+): { readonly title: string; readonly description: string } {
+  return {
+    title: resolveChannelField(app, page.meta?.title, app.name),
+    description: resolveChannelField(
+      app,
+      page.meta?.description,
+      app.description ?? 'Application built with Sovrium'
+    ),
+  }
+}
+
+function resolveChannelField(app: App, metaValue: unknown, fallback: string): string {
+  if (typeof metaValue !== 'string' || metaValue.length === 0 || metaValue.includes('$record.')) {
+    return fallback
+  }
+  return resolveTranslationPattern(metaValue, app.languages?.default ?? 'en', app.languages)
 }
 
 export function buildRssFeedXmlFromItems(input: BuildRssFeedXmlFromItemsInput): string {
   const { app, baseUrl, items } = input
 
-  const channelTitle = escapeXml(app.name)
-  const channelDescription = escapeXml(app.description ?? 'Application built with Sovrium')
+  const channelTitle = escapeXml(input.channelTitle ?? app.name)
+  const channelDescription = escapeXml(
+    input.channelDescription ?? app.description ?? 'Application built with Sovrium'
+  )
   const trimmedBase = baseUrl.replace(/\/$/, '')
   const channelLink = escapeXml(trimmedBase)
   const feedUrl = escapeXml(`${trimmedBase}/feed.xml`)
@@ -134,7 +160,11 @@ export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
     }
   })
 
-  return buildRssFeedXmlFromItems({ app, baseUrl, items })
+  const { title: channelTitle, description: channelDescription } = resolveRssChannelIdentity(
+    app,
+    page
+  )
+  return buildRssFeedXmlFromItems({ app, baseUrl, items, channelTitle, channelDescription })
 }
 
 export interface MarkdownFeedSection {

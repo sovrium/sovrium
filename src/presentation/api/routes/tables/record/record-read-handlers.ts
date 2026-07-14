@@ -62,8 +62,7 @@ type ListRecordsValidationInput = {
   readonly tableName: string
   readonly userRole: string
   readonly table:
-    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
-    | undefined
+    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined
   readonly timezone: string | undefined
   readonly sort: string | undefined
   readonly filter: Parameters<typeof validateFilterParam>[0]

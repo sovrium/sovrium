@@ -62,15 +62,13 @@ export const ListFavorites = (
     const repo = yield* UserEntityListRepository
     const rows = yield* repo.listFavorites(userId)
     const visible = yield* filterLiveEntities(repo, rows)
-    return visible.map(
-      (row: Readonly<FavoriteRow>): FavoriteOutput => ({
-        id: row.id,
-        entityType: row.entityType,
-        entityId: row.entityId,
-        tableId: row.tableId,
-        createdAt: toIso(row.createdAt),
-      })
-    )
+    return visible.map((row: Readonly<FavoriteRow>): FavoriteOutput => ({
+      id: row.id,
+      entityType: row.entityType,
+      entityId: row.entityId,
+      tableId: row.tableId,
+      createdAt: toIso(row.createdAt),
+    }))
   })
 
 export const AddFavorite = (
@@ -104,15 +102,13 @@ export const ListRecent = (
     const repo = yield* UserEntityListRepository
     const rows = yield* repo.listRecent(userId)
     const visible = yield* filterLiveEntities(repo, rows)
-    return visible.slice(0, limit).map(
-      (row: Readonly<RecentRow>): RecentOutput => ({
-        id: row.id,
-        entityType: row.entityType,
-        entityId: row.entityId,
-        tableId: row.tableId,
-        viewedAt: toIso(row.viewedAt),
-      })
-    )
+    return visible.slice(0, limit).map((row: Readonly<RecentRow>): RecentOutput => ({
+      id: row.id,
+      entityType: row.entityType,
+      entityId: row.entityId,
+      tableId: row.tableId,
+      viewedAt: toIso(row.viewedAt),
+    }))
   })
 
 export const RecordRecent = (

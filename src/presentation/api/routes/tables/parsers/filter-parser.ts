@@ -20,8 +20,7 @@ export type FilterParameter =
   | undefined
 
 export type ParseFilterResult =
-  | { success: true; filter: FilterParameter }
-  | { success: false; error: Response }
+  { success: true; filter: FilterParameter } | { success: false; error: Response }
 
 const forbiddenFilterResponse = (c: Context, _forbiddenField: string): Response =>
   c.json(

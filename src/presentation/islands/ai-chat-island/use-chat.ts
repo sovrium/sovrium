@@ -42,8 +42,7 @@ async function sendChatTurn(args: {
   })
   if (res.status === 429) {
     const json = (await res.json().catch(() => undefined)) as
-      | { readonly error?: string }
-      | undefined
+      { readonly error?: string } | undefined
     return {
       kind: 'rate-limited',
       message:

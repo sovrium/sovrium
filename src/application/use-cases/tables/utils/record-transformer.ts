@@ -9,12 +9,7 @@ import { formatFieldForDisplay, type FormatResult } from './display-formatter'
 import type { App } from '@/domain/models/app'
 
 export type RecordFieldValue =
-  | string
-  | number
-  | boolean
-  | readonly unknown[]
-  | Readonly<Record<string, unknown>>
-  | null
+  string | number | boolean | readonly unknown[] | Readonly<Record<string, unknown>> | null
 
 export interface FormattedFieldValue {
   readonly value: RecordFieldValue

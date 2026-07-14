@@ -58,6 +58,7 @@ import {
   getLockFilePath,
   writeLockFile as writeLockFileToDisk,
 } from '@/infrastructure/server/lock-file'
+import { legacyHostRedirect } from '@/infrastructure/server/middleware/legacy-host-redirect'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
 import { securityHeaders } from '@/infrastructure/server/middleware/security-headers'
 import { createApiRoutes } from '@/infrastructure/server/route-setup/api-routes'
@@ -163,6 +164,8 @@ export async function createHonoApp(
   const honoApp = new Hono()
 
   honoApp.use('*', requestId()).use('*', securityHeaders)
+
+  honoApp.use('*', legacyHostRedirect)
 
   let currentConfigHash = configHash ?? ''
   if (currentConfigHash) {

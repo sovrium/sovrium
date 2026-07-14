@@ -7,12 +7,18 @@
 
 import { cn } from '@/presentation/islands/lib/cn'
 import {
+  authPendingLabel,
   authSubmitLabel,
   defaultAuthFields,
   type AuthFormField,
   type AuthMethod,
 } from '@/presentation/utils/auth-form-types'
-import { computeFormLayoutClasses } from '@/presentation/utils/design/form-layout-classes'
+import {
+  AUTH_ERROR_BANNER_STYLE,
+  AUTH_SUCCESS_BANNER_STYLE,
+  computeAuthFeedbackBannerClasses,
+  computeFormLayoutClasses,
+} from '@/presentation/utils/design/form-layout-classes'
 import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
 import { useAuthFormState } from './auth-form-state'
 import { type AuthState, type ToastConfig } from './auth-form-submit'
@@ -22,6 +28,7 @@ interface AuthFormIslandProps {
   readonly method: AuthMethod
   readonly fields?: readonly AuthFormField[]
   readonly submitLabel?: string
+  readonly pendingLabel?: string
   readonly redirectUrl?: string
   readonly successToast?: ToastConfig
   readonly errorToast?: ToastConfig
@@ -34,19 +41,36 @@ interface AuthFormIslandProps {
 
 function AuthFormFeedback({ state }: { readonly state: AuthState }) {
   if (state.error) {
-    return <div data-error="">{state.error}</div>
+    return (
+      <div
+        data-error=""
+        role="alert"
+        className={computeAuthFeedbackBannerClasses()}
+        style={AUTH_ERROR_BANNER_STYLE}
+      >
+        {state.error}
+      </div>
+    )
   }
   if (state.success) {
     return (
       <div
         data-error=""
         data-success=""
+        role="status"
+        className={computeAuthFeedbackBannerClasses()}
+        style={AUTH_SUCCESS_BANNER_STYLE}
       >
         {state.success}
       </div>
     )
   }
-  return <div data-error="" />
+  return (
+    <div
+      data-error=""
+      hidden
+    />
+  )
 }
 
 
@@ -54,6 +78,7 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
   const { method, redirectUrl, successToast, errorToast, className, initialValues } = props
   const fields = props.fields && props.fields.length > 0 ? props.fields : defaultAuthFields(method)
   const submitLabel = props.submitLabel ?? authSubmitLabel(method)
+  const pendingLabel = props.pendingLabel ?? authPendingLabel(method)
 
   const { fieldErrors, summaryErrors, state, handleBlur, handleSubmit } = useAuthFormState({
     method,
@@ -92,7 +117,7 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
         disabled={state.isPending}
         className="btn btn-primary w-full"
       >
-        {state.isPending ? 'Loading...' : submitLabel}
+        {state.isPending ? pendingLabel : submitLabel}
       </button>
     </form>
   )

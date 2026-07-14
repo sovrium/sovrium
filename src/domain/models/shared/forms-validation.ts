@@ -195,12 +195,10 @@ const validateWizardStepFields = (pages: ReadonlyArray<PageShape>): string | und
       if (compAcc !== undefined) return compAcc
       if (component.type !== 'form') return undefined
       const wizard = component['wizard'] as
-        | { readonly steps?: ReadonlyArray<WizardStepShape> }
-        | undefined
+        { readonly steps?: ReadonlyArray<WizardStepShape> } | undefined
       if (wizard?.steps === undefined) return undefined
       const formFields = component['fields'] as
-        | ReadonlyArray<{ readonly field?: string }>
-        | undefined
+        ReadonlyArray<{ readonly field?: string }> | undefined
       const declared = new Set(
         (formFields ?? []).map((f) => f.field).filter((f): f is string => typeof f === 'string')
       )

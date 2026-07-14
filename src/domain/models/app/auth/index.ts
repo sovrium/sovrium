@@ -33,8 +33,7 @@ export const getStrategy = <T extends StrategyType>(
 ): Extract<AuthStrategy, { readonly type: T }> | undefined => {
   if (!auth?.strategies) return undefined
   return auth.strategies.find((s) => s.type === strategyType) as
-    | Extract<AuthStrategy, { readonly type: T }>
-    | undefined
+    Extract<AuthStrategy, { readonly type: T }> | undefined
 }
 
 export const getEnabledStrategies = (auth: Auth | undefined): readonly StrategyType[] => {

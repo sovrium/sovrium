@@ -69,8 +69,7 @@ function renderBreadcrumb({
   readonly component?: Component
 }): ReactElement {
   const comp = component as
-    | { breadcrumbItems?: readonly BreadcrumbItem[]; separator?: string }
-    | undefined
+    { breadcrumbItems?: readonly BreadcrumbItem[]; separator?: string } | undefined
   const items = comp?.breadcrumbItems ?? []
   const separator = comp?.separator ?? '/'
   const { 'data-testid': dataTestId, ...rest } = elementPropsWithSpacing
@@ -201,8 +200,7 @@ function renderPagination({
   readonly component?: Component
 }): ReactElement {
   const comp = component as
-    | { totalPages?: number; currentPage?: number; siblingCount?: number }
-    | undefined
+    { totalPages?: number; currentPage?: number; siblingCount?: number } | undefined
   const totalPages = comp?.totalPages ?? 1
   const currentPage = comp?.currentPage ?? 1
   const siblingCount = comp?.siblingCount ?? 1

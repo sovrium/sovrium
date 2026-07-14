@@ -127,8 +127,7 @@ export function hasCreatePermission(
   if (isAdminRole(userRole)) return true
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
-    | Readonly<{ create?: unknown }>
-    | undefined
+    Readonly<{ create?: unknown }> | undefined
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
   if (userRole === 'viewer') return false
@@ -166,8 +165,7 @@ export function hasDeletePermission(
   if (hasAdminScopedDeleteOverride(table)) return false
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
-    | Readonly<{ delete?: unknown }>
-    | undefined
+    Readonly<{ delete?: unknown }> | undefined
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
@@ -198,8 +196,7 @@ export function hasUpdatePermission(
   if (isAdminRole(userRole)) return true
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
-    | Readonly<{ update?: unknown }>
-    | undefined
+    Readonly<{ update?: unknown }> | undefined
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
@@ -227,8 +224,7 @@ export function hasReadPermission(
   if (isAdminRole(userRole)) return true
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
-    | Readonly<{ read?: unknown }>
-    | undefined
+    Readonly<{ read?: unknown }> | undefined
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
@@ -254,8 +250,7 @@ export function hasCommentPermission(
   if (!table) return false
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
-    | Readonly<{ comment?: unknown }>
-    | undefined
+    Readonly<{ comment?: unknown }> | undefined
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
 

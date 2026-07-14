@@ -406,8 +406,7 @@ async function handleReplayRun(c: Context, app: App) {
   }
 
   const body = (await c.req.json().catch(() => undefined)) as
-    | { triggerData?: Record<string, unknown> }
-    | undefined
+    { triggerData?: Record<string, unknown> } | undefined
   const overrideTriggerData =
     body !== undefined && body.triggerData !== undefined && body.triggerData !== null
       ? (body.triggerData as Record<string, unknown>)

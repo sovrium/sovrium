@@ -50,10 +50,7 @@ function parseAnalyticsQuery(
   const validGranularities = new Set(['hour', 'day', 'week', 'month'])
   const rawGranularity = c.req.query('granularity') ?? 'day'
   const granularity = (validGranularities.has(rawGranularity) ? rawGranularity : 'day') as
-    | 'hour'
-    | 'day'
-    | 'week'
-    | 'month'
+    'hour' | 'day' | 'week' | 'month'
 
   if (!fromStr || !toStr) return undefined
 

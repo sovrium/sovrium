@@ -51,8 +51,7 @@ export async function batchCreatePastedRecords(
   }).catch(() => undefined)
   if (!response || !response.ok) return { created: records.length, recordIds: [] }
   const body = (await response.json().catch(() => undefined)) as
-    | { created?: number; records?: { id?: string | number }[] }
-    | undefined
+    { created?: number; records?: { id?: string | number }[] } | undefined
   const recordIds = (body?.records ?? [])
     .map((r) => (r.id === undefined ? '' : String(r.id)))
     .filter((id) => id.length > 0)

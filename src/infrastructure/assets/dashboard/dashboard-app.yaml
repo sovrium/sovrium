@@ -123,7 +123,7 @@ pages:
                 element: span
                 content: S
                 props:
-                  className: inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
+                  className: inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
               - type: text
                 element: h1
                 content: Connexion à la console
@@ -136,7 +136,7 @@ pages:
                   className: text-sm leading-relaxed text-muted-foreground max-w-sm
           - type: card
             props:
-              className: w-full max-w-sm bg-background-raised border border-border rounded-lg p-7
+              className: w-full max-w-sm bg-background-raised border border-border rounded-lg p-8
             children:
               - type: form
                 props:
@@ -155,6 +155,10 @@ pages:
                   # replace its visible label; the email/password input types are
                   # unchanged.
                   submitLabel: Se connecter
+                  # In-flight label (French console) — threaded to the shared
+                  # auth-form island like submitLabel so the pending button never
+                  # falls back to a hardcoded English "Loading...".
+                  pendingLabel: Connexion…
                   fields:
                     - name: email
                       label: Adresse e-mail

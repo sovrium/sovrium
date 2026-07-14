@@ -162,16 +162,14 @@ export const SearchCommandPalette = (
             columns,
             query,
           })
-          return matches.map(
-            (match): CommandSearchResult => ({
-              entityType: 'record',
-              entityId: match.id,
-              tableName: table.name,
-              label: match.label,
-              favorited: favoriteIds.has(match.id),
-              detailPath: resolveDetailPath(detailPathMap, table.name, match.id),
-            })
-          )
+          return matches.map((match): CommandSearchResult => ({
+            entityType: 'record',
+            entityId: match.id,
+            tableName: table.name,
+            label: match.label,
+            favorited: favoriteIds.has(match.id),
+            detailPath: resolveDetailPath(detailPathMap, table.name, match.id),
+          }))
         })
       ),
       { concurrency: 'unbounded' }

@@ -19,8 +19,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 export const mediaComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
   image: ({ elementProps, component }) => {
     const variant = (component as Record<string, unknown> | undefined)?.variant as
-      | string
-      | undefined
+      string | undefined
     if (variant === 'avatar') return Renderers.renderAvatar(elementProps)
     if (variant === 'thumbnail') return Renderers.renderThumbnail(elementProps)
     if (variant === 'hero') return Renderers.renderHeroImage(elementProps)

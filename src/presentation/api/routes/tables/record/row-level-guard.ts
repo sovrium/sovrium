@@ -125,12 +125,7 @@ type ProjectedClause = {
 }
 
 export type ProjectedClauseResult =
-  | 'bypass'
-  | 'no-rlp'
-  | 'empty'
-  | undefined
-  | ProjectedClause
-  | RowLevelFilterNode
+  'bypass' | 'no-rlp' | 'empty' | undefined | ProjectedClause | RowLevelFilterNode
 
 const projectOpPredicateClause = (
   rlp: RowLevelPermissions | undefined,

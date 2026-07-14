@@ -47,8 +47,7 @@ export function shouldExcludeFieldByDefault(
   fieldName: string,
   userRole: string,
   table:
-    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
-    | undefined
+    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined
 ): boolean {
   if (userRole === 'admin') {
     return false
@@ -71,8 +70,7 @@ export function shouldExcludeFieldByDefault(
 export function validateFilterParam(
   filter: FilterStructure,
   table:
-    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
-    | undefined,
+    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
   userRole: string,
   c: Context
 ) {
@@ -101,8 +99,7 @@ export function validateFilterParam(
 export function validateFieldsParam(
   fields: string | undefined,
   table:
-    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
-    | undefined,
+    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
   c: Context
 ) {
   if (!fields) return undefined
@@ -132,8 +129,7 @@ export function validateFieldsParam(
 export function validateGroupByParam(
   groupBy: string | undefined,
   table:
-    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
-    | undefined,
+    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
   userRole: string,
   c: Context
 ) {
@@ -171,8 +167,7 @@ export function validateGroupByParam(
 export function validateAggregateParam(
   aggregate: AggregateParams | undefined,
   table:
-    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
-    | undefined,
+    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
   userRole: string,
   c: Context
 ) {

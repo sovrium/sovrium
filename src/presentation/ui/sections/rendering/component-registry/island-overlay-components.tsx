@@ -234,8 +234,7 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     const title = (rawProps?.['title'] as string | undefined) ?? "Détail de l'enregistrement"
     const role = comp['role'] === 'region' ? 'region' : 'dialog'
     const dataSource = comp['dataSource'] as
-      | { readonly table?: string; readonly system?: unknown }
-      | undefined
+      { readonly table?: string; readonly system?: unknown } | undefined
     const props = {
       id: comp['id'] as string | undefined,
       title,

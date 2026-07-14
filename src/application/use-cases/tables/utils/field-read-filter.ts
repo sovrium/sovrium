@@ -51,8 +51,7 @@ function shouldExcludeFieldByDefault(
   fieldName: string,
   userRole: string,
   table:
-    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
-    | undefined
+    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined
 ): boolean {
   if (userRole === 'admin') {
     return false

@@ -130,6 +130,13 @@ export const AuthActionSchema = Schema.Struct({
       examples: ['Sign In', 'Se connecter', '$t:auth.submit'],
     })
   ),
+  pendingLabel: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Custom in-flight (pending) submit-button label for the auth form. Defaults to the localized built-in pending label for the method. Supports $t:key translation references.',
+      examples: ['Signing in…', 'Connexion…', '$t:auth.pending'],
+    })
+  ),
   fields: Schema.optional(
     Schema.Array(
       Schema.Struct({

@@ -38,6 +38,7 @@ import { resolvePageToc } from '@/presentation/rendering/toc-resolver'
 import { applyVisibilityToComponents } from '@/presentation/rendering/visibility-filter'
 import { DefaultHomePage } from '@/presentation/ui/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
+import { resolvePageLanguage } from '@/presentation/ui/pages/PageLangResolver'
 import { ISLAND_COMPONENT_TYPES } from '@/presentation/utils/island-component-types'
 import { isListIslandMode } from '@/presentation/utils/list-island-mode'
 import { isRecordFieldSystemMode } from '@/presentation/utils/system-detail-mode'
@@ -110,8 +111,7 @@ function stripUnconfiguredOAuthForms(components: Page['components'], app: App): 
   if (!components) return components
 
   const oauthStrategy = app.auth?.strategies?.find((s) => s.type === 'oauth') as
-    | { readonly type: 'oauth'; readonly providers: readonly string[] }
-    | undefined
+    { readonly type: 'oauth'; readonly providers: readonly string[] } | undefined
   const configuredProviders = oauthStrategy?.providers ?? []
 
   return components.map((item) => {
@@ -200,8 +200,7 @@ function getSynthesizedUpdateTable(component: Component): string | undefined {
   const action = component.action as { readonly type?: string } | undefined
   if (action?.type !== undefined) return undefined
   const dataSource = component.dataSource as
-    | { readonly table?: string; readonly mode?: string }
-    | undefined
+    { readonly table?: string; readonly mode?: string } | undefined
   if (!dataSource || dataSource.mode !== 'single' || typeof dataSource.table !== 'string') {
     return undefined
   }
@@ -254,16 +253,19 @@ function applyPageComponentFilters(
   rawPage: Page,
   app: App,
   session: SessionInfo | undefined,
-  parentRecord: Readonly<Record<string, unknown>> | undefined
+  parentRecord: Readonly<Record<string, unknown>> | undefined,
+  detectedLanguage?: string
 ): Page {
   const authStripped = stripAuthActionsIfUnconfigured(rawPage.components, !!app.auth)
   const oauthFiltered = stripUnconfiguredOAuthForms(authStripped, app)
   const visibilityFiltered = applyVisibilityToComponents(oauthFiltered, session)
   const createPermFiltered = applyCrudCreatePermissions(visibilityFiltered, app.tables, session)
   const updatePermFiltered = applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
+  const activeLang = resolvePageLanguage(rawPage, app.languages, detectedLanguage).lang
   const expanded = expandFormRefs(updatePermFiltered, app, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
     session,
+    activeLang,
   })
   const editorResolved = resolveEditorContext(expanded, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
@@ -432,10 +434,12 @@ async function resolveCollectionAndFilter(input: {
   readonly cookies: Readonly<Record<string, string>> | undefined
   readonly db: DataSourceDb
   readonly previewMode: boolean
+  readonly detectedLanguage?: string
 }): Promise<
   Page | { readonly unauthorized: true } | { readonly permissionBlocked: true } | undefined
 > {
-  const { matchedPage, app, routeParams, session, cookies, db, previewMode } = input
+  const { matchedPage, app, routeParams, session, cookies, db, previewMode, detectedLanguage } =
+    input
   const rowLevelReadCheck =
     session !== undefined
       ? buildCollectionRowLevelReadCheck(matchedPage, app, session, db)
@@ -457,6 +461,7 @@ async function resolveCollectionAndFilter(input: {
     cookies,
     db,
     ...(collectionRecord !== undefined ? { collectionRecord } : {}),
+    ...(detectedLanguage !== undefined ? { detectedLanguage } : {}),
   })
 }
 
@@ -527,12 +532,10 @@ async function loadAssignmentsForScopes(
   }
   const fetchAssignments = db.fetchUserAssignments
   const entries = await Promise.all(
-    scopeTables.map(
-      async (slug): Promise<readonly [string, readonly string[]]> => [
-        slug,
-        await fetchAssignments(userId, slug).catch(() => [] as readonly string[]),
-      ]
-    )
+    scopeTables.map(async (slug): Promise<readonly [string, readonly string[]]> => [
+      slug,
+      await fetchAssignments(userId, slug).catch(() => [] as readonly string[]),
+    ])
   )
   return new Map(entries)
 }
@@ -545,8 +548,10 @@ async function resolveAndFilterPage(input: {
   readonly cookies: Readonly<Record<string, string>> | undefined
   readonly db: DataSourceDb
   readonly collectionRecord?: Readonly<Record<string, unknown>>
+  readonly detectedLanguage?: string
 }): Promise<Page | { readonly unauthorized: true } | undefined> {
-  const { rawPage, app, routeParams, session, cookies, db, collectionRecord } = input
+  const { rawPage, app, routeParams, session, cookies, db, collectionRecord, detectedLanguage } =
+    input
 
   const parentResolution = await resolvePageParentRecord(rawPage, routeParams, db)
   if (parentResolution.kind === 'not-found') return undefined
@@ -555,7 +560,13 @@ async function resolveAndFilterPage(input: {
 
   const boundPage = applyPageLevelRecordBinding(rawPage, routeParams, hostRecord)
 
-  const filteredPage = applyPageComponentFilters(boundPage, app, session, hostRecord)
+  const filteredPage = applyPageComponentFilters(
+    boundPage,
+    app,
+    session,
+    hostRecord,
+    detectedLanguage
+  )
 
   const resolved = await resolvePageDataSources(filteredPage, app, routeParams, {
     session,
@@ -616,6 +627,7 @@ export async function renderPageByPath(
     cookies,
     db: db ?? noopDb,
     previewMode: previewMode === true,
+    ...(detectedLanguage !== undefined ? { detectedLanguage } : {}),
   })
   if (resolvedPage === undefined) return undefined
   if ('unauthorized' in resolvedPage) return { unauthorized: true }

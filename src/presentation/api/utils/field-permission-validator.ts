@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isAdminEquivalent } from '@/domain/models/app'
 import { hasPermission } from '@/domain/models/app/tables/permissions'
 import type { App } from '@/domain/models/app'
 
@@ -16,6 +17,10 @@ export function validateFieldWritePermissions(
 ): readonly string[] {
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) {
+    return []
+  }
+
+  if (isAdminEquivalent(userRole, app)) {
     return []
   }
 

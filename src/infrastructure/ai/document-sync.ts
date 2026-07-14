@@ -115,19 +115,16 @@ const syncDocuments = (input: {
     )
     const pending = pendingGroups.flat()
 
-    const rows = yield* embedChunksToRows(
-      pending,
-      (chunk, embedding): NewEmbedding => ({
-        agentName: null,
-        sourceType: 'document',
-        sourceId: documentSourceId(chunk.path),
-        sourceRef: `document:${chunk.path}:${chunk.chunkIndex}`,
-        chunkIndex: chunk.chunkIndex,
-        content: chunk.content,
-        embedding,
-        metadata: { path: chunk.path },
-      })
-    )
+    const rows = yield* embedChunksToRows(pending, (chunk, embedding): NewEmbedding => ({
+      agentName: null,
+      sourceType: 'document',
+      sourceId: documentSourceId(chunk.path),
+      sourceRef: `document:${chunk.path}:${chunk.chunkIndex}`,
+      chunkIndex: chunk.chunkIndex,
+      content: chunk.content,
+      embedding,
+      metadata: { path: chunk.path },
+    }))
     yield* repo.insertMany(rows).pipe(Effect.catchAll(() => Effect.void))
 
     const documents = countRowsBy(rows, (row) => String((row.metadata ?? {})['path'] ?? ''))
@@ -144,12 +141,10 @@ export const runSyncDocuments = async (
   const program = syncDocuments({ dir, documents, chunkSettings }).pipe(
     Effect.provide(RagSyncLayer)
   )
-  return Effect.runPromise(program).catch(
-    (): SyncDocumentStats => ({
-      documents: {},
-      totalChunks: 0,
-    })
-  )
+  return Effect.runPromise(program).catch((): SyncDocumentStats => ({
+    documents: {},
+    totalChunks: 0,
+  }))
 }
 
 export const runSyncDocumentsAtStartup = async (): Promise<void> => {

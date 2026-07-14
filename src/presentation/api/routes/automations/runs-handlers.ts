@@ -55,8 +55,7 @@ export async function handleReplayRunById(c: Context, app: App) {
   const name = lookup.right.automationName
 
   const body = (await c.req.json().catch(() => undefined)) as
-    | { triggerData?: Record<string, unknown>; fromStep?: string }
-    | undefined
+    { triggerData?: Record<string, unknown>; fromStep?: string } | undefined
   const overrideTriggerData =
     body !== undefined && body.triggerData !== undefined && body.triggerData !== null
       ? (body.triggerData as Record<string, unknown>)

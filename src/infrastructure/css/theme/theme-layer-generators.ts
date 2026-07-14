@@ -147,5 +147,11 @@ export function generateBaseLayer(theme?: Theme): string {
       [role="button"]:focus-visible {
         @apply ${focusVisibleClasses.join(' ')};
       }
+
+      button:not(:disabled),
+      [role="button"]:not([aria-disabled="true"]),
+      a[href] {
+        cursor: pointer;
+      }
     }`
 }

@@ -503,6 +503,43 @@ export function createRecordProgram(config: CreateRecordConfig) {
   })
 }
 
+const resolveUpdatedBaseRecord = (
+  session: Readonly<UserSession>,
+  tableName: string,
+  recordId: string,
+  params: {
+    readonly fields: Readonly<Record<string, unknown>>
+    readonly app?: App
+    readonly userRole?: string
+  }
+): Effect.Effect<Record<string, unknown>, SessionContextError, TableRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* TableRepository
+    const m2mSpecs = getManyToManyFieldSpecs(params.app?.tables, tableName)
+    const { baseFields, links } = splitManyToManyFields(params.fields, m2mSpecs)
+
+    const baseWithAuthorship = applyAuthorshipOverrides({
+      phase: 'update',
+      fields: baseFields,
+      tables: params.app?.tables,
+      tableName,
+      userId: session.userId,
+    })
+
+    const record =
+      Object.keys(baseWithAuthorship).length > 0
+        ? yield* repo.updateRecord(session, tableName, recordId, {
+            fields: baseWithAuthorship,
+            app: params.app,
+          })
+        : ((yield* repo.getRecord(session, tableName, recordId)) ?? {})
+
+    if (Object.keys(record).length === 0) return {}
+
+    yield* writeManyToManyLinks(repo, tableName, record.id as string | number, links)
+    return record
+  })
+
 export function updateRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
@@ -514,18 +551,9 @@ export function updateRecordProgram(
   }
 ) {
   return Effect.gen(function* () {
-    const repo = yield* TableRepository
+    const record = yield* resolveUpdatedBaseRecord(session, tableName, recordId, params)
 
-    const record = yield* repo.updateRecord(session, tableName, recordId, {
-      fields: applyAuthorshipOverrides({
-        phase: 'update',
-        fields: params.fields,
-        tables: params.app?.tables,
-        tableName,
-        userId: session.userId,
-      }),
-      app: params.app,
-    })
+    if (Object.keys(record).length === 0) return {}
 
     const transformed = transformRecord(record, { app: params.app, tableName })
 

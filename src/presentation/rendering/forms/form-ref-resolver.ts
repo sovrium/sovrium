@@ -65,6 +65,12 @@ function buildWrapperProps(
 export interface FormRefExpansionContext {
   readonly parentRecord?: Readonly<Record<string, unknown>>
   readonly session?: SessionInfo | undefined
+  readonly activeLang?: string | undefined
+}
+
+function readHeadingLevel(originalProps: Record<string, unknown> | undefined): 'h1' | 'h2' | 'h3' {
+  const raw = originalProps?.['headingLevel']
+  return raw === 'h2' || raw === 'h3' ? raw : 'h1'
 }
 
 function isFormRefEmbedding(component: Component): boolean {
@@ -84,11 +90,15 @@ function expandFormRefComponent(
 
   const resolvedPrefill = resolveRecordPrefillMap(formRefInfo.inlinePrefill, ctx.parentRecord)
   const lockPrefill = formRefInfo.inlinePrefill?.lockPrefill === true
+  const titleAs = readHeadingLevel(formRefInfo.originalProps)
 
-  const formBodyHtml = renderEmbeddedFormBody(app, form, {
-    prefill: resolvedPrefill,
-    lockPrefill,
-  })
+  const formBodyHtml = renderEmbeddedFormBody(
+    app,
+    form,
+    { prefill: resolvedPrefill, lockPrefill },
+    ctx.activeLang,
+    { titleAs }
+  )
   return {
     type: 'customHTML',
     props: buildWrapperProps(formRefInfo.formRef, formRefInfo.originalProps),
@@ -127,10 +137,14 @@ function expandDialogFormRef(
   const inlinePrefill = isInlinePrefill(inlinePrefillRaw) ? inlinePrefillRaw : undefined
   const resolvedPrefill = resolveRecordPrefillMap(inlinePrefill, ctx.parentRecord)
   const lockPrefill = inlinePrefill?.lockPrefill === true
+  const titleAs = readHeadingLevel(component.props)
 
-  const formBodyHtml = renderEmbeddedFormBody(app, form, {
-    prefill: resolvedPrefill,
-    lockPrefill,
-  })
+  const formBodyHtml = renderEmbeddedFormBody(
+    app,
+    form,
+    { prefill: resolvedPrefill, lockPrefill },
+    ctx.activeLang,
+    { titleAs }
+  )
   return { ...(component as Record<string, unknown>), _formRefHtml: formBodyHtml } as Component
 }

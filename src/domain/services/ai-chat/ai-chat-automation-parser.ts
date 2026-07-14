@@ -42,9 +42,11 @@ export const parseAutomationIntent = (
   const normalised = normaliseSeparators(message)
   const match = automations
     .filter((automation) => messageReferencesAutomation(normalised, automation))
-    .reduce<
-      AutomationCandidate | undefined
-    >((longest, candidate) => (longest === undefined || candidate.name.length > longest.name.length ? candidate : longest), undefined)
+    .reduce<AutomationCandidate | undefined>(
+      (longest, candidate) =>
+        longest === undefined || candidate.name.length > longest.name.length ? candidate : longest,
+      undefined
+    )
 
   if (match !== undefined) return { matched: 'found', automation: match }
   return { matched: 'unknown' }

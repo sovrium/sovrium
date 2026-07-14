@@ -67,8 +67,7 @@ interface TableBodyRowsProps {
 interface CellContentProps {
   readonly cell: Cell<TableRecord, unknown>
   readonly meta:
-    | { field?: string; editable?: boolean; cellStyle?: readonly CellStyleCondition[] }
-    | undefined
+    { field?: string; editable?: boolean; cellStyle?: readonly CellStyleCondition[] } | undefined
   readonly editingCell?: EditingCell
   readonly fieldMeta?: FieldMetaMap
   readonly tableName?: string
@@ -259,8 +258,7 @@ function GroupedDataRow({
     >
       {row.getVisibleCells().map((cell) => {
         const meta = cell.column.columnDef.meta as
-          | { field?: string; cellStyle?: readonly CellStyleCondition[] }
-          | undefined
+          { field?: string; cellStyle?: readonly CellStyleCondition[] } | undefined
         const conditionalClass = meta?.cellStyle
           ? evaluateCellStyle(cell.getValue(), meta.cellStyle)
           : ''

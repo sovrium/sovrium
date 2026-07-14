@@ -63,8 +63,7 @@ export function buildTooltipProps(
 ) {
   const comp = component as Record<string, unknown> | undefined
   const compChildren = comp?.['children'] as
-    | readonly { props?: Record<string, unknown> }[]
-    | undefined
+    readonly { props?: Record<string, unknown> }[] | undefined
   const triggerProps = compChildren?.[0]?.props
   const childrenHtml = renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
   return {
@@ -87,8 +86,7 @@ export function buildHoverCardProps(
 ) {
   const comp = component as Record<string, unknown> | undefined
   const compChildren = comp?.['children'] as
-    | readonly { props?: Record<string, unknown>; content?: unknown }[]
-    | undefined
+    readonly { props?: Record<string, unknown>; content?: unknown }[] | undefined
   const triggerDef = compChildren?.[0]
   const triggerProps = triggerDef?.props
   const triggerHtml =

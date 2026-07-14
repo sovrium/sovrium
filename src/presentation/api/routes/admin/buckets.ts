@@ -177,14 +177,11 @@ function buildSeriesPoints(
   const toMs = new Date(toIso).getTime()
   const totalSpan = toMs - fromMs
   const expectedCount = Math.round(totalSpan / stepMs)
-  return Array.from(
-    { length: expectedCount },
-    (_, i): BucketsOverviewSeriesPoint => ({
-      timestamp: new Date(fromMs + (i + 1) * stepMs).toISOString(),
-      uploads: 0,
-      bytes: 0,
-    })
-  )
+  return Array.from({ length: expectedCount }, (_, i): BucketsOverviewSeriesPoint => ({
+    timestamp: new Date(fromMs + (i + 1) * stepMs).toISOString(),
+    uploads: 0,
+    bytes: 0,
+  }))
 }
 
 async function handleBucketsOverview(c: Context): Promise<Response> {

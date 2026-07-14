@@ -17,13 +17,7 @@ import type { AiComputeRequestConfig } from '@/domain/services/ai-compute/build-
 
 interface AiComputePayload {
   readonly kind?:
-    | 'categorize'
-    | 'summary'
-    | 'translate'
-    | 'extract'
-    | 'sentiment'
-    | 'generate'
-    | 'tag'
+    'categorize' | 'summary' | 'translate' | 'extract' | 'sentiment' | 'generate' | 'tag'
   readonly table: string
   readonly field: string
   readonly record_id?: string | number

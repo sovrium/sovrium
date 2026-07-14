@@ -22,6 +22,7 @@ import {
 import {
   getBaseFields,
   getInsertValueExpressions,
+  getInsertIdExpression,
   generateInsertTrigger,
   generateUpdateTrigger,
   generateDeleteTrigger,
@@ -83,6 +84,35 @@ export const hasRollupFields = (table: Table): boolean =>
 
 export const hasCountFields = (table: Table): boolean =>
   table.fields.some((field) => isCountField(field))
+
+export const getViewBodyReferencedTables = (
+  table: Table,
+  allTables: readonly Table[]
+): ReadonlySet<string> => {
+  const referenced = table.fields.flatMap((field) => {
+    if (isRollupField(field) || isCountField(field) || isLookupField(field)) {
+      const relationshipFieldDef = table.fields.find((f) => f.name === field.relationshipField)
+      if (
+        relationshipFieldDef &&
+        relationshipFieldDef.type === 'relationship' &&
+        'relatedTable' in relationshipFieldDef &&
+        typeof relationshipFieldDef.relatedTable === 'string'
+      ) {
+        return [relationshipFieldDef.relatedTable]
+      }
+      if (isLookupField(field)) {
+        const reverse = allTables.find(
+          (t) =>
+            t.name !== table.name &&
+            t.fields.some((f) => f.name === field.relationshipField && f.type === 'relationship')
+        )
+        return reverse ? [reverse.name] : []
+      }
+    }
+    return []
+  })
+  return new Set(referenced)
+}
 
 const isManyToMany = (field: Fields[number]): field is Fields[number] & { relatedTable: string } =>
   'relationType' in field &&
@@ -383,16 +413,19 @@ export const generateLookupViewTriggers = (table: Table): readonly string[] => {
   const baseFields = getBaseFields(table)
   const insertValues = getInsertValueExpressions(table)
 
+  const insertFields = ['id', ...baseFields]
+  const insertFieldValues = [getInsertIdExpression(table, baseTableName), ...insertValues]
+
   if (isSqliteRuntime()) {
     return [
-      ...generateInsertTriggerSqlite(viewName, baseTableName, baseFields, insertValues),
+      ...generateInsertTriggerSqlite(viewName, baseTableName, insertFields, insertFieldValues),
       ...generateUpdateTriggerSqlite(viewName, baseTableName, baseFields),
       ...generateDeleteTriggerSqlite(viewName, baseTableName),
     ]
   }
 
   return [
-    ...generateInsertTrigger(viewName, baseTableName, baseFields, insertValues),
+    ...generateInsertTrigger(viewName, baseTableName, insertFields, insertFieldValues),
     ...generateUpdateTrigger(viewName, baseTableName, baseFields),
     ...generateDeleteTrigger(viewName, baseTableName),
   ]

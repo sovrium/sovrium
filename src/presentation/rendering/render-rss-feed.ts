@@ -13,6 +13,7 @@ import {
   buildRssFeedXmlFromItems,
   findRssPage,
   parseMarkdownFeedSections,
+  resolveRssChannelIdentity,
   resolveRssLimit,
 } from '@/domain/services/feeds/rss-feed-builder'
 import { slugify } from '@/infrastructure/markdown/markdown-it-renderer'
@@ -59,7 +60,11 @@ async function renderMarkdownRssFeed(
 
   const limit = resolveRssLimit(page.rss)
   const items = buildMarkdownRssItems({ sections, page, baseUrl, limit, slugify })
-  return buildRssFeedXmlFromItems({ app, baseUrl, items })
+  const { title: channelTitle, description: channelDescription } = resolveRssChannelIdentity(
+    app,
+    page
+  )
+  return buildRssFeedXmlFromItems({ app, baseUrl, items, channelTitle, channelDescription })
 }
 
 export async function renderRssFeed(

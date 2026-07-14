@@ -8,8 +8,7 @@
 export const MAX_MODEL_STRING_LENGTH = 128
 
 export type ModelStringValidation =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly message: string }
+  { readonly ok: true } | { readonly ok: false; readonly message: string }
 
 export const validateModelString = (label: string, value: string): ModelStringValidation => {
   if (value === '') {

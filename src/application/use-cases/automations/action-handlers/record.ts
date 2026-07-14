@@ -17,17 +17,27 @@ import {
   buildUpdateAuthorshipOverrides,
 } from '@/domain/services/authorship-fields'
 import { SYSTEM_USER_ID } from '@/domain/services/guest-session'
-import { buildGuestSession, buildSystemSession } from '../build-guest-session'
+import {
+  buildGuestSession,
+  buildSyntheticSession,
+  buildSystemSession,
+} from '../build-guest-session'
 import {
   buildRunContextView,
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
 import { recordProp, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome } from './shared'
+import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 
-export const handleRecordCreate: ActionHandler = (action, app, _automation) =>
+const resolveRunAsActor = (
+  props: Readonly<Record<string, unknown>>,
+  automation: AutomationContext
+): string =>
+  props['runAs'] === 'triggering-user' && automation.userId ? automation.userId : SYSTEM_USER_ID
+
+export const handleRecordCreate: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -37,12 +47,13 @@ export const handleRecordCreate: ActionHandler = (action, app, _automation) =>
       return { status: 'failure', error: 'record.create requires a table name' } as const
     }
 
+    const actorId = resolveRunAsActor(props, automation)
     const program = createRecordProgram({
-      session: buildSystemSession(),
+      session: buildSyntheticSession(actorId),
       tableName,
       fields: {
         ...fields,
-        ...buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID),
+        ...buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
       },
     })
     const result = yield* Effect.either(program)
@@ -146,7 +157,7 @@ const toQueryFilter = (filter: unknown): QueryFilter | undefined => {
   return and.length > 0 ? { and } : undefined
 }
 
-export const handleRecordUpdate: ActionHandler = (action, app, _automation) =>
+export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -165,10 +176,11 @@ export const handleRecordUpdate: ActionHandler = (action, app, _automation) =>
       return { status: 'success' } as const
     }
 
-    const session = buildSystemSession()
+    const actorId = resolveRunAsActor(props, automation)
+    const session = buildSyntheticSession(actorId)
     const fieldsWithAuthorship = {
       ...data,
-      ...buildUpdateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID),
+      ...buildUpdateAuthorshipOverrides(app.tables, tableName, actorId),
     }
     const updates = yield* Effect.either(
       Effect.forEach(
@@ -186,15 +198,17 @@ export const handleRecordUpdate: ActionHandler = (action, app, _automation) =>
     return { status: 'success' } as const
   })
 
-const upsertCreate = (
-  tableName: string,
-  data: Readonly<Record<string, unknown>>,
-  createOverrides: Readonly<Record<string, string>>
-): Effect.Effect<ActionOutcome, never, TableRepository> =>
+const upsertCreate = (config: {
+  readonly actorId: string
+  readonly tableName: string
+  readonly data: Readonly<Record<string, unknown>>
+  readonly createOverrides: Readonly<Record<string, string>>
+}): Effect.Effect<ActionOutcome, never, TableRepository> =>
   Effect.gen(function* () {
+    const { actorId, tableName, data, createOverrides } = config
     const created = yield* Effect.either(
       createRecordProgram({
-        session: buildSystemSession(),
+        session: buildSyntheticSession(actorId),
         tableName,
         fields: { ...data, ...createOverrides },
       })
@@ -204,14 +218,16 @@ const upsertCreate = (
       : ({ status: 'success', output: { operation: 'created' } } as const)
   })
 
-const upsertUpdate = (
-  tableName: string,
-  matchedIds: readonly string[],
-  data: Readonly<Record<string, unknown>>,
-  updateOverrides: Readonly<Record<string, string>>
-): Effect.Effect<ActionOutcome, never, TableRepository> =>
+const upsertUpdate = (config: {
+  readonly actorId: string
+  readonly tableName: string
+  readonly matchedIds: readonly string[]
+  readonly data: Readonly<Record<string, unknown>>
+  readonly updateOverrides: Readonly<Record<string, string>>
+}): Effect.Effect<ActionOutcome, never, TableRepository> =>
   Effect.gen(function* () {
-    const session = buildSystemSession()
+    const { actorId, tableName, matchedIds, data, updateOverrides } = config
+    const session = buildSyntheticSession(actorId)
     const fields = { ...data, ...updateOverrides }
     const updates = yield* Effect.either(
       Effect.forEach(
@@ -225,7 +241,7 @@ const upsertUpdate = (
       : ({ status: 'success', output: { operation: 'updated' } } as const)
   })
 
-export const handleRecordUpsert: ActionHandler = (action, app, _automation) =>
+export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -241,18 +257,22 @@ export const handleRecordUpsert: ActionHandler = (action, app, _automation) =>
       ? [idFastPath]
       : yield* resolveIdsByFilter(tableName, props['filter'])
 
+    const actorId = resolveRunAsActor(props, automation)
+
     return matchedIds.length === 0
-      ? yield* upsertCreate(
+      ? yield* upsertCreate({
+          actorId,
           tableName,
           data,
-          buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
-        )
-      : yield* upsertUpdate(
+          createOverrides: buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
+        })
+      : yield* upsertUpdate({
+          actorId,
           tableName,
           matchedIds,
           data,
-          buildUpdateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
-        )
+          updateOverrides: buildUpdateAuthorshipOverrides(app.tables, tableName, actorId),
+        })
   })
 
 export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
