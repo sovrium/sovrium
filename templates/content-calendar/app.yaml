@@ -1,0 +1,26 @@
+name: content-calendar
+version: 1.0.0
+description: >-
+  Marketing content calendar — plan pieces on a month view, move them through
+  an editorial kanban, and keep briefs and assets attached to every piece.
+  A Monday-morning cron emails the team what ships this week.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/campaigns.yaml
+  - $ref: ./config/tables/content.yaml
+
+pages:
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/calendar.yaml
+  - $ref: ./config/pages/pipeline.yaml
+  - $ref: ./config/pages/grid.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/weekly-digest.yaml

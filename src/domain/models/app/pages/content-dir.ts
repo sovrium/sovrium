@@ -104,6 +104,16 @@ export const ContentDirSchema = Schema.Struct({
     })
   ),
 
+  index: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description:
+          'Slug of the index article served at the collection base path (page path minus its trailing dynamic segment). The slugged URL 301-redirects to the base path. E.g. "introduction".',
+      })
+    )
+  ),
+
   include: Schema.optional(
     Schema.String.pipe(
       Schema.minLength(1),

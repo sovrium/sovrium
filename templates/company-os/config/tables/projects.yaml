@@ -1,0 +1,60 @@
+id: 4
+name: projects
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: client
+    type: relationship
+    relatedTable: companies
+    relationType: many-to-one
+  - id: 3
+    name: status
+    type: status
+    options:
+      - value: Planned
+        color: '#94A3B8'
+      - value: Active
+        color: '#3B82F6'
+      - value: On hold
+        color: '#F59E0B'
+      - value: Done
+        color: '#10B981'
+    default: Planned
+  - id: 4
+    name: start_date
+    type: date
+  - id: 5
+    name: end_date
+    type: date
+  - id: 6
+    name: owner
+    type: user
+    allowMultiple: false
+  - id: 7
+    name: created_at
+    type: created-at
+
+aiAccess:
+  description: >-
+    Delivery projects for customer accounts. Use this when the user asks
+    what is being delivered, for whom, and by when.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

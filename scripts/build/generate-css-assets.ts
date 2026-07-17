@@ -12,7 +12,7 @@ import { Scanner } from '@tailwindcss/oxide'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 
-const SCAN_SOURCES = ['src', 'examples'] as const
+const SCAN_SOURCES = ['src', 'templates'] as const
 
 const TEST_FILE_GLOBS = ['**/*.test.ts', '**/*.test.tsx'] as const
 

@@ -1,0 +1,37 @@
+# The approval showcase. A new request PAUSES this run at the approval step —
+# admins get an email and the run waits. On approve, the run resumes and the
+# record.update flips the request to Approved. On reject (or the 7-day
+# timeout), the run terminates and the request stays Pending for follow-up.
+name: approve-time-off
+label: Time off — request approval
+description: Ask an admin to approve each new time-off request, then stamp the outcome.
+enabled: true
+trigger:
+  type: record
+  table: time_off_requests
+  events:
+    - create
+actions:
+  - name: askAdmins
+    type: approval
+    operator: request
+    props:
+      approvers: all-admins
+      message: >-
+        Time-off request {{trigger.data.record.type}} from
+        {{trigger.data.record.start_date}} to {{trigger.data.record.end_date}}.
+        Approve?
+      timeout: 7d
+      onTimeout: reject
+  - name: markApproved
+    type: record
+    operator: update
+    props:
+      table: time_off_requests
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        status: Approved

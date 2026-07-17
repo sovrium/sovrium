@@ -7,12 +7,17 @@
 
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
+import { computeNavMenuTriggerClasses } from '@/presentation/utils/recipes/navbar-default-classes'
 import { POPUP_SURFACE, RADIUS_MD } from '../recipes/shared-tokens-default-classes'
+
+export { computeNavMenuTriggerClasses }
 
 
 type DialogSize = 'sm' | 'md' | 'lg' | 'xl'
 type DrawerSide = 'left' | 'right' | 'top' | 'bottom'
 type MenuItemVariant = 'default' | 'destructive'
+
+type MenuSurface = 'default' | 'inverted'
 
 const RADIUS_LG = `rounded-[${v('sv-radius-lg', T.radiusLg)}]`
 
@@ -154,8 +159,20 @@ export const computeHoverCardPopupClasses = (): string => computePopoverPopupCla
 
 const MENU_POPUP_LAYOUT = 'z-50 min-w-48 py-1'
 
-export const computeMenuPopupClasses = (): string =>
-  [MENU_POPUP_LAYOUT, RADIUS_MD, POPUP_SURFACE, POPUP_SHADOW_LG, ENTER_EXIT_FADE_ZOOM].join(' ')
+const MENU_POPUP_INVERTED_SURFACE = [
+  'border border-transparent',
+  `bg-[${v('sv-primary', T.primary)}]`,
+  `text-[${v('sv-primary-fg', T.primaryFg)}]`,
+].join(' ')
+
+export const computeMenuPopupClasses = ({
+  variant = 'default',
+}: {
+  variant?: MenuSurface
+} = {}): string => {
+  const surface = variant === 'inverted' ? MENU_POPUP_INVERTED_SURFACE : POPUP_SURFACE
+  return [MENU_POPUP_LAYOUT, RADIUS_MD, surface, POPUP_SHADOW_LG, ENTER_EXIT_FADE_ZOOM].join(' ')
+}
 
 const MENU_ITEM_LAYOUT = 'flex cursor-pointer items-center px-3 py-2 text-sm outline-none'
 
@@ -170,16 +187,33 @@ const MENU_ITEM_HIGHLIGHTED_DESTRUCTIVE = [
   `data-[highlighted]:text-[${v('sv-error-fg', T.errorFg)}]`,
 ].join(' ')
 
+const MENU_ITEM_INVERTED_BASE = `text-[${v('sv-primary-fg', T.primaryFg)}]`
+
+const MENU_ITEM_HIGHLIGHTED_INVERTED = [
+  `data-[highlighted]:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
+  `data-[highlighted]:text-[${v('sv-primary-fg', T.primaryFg)}]`,
+].join(' ')
+
 const MENU_ITEM_DISABLED = 'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50'
 
 export const computeMenuItemClasses = ({
   variant = 'default',
+  surface = 'default',
 }: {
   variant?: MenuItemVariant
+  surface?: MenuSurface
 } = {}): string => {
-  const base = variant === 'destructive' ? MENU_ITEM_DESTRUCTIVE_BASE : MENU_ITEM_DEFAULT_BASE
-  const highlighted =
-    variant === 'destructive' ? MENU_ITEM_HIGHLIGHTED_DESTRUCTIVE : MENU_ITEM_HIGHLIGHTED_DEFAULT
+  const inverted = surface === 'inverted'
+  const base = inverted
+    ? MENU_ITEM_INVERTED_BASE
+    : variant === 'destructive'
+      ? MENU_ITEM_DESTRUCTIVE_BASE
+      : MENU_ITEM_DEFAULT_BASE
+  const highlighted = inverted
+    ? MENU_ITEM_HIGHLIGHTED_INVERTED
+    : variant === 'destructive'
+      ? MENU_ITEM_HIGHLIGHTED_DESTRUCTIVE
+      : MENU_ITEM_HIGHLIGHTED_DEFAULT
   return [MENU_ITEM_LAYOUT, base, highlighted, MENU_ITEM_DISABLED].join(' ')
 }
 
@@ -206,11 +240,3 @@ const MENUBAR_CONTAINER = [
 
 export const computeMenubarContainerClasses = (): string => [MENUBAR_CONTAINER, RADIUS_MD].join(' ')
 
-
-const NAV_MENU_TRIGGER = [
-  'inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors',
-  `text-[${v('sv-fg', T.fg)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-].join(' ')
-
-export const computeNavMenuTriggerClasses = (): string => [NAV_MENU_TRIGGER, RADIUS_MD].join(' ')

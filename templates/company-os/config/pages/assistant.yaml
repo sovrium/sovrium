@@ -1,0 +1,31 @@
+name: assistant
+path: /assistant
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Assistant
+  description: One AI assistant across the whole information system
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-4xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Assistant
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Ask across domains — "what's the pipeline for Acme, and do they have open tickets?" is one question here.
+
+      - type: ai-chat
+        agent: ops-assistant
+        placeholder: e.g. "Create a deal for Acme worth €20k in Proposal"
+        showHistory: true
+        chatHeight: 520

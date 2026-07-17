@@ -1,0 +1,48 @@
+# Reusable team top-nav for the authenticated pages. Included as a $ref
+# array-item at the top of each team page's `components` list.
+type: container
+element: header
+props:
+  className: border-b
+children:
+  - type: container
+    props:
+      className: max-w-6xl mx-auto px-6 py-3 flex items-center justify-between
+    children:
+      - type: container
+        props:
+          className: flex items-center gap-6
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-base font-semibold
+            content: Helpdesk
+          - type: container
+            props:
+              className: flex items-center gap-1 text-sm
+            children:
+              - type: link
+                props:
+                  href: /triage
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Triage
+              - type: link
+                props:
+                  href: /tickets
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: All tickets
+              - type: link
+                props:
+                  href: /support
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Public form
+      - type: button
+        props:
+          className: px-3 py-1.5 rounded-md border text-sm font-medium
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /

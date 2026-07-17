@@ -1,0 +1,44 @@
+name: board
+path: /board
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: By status
+  description: The asset lifecycle as a kanban
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: By status
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Drag assets through their lifecycle — into use, into storage, into repair, and out.
+
+      - type: kanban
+        dataSource:
+          table: assets
+        kanbanGroupBy:
+          field: status
+        emptyColumnMessage: Nothing here.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-medium
+              content: $record.name
+          footer:
+            - field: category
+              format: badge
+            - field: purchase_date
+              format: relative-date

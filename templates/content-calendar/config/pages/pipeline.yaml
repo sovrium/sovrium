@@ -1,0 +1,73 @@
+name: pipeline
+path: /pipeline
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Pipeline
+  description: The editorial kanban — idea to published
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Pipeline
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Drag each piece from idea to published.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: New piece
+          - type: form
+            dataSource:
+              table: content
+            fields:
+              - field: title
+              - field: content_type
+              - field: channels
+              - field: status
+              - field: publish_date
+              - field: campaign
+            action:
+              type: crud
+              operation: create
+              table: content
+              onSuccess:
+                navigate: /pipeline
+                toast:
+                  message: Piece added to the pipeline
+                  variant: success
+
+      - type: kanban
+        dataSource:
+          table: content
+        kanbanGroupBy:
+          field: status
+        emptyColumnMessage: Nothing at this stage.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-medium
+              content: $record.title
+          footer:
+            - field: publish_date
+              format: relative-date
+            - field: content_type
+              format: badge

@@ -1,0 +1,124 @@
+name: dashboard
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Dashboard
+  description: The whole company at a glance — pipeline, delivery, support, and people
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Dashboard
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: One config, one database, one view — sales, delivery, support, and people side by side.
+
+      - type: container
+        props:
+          className: grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8
+        children:
+          - type: kpi
+            label: Open pipeline
+            dataSource:
+              table: deals
+              mode: list
+              filter:
+                - field: stage
+                  operator: in
+                  value:
+                    - Prospect
+                    - Qualified
+                    - Proposal
+            kpiAggregate:
+              function: sum
+              field: value
+            kpiFormat:
+              type: currency
+          - type: kpi
+            label: Active projects
+            dataSource:
+              table: projects
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: Active
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Open tickets
+            dataSource:
+              table: tickets
+              mode: list
+              filter:
+                - field: status
+                  operator: in
+                  value:
+                    - New
+                    - Open
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Pending time off
+            dataSource:
+              table: time_off_requests
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: Pending
+            kpiAggregate:
+              function: count
+
+      - type: container
+        props:
+          className: grid grid-cols-1 lg:grid-cols-2 gap-6
+        children:
+          - type: container
+            props:
+              className: border rounded-lg p-5
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-base font-semibold mb-4
+                content: Pipeline by stage
+              - type: chart
+                chartType: bar
+                dataSource:
+                  table: deals
+                  mode: list
+                chartAggregate:
+                  function: sum
+                  field: value
+                  groupBy: stage
+                emptyMessage: No deals yet — start on the Sales board.
+          - type: container
+            props:
+              className: border rounded-lg p-5
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-base font-semibold mb-4
+                content: Tickets by status
+              - type: chart
+                chartType: bar
+                dataSource:
+                  table: tickets
+                  mode: list
+                chartAggregate:
+                  function: count
+                  groupBy: status
+                emptyMessage: No tickets yet.

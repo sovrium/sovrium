@@ -1,0 +1,56 @@
+name: requests
+path: /requests
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Requests
+  description: Every time-off request and where it stands
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Requests
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Every request and its status. Pending ones are waiting on an admin's approval.
+
+      - type: data-table
+        dataSource:
+          table: time_off_requests
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: employee
+            label: Employee
+          - field: type
+            label: Type
+            filterable: true
+          - field: start_date
+            label: From
+            format: short-date
+            sortable: true
+          - field: end_date
+            label: To
+            format: short-date
+          - field: status
+            label: Status
+            sortable: true
+            filterable: true
+          - field: created_at
+            label: Requested
+            format: relative-date
+            sortable: true
+        pagination:
+          pageSize: 20
+        emptyMessage: No requests yet — file the first one from the Time off page.

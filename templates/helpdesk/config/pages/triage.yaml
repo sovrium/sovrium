@@ -1,0 +1,83 @@
+name: triage
+path: /triage
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Triage
+  description: The ticket kanban — drag tickets through the support flow
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Triage
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Drag tickets through the flow. Resolving a ticket emails the requester automatically.
+
+      # KPI strip — queue health before diving into the columns.
+      - type: container
+        props:
+          className: grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8
+        children:
+          - type: kpi
+            label: New tickets
+            dataSource:
+              table: tickets
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: New
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Open
+            dataSource:
+              table: tickets
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: Open
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Urgent
+            dataSource:
+              table: tickets
+              mode: list
+              filter:
+                - field: priority
+                  operator: eq
+                  value: Urgent
+            kpiAggregate:
+              function: count
+
+      - type: kanban
+        dataSource:
+          table: tickets
+        kanbanGroupBy:
+          field: status
+        emptyColumnMessage: No tickets here.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-medium
+              content: $record.subject
+          footer:
+            - field: priority
+              format: badge
+            - field: created_at
+              format: relative-date

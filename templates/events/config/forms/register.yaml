@@ -1,0 +1,33 @@
+# Public registration form. `access: { require: all }` mounts it at /register
+# with no sign-in; each submission creates a registrations row, which fires
+# the confirmation-email automation. The honeypot silently drops naive bots.
+id: 1
+name: register
+title: Register for an event
+description: Pick your event, leave your email, and you're in — confirmation lands in your inbox.
+path: /register
+access:
+  require: all
+submitTo:
+  table: registrations
+antiSpam:
+  honeypot: true
+display:
+  submitLabel: Register
+onSuccess:
+  type: redirect
+  url: /thanks
+fields:
+  - kind: table-field
+    column: event
+    required: true
+    label: Event
+  - kind: table-field
+    column: name
+    required: true
+    label: Your name
+  - kind: table-field
+    column: email
+    required: true
+    label: Email
+    helpText: We'll send your confirmation here.

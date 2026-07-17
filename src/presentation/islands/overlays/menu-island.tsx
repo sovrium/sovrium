@@ -7,13 +7,17 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode } from 'react'
+import { cn } from '@/presentation/islands/lib/cn'
 import { authClient } from '@/presentation/islands/shared/auth-client'
 import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
+import { NavChevronDown } from '@/presentation/utils/recipes/nav-menu-parts'
 import {
   computeMenuItemClasses,
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
 } from './overlay-default-classes'
+
+type MenuSurface = 'default' | 'inverted'
 
 interface MenuItemAction {
   readonly type?: string
@@ -41,6 +45,8 @@ interface MenuIslandProps {
   readonly triggerContent?: ReactNode
   readonly triggerClassName?: string
   readonly triggerAriaLabel?: string
+  readonly popupVariant?: MenuSurface
+  readonly openOnHover?: boolean
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -85,18 +91,30 @@ function MenuItemBody({ item }: { readonly item: MenuItem }): ReactElement {
   )
 }
 
-function PlainMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
+function PlainMenuItem({
+  item,
+  surface,
+}: {
+  readonly item: MenuItem
+  readonly surface: MenuSurface
+}): ReactElement {
   return (
     <Menu.Item
       disabled={item.disabled}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
+      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
     </Menu.Item>
   )
 }
 
-function LogoutMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
+function LogoutMenuItem({
+  item,
+  surface,
+}: {
+  readonly item: MenuItem
+  readonly surface: MenuSurface
+}): ReactElement {
   const redirectTo = item.action?.onSuccess?.navigate ?? '/'
   const handleClick = useCallback(() => {
     void performLogout(redirectTo)
@@ -105,14 +123,20 @@ function LogoutMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
     <Menu.Item
       disabled={item.disabled}
       onClick={handleClick}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
+      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
     </Menu.Item>
   )
 }
 
-function NavigateMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
+function NavigateMenuItem({
+  item,
+  surface,
+}: {
+  readonly item: MenuItem
+  readonly surface: MenuSurface
+}): ReactElement {
   const path = item.action?.path ?? '#'
   const external = isExternalPath(path)
   const anchor = external ? (
@@ -128,14 +152,14 @@ function NavigateMenuItem({ item }: { readonly item: MenuItem }): ReactElement {
     <Menu.Item
       disabled={item.disabled}
       render={anchor}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default' })}
+      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
     </Menu.Item>
   )
 }
 
-function renderMenuEntry(item: MenuItem, index: number): ReactElement {
+function renderMenuEntry(item: MenuItem, index: number, surface: MenuSurface): ReactElement {
   if (item.separator) {
     return (
       <Menu.Separator
@@ -150,6 +174,7 @@ function renderMenuEntry(item: MenuItem, index: number): ReactElement {
       <LogoutMenuItem
         key={`item-${index}`}
         item={item}
+        surface={surface}
       />
     )
   }
@@ -158,6 +183,7 @@ function renderMenuEntry(item: MenuItem, index: number): ReactElement {
       <NavigateMenuItem
         key={`item-${index}`}
         item={item}
+        surface={surface}
       />
     )
   }
@@ -165,6 +191,7 @@ function renderMenuEntry(item: MenuItem, index: number): ReactElement {
     <PlainMenuItem
       key={`item-${index}`}
       item={item}
+      surface={surface}
     />
   )
 }
@@ -182,7 +209,12 @@ function TriggerContent({
   if (triggerHtml) {
     return <span dangerouslySetInnerHTML={{ __html: triggerHtml }} />
   }
-  return <span>{triggerLabel ?? 'Menu'}</span>
+  return (
+    <>
+      <span>{triggerLabel ?? 'Menu'}</span>
+      {triggerLabel !== undefined && <NavChevronDown />}
+    </>
+  )
 }
 
 export default function MenuIsland({
@@ -194,18 +226,23 @@ export default function MenuIsland({
   triggerContent,
   triggerClassName,
   triggerAriaLabel,
+  popupVariant = 'default',
+  openOnHover,
   className,
   id,
   'data-testid': testId,
 }: MenuIslandProps): ReactElement {
+  const hoverEnabled = triggerLabel !== undefined && openOnHover === true
   return (
     <div data-component-type="dropdown-menu">
       <Menu.Root>
         <Menu.Trigger
-          className={triggerClassName ?? className}
+          className={cn('group', triggerClassName ?? className)}
           aria-label={triggerAriaLabel}
           id={id}
           data-testid={testId}
+          openOnHover={hoverEnabled}
+          closeDelay={hoverEnabled ? 150 : undefined}
         >
           <TriggerContent
             triggerContent={triggerContent}
@@ -218,9 +255,10 @@ export default function MenuIsland({
             side={floatingSide}
             align={floatingAlign}
             sideOffset={4}
+            className="z-50"
           >
-            <Menu.Popup className={computeMenuPopupClasses()}>
-              {menuItems.map((item, index) => renderMenuEntry(item, index))}
+            <Menu.Popup className={computeMenuPopupClasses({ variant: popupVariant })}>
+              {menuItems.map((item, index) => renderMenuEntry(item, index, popupVariant))}
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>

@@ -7,6 +7,7 @@
 
 
 import { checkPageAccess } from '@/domain/services/pages/page-access-check'
+import { matchContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-match'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/utils/content-dir/content-dir-slug'
 import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
 import { readContentDirBodyForSlug } from '@/infrastructure/markdown/content-dir-enumerator'
@@ -37,12 +38,25 @@ const matchContentDirArticle = (app: App, path: string): ContentDirArticleMatch 
     pages.map((page) => page.path),
     path
   )
-  if (match === undefined) return undefined
-  const page = pages[match.index]
-  if (page?.contentDir === undefined) return undefined
-  const slug = deriveContentDirSlugFromRouteParams(page.contentDir, match.params)
-  if (slug === undefined) return undefined
-  return { page, contentDir: page.contentDir, slug }
+  if (match !== undefined) {
+    const page = pages[match.index]
+    const slug =
+      page?.contentDir !== undefined
+        ? deriveContentDirSlugFromRouteParams(page.contentDir, match.params)
+        : undefined
+    if (page?.contentDir !== undefined && slug !== undefined) {
+      return { page, contentDir: page.contentDir, slug }
+    }
+  }
+  const indexMatch = matchContentDirIndexBasePath(pages, path)
+  if (indexMatch?.page.contentDir !== undefined) {
+    return {
+      page: indexMatch.page,
+      contentDir: indexMatch.page.contentDir,
+      slug: indexMatch.indexSlug,
+    }
+  }
+  return undefined
 }
 
 const findContentDirArticle = (

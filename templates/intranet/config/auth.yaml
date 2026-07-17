@@ -1,0 +1,10 @@
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8
+  - type: magicLink
+    expirationMinutes: 15
+defaultRole: member
+roles:
+  - name: managers
+    description: People managers — publish announcements and manage the directory
+    level: 60

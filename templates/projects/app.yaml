@@ -1,0 +1,27 @@
+name: projects
+version: 1.0.0
+description: >-
+  Project management workspace — plan projects on a Gantt timeline, run the
+  work on a task kanban, and track deadlines on a calendar. One config, four
+  views over the same two tables.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/projects.yaml
+  - $ref: ./config/tables/tasks.yaml
+
+pages:
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/dashboard.yaml
+  - $ref: ./config/pages/board.yaml
+  - $ref: ./config/pages/calendar.yaml
+  - $ref: ./config/pages/timeline.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/notify-assignee-on-blocked.yaml

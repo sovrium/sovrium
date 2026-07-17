@@ -7,6 +7,8 @@
 
 
 import { renderToString } from 'react-dom/server'
+import { isBadgeEnabled } from '@/domain/models/app/badge'
+import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -34,8 +36,9 @@ function ClosedFormPage(props: {
   readonly reason: ClosedReason
   readonly opensAt: string | undefined
   readonly closedPage: ClosedPageConfig | undefined
+  readonly badgeEnabled: boolean
 }): React.JSX.Element {
-  const { form, reason, opensAt, closedPage } = props
+  const { form, reason, opensAt, closedPage, badgeEnabled } = props
   const title = closedPage?.title ?? resolveTitle(form.title)
   const message = closedPage?.message ?? defaultCopy(reason, opensAt)
   return (
@@ -55,13 +58,15 @@ function ClosedFormPage(props: {
             <a href={closedPage.cta.href}>{closedPage.cta.label}</a>
           )}
         </main>
+        {}
+        {badgeEnabled && <SovriumBadge />}
       </body>
     </html>
   )
 }
 
 export function renderClosedFormPage(
-  _app: Readonly<App>,
+  app: Readonly<App>,
   form: Readonly<Form>,
   reason: ClosedReason,
   opensAt?: string
@@ -74,6 +79,7 @@ export function renderClosedFormPage(
       reason={reason}
       opensAt={opensAt}
       closedPage={closedPage}
+      badgeEnabled={isBadgeEnabled(app.badge)}
     />
   )
   return `<!DOCTYPE html>\n${html}`

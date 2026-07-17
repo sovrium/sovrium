@@ -1,0 +1,49 @@
+id: 1
+name: events
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: description
+    type: long-text
+  - id: 3
+    name: event_date
+    type: date
+    required: true
+  - id: 4
+    name: location
+    type: single-line-text
+  - id: 5
+    name: capacity
+    type: integer
+  - id: 6
+    name: status
+    type: status
+    options:
+      - value: Draft
+        color: '#94A3B8'
+      - value: Open
+        color: '#10B981'
+      - value: Sold out
+        color: '#F59E0B'
+      - value: Cancelled
+        color: '#EF4444'
+    default: Draft
+  - id: 7
+    name: created_at
+    type: created-at
+
+# The events list is public (the / page shows it without sign-in); writes stay
+# with the organizing team.
+permissions:
+  read: all
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

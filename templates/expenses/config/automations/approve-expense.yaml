@@ -1,0 +1,37 @@
+# The approval flow. Filing an expense PAUSES this run at the approval step —
+# admins get an email and the run waits. On approve, the run resumes and the
+# record.update flips the expense to Approved. On reject (or the 14-day
+# timeout), the run terminates and the expense stays Pending for follow-up.
+name: approve-expense
+label: Expense — request approval
+description: Ask an admin to approve each new expense, then stamp the outcome.
+enabled: true
+trigger:
+  type: record
+  table: expenses
+  events:
+    - create
+actions:
+  - name: askAdmins
+    type: approval
+    operator: request
+    props:
+      approvers: all-admins
+      message: >-
+        Expense "{{trigger.data.record.description}}" for
+        {{trigger.data.record.amount}} ({{trigger.data.record.category}}).
+        Approve?
+      timeout: 14d
+      onTimeout: reject
+  - name: markApproved
+    type: record
+    operator: update
+    props:
+      table: expenses
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        status: Approved

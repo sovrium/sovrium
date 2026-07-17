@@ -1,0 +1,71 @@
+name: support
+path: /support
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Support
+  description: The ticket kanban — resolutions email the CRM contact
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Support
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Tickets link to CRM contacts — resolving one emails the contact automatically.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: New ticket
+          - type: form
+            dataSource:
+              table: tickets
+            fields:
+              - field: subject
+              - field: contact
+              - field: status
+              - field: priority
+            action:
+              type: crud
+              operation: create
+              table: tickets
+              onSuccess:
+                navigate: /support
+                toast:
+                  message: Ticket created
+                  variant: success
+
+      - type: kanban
+        dataSource:
+          table: tickets
+        kanbanGroupBy:
+          field: status
+        emptyColumnMessage: No tickets here.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-medium
+              content: $record.subject
+          footer:
+            - field: priority
+              format: badge
+            - field: created_at
+              format: relative-date

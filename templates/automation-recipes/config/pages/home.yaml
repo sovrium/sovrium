@@ -1,0 +1,90 @@
+name: home
+path: /
+meta:
+  title: Automation recipes
+  description: Four automation patterns — webhook, record, cron, and failure alerting
+components:
+  - type: container
+    element: section
+    props:
+      className: py-16 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-3xl mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-4xl font-bold mb-4
+            content: Automation recipes
+          - type: text
+            element: p
+            props:
+              className: text-lg mb-8
+            content: Four small recipes cover the trigger families. Every run is stored in your own database with infinite history — no monthly task quota, no 30-day cap.
+          - type: container
+            props:
+              className: grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10
+            children:
+              - type: container
+                props:
+                  className: p-5 rounded-xl border
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-base font-semibold mb-2
+                    content: 1. Webhook → record
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm
+                    content: POST a JSON payload and it becomes a lead row — the inbound door for any external system.
+              - type: container
+                props:
+                  className: p-5 rounded-xl border
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-base font-semibold mb-2
+                    content: 2. Record → email + log
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm
+                    content: Every new lead notifies the team and appends to the activity log — two actions, one trigger.
+              - type: container
+                props:
+                  className: p-5 rounded-xl border
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-base font-semibold mb-2
+                    content: 3. Cron → digest
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm
+                    content: Weekday evenings, one digest email — scheduled work without an external scheduler.
+              - type: container
+                props:
+                  className: p-5 rounded-xl border
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-base font-semibold mb-2
+                    content: 4. Failure → alert
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm
+                    content: A global error handler — any automation that exhausts its retries emails the operator.
+          - type: link
+            props:
+              href: /activity
+              className: inline-block px-6 py-3 rounded-lg font-medium border
+            content: Open the activity feed

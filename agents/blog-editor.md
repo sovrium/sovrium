@@ -15,7 +15,7 @@ Your focus is the integration of three concerns the generic CRUD agent does not 
 2. **Taxonomy modeling** -- posts ↔ tags many-to-many, posts → authors many-to-one.
 3. **Draft/published lifecycle** -- `status` field gates which records appear publicly via `dataSource.filter`.
 
-For pure CRUD admin UI (create/edit forms, data tables for back-office editing), defer to the `crud-editor` agent. For purely static landing pages with no data model, defer to `website-editor`.
+For pure CRUD admin UI (create/edit forms, data tables for back-office editing), defer to the `crm-editor` agent. For purely static landing pages with no data model, defer to `website-editor`.
 
 ## Key Knowledge
 

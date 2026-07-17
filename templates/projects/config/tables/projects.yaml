@@ -1,0 +1,52 @@
+id: 1
+name: projects
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: status
+    type: status
+    options:
+      - value: Planned
+        color: '#94A3B8'
+      - value: Active
+        color: '#3B82F6'
+      - value: On hold
+        color: '#F59E0B'
+      - value: Done
+        color: '#10B981'
+    default: Planned
+  - id: 3
+    name: start_date
+    type: date
+  - id: 4
+    name: end_date
+    type: date
+  - id: 5
+    name: owner
+    type: user
+    allowMultiple: false
+  - id: 6
+    name: progress
+    type: progress
+  - id: 7
+    name: budget
+    type: currency
+    currency: EUR
+    precision: 0
+  - id: 8
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

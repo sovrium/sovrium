@@ -75,7 +75,7 @@
   },
   // Bound the typecheck program to the three source roots only. Without an
   // explicit `include`, tsc defaults to "every .ts under the project root minus
-  // exclude", silently pulling in stray files (examples/, packages/types — which
+  // exclude", silently pulling in stray files (templates/, packages/types — which
   // has its own tsconfig + build:types). Dependents that override `include`
   // (tsconfig.build.json → ["src"], tsconfig.eslint.json → []) are unaffected.
   "include": ["src", "specs", "scripts", "apps"],

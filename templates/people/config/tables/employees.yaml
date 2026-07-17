@@ -1,0 +1,61 @@
+id: 1
+name: employees
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: email
+    type: email
+    required: true
+  - id: 3
+    name: job_title
+    type: single-line-text
+  - id: 4
+    name: department
+    type: single-select
+    options:
+      - Engineering
+      - Sales
+      - Marketing
+      - Operations
+      - Finance
+      - People
+  - id: 5
+    name: start_date
+    type: date
+  - id: 6
+    name: manager
+    type: relationship
+    relatedTable: employees
+    relationType: many-to-one
+  - id: 7
+    name: photo
+    type: single-attachment
+  - id: 8
+    name: salary
+    type: currency
+    currency: EUR
+    precision: 0
+  - id: 9
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin
+  # Field-level permissions: everyone can browse the directory, but the salary
+  # column is invisible and read-only to non-admins — enforced server-side,
+  # not hidden client-side.
+  fields:
+    - field: salary
+      read:
+        - admin
+      write:
+        - admin

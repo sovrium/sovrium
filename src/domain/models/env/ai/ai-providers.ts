@@ -23,6 +23,13 @@ const AI_PROVIDER_ALIASES: Readonly<Record<string, SupportedAiProvider>> = {
 export const isSupportedAiProvider = (value: string): boolean =>
   (SUPPORTED_AI_PROVIDERS as readonly string[]).includes(value) || value in AI_PROVIDER_ALIASES
 
+export const isAiProviderConfigured = (
+  processEnv: Readonly<Record<string, string | undefined>>
+): boolean => {
+  const raw = processEnv['AI_PROVIDER']?.trim()
+  return raw !== undefined && raw !== '' && isSupportedAiProvider(raw)
+}
+
 export const resolveAiProvider = (value: string): SupportedAiProvider | undefined => {
   if ((SUPPORTED_AI_PROVIDERS as readonly string[]).includes(value)) {
     return value as SupportedAiProvider

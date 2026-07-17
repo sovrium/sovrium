@@ -157,7 +157,7 @@ jobs:
           # Opt into the deterministic dev key so boot reaches the CSS route.
           SOVRIUM_ALLOW_DEV_KEY: '1'
         run: |
-          PORT=3210 ./sovrium-darwin-arm64 start examples/landing-page/app.yaml &
+          PORT=3210 ./sovrium-darwin-arm64 start templates/landing-page/app.yaml &
           SERVER_PID=$!
           CSS=""
           for _ in $(seq 1 30); do
@@ -245,7 +245,7 @@ jobs:
           # Opt into the deterministic dev key so boot reaches the CSS route.
           SOVRIUM_ALLOW_DEV_KEY: '1'
         run: |
-          PORT=3210 ./sovrium-linux-x64 start examples/landing-page/app.yaml &
+          PORT=3210 ./sovrium-linux-x64 start templates/landing-page/app.yaml &
           SERVER_PID=$!
           CSS=""
           for _ in $(seq 1 30); do
@@ -520,6 +520,52 @@ jobs:
           git diff --cached --quiet && echo "No changes to manifest" && exit 0
           git commit -m "sovrium ${VERSION}"
           git push
+
+  # ── Publish templates/ to standalone sovrium/<slug> template repos ──
+  # Mirrors only ever reflect a PUBLISHED release: this job runs after
+  # publish-release, from the tag's own tree (CI validated these configs
+  # against this exact binary), and stamps .sovrium-version to match — a
+  # mirror can never be newer than the binary it pins. Best-effort like
+  # Homebrew/Scoop: it never gates the release itself.
+  publish-templates:
+    name: Publish template repositories
+    needs: [publish-release]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout sovrium repo
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify templates publish token is configured
+        env:
+          TEMPLATES_PUBLISH_TOKEN: ${{ secrets.TEMPLATES_PUBLISH_TOKEN }}
+        run: |
+          if [ -z "${TEMPLATES_PUBLISH_TOKEN}" ]; then
+            echo "TEMPLATES_PUBLISH_TOKEN secret is not configured — skipping template repo publish."
+            exit 1
+          fi
+
+      - name: Publish template repositories
+        env:
+          GH_TOKEN: ${{ secrets.TEMPLATES_PUBLISH_TOKEN }}
+        run: |
+          bun run scripts/build/publish-template-repos.ts \
+            --version "${{ steps.version.outputs.version }}"
 
   # ── Build and push multi-arch Docker image ──────────────────
   build-docker:

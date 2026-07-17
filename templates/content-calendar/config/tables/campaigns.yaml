@@ -1,0 +1,30 @@
+id: 1
+name: campaigns
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: start_date
+    type: date
+  - id: 3
+    name: end_date
+    type: date
+  - id: 4
+    name: goal
+    type: long-text
+  - id: 5
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

@@ -1,0 +1,42 @@
+id: 1
+name: leads
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: email
+    type: email
+  - id: 3
+    name: source
+    type: single-select
+    options:
+      - Website
+      - Webhook
+      - Referral
+      - Import
+    default: Webhook
+  - id: 4
+    name: status
+    type: single-select
+    options:
+      - New
+      - Contacted
+      - Qualified
+      - Dropped
+    default: New
+  - id: 5
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

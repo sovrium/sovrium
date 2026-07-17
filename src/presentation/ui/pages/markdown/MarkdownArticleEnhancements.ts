@@ -21,6 +21,7 @@ const DOCS_PROSE_PATCH = `
 .prose .md-callout :first-child,.prose [data-component="alert"] :first-child{margin-top:0;}
 .prose .md-callout :last-child,.prose [data-component="alert"] :last-child{margin-bottom:0;}
 .prose :where(h1,h2,h3,h4,h5,h6){scroll-margin-top:5rem;}
+.prose [data-component="docs-article-header"] ol,.prose [data-component="docs-article-header"] li{margin:0;padding:0;}
 `
 
 export const DOCS_PROSE_PATCH_HTML = { __html: DOCS_PROSE_PATCH }

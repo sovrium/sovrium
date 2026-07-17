@@ -6,12 +6,13 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import { NavChevronDown } from '@/presentation/utils/recipes/nav-menu-parts'
 import {
   buildAlertDialogProps,
   buildDrawerProps,
+  buildDropdownMenuProps,
   buildHoverCardProps,
   buildTooltipProps,
-  pickCompField,
 } from './island-overlay-props-builders'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -262,32 +263,27 @@ export const islandOverlayComponents: Partial<Record<Component['type'], Componen
     )
   },
 
-  'dropdown-menu': ({ rawProps, elementProps, component }) => {
-    const comp = (component ?? {}) as Record<string, unknown>
-    const triggerLabelRaw = pickCompField<string>(comp, rawProps, 'triggerLabel')
-    const triggerLabel = typeof triggerLabelRaw === 'string' ? triggerLabelRaw : 'Menu'
-    const props = {
-      menuItems: pickCompField<unknown>(comp, rawProps, 'menuItems'),
-      floatingSide: pickCompField<string>(comp, rawProps, 'floatingSide'),
-      floatingAlign: pickCompField<string>(comp, rawProps, 'floatingAlign'),
-      triggerLabel,
-      className: elementProps['className'],
-      id: elementProps['id'],
-      'data-testid': elementProps['data-testid'],
-    }
+  'dropdown-menu': ({ rawProps, elementProps, component, languages, currentLang }) => {
+    const props = buildDropdownMenuProps(rawProps, elementProps, component, {
+      currentLang,
+      languages,
+    })
+    const authoredClassName = elementProps['className'] as string | undefined
     return (
       <div
         data-island="dropdown-menu"
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
+        {}
         <button
           type="button"
           disabled
           id={elementProps.id as string | undefined}
-          className="rounded-md border px-3 py-2 text-sm"
+          className={`group ${authoredClassName ?? 'rounded-md border px-3 py-2 text-sm'}`}
         >
-          {triggerLabel}
+          <span>{props.triggerLabel}</span>
+          <NavChevronDown />
         </button>
       </div>
     )

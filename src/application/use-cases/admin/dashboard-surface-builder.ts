@@ -86,6 +86,7 @@ export async function buildDashboardSurfaceApp(
   return {
     ...dashboardApp,
     palette: { enabled: false },
+    badge: false,
     tables: [...(dashboardApp.tables ?? []), ...operatorTables],
     pages: [...basePages, page],
   } as App

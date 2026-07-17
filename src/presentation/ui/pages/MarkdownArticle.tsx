@@ -55,7 +55,8 @@ const renderToc = (
       aria-label="Table of contents"
       className={
         sidebar
-          ? 'sticky top-20 hidden max-h-[calc(100dvh-6rem)] w-56 shrink-0 self-start overflow-y-auto py-12 pr-4 text-sm xl:block'
+          ?
+            'sticky top-[6.5rem] hidden max-h-[calc(100dvh-6.5rem)] w-56 shrink-0 self-start overflow-y-auto py-12 pr-4 text-sm xl:block'
           : 'mb-6 text-sm'
       }
     >
@@ -238,9 +239,9 @@ function renderDocsLayout(
 ): Readonly<ReactElement> {
   if (markdown.collectionNav === undefined) return article
   return (
-    <div className="bg-background min-h-[calc(100dvh-4rem)]">
+    <div className="bg-background min-h-[calc(100dvh-6.5rem)]">
       <style dangerouslySetInnerHTML={DOCS_PROSE_PATCH_HTML} />
-      <div className="mx-auto flex w-full max-w-screen-2xl items-start gap-4 px-4 lg:gap-8 lg:px-6">
+      <div className="mx-auto flex w-full max-w-7xl items-start gap-4 px-4 lg:gap-8 lg:px-6">
         <DocsSidebarNav nav={markdown.collectionNav} />
         {article}
         {toc}

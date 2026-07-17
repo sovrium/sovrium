@@ -40,8 +40,9 @@ const resolveDashboardApp = async (): Promise<App | undefined> => {
       return undefined
     }
     const decoded = Schema.decodeUnknownSync(AppSchema)(Bun.YAML.parse(yaml)) as App
-    dashboardAppCache = { tried: true, app: decoded }
-    return decoded
+    const app: App = { ...decoded, badge: false }
+    dashboardAppCache = { tried: true, app }
+    return app
   } catch (error) {
     logError('[ADMIN-DASHBOARD] Failed to load the embedded dashboard config', error)
     dashboardAppCache = { tried: true }

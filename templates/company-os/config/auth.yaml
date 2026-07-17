@@ -1,0 +1,7 @@
+# Email + password auth. First registered user becomes admin (Better Auth
+# firstUserAdmin); subsequent sign-ups get the default `member` role.
+allowSignUp: true
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

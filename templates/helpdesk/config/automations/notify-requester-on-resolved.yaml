@@ -1,0 +1,37 @@
+# Close the loop: when the team resolves a ticket, tell the requester.
+# The filter gates on the new status value, so kanban drags and grid edits
+# both qualify.
+name: notify-requester-on-resolved
+label: Ticket resolved — notify the requester
+description: Email the requester whenever their ticket status changes to Resolved.
+enabled: true
+trigger:
+  type: record
+  table: tickets
+  events:
+    - update
+  watchFields:
+    - status
+actions:
+  - name: onlyWhenResolved
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.status}}'
+            operator: equals
+            value: Resolved
+      onFalse: stop
+  - name: emailRequester
+    type: email
+    operator: send
+    props:
+      to: '{{trigger.data.record.requester_email}}'
+      subject: 'Resolved: {{trigger.data.record.subject}}'
+      body: |
+        <p>Hi {{trigger.data.record.requester_name}},</p>
+        <p>Your ticket <strong>{{trigger.data.record.subject}}</strong> has been
+        marked resolved.</p>
+        <p>If anything is still off, just reply to this email and we'll reopen it.</p>

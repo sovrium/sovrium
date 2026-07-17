@@ -1,0 +1,30 @@
+name: thanks
+path: /thanks
+meta:
+  title: Ticket received
+  description: Your ticket is in our queue
+components:
+  - type: container
+    element: section
+    props:
+      className: py-20 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-xl mx-auto text-center
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-4
+            content: Ticket received
+          - type: text
+            element: p
+            props:
+              className: text-lg mb-8
+            content: Check your inbox — a confirmation email is on its way, and we'll follow up soon.
+          - type: link
+            props:
+              href: /
+              className: inline-block px-6 py-3 rounded-lg font-medium border
+            content: Back to support

@@ -1,0 +1,68 @@
+id: 1
+name: expenses
+fields:
+  - id: 1
+    name: description
+    type: single-line-text
+    required: true
+  - id: 2
+    name: amount
+    type: currency
+    currency: EUR
+    precision: 2
+    required: true
+  - id: 3
+    name: category
+    type: single-select
+    options:
+      - Travel
+      - Meals
+      - Software
+      - Equipment
+      - Other
+  - id: 4
+    name: expense_date
+    type: date
+  - id: 5
+    name: receipt
+    type: single-attachment
+    bucket: receipts
+  - id: 6
+    name: status
+    type: status
+    options:
+      - value: Pending
+        color: '#F59E0B'
+      - value: Approved
+        color: '#3B82F6'
+      - value: Reimbursed
+        color: '#10B981'
+      - value: Rejected
+        color: '#EF4444'
+    default: Pending
+  - id: 7
+    name: submitted_by
+    type: created-by
+  - id: 8
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+  delete:
+    - admin
+
+# Row-level scoping, enforced server-side at the API layer: members only ever
+# see their own expenses ($currentUser resolves per request from the session);
+# admins are unrestricted and see everything. Denied rows return 404, never 403.
+rowLevelPermissions:
+  read:
+    when:
+      field: submitted_by
+      operator: eq
+      value: $currentUser.id

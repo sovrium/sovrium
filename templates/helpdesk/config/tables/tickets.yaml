@@ -1,0 +1,70 @@
+id: 1
+name: tickets
+fields:
+  - id: 1
+    name: subject
+    type: single-line-text
+    required: true
+  - id: 2
+    name: description
+    type: long-text
+  - id: 3
+    name: status
+    type: status
+    options:
+      - value: New
+        color: '#3B82F6'
+      - value: Open
+        color: '#F59E0B'
+      - value: Waiting on customer
+        color: '#A855F7'
+      - value: Resolved
+        color: '#10B981'
+      - value: Closed
+        color: '#94A3B8'
+    default: New
+  - id: 4
+    name: priority
+    type: single-select
+    options:
+      - Low
+      - Normal
+      - High
+      - Urgent
+    default: Normal
+  - id: 5
+    name: category
+    type: single-select
+    options:
+      - Question
+      - Bug report
+      - Billing
+      - Feature request
+  - id: 6
+    name: requester_name
+    type: single-line-text
+  - id: 7
+    name: requester_email
+    type: email
+    required: true
+  - id: 8
+    name: assignee
+    type: user
+    allowMultiple: false
+  - id: 9
+    name: resolved_at
+    type: date
+  - id: 10
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

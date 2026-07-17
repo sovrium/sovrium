@@ -1,0 +1,31 @@
+name: helpdesk
+version: 1.0.0
+description: >-
+  Customer support helpdesk — a public intake form feeds a triage kanban and a
+  ticket grid, with automations confirming receipt and announcing resolutions.
+  No per-agent licence, and every ticket lives in your own database.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/tickets.yaml
+
+# Standalone public form — mounted at /support, no sign-in required.
+forms:
+  - $ref: ./config/forms/submit-ticket.yaml
+
+pages:
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/thanks.yaml
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/triage.yaml
+  - $ref: ./config/pages/tickets.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/confirm-new-ticket.yaml
+  - $ref: ./config/automations/notify-requester-on-resolved.yaml

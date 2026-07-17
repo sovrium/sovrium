@@ -1,0 +1,19 @@
+name: intranet
+version: 1.0.0
+description: A company intranet — public pages plus an auth-gated employee hub with announcements, a people directory, and shared resources
+
+auth:
+  $ref: ./config/auth.yaml
+
+tables:
+  - $ref: ./config/tables/members.yaml
+  - $ref: ./config/tables/posts.yaml
+  - $ref: ./config/tables/resources.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+pages:
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/portal.yaml

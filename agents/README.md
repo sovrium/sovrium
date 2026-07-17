@@ -46,9 +46,9 @@ Specialized for editing the data model and backend configuration.
 - Choose the right field type from 40+ options (text, numeric, date, selection, relational, advanced, media, user)
 - Set up audit trails (created-at, updated-at, created-by, updated-by)
 
-### `crud-editor`
+### `crm-editor`
 
-Specialized for building full CRUD applications that connect data to UI.
+Specialized for building full CRUD applications that connect data to UI (paired with the `crm` template).
 
 **Scope**: `tables` + `pages` + `auth` + `components` (integrated)
 
@@ -61,9 +61,9 @@ Specialized for building full CRUD applications that connect data to UI.
 - Set up authenticated workflows (sign in/out, protected pages)
 - Design navigation between list, detail, create, and edit views
 
-### `portal-editor`
+### `intranet-editor`
 
-Specialized for dual-UX applications combining public marketing pages with an auth-gated member portal.
+Specialized for dual-UX applications combining public pages with an auth-gated internal hub (paired with the `intranet` template).
 
 **Scope**: `pages` (public + protected) + `auth` (magic-link + email) + role-gated section visibility
 
@@ -107,14 +107,14 @@ Specialized for content sites with posts, taxonomies, and dynamic detail routes.
 
 ### Option 1: Bundled with `sovrium init` (Recommended)
 
-When you scaffold a project with `sovrium init --template <name>`, the paired editor agent is installed automatically into `.claude/agents/`. See `examples/README.md` for the template ↔ agent pairing table.
+When you scaffold a project with `sovrium init --template <name>`, the paired editor agent is installed automatically into `.claude/agents/`. See `templates/README.md` for the template ↔ agent pairing table.
 
 ```bash
-# Both the example yaml tree AND .claude/agents/crud-editor.md land in my-app/
-sovrium init my-app --template crud-app
+# Both the example yaml tree AND .claude/agents/crm-editor.md land in my-app/
+sovrium init my-app --template crm
 
 # Opt out of the agent install
-sovrium init my-app --template crud-app --no-agent
+sovrium init my-app --template crm --no-agent
 ```
 
 ### Option 2: Ad-hoc CLI Install
@@ -124,8 +124,8 @@ Add an agent to an existing project, or install one that isn't paired with your 
 ```bash
 sovrium agents install website-editor
 sovrium agents install api-editor
-sovrium agents install crud-editor
-sovrium agents install portal-editor
+sovrium agents install crm-editor
+sovrium agents install intranet-editor
 sovrium agents install mcp-editor
 sovrium agents install blog-editor
 ```
@@ -144,7 +144,7 @@ SOVRIUM_PATH=$(bun pm ls | grep sovrium | head -1)
 mkdir -p .claude/agents
 cp node_modules/sovrium/agents/website-editor.md .claude/agents/
 cp node_modules/sovrium/agents/api-editor.md .claude/agents/
-cp node_modules/sovrium/agents/crud-editor.md .claude/agents/
+cp node_modules/sovrium/agents/crm-editor.md .claude/agents/
 ```
 
 ### Option 3: Download from Repository
@@ -159,8 +159,8 @@ curl -o .claude/agents/website-editor.md \
 curl -o .claude/agents/api-editor.md \
   https://raw.githubusercontent.com/sovrium/sovrium/main/agents/api-editor.md
 
-curl -o .claude/agents/crud-editor.md \
-  https://raw.githubusercontent.com/sovrium/sovrium/main/agents/crud-editor.md
+curl -o .claude/agents/crm-editor.md \
+  https://raw.githubusercontent.com/sovrium/sovrium/main/agents/crm-editor.md
 ```
 
 ## Customizing Agents

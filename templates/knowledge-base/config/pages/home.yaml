@@ -1,0 +1,30 @@
+name: home
+path: /
+meta:
+  title: Company handbook
+  description: The internal knowledge base — sign in to read
+components:
+  - type: container
+    element: section
+    props:
+      className: py-20 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-2xl mx-auto text-center
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-4xl font-bold mb-4
+            content: Company handbook
+          - type: text
+            element: p
+            props:
+              className: text-lg mb-8
+            content: Onboarding, IT how-tos, and policies — written in markdown, versioned in Git, readable only by the team.
+          - type: link
+            props:
+              href: /sign-in
+              className: inline-block px-6 py-3 rounded-lg font-medium border
+            content: Sign in to read

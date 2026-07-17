@@ -1,0 +1,20 @@
+# Recipe 3 — CRON trigger. Weekday evenings, one digest email. Expressions
+# are numeric five-field only (no @daily aliases). Change `to` to your inbox.
+name: daily-digest
+label: Cron — end-of-day digest
+description: Every weekday at 18:00, email a nudge to review the day's activity.
+enabled: true
+trigger:
+  type: cron
+  expression: '0 18 * * 1-5'
+  timezone: Europe/Paris
+actions:
+  - name: emailDigest
+    type: email
+    operator: send
+    props:
+      to: team@example.com
+      subject: 'End-of-day activity digest'
+      body: |
+        <p>The day is wrapping up — open the activity feed to review what the
+        automations captured today.</p>

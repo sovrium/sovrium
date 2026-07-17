@@ -1,0 +1,23 @@
+id: 2
+name: activity_log
+fields:
+  - id: 1
+    name: event
+    type: single-line-text
+    required: true
+  - id: 2
+    name: details
+    type: long-text
+  - id: 3
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+  delete:
+    - admin

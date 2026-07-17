@@ -1,0 +1,36 @@
+id: 7
+name: employees
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: email
+    type: email
+  - id: 3
+    name: job_title
+    type: single-line-text
+  - id: 4
+    name: department
+    type: single-select
+    options:
+      - Engineering
+      - Sales
+      - Support
+      - Operations
+  - id: 5
+    name: start_date
+    type: date
+  - id: 6
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin

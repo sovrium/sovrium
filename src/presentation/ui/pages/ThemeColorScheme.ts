@@ -5,27 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { someComponentInTree } from '@/presentation/utils/component-template-walker'
+import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
 import type { Theme } from '@/domain/models/app/theme'
 
-function getChildren(component: { readonly children?: unknown }): readonly unknown[] | undefined {
-  const { children } = component
-  return Array.isArray(children) ? children : undefined
-}
-
-function treeHasThemeToggle(components: readonly unknown[] | undefined): boolean {
-  if (!components) return false
-  return components.some((item) => {
-    if (typeof item !== 'object' || item === null) return false
-    const component = item as { readonly type?: unknown; readonly children?: unknown }
-    if (component.type === 'theme-toggle') return true
-    return treeHasThemeToggle(getChildren(component))
-  })
-}
-
-export function needsColorSchemeScript(page: Page, theme: Theme | undefined): boolean {
+export function needsColorSchemeScript(
+  page: Page,
+  theme: Theme | undefined,
+  components?: Components
+): boolean {
   if (theme?.colorScheme) return true
-  return treeHasThemeToggle(page.components as readonly unknown[] | undefined)
+  return someComponentInTree(
+    page.components as readonly unknown[] | undefined,
+    components,
+    (item) => item['type'] === 'theme-toggle'
+  )
 }
 
 export function buildColorSchemeScript(colorScheme: Theme['colorScheme']): string {

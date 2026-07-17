@@ -1,0 +1,60 @@
+id: 3
+name: deals
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: company
+    type: relationship
+    relatedTable: companies
+    relationType: many-to-one
+  - id: 3
+    name: stage
+    type: status
+    options:
+      - value: Prospect
+        color: '#94A3B8'
+      - value: Qualified
+        color: '#3B82F6'
+      - value: Proposal
+        color: '#A855F7'
+      - value: Won
+        color: '#10B981'
+      - value: Lost
+        color: '#EF4444'
+    default: Prospect
+  - id: 4
+    name: value
+    type: currency
+    currency: EUR
+    precision: 0
+  - id: 5
+    name: close_date
+    type: date
+  - id: 6
+    name: created_at
+    type: created-at
+
+aiAccess:
+  description: >-
+    The sales pipeline. Use this when the user asks about deals, stages,
+    pipeline value, or close dates.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

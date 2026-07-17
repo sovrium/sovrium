@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveTranslation } from '@/domain/utils/translation-resolver'
+import { mapStringsDeep, resolveTranslation } from '@/domain/utils/translation-resolver'
 import type { App, Page } from '@/domain/models/app'
 import type { Languages } from '@/domain/models/app/languages'
 import type { LanguageConfig } from '@/domain/models/app/languages/supported/language-config'
@@ -28,21 +28,7 @@ function replaceTokens(str: string, context: TokenReplacementContext): string {
 }
 
 function replaceTokensInValue(value: unknown, context: TokenReplacementContext): unknown {
-  if (typeof value === 'string') {
-    return replaceTokens(value, context)
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => replaceTokensInValue(item, context))
-  }
-
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, val]) => [key, replaceTokensInValue(val, context)])
-    )
-  }
-
-  return value
+  return mapStringsDeep(value, (str) => replaceTokens(str, context))
 }
 
 function replaceMetaTokens(meta: Page['meta'], context: TokenReplacementContext): Page['meta'] {

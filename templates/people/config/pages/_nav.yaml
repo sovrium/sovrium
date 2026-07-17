@@ -1,0 +1,48 @@
+# Reusable workspace top-nav. Included as a $ref array-item at the top of every
+# workspace page's `components` list, so navigation stays defined in one place.
+type: container
+element: header
+props:
+  className: border-b
+children:
+  - type: container
+    props:
+      className: max-w-6xl mx-auto px-6 py-3 flex items-center justify-between
+    children:
+      - type: container
+        props:
+          className: flex items-center gap-6
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-base font-semibold
+            content: People
+          - type: container
+            props:
+              className: flex items-center gap-1 text-sm
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Directory
+              - type: link
+                props:
+                  href: /time-off
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Time off
+              - type: link
+                props:
+                  href: /requests
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Requests
+      - type: button
+        props:
+          className: px-3 py-1.5 rounded-md border text-sm font-medium
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /sign-in

@@ -1,0 +1,119 @@
+name: inventory
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Inventory
+  description: The asset register — barcoded, valued, and grouped by location
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Inventory
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Everything the company owns, grouped by location. Scan the barcode column during the quarterly check.
+
+      - type: container
+        props:
+          className: grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8
+        children:
+          - type: kpi
+            label: Assets in use
+            dataSource:
+              table: assets
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: In use
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Register value
+            dataSource:
+              table: assets
+              mode: list
+            kpiAggregate:
+              function: sum
+              field: value
+            kpiFormat:
+              type: currency
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Register an asset
+          - type: form
+            dataSource:
+              table: assets
+            fields:
+              - field: name
+              - field: barcode
+              - field: category
+              - field: status
+              - field: purchase_date
+              - field: value
+              - field: location
+            action:
+              type: crud
+              operation: create
+              table: assets
+              onSuccess:
+                navigate: /
+                toast:
+                  message: Asset registered
+                  variant: success
+
+      - type: data-table
+        dataSource:
+          table: assets
+          sort:
+            - field: name
+              direction: asc
+        columns:
+          - field: name
+            label: Asset
+            sortable: true
+            filterable: true
+          - field: barcode
+            label: Barcode
+          - field: category
+            label: Category
+            filterable: true
+          - field: status
+            label: Status
+            filterable: true
+          - field: assigned_to
+            label: Assigned to
+          - field: purchase_date
+            label: Purchased
+            format: short-date
+            sortable: true
+          - field: value
+            label: Value
+            format: currency
+            sortable: true
+        search:
+          enabled: true
+          placeholder: Search assets...
+        groupBy:
+          field: location
+        pagination:
+          pageSize: 20
+        emptyMessage: The register is empty — add the first asset above.

@@ -8,6 +8,7 @@
 
 import { MirrorApprovalCreate, MirrorApprovalUpdate } from '@/application/use-cases/agents/approval'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { isAiProviderConfigured } from '@/domain/models/env/ai/ai-providers'
 import { checkPermissionWithAdminOverride, isAdminRole } from '@/domain/models/shared/permissions'
 import {
   checkChatRateLimit,
@@ -235,6 +236,13 @@ const handleExecute =
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
     if (!agent) return agentNotFound(c, agentName)
+
+    if (!isAiProviderConfigured(process.env)) {
+      return c.json(
+        { error: 'AI provider not configured — the assistant is currently unavailable.' },
+        503
+      )
+    }
 
     const gateResponse = checkExecutionGates(c, agent)
     if (gateResponse) return gateResponse

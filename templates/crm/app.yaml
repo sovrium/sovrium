@@ -1,0 +1,36 @@
+name: crm-workspace
+version: 2.0.0
+description: >-
+  An Airtable/Baserow-style database workspace — manage Companies, Contacts,
+  Deals, and Tasks through interactive grids, a kanban pipeline, a task calendar,
+  and a contact gallery. Built on Sovrium's default theming.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/companies.yaml
+  - $ref: ./config/tables/contacts.yaml
+  - $ref: ./config/tables/deals.yaml
+  - $ref: ./config/tables/tasks.yaml
+
+# AI agent that can create, edit, and review records (surfaced on /assistant).
+# Requires an AI provider at runtime (AI_PROVIDER, e.g. ollama for the eco
+# default); config validation does not need it.
+agents:
+  - $ref: ./config/agents/records-assistant.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/deal-won-notification.yaml
+
+pages:
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/companies.yaml
+  - $ref: ./config/pages/contacts.yaml
+  - $ref: ./config/pages/deals.yaml
+  - $ref: ./config/pages/tasks.yaml
+  - $ref: ./config/pages/assistant.yaml

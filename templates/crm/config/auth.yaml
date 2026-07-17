@@ -1,0 +1,8 @@
+# Email + password auth. First registered user becomes admin (Better Auth
+# firstUserAdmin); subsequent sign-ups get the default `member` role. Table-level
+# permissions (defined per table) then gate create/update/delete by role.
+allowSignUp: true
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

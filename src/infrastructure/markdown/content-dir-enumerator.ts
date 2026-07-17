@@ -9,6 +9,7 @@
 import { isAbsolute, resolve } from 'node:path'
 import { splitFrontmatter } from '@/domain/services/markdown/markdown-renderer'
 import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
+import { deriveContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-base-path'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 
 export interface ContentDirEntry {
@@ -107,6 +108,13 @@ const sortFiles = (
   })
 }
 
+const resolveEntryPath = (contentDir: ContentDir, pagePath: string, slug: string): string => {
+  if (contentDir.index !== undefined && slug === contentDir.index) {
+    return deriveContentDirIndexBasePath(pagePath) ?? buildPath(pagePath, slug)
+  }
+  return buildPath(pagePath, slug)
+}
+
 const toEntry = (
   file: ParsedFile,
   contentDir: ContentDir,
@@ -123,7 +131,7 @@ const toEntry = (
     section,
     group,
     description: file.frontmatter['description'],
-    path: buildPath(pagePath, slug),
+    path: resolveEntryPath(contentDir, pagePath, slug),
   }
 }
 

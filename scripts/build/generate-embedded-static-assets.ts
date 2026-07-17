@@ -61,23 +61,23 @@ const agentEntries = readdirSync(join(PROJECT_ROOT, 'agents'))
   .toSorted()
   .map((f) => `  ${JSON.stringify(f)}: ${addImport(`agents/${f}`)},`)
 
-const EXAMPLES_ROOT = join(PROJECT_ROOT, 'examples')
+const TEMPLATES_ROOT = join(PROJECT_ROOT, 'templates')
 
-const walkExamples = (dir: string): readonly string[] => {
+const walkTemplates = (dir: string): readonly string[] => {
   const entries = readdirSync(dir, { withFileTypes: true }).toSorted((a, b) =>
     a.name.localeCompare(b.name)
   )
   return entries.flatMap((entry): readonly string[] => {
     const abs = join(dir, entry.name)
-    if (entry.isDirectory()) return walkExamples(abs)
+    if (entry.isDirectory()) return walkTemplates(abs)
     if (entry.isFile() && !entry.name.endsWith('.ts')) return [abs]
     return []
   })
 }
 
-const exampleEntries = walkExamples(EXAMPLES_ROOT).map((abs) => {
-  const key = relative(EXAMPLES_ROOT, abs)
-  return `  ${JSON.stringify(key)}: ${addImport(`examples/${key}`)},`
+const templateEntries = walkTemplates(TEMPLATES_ROOT).map((abs) => {
+  const key = relative(TEMPLATES_ROOT, abs)
+  return `  ${JSON.stringify(key)}: ${addImport(`templates/${key}`)},`
 })
 
 const dashboardVar = nextVar()
@@ -115,8 +115,8 @@ ${agentEntries.join('\n')}
 }
 
 /** Example filename → embedded path. */
-export const EXAMPLE_FILES = {
-${exampleEntries.join('\n')}
+export const TEMPLATE_FILES = {
+${templateEntries.join('\n')}
 }
 
 /** Native Admin Dashboard system app config (ADR-021) → embedded path. */
@@ -129,5 +129,5 @@ writeFileSync(OUT_FILE, `${header}\n${importBlock}\n${body}`)
 console.log(
   `✓ embedded-static-assets.generated.ts — ${imports.length} files (` +
     `${sqlFiles('drizzle').length} pg + ${sqlFiles('drizzle/sqlite').length} sqlite migrations, ` +
-    `${agentEntries.length} agents, ${exampleEntries.length} examples)`
+    `${agentEntries.length} agents, ${templateEntries.length} templates)`
 )

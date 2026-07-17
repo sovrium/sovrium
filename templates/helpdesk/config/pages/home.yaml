@@ -1,0 +1,39 @@
+name: home
+path: /
+meta:
+  title: Support
+  description: Get help — submit a ticket and we'll get back to you
+components:
+  - type: container
+    element: section
+    props:
+      className: py-20 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-2xl mx-auto text-center
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-4xl font-bold mb-4
+            content: How can we help?
+          - type: text
+            element: p
+            props:
+              className: text-lg mb-8
+            content: Send us a ticket and a real person will get back to you — usually within one business day.
+          - type: container
+            props:
+              className: flex gap-4 justify-center
+            children:
+              - type: link
+                props:
+                  href: /support
+                  className: inline-block px-6 py-3 rounded-lg font-medium border
+                content: Submit a ticket
+              - type: link
+                props:
+                  href: /sign-in
+                  className: inline-block px-6 py-3 rounded-lg font-medium
+                content: Team sign-in

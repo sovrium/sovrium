@@ -1,0 +1,34 @@
+name: timeline
+path: /timeline
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Timeline
+  description: Projects as Gantt-style bars from start to end date
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Timeline
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Each project drawn from its start date to its end date.
+
+      - type: data-timeline
+        dataSource:
+          table: projects
+        props:
+          startField: start_date
+          endField: end_date
+          labelField: name
+          defaultZoom: month

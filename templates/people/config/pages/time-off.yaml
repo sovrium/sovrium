@@ -1,0 +1,64 @@
+name: time-off
+path: /time-off
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Time off
+  description: Who's away, on a month view
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Time off
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Approved and pending absences across the team.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Request time off
+          - type: text
+            element: p
+            props:
+              className: text-xs mb-4
+            content: New requests start Pending. An approval automation emails the admins — the request flips to Approved the moment one of them signs off.
+          - type: form
+            dataSource:
+              table: time_off_requests
+            fields:
+              - field: employee
+              - field: type
+              - field: start_date
+              - field: end_date
+              - field: notes
+            action:
+              type: crud
+              operation: create
+              table: time_off_requests
+              onSuccess:
+                navigate: /time-off
+                toast:
+                  message: Request submitted — an admin has been asked to approve it
+                  variant: success
+
+      - type: calendar
+        dataSource:
+          table: time_off_requests
+        dateField: start_date
+        defaultView: month

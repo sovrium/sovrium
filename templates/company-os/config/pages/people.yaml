@@ -1,0 +1,79 @@
+name: people
+path: /people
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: People
+  description: The team and their time off
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: People
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: The team, and who's away. New time-off requests wait for an admin's approval.
+
+      - type: data-table
+        dataSource:
+          table: employees
+          sort:
+            - field: name
+              direction: asc
+        columns:
+          - field: name
+            label: Name
+            sortable: true
+          - field: job_title
+            label: Role
+          - field: department
+            label: Department
+            filterable: true
+          - field: start_date
+            label: Joined
+            format: short-date
+        pagination:
+          pageSize: 10
+        emptyMessage: No employees yet.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mt-8 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Request time off
+          - type: form
+            dataSource:
+              table: time_off_requests
+            fields:
+              - field: employee
+              - field: start_date
+              - field: end_date
+            action:
+              type: crud
+              operation: create
+              table: time_off_requests
+              onSuccess:
+                navigate: /people
+                toast:
+                  message: Request submitted — an admin has been asked to approve it
+                  variant: success
+
+      - type: calendar
+        dataSource:
+          table: time_off_requests
+        dateField: start_date
+        defaultView: month

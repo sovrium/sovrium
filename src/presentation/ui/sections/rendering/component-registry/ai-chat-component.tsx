@@ -6,12 +6,13 @@
  */
 
 
+import { isAiProviderConfigured } from '@/domain/models/env/ai/ai-providers'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
 const DEFAULT_CHAT_HEIGHT_PX = 400
 
-const isAiDisabled = (): boolean => process.env.AI_PROVIDER === ''
+const isAiDisabled = (): boolean => !isAiProviderConfigured(process.env)
 
 interface AiChatProps {
   readonly agent: string | undefined

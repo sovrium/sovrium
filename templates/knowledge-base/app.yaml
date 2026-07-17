@@ -1,0 +1,20 @@
+name: knowledge-base
+version: 1.0.0
+description: >-
+  Internal knowledge base — the markdown pages feature behind sign-in. Company
+  handbook articles live as plain `.md` files in Git; a single contentDir page
+  turns the folder into a private, sidebar-navigated handbook only employees
+  can read.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+pages:
+  # Public landing with the sign-in call to action.
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/sign-in.yaml
+  # The handbook itself — same contentDir mechanics as docs-site, but gated.
+  - $ref: ./config/pages/kb.yaml

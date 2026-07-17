@@ -1,0 +1,62 @@
+# Reusable workspace top-nav — one bar across the whole information system.
+type: container
+element: header
+props:
+  className: border-b
+children:
+  - type: container
+    props:
+      className: max-w-6xl mx-auto px-6 py-3 flex items-center justify-between
+    children:
+      - type: container
+        props:
+          className: flex items-center gap-6
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-base font-semibold
+            content: Company OS
+          - type: container
+            props:
+              className: flex items-center gap-1 text-sm
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Dashboard
+              - type: link
+                props:
+                  href: /sales
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Sales
+              - type: link
+                props:
+                  href: /delivery
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Delivery
+              - type: link
+                props:
+                  href: /support
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Support
+              - type: link
+                props:
+                  href: /people
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: People
+              - type: link
+                props:
+                  href: /assistant
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Assistant
+      - type: button
+        props:
+          className: px-3 py-1.5 rounded-md border text-sm font-medium
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /sign-in

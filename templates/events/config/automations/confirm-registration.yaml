@@ -1,0 +1,22 @@
+# Confirm each registration the moment it lands — whether it came from the
+# public /register form or was added by the team.
+name: confirm-registration
+label: New registration — confirm by email
+description: Email each attendee as soon as their registration is created.
+enabled: true
+trigger:
+  type: record
+  table: registrations
+  events:
+    - create
+actions:
+  - name: emailAttendee
+    type: email
+    operator: send
+    props:
+      to: '{{trigger.data.record.email}}'
+      subject: "You're registered!"
+      body: |
+        <p>Hi {{trigger.data.record.name}},</p>
+        <p>Your registration is confirmed. We'll see you there!</p>
+        <p>Need to cancel? Just reply to this email.</p>

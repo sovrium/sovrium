@@ -22,6 +22,18 @@ export const dropdownMenuFields = {
       description: 'Text displayed on the trigger button. Defaults to "Menu" if omitted.',
     })
   ),
+  popupVariant: Schema.optional(
+    Schema.Literal('default', 'inverted').annotations({
+      description:
+        'Visual tone of the dropdown popup surface. "inverted" renders a dark surface with light text so the menu matches a near-black primary CTA trigger; "default" (or omitted) keeps the light surface.',
+    })
+  ),
+  openOnHover: Schema.optional(
+    Schema.Boolean.annotations({
+      description:
+        'Open the dropdown trigger on pointer hover in addition to click (click still opens/closes; the pointer may travel from the trigger into the open popup without it closing).',
+    })
+  ),
   menuItems: Schema.optional(
     Schema.Array(MenuItemSchema).pipe(
       Schema.minItems(1),

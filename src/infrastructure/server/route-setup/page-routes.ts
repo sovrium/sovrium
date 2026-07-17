@@ -25,6 +25,7 @@ import {
 } from '@/infrastructure/server/language-detection'
 import { isPageCacheDevBypassed, isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import { setupAdminDashboardRoutes } from './admin-dashboard-routes'
+import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
 import { setupMarkdownExportRoutes } from './markdown-export-routes'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
@@ -387,12 +388,15 @@ export function setupTestErrorRoute(
 export function setupPageRoutes(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
   return setupDynamicPageRoutes(
     setupLanguageRoutes(
-      setupMarkdownExportRoutes(
-        setupAdminDashboardRoutes(
-          setupRobotsRoute(
-            setupSitemapRoute(
-              setupRssFeedRoute(
-                setupTestErrorRoute(setupHomepageRoute(honoApp, config), config),
+      setupContentDirIndexRedirectRoutes(
+        setupMarkdownExportRoutes(
+          setupAdminDashboardRoutes(
+            setupRobotsRoute(
+              setupSitemapRoute(
+                setupRssFeedRoute(
+                  setupTestErrorRoute(setupHomepageRoute(honoApp, config), config),
+                  config
+                ),
                 config
               ),
               config

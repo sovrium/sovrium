@@ -1,0 +1,31 @@
+# Recipe 2 — RECORD trigger with two actions. Every new lead (webhook or
+# manual) emails the team AND appends to the activity log. Change `to` to
+# your inbox.
+name: log-new-lead
+label: Record — notify and log each new lead
+description: On every new lead, email the team and append an activity-log entry.
+enabled: true
+trigger:
+  type: record
+  table: leads
+  events:
+    - create
+actions:
+  - name: emailTeam
+    type: email
+    operator: send
+    props:
+      to: team@example.com
+      subject: 'New lead: {{trigger.data.record.name}}'
+      body: |
+        <p><strong>{{trigger.data.record.name}}</strong>
+        ({{trigger.data.record.email}}) just came in via
+        {{trigger.data.record.source}}.</p>
+  - name: appendLog
+    type: record
+    operator: create
+    props:
+      table: activity_log
+      data:
+        event: 'Lead created: {{trigger.data.record.name}}'
+        details: 'Source: {{trigger.data.record.source}} — email {{trigger.data.record.email}}'

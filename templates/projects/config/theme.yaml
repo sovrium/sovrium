@@ -1,0 +1,20 @@
+# Default Sovrium theming.
+#
+# `baseline: extend` inherits Sovrium's built-in v1 design system — the OKLch
+# warm-neutral token ramp (--sv-*) that IS the Sovrium visual identity. We only
+# layer on a brand typeface (Inter) and a small border-radius scale; every color,
+# shadow, and spacing token falls back to the canonical baseline.
+baseline: extend
+
+fonts:
+  sans:
+    family: Inter
+    fallback: system-ui, -apple-system, sans-serif
+    weights: [400, 500, 600, 700]
+    url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+
+borderRadius:
+  sm: 0.25rem
+  md: 0.5rem
+  lg: 0.75rem
+  full: 9999px

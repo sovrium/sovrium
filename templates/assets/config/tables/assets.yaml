@@ -1,0 +1,68 @@
+id: 2
+name: assets
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: barcode
+    type: barcode
+    format: EAN-13
+  - id: 3
+    name: category
+    type: single-select
+    options:
+      - Laptop
+      - Monitor
+      - Phone
+      - Furniture
+      - Vehicle
+      - Other
+  - id: 4
+    name: status
+    type: status
+    options:
+      - value: In use
+        color: '#10B981'
+      - value: In storage
+        color: '#94A3B8'
+      - value: In repair
+        color: '#F59E0B'
+      - value: Retired
+        color: '#EF4444'
+    default: In use
+  - id: 5
+    name: purchase_date
+    type: date
+  - id: 6
+    name: value
+    type: currency
+    currency: EUR
+    precision: 0
+  - id: 7
+    name: photo
+    type: single-attachment
+  - id: 8
+    name: location
+    type: relationship
+    relatedTable: locations
+    relationType: many-to-one
+  - id: 9
+    name: assigned_to
+    type: user
+    allowMultiple: false
+  - id: 10
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

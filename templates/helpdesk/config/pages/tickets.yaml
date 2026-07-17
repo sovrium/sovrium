@@ -1,0 +1,62 @@
+name: tickets
+path: /tickets
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: All tickets
+  description: The full ticket grid — search, sort, and group
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: All tickets
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Everything ever filed — nothing expires, nothing is capped.
+
+      - type: data-table
+        dataSource:
+          table: tickets
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: subject
+            label: Subject
+            sortable: true
+            filterable: true
+          - field: status
+            label: Status
+            sortable: true
+            filterable: true
+          - field: priority
+            label: Priority
+            sortable: true
+            filterable: true
+          - field: category
+            label: Category
+            filterable: true
+          - field: requester_email
+            label: Requester
+          - field: assignee
+            label: Assignee
+          - field: created_at
+            label: Created
+            format: relative-date
+            sortable: true
+        search:
+          enabled: true
+          placeholder: Search tickets...
+        pagination:
+          pageSize: 20
+        emptyMessage: No tickets yet — share the /support form with your customers.

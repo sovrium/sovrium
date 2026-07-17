@@ -7,17 +7,20 @@
 
 import { type ReactElement } from 'react'
 import { buildColorSchemeScript, needsColorSchemeScript } from './ThemeColorScheme'
+import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
 import type { Theme } from '@/domain/models/app/theme'
 
 export function ThemeColorSchemeScript({
   page,
+  components,
   theme,
 }: {
   readonly page: Page
+  readonly components?: Components
   readonly theme: Theme | undefined
 }): ReactElement | undefined {
-  if (!needsColorSchemeScript(page, theme)) return undefined
+  if (!needsColorSchemeScript(page, theme, components)) return undefined
   return (
     <script
       dangerouslySetInnerHTML={{ __html: buildColorSchemeScript(theme?.colorScheme) }}

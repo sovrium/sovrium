@@ -1,0 +1,55 @@
+name: gallery
+path: /gallery
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Gallery
+  description: The register as photo cards
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Gallery
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: The same register, as photo cards — handy on a phone while walking the floor.
+
+      - type: gallery
+        dataSource:
+          table: assets
+          sort:
+            - field: name
+              direction: asc
+        gridColumns:
+          mobile: 1
+          sm: 2
+          md: 3
+          lg: 4
+        galleryCard:
+          coverImage: $record.photo
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-semibold
+              content: $record.name
+            - type: text
+              element: p
+              props:
+                className: text-xs
+              content: $record.category
+            - type: text
+              element: p
+              props:
+                className: text-xs
+              content: $record.status

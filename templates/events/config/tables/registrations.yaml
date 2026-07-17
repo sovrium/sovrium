@@ -1,0 +1,42 @@
+id: 2
+name: registrations
+fields:
+  - id: 1
+    name: event
+    type: relationship
+    relatedTable: events
+    relationType: many-to-one
+    required: true
+  - id: 2
+    name: name
+    type: single-line-text
+    required: true
+  - id: 3
+    name: email
+    type: email
+    required: true
+  - id: 4
+    name: status
+    type: single-select
+    options:
+      - Confirmed
+      - Waitlist
+      - Cancelled
+    default: Confirmed
+  - id: 5
+    name: created_at
+    type: created-at
+
+# Attendee data stays private — only the signed-in team can read it. The
+# public /register form can still create rows (form submissions write through
+# the form's own access rule, not the table read rule).
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

@@ -66,6 +66,35 @@ export function resolveTranslationPattern(
   return text
 }
 
+export function mapStringsDeep(value: unknown, transform: (str: string) => string): unknown {
+  if (typeof value === 'string') {
+    return transform(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => mapStringsDeep(item, transform))
+  }
+
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, val]) => [key, mapStringsDeep(val, transform)])
+    )
+  }
+
+  return value
+}
+
+export function resolveTranslationTokensDeep(
+  value: unknown,
+  currentLang: string | undefined,
+  languages?: Languages
+): unknown {
+  if (!languages?.translations || !currentLang) {
+    return value
+  }
+  return mapStringsDeep(value, (str) => resolveTranslationPattern(str, currentLang, languages))
+}
+
 export function collectTranslationsForKey(
   key: string,
   languages?: Languages

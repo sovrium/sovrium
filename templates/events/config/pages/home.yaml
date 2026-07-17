@@ -1,0 +1,63 @@
+name: home
+path: /
+meta:
+  title: Upcoming events
+  description: See what's on and grab your spot
+components:
+  - type: container
+    element: section
+    props:
+      className: py-16 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-4xl mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-4xl font-bold mb-4 text-center
+            content: Upcoming events
+          - type: text
+            element: p
+            props:
+              className: text-lg mb-8 text-center
+            content: Pick an event and register in under a minute.
+          - type: container
+            props:
+              className: flex gap-4 justify-center mb-10
+            children:
+              - type: link
+                props:
+                  href: /register
+                  className: inline-block px-6 py-3 rounded-lg font-medium border
+                content: Register now
+              - type: link
+                props:
+                  href: /sign-in
+                  className: inline-block px-6 py-3 rounded-lg font-medium
+                content: Organizer sign-in
+
+          - type: data-table
+            dataSource:
+              table: events
+              filter:
+                - field: status
+                  operator: eq
+                  value: Open
+              sort:
+                - field: event_date
+                  direction: asc
+            columns:
+              - field: name
+                label: Event
+              - field: event_date
+                label: Date
+                format: short-date
+              - field: location
+                label: Location
+              - field: capacity
+                label: Capacity
+            pagination:
+              pageSize: 10
+            emptyMessage: Nothing scheduled right now — check back soon.

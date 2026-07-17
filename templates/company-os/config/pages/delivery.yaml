@@ -1,0 +1,97 @@
+name: delivery
+path: /delivery
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Delivery
+  description: Projects and their tasks — including the ones sales just won
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Delivery
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Every project, including the ones the won-deal automation just opened.
+
+      - type: data-table
+        dataSource:
+          table: projects
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: name
+            label: Project
+            sortable: true
+          - field: client
+            label: Client
+          - field: status
+            label: Status
+            sortable: true
+            filterable: true
+          - field: owner
+            label: Owner
+          - field: start_date
+            label: Start
+            format: short-date
+          - field: end_date
+            label: End
+            format: short-date
+        pagination:
+          pageSize: 10
+        emptyMessage: No projects yet — win a deal on the Sales board, or add one below.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mt-8 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a task
+          - type: form
+            dataSource:
+              table: project_tasks
+            fields:
+              - field: title
+              - field: project
+              - field: status
+              - field: due_date
+            action:
+              type: crud
+              operation: create
+              table: project_tasks
+              onSuccess:
+                navigate: /delivery
+                toast:
+                  message: Task created
+                  variant: success
+
+      - type: kanban
+        dataSource:
+          table: project_tasks
+        kanbanGroupBy:
+          field: status
+        emptyColumnMessage: Nothing here.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-medium
+              content: $record.title
+          footer:
+            - field: due_date
+              format: relative-date

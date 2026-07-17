@@ -1,0 +1,35 @@
+# HR approval flow: a new request pauses this run until an admin approves —
+# then the record.update stamps the outcome. On reject or timeout, the run
+# terminates and the request stays Pending.
+name: approve-time-off
+label: Time off — request approval
+description: Ask an admin to approve each new time-off request, then stamp the outcome.
+enabled: true
+trigger:
+  type: record
+  table: time_off_requests
+  events:
+    - create
+actions:
+  - name: askAdmins
+    type: approval
+    operator: request
+    props:
+      approvers: all-admins
+      message: >-
+        Time-off request from {{trigger.data.record.start_date}} to
+        {{trigger.data.record.end_date}}. Approve?
+      timeout: 7d
+      onTimeout: reject
+  - name: markApproved
+    type: record
+    operator: update
+    props:
+      table: time_off_requests
+      filter:
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+      data:
+        status: Approved

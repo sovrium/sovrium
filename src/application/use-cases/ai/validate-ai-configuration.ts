@@ -23,22 +23,13 @@ import {
 } from '@/domain/models/env/ai/ai-providers'
 import type { App } from '@/domain/models/app'
 
-const hasAgents = (app: Readonly<App>): boolean => (app.agents?.length ?? 0) > 0
-
-const checkProviderConsistency = (
-  app: Readonly<App>,
-  provider: string | undefined
-): string | undefined => {
+const checkProviderConsistency = (provider: string | undefined): string | undefined => {
   const supportedList = SUPPORTED_AI_PROVIDERS.join(', ')
 
   if (provider !== undefined && provider !== '' && !isSupportedAiProvider(provider)) {
     return `Unknown AI_PROVIDER "${provider}". Supported providers: ${supportedList}.`
   }
 
-  const aiDisabled = provider === undefined || provider === ''
-  if (aiDisabled && hasAgents(app)) {
-    return `AI agents require the AI_PROVIDER environment variable to be set. Set AI_PROVIDER to one of: ${supportedList}.`
-  }
   return undefined
 }
 
@@ -113,7 +104,7 @@ export const validateAiConfiguration = (
 ): Effect.Effect<void, AppValidationError> => {
   const provider = processEnv['AI_PROVIDER']?.trim()
   const message =
-    checkProviderConsistency(app, provider) ??
+    checkProviderConsistency(provider) ??
     checkApiKeyPresence(provider, processEnv) ??
     checkBaseUrlPresence(provider, processEnv) ??
     checkModelPresence(provider, processEnv) ??

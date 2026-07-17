@@ -15,6 +15,7 @@ import { validateAllAiAccessRules } from './ai-access-validation'
 import { BuiltInAnalyticsSchema } from './analytics'
 import { AuthSchema } from './auth'
 import { type Action, AutomationsSchema } from './automations'
+import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
 import { ComponentsSchema } from './components'
 import { ConnectionsSchema } from './connections'
@@ -42,6 +43,8 @@ export const AppSchema = Schema.Struct({
   version: Schema.optional(VersionSchema),
 
   description: Schema.optional(DescriptionSchema),
+
+  badge: Schema.optional(BadgeSchema),
 
   tables: Schema.optional(TablesSchema),
 

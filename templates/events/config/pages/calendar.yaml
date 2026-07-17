@@ -1,0 +1,59 @@
+name: calendar
+path: /calendar
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Calendar
+  description: The event schedule on a month view
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Calendar
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Every event on the schedule, drafts included.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: New event
+          - type: form
+            dataSource:
+              table: events
+            fields:
+              - field: name
+              - field: event_date
+              - field: location
+              - field: capacity
+              - field: status
+            action:
+              type: crud
+              operation: create
+              table: events
+              onSuccess:
+                navigate: /calendar
+                toast:
+                  message: Event created
+                  variant: success
+
+      - type: calendar
+        dataSource:
+          table: events
+        dateField: event_date
+        defaultView: month

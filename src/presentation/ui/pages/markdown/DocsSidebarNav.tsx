@@ -7,16 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
-import {
-  type TabId,
-  TAB_ORDER,
-  TAB_LABELS,
-  TABS_SCRIPT_HTML,
-  TABS_STYLE_HTML,
-  deriveLang,
-  sectionHasTab,
-  tabOfSection,
-} from './DocsSidebarTabs'
+import { type TabId, TAB_ORDER, sectionHasTab, tabOfSection } from './DocsSidebarTabs'
 import type {
   CollectionNavData,
   CollectionNavEntry,
@@ -156,90 +147,44 @@ const renderGroup = (
 }
 
 const NAV_WRAPPER_CLASS =
-  'border-border sticky top-16 hidden h-[calc(100dvh-4rem)] w-60 shrink-0 self-start overflow-y-auto border-r py-8 pr-4 text-sm lg:block'
+  'border-border sticky top-[6.5rem] hidden h-[calc(100dvh-6.5rem)] w-60 shrink-0 self-start overflow-y-auto border-r py-8 pr-4 text-sm lg:block'
 
-const TAB_BTN_CLASS =
-  'text-foreground-muted hover:text-foreground cursor-pointer bg-transparent px-2 py-1.5 text-xs font-medium transition-colors duration-150'
-
-const renderTabButton = (
-  tab: TabId,
-  activeTab: TabId,
-  lang: 'en' | 'fr'
-): Readonly<ReactElement> => (
-  <button
-    key={tab}
-    type="button"
-    role="tab"
-    id={`docs-tab-${tab}`}
-    data-docs-tab-btn={tab}
-    aria-selected={tab === activeTab ? 'true' : 'false'}
-    aria-controls={`docs-tabpanel-${tab}`}
-    tabIndex={tab === activeTab ? 0 : -1}
-    className={TAB_BTN_CLASS}
-  >
-    {TAB_LABELS[lang][tab]}
-  </button>
-)
-
-const renderTabPanel = (
-  tab: TabId,
-  tabGroups: readonly NavGroup[],
-  activeTab: TabId
-): Readonly<ReactElement> => (
-  <div
-    key={tab}
-    role="tabpanel"
-    id={`docs-tabpanel-${tab}`}
-    data-docs-tab-panel={tab}
-    aria-labelledby={`docs-tab-${tab}`}
-    hidden={tab === activeTab ? undefined : true}
-  >
-    {tabGroups.map((group, index) => renderGroup(group, index, false))}
-  </div>
-)
-
-const renderTabbedNav = (
-  groups: readonly NavGroup[],
-  lang: 'en' | 'fr'
-): Readonly<ReactElement> => {
-  const groupsByTab: Readonly<Record<TabId, readonly NavGroup[]>> = {
-    'data-logic': groups.filter((group) => tabOfSection(group.name) === 'data-logic'),
-    platform: groups.filter((group) => tabOfSection(group.name) === 'platform'),
-    operations: groups.filter((group) => tabOfSection(group.name) === 'operations'),
-  }
-  const visibleTabs = TAB_ORDER.filter((tab) => groupsByTab[tab].length > 0)
-  const activeTab =
-    TAB_ORDER.find((tab) => groupsByTab[tab].some(groupIsActive)) ?? visibleTabs[0] ?? 'data-logic'
-  return (
-    <>
-      <style dangerouslySetInnerHTML={TABS_STYLE_HTML} />
-      <div
-        role="tablist"
-        aria-label="Documentation sections"
-        data-docs-tabs
-        className="border-border mb-5 flex flex-wrap gap-x-4 gap-y-1 border-b px-3"
-      >
-        {visibleTabs.map((tab) => renderTabButton(tab, activeTab, lang))}
-      </div>
-      {visibleTabs.map((tab) => renderTabPanel(tab, groupsByTab[tab], activeTab))}
-      <script dangerouslySetInnerHTML={TABS_SCRIPT_HTML} />
-    </>
-  )
+const resolveActiveZone = (
+  groups: readonly NavGroup[]
+): { readonly zone: TabId; readonly groups: readonly NavGroup[] } => {
+  const groupsFor = (zone: TabId): readonly NavGroup[] =>
+    groups.filter((group) => tabOfSection(group.name) === zone)
+  const zone =
+    TAB_ORDER.find((z) => groupsFor(z).some(groupIsActive)) ??
+    TAB_ORDER.find((z) => groupsFor(z).length > 0) ??
+    'runtime'
+  return { zone, groups: groupsFor(zone) }
 }
 
 export function DocsSidebarNav({ nav }: DocsSidebarNavProps): Readonly<ReactElement> {
   const groups = bucketByGroup(nav.sidebar)
   const collapsed = nav.collapsed === true
-  const tabbable = !collapsed && groups.some((group) => sectionHasTab(group.name))
+  const zoned = !collapsed && groups.some((group) => sectionHasTab(group.name))
+  if (!zoned) {
+    return (
+      <nav
+        data-component="docs-sidebar-nav"
+        aria-label="Documentation"
+        className={NAV_WRAPPER_CLASS}
+      >
+        {groups.map((group, index) => renderGroup(group, index, collapsed))}
+      </nav>
+    )
+  }
+  const { zone, groups: zoneGroups } = resolveActiveZone(groups)
   return (
     <nav
       data-component="docs-sidebar-nav"
+      data-docs-active-zone={zone}
       aria-label="Documentation"
       className={NAV_WRAPPER_CLASS}
     >
-      {tabbable
-        ? renderTabbedNav(groups, deriveLang(nav.sidebar))
-        : groups.map((group, index) => renderGroup(group, index, collapsed))}
+      {zoneGroups.map((group, index) => renderGroup(group, index, false))}
     </nav>
   )
 }

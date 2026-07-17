@@ -1,0 +1,29 @@
+name: sign-in
+path: /sign-in
+meta:
+  title: Sign In
+  description: Sign in to the content calendar
+components:
+  - type: container
+    element: section
+    props:
+      className: py-12 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-md mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-3xl font-bold mb-6 text-center
+            content: Sign In
+          - type: form
+            props:
+              id: sign-in-form
+            action:
+              type: auth
+              method: login
+              strategy: email
+              onSuccess:
+                navigate: /

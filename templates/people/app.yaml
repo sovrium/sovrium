@@ -1,0 +1,26 @@
+name: people
+version: 1.0.0
+description: >-
+  HR workspace — an employee directory with field-level salary protection, a
+  time-off calendar, and a request flow where an approval automation pauses
+  until an admin signs off.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/employees.yaml
+  - $ref: ./config/tables/time_off_requests.yaml
+
+pages:
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/directory.yaml
+  - $ref: ./config/pages/time-off.yaml
+  - $ref: ./config/pages/requests.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/approve-time-off.yaml

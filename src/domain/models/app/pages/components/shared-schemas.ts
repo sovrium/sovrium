@@ -90,8 +90,32 @@ export const MenuItemSchema = Schema.Struct({
   description: 'A single item in a dropdown menu, context menu, or menubar',
 })
 
+export const BadgeVariantSchema = Schema.Literal(
+  'default',
+  'secondary',
+  'destructive',
+  'outline'
+).annotations({
+  title: 'Badge Variant',
+  description: 'Visual style variant for badge components',
+})
 
-export const NavItemSchema = Schema.Struct({
+
+export interface NavItem {
+  readonly label: string
+  readonly href?: string
+  readonly description?: string
+  readonly icon?: string
+  readonly target?: '_self' | '_blank' | '_parent' | '_top'
+  readonly rel?: string
+  readonly badge?: {
+    readonly text: string
+    readonly variant?: BadgeVariant
+  }
+  readonly children?: readonly NavItem[]
+}
+
+export const NavItemSchema: Schema.Schema<NavItem> = Schema.Struct({
   label: Schema.String.annotations({
     description: 'Display text for the navigation item',
   }),
@@ -120,18 +144,33 @@ export const NavItemSchema = Schema.Struct({
       description: 'Anchor rel attribute, commonly "noopener noreferrer" with target=_blank',
     })
   ),
+  badge: Schema.optional(
+    Schema.Struct({
+      text: Schema.String.annotations({
+        description: 'Short pill text rendered next to the item label (e.g. "New", "Beta")',
+      }),
+      variant: Schema.optional(BadgeVariantSchema),
+    }).annotations({
+      title: 'Nav Item Badge',
+      description:
+        'Optional pill rendered next to the navigation item label, reusing the badge variant tones',
+    })
+  ),
   children: Schema.optional(
-    Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown })).pipe(
+    Schema.Array(Schema.suspend((): Schema.Schema<NavItem> => NavItemSchema)).pipe(
       Schema.minItems(1),
       Schema.annotations({
         description: 'Child navigation items forming a sub-menu or mega-menu',
       })
     )
   ),
-}).annotations({
-  title: 'Nav Item',
-  description: 'A single item in a navigation menu or breadcrumb trail',
-})
+}).pipe(
+  Schema.annotations({
+    identifier: 'NavItem',
+    title: 'Nav Item',
+    description: 'A single item in a navigation menu or breadcrumb trail',
+  })
+)
 
 
 export const BreadcrumbItemSchema = Schema.Struct({
@@ -205,16 +244,6 @@ export const ButtonVariantSchema = Schema.Literal(
   description: 'Visual style variant for button components',
 })
 
-export const BadgeVariantSchema = Schema.Literal(
-  'default',
-  'secondary',
-  'destructive',
-  'outline'
-).annotations({
-  title: 'Badge Variant',
-  description: 'Visual style variant for badge components',
-})
-
 export const AlertVariantSchema = Schema.Literal(
   'default',
   'destructive',
@@ -268,7 +297,6 @@ export type AggregateFunction = Schema.Schema.Type<typeof AggregateFunctionSchem
 export type ComponentSize = Schema.Schema.Type<typeof ComponentSizeSchema>
 export type OptionItem = Schema.Schema.Type<typeof OptionItemSchema>
 export type MenuItem = Schema.Schema.Type<typeof MenuItemSchema>
-export type NavItem = Schema.Schema.Type<typeof NavItemSchema>
 export type BreadcrumbItem = Schema.Schema.Type<typeof BreadcrumbItemSchema>
 export type CommandItem = Schema.Schema.Type<typeof CommandItemSchema>
 export type CommandGroup = Schema.Schema.Type<typeof CommandGroupSchema>

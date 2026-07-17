@@ -1,0 +1,6 @@
+# Email + password auth for the operators who watch the activity feed.
+allowSignUp: true
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

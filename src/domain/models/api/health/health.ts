@@ -118,13 +118,25 @@ const aiComputeHealth = (providerConfigured: boolean): Readonly<AiComputeHealth>
   refinement: providerConfigured ? 'on' : 'off',
 })
 
+const inertAgentWarnings = (agentCount: number): ReadonlyArray<string> =>
+  agentCount > 0
+    ? [
+        'AI_PROVIDER is not set — AI agents are inert (declared but not runnable). Set AI_PROVIDER to a supported provider to enable them.',
+      ]
+    : []
+
 export const buildAiHealthStatus = (
   processEnv: Readonly<Record<string, string | undefined>>,
   agents: ReadonlyArray<AgentModelOverride> = []
 ): Readonly<AiHealthStatus> => {
   const rawProvider = processEnv['AI_PROVIDER']?.trim()
   if (rawProvider === undefined || rawProvider === '' || !isSupportedAiProvider(rawProvider)) {
-    return { status: 'not_configured', compute: aiComputeHealth(false) }
+    const warnings = inertAgentWarnings(agents.length)
+    return {
+      status: 'not_configured',
+      compute: aiComputeHealth(false),
+      ...(warnings.length > 0 ? { warnings: [...warnings] } : {}),
+    }
   }
   return buildConfiguredAiHealthStatus(rawProvider, processEnv, agents)
 }

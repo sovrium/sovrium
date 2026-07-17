@@ -1,0 +1,35 @@
+# The cross-domain showcase: sales and delivery live in the SAME config, so a
+# won deal can spawn its delivery project directly — no Zapier, no webhook
+# glue, no per-integration fee. The new project inherits the deal's client.
+name: create-project-on-won-deal
+label: Deal won — open the delivery project
+description: When a deal reaches Won, create a Planned project for the same client.
+enabled: true
+trigger:
+  type: record
+  table: deals
+  events:
+    - update
+  watchFields:
+    - stage
+actions:
+  - name: onlyWhenWon
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.stage}}'
+            operator: equals
+            value: Won
+      onFalse: stop
+  - name: openProject
+    type: record
+    operator: create
+    props:
+      table: projects
+      data:
+        name: 'Deliver: {{trigger.data.record.name}}'
+        client: '{{trigger.data.record.company}}'
+        status: Planned

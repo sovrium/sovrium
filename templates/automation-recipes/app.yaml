@@ -1,0 +1,31 @@
+# The Zapier-replacement showcase. Four small recipes cover the trigger
+# families — webhook, record, cron, and automation-failure — chained through
+# two tables. Every run is stored in YOUR database with infinite history
+# (Zapier caps history by plan), no per-task pricing, and full data control.
+name: automation-recipes
+version: 1.0.0
+description: >-
+  Automation recipes — a webhook captures leads, a record trigger notifies and
+  logs, a cron sends the daily digest, and a failure trigger alerts the
+  operator. Infinite run history in your own database.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/leads.yaml
+  - $ref: ./config/tables/activity_log.yaml
+
+pages:
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/activity.yaml
+
+automations:
+  - $ref: ./config/automations/capture-lead-from-webhook.yaml
+  - $ref: ./config/automations/log-new-lead.yaml
+  - $ref: ./config/automations/daily-digest.yaml
+  - $ref: ./config/automations/alert-on-failure.yaml

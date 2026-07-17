@@ -1,0 +1,9 @@
+# Email + password auth. First registered user becomes admin (Better Auth
+# firstUserAdmin); subsequent sign-ups get the default `member` role. HR data
+# is then protected in layers: table permissions, field-level permissions on
+# salary, and the approval automation for time off.
+allowSignUp: true
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

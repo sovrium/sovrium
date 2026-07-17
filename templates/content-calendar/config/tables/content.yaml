@@ -1,0 +1,74 @@
+id: 2
+name: content
+fields:
+  - id: 1
+    name: title
+    type: single-line-text
+    required: true
+  - id: 2
+    name: content_type
+    type: single-select
+    options:
+      - Blog post
+      - Social post
+      - Newsletter
+      - Video
+      - Podcast
+  - id: 3
+    name: channels
+    type: multi-select
+    options:
+      - Website
+      - LinkedIn
+      - X
+      - Instagram
+      - YouTube
+      - Email
+  - id: 4
+    name: status
+    type: status
+    options:
+      - value: Idea
+        color: '#94A3B8'
+      - value: Draft
+        color: '#3B82F6'
+      - value: Review
+        color: '#A855F7'
+      - value: Scheduled
+        color: '#F59E0B'
+      - value: Published
+        color: '#10B981'
+    default: Idea
+  - id: 5
+    name: publish_date
+    type: date
+  - id: 6
+    name: owner
+    type: user
+    allowMultiple: false
+  - id: 7
+    name: campaign
+    type: relationship
+    relatedTable: campaigns
+    relationType: many-to-one
+  - id: 8
+    name: brief
+    type: rich-text
+  - id: 9
+    name: assets
+    type: multiple-attachments
+    maxFiles: 10
+  - id: 10
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

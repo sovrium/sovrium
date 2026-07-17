@@ -1,0 +1,70 @@
+name: sales
+path: /sales
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Sales
+  description: The pipeline kanban — winning a deal opens its delivery project
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Sales
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Drag a deal to Won and watch Delivery — the automation opens its project for the same client.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a deal
+          - type: form
+            dataSource:
+              table: deals
+            fields:
+              - field: name
+              - field: company
+              - field: stage
+              - field: value
+              - field: close_date
+            action:
+              type: crud
+              operation: create
+              table: deals
+              onSuccess:
+                navigate: /sales
+                toast:
+                  message: Deal created
+                  variant: success
+
+      - type: kanban
+        dataSource:
+          table: deals
+        kanbanGroupBy:
+          field: stage
+        emptyColumnMessage: No deals at this stage.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-medium
+              content: $record.name
+          footer:
+            - field: close_date
+              format: relative-date

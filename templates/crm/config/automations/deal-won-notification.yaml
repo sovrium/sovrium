@@ -1,0 +1,36 @@
+# When a deal moves to Won, celebrate by email. The filter step gates on the
+# new stage value, so drags on the kanban and edits in the grid both qualify.
+# Change `to` to your sales inbox (any address your SMTP config can deliver to).
+name: deal-won-notification
+label: Deal won — notify the team
+description: Email the sales inbox whenever a deal reaches the Won stage.
+enabled: true
+trigger:
+  type: record
+  table: deals
+  events:
+    - update
+  watchFields:
+    - stage
+actions:
+  - name: onlyWhenWon
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.stage}}'
+            operator: equals
+            value: Won
+      onFalse: stop
+  - name: emailTeam
+    type: email
+    operator: send
+    props:
+      to: sales@example.com
+      subject: 'Deal won: {{trigger.data.record.name}}'
+      body: |
+        <p><strong>{{trigger.data.record.name}}</strong> just closed as Won.</p>
+        <p>Value: {{trigger.data.record.value}}</p>
+        <p>Open the pipeline to see what's next.</p>

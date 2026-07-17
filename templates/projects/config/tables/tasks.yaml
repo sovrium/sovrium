@@ -1,0 +1,57 @@
+id: 2
+name: tasks
+fields:
+  - id: 1
+    name: title
+    type: single-line-text
+    required: true
+  - id: 2
+    name: project
+    type: relationship
+    relatedTable: projects
+    relationType: many-to-one
+  - id: 3
+    name: status
+    type: status
+    options:
+      - value: To do
+        color: '#94A3B8'
+      - value: In progress
+        color: '#3B82F6'
+      - value: Blocked
+        color: '#EF4444'
+      - value: Done
+        color: '#10B981'
+    default: To do
+  - id: 4
+    name: priority
+    type: single-select
+    options:
+      - Low
+      - Medium
+      - High
+  - id: 5
+    name: assignee
+    type: user
+    allowMultiple: false
+  - id: 6
+    name: due_date
+    type: date
+  - id: 7
+    name: estimate
+    type: duration
+    displayFormat: 'h:mm'
+  - id: 8
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

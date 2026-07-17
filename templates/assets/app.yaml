@@ -1,0 +1,26 @@
+name: assets
+version: 1.0.0
+description: >-
+  Asset tracker — laptops, monitors, vehicles, and everything else the company
+  owns: barcoded, photographed, valued, assigned to a person, and grouped by
+  location. A quarterly cron nudges the team to run an inventory check.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/locations.yaml
+  - $ref: ./config/tables/assets.yaml
+
+pages:
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/inventory.yaml
+  - $ref: ./config/pages/gallery.yaml
+  - $ref: ./config/pages/board.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/quarterly-inventory-check.yaml

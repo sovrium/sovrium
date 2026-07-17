@@ -1,0 +1,36 @@
+name: kb
+# Empty component tree — this page renders each markdown file (via `markdown`
+# + `contentDir` below), not a hand-built component layout.
+components: []
+# `:path*` captures nested slugs, so content/kb/policies/expenses.md would be
+# served at /kb/policies/expenses (slugFrom: filepath preserves structure).
+path: /kb/:path*
+# The whole handbook is private — unauthenticated readers are sent to sign in.
+access:
+  require: authenticated
+  redirectTo: /sign-in
+
+# Same mechanics as the public docs-site template, but behind auth: scan a
+# directory of markdown files and generate one route per file.
+contentDir:
+  directory: content/kb
+  slugFrom: filepath
+  filter:
+    draft: false
+  sort:
+    field: order
+    direction: asc
+  nav:
+    enabled: true
+    groupBy: category
+    labelFrom: title
+
+markdown:
+  layout: docs
+  toc:
+    maxDepth: 3
+    position: sidebar
+
+meta:
+  title: Company handbook
+  description: Internal knowledge base — onboarding, IT, and policies.

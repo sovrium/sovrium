@@ -6,9 +6,61 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import { resolveTranslationTokensDeep } from '@/domain/utils/translation-resolver'
+import { NavChevronDown, NavItemBadge } from '@/presentation/utils/recipes/nav-menu-parts'
+import {
+  computeNavMenuTriggerClasses,
+  type BadgeVariant,
+} from '@/presentation/utils/recipes/navbar-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
+
+type SsrNavBadge = { readonly text: string; readonly variant?: BadgeVariant }
+
+type SsrNavItem = {
+  readonly label: string
+  readonly href?: string
+  readonly target?: '_self' | '_blank' | '_parent' | '_top'
+  readonly rel?: string
+  readonly badge?: SsrNavBadge
+  readonly children?: readonly unknown[]
+}
+
+function renderSsrNavItem(
+  item: SsrNavItem,
+  index: number,
+  triggerClassName?: string
+): ReactElement {
+  const badge = item.badge ? (
+    <NavItemBadge
+      text={item.badge.text}
+      variant={item.badge.variant}
+    />
+  ) : undefined
+  return item.children && item.children.length > 0 ? (
+    <button
+      key={index}
+      type="button"
+      className={computeNavMenuTriggerClasses(triggerClassName)}
+    >
+      {item.label}
+      {badge}
+      <NavChevronDown />
+    </button>
+  ) : (
+    <a
+      key={index}
+      href={item.href}
+      target={item.target}
+      rel={item.rel}
+      className={computeNavMenuTriggerClasses(triggerClassName)}
+    >
+      {item.label}
+      {badge}
+    </a>
+  )
+}
 
 type RawProps = Record<string, unknown> | undefined
 type ElemProps = Record<string, unknown>
@@ -376,19 +428,31 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
     )
   },
 
-  'navigation-menu': ({ rawProps, elementProps, renderedChildren, component }) => {
-    const navItems =
-      (component?.type === 'navigation-menu' && Array.isArray(component.navItems)
-        ? (component.navItems as readonly { label: string; href?: string }[])
-        : undefined) ??
-      (rawProps?.navItems as readonly { label: string; href?: string }[] | undefined)
-    const props = { navItems, ...baseProps(elementProps) }
+  'navigation-menu': ({
+    rawProps,
+    elementProps,
+    renderedChildren,
+    component,
+    languages,
+    currentLang,
+  }) => {
+    const navMenuComp = component?.type === 'navigation-menu' ? component : undefined
+    const rawNavItems =
+      (navMenuComp && Array.isArray(navMenuComp.navItems)
+        ? (navMenuComp.navItems as readonly SsrNavItem[])
+        : undefined) ?? (rawProps?.navItems as readonly SsrNavItem[] | undefined)
+    const openOnHover = navMenuComp?.openOnHover
+    const triggerClassName = navMenuComp?.triggerClassName
+    const navItems = resolveTranslationTokensDeep(rawNavItems, currentLang, languages) as
+      readonly SsrNavItem[] | undefined
+    const props = { navItems, openOnHover, triggerClassName, ...baseProps(elementProps) }
     const userClassName = elementProps['className'] as string | undefined
     const navClassName = userClassName
       ? `flex items-center gap-1 ${userClassName}`
       : 'flex items-center gap-1'
+    const Wrapper = navItems !== undefined ? 'div' : 'nav'
     return (
-      <nav
+      <Wrapper
         data-island="navigation-menu"
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
@@ -398,28 +462,11 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         {renderedChildren.length > 0 ? (
           renderedChildren
         ) : navItems && navItems.length > 0 ? (
-          navItems.map((item, index) => {
-            const navItem = item as {
-              readonly label: string
-              readonly href?: string
-              readonly target?: '_self' | '_blank' | '_parent' | '_top'
-              readonly rel?: string
-            }
-            return (
-              <a
-                key={index}
-                href={navItem.href}
-                target={navItem.target}
-                rel={navItem.rel}
-              >
-                {navItem.label}
-              </a>
-            )
-          })
+          navItems.map((item, index) => renderSsrNavItem(item, index, triggerClassName))
         ) : (
           <div className="bg-background-subtle h-8 w-60 animate-pulse rounded" />
         )}
-      </nav>
+      </Wrapper>
     )
   },
 

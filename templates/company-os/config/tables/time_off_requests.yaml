@@ -1,0 +1,41 @@
+id: 8
+name: time_off_requests
+fields:
+  - id: 1
+    name: employee
+    type: relationship
+    relatedTable: employees
+    relationType: many-to-one
+    required: true
+  - id: 2
+    name: start_date
+    type: date
+    required: true
+  - id: 3
+    name: end_date
+    type: date
+    required: true
+  - id: 4
+    name: status
+    type: status
+    options:
+      - value: Pending
+        color: '#F59E0B'
+      - value: Approved
+        color: '#10B981'
+      - value: Rejected
+        color: '#EF4444'
+    default: Pending
+  - id: 5
+    name: created_at
+    type: created-at
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+  delete:
+    - admin

@@ -1,0 +1,39 @@
+{
+  "name": "Sovrium Docs Site",
+  "description": "A docs website from markdown — a Docusaurus alternative.",
+  "repository": "https://github.com/sovrium/docs-site",
+  "logo": "https://sovrium.com/logo.png",
+  "website": "https://sovrium.com/apps/docs-site",
+  "env": {
+    "BUILDPACK_URL": {
+      "description": "Sovrium buildpack — downloads the released, checksum-verified sovrium binary and boots the app config (Scalingo does not build Dockerfiles).",
+      "value": "https://github.com/sovrium/scalingo-buildpack",
+      "required": true
+    },
+    "AUTH_SECRET": {
+      "description": "Secret used to sign and encrypt auth sessions. Generated automatically at deploy.",
+      "generator": "secret",
+      "required": true
+    },
+    "SOVRIUM_ENCRYPTION_KEY": {
+      "description": "Master key for encrypting stored secrets/tokens. The app refuses to boot without it. Generated automatically at deploy.",
+      "generator": "secret",
+      "required": true
+    },
+    "BASE_URL": {
+      "description": "Public URL of this app (e.g. https://my-docs-site.osc-fr1.scalingo.io). Used for auth callbacks and absolute links.",
+      "required": true
+    }
+  },
+  "addons": [
+    {
+      "plan": "postgresql:postgresql-sandbox"
+    }
+  ],
+  "formation": {
+    "web": {
+      "amount": 1,
+      "size": "S"
+    }
+  }
+}

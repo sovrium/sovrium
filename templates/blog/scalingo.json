@@ -1,0 +1,72 @@
+{
+  "name": "Sovrium Blog",
+  "description": "A self-hostable blog CMS — a WordPress alternative.",
+  "repository": "https://github.com/sovrium/blog",
+  "logo": "https://sovrium.com/logo.png",
+  "website": "https://sovrium.com/apps/blog",
+  "env": {
+    "BUILDPACK_URL": {
+      "description": "Sovrium buildpack — downloads the released, checksum-verified sovrium binary and boots the app config (Scalingo does not build Dockerfiles).",
+      "value": "https://github.com/sovrium/scalingo-buildpack",
+      "required": true
+    },
+    "AUTH_SECRET": {
+      "description": "Secret used to sign and encrypt auth sessions. Generated automatically at deploy.",
+      "generator": "secret",
+      "required": true
+    },
+    "SOVRIUM_ENCRYPTION_KEY": {
+      "description": "Master key for encrypting stored secrets/tokens. The app refuses to boot without it. Generated automatically at deploy.",
+      "generator": "secret",
+      "required": true
+    },
+    "BASE_URL": {
+      "description": "Public URL of this app (e.g. https://my-blog.osc-fr1.scalingo.io). Used for auth callbacks and absolute links.",
+      "required": true
+    },
+    "AUTH_ADMIN_EMAIL": {
+      "description": "Bootstrap the first admin account on first start (optional — you can also run `sovrium admin create <email>` later).",
+      "required": false
+    },
+    "AUTH_ADMIN_PASSWORD": {
+      "description": "Password for the bootstrap admin account (used with AUTH_ADMIN_EMAIL).",
+      "required": false
+    },
+    "AI_PROVIDER": {
+      "description": "AI provider for the built-in assistant (openai | anthropic | mistral | google | ollama). Leave empty to run without the assistant.",
+      "required": false
+    },
+    "AI_API_KEY": {
+      "description": "API key for the chosen cloud AI provider (not needed for ollama).",
+      "required": false
+    },
+    "SMTP_HOST": {
+      "description": "SMTP server hostname for outbound email (sign-in links, notifications). Leave empty to run with email disabled.",
+      "required": false
+    },
+    "SMTP_PORT": {
+      "description": "SMTP server port (e.g. 587).",
+      "value": "587",
+      "required": false
+    },
+    "SMTP_USER": {
+      "description": "SMTP username.",
+      "required": false
+    },
+    "SMTP_PASS": {
+      "description": "SMTP password.",
+      "required": false
+    }
+  },
+  "addons": [
+    {
+      "plan": "postgresql:postgresql-sandbox"
+    }
+  ],
+  "formation": {
+    "web": {
+      "amount": 1,
+      "size": "S"
+    }
+  }
+}

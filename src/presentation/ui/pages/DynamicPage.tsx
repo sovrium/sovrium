@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
 import { extractComponentMetaFromSections } from '@/presentation/ui/metadata/extract-component-meta'
 import {
   COMMAND_PALETTE_CAPTURE_SCRIPT,
@@ -13,19 +14,17 @@ import {
 } from '@/presentation/ui/pages/CommandPaletteCapture'
 import { PageBodyScripts } from '@/presentation/ui/pages/PageBodyScripts'
 import { PageHead } from '@/presentation/ui/pages/PageHead'
+import { hasIslandComponents } from '@/presentation/ui/pages/PageIslandDetection'
 import { resolvePageLanguage } from '@/presentation/ui/pages/PageLangResolver'
 import { PageMain } from '@/presentation/ui/pages/PageMain'
 import { extractPageMetadata } from '@/presentation/ui/pages/PageMetadata'
 import { groupScriptsByPosition } from '@/presentation/ui/pages/PageScripts'
 import { PageSidebar } from '@/presentation/ui/pages/PageSidebar'
-import { ISLAND_COMPONENT_TYPES } from '@/presentation/utils/island-component-types'
-import { isListIslandMode } from '@/presentation/utils/list-island-mode'
-import { isRecordFieldSystemMode } from '@/presentation/utils/system-detail-mode'
+import { someComponentInTree } from '@/presentation/utils/component-template-walker'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Components } from '@/domain/models/app/components'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { Theme } from '@/domain/models/app/theme'
 import type { SessionInfo } from '@/domain/types/session-info'
@@ -49,10 +48,12 @@ type DynamicPageProps = {
   readonly resolvedSidebar?: readonly ResolvedSidebarSection[]
   readonly markdownPayload?: ResolvedMarkdownPage
   readonly session?: SessionInfo
+  readonly badgeEnabled?: boolean
 }
 
 type DynamicPageHeadProps = {
   readonly mergedPage: Page
+  readonly components?: Components
   readonly theme?: Theme
   readonly directionStyles: string
   readonly title: string
@@ -65,52 +66,6 @@ type DynamicPageHeadProps = {
   readonly builtInAnalyticsEnabled?: boolean
   readonly builtInAnalyticsSessionTimeout?: number
   readonly contentDirSeo?: ResolvedMarkdownPage['seo']
-}
-
-const ISLAND_ACTION_TYPES = new Set(['auth', 'crud', 'automation'])
-
-function isSingleRecordBoundForm(item: Component): boolean {
-  return (
-    (item.type === 'form' || item.type === 'data-form') &&
-    item.dataSource?.mode === 'single' &&
-    typeof item.dataSource.table === 'string'
-  )
-}
-
-function hasDataIslandProp(item: Component): boolean {
-  const props = (item as Record<string, unknown>).props as Record<string, unknown> | undefined
-  return typeof props?.['data-island'] === 'string'
-}
-
-function itemSelfNeedsIslands(item: Component): boolean {
-  if (ISLAND_COMPONENT_TYPES.has(item.type)) return true
-  if (hasDataIslandProp(item)) return true
-  if (item.dataSource?.mode === 'search') return true
-  if (isListIslandMode(item)) return true
-  if (isRecordFieldSystemMode(item)) return true
-  if (isSingleRecordBoundForm(item)) return true
-  const action = (item as Record<string, unknown>).action as { type?: string } | undefined
-  return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
-}
-
-function itemNeedsIslands(item: Component): boolean {
-  if (itemSelfNeedsIslands(item)) return true
-  const { children } = item as { readonly children?: ReadonlyArray<Component | string> }
-  if (!children || children.length === 0) return false
-  return children.some((child) => {
-    if (typeof child === 'string') return false
-    if ('component' in child || '$ref' in child) return false
-    return itemNeedsIslands(child as Component)
-  })
-}
-
-function hasIslandComponents(page: Page): boolean {
-  if (page.presence === true) return true
-  if (!page.components || page.components.length === 0) return false
-  return page.components.some((item) => {
-    if ('component' in item || '$ref' in item) return false
-    return itemNeedsIslands(item as Component)
-  })
 }
 
 const INTERACTIVE_COMPONENT_TYPES = new Set(['form', 'modal', 'data-table', 'dropdown'])
@@ -130,17 +85,8 @@ function componentSelfIsInteractive(record: Record<string, unknown>): boolean {
   return Boolean(props?.['action'] || props?.['interactions'])
 }
 
-function componentIsInteractive(item: unknown): boolean {
-  if (item === null || typeof item !== 'object') return false
-  const record = item as Record<string, unknown>
-  if (componentSelfIsInteractive(record)) return true
-  const { children } = record
-  return Array.isArray(children) && children.some((child) => componentIsInteractive(child))
-}
-
-function hasInteractiveFeatures(page: Page): boolean {
-  if (!page.components || page.components.length === 0) return false
-  return page.components.some((item) => componentIsInteractive(item))
+function hasInteractiveFeatures(page: Page, components?: Components): boolean {
+  return someComponentInTree(page.components, components, componentSelfIsInteractive)
 }
 
 function mergeComponentMetaIntoPage(page: Page, components?: Components): Page {
@@ -162,6 +108,7 @@ function mergeComponentMetaIntoPage(page: Page, components?: Components): Page {
 
 function DynamicPageHead({
   mergedPage,
+  components,
   theme,
   directionStyles,
   title,
@@ -206,6 +153,7 @@ window.addEventListener("popstate",u);
       )}
       <PageHead
         page={mergedPage}
+        components={components}
         theme={theme}
         directionStyles={directionStyles}
         title={title}
@@ -250,6 +198,7 @@ type DynamicPageBodyProps = {
   readonly resolvedSidebar?: readonly ResolvedSidebarSection[]
   readonly markdownPayload?: ResolvedMarkdownPage
   readonly session?: SessionInfo
+  readonly badgeEnabled?: boolean
 }
 
 const GENERIC_PARAM_NAMES = new Set(['id', 'key', 'uid', 'pk'])
@@ -350,6 +299,7 @@ function DynamicPageBody({
   resolvedSidebar,
   markdownPayload,
   session,
+  badgeEnabled,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
   const dataAttributes = buildDataAttributes(routeParams, page.path)
   const sidebarSections = selectSidebarSections(resolvedSidebar, page)
@@ -391,6 +341,7 @@ function DynamicPageBody({
       />
       {page.presence === true && <PresenceIndicatorMount page={page} />}
       {page.toasts && <PageToastContainer toasts={page.toasts} />}
+      {badgeEnabled === true && <SovriumBadge lang={lang} />}
       <PageBodyScripts
         page={page}
         theme={theme}
@@ -400,13 +351,13 @@ function DynamicPageBody({
         position="end"
         frontmatter={markdownPayload?.frontmatter}
       />
-      {hasInteractiveFeatures(page) && (
+      {hasInteractiveFeatures(page, components) && (
         <script
           src="/assets/client.js"
           defer={true}
         />
       )}
-      {hasIslandComponents(page) && islandEntryFile && (
+      {hasIslandComponents(page, components) && islandEntryFile && (
         <script
           src={`/assets/islands/${islandEntryFile}`}
           type="module"
@@ -432,6 +383,7 @@ export function DynamicPage({
   resolvedSidebar,
   markdownPayload,
   session,
+  badgeEnabled,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, {
     detectedLanguage,
@@ -449,6 +401,7 @@ export function DynamicPage({
     >
       <DynamicPageHead
         mergedPage={pageWithMeta}
+        components={components}
         theme={theme}
         directionStyles={langConfig.directionStyles}
         title={metadata.title}
@@ -479,6 +432,7 @@ export function DynamicPage({
         resolvedSidebar={resolvedSidebar}
         markdownPayload={markdownPayload}
         session={session}
+        badgeEnabled={badgeEnabled}
       />
     </html>
   )

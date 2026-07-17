@@ -1,0 +1,55 @@
+name: registrations
+path: /registrations
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Registrations
+  description: Every attendee, grouped by event
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Registrations
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Everyone who signed up, grouped by event. Each row was confirmed by email automatically.
+
+      - type: data-table
+        dataSource:
+          table: registrations
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: name
+            label: Attendee
+            sortable: true
+          - field: email
+            label: Email
+          - field: event
+            label: Event
+          - field: status
+            label: Status
+            filterable: true
+          - field: created_at
+            label: Registered
+            format: relative-date
+            sortable: true
+        search:
+          enabled: true
+          placeholder: Search attendees...
+        groupBy:
+          field: event
+        pagination:
+          pageSize: 20
+        emptyMessage: No registrations yet — share the /register link.

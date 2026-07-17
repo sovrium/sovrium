@@ -1,0 +1,31 @@
+name: events
+version: 1.0.0
+description: >-
+  Event management — publish a public events page, take registrations through
+  a public form, confirm each attendee by email, and run the schedule from a
+  calendar and a registrations grid.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+tables:
+  - $ref: ./config/tables/events.yaml
+  - $ref: ./config/tables/registrations.yaml
+
+# Standalone public form — mounted at /register, no sign-in required.
+forms:
+  - $ref: ./config/forms/register.yaml
+
+pages:
+  - $ref: ./config/pages/home.yaml
+  - $ref: ./config/pages/thanks.yaml
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/calendar.yaml
+  - $ref: ./config/pages/registrations.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/confirm-registration.yaml

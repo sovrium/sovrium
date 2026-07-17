@@ -7,8 +7,10 @@
 
 
 import { renderToString } from 'react-dom/server'
+import { isBadgeEnabled } from '@/domain/models/app/badge'
 import { resolveLandingPath } from '@/domain/services/pages/landing-resolver'
 import { checkPageAccess, type AccessDecision } from '@/domain/services/pages/page-access-check'
+import { matchContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-match'
 import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import {
@@ -39,6 +41,7 @@ import { applyVisibilityToComponents } from '@/presentation/rendering/visibility
 import { DefaultHomePage } from '@/presentation/ui/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
 import { resolvePageLanguage } from '@/presentation/ui/pages/PageLangResolver'
+import { someComponentInTree } from '@/presentation/utils/component-template-walker'
 import { ISLAND_COMPONENT_TYPES } from '@/presentation/utils/island-component-types'
 import { isListIslandMode } from '@/presentation/utils/list-island-mode'
 import { isRecordFieldSystemMode } from '@/presentation/utils/system-detail-mode'
@@ -307,30 +310,17 @@ function selfNeedsIslands(s: Component): boolean {
   return action?.type !== undefined && ISLAND_ACTION_TYPES.has(action.type)
 }
 
-function componentNeedsIslands(s: Component): boolean {
-  if (selfNeedsIslands(s)) return true
-  const { children } = s as { readonly children?: ReadonlyArray<Component | string> }
-  if (!children || children.length === 0) return false
-  return children.some((child) => {
-    if (typeof child === 'string') return false
-    if ('component' in child || '$ref' in child) return false
-    return componentNeedsIslands(child as Component)
-  })
-}
-
-function pageNeedsIslands(page: Page): boolean {
+function pageNeedsIslands(page: Page, components: App['components']): boolean {
   if (page.presence === true) return true
-  return (page.components ?? []).some((s) => {
-    if ('component' in s || '$ref' in s) return false
-    return componentNeedsIslands(s as Component)
-  })
+  return someComponentInTree(page.components, components, (s) => selfNeedsIslands(s as Component))
 }
 
 async function resolveIslandEntryFile(
   page: Page,
+  components: App['components'],
   islandBuilder?: IslandBuilder
 ): Promise<string | undefined> {
-  const needs = pageNeedsIslands(page)
+  const needs = pageNeedsIslands(page, components)
   if (!needs || !islandBuilder) return undefined
 
   try {
@@ -352,13 +342,28 @@ function toAccessDeniedResult(decision: AccessDecision): PageRenderResult | fals
 function findPageForPath(
   app: App,
   path: string
-): { readonly page: Page; readonly params: Readonly<Record<string, string>> } | undefined {
+):
+  | {
+      readonly page: Page
+      readonly params: Readonly<Record<string, string>>
+      readonly indexBasePathPattern?: string
+    }
+  | undefined {
   if (!app.pages || app.pages.length === 0) return undefined
   const pagePatterns = app.pages.map((p) => p.path)
   const match = findMatchingRoute(pagePatterns, path)
-  if (!match) return undefined
-  const page = app.pages[match.index]
-  return page ? { page, params: match.params } : undefined
+  if (match) {
+    const page = app.pages[match.index]
+    return page ? { page, params: match.params } : undefined
+  }
+  const indexMatch = matchContentDirIndexBasePath(app.pages, path)
+  return indexMatch
+    ? {
+        page: indexMatch.page,
+        params: indexMatch.routeParams,
+        indexBasePathPattern: indexMatch.basePathPattern,
+      }
+    : undefined
 }
 
 async function resolveLandingRedirect(
@@ -407,6 +412,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
   const html = renderToString(
     <DynamicPage
       page={page}
+      badgeEnabled={isBadgeEnabled(app.badge)}
       components={app.components}
       theme={app.theme}
       languages={app.languages}
@@ -608,7 +614,7 @@ export async function renderPageByPath(
   } = options ?? {}
   const found = findPageForPath(app, path)
   if (!found) return undefined
-  const { page: matchedPage, params: routeParams } = found
+  const { page: matchedPage, params: routeParams, indexBasePathPattern } = found
 
   const session = await resolveOverlayedSession(rawSession, db)
 
@@ -640,8 +646,8 @@ export async function renderPageByPath(
 
   const [resolvedSidebar, islandEntryFile, markdownPayload] = await Promise.all([
     resolvePageSidebar(page.layout?.sidebar, app, { session, cookies, db: db ?? noopDb }),
-    resolveIslandEntryFile(page, islandBuilder),
-    resolveMarkdownPage(page, routeParams, app, detectedLanguage),
+    resolveIslandEntryFile(page, app.components, islandBuilder),
+    resolveMarkdownPage(page, routeParams, app, detectedLanguage, indexBasePathPattern),
   ])
   return renderPageHtml({
     app,

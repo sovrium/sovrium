@@ -1,0 +1,22 @@
+# First working morning of each quarter — nudge the team to walk the floor
+# and reconcile the register. Cron expressions are numeric five-field only.
+# Change `to` to your ops alias (any address your SMTP config can deliver to).
+name: quarterly-inventory-check
+label: Cron — quarterly inventory check
+description: Every quarter, email the team a reminder to reconcile physical assets with the register.
+enabled: true
+trigger:
+  type: cron
+  expression: '0 9 1 1,4,7,10 *'
+  timezone: Europe/Paris
+actions:
+  - name: emailTeam
+    type: email
+    operator: send
+    props:
+      to: ops@example.com
+      subject: 'Quarterly inventory check'
+      body: |
+        <p>New quarter — time to reconcile the asset register.</p>
+        <p>Walk the floor with the barcode list, flag anything missing or
+        unassigned, and retire what's gone.</p>

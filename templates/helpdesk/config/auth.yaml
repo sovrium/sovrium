@@ -1,0 +1,8 @@
+# Email + password auth for the support team. First registered user becomes
+# admin (Better Auth firstUserAdmin); later sign-ups get the `member` role.
+# Customers never sign in — they use the public /support form.
+allowSignUp: true
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

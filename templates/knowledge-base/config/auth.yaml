@@ -1,0 +1,8 @@
+# Email + password auth. First registered user becomes admin (Better Auth
+# firstUserAdmin); subsequent sign-ups get the default `member` role. Every
+# authenticated employee can read the handbook.
+allowSignUp: true
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

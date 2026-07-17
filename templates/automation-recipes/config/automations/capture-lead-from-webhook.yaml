@@ -1,0 +1,21 @@
+# Recipe 1 — WEBHOOK trigger. POST {"name": "...", "email": "..."} to this
+# automation's webhook endpoint and the payload becomes a lead row. Creating
+# the lead then fires Recipe 2 (record trigger) — automations chain through
+# the data, not through each other.
+name: capture-lead-from-webhook
+label: Webhook — capture a lead
+description: Turn an inbound webhook POST into a lead record.
+enabled: true
+trigger:
+  type: webhook
+  method: POST
+actions:
+  - name: createLead
+    type: record
+    operator: create
+    props:
+      table: leads
+      data:
+        name: '{{trigger.data.body.name}}'
+        email: '{{trigger.data.body.email}}'
+        source: Webhook

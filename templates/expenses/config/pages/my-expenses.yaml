@@ -1,0 +1,85 @@
+name: my-expenses
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: My expenses
+  description: File an expense with its receipt and follow the approval
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-4xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: My expenses
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: You only see your own expenses here — row-level permissions scope the table to you, server-side. Admins see everything on the Review page.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: File an expense
+          - type: text
+            element: p
+            props:
+              className: text-xs mb-4
+            content: New expenses start Pending — an approval automation asks the admins and stamps the outcome.
+          - type: form
+            dataSource:
+              table: expenses
+            fields:
+              - field: description
+              - field: amount
+              - field: category
+              - field: expense_date
+              - field: receipt
+            action:
+              type: crud
+              operation: create
+              table: expenses
+              onSuccess:
+                navigate: /
+                toast:
+                  message: Expense filed — sent for approval
+                  variant: success
+
+      - type: data-table
+        dataSource:
+          table: expenses
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: description
+            label: Description
+          - field: amount
+            label: Amount
+            format: currency
+            sortable: true
+          - field: category
+            label: Category
+            filterable: true
+          - field: expense_date
+            label: Date
+            format: short-date
+            sortable: true
+          - field: status
+            label: Status
+            filterable: true
+        pagination:
+          pageSize: 10
+        emptyMessage: Nothing filed yet — add your first expense above.

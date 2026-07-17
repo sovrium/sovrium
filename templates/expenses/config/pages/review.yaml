@@ -1,0 +1,112 @@
+name: review
+path: /review
+# Admin-only page: non-admins never see it (denied access is a 404, not a 403 —
+# the page's existence is not revealed).
+access:
+  - admin
+meta:
+  title: Review
+  description: Every expense across the team, with spend by category
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Review
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: The whole team's expenses — admins bypass the row-level scoping. Approve or reject from the pending approval emails.
+
+      - type: container
+        props:
+          className: grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8
+        children:
+          - type: kpi
+            label: Pending approval
+            dataSource:
+              table: expenses
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: Pending
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Approved, to reimburse
+            dataSource:
+              table: expenses
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: Approved
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Total filed
+            dataSource:
+              table: expenses
+              mode: list
+            kpiAggregate:
+              function: sum
+              field: amount
+            kpiFormat:
+              type: currency
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Spend by category
+          - type: chart
+            chartType: bar
+            dataSource:
+              table: expenses
+              mode: list
+            chartAggregate:
+              function: sum
+              field: amount
+              groupBy: category
+            emptyMessage: No expenses yet.
+
+      - type: data-table
+        dataSource:
+          table: expenses
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: description
+            label: Description
+          - field: submitted_by
+            label: Filed by
+          - field: amount
+            label: Amount
+            format: currency
+            sortable: true
+          - field: category
+            label: Category
+            filterable: true
+          - field: status
+            label: Status
+            filterable: true
+          - field: created_at
+            label: Filed
+            format: relative-date
+            sortable: true
+        pagination:
+          pageSize: 20
+        emptyMessage: No expenses across the team yet.

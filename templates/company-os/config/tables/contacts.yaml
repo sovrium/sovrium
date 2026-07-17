@@ -1,0 +1,43 @@
+id: 2
+name: contacts
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: email
+    type: email
+  - id: 3
+    name: phone
+    type: phone-number
+  - id: 4
+    name: company
+    type: relationship
+    relatedTable: companies
+    relationType: many-to-one
+  - id: 5
+    name: created_at
+    type: created-at
+
+aiAccess:
+  description: >-
+    People at customer accounts. Use this when the user asks who to contact
+    at a company or wants contact details.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

@@ -12,6 +12,7 @@ import { join } from 'node:path'
 const RECIPE_DIRS = [
   join(import.meta.dir, '../../presentation/islands'),
   join(import.meta.dir, '../../presentation/ui/sections/renderers/element-renderers'),
+  join(import.meta.dir, '../../presentation/utils/recipes'),
 ] as const
 const CSS_VAR_PATH = join(import.meta.dir, '../../presentation/utils/design/css-var.ts')
 

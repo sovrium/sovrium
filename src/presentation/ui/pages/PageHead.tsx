@@ -27,6 +27,7 @@ import {
 import { HreflangSection } from './PageHeadSeo'
 import { ThemeColorSchemeScript } from './ThemeColorSchemeScript'
 import type { GroupedScripts } from './PageScripts'
+import type { Components } from '@/domain/models/app/components'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { CustomElement, OpenGraph } from '@/domain/models/app/pages/meta'
@@ -34,6 +35,7 @@ import type { Theme } from '@/domain/models/app/theme'
 
 type PageHeadProps = {
   readonly page: Page
+  readonly components?: Components
   readonly theme: Theme | undefined
   readonly directionStyles: string
   readonly title: string
@@ -253,7 +255,7 @@ function computeHeadMeta(props: PageHeadProps): {
 export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
   const { page, theme, directionStyles, title, description, keywords, lang, languages, scripts } =
     props
-  const { contentDirSeo } = props
+  const { components, contentDirSeo } = props
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
   const robots = resolveRobotsDirective(page)
@@ -272,6 +274,7 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
       {}
       <ThemeColorSchemeScript
         page={page}
+        components={components}
         theme={theme}
       />
       <OpenGraphMeta

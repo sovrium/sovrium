@@ -9,6 +9,7 @@
 import { isAbsolute, resolve } from 'node:path'
 import { splitFrontmatter } from '@/domain/services/markdown/markdown-renderer'
 import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
+import { deriveContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-base-path'
 import { getContentBaseDir } from '@/presentation/rendering/content-base-dir'
 import { humanizeFieldName } from '@/presentation/utils/string-utils'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
@@ -141,13 +142,16 @@ const buildSidebarEntries = (
   const groupBy = contentDir.nav?.groupBy
   const groupLabels = contentDir.nav?.groupLabels
   const groupIcons = contentDir.nav?.groupIcons
+  const indexBasePath =
+    contentDir.index !== undefined ? deriveContentDirIndexBasePath(pagePath) : undefined
   return files.map((file) => {
     const orderRaw = file.frontmatter['order']
     const orderNum = orderRaw === undefined ? undefined : Number(orderRaw)
     const group = typeof groupBy === 'string' ? file.frontmatter[groupBy] : undefined
+    const isIndex = indexBasePath !== undefined && file.slug === contentDir.index
     return {
       slug: file.slug,
-      href: buildHref(pagePath, file.slug),
+      href: isIndex && indexBasePath !== undefined ? indexBasePath : buildHref(pagePath, file.slug),
       label: deriveLabel(file, labelFrom),
       group,
       groupLabel: resolveGroupLabel(group, groupLabels),

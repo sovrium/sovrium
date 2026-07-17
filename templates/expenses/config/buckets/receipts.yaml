@@ -1,0 +1,12 @@
+# Private bucket for receipt files. Images and PDFs only, 10 MB cap. Files are
+# served through signed URLs; only admins can delete.
+name: receipts
+maxFileSize: 10485760
+allowedMimeTypes:
+  - image/*
+  - application/pdf
+permissions:
+  upload: authenticated
+  download: authenticated
+  delete:
+    - admin

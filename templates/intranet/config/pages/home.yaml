@@ -1,0 +1,130 @@
+name: home
+path: /
+meta:
+  title: Company Intranet
+  description: A company intranet — a public welcome page plus a private employee hub
+components:
+  - type: container
+    element: section
+    props:
+      className: py-20 px-6
+      style:
+        backgroundColor: '#f8fafc'
+    children:
+      - type: container
+        props:
+          className: max-w-4xl mx-auto text-center
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-5xl font-bold mb-6
+              style:
+                color: '#0f172a'
+            content: One place for the whole company
+          - type: text
+            element: p
+            props:
+              className: text-xl mb-8
+              style:
+                color: '#475569'
+            content: A public welcome page for everyone. A private hub where the team finds announcements, colleagues, and shared resources.
+          - type: container
+            props:
+              className: flex gap-4 justify-center
+            children:
+              - type: link
+                props:
+                  href: /sign-in
+                  className: inline-block px-6 py-3 rounded-lg font-medium
+                  style:
+                    backgroundColor: '#0891b2'
+                    color: '#ffffff'
+                content: Sign in to the intranet
+              - type: link
+                props:
+                  href: '#features'
+                  className: inline-block px-6 py-3 rounded-lg font-medium border
+                  style:
+                    color: '#0f172a'
+                    borderColor: '#e2e8f0'
+                content: Learn more
+
+  - type: container
+    element: section
+    props:
+      id: features
+      className: py-16 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-5xl mx-auto
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-3xl font-bold mb-10 text-center
+              style:
+                color: '#0f172a'
+            content: What's inside
+          - type: container
+            props:
+              style:
+                display: grid
+                gridTemplateColumns: repeat(auto-fit, minmax(260px, 1fr))
+                gap: 1.5rem
+            children:
+              - type: container
+                props:
+                  className: p-6 rounded-xl border
+                  style:
+                    backgroundColor: '#ffffff'
+                    borderColor: '#e2e8f0'
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-lg font-semibold mb-2
+                    content: People directory
+                  - type: text
+                    element: p
+                    props:
+                      style:
+                        color: '#475569'
+                    content: Find colleagues across teams and see what they are working on.
+              - type: container
+                props:
+                  className: p-6 rounded-xl border
+                  style:
+                    backgroundColor: '#ffffff'
+                    borderColor: '#e2e8f0'
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-lg font-semibold mb-2
+                    content: Announcements
+                  - type: text
+                    element: p
+                    props:
+                      style:
+                        color: '#475569'
+                    content: Company news in one feed — read the latest and publish your own once you sign in.
+              - type: container
+                props:
+                  className: p-6 rounded-xl border
+                  style:
+                    backgroundColor: '#ffffff'
+                    borderColor: '#e2e8f0'
+                children:
+                  - type: text
+                    element: h3
+                    props:
+                      className: text-lg font-semibold mb-2
+                    content: Manager tools
+                  - type: text
+                    element: p
+                    props:
+                      style:
+                        color: '#475569'
+                    content: Managers get extra tools to publish announcements and keep the directory current.

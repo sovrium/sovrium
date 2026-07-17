@@ -1,0 +1,63 @@
+id: 6
+name: tickets
+fields:
+  - id: 1
+    name: subject
+    type: single-line-text
+    required: true
+  - id: 2
+    name: contact
+    type: relationship
+    relatedTable: contacts
+    relationType: many-to-one
+  - id: 3
+    name: status
+    type: status
+    options:
+      - value: New
+        color: '#3B82F6'
+      - value: Open
+        color: '#F59E0B'
+      - value: Resolved
+        color: '#10B981'
+      - value: Closed
+        color: '#94A3B8'
+    default: New
+  - id: 4
+    name: priority
+    type: single-select
+    options:
+      - Low
+      - Normal
+      - High
+      - Urgent
+    default: Normal
+  - id: 5
+    name: assignee
+    type: user
+    allowMultiple: false
+  - id: 6
+    name: created_at
+    type: created-at
+
+aiAccess:
+  description: >-
+    Support tickets, each linked to a CRM contact. Use this when the user
+    asks about open issues or a customer's support history.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

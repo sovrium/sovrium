@@ -1,0 +1,30 @@
+name: expenses
+version: 1.0.0
+description: >-
+  Expense tracking — members file expenses with receipts and see only their
+  own (row-level permissions); admins approve each one through a paused
+  automation and watch spend by category on a dashboard. Not an accounting
+  system — a clean approval trail in your own database.
+
+auth:
+  $ref: ./config/auth.yaml
+
+theme:
+  $ref: ./config/theme.yaml
+
+# Named storage bucket for receipt uploads (local disk by default; S3 when the
+# operator sets STORAGE_PROVIDER).
+buckets:
+  - $ref: ./config/buckets/receipts.yaml
+
+tables:
+  - $ref: ./config/tables/expenses.yaml
+
+pages:
+  - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/my-expenses.yaml
+  - $ref: ./config/pages/review.yaml
+
+# Automations run server-side with full history in your own database.
+automations:
+  - $ref: ./config/automations/approve-expense.yaml

@@ -1,0 +1,23 @@
+# Monday 08:00 — email the team a nudge to review the week's calendar. Cron
+# expressions are numeric five-field only (no @daily aliases); runs and their
+# full history live in your own database, with no execution cap.
+# Change `to` to your team alias (any address your SMTP config can deliver to).
+name: weekly-digest
+label: Cron — Monday planning nudge
+description: Every Monday morning, email the team a link to the week's publishing calendar.
+enabled: true
+trigger:
+  type: cron
+  expression: '0 8 * * 1'
+  timezone: Europe/Paris
+actions:
+  - name: emailTeam
+    type: email
+    operator: send
+    props:
+      to: marketing@example.com
+      subject: 'This week on the calendar'
+      body: |
+        <p>Morning! A new week — open the calendar to see what ships:</p>
+        <p><a href="http://localhost:3000/">Publishing calendar</a></p>
+        <p>Drag anything that slipped, and fill the empty days early.</p>

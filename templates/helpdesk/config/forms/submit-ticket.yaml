@@ -1,0 +1,42 @@
+# Public intake form. `access: { require: all }` mounts it at /support with no
+# sign-in; submissions land straight in the tickets table, which fires the
+# confirm-new-ticket automation. The honeypot silently drops naive bots.
+id: 1
+name: submit-ticket
+title: Contact support
+description: Tell us what's wrong — we reply to every ticket, usually within one business day.
+path: /support
+access:
+  require: all
+submitTo:
+  table: tickets
+antiSpam:
+  honeypot: true
+display:
+  submitLabel: Send ticket
+onSuccess:
+  type: redirect
+  url: /thanks
+fields:
+  - kind: section
+    heading: What happened?
+  - kind: table-field
+    column: subject
+    required: true
+    label: Subject
+  - kind: table-field
+    column: category
+    label: Category
+  - kind: table-field
+    column: description
+    label: Details
+    helpText: The more context you give, the faster we can help.
+  - kind: section
+    heading: How do we reach you?
+  - kind: table-field
+    column: requester_name
+    label: Your name
+  - kind: table-field
+    column: requester_email
+    required: true
+    label: Email

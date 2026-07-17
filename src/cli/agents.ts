@@ -82,8 +82,8 @@ const AGENTS_HELP_TEXT = [
   '',
   'Examples:',
   '  sovrium agents list',
-  '  sovrium agents add crud-editor',
-  '  sovrium agents add crud-editor --target ./my-project --force',
+  '  sovrium agents add crm-editor',
+  '  sovrium agents add crm-editor --target ./my-project --force',
 ].join('\n')
 
 const showAgentsHelp = (): void => {

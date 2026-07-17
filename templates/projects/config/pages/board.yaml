@@ -1,0 +1,72 @@
+name: board
+path: /board
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Board
+  description: The task kanban — drag work between statuses
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Board
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Drag tasks between columns as work progresses.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a task
+          - type: form
+            dataSource:
+              table: tasks
+            fields:
+              - field: title
+              - field: project
+              - field: status
+              - field: priority
+              - field: due_date
+            action:
+              type: crud
+              operation: create
+              table: tasks
+              onSuccess:
+                navigate: /board
+                toast:
+                  message: Task created
+                  variant: success
+
+      - type: kanban
+        dataSource:
+          table: tasks
+        kanbanGroupBy:
+          field: status
+        emptyColumnMessage: Nothing here.
+        card:
+          children:
+            - type: text
+              element: h3
+              props:
+                className: text-sm font-medium
+              content: $record.title
+          footer:
+            - field: due_date
+              format: relative-date
+            - field: priority
+              format: badge

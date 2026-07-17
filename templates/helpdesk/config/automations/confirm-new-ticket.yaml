@@ -1,0 +1,24 @@
+# Confirm receipt the moment a ticket lands. Form submissions to /support
+# create a tickets row, which fires this record trigger with the persisted row
+# in {{trigger.data.record}} — the same path as tickets created by the team.
+name: confirm-new-ticket
+label: New ticket — confirm receipt
+description: Email the requester as soon as their ticket is created.
+enabled: true
+trigger:
+  type: record
+  table: tickets
+  events:
+    - create
+actions:
+  - name: emailRequester
+    type: email
+    operator: send
+    props:
+      to: '{{trigger.data.record.requester_email}}'
+      subject: 'We received your ticket: {{trigger.data.record.subject}}'
+      body: |
+        <p>Hi {{trigger.data.record.requester_name}},</p>
+        <p>Thanks for reaching out — your ticket
+        <strong>{{trigger.data.record.subject}}</strong> is in our queue.</p>
+        <p>We reply to every ticket, usually within one business day.</p>

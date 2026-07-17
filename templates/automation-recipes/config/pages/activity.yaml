@@ -1,0 +1,79 @@
+name: activity
+path: /activity
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Activity
+  description: What the automations captured — leads and the activity log
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Activity
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Rows written by the recipes. Full run history lives in the Admin Space — forever, in your own database.
+
+      - type: text
+        element: h2
+        props:
+          className: text-base font-semibold mb-4
+        content: Leads
+      - type: data-table
+        dataSource:
+          table: leads
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: name
+            label: Name
+          - field: email
+            label: Email
+          - field: source
+            label: Source
+            filterable: true
+          - field: status
+            label: Status
+            filterable: true
+          - field: created_at
+            label: Captured
+            format: relative-date
+            sortable: true
+        pagination:
+          pageSize: 10
+        emptyMessage: No leads yet — POST to the webhook or add one from the API.
+
+      - type: text
+        element: h2
+        props:
+          className: text-base font-semibold mt-8 mb-4
+        content: Activity log
+      - type: data-table
+        dataSource:
+          table: activity_log
+          sort:
+            - field: created_at
+              direction: desc
+        columns:
+          - field: event
+            label: Event
+          - field: details
+            label: Details
+          - field: created_at
+            label: When
+            format: relative-date
+            sortable: true
+        pagination:
+          pageSize: 10
+        emptyMessage: Nothing logged yet — the record recipe writes here on each new lead.

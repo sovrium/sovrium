@@ -1,3 +1,115 @@
+## [0.14.0](https://github.com/sovrium/sovrium/compare/v0.13.0...v0.14.0) (2026-07-17)
+
+### Features
+
+- navbar hover-to-open, authored trigger override, and child target/rel
+- **cli**: scaffold init from remote GitHub template repositories
+- **website**: rework the /apps gallery around the 18 template repos
+- **templates**: ship deploy + mirror files with every template
+- **ai**: boot AI agents inert when no provider is configured (DEC-057)
+- navbar badges, dropdown chevron, and inverted popup (DEC-056)
+- **website**: seed the /apps gallery with the business-app templates
+- **examples**: add automation-recipes and knowledge-base templates
+- **examples**: add the company-os flagship template
+- **website**: re-slice docs sub-nav into 8 product tabs + chrome polish
+- **examples**: add people, events, assets, and expenses business apps
+- **examples**: add projects, helpdesk, and content-calendar business apps
+- serve contentDir.index at the collection base path (DEC-054)
+- **pages**: shared component templates host interactive islands
+- **website**: fuse a docs zone sub-nav under the top navbar
+- add the "Built with Sovrium" badge with free one-line removal
+
+### Bug Fixes
+
+- navbar chevron inherits currentColor and rotates when the menu is open
+
+### Refactoring
+
+- **website**: drop Sovrium's own apps from the /apps gallery
+- **website**: round-4 navbar — hover dropdowns, unified Services trigger, Open-a-demo, GitHub label
+- **website**: rewrite the manifesto as the founder's single-piece note
+- **docs-chrome**: reconcile changelog-zone comment + satisfy Prettier gate
+- rename examples/ to templates/
+- **website**: serve the changelog as a real docs page
+- **website**: tighten navbar container, enlarge docs search pill, align logo + breadcrumb
+- **website**: apply navbar badges + inverted Try popup, remove /products hub
+- **website**: align stale docs-nav fallback comment + regen embedded CSS assets
+- **examples**: rename crud-app → crm and member-portal → intranet
+- **website**: land the docs root on the Introduction (contentDir.index)
+- unify the trailing-dynamic-segment derivation for contentDir.index
+- **website**: navbar dropdowns — Try Sovrium CTA, Services mega-menu, hero-fused header
+- repoint a stale JSDoc reference after removing the docs tablist
+- **website**: drop the config-level sovrium-badge in favor of the native badge
+- post-GREEN audit of the badge feature (quality gate green)
+- **website**: simplify the navbar — Manifest · Docs · Apps · Services, GitHub icon, single Install CTA
+
+### Documentation
+
+- **website**: align the business-app user stories to navbar round 4 + gallery shrink
+- log DEC-057 and document navbar round-4 capabilities
+- **website**: describe the changelog as a real docs page with a full zone
+- spec inert-agent boot when no AI provider (DEC-057)
+- **website**: retire the products-hub story and update docs-content/FEATURES
+- record DEC-056 and the navbar platform user stories
+- **website**: correct stale tryDropdown on-ramp comments
+- **website**: refresh docsSubnavScript comment to the 8 product tabs
+- **website**: rewrite docs-chrome US to the 8 product tabs + Welcome-to-Sovrium rename
+- **examples**: restructure the README into starters and business apps
+- **website**: user stories + FEATURES for the dropdown navbar and Academy landing
+- regenerate spec progress tracking for contentDir.index specs
+- specify contentDir.index — collection index article at the base path (US-002/007/010/013 + sitemap + llms + DEC)
+- rewrite the docs sub-nav user story (US-…-DOCS-NAVBAR-CHROME-002)
+- document the Built with Sovrium badge (US-APP-SCHEMA-APP-METADATA-004, DEC-053)
+- **website**: update nav/i18n user stories and FEATURES to the simplified navbar
+- **effect**: vendored snapshot now in sync at effect@3.22.0
+
+### Styles
+
+- **website**: reflow reorientation US after the manifesto-merge reconciliation
+- **examples,website**: prettier formatting for the new catalog files
+- **brand**: prettier-format the logo README tables
+
+### Tests
+
+- **design-system**: make KPI surface-paint poll wait for a non-transparent color
+- **website**: reconcile the business-app E2E specs to navbar round 4 + gallery shrink
+- add RED navbar round-4 specs (DEC-057)
+- **cli**: isolate server-logging spec boots from repo-root .sovrium
+- **website**: encode the changelog docs-page + full changelog zone in specs
+- RED specs for inert agents without an AI provider (DEC-057)
+- **website**: reconcile business-app specs with round-3 navbar + hub removal
+- cover the DEC-056 navbar capabilities and fixes
+- **website**: canonicalize docs zone-tabs @regression via the generator
+- **website**: reconcile docs specs to the 8-tab zone-nav + Welcome-to-Sovrium rename
+- **website**: migrate docs specs+US to the Introduction-at-root URL (301, sidebar, sitemap dedupe)
+- **website**: reconcile nav/chrome/products specs to the dropdown navbar
+- RED specs for contentDir.index (APP-PAGES-MARKDOWN-114..124, APP-PAGES-SITEMAP-014, APP-PAGES-LLMS-009)
+- cover the docs-header zone sub-nav (APP-WEBSITE-DOCS-SIDEBAR-001..004)
+- cover the Built with Sovrium badge end-to-end (APP-BADGE-001..008 + regression)
+- **website**: reconcile nav, chrome and i18n specs to the simplified navbar contract
+
+### Chores
+
+- renumber the navbar DEC to DEC-058 after rebasing onto main
+- regenerate public JSON Schema + add DEC-057 island wiring anchors
+- add navbar round-4 schema fields (openOnHover, triggerClassName)
+- **scripts**: make template-repo metadata reconcile best-effort
+- regenerate the CSS candidate manifest after the DEC-057 rebase
+- **schema**: add contentDir.index — collection index article served at the base path
+- **agent-memory**: record navbar-simplification and badge workstream notes
+- **brand**: regenerate OG share cards with the hybrid logo
+- **brand**: adopt the hybrid glyph-only logo system (•Sovrium / •Sv)
+- **brand**: Sovrium Partner lockup — business-unit descriptor system
+- **brand**: universal dot mark + horizontal lockup across the logo kit
+- **vendor**: re-pull vendor/effect subtree to effect@3.22.0
+- **agent-memory**: re-confirm bun.lock mirror-drift after plain bun update
+- **deps**: bun update (effect 3.22, tiptap 3.28, zod-openapi 1.5) + sync docs versions
+
+### CI
+
+- publish templates/ to standalone GitHub template repos on release
+- validate per-directory example configs
+
 ## [0.13.0](https://github.com/sovrium/sovrium/compare/v0.12.1...v0.13.0) (2026-07-14)
 
 ### Features

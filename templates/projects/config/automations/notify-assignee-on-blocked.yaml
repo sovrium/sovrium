@@ -1,0 +1,34 @@
+# When a task turns Blocked, email its assignee so blockers surface immediately
+# instead of at the next stand-up. Fires on kanban drags and grid edits alike.
+name: notify-assignee-on-blocked
+label: Task blocked — notify the assignee
+description: Email the task assignee whenever a task status changes to Blocked.
+enabled: true
+trigger:
+  type: record
+  table: tasks
+  events:
+    - update
+  watchFields:
+    - status
+actions:
+  - name: onlyWhenBlocked
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.status}}'
+            operator: equals
+            value: Blocked
+      onFalse: stop
+  - name: emailAssignee
+    type: email
+    operator: send
+    props:
+      to: '{{trigger.data.record.assignee.email}}'
+      subject: 'Blocked: {{trigger.data.record.title}}'
+      body: |
+        <p><strong>{{trigger.data.record.title}}</strong> was marked Blocked.</p>
+        <p>Open the board to see what it needs.</p>

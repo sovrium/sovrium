@@ -1,0 +1,138 @@
+name: dashboard
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Dashboard
+  description: Portfolio health at a glance — projects, open work, and budget
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Dashboard
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Portfolio health at a glance. Jump to the board to move work forward.
+
+      # KPI row — three live aggregates over the same tables the views use.
+      - type: container
+        props:
+          className: grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8
+        children:
+          - type: kpi
+            label: Active projects
+            dataSource:
+              table: projects
+              mode: list
+              filter:
+                - field: status
+                  operator: eq
+                  value: Active
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Open tasks
+            dataSource:
+              table: tasks
+              mode: list
+              filter:
+                - field: status
+                  operator: neq
+                  value: Done
+            kpiAggregate:
+              function: count
+          - type: kpi
+            label: Committed budget
+            dataSource:
+              table: projects
+              mode: list
+            kpiAggregate:
+              function: sum
+              field: budget
+            kpiFormat:
+              type: currency
+
+      # Tasks by status — one bar per kanban column.
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Tasks by status
+          - type: chart
+            chartType: bar
+            dataSource:
+              table: tasks
+              mode: list
+            chartAggregate:
+              function: count
+              groupBy: status
+            emptyMessage: No tasks yet — add the first one on the board.
+
+      - type: text
+        element: h2
+        props:
+          className: text-base font-semibold mb-4
+        content: All projects
+      - type: form
+        dataSource:
+          table: projects
+        fields:
+          - field: name
+          - field: status
+          - field: start_date
+          - field: end_date
+          - field: budget
+        action:
+          type: crud
+          operation: create
+          table: projects
+          onSuccess:
+            navigate: /
+            toast:
+              message: Project created
+              variant: success
+      - type: data-table
+        dataSource:
+          table: projects
+          sort:
+            - field: start_date
+              direction: asc
+        columns:
+          - field: name
+            label: Project
+            sortable: true
+          - field: status
+            label: Status
+            sortable: true
+          - field: owner
+            label: Owner
+          - field: start_date
+            label: Start
+            format: short-date
+            sortable: true
+          - field: end_date
+            label: End
+            format: short-date
+            sortable: true
+          - field: progress
+            label: Progress
+          - field: budget
+            label: Budget
+            format: currency
+        pagination:
+          pageSize: 10
+        emptyMessage: No projects yet — create the first one above.

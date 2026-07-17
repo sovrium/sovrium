@@ -280,12 +280,13 @@ const buildChromeFields = (
 const isNonRenderableOutcome = (outcome: ContentDirOutcome): boolean =>
   outcome.kind === 'excluded' || outcome.kind === 'not-found'
 
-export const resolveMarkdownPage = async (
+export async function resolveMarkdownPage(
   page: Page,
   routeParams: Readonly<Record<string, string>> = {},
   app?: App,
-  currentLang?: string
-): Promise<ResolvedMarkdownPage | undefined> => {
+  currentLang?: string,
+  indexBasePathPattern?: string
+): Promise<ResolvedMarkdownPage | undefined> {
   const pageSourceFile = derivePageSourceFile(page)
   const contentDirOutcome = await loadContentDirSource(page, routeParams)
   if (isNonRenderableOutcome(contentDirOutcome)) {
@@ -300,7 +301,7 @@ export const resolveMarkdownPage = async (
   const toc = buildToc(rendered, markdown.toc)
   const layout = markdown.layout ?? DEFAULT_LAYOUT
   const collectionNav = await buildCollectionNav(page, routeParams)
-  const seo = buildContentDirSeo(page, routeParams, rendered.frontmatter, app)
+  const seo = buildContentDirSeo(page, routeParams, rendered.frontmatter, app, indexBasePathPattern)
   const lastUpdated = await resolveLastUpdated(
     page,
     routeParams,
@@ -324,16 +325,17 @@ export const resolveMarkdownPage = async (
   }
 }
 
-const buildContentDirSeo = (
+function buildContentDirSeo(
   page: Page,
   routeParams: Readonly<Record<string, string>>,
   frontmatter: Readonly<Record<string, string>>,
-  app: App | undefined
-): ContentDirSeoMeta | undefined => {
+  app: App | undefined,
+  indexBasePathPattern?: string
+): ContentDirSeoMeta | undefined {
   if (page.contentDir === undefined) return undefined
   const baseUrl = typeof Bun.env.BASE_URL === 'string' ? Bun.env.BASE_URL : undefined
   return buildContentDirSeoMeta({
-    pattern: page.path,
+    pattern: indexBasePathPattern ?? page.path,
     routeParams,
     frontmatter,
     languages: app?.languages,

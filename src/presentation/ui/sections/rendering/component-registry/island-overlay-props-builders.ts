@@ -6,6 +6,8 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import { resolveTranslationTokensDeep } from '@/domain/utils/translation-resolver'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
 
@@ -103,6 +105,37 @@ export function buildHoverCardProps(
     triggerLabel,
     triggerId: triggerProps?.['id'] as string | undefined,
     childrenHtml,
+    className: elementProps['className'],
+    id: elementProps['id'],
+    'data-testid': elementProps['data-testid'],
+  }
+}
+
+export function buildDropdownMenuProps(
+  rawProps: Record<string, unknown> | undefined,
+  elementProps: Record<string, unknown>,
+  component: Component | undefined,
+  i18n: { readonly currentLang?: string; readonly languages?: Languages }
+) {
+  const comp = (component ?? {}) as Record<string, unknown>
+  const triggerLabelRaw = pickCompField<string>(comp, rawProps, 'triggerLabel')
+  const triggerLabel = resolveTranslationTokensDeep(
+    typeof triggerLabelRaw === 'string' ? triggerLabelRaw : 'Menu',
+    i18n.currentLang,
+    i18n.languages
+  ) as string
+  const menuItems = resolveTranslationTokensDeep(
+    pickCompField<unknown>(comp, rawProps, 'menuItems'),
+    i18n.currentLang,
+    i18n.languages
+  )
+  return {
+    menuItems,
+    floatingSide: pickCompField<string>(comp, rawProps, 'floatingSide'),
+    floatingAlign: pickCompField<string>(comp, rawProps, 'floatingAlign'),
+    triggerLabel,
+    popupVariant: pickCompField<string>(comp, rawProps, 'popupVariant'),
+    openOnHover: pickCompField<boolean>(comp, rawProps, 'openOnHover'),
     className: elementProps['className'],
     id: elementProps['id'],
     'data-testid': elementProps['data-testid'],

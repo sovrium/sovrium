@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { defaultModelForProvider } from '@/domain/models/env/ai/ai-providers'
+import {
+  defaultModelForProvider,
+  isAiProviderConfigured,
+} from '@/domain/models/env/ai/ai-providers'
 import { persistAgentTurnDurably } from '@/presentation/api/routes/ai/chat-durable-memory'
 import { resolveAgentChatBackend } from '@/presentation/api/utils/agent-chat-env'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
@@ -246,21 +249,46 @@ const generateAgentReply = async (
   }
 }
 
+type ChatPreflight =
+  | { readonly ok: true; readonly agent: Agent; readonly aiEnv: AiEnv }
+  | { readonly ok: false; readonly response: Response }
+
+const resolveChatPreflight = (c: Readonly<Context>, app: App | undefined): ChatPreflight => {
+  const agentName = c.req.param('name')
+  if (typeof agentName !== 'string' || agentName.length === 0) {
+    return { ok: false, response: c.json({ error: 'Agent name is required.' }, 400) }
+  }
+  const agent = findAgentByName(app, agentName)
+  if (!agent) {
+    return {
+      ok: false,
+      response: c.json({ error: `Agent '${agentName}' is not declared in the app schema.` }, 404),
+    }
+  }
+  if (!isAiProviderConfigured(process.env)) {
+    return {
+      ok: false,
+      response: c.json(
+        { error: 'AI provider not configured — the assistant is currently unavailable.' },
+        503
+      ),
+    }
+  }
+  const aiEnv = readAiEnv(process.env, agent)
+  if ('error' in aiEnv) {
+    return { ok: false, response: c.json({ error: aiEnv.error }, 503) }
+  }
+  return { ok: true, agent, aiEnv }
+}
+
 const handleAgentChat =
   (app: App | undefined) =>
   async (c: Readonly<Context>): Promise<Response> => {
-    const agentName = c.req.param('name')
-    if (typeof agentName !== 'string' || agentName.length === 0) {
-      return c.json({ error: 'Agent name is required.' }, 400)
-    }
-    const agent = findAgentByName(app, agentName)
-    if (!agent) {
-      return c.json({ error: `Agent '${agentName}' is not declared in the app schema.` }, 404)
-    }
-    const aiEnv = readAiEnv(process.env, agent)
-    if ('error' in aiEnv) {
-      return c.json({ error: aiEnv.error }, 503)
-    }
+    const preflight = resolveChatPreflight(c, app)
+    if (!preflight.ok) return preflight.response
+    const { agent, aiEnv } = preflight
+    const agentName = agent.name
+
     const { message, sessionId } = await parseChatBody(c)
     if (message.length === 0) {
       return c.json({ error: '`message` is required and must be a non-empty string.' }, 400)

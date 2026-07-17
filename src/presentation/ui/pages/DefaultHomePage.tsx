@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { isBadgeEnabled } from '@/domain/models/app/badge'
 import { createDefaultHomePageConfig } from '@/presentation/ui/pages/DefaultPageConfigs'
 import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
 import type { App } from '@/domain/models/app'
@@ -25,6 +26,7 @@ export function DefaultHomePage({
       page={pageConfig}
       builtInAnalyticsEnabled={builtInAnalyticsEnabled}
       builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
+      badgeEnabled={isBadgeEnabled(app.badge)}
     />
   )
 }

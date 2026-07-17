@@ -1,0 +1,7 @@
+# Email + password auth for the organizing team. Attendees never sign in —
+# they register through the public /register form.
+allowSignUp: true
+defaultRole: member
+strategies:
+  - type: emailAndPassword
+    minPasswordLength: 8

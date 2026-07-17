@@ -1,0 +1,42 @@
+# Reusable top-nav for the operator pages.
+type: container
+element: header
+props:
+  className: border-b
+children:
+  - type: container
+    props:
+      className: max-w-6xl mx-auto px-6 py-3 flex items-center justify-between
+    children:
+      - type: container
+        props:
+          className: flex items-center gap-6
+        children:
+          - type: text
+            element: span
+            props:
+              className: text-base font-semibold
+            content: Automation Recipes
+          - type: container
+            props:
+              className: flex items-center gap-1 text-sm
+            children:
+              - type: link
+                props:
+                  href: /
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Recipes
+              - type: link
+                props:
+                  href: /activity
+                  className: px-3 py-1.5 rounded-md font-medium
+                content: Activity
+      - type: button
+        props:
+          className: px-3 py-1.5 rounded-md border text-sm font-medium
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /

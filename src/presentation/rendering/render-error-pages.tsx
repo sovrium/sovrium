@@ -6,6 +6,8 @@
  */
 
 import { renderToString } from 'react-dom/server'
+import { isBadgeEnabled } from '@/domain/models/app/badge'
+import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
 import { ErrorPage } from '@/presentation/ui/pages/ErrorPage'
 import { NotFoundPage } from '@/presentation/ui/pages/NotFoundPage'
 import { renderPageByPath } from './render-page'
@@ -40,6 +42,18 @@ window.addEventListener("popstate",u);
   return `<script>${script}</script>`
 }
 
+function injectBadgeIntoErrorPage(
+  docHtml: string,
+  app: App | undefined,
+  detectedLanguage: string | undefined
+): string {
+  if (app === undefined || !isBadgeEnabled(app.badge)) return docHtml
+  const badgeHtml = renderToString(<SovriumBadge lang={detectedLanguage} />)
+  return docHtml.includes('</body>')
+    ? docHtml.replace('</body>', `${badgeHtml}</body>`)
+    : `${docHtml}${badgeHtml}`
+}
+
 export async function renderNotFoundPage(app?: App, detectedLanguage?: string): Promise<string> {
   if (app) {
     const custom404 = await renderPageByPath(app, '/404', { detectedLanguage })
@@ -49,7 +63,7 @@ export async function renderNotFoundPage(app?: App, detectedLanguage?: string): 
   }
 
   const html = renderToString(<NotFoundPage />)
-  const docHtml = `<!DOCTYPE html>\n${html}`
+  const docHtml = injectBadgeIntoErrorPage(`<!DOCTYPE html>\n${html}`, app, detectedLanguage)
   if (app) {
     const scriptTag = buildAnalyticsScriptTag(app)
     if (scriptTag) {
@@ -70,5 +84,5 @@ export async function renderErrorPage(app?: App, detectedLanguage?: string): Pro
   }
 
   const html = renderToString(<ErrorPage />)
-  return `<!DOCTYPE html>\n${html}`
+  return injectBadgeIntoErrorPage(`<!DOCTYPE html>\n${html}`, app, detectedLanguage)
 }

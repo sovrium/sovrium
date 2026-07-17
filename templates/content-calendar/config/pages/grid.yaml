@@ -1,0 +1,60 @@
+name: grid
+path: /content
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: All content
+  description: The full content grid — search, sort, and group by campaign
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-6xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: All content
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: Every piece ever planned, grouped by campaign.
+
+      - type: data-table
+        dataSource:
+          table: content
+          sort:
+            - field: publish_date
+              direction: desc
+        columns:
+          - field: title
+            label: Title
+            sortable: true
+            filterable: true
+          - field: status
+            label: Status
+            sortable: true
+            filterable: true
+          - field: content_type
+            label: Type
+            filterable: true
+          - field: channels
+            label: Channels
+          - field: owner
+            label: Owner
+          - field: publish_date
+            label: Publish date
+            format: short-date
+            sortable: true
+        search:
+          enabled: true
+          placeholder: Search content...
+        groupBy:
+          field: campaign
+        pagination:
+          pageSize: 20
+        emptyMessage: Nothing planned yet — add the first piece from the pipeline.

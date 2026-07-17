@@ -1,0 +1,22 @@
+# Recipe 4 — AUTOMATION-FAILURE trigger: the global error handler. If any
+# other automation exhausts its retries, this one emails the operator with
+# the failure context. Failure triggers never fire for each other, so no
+# cascade loops. Change `to` to your operator inbox.
+name: alert-on-failure
+label: Failure — alert the operator
+description: Email the operator whenever any automation fails after its retries.
+enabled: true
+trigger:
+  type: automation-failure
+actions:
+  - name: emailOperator
+    type: email
+    operator: send
+    props:
+      to: ops@example.com
+      subject: 'Automation failed: {{trigger.data.automationName}}'
+      body: |
+        <p>The automation <strong>{{trigger.data.automationName}}</strong>
+        failed after exhausting its retries.</p>
+        <p>Open the Admin Space to inspect the run — the full history is in
+        your database.</p>

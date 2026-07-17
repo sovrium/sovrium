@@ -1,0 +1,35 @@
+# Support reaches into the CRM: the ticket's contact relationship resolves to
+# the contact's email — one config, no lookup middleware.
+name: notify-contact-on-resolved-ticket
+label: Ticket resolved — notify the contact
+description: Email the linked CRM contact whenever their ticket is resolved.
+enabled: true
+trigger:
+  type: record
+  table: tickets
+  events:
+    - update
+  watchFields:
+    - status
+actions:
+  - name: onlyWhenResolved
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.status}}'
+            operator: equals
+            value: Resolved
+      onFalse: stop
+  - name: emailContact
+    type: email
+    operator: send
+    props:
+      to: '{{trigger.data.record.contact.email}}'
+      subject: 'Resolved: {{trigger.data.record.subject}}'
+      body: |
+        <p>Your ticket <strong>{{trigger.data.record.subject}}</strong> has
+        been resolved.</p>
+        <p>If anything is still off, just reply and we'll reopen it.</p>
