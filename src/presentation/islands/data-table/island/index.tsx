@@ -58,6 +58,7 @@ interface DataTableIslandProps {
   readonly fieldMeta?: FieldMetaMap
   readonly tablePermissions?: { readonly update?: readonly string[] }
   readonly canCreate?: boolean
+  readonly newRecordLabel?: string
   readonly groupBy?: DataTableGroupBy
   readonly summary?: readonly DataTableSummaryItem[]
   readonly autoSave?: AutoSaveConfig
@@ -252,6 +253,7 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         onEditCancel={setup.inlineEditing.cancelEditing}
         onRefresh={setup.handleRefresh}
         canCreate={showCreate}
+        newRecordLabel={props.newRecordLabel ?? 'New record'}
         creating={creating}
         onCreate={onCreate}
         onCancelCreate={onCancelCreate}

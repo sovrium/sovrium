@@ -169,11 +169,13 @@ function resolveWritableFields(
 }
 
 function CreateRecordDialogBody({
+  title,
   fields,
   values,
   onChange,
   onSave,
 }: {
+  readonly title: string
   readonly fields: ReadonlyArray<CreateFieldDef>
   readonly values: Record<string, string>
   readonly onChange: (field: string, value: string) => void
@@ -182,10 +184,10 @@ function CreateRecordDialogBody({
   return (
     <Dialog.Popup
       role="dialog"
-      aria-label="Nouvel enregistrement"
+      aria-label={title}
       className={`${computeDialogPopupClasses()} flex max-h-[80vh] flex-col gap-3`}
     >
-      <Dialog.Title className={computeDialogTitleClasses()}>Nouvel enregistrement</Dialog.Title>
+      <Dialog.Title className={computeDialogTitleClasses()}>{title}</Dialog.Title>
       {}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
         {fields.map((field) => (
@@ -218,11 +220,13 @@ function CreateRecordDialogBody({
 }
 
 export function CreateRecordDialog({
+  title = 'New record',
   fields,
   fieldMeta,
   onCancel,
   onSubmit,
 }: {
+  readonly title?: string
   readonly fields: ReadonlyArray<string>
   readonly fieldMeta?: FieldMetaMap
   readonly onCancel: () => void
@@ -253,6 +257,7 @@ export function CreateRecordDialog({
           className={computeOverlayBackdropClasses()}
         />
         <CreateRecordDialogBody
+          title={title}
           fields={writableFields}
           values={values}
           onChange={onChange}

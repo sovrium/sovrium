@@ -13,6 +13,30 @@ import type { KanbanColumnData } from './group-records'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
 
+function ColumnHeader({ column }: { readonly column: KanbanColumnData }): ReactElement {
+  return (
+    <div className="border-border flex items-center justify-between border-b pb-2">
+      <div className="flex items-center gap-2">
+        {column.color ? (
+          <span
+            className="inline-block size-3 shrink-0 rounded-full"
+            data-column-accent
+            style={{ backgroundColor: column.color }}
+            aria-hidden="true"
+          />
+        ) : undefined}
+        <h3 className="text-foreground text-sm font-semibold">{column.value}</h3>
+      </div>
+      <span
+        className="bg-background-subtle text-foreground rounded-full px-2 py-0.5 text-xs font-medium"
+        aria-label={`${column.records.length} records`}
+      >
+        {column.records.length}
+      </span>
+    </div>
+  )
+}
+
 export function KanbanColumn({
   column,
   emptyMessage,
@@ -36,15 +60,7 @@ export function KanbanColumn({
         isOver ? 'border-primary bg-primary-subtle' : 'border-border bg-background-subtle'
       } p-3 transition-colors`}
     >
-      <div className="border-border flex items-center justify-between border-b pb-2">
-        <h3 className="text-foreground text-sm font-semibold">{column.value}</h3>
-        <span
-          className="bg-background-subtle text-foreground rounded-full px-2 py-0.5 text-xs font-medium"
-          aria-label={`${column.records.length} records`}
-        >
-          {column.records.length}
-        </span>
-      </div>
+      <ColumnHeader column={column} />
       <SortableContext
         items={recordIds}
         strategy={verticalListSortingStrategy}

@@ -6,7 +6,7 @@
  */
 
 
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
@@ -59,6 +59,14 @@ const islandEntries = existsSync(ISLAND_DIR)
       .toSorted()
       .map((rel) => `    ${JSON.stringify(rel)}: ${addImport(`island-chunks/${rel}`)},`)
   : []
+
+const emptyAssets = imports
+  .map((i) => i.importPath.replace(`${REL_ROOT}/`, ''))
+  .filter((rel) => statSync(join(PROJECT_ROOT, rel)).size === 0)
+if (emptyAssets.length > 0) {
+  console.error(`✗ refusing to embed zero-byte asset(s): ${emptyAssets.join(', ')}`)
+  process.exit(1)
+}
 
 const header = `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES

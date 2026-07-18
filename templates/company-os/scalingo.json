@@ -43,7 +43,7 @@
   },
   "addons": [
     {
-      "plan": "postgresql:postgresql-sandbox"
+      "plan": "postgresql:postgresql-starter-512"
     }
   ],
   "formation": {

@@ -153,6 +153,7 @@ interface DataTableToolbarBarProps {
   readonly onCloseExportMenu: () => void
   readonly onRefresh: () => void
   readonly canCreate: boolean
+  readonly newRecordLabel: string
   readonly onCreate: () => void
   readonly readOnly?: boolean
   readonly systemExportEndpoint?: string
@@ -202,6 +203,7 @@ export function DataTableToolbarBar({
   onCloseExportMenu,
   onRefresh,
   canCreate,
+  newRecordLabel,
   onCreate,
   readOnly = false,
   systemExportEndpoint,
@@ -248,11 +250,11 @@ export function DataTableToolbarBar({
       {canCreate && (
         <button
           type="button"
-          aria-label="Nouvel enregistrement"
+          aria-label={newRecordLabel}
           onClick={onCreate}
           className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-3 py-1 text-sm font-medium"
         >
-          + Nouvel enregistrement
+          + {newRecordLabel}
         </button>
       )}
       {showSearch && searchConfig && (

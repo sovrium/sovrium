@@ -40,6 +40,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     tablePermissions: elementProps.tablePermissions,
     tableViews: elementProps.tableViews,
     canCreate: elementProps.canCreate,
+    newRecordLabel: elementProps.newRecordLabel,
     groupBy: elementProps.groupBy,
     summary: elementProps.summary,
     onRowClick: elementProps.onRowClick,
@@ -55,6 +56,7 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
     emptyColumnMessage: elementProps.emptyColumnMessage,
     colorField: elementProps.colorField,
     columnOptions: elementProps.columnOptions,
+    columnColors: elementProps.columnColors,
   }
 }
 

@@ -82,6 +82,7 @@ interface DataTableViewProps {
   readonly onEditCancel: () => void
   readonly onRefresh: () => void
   readonly canCreate: boolean
+  readonly newRecordLabel: string
   readonly creating: boolean
   readonly onCreate: () => void
   readonly onCancelCreate: () => void
@@ -147,6 +148,7 @@ export function DataTableView({
   onEditCancel,
   onRefresh,
   canCreate,
+  newRecordLabel,
   creating,
   onCreate,
   onCancelCreate,
@@ -237,6 +239,7 @@ export function DataTableView({
           onCloseExportMenu={ui.onCloseExportMenu}
           onRefresh={onRefresh}
           canCreate={canCreate}
+          newRecordLabel={newRecordLabel}
           onCreate={onCreate}
           readOnly={readOnly}
           {...(systemExportEndpoint !== undefined && { systemExportEndpoint })}
@@ -264,6 +267,7 @@ export function DataTableView({
         <CreateRecordDialog
           fields={tableFields ?? []}
           {...(fieldMeta && { fieldMeta })}
+          title={newRecordLabel}
           onCancel={onCancelCreate}
           onSubmit={onSubmitCreate}
         />

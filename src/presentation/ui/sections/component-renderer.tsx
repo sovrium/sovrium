@@ -326,6 +326,8 @@ function RenderDirectComponent({
     component: substitutedComponent,
     componentProps,
     resolved: resolvedTypeInputs,
+    currentLang: props.currentLang,
+    languages: props.languages,
   })
 
   const meta = componentProps?.meta as ComponentMeta | undefined

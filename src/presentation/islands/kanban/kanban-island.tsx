@@ -35,6 +35,7 @@ interface KanbanIslandProps {
   readonly emptyColumnMessage?: string
   readonly colorField?: string
   readonly columnOptions?: readonly string[]
+  readonly columnColors?: Readonly<Record<string, string>>
 }
 
 function resolveDragConfigEnabled(isSystemSource: boolean, drag: KanbanDrag | undefined): boolean {
@@ -48,6 +49,7 @@ export default function KanbanIsland({
   drag,
   emptyColumnMessage,
   columnOptions,
+  columnColors,
 }: KanbanIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useKanbanRecords(dataSource)
 
@@ -66,7 +68,7 @@ export default function KanbanIsland({
   if (isLoading) return <KanbanLoading />
   if (isError) return <KanbanError error={error} />
 
-  const columns = groupRecords(localRecords, groupByField, columnOptions)
+  const columns = groupRecords(localRecords, groupByField, columnOptions, columnColors)
   const handleDragEnd = buildKanbanDragHandler({
     localRecords,
     setLocalRecords,

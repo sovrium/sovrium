@@ -108,6 +108,13 @@ const CANONICAL_COLOR_UTILITIES = [
   'bg-info-600',
   'bg-info-700',
   'bg-info-950',
+  'text-primary-foreground',
+  'bg-card',
+  'bg-muted',
+  'text-muted-foreground',
+  'bg-popover',
+  'bg-destructive',
+  'text-destructive-foreground',
 ].join(' ')
 
 const CANONICAL_FONT_UTILITIES = ['font-sans', 'font-mono', 'font-serif'].join(' ')
@@ -226,6 +233,27 @@ const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     --color-info-600: var(--sv-info-600);
     --color-info-700: var(--sv-info-700);
     --color-info-950: var(--sv-info-950);
+
+    /* shadcn-convention alias utilities (DEC-060). Mirror COLOR_TO_SV_TOKEN in
+       theme-generators.ts so the DEFAULT theme mints the same shadcn names the
+       custom-theme path already accepts — text-primary-foreground / bg-card /
+       bg-muted / text-muted-foreground / bg-popover / bg-destructive /
+       text-destructive-foreground resolve to their --sv-* role token in BOTH
+       light and dark (previously they no-op'd on the default theme, leaving
+       button text inheriting --sv-fg → near-invisible in dark mode). Each maps
+       to the SAME --sv-* role its v1-name sibling maps to, so the alias and the
+       v1 utility compute identically. The Group-A *-foreground / destructive
+       names were the author-override inputs the alias bridge read as
+       var(--color-X, ...); those bridge fallbacks are dropped (custom themes set
+       the --sv-* role directly via generateAuthorSvBridge), so registering them
+       here does NOT form a --color-X to --sv-role to --color-X cycle. */
+    --color-primary-foreground: var(--sv-primary-fg);
+    --color-card: var(--sv-bg-raised);
+    --color-muted: var(--sv-bg-subtle);
+    --color-muted-foreground: var(--sv-fg-muted);
+    --color-popover: var(--sv-bg-overlay);
+    --color-destructive: var(--sv-error-solid);
+    --color-destructive-foreground: var(--sv-error-solid-fg);
   }`
 
 const V1_THEME_NONCOLOR_REGISTRATIONS = `@theme {
@@ -501,7 +529,12 @@ export const V1_ALIAS_BRIDGE = `:root {
        above). Author override of --color-foreground reaches every
        bg-foreground/text-foreground utility directly via the registration. */
     --sv-fg: var(--sv-neutral-950);
-    --sv-fg-muted: var(--color-muted-foreground, var(--sv-neutral-600));
+    /* fg-muted uses the v1 neutral default DIRECTLY (no var(--color-muted-foreground,
+       …) self-reference) to avoid the --color-muted-foreground → --sv-fg-muted →
+       --color-muted-foreground CYCLE now that --color-muted-foreground is a
+       registered shadcn alias (DEC-060). Author override still flows through
+       --sv-fg-muted directly via generateAuthorSvBridge. */
+    --sv-fg-muted: var(--sv-neutral-600);
     /* fg-subtle/-disabled/-inverse use the neutral default directly to avoid
        the --color-foreground-* to --sv-fg-* to --color-foreground-* cycle (see border note
        above). Author override still flows through --color-foreground-*. */
@@ -517,14 +550,16 @@ export const V1_ALIAS_BRIDGE = `:root {
        Neutral defaults are used directly (no var(--color-primary, ...)
        self-reference) to avoid the --color-primary to --sv-primary to
        --color-primary cycle that left bg-primary transparent in zero-config.
-       --color-primary-foreground is a distinct author key (not a registered
-       --color-primary-fg alias) so it stays a non-cyclic fallback. Author
-       override of --color-primary reaches every bg-primary/text-primary
-       utility directly via the registration. */
+       --sv-primary-fg likewise uses the neutral default DIRECTLY: as of DEC-060
+       --color-primary-foreground is a REGISTERED shadcn alias
+       (--color-primary-foreground: var(--sv-primary-fg)), so reading it back as
+       this role's fallback would form a --color-primary-foreground → --sv-primary-fg
+       → --color-primary-foreground cycle. Author override of primary-foreground
+       reaches --sv-primary-fg directly via generateAuthorSvBridge. */
     --sv-primary: var(--sv-neutral-900);
     --sv-primary-hover: var(--sv-neutral-800);
     --sv-primary-active: var(--sv-neutral-950);
-    --sv-primary-fg: var(--color-primary-foreground, var(--sv-neutral-50));
+    --sv-primary-fg: var(--sv-neutral-50);
     --sv-primary-subtle: var(--sv-neutral-100);
     --sv-primary-subtle-fg: var(--sv-neutral-900);
 
@@ -552,12 +587,18 @@ export const V1_ALIAS_BRIDGE = `:root {
     --sv-warning-solid: var(--color-warning, var(--sv-warning-500));
     --sv-warning-solid-fg: var(--sv-warning-950);
 
-    /* Error — author 'destructive'/'danger'/'error' override the -solid slot */
+    /* Error — author 'danger'/'error' override the -solid slot via --color-error.
+       The --color-destructive / --color-destructive-foreground shadcn names are
+       NO LONGER read here: as of DEC-060 they are registered aliases
+       (--color-destructive: var(--sv-error-solid)), so reading them back as this
+       role's fallback would form a --color-destructive → --sv-error-solid →
+       --color-destructive cycle. A destructive author override reaches
+       --sv-error-solid directly via generateAuthorSvBridge. */
     --sv-error-bg: var(--sv-error-100);
     --sv-error-border: var(--sv-error-300);
     --sv-error-fg: var(--sv-error-700);
-    --sv-error-solid: var(--color-destructive, var(--color-error, var(--sv-error-600)));
-    --sv-error-solid-fg: var(--color-destructive-foreground, var(--sv-neutral-50));
+    --sv-error-solid: var(--color-error, var(--sv-error-600));
+    --sv-error-solid-fg: var(--sv-neutral-50);
 
     /* Info */
     --sv-info-bg: var(--sv-info-100);

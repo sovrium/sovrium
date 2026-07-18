@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveInterpreterString } from '@/domain/utils/translation-resolver'
 import { resolveDataTableViews, type ResolvedDataTableView } from './resolve-data-table-views'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 
@@ -15,6 +17,7 @@ export type TypeSpecificResolvedInputs = {
   readonly dataTablePermissions: unknown
   readonly dataTableViews: ReadonlyArray<ResolvedDataTableView> | undefined
   readonly kanbanColumnOptions: readonly string[] | undefined
+  readonly kanbanColumnColors: Readonly<Record<string, string>> | undefined
 }
 
 type BuilderArgs = {
@@ -22,6 +25,8 @@ type BuilderArgs = {
   readonly component: Component
   readonly componentProps: Component['props']
   readonly resolved: TypeSpecificResolvedInputs
+  readonly currentLang?: string
+  readonly languages?: Languages
 }
 
 const EMPTY_RESOLVED: TypeSpecificResolvedInputs = {
@@ -30,6 +35,7 @@ const EMPTY_RESOLVED: TypeSpecificResolvedInputs = {
   dataTablePermissions: undefined,
   dataTableViews: undefined,
   kanbanColumnOptions: undefined,
+  kanbanColumnColors: undefined,
 }
 
 function resolveSourceTable(
@@ -59,20 +65,43 @@ function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInpu
       table.views as ReadonlyArray<Record<string, unknown>> | undefined
     ),
     kanbanColumnOptions: undefined,
+    kanbanColumnColors: undefined,
   }
+}
+
+type FieldOption = string | { readonly value: string; readonly color?: string }
+
+function resolveKanbanGroupByOptions(
+  table: Tables[number],
+  component: Component
+): readonly FieldOption[] | undefined {
+  const groupByField = (component as { kanbanGroupBy?: { field?: string } }).kanbanGroupBy?.field
+  if (!groupByField) return undefined
+  const groupField = table.fields.find((f) => f.name === groupByField)
+  if (groupField && 'options' in groupField && Array.isArray(groupField.options)) {
+    return groupField.options as readonly FieldOption[]
+  }
+  return undefined
 }
 
 function resolveKanbanColumnOptions(
   table: Tables[number],
   component: Component
 ): readonly string[] | undefined {
-  const groupByField = (component as { kanbanGroupBy?: { field?: string } }).kanbanGroupBy?.field
-  if (!groupByField) return undefined
-  const groupField = table.fields.find((f) => f.name === groupByField)
-  if (groupField && 'options' in groupField && Array.isArray(groupField.options)) {
-    return groupField.options as readonly string[]
-  }
-  return undefined
+  const options = resolveKanbanGroupByOptions(table, component)
+  return options?.map((opt) => (typeof opt === 'string' ? opt : opt.value))
+}
+
+function resolveKanbanColumnColors(
+  table: Tables[number],
+  component: Component
+): Readonly<Record<string, string>> | undefined {
+  const options = resolveKanbanGroupByOptions(table, component)
+  if (!options) return undefined
+  const colored = options.flatMap((opt) =>
+    typeof opt === 'string' || !opt.color ? [] : [[opt.value, opt.color] as const]
+  )
+  return colored.length > 0 ? Object.fromEntries(colored) : undefined
 }
 
 export function resolveTypeSpecificInputs(
@@ -90,6 +119,7 @@ export function resolveTypeSpecificInputs(
     return {
       ...EMPTY_RESOLVED,
       kanbanColumnOptions: table ? resolveKanbanColumnOptions(table, component) : undefined,
+      kanbanColumnColors: table ? resolveKanbanColumnColors(table, component) : undefined,
     }
   }
 
@@ -97,7 +127,14 @@ export function resolveTypeSpecificInputs(
 }
 
 const TYPE_BUILDERS: Record<string, (args: BuilderArgs) => Record<string, unknown>> = {
-  'data-table': ({ baseElementPropsWithType, component, componentProps, resolved }) => ({
+  'data-table': ({
+    baseElementPropsWithType,
+    component,
+    componentProps,
+    resolved,
+    currentLang,
+    languages,
+  }) => ({
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     columns: component.columns,
@@ -121,6 +158,7 @@ const TYPE_BUILDERS: Record<string, (args: BuilderArgs) => Record<string, unknow
     tablePermissions: resolved.dataTablePermissions,
     tableViews: resolved.dataTableViews,
     canCreate: (componentProps as { _canCreate?: boolean } | undefined)?._canCreate,
+    newRecordLabel: resolveInterpreterString('datatable.newRecord', currentLang, languages),
   }),
 
   kanban: ({ baseElementPropsWithType, component, resolved }) => ({
@@ -132,6 +170,7 @@ const TYPE_BUILDERS: Record<string, (args: BuilderArgs) => Record<string, unknow
     emptyColumnMessage: component.emptyColumnMessage,
     colorField: component.colorField,
     columnOptions: resolved.kanbanColumnOptions,
+    columnColors: resolved.kanbanColumnColors,
     search: component.search,
   }),
 

@@ -137,17 +137,11 @@ export function requireAuthOrGuestComment(
       await next()
       return undefined
     }
-    if (isGuestCommentCreateRequest(c) && hasGuestCommentsEnabled(c, resolveApp())) {
-      const guestSession: Session = {
-        userId: 'guest',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        token: '',
-        ipAddress: null,
-        userAgent: null,
-      } as Session
-      c.set('session', guestSession)
-      c.set('userRole', 'guest')
-      c.set('userGroups', [] as readonly string[])
+    const app = resolveApp()
+    const isGuestComment = isGuestCommentCreateRequest(c) && hasGuestCommentsEnabled(c, app)
+    const isPublicRead = isPublicTableRecordReadRequest(c) && hasPublicReadEnabled(c, app)
+    if (isGuestComment || isPublicRead) {
+      injectGuestPrincipal(c)
       await next()
       return undefined
     }
@@ -161,6 +155,19 @@ export function requireAuthOrGuestComment(
       401
     )
   }
+}
+
+function injectGuestPrincipal(c: ContextWithSession): void {
+  const guestSession: Session = {
+    userId: 'guest',
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    token: '',
+    ipAddress: null,
+    userAgent: null,
+  } as Session
+  c.set('session', guestSession)
+  c.set('userRole', 'guest')
+  c.set('userGroups', [] as readonly string[])
 }
 
 function isGuestCommentCreateRequest(c: Context): boolean {
@@ -184,6 +191,33 @@ function hasGuestCommentsEnabled(
   if (!table) return false
   const { comments } = table as { readonly comments?: { readonly guestComments?: boolean } }
   return comments?.guestComments === true
+}
+
+const PUBLIC_READ_LIST_PATH = /^\/api\/tables\/[^/]+\/records\/?$/
+const PUBLIC_READ_SINGLE_PATH = /^\/api\/tables\/[^/]+\/records\/[^/]+\/?$/
+
+function isPublicTableRecordReadRequest(c: Context): boolean {
+  if (c.req.method !== 'GET') return false
+  const { path } = c.req
+  return PUBLIC_READ_LIST_PATH.test(path) || PUBLIC_READ_SINGLE_PATH.test(path)
+}
+
+function hasPublicReadEnabled(
+  c: Context,
+  app: { readonly tables?: ReadonlyArray<unknown> } | undefined
+): boolean {
+  if (!app?.tables) return false
+  const match = c.req.path.match(/^\/api\/tables\/([^/]+)\/records/)
+  if (!match) return false
+  const tableKey = match[1] ?? ''
+  const table = app.tables.find((t): t is { readonly name?: string; readonly id?: unknown } => {
+    if (typeof t !== 'object' || t === null) return false
+    const candidate = t as { readonly name?: unknown; readonly id?: unknown }
+    return candidate.name === tableKey || String(candidate.id ?? '') === tableKey
+  })
+  if (!table) return false
+  const { permissions } = table as { readonly permissions?: { readonly read?: unknown } }
+  return permissions?.read === 'all'
 }
 
 export function requireAuth() {

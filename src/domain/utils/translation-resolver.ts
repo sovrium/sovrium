@@ -23,6 +23,35 @@ export function normalizeLanguageCode(
   return lang
 }
 
+const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  'datatable.newRecord': {
+    en: 'New record',
+    fr: 'Nouvel enregistrement',
+  },
+}
+
+const DEFAULT_INTERPRETER_LANG = 'en'
+
+export function resolveInterpreterString(
+  key: string,
+  currentLang: string | undefined,
+  languages?: Languages
+): string {
+  const lang = currentLang ?? DEFAULT_INTERPRETER_LANG
+
+  const authored = resolveTranslation(key, lang, languages)
+  if (authored !== key) {
+    return authored
+  }
+
+  const catalog = INTERPRETER_UI_STRINGS[key]
+  if (!catalog) {
+    return key
+  }
+  const baseLang = lang.split('-')[0] ?? lang
+  return catalog[lang] ?? catalog[baseLang] ?? catalog[DEFAULT_INTERPRETER_LANG] ?? key
+}
+
 export function resolveTranslation(
   key: string,
   currentLang: string,

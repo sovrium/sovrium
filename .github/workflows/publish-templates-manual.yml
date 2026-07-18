@@ -1,0 +1,62 @@
+name: Manual template repos publish (bootstrap & backfill)
+
+# Manually-triggered companion to release.yml's publish-templates job.
+# Use cases:
+#   - the supervised first run that CREATES the 18 sovrium/<slug> template
+#     repos (check "create missing repositories"),
+#   - re-publishing a release whose automatic publish failed,
+#   - repairing a single template repo (set "only").
+#
+# The checked-out tree is the tag's own tree and the stamped .sovrium-version
+# is that same version — a mirror can never be newer than the binary it pins.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version whose tree to publish (e.g. 0.13.0 — checks out v0.13.0)'
+        required: true
+      only:
+        description: 'Publish a single template slug (empty = all)'
+        required: false
+        default: ''
+      create:
+        description: 'Create missing repositories (bootstrap run)'
+        type: boolean
+        required: false
+        default: false
+      dry_run:
+        description: 'Dry run (build trees + plan, no mutations)'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  publish-templates:
+    name: Publish template repositories (manual)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout tagged tree
+        uses: actions/checkout@v5
+        with:
+          ref: v${{ inputs.version }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Publish template repositories
+        env:
+          GH_TOKEN: ${{ secrets.TEMPLATES_PUBLISH_TOKEN }}
+        run: |
+          set -- --version "${{ inputs.version }}"
+          if [ -n "${{ inputs.only }}" ]; then set -- "$@" --only "${{ inputs.only }}"; fi
+          if [ "${{ inputs.create }}" = "true" ]; then set -- "$@" --create; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then set -- "$@" --dry-run; fi
+          bun run scripts/build/publish-template-repos.ts "$@"

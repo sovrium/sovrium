@@ -1,3 +1,52 @@
+## [0.15.0](https://github.com/sovrium/sovrium/compare/v0.14.0...v0.15.0) (2026-07-18)
+
+### Features
+
+- **website**: light up the Open-the-demo CTA with the live demo fleet
+
+### Bug Fixes
+
+- **theming**: mint shadcn-convention alias utilities on the default theme (DEC-060)
+- **tables**: admit anonymous read of read:all tables (DEC-059)
+- **i18n**: localize the data-table create-record affordance (DEC-061)
+- **server**: drop Hono context param from the empty-chunk stub helper
+- **pages**: normalize colored status options for kanban group-by
+- **build**: pad zero-byte island split chunks that broke production hydration
+- **website**: rename the demo-credentials i18n key out of the demo leaf
+- **templates**: use the real postgresql-starter-512 plan in Scalingo manifests
+
+### Refactoring
+
+- **islands**: extract ColumnHeader to clear kanban-column lint warnings
+- **website**: recast the manifesto in the team voice
+- **website**: rebuild Academy + Cloud as pre-launch waitlist landings
+
+### Documentation
+
+- realign install US table after Cloud CTA retarget
+- add user stories + DEC-059..062 for 4 v0.14.0 template-audit platform defects
+- **user-stories**: stage the interpreter-ui-strings and public-anonymous-read drafts + new DEC entries
+- **demo-fleet**: internal runbook, decisions and host provisioning scripts
+
+### Styles
+
+- **website**: align the gallery header comment with DEMO_SLUGS
+
+### Tests
+
+- **website**: retarget Cloud CTA expectations to /en/cloud waitlist
+- remove template-app E2E specs
+- add RED specs for 4 v0.14.0 template-audit platform defects
+- **pages**: stage the RED kanban colored-select group-by contract (US + fixme specs)
+- **website**: cover the Academy + Cloud waitlist funnels; fix stale nav/product specs
+
+### Chores
+
+- **agents**: update product-specs-architect memory
+- **agent-memory**: record session notes from the docs, navbar, gallery and manifesto rounds
+- **website**: give the /apps gallery real screenshots
+- **scripts**: ship publish-templates-manual.yml to the GitHub mirror
+
 ## [0.14.0](https://github.com/sovrium/sovrium/compare/v0.13.0...v0.14.0) (2026-07-17)
 
 ### Features

@@ -272,6 +272,15 @@ export const buildIslands = (() => {
   return memoizeUnlessDev(build)
 })()
 
+function emptyChunkStub(): Response {
+  return new Response('/* empty island chunk */', {
+    headers: {
+      'Content-Type': 'application/javascript',
+      'Cache-Control': getCacheControlHeader(),
+    },
+  })
+}
+
 export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   return honoApp.get('/assets/islands/*', async (c) => {
     try {
@@ -281,7 +290,9 @@ export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
         const assets = await getRuntimeAssets()
         const embeddedPath = assets.islands[relativePath]
         if (embeddedPath === undefined) return c.notFound()
-        return new Response(Bun.file(embeddedPath), {
+        const embedded = Bun.file(embeddedPath)
+        if (embedded.size === 0) return emptyChunkStub()
+        return new Response(embedded, {
           headers: {
             'Content-Type': 'application/javascript',
             'Cache-Control': isProduction
@@ -295,6 +306,7 @@ export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
       const file = Bun.file(filePath)
 
       if (await file.exists()) {
+        if (file.size === 0) return emptyChunkStub()
         return new Response(file, {
           headers: {
             'Content-Type': 'application/javascript',

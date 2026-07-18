@@ -10,13 +10,17 @@ import type { TableRecord } from '../shared/types'
 export interface KanbanColumnData {
   readonly value: string
   readonly records: readonly TableRecord[]
+  readonly color?: string
 }
 
 export function groupRecords(
   records: readonly TableRecord[],
   field: string,
-  columnOptions: readonly string[] | undefined
+  columnOptions: readonly string[] | undefined,
+  columnColors?: Readonly<Record<string, string>>
 ): readonly KanbanColumnData[] {
+  const colorFor = (value: string): string | undefined => columnColors?.[value]
+
   const buckets = records.reduce<ReadonlyMap<string, readonly TableRecord[]>>((acc, record) => {
     const raw = record[field]
     const value = raw === null || raw === undefined || raw === '' ? 'Uncategorized' : String(raw)
@@ -28,6 +32,7 @@ export function groupRecords(
     const declared = columnOptions.map((value) => ({
       value,
       records: buckets.get(value) ?? [],
+      ...(colorFor(value) ? { color: colorFor(value) } : {}),
     }))
     const undeclared = Array.from(buckets.entries())
       .filter(([value]) => !columnOptions.includes(value))
@@ -38,5 +43,6 @@ export function groupRecords(
   return Array.from(buckets.entries()).map(([value, columnRecords]) => ({
     value,
     records: columnRecords,
+    ...(colorFor(value) ? { color: colorFor(value) } : {}),
   }))
 }

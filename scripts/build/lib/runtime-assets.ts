@@ -6,11 +6,14 @@
  */
 
 
-import { existsSync, mkdirSync, copyFileSync } from 'node:fs'
+import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
 
 const CLIENT_SCRIPTS = ['scroll-animation.js', 'language-switcher.js', 'banner-dismiss.js'] as const
+
+const EMPTY_CHUNK_PAD =
+  '/* sovrium: intentionally empty split chunk — padded so the server never emits a bodiless 204 */\n'
 
 export async function buildRuntimeAssets(distDir: string, srcDir: string): Promise<void> {
   const clientScriptsDir = join(distDir, 'client-scripts')
@@ -53,5 +56,18 @@ export async function buildRuntimeAssets(distDir: string, srcDir: string): Promi
   if (!islandResult.success) {
     const errors = islandResult.logs.map((l) => String(l)).join('\n')
     throw new Error(`Island bundle build failed:\n${errors}`)
+  }
+
+  for (const name of readdirSync(islandOutDir).filter((f) => f.endsWith('.js'))) {
+    const chunkPath = join(islandOutDir, name)
+    if (statSync(chunkPath).size === 0) writeFileSync(chunkPath, EMPTY_CHUNK_PAD)
+  }
+  const stillEmpty = readdirSync(islandOutDir).filter(
+    (name) => name.endsWith('.js') && statSync(join(islandOutDir, name)).size === 0
+  )
+  if (stillEmpty.length > 0) {
+    throw new Error(
+      `Island build produced zero-byte chunks after padding: ${stillEmpty.join(', ')}`
+    )
   }
 }
