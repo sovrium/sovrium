@@ -98,7 +98,21 @@ const finalizeTableRecreation = (
     if (!isSqliteRuntime()) {
       yield* executeSQL(
         tx,
-        `DO $$ BEGIN ALTER TABLE ${physicalTableName} RENAME CONSTRAINT ${tempTableName}_pkey TO ${physicalTableName}_pkey; EXCEPTION WHEN undefined_object THEN NULL; END $$`
+        `DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = '${physicalTableName}'::regclass
+      AND position('${tempTableName}_' in conname) = 1
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE ${physicalTableName} RENAME CONSTRAINT %I TO %I',
+      r.conname,
+      replace(r.conname, '${tempTableName}_', '${physicalTableName}_')
+    );
+  END LOOP;
+END $$`
       )
     }
   })
@@ -119,10 +133,12 @@ export const recreateTableWithDataEffect = (
 
     const createTableSQL = yield* Effect.try({
       try: () =>
-        generateCreateTableSQL(table, tableUsesView).replace(
-          `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
-          `CREATE TABLE ${tempTableName}`
-        ),
+        generateCreateTableSQL(table, tableUsesView)
+          .replace(
+            `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
+            `CREATE TABLE ${tempTableName}`
+          )
+          .replaceAll(`CONSTRAINT ${physicalTableName}_`, `CONSTRAINT ${tempTableName}_`),
       catch: (error) =>
         new SQLExecutionError({
           message: `Failed to generate CREATE TABLE DDL for migration: ${String(error)}`,

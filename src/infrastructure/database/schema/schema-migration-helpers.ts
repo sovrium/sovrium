@@ -28,6 +28,8 @@ export {
   findDefaultValueChanges,
   buildColumnStatements,
   generateAlterTableStatements,
+  needsTableRecreation,
+  isTableDefinitionUnchanged,
   syncUniqueConstraints,
   syncForeignKeyConstraints,
   syncCheckConstraints,

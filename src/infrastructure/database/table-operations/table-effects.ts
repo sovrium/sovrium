@@ -15,6 +15,8 @@ import {
 } from '../lookup/lookup-view-generators'
 import {
   generateAlterTableStatements,
+  needsTableRecreation,
+  isTableDefinitionUnchanged,
   syncUniqueConstraints,
   syncForeignKeyConstraints,
   syncCheckConstraints,
@@ -53,12 +55,16 @@ export const migrateExistingTableEffect = (params: {
 }): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const { tx, table, existingColumns, tableUsesView, previousSchema } = params
-    const alterStatements = generateAlterTableStatements(table, existingColumns, previousSchema)
 
-    if (alterStatements.length === 0) {
+    if (needsTableRecreation(table, existingColumns)) {
       yield* recreateTableWithDataEffect(tx, table, existingColumns, tableUsesView)
     } else {
-      yield* executeSQLStatements(tx, alterStatements)
+      const alterStatements = generateAlterTableStatements(table, existingColumns, previousSchema)
+      if (alterStatements.length > 0) {
+        yield* executeSQLStatements(tx, alterStatements)
+      } else if (!isTableDefinitionUnchanged(table, previousSchema)) {
+        yield* recreateTableWithDataEffect(tx, table, existingColumns, tableUsesView)
+      }
     }
 
     yield* syncUniqueConstraints(tx, table, previousSchema)

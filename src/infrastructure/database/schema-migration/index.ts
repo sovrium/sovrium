@@ -34,7 +34,11 @@ export {
   buildColumnStatements,
 } from './column-detection'
 
-export { generateAlterTableStatements } from './migration-statements'
+export {
+  generateAlterTableStatements,
+  needsTableRecreation,
+  isTableDefinitionUnchanged,
+} from './migration-statements'
 
 export {
   syncUniqueConstraints,

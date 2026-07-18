@@ -1,3 +1,22 @@
+## [0.15.1](https://github.com/sovrium/sovrium/compare/v0.15.0...v0.15.1) (2026-07-18)
+
+### Bug Fixes
+
+- **migrations**: make dynamic-table schema re-init idempotent across upgrades (DEC-063)
+
+### Documentation
+
+- spec upgrade-path idempotency for schema re-init (DEC-063)
+- **demo-fleet**: record the v0.15.0 binary upgrade
+
+### Tests
+
+- RED specs for cross-version schema re-init idempotency (DEC-063)
+
+### Chores
+
+- clear quality gates for the migration-fix train
+
 ## [0.15.0](https://github.com/sovrium/sovrium/compare/v0.14.0...v0.15.0) (2026-07-18)
 
 ### Features

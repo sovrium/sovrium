@@ -48,15 +48,57 @@ const validateDestructiveOps = (table: Table, columnsToDrop: readonly string[]):
   }
 }
 
+const computeIdProtection = (
+  table: Table
+): { readonly shouldProtectIdColumn: boolean; readonly primaryKeyFields: readonly string[] } => {
+  const primaryKeyFields =
+    table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
+  const hasIdField = table.fields.some((field) => field.name === 'id')
+  const shouldProtectIdColumn = !hasIdField && !(table.primaryKey && primaryKeyFields.length > 0)
+  return { shouldProtectIdColumn, primaryKeyFields }
+}
+
+export const needsTableRecreation = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, ExistingColumnInfo>
+): boolean => {
+  const { shouldProtectIdColumn } = computeIdProtection(table)
+  return needsIdColumnRecreation(existingColumns, shouldProtectIdColumn)
+}
+
+const canonicalize = (value: unknown): unknown => {
+  if (value === null || typeof value !== 'object') return value
+  if (Array.isArray(value)) return value.map(canonicalize)
+  const record = value as Record<string, unknown>
+  return Object.keys(record)
+    .toSorted()
+    .reduce<Record<string, unknown>>(
+      (acc, key) => ({ ...acc, [key]: canonicalize(record[key]) }),
+      {}
+    )
+}
+
+export const isTableDefinitionUnchanged = (
+  table: Table,
+  previousSchema?: { readonly tables: readonly object[] }
+): boolean => {
+  const previousTable = previousSchema?.tables.find(
+    (t) =>
+      typeof t === 'object' &&
+      t !== null &&
+      'name' in t &&
+      (t as { name?: unknown }).name === table.name
+  )
+  if (!previousTable) return false
+  return JSON.stringify(canonicalize(table)) === JSON.stringify(canonicalize(previousTable))
+}
+
 export const generateAlterTableStatements = (
   table: Table,
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
   previousSchema?: { readonly tables: readonly object[] }
 ): readonly string[] => {
-  const primaryKeyFields =
-    table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
-  const hasIdField = table.fields.some((field) => field.name === 'id')
-  const shouldProtectIdColumn = !hasIdField && !(table.primaryKey && primaryKeyFields.length > 0)
+  const { shouldProtectIdColumn, primaryKeyFields } = computeIdProtection(table)
 
   if (needsIdColumnRecreation(existingColumns, shouldProtectIdColumn)) return []
 
