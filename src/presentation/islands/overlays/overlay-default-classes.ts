@@ -50,7 +50,7 @@ export const computeOverlayBackdropClasses = (): string =>
 
 
 const DIALOG_LAYOUT_BASE =
-  'fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 p-6'
+  'fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 p-6 outline-none'
 
 const DIALOG_SIZE_MAP: Record<DialogSize, string> = {
   sm: 'max-w-sm',
@@ -104,7 +104,7 @@ const DIALOG_ACTIONS = 'flex justify-end gap-3'
 export const computeDialogActionsClasses = (): string => DIALOG_ACTIONS
 
 
-const DRAWER_LAYOUT_BASE = 'fixed z-50'
+const DRAWER_LAYOUT_BASE = 'fixed z-50 outline-none'
 
 const DRAWER_SIDE_MAP: Record<DrawerSide, string> = {
   left: 'inset-y-0 left-0',
@@ -130,7 +130,7 @@ const DRAWER_HEADER = ['border-b p-4', `border-[${v('sv-border', T.border)}]`].j
 export const computeDrawerHeaderClasses = (): string => DRAWER_HEADER
 
 
-const POPOVER_LAYOUT = 'z-50 w-72 p-4'
+const POPOVER_LAYOUT = 'z-50 w-72 p-4 outline-none'
 
 export const computePopoverPopupClasses = (): string =>
   [POPOVER_LAYOUT, RADIUS_LG, POPUP_SURFACE, POPUP_SHADOW_LG, ENTER_EXIT_FADE_ZOOM].join(' ')
@@ -157,7 +157,7 @@ export const computeTooltipPopupClasses = (): string =>
 export const computeHoverCardPopupClasses = (): string => computePopoverPopupClasses()
 
 
-const MENU_POPUP_LAYOUT = 'z-50 min-w-48 py-1'
+const MENU_POPUP_LAYOUT = 'z-50 min-w-48 py-1 outline-none'
 
 const MENU_POPUP_INVERTED_SURFACE = [
   'border border-transparent',

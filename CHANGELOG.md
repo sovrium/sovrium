@@ -1,3 +1,9 @@
+## [0.15.2](https://github.com/sovrium/sovrium/compare/v0.15.1...v0.15.2) (2026-07-19)
+
+### Bug Fixes
+
+- **css**: emit arbitrary-var popup surfaces in the binary + cache-control policy
+
 ## [0.15.1](https://github.com/sovrium/sovrium/compare/v0.15.0...v0.15.1) (2026-07-18)
 
 ### Bug Fixes

@@ -281,6 +281,15 @@ function emptyChunkStub(): Response {
   })
 }
 
+const CONTENT_HASHED_ASSET = /-[a-z0-9]{8}\.js$/
+const isContentHashed = (name: string): boolean => CONTENT_HASHED_ASSET.test(name)
+
+function assetCacheControl(name: string): string {
+  return isProduction && isContentHashed(name)
+    ? 'public, max-age=31536000, immutable'
+    : getCacheControlHeader()
+}
+
 export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   return honoApp.get('/assets/islands/*', async (c) => {
     try {
@@ -295,9 +304,7 @@ export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
         return new Response(embedded, {
           headers: {
             'Content-Type': 'application/javascript',
-            'Cache-Control': isProduction
-              ? 'public, max-age=31536000, immutable'
-              : getCacheControlHeader(),
+            'Cache-Control': assetCacheControl(relativePath),
           },
         })
       }
@@ -310,9 +317,7 @@ export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
         return new Response(file, {
           headers: {
             'Content-Type': 'application/javascript',
-            'Cache-Control': isProduction
-              ? 'public, max-age=31536000, immutable'
-              : getCacheControlHeader(),
+            'Cache-Control': assetCacheControl(relativePath),
           },
         })
       }

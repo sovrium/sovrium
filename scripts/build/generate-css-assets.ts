@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Scanner } from '@tailwindcss/oxide'
+import { generateArbitraryVarSafelist } from '../../src/infrastructure/css/arbitrary-var-safelist'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 
@@ -57,7 +58,20 @@ function formatKb(...strings: readonly string[]): string {
   return `${(bytes / 1000).toFixed(1)} KB`
 }
 
-const candidates = scanCandidates()
+const arbitraryVarSafelist = generateArbitraryVarSafelist()
+if (arbitraryVarSafelist.length === 0) {
+  throw new Error(
+    'generateArbitraryVarSafelist() returned empty — the recipe scan broke; the binary CSS would drop every popup surface.'
+  )
+}
+const POPUP_SURFACE_SENTINEL = 'bg-[var(--sv-bg-overlay,'
+if (!arbitraryVarSafelist.some((cls) => cls.startsWith(POPUP_SURFACE_SENTINEL))) {
+  throw new Error(
+    `Arbitrary-var safelist is missing the popup surface class (${POPUP_SURFACE_SENTINEL}…) — overlays would render transparent in the binary.`
+  )
+}
+
+const candidates = [...new Set([...scanCandidates(), ...arbitraryVarSafelist])].toSorted()
 const tailwindIndexCss = readStylesheet('tailwindcss/index.css')
 const twAnimateCss = readStylesheet('tw-animate-css/dist/tw-animate.css')
 
