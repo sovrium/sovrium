@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Helpdesk",
   "description": "A public support form feeding a triage kanban.",
-  "repository": "https://github.com/sovrium/helpdesk",
+  "repository": "https://github.com/sovrium/helpdesk-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/helpdesk",
   "env": {

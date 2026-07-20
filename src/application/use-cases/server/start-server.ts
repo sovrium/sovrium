@@ -18,7 +18,6 @@ import {
   generateBootstrapTokenIfNeeded,
   type BootstrapTokenBootContext,
 } from '@/application/use-cases/auth/bootstrap-token'
-import { validateCloudGate } from '@/application/use-cases/automations/validate-cloud-gate'
 import { validateTriggerConfigs } from '@/application/use-cases/automations/validate-trigger-configs'
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
 import { normalizeAppConfig } from '@/application/use-cases/server/normalize-app-config'
@@ -27,13 +26,10 @@ import { parseDatabaseDialectConfig } from '@/domain/models/env/database/databas
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { PackageResolver } from '@/infrastructure/automations/package-resolver'
 import { TypeScriptValidator } from '@/infrastructure/automations/typescript-validator'
-import { installHostLogDrain } from '@/infrastructure/cloud/log-drain'
-import { installHostMetricsCollector } from '@/infrastructure/cloud/metrics-collector'
 import { db } from '@/infrastructure/database'
 import { authUsersTable, authAccountsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/auth/bootstrap-token-repository-live'
-import { ensureCloudIngressRoutesTable } from '@/infrastructure/database/repositories/cloud/cloud-ingress-repository-live'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { ServerInstance } from '@/application/models/server'
@@ -52,11 +48,6 @@ import type { SchemaInitializationError } from '@/infrastructure/errors/schema-i
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { Context } from 'effect'
-
-const isCloudModeEnabled = (): boolean => {
-  const flag = process.env.SOVRIUM_CLOUD_MODE
-  return typeof flag === 'string' && flag.trim().length > 0
-}
 
 export interface StartOptions {
   readonly port?: number
@@ -130,7 +121,6 @@ const decodeAndValidateApp = (
     yield* validateTriggerConfigs(normalizedApp).pipe(
       Effect.mapError((error) => new AppValidationError(error))
     )
-    yield* validateCloudGate(normalizedApp)
     return yield* Schema.decodeUnknown(AppSchema)(normalizedApp).pipe(
       Effect.mapError((error) => new AppValidationError(error))
     )
@@ -155,9 +145,6 @@ const runBootSequenceAndBootstrap = (
 > =>
   Effect.gen(function* () {
     yield* runMigrations(parseDatabaseDialectConfig())
-    if (isCloudModeEnabled()) {
-      yield* Effect.promise(() => ensureCloudIngressRoutesTable().catch(() => undefined))
-    }
     return yield* bootstrapAdminAndToken(validatedApp, logger)
   })
 
@@ -187,7 +174,7 @@ interface CreateServerDeps {
   readonly bootstrapToken: string | undefined
 }
 
-const createServerWithDrain = (
+const createServerInstance = (
   validatedApp: App,
   options: StartOptions,
   deps: CreateServerDeps
@@ -201,7 +188,7 @@ const createServerWithDrain = (
   | Error,
   never
 > => {
-  const create = deps.serverFactory.create({
+  return deps.serverFactory.create({
     app: validatedApp,
     port: options.port,
     hostname: options.hostname,
@@ -214,16 +201,6 @@ const createServerWithDrain = (
     renderRssFeed: deps.pageRenderer.renderRssFeed,
     bootstrapToken: deps.bootstrapToken,
   })
-  return isCloudModeEnabled()
-    ? create.pipe(
-        Effect.tap(() =>
-          Effect.sync(() => {
-            installHostLogDrain(validatedApp)
-            installHostMetricsCollector(validatedApp)
-          })
-        )
-      )
-    : create
 }
 
 export const startServer = (
@@ -263,7 +240,7 @@ export const startServer = (
 
     const bootstrapToken = yield* runBootSequenceAndBootstrap(validatedApp, logger)
 
-    return yield* createServerWithDrain(validatedApp, options, {
+    return yield* createServerInstance(validatedApp, options, {
       serverFactory,
       pageRenderer,
       bootstrapToken,

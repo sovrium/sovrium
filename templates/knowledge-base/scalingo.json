@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Knowledge Base",
   "description": "A private markdown handbook behind sign-in.",
-  "repository": "https://github.com/sovrium/knowledge-base",
+  "repository": "https://github.com/sovrium/knowledge-base-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/knowledge-base",
   "env": {

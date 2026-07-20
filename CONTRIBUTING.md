@@ -71,6 +71,9 @@ Starter configurations are available in the [`examples/`](examples/) directory.
 - **TypeScript** throughout, written for the Bun runtime.
 - **Conventional commits** — prefix messages with `feat:`, `fix:`, `docs:`,
   `refactor:`, `chore:`, etc.
+- **Write `feat:` / `fix:` / `perf:` descriptions for a general audience** —
+  these become the release notes readers see. Describe the behaviour that
+  changed, not the internal ticket or task that motivated it.
 - Keep changes focused — one logical change per pull request makes review
   faster.
 - Match the surrounding code style; the repository's formatter and linter define

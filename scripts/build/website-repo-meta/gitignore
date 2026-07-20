@@ -1,0 +1,16 @@
+# Sovrium runtime data (SQLite DB, lock, uploaded files)
+.sovrium
+*.db
+*.db-wal
+*.db-shm
+
+# Local environment
+.env
+.env.*
+
+# Dependencies (only needed to typecheck the config)
+node_modules
+
+# OS cruft
+.DS_Store
+Thumbs.db

@@ -1,7 +1,7 @@
 {
   "name": "Sovrium CRM",
   "description": "A sales CRM — pipeline kanban, grids, calendar.",
-  "repository": "https://github.com/sovrium/crm",
+  "repository": "https://github.com/sovrium/crm-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/crm",
   "env": {

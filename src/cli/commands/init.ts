@@ -14,37 +14,31 @@ import {
 } from '@/cli/commands/init-remote-template'
 import { CLAUDE_MD_BODY, PUBLIC_README_BODY } from '@/cli/commands/init-scaffold-content'
 import { ENV_EXAMPLE_CONTENT } from '@/cli/env-example-template'
-import {
-  embeddedAgentPath,
-  embeddedTemplateDir,
-} from '@/infrastructure/assets/embedded-static-assets'
+import { embeddedTemplateDir } from '@/infrastructure/assets/embedded-static-assets'
 
-interface TemplateEntry {
-  readonly template: string
-  readonly agent?: string
-}
+const STARTER_AGENT_RELPATH = '.claude/agents/app-editor.md'
 
-const TEMPLATE_MAP: Readonly<Record<string, TemplateEntry>> = {
-  'hello-world': { template: 'hello-world' },
-  'landing-page': { template: 'landing-page', agent: 'website-editor.md' },
-  crm: { template: 'crm', agent: 'crm-editor.md' },
-  'api-only': { template: 'api-only', agent: 'api-editor.md' },
-  intranet: { template: 'intranet', agent: 'intranet-editor.md' },
-  'mcp-server': { template: 'mcp-server', agent: 'mcp-editor.md' },
-  blog: { template: 'blog', agent: 'blog-editor.md' },
-  'docs-site': { template: 'docs-site' },
-  projects: { template: 'projects', agent: 'app-editor.md' },
-  helpdesk: { template: 'helpdesk', agent: 'app-editor.md' },
-  'content-calendar': { template: 'content-calendar', agent: 'app-editor.md' },
-  people: { template: 'people', agent: 'app-editor.md' },
-  events: { template: 'events', agent: 'app-editor.md' },
-  assets: { template: 'assets', agent: 'app-editor.md' },
-  expenses: { template: 'expenses', agent: 'app-editor.md' },
-  'company-os': { template: 'company-os', agent: 'app-editor.md' },
-  'automation-recipes': { template: 'automation-recipes', agent: 'app-editor.md' },
-  'knowledge-base': { template: 'knowledge-base', agent: 'app-editor.md' },
-  api: { template: 'api-only', agent: 'api-editor.md' },
-  landing: { template: 'landing-page', agent: 'website-editor.md' },
+const TEMPLATE_MAP: Readonly<Record<string, string>> = {
+  'hello-world': 'hello-world',
+  'landing-page': 'landing-page',
+  crm: 'crm',
+  'api-only': 'api-only',
+  intranet: 'intranet',
+  'mcp-server': 'mcp-server',
+  blog: 'blog',
+  'docs-site': 'docs-site',
+  projects: 'projects',
+  helpdesk: 'helpdesk',
+  'content-calendar': 'content-calendar',
+  people: 'people',
+  events: 'events',
+  assets: 'assets',
+  expenses: 'expenses',
+  'company-os': 'company-os',
+  'automation-recipes': 'automation-recipes',
+  'knowledge-base': 'knowledge-base',
+  api: 'api-only',
+  landing: 'landing-page',
 }
 
 const WEB_FACING_TEMPLATE_NAMES: ReadonlySet<string> = new Set([
@@ -140,7 +134,7 @@ const writeScaffoldFiles = async (targetDir: string, appYamlContent: string): Pr
   return targetPath
 }
 
-const resolveTemplate = (templateName: string): TemplateEntry => {
+const resolveTemplate = (templateName: string): string => {
   const entry = TEMPLATE_MAP[templateName]
   if (entry === undefined) {
     Effect.runSync(
@@ -152,11 +146,9 @@ const resolveTemplate = (templateName: string): TemplateEntry => {
     process.exit(1)
   }
 
-  const tree = embeddedTemplateDir(entry.template)
+  const tree = embeddedTemplateDir(entry)
   if (Object.keys(tree).length === 0) {
-    Effect.runSync(
-      Console.error(`Error: Template directory has no embedded files: ${entry.template}`)
-    )
+    Effect.runSync(Console.error(`Error: Template directory has no embedded files: ${entry}`))
     process.exit(1)
   }
 
@@ -199,49 +191,32 @@ export interface InitCommandOptions {
   readonly outputDir?: string
   readonly positionalDir?: string
   readonly forceFlag?: boolean
-  readonly skipAgent?: boolean
   readonly appName?: string
-}
-
-const installPairedAgent = async (
-  entry: TemplateEntry,
-  targetDir: string,
-  skipAgent: boolean
-): Promise<void> => {
-  if (skipAgent || entry.agent === undefined) return
-
-  const agentBasename = entry.agent.replace(/\.md$/, '')
-  const sourcePath = embeddedAgentPath(agentBasename)
-  if (sourcePath === undefined) {
-    Effect.runSync(
-      Console.error(`Warning: paired agent "${entry.agent}" not embedded — skipping agent install`)
-    )
-    return
-  }
-
-  const agentsDir = join(targetDir, '.claude', 'agents')
-  await mkdir(agentsDir, { recursive: true })
-
-  const destPath = join(agentsDir, entry.agent)
-  await Bun.write(destPath, Bun.file(sourcePath))
-  Effect.runSync(Console.log(`Installed agent ${destPath}`))
 }
 
 const scaffoldFromTemplate = async (
   templateName: string,
   targetDir: string,
-  skipAgent: boolean,
   forceFlag: boolean
 ): Promise<void> => {
-  const entry = resolveTemplate(templateName)
-  const relPaths = await copyTemplateTree(entry.template, targetDir, forceFlag)
-  await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(basename(targetDir)))
+  const template = resolveTemplate(templateName)
+  const relPaths = await copyTemplateTree(template, targetDir, forceFlag)
   Effect.runSync(
     Console.log(
       `Created ${targetDir}/ from template "${templateName}" (${relPaths.length} file${relPaths.length === 1 ? '' : 's'})`
     )
   )
-  await installPairedAgent(entry, targetDir, skipAgent)
+}
+
+const writeStarterAgentIfMissing = async (targetDir: string): Promise<void> => {
+  const sourcePath = embeddedTemplateDir('hello-world')[STARTER_AGENT_RELPATH]
+  if (sourcePath === undefined) {
+    Effect.runSync(Console.error('Warning: starter agent not embedded — skipping'))
+    return
+  }
+  const destPath = join(targetDir, ...STARTER_AGENT_RELPATH.split('/'))
+  const wrote = await writeOneTreeFile(sourcePath, destPath, false)
+  if (wrote) Effect.runSync(Console.log(`Created ${destPath}`))
 }
 
 const scaffoldDefault = async (targetDir: string, appName: string | undefined): Promise<void> => {
@@ -250,6 +225,7 @@ const scaffoldDefault = async (targetDir: string, appName: string | undefined): 
     generateDefaultAppYaml(appName || basename(targetDir))
   )
   Effect.runSync(Console.log(`Created ${createdPath}`))
+  await writeStarterAgentIfMissing(targetDir)
 }
 
 const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise<void> => {
@@ -261,14 +237,7 @@ const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise
 }
 
 export const handleInitCommand = async (options: InitCommandOptions = {}): Promise<void> => {
-  const {
-    templateName,
-    outputDir,
-    positionalDir,
-    forceFlag = false,
-    skipAgent = false,
-    appName,
-  } = options
+  const { templateName, outputDir, positionalDir, forceFlag = false, appName } = options
   const targetDir = positionalDir || outputDir || process.cwd()
 
   await assertNoConflict(join(targetDir, 'app.yaml'), forceFlag)
@@ -277,7 +246,7 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
   if (templateName && isRemoteTemplateRef(templateName)) {
     await scaffoldFromRemoteTemplate(templateName, targetDir, forceFlag)
   } else if (templateName) {
-    await scaffoldFromTemplate(templateName, targetDir, skipAgent, forceFlag)
+    await scaffoldFromTemplate(templateName, targetDir, forceFlag)
   } else {
     await scaffoldDefault(targetDir, appName)
   }
@@ -285,8 +254,8 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
   const isWebFacing =
     templateName === undefined ||
     (() => {
-      const entry = TEMPLATE_MAP[templateName]
-      return entry !== undefined && WEB_FACING_TEMPLATE_NAMES.has(entry.template)
+      const template = TEMPLATE_MAP[templateName]
+      return template !== undefined && WEB_FACING_TEMPLATE_NAMES.has(template)
     })()
   await scaffoldSupportFiles(targetDir, isWebFacing)
 }

@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Expenses",
   "description": "Receipts, approvals, and spend by category.",
-  "repository": "https://github.com/sovrium/expenses",
+  "repository": "https://github.com/sovrium/expenses-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/expenses",
   "env": {

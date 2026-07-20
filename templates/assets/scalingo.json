@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Assets",
   "description": "Barcoded equipment, tracked by location.",
-  "repository": "https://github.com/sovrium/assets",
+  "repository": "https://github.com/sovrium/assets-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/assets",
   "env": {

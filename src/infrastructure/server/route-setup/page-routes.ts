@@ -42,6 +42,7 @@ export interface HonoAppConfig {
       readonly session?: SessionInfo
       readonly cookies?: Readonly<Record<string, string>>
       readonly previewMode?: boolean
+      readonly requestQuery?: Readonly<Record<string, string>>
     }
   ) => PageRenderResult | Promise<PageRenderResult>
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
@@ -83,6 +84,7 @@ interface PageRequestContext {
   readonly session?: SessionInfo
   readonly cookies?: Readonly<Record<string, string>>
   readonly previewMode?: boolean
+  readonly requestQuery?: Readonly<Record<string, string>>
 }
 
 function sendResolved(
@@ -183,7 +185,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       const session = await extractSession(config, c.req.raw.headers)
       const cookies = getCookie(c)
       const previewMode = resolvePreviewMode(c, session)
-      const reqCtx = { session, cookies, previewMode }
+      const reqCtx = { session, cookies, previewMode, requestQuery: c.req.query() }
 
       if (!app.languages || app.languages.detectBrowser === false) {
         return (await renderWithCache(config, '/', reqCtx, c)) ?? c.html('')
@@ -225,10 +227,17 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
       const urlLanguage = validateLanguageSubdirectory(app, path)
       const previewMode = resolvePreviewMode(c, session)
+      const requestQuery = c.req.query()
       const exact = await renderWithCache(
         config,
         path,
-        { detectedLanguage: urlLanguage ?? detectedLanguage, session, cookies, previewMode },
+        {
+          detectedLanguage: urlLanguage ?? detectedLanguage,
+          session,
+          cookies,
+          previewMode,
+          requestQuery,
+        },
         c
       )
       if (exact) return exact
@@ -238,7 +247,7 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       const lang = await renderWithCache(
         config,
         '/',
-        { detectedLanguage: urlLanguage, session, cookies, previewMode },
+        { detectedLanguage: urlLanguage, session, cookies, previewMode, requestQuery },
         c
       )
       return lang ?? c.html('')
@@ -259,11 +268,18 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
     const urlLanguage = validateLanguageSubdirectory(app, path)
     const previewMode = resolvePreviewMode(c, session)
+    const requestQuery = c.req.query()
     try {
       const exact = await renderWithCache(
         config,
         path,
-        { detectedLanguage: urlLanguage ?? detectedLanguage, session, cookies, previewMode },
+        {
+          detectedLanguage: urlLanguage ?? detectedLanguage,
+          session,
+          cookies,
+          previewMode,
+          requestQuery,
+        },
         c
       )
       if (exact) return exact
@@ -274,7 +290,7 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
       const lang = await renderWithCache(
         config,
         pathWithoutLang,
-        { detectedLanguage: urlLanguage, session, cookies, previewMode },
+        { detectedLanguage: urlLanguage, session, cookies, previewMode, requestQuery },
         c
       )
       return lang ?? c.html(await renderNotFoundPage(app, urlLanguage), 404)
@@ -307,10 +323,11 @@ export function setupDynamicPageRoutes(
     const cookies = getCookie(c)
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
     const previewMode = resolvePreviewMode(c, session)
+    const requestQuery = c.req.query()
     const response = await renderWithCache(
       config,
       path,
-      { detectedLanguage, session, cookies, previewMode },
+      { detectedLanguage, session, cookies, previewMode, requestQuery },
       c
     )
     return response ?? c.html(await renderNotFoundPage(app, detectedLanguage), 404)

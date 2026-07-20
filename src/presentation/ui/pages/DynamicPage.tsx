@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
+import { DemoNotice } from '@/presentation/ui/demo-notice/demo-notice'
 import { extractComponentMetaFromSections } from '@/presentation/ui/metadata/extract-component-meta'
 import {
   COMMAND_PALETTE_CAPTURE_SCRIPT,
@@ -49,6 +50,7 @@ type DynamicPageProps = {
   readonly markdownPayload?: ResolvedMarkdownPage
   readonly session?: SessionInfo
   readonly badgeEnabled?: boolean
+  readonly demoNoticeEnabled?: boolean
 }
 
 type DynamicPageHeadProps = {
@@ -199,6 +201,7 @@ type DynamicPageBodyProps = {
   readonly markdownPayload?: ResolvedMarkdownPage
   readonly session?: SessionInfo
   readonly badgeEnabled?: boolean
+  readonly demoNoticeEnabled?: boolean
 }
 
 const GENERIC_PARAM_NAMES = new Set(['id', 'key', 'uid', 'pk'])
@@ -282,6 +285,23 @@ function PageToastContainer({
   )
 }
 
+function PlatformChrome({
+  lang,
+  badgeEnabled,
+  demoNoticeEnabled,
+}: {
+  readonly lang: string
+  readonly badgeEnabled?: boolean
+  readonly demoNoticeEnabled?: boolean
+}): Readonly<ReactElement> {
+  return (
+    <>
+      {badgeEnabled === true && <SovriumBadge lang={lang} />}
+      {demoNoticeEnabled !== false && <DemoNotice lang={lang} />}
+    </>
+  )
+}
+
 function DynamicPageBody({
   page,
   components,
@@ -300,6 +320,7 @@ function DynamicPageBody({
   markdownPayload,
   session,
   badgeEnabled,
+  demoNoticeEnabled,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
   const dataAttributes = buildDataAttributes(routeParams, page.path)
   const sidebarSections = selectSidebarSections(resolvedSidebar, page)
@@ -341,7 +362,12 @@ function DynamicPageBody({
       />
       {page.presence === true && <PresenceIndicatorMount page={page} />}
       {page.toasts && <PageToastContainer toasts={page.toasts} />}
-      {badgeEnabled === true && <SovriumBadge lang={lang} />}
+      <PlatformChrome
+        lang={lang}
+        badgeEnabled={badgeEnabled}
+        demoNoticeEnabled={demoNoticeEnabled}
+      />
+
       <PageBodyScripts
         page={page}
         theme={theme}
@@ -384,6 +410,7 @@ export function DynamicPage({
   markdownPayload,
   session,
   badgeEnabled,
+  demoNoticeEnabled,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, {
     detectedLanguage,
@@ -433,6 +460,7 @@ export function DynamicPage({
         markdownPayload={markdownPayload}
         session={session}
         badgeEnabled={badgeEnabled}
+        demoNoticeEnabled={demoNoticeEnabled}
       />
     </html>
   )

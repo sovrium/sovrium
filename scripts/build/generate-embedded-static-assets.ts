@@ -56,11 +56,6 @@ ${entries.join('\n')}
 const pgBlock = buildDialect('drizzle')
 const sqliteBlock = buildDialect('drizzle/sqlite')
 
-const agentEntries = readdirSync(join(PROJECT_ROOT, 'agents'))
-  .filter((f) => f.endsWith('.md'))
-  .toSorted()
-  .map((f) => `  ${JSON.stringify(f)}: ${addImport(`agents/${f}`)},`)
-
 const TEMPLATES_ROOT = join(PROJECT_ROOT, 'templates')
 
 const walkTemplates = (dir: string): readonly string[] => {
@@ -109,11 +104,6 @@ export const MIGRATION_FILES = {
   sqlite: ${sqliteBlock},
 }
 
-/** Agent template filename → embedded path. */
-export const AGENT_FILES = {
-${agentEntries.join('\n')}
-}
-
 /** Example filename → embedded path. */
 export const TEMPLATE_FILES = {
 ${templateEntries.join('\n')}
@@ -129,5 +119,5 @@ writeFileSync(OUT_FILE, `${header}\n${importBlock}\n${body}`)
 console.log(
   `✓ embedded-static-assets.generated.ts — ${imports.length} files (` +
     `${sqlFiles('drizzle').length} pg + ${sqlFiles('drizzle/sqlite').length} sqlite migrations, ` +
-    `${agentEntries.length} agents, ${templateEntries.length} templates)`
+    `${templateEntries.length} templates)`
 )

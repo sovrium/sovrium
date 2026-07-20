@@ -3,126 +3,108 @@
     "name": "Hello World",
     "description": "The one-page starter. Where every app begins.",
     "category": "starter",
-    "agent": null,
     "topics": ["sovrium", "template", "self-hosted", "starter"]
   },
   "landing-page": {
     "name": "Landing Page",
     "description": "A bilingual marketing site with reusable components.",
     "category": "website",
-    "agent": "website-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "website", "landing-page"]
   },
   "blog": {
     "name": "Blog",
     "description": "A self-hostable blog CMS \u2014 a WordPress alternative.",
     "category": "blog",
-    "agent": "blog-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "blog", "cms"]
   },
   "docs-site": {
     "name": "Docs Site",
     "description": "A docs website from markdown \u2014 a Docusaurus alternative.",
     "category": "docs",
-    "agent": null,
     "topics": ["sovrium", "template", "self-hosted", "docs", "markdown"]
   },
   "api-only": {
     "name": "Task API",
     "description": "A headless REST API \u2014 tables and auth, no pages.",
     "category": "apiAi",
-    "agent": "api-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "api", "headless"]
   },
   "mcp-server": {
     "name": "MCP Server",
     "description": "Expose your tables to an LLM over MCP.",
     "category": "apiAi",
-    "agent": "mcp-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "mcp", "ai", "headless"]
   },
   "crm": {
     "name": "CRM",
     "description": "A sales CRM \u2014 pipeline kanban, grids, calendar.",
     "category": "internal",
-    "agent": "crm-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "crm", "sales"]
   },
   "projects": {
     "name": "Projects",
     "description": "Gantt timeline, task kanban, deadline calendar.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "project-management"]
   },
   "helpdesk": {
     "name": "Helpdesk",
     "description": "A public support form feeding a triage kanban.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "helpdesk", "support"]
   },
   "content-calendar": {
     "name": "Content Calendar",
     "description": "Plan, draft, and publish on one calendar.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "marketing", "editorial"]
   },
   "people": {
     "name": "People",
     "description": "Directory, time off, and admin-approved requests.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "hr"]
   },
   "events": {
     "name": "Events",
     "description": "Public registrations, confirmed automatically.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "events"]
   },
   "assets": {
     "name": "Assets",
     "description": "Barcoded equipment, tracked by location.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "inventory", "assets"]
   },
   "expenses": {
     "name": "Expenses",
     "description": "Receipts, approvals, and spend by category.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "expenses", "finance"]
   },
   "intranet": {
     "name": "Intranet",
     "description": "A company hub \u2014 announcements, people, resources.",
     "category": "portal",
-    "agent": "intranet-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "intranet", "portal"]
   },
   "knowledge-base": {
     "name": "Knowledge Base",
     "description": "A private markdown handbook behind sign-in.",
     "category": "docs",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "knowledge-base", "docs"]
   },
   "automation-recipes": {
     "name": "Automation Recipes",
     "description": "Webhook, record, cron, and failure recipes.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "automations"]
   },
   "company-os": {
     "name": "Company OS",
     "description": "An entire information system in one config.",
     "category": "business",
-    "agent": "app-editor.md",
     "topics": ["sovrium", "template", "self-hosted", "company-os", "erp"]
   }
 }

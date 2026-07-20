@@ -1,7 +1,7 @@
 {
   "name": "Sovrium MCP Server",
   "description": "Expose your tables to an LLM over MCP.",
-  "repository": "https://github.com/sovrium/mcp-server",
+  "repository": "https://github.com/sovrium/mcp-server-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/mcp-server",
   "env": {

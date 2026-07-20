@@ -13,11 +13,6 @@ import { AutomationDigestRepositoryLive } from '@/infrastructure/database/reposi
 import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-repository-live'
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
-import { CloudHostRegistryRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-host-registry-repository-live'
-import { CloudIngressRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-ingress-repository-live'
-import { CloudQuotaRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-quota-repository-live'
-import { CloudSupervisorRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-supervisor-repository-live'
-import { CloudTenantDatabasesRepositoryLive } from '@/infrastructure/database/repositories/cloud/cloud-tenant-databases-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
@@ -35,12 +30,7 @@ const TableWithAutomationsLive = Layer.mergeAll(
   ConnectionTokenRepositoryLive,
   AnalyticsRepositoryLive,
   DataSourceRepositoryLive,
-  PackageResolverLive,
-  CloudHostRegistryRepositoryLive,
-  CloudIngressRepositoryLive,
-  CloudQuotaRepositoryLive,
-  CloudSupervisorRepositoryLive,
-  CloudTenantDatabasesRepositoryLive
+  PackageResolverLive
 )
 
 const UserAccessLive = UserAccessRepositoryLive

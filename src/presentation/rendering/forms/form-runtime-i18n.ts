@@ -17,21 +17,28 @@ export function resolveOnSuccessText(
 ): FormOnSuccess {
   if (languages === undefined) return onSuccess
   const record = onSuccess as Record<string, unknown>
-  const { title, message, actions } = record
+  const { title, message, url, actions } = record
   return {
     ...record,
     ...(typeof title === 'string' ? { title: resolveText(title, languages, '', activeLang) } : {}),
     ...(typeof message === 'string'
       ? { message: resolveText(message, languages, '', activeLang) }
       : {}),
+    ...(typeof url === 'string' ? { url: resolveText(url, languages, '', activeLang) } : {}),
     ...(Array.isArray(actions)
       ? {
           actions: actions.map((action) => {
             const entry = action as Record<string, unknown>
-            const { label } = entry
-            return typeof label === 'string'
-              ? { ...entry, label: resolveText(label, languages, '', activeLang) }
-              : entry
+            const { label, url: actionUrl } = entry
+            return {
+              ...entry,
+              ...(typeof label === 'string'
+                ? { label: resolveText(label, languages, '', activeLang) }
+                : {}),
+              ...(typeof actionUrl === 'string'
+                ? { url: resolveText(actionUrl, languages, '', activeLang) }
+                : {}),
+            }
           }),
         }
       : {}),

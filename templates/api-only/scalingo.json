@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Task API",
   "description": "A headless REST API — tables and auth, no pages.",
-  "repository": "https://github.com/sovrium/api-only",
+  "repository": "https://github.com/sovrium/api-only-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/api-only",
   "env": {

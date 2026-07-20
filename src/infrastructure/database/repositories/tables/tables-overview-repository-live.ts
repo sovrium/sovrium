@@ -54,6 +54,21 @@ function normalizeIsoTimestamp(value: string): string {
   return parsed.toISOString()
 }
 
+const countLiveRowsOne = (tableName: string): Effect.Effect<number, TablesOverviewError> =>
+  Effect.tryPromise({
+    try: async () => {
+      try {
+        const result = (await db.execute(
+          sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE deleted_at IS NULL`
+        )) as unknown as ReadonlyArray<{ readonly count: number | string }>
+        return Number(result[0]?.count ?? 0)
+      } catch {
+        return 0
+      }
+    },
+    catch: (cause) => new TablesOverviewError({ cause }),
+  })
+
 async function countWritesInWindow(
   tableName: string,
   start: Readonly<Date>,
@@ -75,6 +90,8 @@ export const TablesOverviewRepositoryLive = Layer.succeed(TablesOverviewReposito
       try: async () => Promise.all(tableNames.map(aggregateOneTable)),
       catch: (cause) => new TablesOverviewError({ cause }),
     }),
+
+  countLiveRows: (tableNames) => Effect.all(tableNames.map(countLiveRowsOne), { concurrency: 2 }),
 
   countWritesPerTable: (tableNames, windowStart, windowEnd) =>
     Effect.tryPromise({

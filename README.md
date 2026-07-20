@@ -324,8 +324,6 @@ If you pass a config file with no command, `start` is assumed
 | `validate [config]`           | Validate a config file against the Sovrium schema.                                                                      | —                                         |
 | `schema`                      | Print the Sovrium JSON Schema to stdout.                                                                                | `--output <path>`                         |
 | `init [dir]`                  | Scaffold a new project from a template.                                                                                 | `--template <t>`, `--name <n>`, `--force` |
-| `agents list`                 | List available AI agent templates.                                                                                      | —                                         |
-| `agents install <name>`       | Install an agent template into the project.                                                                             | `--force`                                 |
 | `admin create <email>`        | Create an admin user against the active database (prompts for the password unless `--password` given).                  | `--password <value>`                      |
 | `secret generate [target]`    | Print fresh, cryptographically random secrets as `.env`-shaped lines. Target: `auth`, `encryption`, or `all` (default). | —                                         |
 | `update`                      | Update the Sovrium binary to the latest release.                                                                        | —                                         |
@@ -732,7 +730,7 @@ For bug reports and feature requests, see [Contributing](#contributing) above.
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **July 19, 2030**. A move to **full open source sooner** is
+**Apache 2.0** on **July 20, 2030**. A move to **full open source sooner** is
 under active evaluation. Commercial hosting licenses: license@sovrium.com.
 
 The **engine is free forever** in self-hosted mode (no license keys, no feature

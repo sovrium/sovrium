@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { optionValue } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { escapeSqlString } from './sql-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
+import type { SelectOption } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 
 export const generateArrayConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
@@ -90,10 +92,7 @@ const generateEnumCheckConstraint = (
 ): string => {
   const options = extractOptionValues(field)
   const values = options
-    .map((opt) => {
-      const value = typeof opt === 'string' ? opt : (opt as { value: string }).value
-      return `'${escapeSqlString(value)}'`
-    })
+    .map((opt) => `'${escapeSqlString(optionValue(opt))}'`)
     .join(', ')
   const constraintName = `check_${field.name}_enum`
   return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
@@ -183,12 +182,16 @@ export const generateMultiSelectConstraints = (
 ): readonly string[] =>
   fields
     .filter(
-      (field): field is Fields[number] & { type: 'multi-select'; options: readonly string[] } =>
+      (
+        field
+      ): field is Fields[number] & { type: 'multi-select'; options: readonly SelectOption[] } =>
         field.type === 'multi-select' && 'options' in field && Array.isArray(field.options)
     )
     .flatMap((field) => {
       if (isSqliteRuntime()) return []
-      const escapedOptions = field.options.map((opt) => `'${escapeSqlString(opt)}'`).join(', ')
+      const escapedOptions = field.options
+        .map((opt) => `'${escapeSqlString(optionValue(opt))}'`)
+        .join(', ')
       const constraintName = `check_${field.name}_options`
       return [
         `CONSTRAINT ${constraintName} CHECK (${field.name} <@ ARRAY[${escapedOptions}]::text[])`,

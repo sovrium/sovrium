@@ -50,6 +50,12 @@ export const DATA_NAV_ROOT = '/_admin'
 
 export const ADMIN_HOME_PATH = '/_admin'
 
+export const OPERATOR_CONSOLE_APP_NAME = 'sovrium-admin-dashboard'
+
+export function isOperatorConsoleApp(app: { readonly name?: string }): boolean {
+  return app.name === OPERATOR_CONSOLE_APP_NAME
+}
+
 export function brandLabel(appName: string | undefined): string {
   if (appName === undefined || appName.trim().length === 0) return 'Console'
   return appName

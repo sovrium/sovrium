@@ -11,14 +11,14 @@ import { join } from 'node:path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const TEMPLATES_ROOT = join(PROJECT_ROOT, 'templates')
-const AGENTS_ROOT = join(PROJECT_ROOT, 'agents')
 const ORG = 'sovrium'
+
+export const repoName = (slug: string): string => `${slug}-template`
 
 interface CatalogEntry {
   readonly name: string
   readonly description: string
   readonly category: string
-  readonly agent: string | null
   readonly topics: readonly string[]
 }
 
@@ -50,8 +50,10 @@ export function readCatalog(root: string = TEMPLATES_ROOT): Readonly<Record<stri
     CatalogEntry
   >
   for (const [slug, entry] of Object.entries(raw)) {
-    if (!existsSync(join(root, slug, 'app.yaml'))) {
-      throw new Error(`catalog.json lists "${slug}" but templates/${slug}/app.yaml is missing`)
+    for (const required of ['app.yaml', 'CLAUDE.md', '.claude/agents/app-editor.md']) {
+      if (!existsSync(join(root, slug, required))) {
+        throw new Error(`catalog.json lists "${slug}" but templates/${slug}/${required} is missing`)
+      }
     }
     if (!entry.description) throw new Error(`catalog.json entry "${slug}" has no description`)
   }
@@ -62,15 +64,11 @@ const STRIP = new Set(['.DS_Store', '.env', '.sovrium'])
 
 export function buildPublishTree(
   slug: string,
-  entry: CatalogEntry,
   version: string,
   destDir: string,
-  roots: { readonly templates: string; readonly agents: string } = {
-    templates: TEMPLATES_ROOT,
-    agents: AGENTS_ROOT,
-  }
+  templatesRoot: string = TEMPLATES_ROOT
 ): void {
-  cpSync(join(roots.templates, slug), destDir, {
+  cpSync(join(templatesRoot, slug), destDir, {
     recursive: true,
     filter: (src) => {
       const base = src.split('/').at(-1) ?? ''
@@ -78,12 +76,6 @@ export function buildPublishTree(
     },
   })
   writeFileSync(join(destDir, '.sovrium-version'), `${version}\n`)
-  if (entry.agent) {
-    const agentSrc = join(roots.agents, entry.agent)
-    if (!existsSync(agentSrc)) throw new Error(`paired agent missing: agents/${entry.agent}`)
-    mkdirSync(join(destDir, '.claude', 'agents'), { recursive: true })
-    cpSync(agentSrc, join(destDir, '.claude', 'agents', entry.agent))
-  }
 }
 
 const run = (cmd: readonly string[], cwd?: string): string => {
@@ -102,17 +94,19 @@ const tryRun = (cmd: readonly string[], cwd?: string): { ok: boolean; out: strin
 }
 
 const ensureRepo = (slug: string, entry: CatalogEntry, opts: CliOptions): void => {
-  const exists = tryRun(['gh', 'api', `repos/${ORG}/${slug}`, '--jq', '.name']).ok
+  const exists = tryRun(['gh', 'api', `repos/${ORG}/${repoName(slug)}`, '--jq', '.name']).ok
   if (!exists) {
     if (!opts.create) {
-      throw new Error(`repo ${ORG}/${slug} does not exist — re-run with --create to bootstrap it`)
+      throw new Error(
+        `repo ${ORG}/${repoName(slug)} does not exist — re-run with --create to bootstrap it`
+      )
     }
-    console.log(`  creating ${ORG}/${slug}`)
+    console.log(`  creating ${ORG}/${repoName(slug)}`)
     run([
       'gh',
       'repo',
       'create',
-      `${ORG}/${slug}`,
+      `${ORG}/${repoName(slug)}`,
       '--public',
       '--description',
       entry.description,
@@ -125,7 +119,7 @@ const ensureRepo = (slug: string, entry: CatalogEntry, opts: CliOptions): void =
     'api',
     '-X',
     'PATCH',
-    `repos/${ORG}/${slug}`,
+    `repos/${ORG}/${repoName(slug)}`,
     '-F',
     'is_template=true',
     '-f',
@@ -134,7 +128,14 @@ const ensureRepo = (slug: string, entry: CatalogEntry, opts: CliOptions): void =
     `homepage=https://sovrium.com/apps/${slug}`,
   ])
   const topicArgs = entry.topics.flatMap((t) => ['-f', `names[]=${t}`])
-  const topicsSet = tryRun(['gh', 'api', '-X', 'PUT', `repos/${ORG}/${slug}/topics`, ...topicArgs])
+  const topicsSet = tryRun([
+    'gh',
+    'api',
+    '-X',
+    'PUT',
+    `repos/${ORG}/${repoName(slug)}/topics`,
+    ...topicArgs,
+  ])
   if (!patched.ok || !topicsSet.ok) {
     console.log(
       `  ${slug}: warning — metadata reconcile skipped (token lacks Administration write?)`
@@ -144,7 +145,7 @@ const ensureRepo = (slug: string, entry: CatalogEntry, opts: CliOptions): void =
 
 const pushTree = (slug: string, treeDir: string, version: string): 'pushed' | 'unchanged' => {
   const token = process.env['GH_TOKEN'] ?? ''
-  const remote = `https://x-access-token:${token}@github.com/${ORG}/${slug}.git`
+  const remote = `https://x-access-token:${token}@github.com/${ORG}/${repoName(slug)}.git`
   const cloneDir = join(treeDir, '..', `${slug}-clone`)
   const cloned = tryRun(['git', 'clone', '--depth', '1', remote, cloneDir]).ok
   if (!cloned) {
@@ -198,21 +199,35 @@ const main = (): void => {
   const workRoot = join(PROJECT_ROOT, '.template-publish')
   rmSync(workRoot, { recursive: true, force: true })
   const results: string[] = []
+  const failures: string[] = []
   for (const slug of slugs) {
-    const entry = catalog[slug]!
-    const treeDir = join(workRoot, slug)
-    buildPublishTree(slug, entry, opts.version, treeDir)
-    if (opts.dryRun) {
-      const files = run(['find', '.', '-type', 'f'], treeDir).split('\n').length
-      results.push(`  ${slug}: would publish ${files} files as ${ORG}/${slug} @ v${opts.version}`)
-      continue
+    try {
+      const entry = catalog[slug]!
+      const treeDir = join(workRoot, slug)
+      buildPublishTree(slug, opts.version, treeDir)
+      if (opts.dryRun) {
+        const files = run(['find', '.', '-type', 'f'], treeDir).split('\n').length
+        results.push(
+          `  ${slug}: would publish ${files} files as ${ORG}/${repoName(slug)} @ v${opts.version}`
+        )
+        continue
+      }
+      ensureRepo(slug, entry, opts)
+      results.push(`  ${slug}: ${pushTree(slug, treeDir, opts.version)}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      failures.push(slug)
+      results.push(`  ${slug}: FAILED — ${message.split('\n')[0]}`)
     }
-    ensureRepo(slug, entry, opts)
-    results.push(`  ${slug}: ${pushTree(slug, treeDir, opts.version)}`)
   }
   rmSync(workRoot, { recursive: true, force: true })
   console.log(results.join('\n'))
-  console.log('✓ template repos publish complete')
+  const ok = slugs.length - failures.length
+  if (failures.length > 0) {
+    console.error(`✗ ${ok}/${slugs.length} published; ${failures.length} FAILED: ${failures.join(', ')}`)
+    process.exit(1)
+  }
+  console.log(`✓ template repos publish complete (${ok}/${slugs.length})`)
 }
 
 if (import.meta.main) {

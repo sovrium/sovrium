@@ -119,59 +119,10 @@ export const detectUnknownFieldTypes = async (
   })
 }
 
-const isCloudModeEnabled = (): boolean => {
-  const flag = Bun.env.SOVRIUM_CLOUD_MODE
-  return typeof flag === 'string' && flag.trim().length > 0
-}
-
-const collectCloudActionNames = (actions: unknown): readonly string[] => {
-  if (!Array.isArray(actions)) return []
-  return actions.flatMap((action: unknown): readonly string[] => {
-    if (typeof action !== 'object' || action === null) return []
-    const a = action as Record<string, unknown>
-    const self = a.type === 'cloud' ? [typeof a.name === 'string' ? a.name : '<unnamed>'] : []
-
-    const props = a.props as Record<string, unknown> | undefined
-    const loopNested = props ? collectCloudActionNames(props.actions) : []
-    const pathNested = Array.isArray(props?.paths)
-      ? props.paths.flatMap((branch: unknown) =>
-          typeof branch === 'object' && branch !== null
-            ? collectCloudActionNames((branch as Record<string, unknown>).actions)
-            : []
-        )
-      : []
-
-    return [...self, ...loopNested, ...pathNested]
-  })
-}
-
-export const detectGatedCloudActions = (parsed: unknown): readonly string[] => {
-  if (isCloudModeEnabled()) return []
-
-  const { automations } = parsed as Record<string, unknown>
-  if (!Array.isArray(automations)) return []
-
-  const offending = automations.flatMap((automation: unknown): readonly string[] => {
-    if (typeof automation !== 'object' || automation === null) return []
-    const auto = automation as Record<string, unknown>
-    const automationName = typeof auto.name === 'string' ? auto.name : '<unnamed>'
-    return collectCloudActionNames(auto.actions).map(
-      (actionName) =>
-        `Action "${actionName}" in automation "${automationName}" uses "type: cloud", which requires the Sovrium Cloud host gate (SOVRIUM_CLOUD_MODE). This config is not running in cloud mode.`
-    )
-  })
-
-  return offending
-}
-
 const runPostDecodeChecks = async (
   parsed: unknown,
   refSources: ReadonlyMap<string, string>
-): Promise<readonly string[]> => {
-  const unknownFieldErrors = await detectUnknownFieldTypes(parsed, refSources)
-  if (unknownFieldErrors.length > 0) return unknownFieldErrors
-  return detectGatedCloudActions(parsed)
-}
+): Promise<readonly string[]> => detectUnknownFieldTypes(parsed, refSources)
 
 export const validateAppConfig = async (
   filePath: string

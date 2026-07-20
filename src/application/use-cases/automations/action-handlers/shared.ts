@@ -9,11 +9,6 @@ import { Data, Effect } from 'effect'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
 import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
-import type { CloudHostRegistryRepository } from '@/application/ports/repositories/cloud/cloud-host-registry-repository'
-import type { CloudIngressRepository } from '@/application/ports/repositories/cloud/cloud-ingress-repository'
-import type { CloudQuotaRepository } from '@/application/ports/repositories/cloud/cloud-quota-repository'
-import type { CloudSupervisorRepository } from '@/application/ports/repositories/cloud/cloud-supervisor-repository'
-import type { CloudTenantDatabasesRepository } from '@/application/ports/repositories/cloud/cloud-tenant-databases-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
@@ -78,11 +73,6 @@ export type ActionHandler = (
   | TableRepository
   | AutomationStateRepository
   | AutomationDigestRepository
-  | CloudHostRegistryRepository
-  | CloudIngressRepository
-  | CloudQuotaRepository
-  | CloudSupervisorRepository
-  | CloudTenantDatabasesRepository
   | ConnectionRepository
   | ConnectionTokenRepository
   | PackageResolver

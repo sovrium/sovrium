@@ -17,17 +17,38 @@ export const validateMinMaxRange = (field: {
   return undefined
 }
 
+export const SelectOptionSchema = Schema.Union(
+  Schema.String,
+  Schema.Struct({
+    value: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'option value is required' })),
+    label: Schema.optional(Schema.String),
+  }).pipe(Schema.annotations({ title: 'Select Option (object form)' }))
+).annotations({
+  title: 'Select Option',
+  description:
+    'A select option: a bare string, or `{ value, label? }` where `label` may be a `$t:` key',
+})
+
+export type SelectOption = Schema.Schema.Type<typeof SelectOptionSchema>
+
+export const optionValue = (option: SelectOption): string =>
+  typeof option === 'string' ? option : option.value
+
+export const optionLabel = (option: SelectOption): string =>
+  typeof option === 'string' ? option : (option.label ?? option.value)
+
 export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select') =>
-  Schema.Array(Schema.String).pipe(
+  Schema.Array(SelectOptionSchema).pipe(
     Schema.minItems(1),
     Schema.annotations({
       title: 'Options',
       message: () => `At least one option is required for ${fieldType} field`,
     }),
     Schema.filter((options) => {
-      const uniqueOptions = new Set(options)
+      const values = options.map(optionValue)
+      const uniqueValues = new Set(values)
       return (
-        options.length === uniqueOptions.size || 'Options must be unique (duplicate option found)'
+        values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
       )
     })
   )

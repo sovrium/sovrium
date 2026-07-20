@@ -74,6 +74,7 @@ export class FormSubmissionLimitError extends Data.TaggedError('FormSubmissionLi
 export interface SubmitFormResult {
   readonly submissionId: string | null
   readonly linkedRecordId: string | null
+  readonly record: Readonly<Record<string, unknown>>
 }
 
 export const findFormByName = (app: Readonly<App>, name: string): Form | undefined =>
@@ -515,5 +516,6 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     return {
       submissionId: submissionId ?? null,
       linkedRecordId: linkedRecordId ?? null,
+      record: filterTableBoundFields(mapped, form),
     } satisfies SubmitFormResult
   })

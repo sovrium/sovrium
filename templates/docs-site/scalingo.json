@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Docs Site",
   "description": "A docs website from markdown — a Docusaurus alternative.",
-  "repository": "https://github.com/sovrium/docs-site",
+  "repository": "https://github.com/sovrium/docs-site-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/docs-site",
   "env": {

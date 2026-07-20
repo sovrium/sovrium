@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Company OS",
   "description": "An entire information system in one config.",
-  "repository": "https://github.com/sovrium/company-os",
+  "repository": "https://github.com/sovrium/company-os-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/company-os",
   "env": {

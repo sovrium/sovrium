@@ -277,10 +277,21 @@ function respondSubmissionFailure(c: Context, isJsonClient: boolean, failure: un
 function respondSubmissionSuccess(
   c: Context,
   isJsonClient: boolean,
-  result: { readonly submissionId: string | null; readonly linkedRecordId: string | null }
+  result: {
+    readonly submissionId: string | null
+    readonly linkedRecordId: string | null
+    readonly record: Readonly<Record<string, unknown>>
+  }
 ): Response {
   if (isJsonClient) {
-    return c.json({ submissionId: result.submissionId, linkedRecordId: result.linkedRecordId }, 201)
+    return c.json(
+      {
+        submissionId: result.submissionId,
+        linkedRecordId: result.linkedRecordId,
+        record: result.record,
+      },
+      201
+    )
   }
   return c.redirect(resolveSubmitRedirectTarget(c), 303)
 }

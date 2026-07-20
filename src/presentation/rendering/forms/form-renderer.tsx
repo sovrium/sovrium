@@ -13,6 +13,7 @@ import { isBadgeEnabled } from '@/domain/models/app/badge'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import { isGroupVisible } from '@/domain/models/shared/field-groups-flow'
 import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
+import { DemoNotice } from '@/presentation/ui/demo-notice/demo-notice'
 import {
   computeFormGroupClasses,
   computeFormGroupLabelClasses,
@@ -293,6 +294,8 @@ function FormPage({
         </main>
         {}
         {!embed && isBadgeEnabled(app.badge) && <SovriumBadge lang={activeLang} />}
+        {}
+        {!embed && <DemoNotice lang={activeLang} />}
       </body>
     </html>
   )

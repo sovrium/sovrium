@@ -11,6 +11,7 @@ import {
   AdminFormsRepository,
   type AdminFormAggregateRow,
 } from '@/application/ports/repositories/forms/admin-forms-repository'
+import { TablesOverviewRepository } from '@/application/ports/repositories/tables/tables-overview-repository'
 import { StorageService } from '@/application/ports/services/storage-service'
 import {
   AdminAutomationsLayer,
@@ -20,7 +21,7 @@ import {
   AdminConnectionsLayer,
   BuildConnectionsList,
 } from '@/application/use-cases/admin/connections'
-import { buildTablesOverview } from '@/application/use-cases/admin/tables-overview'
+import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
 import {
   BuildUsersOverview,
   UsersOverviewLayer,
@@ -33,15 +34,35 @@ import { StorageServiceLive } from '@/infrastructure/storage/storage-service-liv
 import type { AdminOverviewResponse } from '@/domain/models/api/admin/overview/overview'
 import type { App } from '@/domain/models/app'
 
+const RECORDS_ZERO: { readonly total: number } = { total: 0 }
+const SUBMISSIONS_ZERO: { readonly total: number } = { total: 0 }
+const USERS_ZERO: { readonly total: number } = { total: 0 }
+const RUNS_ZERO: { readonly recent: number; readonly successRate: number } = {
+  recent: 0,
+  successRate: 1,
+}
+const STORAGE_ZERO: { readonly totalBytes: number } = { totalBytes: 0 }
+const CONNECTIONS_ZERO: { readonly total: number; readonly healthy: number } = {
+  total: 0,
+  healthy: 0,
+}
+
+const DEFAULT_BLOCK_TIMEOUT_MS = 8000
+const parseBlockTimeoutMs = (raw: string | undefined): number => {
+  const parsed = raw === undefined ? Number.NaN : Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_BLOCK_TIMEOUT_MS
+}
+const BLOCK_TIMEOUT_MS = parseBlockTimeoutMs(process.env.ADMIN_OVERVIEW_BLOCK_TIMEOUT_MS)
+
 const recordsBlock = (app: App): Effect.Effect<{ readonly total: number }> => {
-  const tables = (app.tables ?? []).map((t) => ({
-    displayName: t.name,
-    dbName: sanitizeTableName(t.name),
-  }))
-  return buildTablesOverview({ tables, period: '24h', now: new Date() }).pipe(
-    Effect.map((overview) => ({ total: overview.totals.total_rows })),
+  const dbNames = (app.tables ?? []).map((t) => sanitizeTableName(t.name))
+  return Effect.gen(function* () {
+    const repo = yield* TablesOverviewRepository
+    const counts = yield* repo.countLiveRows(dbNames)
+    return { total: counts.reduce((acc, n) => acc + n, 0) }
+  }).pipe(
     Effect.provide(TablesOverviewRepositoryLive),
-    Effect.catchAll(() => Effect.succeed({ total: 0 }))
+    Effect.catchAll(() => Effect.succeed(RECORDS_ZERO))
   )
 }
 
@@ -51,7 +72,7 @@ const usersBlock = (): Effect.Effect<{ readonly total: number }> =>
       total: outcome._tag === 'Ok' ? outcome.body.totals.users : 0,
     })),
     Effect.provide(UsersOverviewLayer),
-    Effect.catchAll(() => Effect.succeed({ total: 0 }))
+    Effect.catchAll(() => Effect.succeed(USERS_ZERO))
   )
 
 const runsBlock = (
@@ -61,10 +82,10 @@ const runsBlock = (
     Effect.map((outcome) =>
       outcome._tag === 'Ok'
         ? { recent: outcome.body.totals.runs_24h, successRate: outcome.body.totals.success_rate }
-        : { recent: 0, successRate: 1 }
+        : RUNS_ZERO
     ),
     Effect.provide(AdminAutomationsLayer),
-    Effect.catchAll(() => Effect.succeed({ recent: 0, successRate: 1 }))
+    Effect.catchAll(() => Effect.succeed(RUNS_ZERO))
   )
 
 const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> => {
@@ -73,7 +94,7 @@ const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> =
     const repo = yield* AdminFormsRepository
     const aggregates = yield* Effect.all(
       forms.map((form) => repo.aggregateForForm(form.name)),
-      { concurrency: 'unbounded' }
+      { concurrency: 2 }
     )
     const total = aggregates.reduce(
       (acc: number, agg: AdminFormAggregateRow) => acc + Number(agg.submissionCount ?? 0),
@@ -82,7 +103,7 @@ const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> =
     return { total }
   }).pipe(
     Effect.provide(AdminFormsRepositoryLive),
-    Effect.catchAll(() => Effect.succeed({ total: 0 }))
+    Effect.catchAll(() => Effect.succeed(SUBMISSIONS_ZERO))
   )
 }
 
@@ -93,7 +114,7 @@ const storageBlock = (): Effect.Effect<{ readonly totalBytes: number }> =>
     return { totalBytes }
   }).pipe(
     Effect.provide(StorageServiceLive),
-    Effect.catchAll(() => Effect.succeed({ totalBytes: 0 }))
+    Effect.catchAll(() => Effect.succeed(STORAGE_ZERO))
   )
 
 const connectionsBlock = (): Effect.Effect<{
@@ -102,7 +123,7 @@ const connectionsBlock = (): Effect.Effect<{
 }> =>
   BuildConnectionsList().pipe(
     Effect.map((outcome) => {
-      if (outcome._tag !== 'Ok') return { total: 0, healthy: 0 }
+      if (outcome._tag !== 'Ok') return CONNECTIONS_ZERO
       const { connections } = outcome.body
       const healthy = connections.filter(
         (connection) => deriveConnectionStatus(connection.expiresAt) === 'active'
@@ -110,19 +131,19 @@ const connectionsBlock = (): Effect.Effect<{
       return { total: connections.length, healthy }
     }),
     Effect.provide(AdminConnectionsLayer),
-    Effect.catchAll(() => Effect.succeed({ total: 0, healthy: 0 }))
+    Effect.catchAll(() => Effect.succeed(CONNECTIONS_ZERO))
   )
 
 export const buildAdminOverview = (app: App): Effect.Effect<AdminOverviewResponse> =>
   Effect.gen(function* () {
     const [records, submissions, runs, users, storage, connections] = yield* Effect.all(
       [
-        recordsBlock(app),
-        submissionsBlock(app),
-        runsBlock(app),
-        usersBlock(),
-        storageBlock(),
-        connectionsBlock(),
+        withBlockTimeout(recordsBlock(app), RECORDS_ZERO, BLOCK_TIMEOUT_MS),
+        withBlockTimeout(submissionsBlock(app), SUBMISSIONS_ZERO, BLOCK_TIMEOUT_MS),
+        withBlockTimeout(runsBlock(app), RUNS_ZERO, BLOCK_TIMEOUT_MS),
+        withBlockTimeout(usersBlock(), USERS_ZERO, BLOCK_TIMEOUT_MS),
+        withBlockTimeout(storageBlock(), STORAGE_ZERO, BLOCK_TIMEOUT_MS),
+        withBlockTimeout(connectionsBlock(), CONNECTIONS_ZERO, BLOCK_TIMEOUT_MS),
       ],
       { concurrency: 'unbounded' }
     )

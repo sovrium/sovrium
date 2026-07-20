@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Automation Recipes",
   "description": "Webhook, record, cron, and failure recipes.",
-  "repository": "https://github.com/sovrium/automation-recipes",
+  "repository": "https://github.com/sovrium/automation-recipes-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/automation-recipes",
   "env": {

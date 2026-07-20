@@ -31,7 +31,23 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
-          NOTES=$(awk "/^## ${VERSION}/,/^## [0-9]/" CHANGELOG.md | head -n -1 | tail -n +2)
+          # Extract this version's section from CHANGELOG.md.
+          #
+          # The previous `awk "/^## ${VERSION}/,/^## [0-9]/"` range never matched:
+          # analyze-commits.ts writes headers as `## [0.15.2](compare-url) (date)`,
+          # so the literal `^## 0.15.2` pattern missed the leading `[`. NOTES came
+          # back empty every time and the fallback below stamped "Release vX.Y.Z" —
+          # every published release since the beginning had empty notes.
+          #
+          # A `pat1,pat2` range cannot fix it either: awk tests the end pattern on
+          # the start line too, and `## [0.15.2]` matches both, collapsing the range
+          # to a single line. Hence the explicit flag form, which also removes the
+          # fragile `head -n -1 | tail -n +2` trimming.
+          NOTES=$(awk -v v="$VERSION" '
+            $0 ~ "^## \\[?" v "\\]" { found = 1; next }
+            found && /^## \[?[0-9]/  { exit }
+            found                     { print }
+          ' CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             NOTES="Release ${TAG}"
           fi
@@ -521,17 +537,19 @@ jobs:
           git commit -m "sovrium ${VERSION}"
           git push
 
-  # ── Publish templates/ to standalone sovrium/<slug> template repos ──
+  # ── Publish templates/ to standalone sovrium/<slug>-template repos ──
   # Mirrors only ever reflect a PUBLISHED release: this job runs after
   # publish-release, from the tag's own tree (CI validated these configs
   # against this exact binary), and stamps .sovrium-version to match — a
-  # mirror can never be newer than the binary it pins. Best-effort like
-  # Homebrew/Scoop: it never gates the release itself.
+  # mirror can never be newer than the binary it pins. The publisher loop is
+  # resilient (one bad repo does not skip the rest) and fails LOUD: if any
+  # mirror fails, the job exits non-zero and this run turns red. The binary
+  # release itself already published (publish-release ran earlier), so
+  # distribution is never blocked — a red here flags a post-release sync gap.
   publish-templates:
     name: Publish template repositories
     needs: [publish-release]
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout sovrium repo
         uses: actions/checkout@v5
@@ -566,6 +584,94 @@ jobs:
         run: |
           bun run scripts/build/publish-template-repos.ts \
             --version "${{ steps.version.outputs.version }}"
+
+  # ── Verify every template mirror landed at this release ─────
+  # Gates the demo deploy: asserts each sovrium/<slug>-template repo carries the
+  # v<version> tag AND a .sovrium-version matching this release. Fails red on any
+  # lagging mirror (no continue-on-error).
+  verify-mirrors:
+    name: Verify template mirrors
+    needs: [publish-templates]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sovrium repo
+        uses: actions/checkout@v5
+
+      - name: Read version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Assert each mirror is at this release
+        env:
+          GH_TOKEN: ${{ secrets.TEMPLATES_PUBLISH_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          MISLAG=0
+          for slug in $(jq -r 'keys[]' templates/catalog.json); do
+            repo="sovrium/${slug}-template"
+            stamped=$(gh api "repos/${repo}/contents/.sovrium-version" \
+              -H "Accept: application/vnd.github.raw" 2>/dev/null | tr -d '[:space:]' || true)
+            tagged=$(gh api "repos/${repo}/git/refs/tags/${TAG}" --jq '.ref' 2>/dev/null || true)
+            if [ "$stamped" != "$VERSION" ] || [ -z "$tagged" ]; then
+              echo "MISLAG: ${repo} (stamped='${stamped}' tag='${tagged}', expected ${VERSION}/${TAG})"
+              MISLAG=1
+            else
+              echo "OK: ${repo} @ ${VERSION}"
+            fi
+          done
+          if [ "$MISLAG" -ne 0 ]; then
+            echo "FAIL: one or more mirrors lag ${VERSION}"
+            exit 1
+          fi
+          echo "OK: all template mirrors at ${VERSION}"
+
+  # ── Auto-deploy the demo fleet to this release ──────────────
+  # Runs after mirrors verify. SSHes to sovrium-demos-01 and runs
+  # upgrade-fleet.sh (sha256-verified binary install + per-app tag checkout +
+  # staggered restart + per-app health check + binary auto-rollback). Fails red
+  # if any demo does not come back (no continue-on-error). ubuntu-latest has open
+  # egress; the demo host's security group already allows inbound SSH.
+  deploy-demos:
+    name: Deploy demo fleet
+    needs: [verify-mirrors]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sovrium repo
+        uses: actions/checkout@v5
+
+      - name: Read version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify demo fleet SSH key is configured
+        env:
+          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
+        run: |
+          if [ -z "${DEMO_FLEET_SSH_KEY}" ]; then
+            echo "::error::DEMO_FLEET_SSH_KEY secret is not set — cannot deploy the demo fleet."
+            exit 1
+          fi
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEMO_FLEET_SSH_KEY }}" > ~/.ssh/demo_fleet
+          chmod 600 ~/.ssh/demo_fleet
+          # TODO: pin the host key instead of TOFU keyscan.
+          ssh-keyscan -H 163.172.175.246 >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upgrade fleet to this release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Streams upgrade-fleet.sh over SSH; its exit code is the job's gate
+          # (staggered restart + health check + auto-rollback happen host-side).
+          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes root@163.172.175.246 \
+            "VERSION=${VERSION} bash -s" < docs/development/demo-fleet/host/upgrade-fleet.sh
 
   # ── Build and push multi-arch Docker image ──────────────────
   build-docker:

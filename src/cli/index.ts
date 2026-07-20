@@ -9,7 +9,6 @@
 
 import { Effect, Console } from 'effect'
 import { handleAdminCommand } from '@/cli/admin'
-import { handleAgentsCommand } from '@/cli/agents'
 import { handleBuildCommand } from '@/cli/commands/build'
 import { handleInitCommand } from '@/cli/commands/init'
 import { handleReloadCommand } from '@/cli/commands/reload'
@@ -43,10 +42,6 @@ const HELP_TEXT = [
   '  sovrium schema                Print JSON Schema to stdout',
   '  sovrium validate <config>     Validate a config file against AppSchema',
   '',
-  'Extend:',
-  '  sovrium agents list           List available agent templates',
-  '  sovrium agents install <name> Install an agent template',
-  '',
   'Operate:',
   '  sovrium admin create <email>  Create an admin user',
   '  sovrium secret generate       Print fresh secrets as .env lines',
@@ -60,7 +55,7 @@ const HELP_TEXT = [
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
   '  --name <name>                 App name (init)',
   '  --password <value>            Admin password (admin create; else prompted)',
-  '  --force                       Overwrite existing files (init, agents install)',
+  '  --force                       Overwrite existing files (init)',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
@@ -79,7 +74,7 @@ const HELP_TEXT = [
   '  sovrium build app.json                             # Build static site',
   '  sovrium schema --output app.schema.json            # Write JSON Schema',
   '  sovrium init ./my-app --template blog              # Scaffold from template',
-  '  sovrium init ./my-app --template sovrium/crm       # Scaffold from a GitHub repo',
+  '  sovrium init ./my-app --template sovrium/crm-template  # Scaffold from a GitHub repo',
   '  sovrium admin create me@example.com                # Create an admin (prompts)',
   '  sovrium secret generate                            # Print AUTH_SECRET + key',
   '',
@@ -100,12 +95,7 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       outputDir: parsed.outputPath,
       positionalDir: parsed.configFile,
       forceFlag: parsed.forceFlag,
-      skipAgent: parsed.skipAgent,
       appName: parsed.appName,
-    }),
-  agents: async () =>
-    handleAgentsCommand(parsed.subcommand, parsed.agentName, parsed.targetPath, parsed.forceFlag, {
-      helpRequested: parsed.helpRequested ?? false,
     }),
   admin: async () =>
     handleAdminCommand(parsed.subcommand, parsed.positionalArg, {

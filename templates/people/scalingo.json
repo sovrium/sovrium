@@ -1,7 +1,7 @@
 {
   "name": "Sovrium People",
   "description": "Directory, time off, and admin-approved requests.",
-  "repository": "https://github.com/sovrium/people",
+  "repository": "https://github.com/sovrium/people-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/people",
   "env": {

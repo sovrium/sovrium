@@ -17,7 +17,6 @@ import {
   handleAuthUnbanUser,
 } from './auth'
 import { handleAutomationCall, handleAutomationReturn } from './automation'
-import { handleCloud } from './cloud'
 import { handleCodeRun } from './code'
 import { handleCryptoHash, handleCryptoHmac } from './crypto'
 import {
@@ -155,14 +154,6 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['loop/each', handleLoopEach],
   ['automation/call', handleAutomationCall],
   ['automation/return', handleAutomationReturn],
-  ['cloud/provision-db', handleCloud],
-  ['cloud/spawn-app', handleCloud],
-  ['cloud/route-add', handleCloud],
-  ['cloud/disable-app', handleCloud],
-  ['cloud/destroy-app', handleCloud],
-  ['cloud/scale-app', handleCloud],
-  ['cloud/set-version', handleCloud],
-  ['cloud/tail-logs', handleCloud],
 ])
 
 export const noopActionHandler: ActionHandler = (_action, _app, _automation) =>

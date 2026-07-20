@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Content Calendar",
   "description": "Plan, draft, and publish on one calendar.",
-  "repository": "https://github.com/sovrium/content-calendar",
+  "repository": "https://github.com/sovrium/content-calendar-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/content-calendar",
   "env": {

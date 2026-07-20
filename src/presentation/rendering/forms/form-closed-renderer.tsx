@@ -9,6 +9,7 @@
 import { renderToString } from 'react-dom/server'
 import { isBadgeEnabled } from '@/domain/models/app/badge'
 import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
+import { DemoNotice } from '@/presentation/ui/demo-notice/demo-notice'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -60,6 +61,8 @@ function ClosedFormPage(props: {
         </main>
         {}
         {badgeEnabled && <SovriumBadge />}
+        {}
+        <DemoNotice />
       </body>
     </html>
   )

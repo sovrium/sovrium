@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Projects",
   "description": "Gantt timeline, task kanban, deadline calendar.",
-  "repository": "https://github.com/sovrium/projects",
+  "repository": "https://github.com/sovrium/projects-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/projects",
   "env": {

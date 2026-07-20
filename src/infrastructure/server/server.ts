@@ -115,6 +115,7 @@ export interface ServerConfig {
       readonly session?: SessionInfo
       readonly cookies?: Readonly<Record<string, string>>
       readonly previewMode?: boolean
+      readonly requestQuery?: Readonly<Record<string, string>>
     }
   ) => PageRenderResult | Promise<PageRenderResult>
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>

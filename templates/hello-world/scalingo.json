@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Hello World",
   "description": "The one-page starter. Where every app begins.",
-  "repository": "https://github.com/sovrium/hello-world",
+  "repository": "https://github.com/sovrium/hello-world-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/hello-world",
   "env": {

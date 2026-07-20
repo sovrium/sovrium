@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Landing Page",
   "description": "A bilingual marketing site with reusable components.",
-  "repository": "https://github.com/sovrium/landing-page",
+  "repository": "https://github.com/sovrium/landing-page-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/landing-page",
   "env": {

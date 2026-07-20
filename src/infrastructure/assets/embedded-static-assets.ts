@@ -11,7 +11,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   MIGRATION_FILES as RAW_MIGRATIONS,
-  AGENT_FILES as RAW_AGENTS,
   TEMPLATE_FILES as RAW_TEMPLATES,
   DASHBOARD_FILES as RAW_DASHBOARD,
 } from './embedded-static-assets.generated'
@@ -24,7 +23,6 @@ interface MigrationSet {
 }
 
 const MIGRATIONS = RAW_MIGRATIONS as unknown as Readonly<Record<EmbeddedDialect, MigrationSet>>
-const AGENTS = RAW_AGENTS as unknown as Readonly<Record<string, string>>
 const TEMPLATES = RAW_TEMPLATES as unknown as Readonly<Record<string, string>>
 const DASHBOARD = RAW_DASHBOARD as unknown as Readonly<Record<string, string>>
 
@@ -43,14 +41,6 @@ export const materializeMigrations = async (dialect: EmbeddedDialect): Promise<s
 
   return root
 }
-
-export const embeddedAgentNames = (): readonly string[] =>
-  Object.keys(AGENTS)
-    .filter((f) => f.endsWith('.md') && f !== 'README.md')
-    .map((f) => f.slice(0, -'.md'.length))
-    .toSorted()
-
-export const embeddedAgentPath = (name: string): string | undefined => AGENTS[`${name}.md`]
 
 export const embeddedTemplateDir = (name: string): Readonly<Record<string, string>> => {
   const prefix = `${name}/`

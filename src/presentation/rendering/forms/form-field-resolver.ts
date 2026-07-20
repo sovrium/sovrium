@@ -6,6 +6,10 @@
  */
 
 
+import {
+  optionLabel,
+  optionValue,
+} from '@/domain/models/app/tables/fields/field-types/validation-utils'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import type { ResolvedFormField } from './form-field-elements'
 import type { App } from '@/domain/models/app'
@@ -14,6 +18,7 @@ import type { StandaloneField } from '@/domain/models/app/forms/fields/standalon
 import type { TableBoundField } from '@/domain/models/app/forms/fields/table-bound'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Table } from '@/domain/models/app/tables'
+import type { SelectOption } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 
 function resolveActiveLang(languages: Languages, requestedLang: string | undefined): string {
   if (requestedLang === undefined || requestedLang === '') {
@@ -65,21 +70,17 @@ function inputTypeForTableField(tableField: { readonly type: string }): string {
 }
 
 function readColumnOptions(
-  column: Readonly<{ readonly type?: string; readonly options?: unknown }> | undefined
+  column: Readonly<{ readonly type?: string; readonly options?: unknown }> | undefined,
+  languages: Languages | undefined,
+  activeLang: string | undefined
 ): ReadonlyArray<{ readonly value: string; readonly label: string }> | undefined {
   if (!column) return undefined
   if (column.type !== 'single-select' && column.type !== 'multi-select') return undefined
   const raw = column.options
   if (!Array.isArray(raw)) return undefined
-  return raw.map((entry) => {
-    if (typeof entry === 'string') return { value: entry, label: entry }
-    if (typeof entry === 'object' && entry !== null) {
-      const obj = entry as { readonly value?: unknown; readonly label?: unknown }
-      const value = typeof obj.value === 'string' ? obj.value : String(obj.value ?? '')
-      const label = typeof obj.label === 'string' ? obj.label : value
-      return { value, label }
-    }
-    return { value: String(entry), label: String(entry) }
+  return (raw as ReadonlyArray<SelectOption>).map((entry) => {
+    const value = optionValue(entry)
+    return { value, label: resolveText(optionLabel(entry), languages, value, activeLang) }
   })
 }
 
@@ -137,7 +138,7 @@ const resolveStandaloneField = (
       ? {
           options: field.options.map((option) => ({
             value: option.value,
-            label: option.label ?? option.value,
+            label: resolveText(option.label ?? option.value, languages, option.value, activeLang),
           })),
         }
       : {}),
@@ -202,7 +203,7 @@ const resolveTableField = (
 ): ResolvedFormField => {
   const column = table?.fields.find((tableField) => tableField.name === field.column)
   const elementType = column ? inputTypeForTableField(column) : 'text'
-  const columnOptions = readColumnOptions(column)
+  const columnOptions = readColumnOptions(column, languages, activeLang)
   const allowMultiple = readUserAllowMultiple(column)
   return {
     name: field.column,

@@ -8,6 +8,7 @@
 
 import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
 import type { App } from '@/domain/models/app'
+import type { Form } from '@/domain/models/app/forms'
 import type { Page } from '@/domain/models/app/pages'
 
 const hasNonPublicAccess = (access: Page['access']): boolean =>
@@ -40,6 +41,38 @@ export const isPageCacheable = (page: Page): boolean =>
   !DYNAMIC_PAGE_SIGNALS.some((signal) => signal(page)) &&
   !componentTreeHasDataSource(page.components)
 
+const formHasQueryPrefill = (form: Readonly<Form>): boolean => {
+  const { prefill } = form as { readonly prefill?: Readonly<Record<string, unknown>> }
+  if (prefill === undefined) return false
+  return Object.values(prefill).some(
+    (value) => typeof value === 'string' && value.startsWith('$query.')
+  )
+}
+
+function nodeEmbedsQueryPrefillForm(
+  node: Record<string, unknown>,
+  forms: readonly Form[]
+): boolean {
+  if (node.type !== 'form' && node.type !== 'dialog') return false
+  if (typeof node.formRef !== 'string') return false
+  const form = forms.find((candidate) => candidate.name === node.formRef)
+  return form !== undefined && formHasQueryPrefill(form)
+}
+
+function componentTreeHasQueryPrefillForm(
+  items: readonly unknown[],
+  forms: readonly Form[]
+): boolean {
+  return items.some((item) => {
+    if (item === null || typeof item !== 'object') return false
+    const node = item as Record<string, unknown>
+    if ('$ref' in node || 'component' in node) return false
+    if (nodeEmbedsQueryPrefillForm(node, forms)) return true
+    const { children } = node
+    return Array.isArray(children) ? componentTreeHasQueryPrefillForm(children, forms) : false
+  })
+}
+
 export function isRenderablePathCacheable(app: App, path: string): boolean {
   const { pages } = app
   if (!pages || pages.length === 0) return path === '/'
@@ -51,5 +84,7 @@ export function isRenderablePathCacheable(app: App, path: string): boolean {
   if (!match) return path === '/'
 
   const page = pages[match.index]
-  return page ? isPageCacheable(page) : path === '/'
+  if (!page) return path === '/'
+  if (componentTreeHasQueryPrefillForm(page.components ?? [], app.forms ?? [])) return false
+  return isPageCacheable(page)
 }

@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Blog",
   "description": "A self-hostable blog CMS — a WordPress alternative.",
-  "repository": "https://github.com/sovrium/blog",
+  "repository": "https://github.com/sovrium/blog-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/blog",
   "env": {

@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Events",
   "description": "Public registrations, confirmed automatically.",
-  "repository": "https://github.com/sovrium/events",
+  "repository": "https://github.com/sovrium/events-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/events",
   "env": {

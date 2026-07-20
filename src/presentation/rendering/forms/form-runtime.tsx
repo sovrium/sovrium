@@ -178,11 +178,26 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
   }
 
   // ---- onSuccess interpolation ----------------------------------------------
-  function interpolate(template, response) {
+  // Substitutes the submit-time template variables against the submission
+  // response: \`$submission.id\` (ledger row), \`$record.id\` (bound row), and
+  // \`$record.<column>\` (any submitter-supplied bound-table column — APP-FORMS-169).
+  // Unresolved refs collapse to '' (never the literal token — APP-FORMS-068).
+  // When \`encode\` is set (URL contexts) each substituted VALUE is
+  // percent-encoded so a value like an email's \`@\` rides safely in a query
+  // string; the surrounding template text is left untouched.
+  function interpolate(template, response, encode) {
     if (typeof template !== 'string') return ''
+    var record = response.record || {}
+    function sub(value) {
+      var s = value === undefined || value === null ? '' : String(value)
+      return encode ? encodeURIComponent(s) : s
+    }
     return template
-      .replace(/\\$submission\\.id/g, response.submissionId || '')
-      .replace(/\\$record\\.id/g, response.linkedRecordId || '')
+      .replace(/\\$submission\\.id/g, sub(response.submissionId))
+      .replace(/\\$record\\.id/g, sub(response.linkedRecordId))
+      .replace(/\\$record\\.([a-zA-Z0-9_]+)/g, function (_m, col) {
+        return sub(record[col])
+      })
   }
 
   // ---- onSuccess UI ----------------------------------------------------------
@@ -216,7 +231,7 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
             form.removeAttribute('hidden')
             applyReset(response, true)
           } else if (action.action === 'navigate') {
-            var target = interpolate(action.url || '/', response)
+            var target = interpolate(action.url || '/', response, true)
             window.location.assign(target)
           }
         })
@@ -256,7 +271,7 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
       return
     }
     if (type === 'redirect') {
-      var url = interpolate(onSuccess.url || '/', response)
+      var url = interpolate(onSuccess.url || '/', response, true)
       var delay = typeof onSuccess.delaySeconds === 'number' ? onSuccess.delaySeconds : 2
       if (delay <= 0) {
         window.location.assign(url)
@@ -331,6 +346,9 @@ ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
     applyOnSuccess({
       submissionId: result.body.submissionId || '',
       linkedRecordId: result.body.linkedRecordId || '',
+      // APP-FORMS-169: submitter-supplied bound-table columns for
+      // $record.<column> interpolation. Absent on table-less forms.
+      record: result.body.record || {},
     })
   }
 

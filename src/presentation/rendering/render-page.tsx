@@ -10,6 +10,7 @@ import { renderToString } from 'react-dom/server'
 import { isBadgeEnabled } from '@/domain/models/app/badge'
 import { resolveLandingPath } from '@/domain/services/pages/landing-resolver'
 import { checkPageAccess, type AccessDecision } from '@/domain/services/pages/page-access-check'
+import { isOperatorConsoleApp } from '@/domain/utils/admin-data-nav'
 import { matchContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-match'
 import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
@@ -257,7 +258,8 @@ function applyPageComponentFilters(
   app: App,
   session: SessionInfo | undefined,
   parentRecord: Readonly<Record<string, unknown>> | undefined,
-  detectedLanguage?: string
+  detectedLanguage?: string,
+  requestQuery?: Readonly<Record<string, string>>
 ): Page {
   const authStripped = stripAuthActionsIfUnconfigured(rawPage.components, !!app.auth)
   const oauthFiltered = stripUnconfiguredOAuthForms(authStripped, app)
@@ -269,6 +271,7 @@ function applyPageComponentFilters(
     ...(parentRecord !== undefined ? { parentRecord } : {}),
     session,
     activeLang,
+    ...(requestQuery !== undefined ? { query: requestQuery } : {}),
   })
   const editorResolved = resolveEditorContext(expanded, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
@@ -413,6 +416,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
     <DynamicPage
       page={page}
       badgeEnabled={isBadgeEnabled(app.badge)}
+      demoNoticeEnabled={!isOperatorConsoleApp(app)}
       components={app.components}
       theme={app.theme}
       languages={app.languages}
@@ -441,11 +445,21 @@ async function resolveCollectionAndFilter(input: {
   readonly db: DataSourceDb
   readonly previewMode: boolean
   readonly detectedLanguage?: string
+  readonly requestQuery?: Readonly<Record<string, string>>
 }): Promise<
   Page | { readonly unauthorized: true } | { readonly permissionBlocked: true } | undefined
 > {
-  const { matchedPage, app, routeParams, session, cookies, db, previewMode, detectedLanguage } =
-    input
+  const {
+    matchedPage,
+    app,
+    routeParams,
+    session,
+    cookies,
+    db,
+    previewMode,
+    detectedLanguage,
+    requestQuery,
+  } = input
   const rowLevelReadCheck =
     session !== undefined
       ? buildCollectionRowLevelReadCheck(matchedPage, app, session, db)
@@ -468,6 +482,7 @@ async function resolveCollectionAndFilter(input: {
     db,
     ...(collectionRecord !== undefined ? { collectionRecord } : {}),
     ...(detectedLanguage !== undefined ? { detectedLanguage } : {}),
+    ...(requestQuery !== undefined ? { requestQuery } : {}),
   })
 }
 
@@ -555,9 +570,19 @@ async function resolveAndFilterPage(input: {
   readonly db: DataSourceDb
   readonly collectionRecord?: Readonly<Record<string, unknown>>
   readonly detectedLanguage?: string
+  readonly requestQuery?: Readonly<Record<string, string>>
 }): Promise<Page | { readonly unauthorized: true } | undefined> {
-  const { rawPage, app, routeParams, session, cookies, db, collectionRecord, detectedLanguage } =
-    input
+  const {
+    rawPage,
+    app,
+    routeParams,
+    session,
+    cookies,
+    db,
+    collectionRecord,
+    detectedLanguage,
+    requestQuery,
+  } = input
 
   const parentResolution = await resolvePageParentRecord(rawPage, routeParams, db)
   if (parentResolution.kind === 'not-found') return undefined
@@ -571,7 +596,8 @@ async function resolveAndFilterPage(input: {
     app,
     session,
     hostRecord,
-    detectedLanguage
+    detectedLanguage,
+    requestQuery
   )
 
   const resolved = await resolvePageDataSources(filteredPage, app, routeParams, {
@@ -602,6 +628,7 @@ export async function renderPageByPath(
     readonly db?: DataSourceDb
     readonly islandBuilder?: IslandBuilder
     readonly previewMode?: boolean
+    readonly requestQuery?: Readonly<Record<string, string>>
   }
 ): Promise<PageRenderResult> {
   const {
@@ -611,6 +638,7 @@ export async function renderPageByPath(
     db,
     islandBuilder,
     previewMode,
+    requestQuery,
   } = options ?? {}
   const found = findPageForPath(app, path)
   if (!found) return undefined
@@ -634,6 +662,7 @@ export async function renderPageByPath(
     db: db ?? noopDb,
     previewMode: previewMode === true,
     ...(detectedLanguage !== undefined ? { detectedLanguage } : {}),
+    ...(requestQuery !== undefined ? { requestQuery } : {}),
   })
   if (resolvedPage === undefined) return undefined
   if ('unauthorized' in resolvedPage) return { unauthorized: true }
@@ -671,6 +700,7 @@ export async function renderPage(
     readonly db?: DataSourceDb
     readonly islandBuilder?: IslandBuilder
     readonly previewMode?: boolean
+    readonly requestQuery?: Readonly<Record<string, string>>
   }
 ): Promise<PageRenderResult> {
   const result = await renderPageByPath(app, path, options)

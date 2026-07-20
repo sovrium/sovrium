@@ -30,10 +30,8 @@ export interface ParsedArgs {
   readonly templateName?: string
   readonly subcommand?: string
   readonly targetPath?: string
-  readonly agentName?: string
   readonly appName?: string
   readonly forceFlag: boolean
-  readonly skipAgent: boolean
   readonly publicDir?: string | false
   readonly positionalArg?: string
   readonly password?: string
@@ -57,7 +55,7 @@ const FLAG_VALUE_OPTIONS = [
   '--password',
 ] as const
 
-const NOUN_VERB_COMMANDS = ['agents', 'admin', 'secret'] as const
+const NOUN_VERB_COMMANDS = ['admin', 'secret'] as const
 
 const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '--help',
@@ -67,7 +65,6 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '--watch',
   '-w',
   '--force',
-  '--no-agent',
   '--no-publicDir',
 ])
 
@@ -114,7 +111,6 @@ const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
       configFile: undefined,
       watchMode: false,
       forceFlag: false,
-      skipAgent: false,
     }
   }
   if (hasFlag(argv, '--version', '-v')) {
@@ -123,7 +119,6 @@ const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
       configFile: undefined,
       watchMode: false,
       forceFlag: false,
-      skipAgent: false,
     }
   }
   return undefined
@@ -132,7 +127,6 @@ const detectEarlyExit = (argv: readonly string[]): ParsedArgs | undefined => {
 interface ParsedFlags {
   readonly watchMode: boolean
   readonly forceFlag: boolean
-  readonly skipAgent: boolean
   readonly outputPath: string | undefined
   readonly templateName: string | undefined
   readonly targetPath: string | undefined
@@ -149,7 +143,6 @@ const resolvePublicDirFlag = (argv: readonly string[]): string | false | undefin
 const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   watchMode: hasFlag(argv, '--watch', '-w'),
   forceFlag: argv.includes('--force'),
-  skipAgent: argv.includes('--no-agent'),
   outputPath: getFlagValue(argv, '--output'),
   templateName: getFlagValue(argv, '--template'),
   targetPath: getFlagValue(argv, '--target'),
@@ -167,8 +160,7 @@ const buildStandardResult = (
 ): ParsedArgs => {
   const isNounVerb = NOUN_VERB_COMMANDS.includes(command as (typeof NOUN_VERB_COMMANDS)[number])
   const subcommand = isNounVerb ? nonFlagArgs[1] : undefined
-  const agentName = command === 'agents' ? nonFlagArgs[2] : undefined
-  const positionalArg = command === 'agents' ? undefined : isNounVerb ? nonFlagArgs[2] : undefined
+  const positionalArg = isNounVerb ? nonFlagArgs[2] : undefined
   const helpRequested = argv.includes('--help') || argv.includes('-h')
 
   return {
@@ -179,10 +171,8 @@ const buildStandardResult = (
     templateName: flags.templateName,
     subcommand,
     targetPath: flags.targetPath,
-    agentName,
     appName: flags.appName,
     forceFlag: flags.forceFlag,
-    skipAgent: flags.skipAgent,
     publicDir: flags.publicDir,
     positionalArg,
     password: flags.password,
@@ -208,7 +198,6 @@ export const parseArgs = (argv: readonly string[]): ParsedArgs => {
       templateName: flags.templateName,
       appName: flags.appName,
       forceFlag: flags.forceFlag,
-      skipAgent: flags.skipAgent,
       publicDir: flags.publicDir,
     }
   }

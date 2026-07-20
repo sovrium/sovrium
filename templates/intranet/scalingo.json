@@ -1,7 +1,7 @@
 {
   "name": "Sovrium Intranet",
   "description": "A company hub — announcements, people, resources.",
-  "repository": "https://github.com/sovrium/intranet",
+  "repository": "https://github.com/sovrium/intranet-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/intranet",
   "env": {

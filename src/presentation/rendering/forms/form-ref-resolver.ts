@@ -7,13 +7,16 @@
 
 
 import { isComponentHiddenForSession } from '@/presentation/rendering/visibility-filter'
+import { resolveFormPrefill, type FormPrefillContext } from './form-prefill-resolver'
 import { renderEmbeddedFormBody } from './form-renderer'
 import {
   isInlinePrefill,
   resolveRecordPrefillMap,
   type InlinePrefillShape,
+  type PrefillValue,
 } from './record-prefill-resolver'
 import type { App } from '@/domain/models/app'
+import type { Form } from '@/domain/models/app/forms'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { SessionInfo } from '@/domain/types/session-info'
@@ -66,6 +69,17 @@ export interface FormRefExpansionContext {
   readonly parentRecord?: Readonly<Record<string, unknown>>
   readonly session?: SessionInfo | undefined
   readonly activeLang?: string | undefined
+  readonly query?: Readonly<Record<string, string>> | undefined
+}
+
+function resolveFormLevelPrefill(
+  form: Readonly<Form>,
+  ctx: FormRefExpansionContext
+): Readonly<Record<string, PrefillValue>> {
+  const { prefill } = form as { readonly prefill?: Readonly<Record<string, PrefillValue>> }
+  if (prefill === undefined) return {}
+  const prefillCtx: FormPrefillContext = { query: ctx.query ?? {} }
+  return resolveFormPrefill(prefill, prefillCtx)
 }
 
 function readHeadingLevel(originalProps: Record<string, unknown> | undefined): 'h1' | 'h2' | 'h3' {
@@ -88,7 +102,10 @@ function expandFormRefComponent(
   const form = app.forms?.find((f) => f.name === formRefInfo.formRef)
   if (form === undefined) return component
 
-  const resolvedPrefill = resolveRecordPrefillMap(formRefInfo.inlinePrefill, ctx.parentRecord)
+  const resolvedPrefill = {
+    ...resolveFormLevelPrefill(form, ctx),
+    ...resolveRecordPrefillMap(formRefInfo.inlinePrefill, ctx.parentRecord),
+  }
   const lockPrefill = formRefInfo.inlinePrefill?.lockPrefill === true
   const titleAs = readHeadingLevel(formRefInfo.originalProps)
 
@@ -135,7 +152,10 @@ function expandDialogFormRef(
 
   const inlinePrefillRaw = (component as { readonly inlinePrefill?: unknown }).inlinePrefill
   const inlinePrefill = isInlinePrefill(inlinePrefillRaw) ? inlinePrefillRaw : undefined
-  const resolvedPrefill = resolveRecordPrefillMap(inlinePrefill, ctx.parentRecord)
+  const resolvedPrefill = {
+    ...resolveFormLevelPrefill(form, ctx),
+    ...resolveRecordPrefillMap(inlinePrefill, ctx.parentRecord),
+  }
   const lockPrefill = inlinePrefill?.lockPrefill === true
   const titleAs = readHeadingLevel(component.props)
 

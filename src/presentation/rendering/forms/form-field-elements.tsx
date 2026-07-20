@@ -377,6 +377,14 @@ export function FormFieldElement({
   readonly lockPrefill: boolean
 }) {
   if (field.hidden) {
+    if (prefillValue !== undefined) {
+      return (
+        <LockedHiddenInput
+          field={field}
+          value={prefillValue}
+        />
+      )
+    }
     return undefined
   }
   if (lockPrefill && prefillValue !== undefined) {
