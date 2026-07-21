@@ -6,10 +6,12 @@
  */
 
 import { type ReactElement } from 'react'
+import { DocsArticleBreadcrumb } from '@/presentation/ui/pages/markdown/DocsArticleBreadcrumb'
 import {
   getDocsChromeLabels,
   type DocsChromeLabels,
 } from '@/presentation/ui/pages/markdown/DocsChromeLabels'
+import { DocsContributionFooter } from '@/presentation/ui/pages/markdown/DocsContributionFooter'
 import { DocsPrevNext } from '@/presentation/ui/pages/markdown/DocsPrevNext'
 import { DocsSidebarNav } from '@/presentation/ui/pages/markdown/DocsSidebarNav'
 import {
@@ -84,14 +86,8 @@ const renderToc = (
   )
 }
 
-const deriveHomeHref = (href: string): string => {
-  const match = href.match(/^\/([^/]+)\//)
-  return match ? `/${match[1]}/` : '/'
-}
-
 const renderDocsMarkdownAffordances = (
   markdownHref: string,
-  editUrl: string | undefined,
   labels: DocsChromeLabels
 ): Readonly<ReactElement> => {
   const affordanceClass =
@@ -114,17 +110,6 @@ const renderDocsMarkdownAffordances = (
       >
         {labels.viewAsMarkdown}
       </a>
-      {}
-      {editUrl !== undefined && (
-        <a
-          href={editUrl}
-          rel="noopener noreferrer"
-          className={affordanceClass}
-          aria-label={labels.editThisPage}
-        >
-          {labels.editThisPage}
-        </a>
-      )}
     </div>
   )
 }
@@ -138,48 +123,19 @@ const renderDocsArticleHeader = (
   const current = nav.sidebar.find((entry) => entry.isCurrent)
   if (current === undefined) return undefined
 
-  const homeHref = deriveHomeHref(current.href)
-  const sectionLabel = current.groupLabel
-  const pageLabel = current.label
   const markdownHref = `${current.href}.md`
-
-  const crumbLinkClass =
-    'text-foreground-subtle hover:text-foreground transition-colors duration-150 no-underline'
 
   return (
     <div
       data-component="docs-article-header"
       className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
     >
-      <nav
-        aria-label="Breadcrumb"
-        className="min-w-0 flex-1 text-xs"
-      >
-        <ol className="text-foreground-subtle flex min-w-0 list-none flex-nowrap items-center gap-1.5 overflow-hidden">
-          <li>
-            <a
-              href={homeHref}
-              className={crumbLinkClass}
-            >
-              {labels.home}
-            </a>
-          </li>
-          {sectionLabel !== undefined && (
-            <>
-              <li aria-hidden="true">/</li>
-              <li className="text-foreground-muted">{sectionLabel}</li>
-            </>
-          )}
-          <li aria-hidden="true">/</li>
-          <li
-            aria-current="page"
-            className="text-foreground min-w-0 truncate"
-          >
-            {pageLabel}
-          </li>
-        </ol>
-      </nav>
-      {renderDocsMarkdownAffordances(markdownHref, markdown.editUrl, labels)}
+      <DocsArticleBreadcrumb
+        current={current}
+        rootCrumb={markdown.docsRootCrumb}
+        homeLabel={labels.home}
+      />
+      {renderDocsMarkdownAffordances(markdownHref, labels)}
     </div>
   )
 }
@@ -226,6 +182,14 @@ function renderArticle(
           next={markdown.collectionNav.next}
           previousLabel={labels.previous}
           nextLabel={labels.next}
+        />
+      )}
+      {layout === 'docs' && (
+        <DocsContributionFooter
+          editUrl={markdown.editUrl}
+          issueUrl={markdown.issueUrl}
+          contributionNote={markdown.contributionNote}
+          labels={labels}
         />
       )}
     </article>

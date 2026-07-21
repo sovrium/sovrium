@@ -21,6 +21,7 @@ export interface FormBodyShared {
   readonly titleAs?: 'h1' | 'h2' | 'h3'
   readonly fieldGroups?: NonNullable<Form['fieldGroups']>
   readonly antiSpamHoneypot?: boolean
+  readonly embedded?: boolean
 }
 
 function FormStepProgress({ totalVisible }: { readonly totalVisible: number }) {

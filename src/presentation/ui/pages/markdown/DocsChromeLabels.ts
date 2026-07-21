@@ -14,6 +14,7 @@ export interface DocsChromeLabels {
   readonly viewAsMarkdown: string
   readonly copyAsMarkdown: string
   readonly editThisPage: string
+  readonly reportAnIssue: string
   readonly lastUpdated: string
 }
 
@@ -25,6 +26,7 @@ const EN: DocsChromeLabels = {
   viewAsMarkdown: 'View as Markdown',
   copyAsMarkdown: 'Copy as Markdown',
   editThisPage: 'Edit this page',
+  reportAnIssue: 'Report an issue',
   lastUpdated: 'Last updated',
 }
 
@@ -36,6 +38,7 @@ const FR: DocsChromeLabels = {
   viewAsMarkdown: 'Voir en Markdown',
   copyAsMarkdown: 'Copier en Markdown',
   editThisPage: 'Modifier cette page',
+  reportAnIssue: 'Signaler un problème',
   lastUpdated: 'Dernière mise à jour',
 }
 

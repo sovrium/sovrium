@@ -1,0 +1,65 @@
+name: Manual demo fleet deploy (upgrade / rollback)
+
+# Manually-triggered companion to release.yml's deploy-demos job. Runs
+# host/upgrade-fleet.sh on sovrium-demos-01 for the given version. Use it to:
+#   - re-run a demo deploy whose automatic run failed,
+#   - roll the fleet BACK to a prior version (pass the older version),
+#   - stage a specific release onto the demos out of band.
+#
+# upgrade-fleet.sh is self-healing: sha256-verified binary install, per-app tag
+# checkout, staggered restart, per-app health check, binary auto-rollback on
+# failure. A non-zero exit turns this run red.
+#
+# upgrade-fleet.sh is executed HOST-RESIDENT (/root/upgrade-fleet.sh), never
+# read from this job's checkout — docs/ is excluded from the public GitHub
+# mirror, so it can never exist there. See docs/development/demo-fleet/
+# operations.md for the "scp before the next release" contract.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to deploy to the demos (e.g. 0.15.2 — no leading v)'
+        required: true
+
+jobs:
+  deploy-demos:
+    name: Deploy demo fleet (manual)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sovrium repo
+        uses: actions/checkout@v5
+
+      - name: Verify demo fleet SSH key is configured
+        env:
+          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
+        run: |
+          if [ -z "${DEMO_FLEET_SSH_KEY}" ]; then
+            echo "::error::DEMO_FLEET_SSH_KEY secret is not set — cannot deploy the demo fleet."
+            exit 1
+          fi
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEMO_FLEET_SSH_KEY }}" > ~/.ssh/demo_fleet
+          chmod 600 ~/.ssh/demo_fleet
+          # TODO: pin the host key instead of TOFU keyscan.
+          ssh-keyscan -H 163.172.175.246 >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upgrade fleet
+        run: |
+          # Runs the HOST-RESIDENT copy of upgrade-fleet.sh — see the header
+          # comment above for why this can't stream from the checkout.
+          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes root@163.172.175.246 "
+            set -e
+            test -x /root/upgrade-fleet.sh || {
+              echo 'upgrade-fleet.sh missing (or not executable) on the host at /root/upgrade-fleet.sh —'
+              echo 'scp docs/development/demo-fleet/host/upgrade-fleet.sh to /root/ on sovrium-demos-01 first.'
+              echo 'See: docs/development/demo-fleet/operations.md'
+              exit 1
+            }
+            VERSION=${{ inputs.version }} bash /root/upgrade-fleet.sh
+          "

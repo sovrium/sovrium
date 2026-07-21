@@ -58,6 +58,10 @@ export const textComponents: Partial<Record<Component['type'], ComponentRenderer
     const cn = className as string | undefined
     const preClass = cn ? `${cn} font-mono` : 'font-mono'
     const codeClass = language ? `language-${language}` : undefined
+    const codeBlockPayload =
+      typeof language === 'string' && language.length > 0 && typeof content === 'string'
+        ? Buffer.from(content, 'utf-8').toString('base64')
+        : undefined
     return (
       <div className="relative">
         <pre
@@ -65,6 +69,8 @@ export const textComponents: Partial<Record<Component['type'], ComponentRenderer
           className={preClass}
           data-testid={dataTestId as string | undefined}
           data-line-numbers={lineNumbers ? 'true' : undefined}
+          data-code-block={codeBlockPayload}
+          data-code-lang={codeBlockPayload !== undefined ? language : undefined}
         >
           <code
             className={codeClass}

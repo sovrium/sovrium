@@ -20,13 +20,17 @@ export const getCompatibleColumns = (
     { dataType: string; isNullable: string; columnDefault: string | null }
   >,
   newColumnInfo: ReadonlyMap<string, { columnDefault: string | null; dataType: string }>
-): readonly string[] =>
-  Array.from(existingColumns.keys()).filter((col) => {
+): readonly string[] => {
+  if (isSqliteRuntime()) {
+    return Array.from(existingColumns.keys()).filter((col) => newColumnInfo.has(col))
+  }
+  return Array.from(existingColumns.keys()).filter((col) => {
     const newColInfo = newColumnInfo.get(col)
     if (!newColInfo) return false
     const oldType = existingColumns.get(col)?.dataType.toLowerCase() ?? ''
     return areTypesCompatible(oldType, newColInfo.dataType.toLowerCase())
   })
+}
 
 interface CopyDataParams {
   readonly tx: TransactionLike
@@ -68,10 +72,10 @@ const fetchColumnInfo = (
   SQLExecutionError
 > =>
   Effect.gen(function* () {
-    const columns = yield* executeSQL(
-      tx,
-      `SELECT column_name, column_default, data_type FROM information_schema.columns WHERE table_name = '${tableName}'`
-    )
+    const query = isSqliteRuntime()
+      ? `SELECT name AS column_name, dflt_value AS column_default, type AS data_type FROM pragma_table_info('${tableName}')`
+      : `SELECT column_name, column_default, data_type FROM information_schema.columns WHERE table_name = '${tableName}'`
+    const columns = yield* executeSQL(tx, query)
     return new Map(
       (
         columns as readonly {

@@ -130,3 +130,13 @@ export const highlightCodeBlocks = async (
     return highlighted[idx] ?? _match
   })
 }
+
+export const highlightCodeToHtml = async (
+  lang: string,
+  code: string,
+  theme: string | undefined
+): Promise<string> => {
+  const activeTheme = theme && theme.length > 0 ? theme : DEFAULT_THEME
+  const codeToHtml = await getShikiForTheme(activeTheme)
+  return highlightOne(codeToHtml, lang, code, activeTheme)
+}

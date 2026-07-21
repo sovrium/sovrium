@@ -108,6 +108,7 @@ function FormBody({
   app,
   form,
   embed = false,
+  embedded = false,
   mountRuntime,
   prefillContext,
   activeLang,
@@ -116,21 +117,24 @@ function FormBody({
   readonly app: App
   readonly form: Form
   readonly embed?: boolean
+  readonly embedded?: boolean
   readonly mountRuntime?: boolean
   readonly prefillContext?: EmbeddedFormPrefillContext
   readonly activeLang?: string
   readonly titleAs?: 'h1' | 'h2' | 'h3'
 }) {
   const shouldMountRuntime = mountRuntime ?? !embed
-  const commonProps = buildFormBodyShared({ app, form, embed, prefillContext, activeLang, titleAs })
+  const commonProps: FormBodyShared = {
+    ...buildFormBodyShared({ app, form, embed, prefillContext, activeLang, titleAs }),
+    embedded,
+  }
   const isMultiStep = form.layout === 'multi-step' && form.steps && form.steps.length > 0
-  const isOneQuestion = form.layout === 'one-question'
   const body: ReactNode = isMultiStep ? (
     <FormBodyMultiStep
       {...commonProps}
       steps={form.steps!}
     />
-  ) : isOneQuestion ? (
+  ) : form.layout === 'one-question' ? (
     <FormBodyOneQuestion {...commonProps} />
   ) : (
     <FormBodyFlat {...commonProps} />
@@ -217,12 +221,15 @@ function FormBodyFlat({
   lockPrefill,
   antiSpamHoneypot,
   titleAs = 'h1',
+  embedded = false,
 }: FormBodyShared) {
   const TitleTag = titleAs
+  const descriptionClass = embedded ? 'form-description mt-2' : 'form-description'
+  const submitAlign = embedded ? 'ml-auto' : 'sm:self-start'
   return (
     <>
       <TitleTag className="form-title">{title}</TitleTag>
-      {description && <p className="form-description">{description}</p>}
+      {description && <p className={descriptionClass}>{description}</p>}
       <form
         className={computeFormLayoutClasses()}
         {...formAttributes}
@@ -231,7 +238,7 @@ function FormBodyFlat({
         {renderFlatFormFields({ resolvedFields, fieldGroups, prefillMap, lockPrefill })}
         <button
           type="submit"
-          className="btn btn-primary mt-2 w-full sm:w-auto sm:self-start"
+          className={`btn btn-primary mt-2 w-full sm:w-auto ${submitAlign}`}
         >
           {submitLabel}
         </button>
@@ -405,6 +412,7 @@ export function renderEmbeddedFormBody(
       app={app as App}
       form={form as Form}
       embed={false}
+      embedded={true}
       mountRuntime={true}
       prefillContext={prefillContext}
       activeLang={activeLang}

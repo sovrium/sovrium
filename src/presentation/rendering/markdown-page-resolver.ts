@@ -15,23 +15,20 @@ import {
 } from '@/domain/services/markdown/markdown-renderer'
 import { buildContentDirEditUrl } from '@/domain/utils/content-dir/content-dir-edit-url'
 import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
-import {
-  buildContentDirSeoMeta,
-  resolvePagePath,
-  type ContentDirSeoMeta,
-} from '@/domain/utils/content-dir/content-dir-seo-meta'
+import { type ContentDirSeoMeta } from '@/domain/utils/content-dir/content-dir-seo-meta'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/utils/content-dir/content-dir-slug'
-import {
-  buildContentDirStructuredData,
-  parseStructuredDataConfig,
-} from '@/domain/utils/content-dir/content-dir-structured-data'
 import { sanitizeRichTextHTML } from '@/domain/utils/html-sanitization'
 import { renderMarkdownToHtml } from '@/infrastructure/markdown/markdown-it-renderer'
 import { highlightCodeBlocks } from '@/infrastructure/markdown/shiki-highlighter'
 import { getContentBaseDir } from '@/presentation/rendering/content-base-dir'
 import { listContentDir, type CollectionNavData } from '@/presentation/rendering/content-dir-lister'
+import { buildContentDirSeo } from '@/presentation/rendering/content-dir-structured-data-synthesis'
 import { spliceMarkdownDirectives } from '@/presentation/rendering/markdown-directives'
 import { resolveMarkdownTranslations } from '@/presentation/rendering/markdown-i18n'
+import {
+  resolveDocsRootCrumb,
+  type DocsRootCrumb,
+} from '@/presentation/ui/pages/markdown/DocsRootCrumb'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
@@ -48,6 +45,9 @@ export interface ResolvedMarkdownPage {
   readonly seo?: ContentDirSeoMeta
   readonly lastUpdated?: string
   readonly editUrl?: string
+  readonly issueUrl?: string
+  readonly contributionNote?: string
+  readonly docsRootCrumb?: DocsRootCrumb
   readonly lang?: string
 }
 
@@ -269,16 +269,99 @@ const resolveEditUrl = (
   return buildContentDirEditUrl({ template: contentDir.editUrl, slug, lang: currentLang })
 }
 
-const buildChromeFields = (
-  editUrl: string | undefined,
+const resolveIssueUrl = (
+  page: Page,
+  routeParams: Readonly<Record<string, string>>,
   currentLang: string | undefined
-): Pick<ResolvedMarkdownPage, 'editUrl' | 'lang'> => ({
-  ...(editUrl !== undefined && { editUrl }),
-  ...(currentLang !== undefined && { lang: currentLang }),
+): string | undefined => {
+  const { contentDir } = page
+  if (contentDir?.issueUrl === undefined) return undefined
+  const slug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
+  if (slug === undefined) return undefined
+  return buildContentDirEditUrl({ template: contentDir.issueUrl, slug, lang: currentLang })
+}
+
+const buildDocsRootCrumb = (
+  collectionNav: CollectionNavData | undefined,
+  currentLang: string | undefined
+): DocsRootCrumb | undefined => {
+  if (collectionNav === undefined) return undefined
+  const current = collectionNav.sidebar.find((entry) => entry.isCurrent)
+  if (current === undefined) return undefined
+  return resolveDocsRootCrumb(collectionNav.sidebar, current, currentLang)
+}
+
+const buildOptionalPageFields = (input: {
+  readonly toc: ReturnType<typeof buildToc>
+  readonly collectionNav: CollectionNavData | undefined
+  readonly seo: ContentDirSeoMeta | undefined
+  readonly lastUpdated: string | undefined
+  readonly editUrl: string | undefined
+  readonly issueUrl: string | undefined
+  readonly contributionNote: string | undefined
+  readonly docsRootCrumb: DocsRootCrumb | undefined
+  readonly currentLang: string | undefined
+}): Partial<ResolvedMarkdownPage> => ({
+  ...(input.toc !== undefined && {
+    tocHeadings: input.toc.headings,
+    tocPosition: input.toc.position,
+  }),
+  ...(input.collectionNav !== undefined && { collectionNav: input.collectionNav }),
+  ...(input.seo !== undefined && { seo: input.seo }),
+  ...(input.lastUpdated !== undefined && { lastUpdated: input.lastUpdated }),
+  ...(input.editUrl !== undefined && { editUrl: input.editUrl }),
+  ...(input.issueUrl !== undefined && { issueUrl: input.issueUrl }),
+  ...(input.contributionNote !== undefined && { contributionNote: input.contributionNote }),
+  ...(input.docsRootCrumb !== undefined && { docsRootCrumb: input.docsRootCrumb }),
+  ...(input.currentLang !== undefined && { lang: input.currentLang }),
 })
 
 const isNonRenderableOutcome = (outcome: ContentDirOutcome): boolean =>
   outcome.kind === 'excluded' || outcome.kind === 'not-found'
+
+const resolvePageChrome = async (input: {
+  readonly page: Page
+  readonly routeParams: Readonly<Record<string, string>>
+  readonly app: App | undefined
+  readonly currentLang: string | undefined
+  readonly indexBasePathPattern: string | undefined
+  readonly frontmatter: Readonly<Record<string, string>>
+  readonly layout: ResolvedMarkdownPage['layout']
+  readonly collectionNav: CollectionNavData | undefined
+}): Promise<{
+  readonly seo: ContentDirSeoMeta | undefined
+  readonly lastUpdated: string | undefined
+  readonly editUrl: string | undefined
+  readonly issueUrl: string | undefined
+  readonly contributionNote: string | undefined
+  readonly docsRootCrumb: DocsRootCrumb | undefined
+}> => {
+  const { page, routeParams, app, currentLang, indexBasePathPattern, frontmatter } = input
+  const docsRootCrumb = buildDocsRootCrumb(input.collectionNav, currentLang)
+  const seo = buildContentDirSeo(
+    page,
+    routeParams,
+    frontmatter,
+    app,
+    indexBasePathPattern,
+    docsRootCrumb
+  )
+  const lastUpdated = await resolveLastUpdated(
+    page,
+    routeParams,
+    frontmatter,
+    input.layout,
+    currentLang
+  )
+  return {
+    seo,
+    lastUpdated,
+    editUrl: resolveEditUrl(page, routeParams, currentLang),
+    issueUrl: resolveIssueUrl(page, routeParams, currentLang),
+    contributionNote: page.contentDir?.contributionNote,
+    docsRootCrumb,
+  }
+}
 
 export async function resolveMarkdownPage(
   page: Page,
@@ -301,66 +384,22 @@ export async function resolveMarkdownPage(
   const toc = buildToc(rendered, markdown.toc)
   const layout = markdown.layout ?? DEFAULT_LAYOUT
   const collectionNav = await buildCollectionNav(page, routeParams)
-  const seo = buildContentDirSeo(page, routeParams, rendered.frontmatter, app, indexBasePathPattern)
-  const lastUpdated = await resolveLastUpdated(
+  const chrome = await resolvePageChrome({
     page,
     routeParams,
-    rendered.frontmatter,
+    app,
+    currentLang,
+    indexBasePathPattern,
+    frontmatter: rendered.frontmatter,
     layout,
-    currentLang
-  )
-  const editUrl = resolveEditUrl(page, routeParams, currentLang)
+    collectionNav,
+  })
   return {
     html: composedHtml,
     layout,
-    ...(toc !== undefined && {
-      tocHeadings: toc.headings,
-      tocPosition: toc.position,
-    }),
     frontmatter: rendered.frontmatter,
-    ...(collectionNav !== undefined && { collectionNav }),
-    ...(seo !== undefined && { seo }),
-    ...(lastUpdated !== undefined && { lastUpdated }),
-    ...buildChromeFields(editUrl, currentLang),
+    ...buildOptionalPageFields({ toc, collectionNav, currentLang, ...chrome }),
   }
-}
-
-function buildContentDirSeo(
-  page: Page,
-  routeParams: Readonly<Record<string, string>>,
-  frontmatter: Readonly<Record<string, string>>,
-  app: App | undefined,
-  indexBasePathPattern?: string
-): ContentDirSeoMeta | undefined {
-  if (page.contentDir === undefined) return undefined
-  const baseUrl = typeof Bun.env.BASE_URL === 'string' ? Bun.env.BASE_URL : undefined
-  return buildContentDirSeoMeta({
-    pattern: indexBasePathPattern ?? page.path,
-    routeParams,
-    frontmatter,
-    languages: app?.languages,
-    baseUrl,
-    structuredData: buildContentDirSynthesisedJsonLd(page, routeParams, frontmatter, baseUrl),
-  })
-}
-
-const buildContentDirSynthesisedJsonLd = (
-  page: Page,
-  routeParams: Readonly<Record<string, string>>,
-  frontmatter: Readonly<Record<string, string>>,
-  baseUrl: string | undefined
-): readonly Record<string, unknown>[] => {
-  if (page.meta?.schema !== undefined) return []
-  const config = parseStructuredDataConfig(page.meta?.structuredData)
-  if (config === undefined) return []
-  const resolvedPath = resolvePagePath(page.path, routeParams)
-  const url = baseUrl ? `${baseUrl.replace(/\/$/, '')}${resolvedPath}` : resolvedPath
-  return buildContentDirStructuredData({
-    config,
-    frontmatter,
-    url,
-    groupBy: page.contentDir?.nav?.groupBy,
-  })
 }
 
 export const isContentDirSlugNotFound = async (

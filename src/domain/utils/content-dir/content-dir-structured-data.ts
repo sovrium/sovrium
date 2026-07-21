@@ -57,24 +57,49 @@ const buildArticle = (
   }
 }
 
+export interface BreadcrumbRootCrumb {
+  readonly name: string
+  readonly url: string
+}
+
+const buildRootCrumbItems = (
+  rootCrumb: BreadcrumbRootCrumb | undefined,
+  url: string
+): readonly { readonly name: string; readonly item?: string }[] => {
+  if (rootCrumb === undefined) return [{ name: 'Home' }]
+  if (rootCrumb.url === url) return []
+  return [{ name: rootCrumb.name, item: rootCrumb.url }]
+}
+
 const buildBreadcrumbList = (
   frontmatter: Readonly<Record<string, string>>,
   url: string,
-  groupBy: string | undefined
+  groupBy: string | undefined,
+  rootCrumb: BreadcrumbRootCrumb | undefined
 ): Record<string, unknown> => {
   const sectionField = groupBy ?? 'category'
-  const section = frontmatter[sectionField] ?? frontmatter['section'] ?? frontmatter['category']
+  const rawSection = frontmatter[sectionField] ?? frontmatter['section'] ?? frontmatter['category']
   const pageName = frontmatter['title'] ?? url
-  const sectionItems = section ? [{ '@type': 'ListItem', position: 2, name: section }] : []
-  const pagePosition = section ? 3 : 2
+
+  const sectionRedundant =
+    rootCrumb !== undefined && rawSection !== undefined && rawSection === rootCrumb.name
+  const section = sectionRedundant ? undefined : rawSection
+
+  const rootItems = buildRootCrumbItems(rootCrumb, url)
+  const sectionItems: readonly { readonly name: string }[] =
+    section !== undefined ? [{ name: section }] : []
+  const pageItem = { name: pageName, item: url }
+
+  const itemListElement = [...rootItems, ...sectionItems, pageItem].map((item, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    ...item,
+  }))
+
   return {
     '@context': SCHEMA_CONTEXT,
     '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home' },
-      ...sectionItems,
-      { '@type': 'ListItem', position: pagePosition, name: pageName, item: url },
-    ],
+    itemListElement,
   }
 }
 
@@ -83,10 +108,11 @@ export const buildContentDirStructuredData = (input: {
   readonly frontmatter: Readonly<Record<string, string>>
   readonly url: string
   readonly groupBy: string | undefined
+  readonly rootCrumb?: BreadcrumbRootCrumb
 }): readonly Record<string, unknown>[] => {
-  const { config, frontmatter, url, groupBy } = input
+  const { config, frontmatter, url, groupBy, rootCrumb } = input
   if (!config?.enabled) return []
   const article = buildArticle(config, frontmatter, url)
   if (config.breadcrumbs === false) return [article]
-  return [article, buildBreadcrumbList(frontmatter, url, groupBy)]
+  return [article, buildBreadcrumbList(frontmatter, url, groupBy, rootCrumb)]
 }

@@ -179,7 +179,16 @@ function buildFormShellRules(): string {
         @apply text-foreground text-3xl font-semibold tracking-tight;
       }
       .form-description {
-        @apply text-foreground-muted -mt-3 max-w-prose text-base leading-relaxed;
+        @apply text-foreground-muted max-w-prose text-base leading-relaxed;
+      }
+      /* The negative top margin tightens the title→description pair against the
+         standalone shell's \`gap-6\` flex rhythm. It is scoped to \`.form-page\`
+         so it applies ONLY on the standalone form page — an embedded/dialog form
+         body (rendered WITHOUT the \`.form-page\` shell) keeps normal, non-cramped
+         title→description spacing instead of pulling the description up under the
+         title. */
+      .form-page .form-description {
+        @apply -mt-3;
       }
       .form-group-label {
         @apply text-foreground border-border border-b pb-2 text-base font-semibold;

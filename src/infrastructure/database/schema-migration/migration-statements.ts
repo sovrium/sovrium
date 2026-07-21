@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import {
+  generateCreatedAtColumn,
+  generateDeletedAtColumn,
+  generateUpdatedAtColumn,
+} from '../table-operations/column-generators'
 import {
   needsIdColumnRecreation,
   findColumnsToAdd,
@@ -19,23 +25,46 @@ import { detectFieldRenames } from './rename-detection'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+type MissingSpecialFields = {
+  readonly created: boolean
+  readonly updated: boolean
+  readonly deleted: boolean
+}
+
+const sqliteSpecialFieldStatements = (
+  table: Table,
+  missing: MissingSpecialFields
+): readonly string[] => {
+  const addColumns = (defs: readonly string[]): readonly string[] =>
+    defs.map((def) => `ALTER TABLE ${table.name} ADD COLUMN ${def}`)
+  return [
+    ...(missing.created ? addColumns(generateCreatedAtColumn(table)) : []),
+    ...(missing.updated ? addColumns(generateUpdatedAtColumn(table)) : []),
+    ...(missing.deleted ? addColumns(generateDeletedAtColumn(table)) : []),
+  ]
+}
+
 const generateSpecialFieldStatements = (
   table: Table,
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>
 ): readonly string[] => {
   const fieldNames = new Set(table.fields.map((f) => f.name))
-  const needsCreatedAt = !fieldNames.has('created_at') && !existingColumns.has('created_at')
-  const needsUpdatedAt = !fieldNames.has('updated_at') && !existingColumns.has('updated_at')
-  const needsDeletedAt = !fieldNames.has('deleted_at') && !existingColumns.has('deleted_at')
+  const missing: MissingSpecialFields = {
+    created: !fieldNames.has('created_at') && !existingColumns.has('created_at'),
+    updated: !fieldNames.has('updated_at') && !existingColumns.has('updated_at'),
+    deleted: !fieldNames.has('deleted_at') && !existingColumns.has('deleted_at'),
+  }
+
+  if (isSqliteRuntime()) return sqliteSpecialFieldStatements(table, missing)
 
   return [
-    ...(needsCreatedAt
+    ...(missing.created
       ? [`ALTER TABLE ${table.name} ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
       : []),
-    ...(needsUpdatedAt
+    ...(missing.updated
       ? [`ALTER TABLE ${table.name} ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
       : []),
-    ...(needsDeletedAt ? [`ALTER TABLE ${table.name} ADD COLUMN deleted_at TIMESTAMPTZ`] : []),
+    ...(missing.deleted ? [`ALTER TABLE ${table.name} ADD COLUMN deleted_at TIMESTAMPTZ`] : []),
   ]
 }
 
@@ -131,13 +160,19 @@ export const generateAlterTableStatements = (
     allFields: table.fields,
   })
 
+  const columnReshapeStatements = isSqliteRuntime()
+    ? []
+    : [
+        ...findTypeChanges(table, existingColumns, renamedNewNames),
+        ...findDefaultValueChanges(table, existingColumns, renamedNewNames, previousSchema),
+        ...findNullabilityChanges(table, existingColumns, renamedNewNames, primaryKeyFields),
+      ]
+
   return [
     ...renameStatements,
     ...dropStatements,
     ...addStatements,
     ...generateSpecialFieldStatements(table, existingColumns),
-    ...findTypeChanges(table, existingColumns, renamedNewNames),
-    ...findDefaultValueChanges(table, existingColumns, renamedNewNames, previousSchema),
-    ...findNullabilityChanges(table, existingColumns, renamedNewNames, primaryKeyFields),
+    ...columnReshapeStatements,
   ]
 }

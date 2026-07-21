@@ -168,9 +168,14 @@ export const handleStartCommand = async (
 
     let currentServer = server
 
+    const RELOAD_DEBOUNCE_MS = 150
+    let reloadTimer: ReturnType<typeof setTimeout> | undefined
 
-    watch(filePath, async (eventType) => {
-      if (eventType === 'change') {
+    watch(filePath, (eventType) => {
+      if (eventType !== 'change') return
+
+      if (reloadTimer !== undefined) clearTimeout(reloadTimer)
+      reloadTimer = setTimeout(async () => {
         console.log(`\n  [watch] Config changed, reloading`)
 
         try {
@@ -180,7 +185,7 @@ export const handleStartCommand = async (
         } catch (error) {
           console.error(`  [watch] Reload failed: ${formatRuntimeError(error)}\n`)
         }
-      }
+      }, RELOAD_DEBOUNCE_MS)
     })
   }
 }

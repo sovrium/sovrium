@@ -23,6 +23,7 @@ import {
   extractSessionTimeout,
   shouldInjectAnalytics,
 } from '@/presentation/rendering/analytics-helpers'
+import { highlightComponentCodeBlocks } from '@/presentation/rendering/component-code-highlighter'
 import { resolveCustomHtmlSources } from '@/presentation/rendering/custom-html-resolver'
 import { resolvePageDataSources } from '@/presentation/rendering/data-source-resolver'
 import { resolveEditorContext } from '@/presentation/rendering/editors/editor-context-resolver'
@@ -678,7 +679,7 @@ export async function renderPageByPath(
     resolveIslandEntryFile(page, app.components, islandBuilder),
     resolveMarkdownPage(page, routeParams, app, detectedLanguage, indexBasePathPattern),
   ])
-  return renderPageHtml({
+  const pageHtml = renderPageHtml({
     app,
     page,
     routeParams,
@@ -688,6 +689,7 @@ export async function renderPageByPath(
     markdownPayload,
     session,
   })
+  return highlightComponentCodeBlocks(pageHtml, app.theme?.codeBlock?.theme)
 }
 
 export async function renderPage(

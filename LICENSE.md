@@ -27,7 +27,7 @@ Examples of **restricted uses** (require separate commercial license):
 - Providing managed Sovrium instances to customers as a commercial offering
 - White-labeling Sovrium and selling it as a hosted service
 
-**Change Date**: 2030-07-20 (Four years from this version's release date)
+**Change Date**: 2030-07-21 (Four years from this version's release date)
 
 **Change License**: Apache License, Version 2.0
 
@@ -94,11 +94,11 @@ TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON AN "
 
 ### When does Sovrium become fully open source?
 
-On **July 20, 2030** (four years after this version's release), Sovrium automatically converts to **Apache License 2.0**. After that date, all restrictions are lifted.
+On **July 21, 2030** (four years after this version's release), Sovrium automatically converts to **Apache License 2.0**. After that date, all restrictions are lifted.
 
 ### Can I fork Sovrium and compete with it?
 
-You can fork Sovrium for **non-competing purposes**. If your fork becomes a commercial hosted service competing with Sovrium, you need a commercial license or must wait until the Change Date (2030-07-20).
+You can fork Sovrium for **non-competing purposes**. If your fork becomes a commercial hosted service competing with Sovrium, you need a commercial license or must wait until the Change Date (2030-07-21).
 
 ### What if I'm already using Sovrium when the license changes?
 

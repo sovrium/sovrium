@@ -634,6 +634,15 @@ jobs:
   # staggered restart + per-app health check + binary auto-rollback). Fails red
   # if any demo does not come back (no continue-on-error). ubuntu-latest has open
   # egress; the demo host's security group already allows inbound SSH.
+  #
+  # upgrade-fleet.sh is executed HOST-RESIDENT (/root/upgrade-fleet.sh on
+  # sovrium-demos-01), never read from this job's checkout: docs/ is excluded
+  # from the public GitHub mirror (scripts/filtered-mirror.sh), so a checkout of
+  # this repo on GitHub can never contain it — piping it from `< docs/...` here
+  # 404s every single run. The host copy (+ /root/manifest.json) is provisioned
+  # and refreshed by the scaleway-infra-maintainer agent straight from the
+  # Forgejo repo; see docs/development/demo-fleet/operations.md for the
+  # "any script/manifest change must be scp'd before the next release" runbook.
   deploy-demos:
     name: Deploy demo fleet
     needs: [verify-mirrors]
@@ -668,10 +677,21 @@ jobs:
       - name: Upgrade fleet to this release
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Streams upgrade-fleet.sh over SSH; its exit code is the job's gate
-          # (staggered restart + health check + auto-rollback happen host-side).
-          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes root@163.172.175.246 \
-            "VERSION=${VERSION} bash -s" < docs/development/demo-fleet/host/upgrade-fleet.sh
+          # Runs the HOST-RESIDENT copy of upgrade-fleet.sh (see the job
+          # comment above for why: docs/ is stripped from the public mirror,
+          # so this checkout never has the script). Its exit code is the job's
+          # gate (staggered restart + health check + auto-rollback happen
+          # host-side).
+          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes root@163.172.175.246 "
+            set -e
+            test -x /root/upgrade-fleet.sh || {
+              echo 'upgrade-fleet.sh missing (or not executable) on the host at /root/upgrade-fleet.sh —'
+              echo 'scp docs/development/demo-fleet/host/upgrade-fleet.sh to /root/ on sovrium-demos-01 first.'
+              echo 'See: docs/development/demo-fleet/operations.md'
+              exit 1
+            }
+            VERSION=${VERSION} bash /root/upgrade-fleet.sh
+          "
 
   # ── Build and push multi-arch Docker image ──────────────────
   build-docker:

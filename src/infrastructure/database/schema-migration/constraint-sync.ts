@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   executeSQLStatements,
   type TransactionLike,
@@ -13,6 +14,7 @@ import {
 } from '../sql/sql-execution'
 import { generateForeignKeyConstraints, generateTableConstraints } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/tables'
+
 
 const getUniqueConstraintDropStatements = (
   table: Table,
@@ -76,6 +78,7 @@ export const syncUniqueConstraints = (
   previousSchema?: { readonly tables: readonly object[] }
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    if (isSqliteRuntime()) return
     const uniqueFields = table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
     const dropStatements = getUniqueConstraintDropStatements(table, previousSchema, uniqueFields)
     const addStatements = buildUniqueConstraintAddStatements(table, uniqueFields)
@@ -89,6 +92,7 @@ export const syncForeignKeyConstraints = (
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    if (isSqliteRuntime()) return
     const fkConstraints = generateForeignKeyConstraints(table.name, table.fields, tableUsesView)
 
     const statements = fkConstraints.flatMap((constraint) => {
@@ -125,36 +129,12 @@ export const syncForeignKeyConstraints = (
     yield* executeSQLStatements(tx, statements)
   })
 
-const generateConstraintValidationQuery = (
-  tableName: string,
-  constraint: string
-): string | undefined => {
-  const match = constraint.match(/CHECK\s*\((.+)\)$/)
-  if (!match) return undefined
-
-  const condition = match[1]
-
-  return `
-    DO $$
-    DECLARE
-      violation_count INTEGER;
-    BEGIN
-      SELECT COUNT(*) INTO violation_count
-      FROM ${tableName}
-      WHERE NOT (${condition});
-
-      IF violation_count > 0 THEN
-        RAISE EXCEPTION 'Migration failed: existing data violates check constraint. % row(s) in table "${tableName}" violate the new constraint condition.', violation_count;
-      END IF;
-    END$$;
-  `
-}
-
 export const syncCheckConstraints = (
   tx: TransactionLike,
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    if (isSqliteRuntime()) return
     const allConstraints = generateTableConstraints(table, undefined)
 
     const checkConstraints = allConstraints.filter(
@@ -172,8 +152,6 @@ export const syncCheckConstraints = (
 
       const constraintName = match[1]
 
-      const validationQuery = generateConstraintValidationQuery(table.name, constraint)
-
       return [
         `
           DO $$
@@ -188,8 +166,7 @@ export const syncCheckConstraints = (
             END IF;
           END$$;
         `,
-        ...(validationQuery ? [validationQuery] : []),
-        `ALTER TABLE ${table.name} ADD ${constraint}`,
+        `ALTER TABLE ${table.name} ADD ${constraint} NOT VALID`,
       ]
     })
 

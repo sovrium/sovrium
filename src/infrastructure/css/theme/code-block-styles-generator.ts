@@ -33,10 +33,51 @@ const COMMON_TOKEN_COLORS: Readonly<Record<string, string>> = {
   '22863A': '#22863A',
 }
 
-const generateContainerChrome = (): string =>
+interface ChromeColors {
+  readonly background: string
+  readonly foreground: string
+}
+
+const LIGHT_SHIKI_THEMES: ReadonlySet<string> = new Set([
+  'github-light',
+  'github-light-default',
+  'github-light-high-contrast',
+  'light-plus',
+  'solarized-light',
+  'min-light',
+  'catppuccin-latte',
+  'everforest-light',
+  'one-light',
+  'vitesse-light',
+  'snazzy-light',
+  'material-theme-lighter',
+  'rose-pine-dawn',
+  'slack-ochin',
+])
+
+const isLightShikiTheme = (themeName: string): boolean => {
+  const name = themeName.toLowerCase()
+  if (LIGHT_SHIKI_THEMES.has(name)) return true
+  return (
+    name.includes('light') ||
+    name.includes('dawn') ||
+    name.includes('latte') ||
+    name.includes('-day')
+  )
+}
+
+const resolveChromeColors = (themeName: string): ChromeColors =>
+  isLightShikiTheme(themeName)
+    ? {
+        background: 'var(--color-background-subtle, #f6f8fa)',
+        foreground: 'var(--color-foreground, #1f2328)',
+      }
+    : { background: '#0d0d0d', foreground: '#e1e4e8' }
+
+const generateContainerChrome = (chrome: ChromeColors): string =>
   `pre.shiki {
-    background-color: var(--color-background-subtle, #f6f8fa);
-    color: var(--color-foreground, #1f2328);
+    background-color: ${chrome.background};
+    color: ${chrome.foreground};
     padding: 1rem;
     border-radius: 0.5rem;
     overflow-x: auto;
@@ -63,19 +104,21 @@ const generateTokenColorRules = (): string =>
 const resolveCodeBlockThemeName = (theme?: Theme): string =>
   theme?.codeBlock?.theme ?? DEFAULT_SHIKI_THEME
 
-const generateThemeScopedHook = (themeName: string): string =>
+const generateThemeScopedHook = (themeName: string, chrome: ChromeColors): string =>
   `/* Sovrium code-block theme: ${themeName} */
   pre.shiki.${themeName} {
-    /* Same chrome as pre.shiki; declared so the theme name is observable
-       in the compiled stylesheet (used by the theme-token regression). */
-    background-color: var(--color-background-subtle, #f6f8fa);
-    color: var(--color-foreground, #1f2328);
+    /* Same theme-tracked chrome as pre.shiki; declared at higher specificity
+       so it never re-lightens a dark theme's chrome, and so the theme name is
+       observable in the compiled stylesheet (used by the theme-token regression). */
+    background-color: ${chrome.background};
+    color: ${chrome.foreground};
   }`
 
 export const generateCodeBlockStyles = (theme?: Theme): string => {
   const themeName = resolveCodeBlockThemeName(theme)
-  const chrome = generateContainerChrome()
+  const chromeColors = resolveChromeColors(themeName)
+  const chrome = generateContainerChrome(chromeColors)
   const tokenRules = generateTokenColorRules()
-  const themeHook = generateThemeScopedHook(themeName)
+  const themeHook = generateThemeScopedHook(themeName, chromeColors)
   return `${chrome}\n${tokenRules}\n${themeHook}`
 }

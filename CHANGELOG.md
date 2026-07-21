@@ -1,3 +1,17 @@
+## [0.17.0](https://github.com/sovrium/sovrium/compare/v0.16.0...v0.17.0) (2026-07-21)
+
+### Features
+
+- **pages**: tab-root docs breadcrumb + contribution footer
+- **pages**: syntax-highlight the code component via Shiki
+
+### Bug Fixes
+
+- **cli**: debounce watch-mode config reload to avoid partial-file reads
+- **pages**: preserve author attributes on syntax-highlighted code blocks
+- **db**: boot against existing Postgres data when a CHECK constraint tightens
+- **db**: boot against an existing SQLite database on schema changes
+
 ## [0.16.0](https://github.com/sovrium/sovrium/compare/v0.15.2...v0.16.0) (2026-07-20)
 
 ### BREAKING CHANGES

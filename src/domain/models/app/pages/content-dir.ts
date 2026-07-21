@@ -142,6 +142,26 @@ export const ContentDirSchema = Schema.Struct({
       })
     )
   ),
+
+  issueUrl: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description:
+          'Report-an-issue URL template for docs articles. Same placeholders as editUrl ({slug}, {path}, {lang}) but OPTIONAL — a bare issue-tracker URL with no placeholder is valid (passes through verbatim). Absent = no issue link (opt-in, default off). E.g. https://github.com/acme/repo/issues/new',
+      })
+    )
+  ),
+
+  contributionNote: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description:
+          'Per-locale contribution note rendered (raw string) in the docs article contribution footer, beside the edit/issue links. Not interpolated. Absent = no note (opt-in, default off).',
+      })
+    )
+  ),
 }).pipe(
   Schema.annotations({
     identifier: 'ContentDir',
