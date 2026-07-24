@@ -1,3 +1,14 @@
+## [0.18.0](https://github.com/sovrium/sovrium/compare/v0.17.0...v0.18.0) (2026-07-24)
+
+### Features
+
+- **cli**: document the observability-export env vars in .env.example
+- **telemetry**: ship a dormant OTLP trace-export layer
+- **telemetry**: sampled HTTP performance transactions
+- **telemetry**: OTLP-HTTP structured log export (dual-write)
+- **telemetry**: Sentry-protocol error reporting and startup banner
+- **telemetry**: env-gated, default-off observability configuration
+
 ## [0.17.0](https://github.com/sovrium/sovrium/compare/v0.16.0...v0.17.0) (2026-07-21)
 
 ### Features

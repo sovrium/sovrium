@@ -11,6 +11,7 @@ import type {
   TransformParams,
 } from '@/domain/services/image-transform/image-transform-params'
 import type SharpNamespace from 'sharp'
+import type { ResizeOptions } from 'sharp'
 
 type Sharp = typeof SharpNamespace
 
@@ -72,7 +73,7 @@ const resolveOutputFormat = (
   return undefined
 }
 
-const resizeOptions = (config: RunPipelineConfig): Readonly<SharpNamespace.ResizeOptions> => {
+const resizeOptions = (config: RunPipelineConfig): Readonly<ResizeOptions> => {
   const { params } = config
   const position = params.fit === 'cover' ? cropToSharpPosition(config) : undefined
   return {

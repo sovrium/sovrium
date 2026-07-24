@@ -15,6 +15,7 @@ import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/logger'
+import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
 import { collectInsecureEnvWarning, getNodeEnv } from '@/infrastructure/utils/env'
 import type { App } from '@/domain/models/app'
 import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
@@ -104,6 +105,31 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
     Effect.catchAll(() => Effect.succeed([] as readonly StartupPhase[]))
   )
   return Effect.runPromise(program)
+}
+
+export const collectTelemetryPhases = (): readonly StartupPhase[] => {
+  const config = getTelemetryConfig()
+  const errorsHost = config.errorReporting?.dsn.host
+
+  const errorPhase: readonly StartupPhase[] = errorsHost
+    ? [{ label: `Telemetry: errors → ${errorsHost}`, type: 'success' as const }]
+    : []
+  const logPhase: readonly StartupPhase[] = config.logExport
+    ? [{ label: `Telemetry: logs → ${config.logExport.host} (OTLP)`, type: 'success' as const }]
+    : []
+  const performancePhase: readonly StartupPhase[] =
+    config.performance && errorsHost
+      ? [
+          {
+            label: `Telemetry: performance → ${errorsHost} (${Math.round(
+              config.performance.sampleRate * 100
+            )}% sampled)`,
+            type: 'success' as const,
+          },
+        ]
+      : []
+
+  return [...errorPhase, ...logPhase, ...performancePhase]
 }
 
 export const buildStartupPhases = (params: {

@@ -20,6 +20,10 @@ import {
 } from '@/application/use-cases/auth/bootstrap-token'
 import { validateTriggerConfigs } from '@/application/use-cases/automations/validate-trigger-configs'
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
+import {
+  validateTelemetryConfiguration,
+  type TelemetryConfigurationError,
+} from '@/application/use-cases/env/validate-telemetry-configuration'
 import { normalizeAppConfig } from '@/application/use-cases/server/normalize-app-config'
 import { AppSchema } from '@/domain/models/app'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
@@ -31,6 +35,8 @@ import { authUsersTable, authAccountsTable } from '@/infrastructure/database/dri
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/auth/bootstrap-token-repository-live'
 import { Logger } from '@/infrastructure/logging/logger'
+import { activateTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
+import { getSovriumVersion } from '@/infrastructure/utils/version'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { ServerInstance } from '@/application/models/server'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -210,6 +216,7 @@ export const startServer = (
   ServerInstance,
   | AppValidationError
   | MissingRequiredEnvVarError
+  | TelemetryConfigurationError
   | ServerCreationError
   | CSSCompilationError
   | AuthConfigRequiredForUserFields
@@ -230,6 +237,11 @@ export const startServer = (
   Effect.gen(function* () {
     const validatedApp = yield* decodeAndValidateApp(normalizeAppConfig(app))
     yield* validateRequiredEnvVars(validatedApp.env, process.env)
+    yield* validateTelemetryConfiguration(process.env)
+    const telemetryVersion = yield* Effect.promise(() => getSovriumVersion())
+    yield* Effect.sync(() =>
+      activateTelemetry({ appName: validatedApp.name, version: telemetryVersion })
+    )
     yield* validateAiConfiguration(validatedApp, process.env)
     yield* validateEcoAiRouting(process.env, probeOllamaReachable)
     yield* validateCodeActionsAtStartup(validatedApp)

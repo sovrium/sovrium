@@ -6,6 +6,7 @@
  */
 
 import { Console, Context, Effect, Layer, ManagedRuntime } from 'effect'
+import { emitTelemetryLog } from '@/infrastructure/telemetry/telemetry-sink'
 import { isDevelopment as isDevelopmentEnv } from '@/infrastructure/utils/env'
 
 export class Logger extends Context.Tag('Logger')<
@@ -28,17 +29,29 @@ export const LoggerLive = Layer.succeed(Logger, {
     Effect.gen(function* () {
       if (process.env.LOG_LEVEL === 'debug' || isDevelopmentEnv()) {
         yield* Console.debug(formatLogMessage('DEBUG', message), ...args)
+        yield* Effect.sync(() => emitTelemetryLog('debug', message))
       }
     }),
 
-  info: (message, ...args) => Console.log(formatLogMessage('INFO', message), ...args),
+  info: (message, ...args) =>
+    Effect.gen(function* () {
+      yield* Console.log(formatLogMessage('INFO', message), ...args)
+      yield* Effect.sync(() => emitTelemetryLog('info', message))
+    }),
 
-  warn: (message, ...args) => Console.warn(formatLogMessage('WARN', message), ...args),
+  warn: (message, ...args) =>
+    Effect.gen(function* () {
+      yield* Console.warn(formatLogMessage('WARN', message), ...args)
+      yield* Effect.sync(() => emitTelemetryLog('warn', message))
+    }),
 
   error: (message, error) =>
-    error
-      ? Console.error(formatLogMessage('ERROR', message), error)
-      : Console.error(formatLogMessage('ERROR', message)),
+    Effect.gen(function* () {
+      yield* error
+        ? Console.error(formatLogMessage('ERROR', message), error)
+        : Console.error(formatLogMessage('ERROR', message))
+      yield* Effect.sync(() => emitTelemetryLog('error', message, error))
+    }),
 })
 
 export const LoggerSilent = Layer.succeed(Logger, {

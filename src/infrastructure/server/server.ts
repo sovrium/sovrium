@@ -81,11 +81,16 @@ import {
   collectAiListenerPhases,
   collectAdminPhases,
   collectPublicDirPhases,
+  collectTelemetryPhases,
   buildStartupPhases,
   databaseStartupLabel,
 } from '@/infrastructure/server/startup-degradation-phases'
 import { validateStoragePublicAccessEnv } from '@/infrastructure/server/validate-storage-public-access-env'
 import { validateTransformPresetEnv } from '@/infrastructure/server/validate-transform-preset-env'
+import { reportException } from '@/infrastructure/telemetry/error-reporter'
+import { createPerformanceMiddleware } from '@/infrastructure/telemetry/performance-middleware'
+import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
+import { shutdownTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
 import type { ServerInstance } from '@/application/models/server'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -152,6 +157,13 @@ function buildGetSession(
   }
 }
 
+function mountPerformanceMiddleware(honoApp: Readonly<Hono>): void {
+  const telemetryConfig = getTelemetryConfig()
+  if (telemetryConfig.performance !== undefined) {
+    honoApp.use('*', createPerformanceMiddleware(telemetryConfig.performance.sampleRate))
+  }
+}
+
 export async function createHonoApp(
   config: HonoAppConfig & { readonly configHash?: string }
 ): Promise<Readonly<Hono>> {
@@ -160,11 +172,11 @@ export async function createHonoApp(
   const authInstance = app.auth ? createAuthInstance(app.auth, app.connections, app) : undefined
   const getSession = authInstance ? buildGetSession(authInstance, app) : undefined
 
-  const configWithSession = { ...config, getSession }
-
   const honoApp = new Hono()
 
   honoApp.use('*', requestId()).use('*', securityHeaders)
+
+  mountPerformanceMiddleware(honoApp)
 
   honoApp.use('*', legacyHostRedirect)
 
@@ -220,12 +232,17 @@ export async function createHonoApp(
         config.publicDir
       )
     ),
-    configWithSession
+    { ...config, getSession }
   )
 
   return honoWithRoutes
     .notFound(async (c) => c.html(await renderNotFoundPage(app), 404))
     .onError(async (error, c) => {
+      void reportException(error, {
+        method: c.req.method,
+        url: c.req.url,
+        headers: Object.fromEntries(c.req.raw.headers.entries()),
+      })
       logError(`[SERVER] ${c.req.method} ${c.req.path} → 500`, error)
       return c.html(await renderErrorPage(app), 500)
     })
@@ -246,6 +263,7 @@ const createStopEffect = (
     disposeCronScheduler()
     if (aiComputeListener) yield* Effect.promise(() => aiComputeListener.stop().catch(() => {}))
     yield* Effect.promise(() => stopAiKnowledgeListener().catch(() => {}))
+    yield* Effect.promise(() => shutdownTelemetry().catch(() => {}))
     yield* Effect.promise(() => server.stop())
     logDebug('Server stopped')
   })
@@ -405,6 +423,8 @@ const collectInfraPhases = (
 
     const storagePhases = collectStoragePhases()
 
+    const telemetryPhases = collectTelemetryPhases()
+
     const aiListenerPhases = collectAiListenerPhases(app)
 
     const cssResult = yield* compileCSS(app)
@@ -422,6 +442,7 @@ const collectInfraPhases = (
         ...smtpPhases,
         ...formSaltPhases,
         ...storagePhases,
+        ...telemetryPhases,
         ...aiListenerPhases,
       ],
       cssSizeKB,

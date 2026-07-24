@@ -42,5 +42,18 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # ECO_IMAGE_FORMAT=avif                   # avif | webp | jpeg | png
 # ECO_AI_PROVIDER_PRECEDENCE=local-first  # local-first | cloud-first | local-only
 
-# Full reference: https://sovrium.com/docs/configuration
+# ── Observability export (all OFF unless set; any Sentry/OTLP backend) ─
+# Point these at a self-hosted GlitchTip (or any Sentry/OTLP backend). Every
+# signal is off unless its gate is set; secrets are never printed to the console.
+# SENTRY_DSN=https://<key>@monitor.example.com/<project_id>   # errors + performance
+# SENTRY_ENVIRONMENT=production               # event environment (else NODE_ENV)
+# SENTRY_TRACES_SAMPLE_RATE=0.1               # (0,1] arms sampled perf; 0/unset → off
+# OTEL_EXPORTER_OTLP_ENDPOINT=https://monitor.example.com   # OTLP logs base (+ /v1/logs)
+# OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=           # full logs URL, used verbatim (overrides base)
+# OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=         # explicit endpoint to arm dormant OTel traces
+# OTEL_EXPORTER_OTLP_HEADERS=                 # k=v,k2=v2 — GlitchTip: Authorization=Bearer <dsn-public-key>
+# OTEL_SERVICE_NAME=                          # OTLP service.name (else app name)
+
+# Full reference (SMTP, OAuth providers, MCP, advanced tuning):
+# https://sovrium.com/docs/configuration
 `

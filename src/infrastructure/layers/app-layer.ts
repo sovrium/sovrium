@@ -20,6 +20,7 @@ import { CronSchedulerLive } from '@/infrastructure/scheduling/cron-scheduler-li
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
 import { StorageLive } from '@/infrastructure/storage/layer'
+import { TelemetryTracingLayerOptional } from '@/infrastructure/telemetry/telemetry-trace-layer'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
 export const createAppLayer = (authConfig?: AuthConfig) => {
@@ -33,6 +34,7 @@ export const createAppLayer = (authConfig?: AuthConfig) => {
     CSSCompilerLive,
     StaticSiteGeneratorLive,
     DevToolsLayerOptional,
+    TelemetryTracingLayerOptional,
     LoggerLive,
     AuthRepositoryLive,
     StorageLive,
