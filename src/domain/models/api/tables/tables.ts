@@ -107,18 +107,6 @@ export const getTableResponseSchema = z.object({
   table: tableSchema.describe('Table details'),
 })
 
-export const createTableResponseSchema = z.object({
-  table: tableSchema.describe('Created table'),
-})
-
-export const updateTableResponseSchema = z.object({
-  table: tableSchema.describe('Updated table'),
-})
-
-export const deleteTableResponseSchema = z.object({
-  success: z.literal(true).describe('Table deleted'),
-})
-
 
 const aggregationValueSchema = z.union([z.number(), z.record(z.string(), z.number())])
 

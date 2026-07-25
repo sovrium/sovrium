@@ -1,3 +1,27 @@
+## [0.19.0](https://github.com/sovrium/sovrium/compare/v0.18.1...v0.19.0) (2026-07-25)
+
+### BREAKING CHANGES
+
+- **css**: delete the retired ramps, the humane role and the serif token
+- **design**: rewrite the default token layer to the restrained language
+
+### Features
+
+- **admin**: add password recovery to the operator console sign-in
+- **pages**: serve configured redirects as live HTTP redirects
+- **automations**: reclaim aged temporary files from file actions
+- **pages**: add redirects to app configuration
+
+### Bug Fixes
+
+- **auth**: point password-reset emails at a path the app actually serves
+- **automations**: redact secrets from step output in run history
+- **islands**: use role tokens, not frozen ramp steps, in the admin islands
+- **css**: stop click animations colliding with Tailwind's pulse and bounce
+- **command-palette**: render from theme tokens instead of inline hex
+- **pages**: detokenize the shipped default pages
+- **quality**: compare role-token values too, and fix the AA regression it found
+
 ## [0.18.1](https://github.com/sovrium/sovrium/compare/v0.18.0...v0.18.1) (2026-07-25)
 
 ### Bug Fixes

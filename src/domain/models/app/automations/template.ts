@@ -18,11 +18,6 @@ export const TEMPLATE_EXPRESSION_PATTERN =
   /\{\{(?:[\w]+(?:\s+(?:[\w.$]+|"[^"]*"|\([^)]+\)))*|[\w.]+)\}\}/
 
 
-export const TEMPLATE_TYPE_HELPER_PATTERN = /\{\{(json|number|boolean)\s+[\w.]+\}\}/
-export const TEMPLATE_DATETIME_PATTERN = /\{\{currentDateTime\}\}/
-export const TEMPLATE_REGEX_PATTERN = /\{\{regex\s+[\w.]+\s+"[^"]+"\}\}/
-
-
 
 export const TEXT_HELPERS = [
   'uppercase',

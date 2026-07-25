@@ -516,7 +516,7 @@ generates a 256-bit, single-use bootstrap token at startup and folds it into
 the startup banner — printed **exactly once** to stdout:
 
 ```text
-  Sovrium v0.10.0
+  Sovrium vX.Y.Z
 
   ⚠ No admin user — claim one within 1 hour with the token below
 
@@ -660,7 +660,7 @@ sovrium start task-api.yaml
 # REST API ready at /api/tables/projects/records and /api/tables/tasks/records
 ```
 
-More runnable examples live in [`examples/`](examples/).
+More runnable examples live in [`templates/`](templates/).
 
 ---
 

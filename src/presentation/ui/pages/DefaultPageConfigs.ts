@@ -70,7 +70,7 @@ export function createDefaultHomePageConfig(app: App): Page {
       {
         type: 'container',
         props: {
-          className: 'h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100',
+          className: 'bg-background h-screen overflow-hidden',
         },
         children: [
           {
@@ -174,6 +174,6 @@ export function createErrorPageConfig(): Page {
       title: '500 - Internal Server Error',
       description: 'Internal Server Error',
     },
-    components: createErrorSection('500', 'Internal Server Error', 'text-red-600'),
+    components: createErrorSection('500', 'Internal Server Error', 'text-error-fg'),
   }
 }

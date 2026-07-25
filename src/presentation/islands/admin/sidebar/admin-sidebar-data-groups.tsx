@@ -74,7 +74,7 @@ function GroupChildRow({
         data-testid={`data-nav-${itemKey}-${name}`}
         className={`block truncate rounded-md py-1 pr-2 pl-8 text-sm ${
           active
-            ? 'bg-warmth-subtle text-warmth-fg font-medium'
+            ? 'text-foreground-muted bg-background-subtle font-medium'
             : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
         }`}
       >
@@ -100,7 +100,7 @@ function GroupToggleHeader({
   return (
     <div
       className={`flex items-center gap-1 rounded-md pr-1 ${
-        parentActive ? 'bg-warmth-subtle' : 'hover:bg-background-subtle'
+        parentActive ? 'bg-background-subtle' : 'hover:bg-background-subtle'
       }`}
     >
       <button
@@ -118,7 +118,7 @@ function GroupToggleHeader({
         aria-current={parentActive ? 'page' : undefined}
         data-testid={`data-nav-${item.key}`}
         className={`flex flex-1 items-center gap-2 truncate py-1.5 text-sm ${
-          parentActive ? 'text-warmth-fg font-medium' : 'text-foreground-muted'
+          parentActive ? 'text-foreground-muted font-medium' : 'text-foreground-muted'
         }`}
       >
         <FamilyGlyph icon={item.icon} />

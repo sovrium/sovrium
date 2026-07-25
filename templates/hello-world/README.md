@@ -21,8 +21,8 @@ sovrium init my-hello-world --template hello-world
 
 A single `app.yaml` rendering one page — the smallest possible Sovrium app.
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+Everything is declared in [`app.yaml`](./app.yaml) — no application code, and no
+`config/` tree to split it across. Edit the config, restart, done.
 
 ## Run locally
 

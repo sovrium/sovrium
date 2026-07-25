@@ -46,7 +46,8 @@ export function KpiError({
         </div>
       )}
       <div className="text-error-fg">
-        Failed to load KPI records: {error instanceof Error ? error.message : String(error)}
+        <p>Failed to load KPI records: {error instanceof Error ? error.message : String(error)}</p>
+        <p className="mt-1 opacity-80">Refresh the page to try again.</p>
       </div>
     </div>
   )
@@ -60,7 +61,8 @@ export function KpiMissingTable(): ReactElement {
       data-kpi-state="missing-table"
       role="alert"
     >
-      KPI is missing a dataSource.table binding.
+      <p>KPI is missing a dataSource.table binding.</p>
+      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
     </div>
   )
 }

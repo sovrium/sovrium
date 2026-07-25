@@ -35,7 +35,10 @@ export function TimelineError({ error }: { readonly error: unknown }): ReactElem
       data-timeline-state="error"
       role="alert"
     >
-      Failed to load timeline records: {error instanceof Error ? error.message : String(error)}
+      <p>
+        Failed to load timeline records: {error instanceof Error ? error.message : String(error)}
+      </p>
+      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
     </div>
   )
 }
@@ -74,7 +77,12 @@ export function TimelineEmpty({ message }: { readonly message?: string }): React
       data-timeline-state="empty"
       role="status"
     >
-      {message ?? 'No records to display on the timeline.'}
+      <p>{message ?? 'No records on the timeline yet.'}</p>
+      {message === undefined && (
+        <p className="mt-1 opacity-80">
+          Records with a value in the configured date field will appear here.
+        </p>
+      )}
     </div>
   )
 }

@@ -63,7 +63,7 @@ const bucketByGroup = (entries: readonly CollectionNavEntry[]): readonly NavGrou
 
 const ENTRY_BASE_CLASS =
   'block rounded-md px-3 py-1.5 text-sm transition-colors duration-150 border-l-2'
-const ENTRY_ACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-warmth-border bg-background-overlay font-medium text-foreground`
+const ENTRY_ACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-border-strong bg-background-overlay font-medium text-foreground`
 const ENTRY_INACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-transparent text-foreground-muted hover:bg-background-overlay/60 hover:text-foreground`
 
 const renderEntry = (entry: CollectionNavEntry): Readonly<ReactElement> => (

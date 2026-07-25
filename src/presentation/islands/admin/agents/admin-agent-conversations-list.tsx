@@ -34,7 +34,7 @@ function NewConversation({
       <button
         type="button"
         onClick={onStart}
-        className="border-warmth/40 bg-warmth-subtle text-warmth-fg hover:bg-warmth-subtle/70 inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+        className="text-foreground-muted border-border-strong/40 bg-background-subtle hover:bg-background-subtle/70 inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
       >
         <span
           aria-hidden="true"
@@ -146,7 +146,7 @@ function ListSearch({
         onChange={handleChange}
         placeholder="Rechercher une conversation…"
         aria-label="Rechercher une conversation"
-        className="border-border bg-background-raised focus:border-warmth focus:ring-warmth/30 w-full rounded-md border py-1.5 pr-3 pl-8 text-sm transition-colors focus:ring-2 focus:outline-none"
+        className="border-border bg-background-raised focus:border-border-strong focus:ring-focus-ring/30 w-full rounded-md border py-1.5 pr-3 pl-8 text-sm transition-colors focus:ring-2 focus:outline-none"
       />
     </div>
   )
@@ -171,7 +171,7 @@ function ConversationCard({
       className={[
         'flex w-full flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors',
         active
-          ? 'border-warmth/40 bg-warmth-subtle text-warmth-fg'
+          ? 'text-foreground-muted border-border-strong/40 bg-background-subtle'
           : 'text-foreground-muted hover:border-border hover:bg-background-subtle border-transparent',
       ].join(' ')}
     >
@@ -245,7 +245,7 @@ function ListErrorState({ onRetry }: { readonly onRetry: () => void }): ReactEle
       <button
         type="button"
         onClick={onRetry}
-        className="text-warmth-fg hover:text-warmth-fg/80 mt-1 text-xs font-medium"
+        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-xs font-medium"
       >
         Réessayer
       </button>
@@ -273,7 +273,7 @@ function ListNoMatchState({ onResetSearch }: { readonly onResetSearch: () => voi
       <button
         type="button"
         onClick={onResetSearch}
-        className="text-warmth-fg hover:text-warmth-fg/80 mt-1 text-xs font-medium"
+        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-xs font-medium"
       >
         Réinitialiser
       </button>

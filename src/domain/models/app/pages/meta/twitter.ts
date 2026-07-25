@@ -59,13 +59,6 @@ export const TwitterAppUrlSchema = Schema.Struct({
   description: 'Deep-link URL to open app in respective stores',
 })
 
-export const TwitterCrossOriginSchema = Schema.Union(
-  Schema.Boolean,
-  Schema.Literal('anonymous', 'use-credentials')
-).annotations({
-  description: 'CORS setting for the resource',
-})
-
 export const TwitterCardSchema = Schema.Struct({
   card: TwitterCardTypeSchema,
   title: Schema.optional(

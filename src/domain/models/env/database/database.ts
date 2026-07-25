@@ -18,10 +18,3 @@ export const DatabaseEnvSchema = Schema.Struct({
     )
   ),
 })
-
-export type DatabaseEnvConfig = Schema.Schema.Type<typeof DatabaseEnvSchema>
-
-export const parseDatabaseEnvConfig = (): DatabaseEnvConfig =>
-  Schema.decodeUnknownSync(DatabaseEnvSchema)({
-    databaseUrl: process.env.DATABASE_URL,
-  })

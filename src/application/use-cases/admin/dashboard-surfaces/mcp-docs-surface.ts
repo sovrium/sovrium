@@ -236,7 +236,7 @@ function noToolsState(): Component {
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-subtle max-w-xl font-serif text-sm italic' },
+        props: { className: 'text-foreground-subtle max-w-xl text-sm italic' },
         content: 'Vous décidez de ce que votre IA peut faire — rien n’est exposé par défaut.',
       },
     ],

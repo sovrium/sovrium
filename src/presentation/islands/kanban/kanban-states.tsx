@@ -10,7 +10,10 @@ import type { ReactElement } from 'react'
 export function KanbanMissingGroupBy(): ReactElement {
   return (
     <div className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm">
-      Kanban board is missing required <code>kanbanGroupBy.field</code> configuration.
+      <p>
+        Kanban board is missing required <code>kanbanGroupBy.field</code> configuration.
+      </p>
+      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
     </div>
   )
 }
@@ -41,7 +44,8 @@ export function KanbanError({ error }: { readonly error: unknown }): ReactElemen
       className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
       role="alert"
     >
-      Failed to load kanban records: {error instanceof Error ? error.message : String(error)}
+      <p>Failed to load kanban records: {error instanceof Error ? error.message : String(error)}</p>
+      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
     </div>
   )
 }

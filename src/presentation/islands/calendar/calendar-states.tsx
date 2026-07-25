@@ -13,7 +13,10 @@ export function CalendarMissingDateField(): ReactElement {
       className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
       data-component="calendar"
     >
-      Calendar is missing required <code>dateField</code> configuration.
+      <p>
+        Calendar is missing required <code>dateField</code> configuration.
+      </p>
+      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
     </div>
   )
 }
@@ -52,7 +55,10 @@ export function CalendarError({ error }: { readonly error: unknown }): ReactElem
       role="alert"
       data-component="calendar"
     >
-      Failed to load calendar records: {error instanceof Error ? error.message : String(error)}
+      <p>
+        Failed to load calendar records: {error instanceof Error ? error.message : String(error)}
+      </p>
+      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
     </div>
   )
 }

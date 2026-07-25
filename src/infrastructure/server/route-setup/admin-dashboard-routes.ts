@@ -11,6 +11,7 @@ import { buildDashboardSurfaceApp } from '@/application/use-cases/admin/dashboar
 import { isDataObjectRedirect } from '@/application/use-cases/admin/dashboard-surfaces/data-object-rail'
 import { AppSchema, isAdminTier } from '@/domain/models/app'
 import { readEmbeddedDashboardConfig } from '@/infrastructure/assets/embedded-static-assets'
+import { isEmailConfigured } from '@/infrastructure/email/email-config'
 import { logError } from '@/infrastructure/logging/logger'
 import { extractSurfaceContent, isPartialRequest } from './admin-dashboard-partial'
 import type { HonoAppConfig } from './page-routes'
@@ -22,12 +23,70 @@ const ADMIN_PREFIX = '/_admin'
 
 const ADMIN_LOGIN_PATH = '/_admin/login'
 
+const ADMIN_FORGOT_PASSWORD_PATH = '/_admin/forgot-password'
+
+const ADMIN_RESET_PASSWORD_PATH = '/_admin/reset-password'
+
+const ADMIN_PUBLIC_PATHS: ReadonlySet<string> = new Set([
+  ADMIN_LOGIN_PATH,
+  ADMIN_FORGOT_PASSWORD_PATH,
+  ADMIN_RESET_PASSWORD_PATH,
+])
+
+const ADMIN_SIGNED_IN_REDIRECT_PATHS: ReadonlySet<string> = new Set([
+  ADMIN_LOGIN_PATH,
+  ADMIN_FORGOT_PASSWORD_PATH,
+])
+
+const isPublicAdminPath = (path: string): boolean => {
+  if (!ADMIN_PUBLIC_PATHS.has(path)) return false
+  return path === ADMIN_LOGIN_PATH || isEmailConfigured()
+}
+
 interface DashboardAppCache {
   readonly tried: boolean
   readonly app?: App
 }
 
 let dashboardAppCache: DashboardAppCache = { tried: false }
+
+interface PrunableNode {
+  readonly type?: string
+  readonly props?: Readonly<Record<string, unknown>>
+  readonly children?: readonly unknown[]
+}
+
+const asNode = (value: unknown): PrunableNode | undefined =>
+  typeof value === 'object' && value !== null ? (value as PrunableNode) : undefined
+
+const isRecoveryLink = (value: unknown): boolean => {
+  const node = asNode(value)
+  return node?.type === 'link' && node.props?.['href'] === ADMIN_FORGOT_PASSWORD_PATH
+}
+
+const pruneRecoveryLinks = (value: unknown): unknown => {
+  const node = asNode(value)
+  if (node === undefined || !Array.isArray(node.children)) return value
+  return {
+    ...node,
+    children: node.children.filter((child) => !isRecoveryLink(child)).map(pruneRecoveryLinks),
+  }
+}
+
+const pruneRecoveryEntryPoints = (app: App): App => {
+  if (isEmailConfigured() || app.pages === undefined) return app
+  const pages = app.pages.map((page) =>
+    page.components === undefined
+      ? page
+      : {
+          ...page,
+          components: page.components
+            .filter((component) => !isRecoveryLink(component))
+            .map(pruneRecoveryLinks),
+        }
+  )
+  return { ...app, pages } as App
+}
 
 const resolveDashboardApp = async (): Promise<App | undefined> => {
   if (dashboardAppCache.tried) {
@@ -40,7 +99,7 @@ const resolveDashboardApp = async (): Promise<App | undefined> => {
       return undefined
     }
     const decoded = Schema.decodeUnknownSync(AppSchema)(Bun.YAML.parse(yaml)) as App
-    const app: App = { ...decoded, badge: false }
+    const app: App = pruneRecoveryEntryPoints({ ...decoded, badge: false })
     dashboardAppCache = { tried: true, app }
     return app
   } catch (error) {
@@ -70,11 +129,11 @@ const resolveAccess = async (
   c: Context
 ): Promise<Response | { readonly canEdit: boolean }> => {
   const hasAccess = await resolveCallerHasAccess(config, c)
-  const isLoginPath = c.req.path === ADMIN_LOGIN_PATH
-  if (isLoginPath && hasAccess) {
+  const { path } = c.req
+  if (hasAccess && ADMIN_SIGNED_IN_REDIRECT_PATHS.has(path)) {
     return c.redirect(ADMIN_PREFIX, 302)
   }
-  if (!isLoginPath && !hasAccess) {
+  if (!hasAccess && !isPublicAdminPath(path)) {
     return c.html(await config.renderNotFoundPage(config.app), 404)
   }
   return { canEdit: true }

@@ -19,26 +19,13 @@ import { lazyImportSchema } from './utils'
 
 interface ReloadOptions {
   readonly message: string | undefined
-  readonly force: boolean
 }
 
 const parseReloadArgs = (argv: readonly string[]): ReloadOptions => {
   const messageIndex = argv.indexOf('--message')
   const message =
     messageIndex >= 0 && argv.length > messageIndex + 1 ? argv[messageIndex + 1] : undefined
-  return { message, force: argv.includes('--force') }
-}
-
-const isDrifted = async (port: number | undefined): Promise<boolean> => {
-  if (port === undefined) return false
-  try {
-    const response = await fetch(`http://localhost:${port}/api/admin/schema/status`)
-    if (!response.ok) return false
-    const body = (await response.json()) as { readonly driftStatus?: string }
-    return body.driftStatus === 'drifted-from-file'
-  } catch {
-    return false
-  }
+  return { message }
 }
 
 export const handleReloadCommand = async (argv: readonly string[] = []): Promise<void> => {
@@ -51,15 +38,6 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
 
   if (!isProcessRunning(lockData.pid)) {
     Effect.runSync(Console.error('Error: Server is not running'))
-    process.exit(1)
-  }
-
-  if (!options.force && (await isDrifted(lockData.port))) {
-    Effect.runSync(
-      Console.error(
-        'Error: live app has drifted from the config file (drift detected). Pass --force to overwrite the live schema with the file.'
-      )
-    )
     process.exit(1)
   }
 

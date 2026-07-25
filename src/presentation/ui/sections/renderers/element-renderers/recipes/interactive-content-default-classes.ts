@@ -37,12 +37,12 @@ export type LinkVariant = 'default' | 'subtle' | 'destructive'
 const LINK_VARIANT: Record<LinkVariant, string> = {
   default: [
     `text-[${v('sv-primary', T.primary)}]`,
-    `hover:decoration-[${v('sv-warmth', T.warmth)}]`,
+    `hover:decoration-[${v('sv-fg-muted', T.fgMuted)}]`,
   ].join(' '),
   subtle: [
     `text-[${v('sv-fg-muted', T.fgMuted)}]`,
     `hover:text-[${v('sv-fg', T.fg)}]`,
-    `hover:decoration-[${v('sv-warmth', T.warmth)}]`,
+    `hover:decoration-[${v('sv-fg-muted', T.fgMuted)}]`,
   ].join(' '),
   destructive: [
     `text-[${v('sv-error-fg', T.errorFg)}]`,

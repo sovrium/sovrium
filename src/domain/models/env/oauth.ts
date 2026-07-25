@@ -19,21 +19,3 @@ export const OAuthEnvSchema = Schema.Struct({
   slack: Schema.optional(OAuthCredentials),
   gitlab: Schema.optional(OAuthCredentials),
 })
-
-export type OAuthEnvConfig = Schema.Schema.Type<typeof OAuthEnvSchema>
-
-const readCredentials = (prefix: string) => {
-  const clientId = process.env[`${prefix}_CLIENT_ID`]
-  const clientSecret = process.env[`${prefix}_CLIENT_SECRET`]
-  if (!clientId && !clientSecret) return undefined
-  return { clientId, clientSecret }
-}
-
-export const parseOAuthEnvConfig = (): OAuthEnvConfig =>
-  Schema.decodeUnknownSync(OAuthEnvSchema)({
-    google: readCredentials('GOOGLE'),
-    github: readCredentials('GITHUB'),
-    microsoft: readCredentials('MICROSOFT'),
-    slack: readCredentials('SLACK'),
-    gitlab: readCredentials('GITLAB'),
-  })

@@ -28,11 +28,11 @@ import {
 import { generateCodeBlockStyles } from '@/infrastructure/css/theme/code-block-styles-generator'
 import {
   NEUTRAL_FLOOR_LAYER,
-  SOURCE_SERIF_ITALIC_FONT_FACE,
   V1_ALIAS_BRIDGE,
   V1_THEME_REGISTRATIONS,
   V1_TOKEN_LAYER,
 } from '@/infrastructure/css/theme/default-theme-layer'
+import { SELF_HOSTED_FONT_FACES } from '@/infrastructure/css/theme/fonts'
 import {
   generateAuthorSvBridge,
   generateThemeBorderRadius,
@@ -217,10 +217,10 @@ const FINAL_BASE_LAYER = ''
 
 function buildDefaultLayer(theme?: Theme): string {
   if (parseEcoDesignLayer(process.env) === 'off') {
-    return `${SOURCE_SERIF_ITALIC_FONT_FACE}\n\n  ${V1_THEME_REGISTRATIONS}`
+    return `${SELF_HOSTED_FONT_FACES}\n\n  ${V1_THEME_REGISTRATIONS}`
   }
   const tokenLayer = theme?.baseline === 'replace' ? NEUTRAL_FLOOR_LAYER : V1_TOKEN_LAYER
-  return `${SOURCE_SERIF_ITALIC_FONT_FACE}\n\n  ${tokenLayer}\n\n  ${V1_ALIAS_BRIDGE}`
+  return `${SELF_HOSTED_FONT_FACES}\n\n  ${tokenLayer}\n\n  ${V1_ALIAS_BRIDGE}`
 }
 
 function buildSourceCSS(theme?: Theme): string {

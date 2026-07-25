@@ -73,9 +73,7 @@ const BLOCKQUOTE_WRAPPER = [
 
 export const computeBlockquoteClasses = (): string => BLOCKQUOTE_WRAPPER
 
-const BLOCKQUOTE_EMPHASIS = ['font-serif italic', `text-[${v('sv-fg-humane', T.fgHumane)}]`].join(
-  ' '
-)
+const BLOCKQUOTE_EMPHASIS = ['italic', `text-[${v('sv-fg', T.fg)}]`].join(' ')
 
 export const computeBlockquoteEmphasisClasses = (): string => BLOCKQUOTE_EMPHASIS
 

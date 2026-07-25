@@ -27,10 +27,6 @@ const pruneTimestamps = (
   now: number
 ): ReadonlyArray<number> => timestamps.filter((t) => now - t < windowMs)
 
-export const resetMcpRateLimitState = (): void => {
-  rateLimitState.clear()
-}
-
 
 export const deriveMcpCallerKey = (caller: Readonly<McpCaller>, bearerToken: string): string => {
   if (caller.userId !== undefined && caller.userId.length > 0) {

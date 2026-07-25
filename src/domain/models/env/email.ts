@@ -53,16 +53,3 @@ export const EmailEnvSchema = Schema.Struct({
     )
   ),
 })
-
-export type EmailEnvConfig = Schema.Schema.Type<typeof EmailEnvSchema>
-
-export const parseEmailEnvConfig = (): EmailEnvConfig =>
-  Schema.decodeUnknownSync(EmailEnvSchema)({
-    smtpHost: process.env.SMTP_HOST,
-    smtpPort: process.env.SMTP_PORT,
-    smtpSecure: process.env.SMTP_SECURE,
-    smtpUser: process.env.SMTP_USER,
-    smtpPass: process.env.SMTP_PASS,
-    smtpFrom: process.env.SMTP_FROM,
-    smtpFromName: process.env.SMTP_FROM_NAME,
-  })

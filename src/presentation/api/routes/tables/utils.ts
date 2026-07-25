@@ -5,9 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { Session } from '@/application/ports/models/user-session'
-import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 
@@ -16,11 +14,6 @@ export type { Session }
 
 const AUTH_KEYWORDS = ['not found', 'access denied'] as const
 
-
-export const getTableNameFromId = (app: App, tableId: string): string | undefined => {
-  const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
-  return table?.name
-}
 
 const containsAuthKeywords = (text: string): boolean =>
   AUTH_KEYWORDS.some((keyword) => text.includes(keyword))
@@ -93,13 +86,4 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
   }
 
   return c.json({ success: false, message: errorMessage, code: 'INTERNAL_ERROR' }, 500)
-}
-
-
-export const getSessionFromContext = (c: Context): Readonly<Session> | undefined => {
-  return getSessionContext(c)
-}
-
-export const validateAndGetTableName = (app: App, tableId: string): string | undefined => {
-  return getTableNameFromId(app, tableId)
 }

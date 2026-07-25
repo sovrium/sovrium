@@ -45,6 +45,17 @@ const redactString = (
   return truncateError(typeof redacted === 'string' ? redacted : input)
 }
 
+const redactRecord = (
+  value: Readonly<Record<string, unknown>>,
+  ctx: StepContext
+): Record<string, unknown> =>
+  redactSecretsForApp(
+    value,
+    ctx.app.env,
+    ctx.processEnv,
+    connectionsForRedaction(ctx.app)
+  ) as Record<string, unknown>
+
 const buildStep = (
   rawAction: Readonly<Record<string, unknown>>,
   resolvedProps: Readonly<Record<string, unknown>>,
@@ -52,12 +63,7 @@ const buildStep = (
   ctx: StepContext
 ): ExecutedStep => {
   const stepOperator = rawAction['operator'] as string | undefined
-  const redactedProps = redactSecretsForApp(
-    resolvedProps,
-    ctx.app.env,
-    ctx.processEnv,
-    connectionsForRedaction(ctx.app)
-  ) as Record<string, unknown>
+  const redactedProps = redactRecord(resolvedProps, ctx)
 
   const stepStatus: 'success' | 'failure' | 'filtered' =
     outcome.status === 'failure'
@@ -74,7 +80,7 @@ const buildStep = (
       ? { error: redactString(outcome.error, ctx.app, ctx.processEnv) }
       : {}),
     props: redactedProps,
-    ...(outcome.output !== undefined ? { output: outcome.output as Record<string, unknown> } : {}),
+    ...(outcome.output !== undefined ? { output: redactRecord(outcome.output, ctx) } : {}),
   }
 }
 

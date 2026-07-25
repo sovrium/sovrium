@@ -12,7 +12,6 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import {
   getExistingViews,
   getExistingMaterializedViews,
-  executeSQLStatements,
   executeSQLStatementsParallel,
   type TransactionLike,
 } from '../sql/sql-execution'
@@ -159,28 +158,6 @@ const findObsoleteViewNames = (
   views: existingViewNames.filter((viewName) => !expectedViewIds.has(viewName)),
   matViews: existingMatViewNames.filter((viewName) => !expectedViewIds.has(viewName)),
 })
-
-export const generateDropObsoleteViewsSQL = async (
-  tx: TransactionLike,
-  tables: readonly Table[]
-): Promise<void> => {
-  const program = Effect.gen(function* () {
-    const [existingViewNames, existingMatViewNames] = yield* Effect.all(
-      [getExistingViews(tx), getExistingMaterializedViews(tx)],
-      { concurrency: 2 }
-    )
-
-    const expectedViewIds = collectExpectedViewIds(tables)
-    const obsolete = findObsoleteViewNames(existingViewNames, existingMatViewNames, expectedViewIds)
-
-    const dropViewStatements = obsolete.views.map(dropViewStatement)
-    const dropMatViewStatements = obsolete.matViews.map(dropMaterializedViewStatement)
-
-    yield* executeSQLStatements(tx, [...dropViewStatements, ...dropMatViewStatements])
-  })
-
-  await Effect.runPromise(program)
-}
 
 export const dropAllObsoleteViews = async (
   tx: TransactionLike,

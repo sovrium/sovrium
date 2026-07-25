@@ -7,7 +7,7 @@
 
 
 const PULSE_ANIMATION_CSS = `
-@keyframes pulse {
+@keyframes sv-click-pulse {
   0%, 100% {
     transform: scale(1);
     opacity: 1;
@@ -18,12 +18,12 @@ const PULSE_ANIMATION_CSS = `
   }
 }
 
-.animate-pulse {
-  animation: pulse 300ms ease-in-out;
+.animate-click-pulse {
+  animation: sv-click-pulse 300ms ease-in-out;
 }`
 
 const BOUNCE_ANIMATION_CSS = `
-@keyframes bounce {
+@keyframes sv-click-bounce {
   0%, 100% {
     transform: translateY(0);
   }
@@ -38,12 +38,12 @@ const BOUNCE_ANIMATION_CSS = `
   }
 }
 
-.animate-bounce {
-  animation: bounce 300ms ease-out;
+.animate-click-bounce {
+  animation: sv-click-bounce 300ms ease-out;
 }`
 
 const SHAKE_ANIMATION_CSS = `
-@keyframes shake {
+@keyframes sv-click-shake {
   0%, 100% {
     transform: translateX(0);
   }
@@ -55,12 +55,12 @@ const SHAKE_ANIMATION_CSS = `
   }
 }
 
-.animate-shake {
-  animation: shake 300ms ease-in-out;
+.animate-click-shake {
+  animation: sv-click-shake 300ms ease-in-out;
 }`
 
 const FLASH_ANIMATION_CSS = `
-@keyframes flash {
+@keyframes sv-click-flash {
   0%, 100% {
     opacity: 1;
   }
@@ -72,12 +72,12 @@ const FLASH_ANIMATION_CSS = `
   }
 }
 
-.animate-flash {
-  animation: flash 300ms ease-in-out;
+.animate-click-flash {
+  animation: sv-click-flash 300ms ease-in-out;
 }`
 
 const RIPPLE_ANIMATION_CSS = `
-@keyframes ripple {
+@keyframes sv-click-ripple {
   0% {
     transform: scale(0);
     opacity: 1;
@@ -88,12 +88,12 @@ const RIPPLE_ANIMATION_CSS = `
   }
 }
 
-.animate-ripple {
+.animate-click-ripple {
   position: relative;
   overflow: hidden;
 }
 
-.animate-ripple::after {
+.animate-click-ripple::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -103,7 +103,7 @@ const RIPPLE_ANIMATION_CSS = `
   background: rgba(255, 255, 255, 0.5);
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(0);
-  animation: ripple 600ms ease-out;
+  animation: sv-click-ripple 600ms ease-out;
 }`
 
 export function generateClickAnimationCSS(): string {

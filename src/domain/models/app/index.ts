@@ -28,6 +28,8 @@ import { NameSchema } from './name'
 import { validateAllPageAccessGroups } from './page-access-validation'
 import { PagesSchema } from './pages'
 import { PaletteSchema } from './palette'
+import { RedirectsSchema } from './redirects'
+import { validateAllRedirectRules } from './redirects-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
 import { AppScriptsSchema } from './scripts'
 import { validateAllSystemSourceReferences } from './system-source-validation'
@@ -59,6 +61,8 @@ export const AppSchema = Schema.Struct({
   components: Schema.optional(ComponentsSchema),
 
   pages: Schema.optional(PagesSchema),
+
+  redirects: Schema.optional(RedirectsSchema),
 
   forms: Schema.optional(FormsSchema),
 
@@ -470,6 +474,8 @@ export const AppSchema = Schema.Struct({
     if (pageAccessError !== true) return pageAccessError
     const systemSourceError = validateAllSystemSourceReferences(app)
     if (systemSourceError !== true) return systemSourceError
+    const redirectError = validateAllRedirectRules(app)
+    if (redirectError !== true) return redirectError
     return validateAllTablePermissionGroups(app)
   })
 )
@@ -493,6 +499,7 @@ export * from './name'
 export * from './auth'
 export * from './pages'
 export * from './palette'
+export * from './redirects'
 export * from './requires-email'
 export * from '@/domain/models/shared'
 export * from './systemSources'

@@ -27,7 +27,3 @@ const safeParse = (): TelemetryConfig => {
     return OFF
   }
 }
-
-export const resetTelemetryConfigCache = (): void => {
-  cache.clear()
-}

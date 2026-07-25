@@ -7,6 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { sweepAgedTempFiles } from '@/application/use-cases/storage/sweep-temp-storage'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import {
   validateOutboundUrl,
@@ -50,6 +51,21 @@ export const extOf = (key: string | undefined): string => {
 
 export const tempKey = (suffix: string): string =>
   `${TEMP_STORAGE_PREFIX}${globalThis.crypto.randomUUID()}${suffix}`
+
+export const uploadArtifact = (
+  storage: Effect.Effect.Success<typeof StorageService>,
+  key: string,
+  bytes: Uint8Array,
+  contentType: string
+): Effect.Effect<boolean, never> =>
+  Effect.gen(function* () {
+    const wrote = yield* Effect.either(storage.upload(key, bytes, contentType))
+    if (wrote._tag === 'Left') return false
+    if (key.startsWith(TEMP_STORAGE_PREFIX)) {
+      yield* sweepAgedTempFiles(storage, { preserve: key })
+    }
+    return true
+  })
 
 
 export interface ResolvedSource {

@@ -31,7 +31,7 @@ function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactEle
   const isTool = message.role === 'tool'
   const align = isUser ? 'items-end' : 'items-start'
   const bubble = isUser
-    ? 'bg-warmth-subtle text-warmth-fg'
+    ? 'bg-background-subtle text-foreground-muted'
     : isTool
       ? 'bg-background-subtle text-foreground-muted border-border border font-mono'
       : 'bg-background-raised text-foreground border-border border'
@@ -72,7 +72,7 @@ function MessageFootnote({
     <div className="text-foreground-subtle flex items-center gap-2 px-1 text-xs">
       {parts.length > 0 ? <span className="font-mono">{parts.join(' · ')}</span> : undefined}
       {interrupted ? (
-        <span className="text-warmth-fg inline-flex items-center gap-1 font-medium">
+        <span className="text-foreground-muted inline-flex items-center gap-1 font-medium">
           <span aria-hidden="true">•</span> réponse interrompue
         </span>
       ) : undefined}
@@ -163,7 +163,7 @@ export function ConversationThread({
         <button
           type="button"
           onClick={onRetry}
-          className="text-warmth-fg hover:text-warmth-fg/80 mt-1 text-sm font-medium"
+          className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-sm font-medium"
         >
           Réessayer
         </button>

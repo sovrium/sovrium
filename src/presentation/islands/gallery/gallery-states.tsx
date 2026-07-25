@@ -10,7 +10,10 @@ import type { ReactElement } from 'react'
 export function GalleryMissingTable(): ReactElement {
   return (
     <div className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm">
-      Gallery is missing required <code>dataSource.table</code> configuration.
+      <p>
+        Gallery is missing required <code>dataSource.table</code> configuration.
+      </p>
+      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
     </div>
   )
 }
@@ -42,7 +45,10 @@ export function GalleryError({ error }: { readonly error: unknown }): ReactEleme
       className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
       role="alert"
     >
-      Failed to load gallery records: {error instanceof Error ? error.message : String(error)}
+      <p>
+        Failed to load gallery records: {error instanceof Error ? error.message : String(error)}
+      </p>
+      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
     </div>
   )
 }
@@ -54,7 +60,10 @@ export function GalleryEmpty({ message }: { readonly message: string | undefined
       data-component="gallery"
       data-empty="true"
     >
-      {message ?? 'No records found'}
+      <p>{message ?? 'No records yet.'}</p>
+      {message === undefined && (
+        <p className="mt-1 opacity-80">Records added to this table will appear here.</p>
+      )}
     </div>
   )
 }

@@ -286,18 +286,3 @@ export const AuthSchema = Schema.Struct({
 export type Auth = Schema.Schema.Type<typeof AuthSchema>
 
 export type AuthEncoded = Schema.Schema.Encoded<typeof AuthSchema>
-
-export const hasAuthenticationMethod = (auth: Auth, strategyType: StrategyType): boolean =>
-  hasStrategy(auth, strategyType)
-
-export const isSignUpDisabled = (auth: Auth | undefined): boolean => auth?.allowSignUp === false
-
-export const isSignUpAllowed = (auth: Auth | undefined): boolean => auth?.allowSignUp !== false
-
-type PluginName = 'twoFactor'
-
-export const hasPlugin = (auth: Auth, pluginName: PluginName): boolean => {
-  const plugin = auth[pluginName]
-  if (typeof plugin === 'boolean') return plugin
-  return plugin !== undefined
-}

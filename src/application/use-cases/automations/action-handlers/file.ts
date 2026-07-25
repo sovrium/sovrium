@@ -16,6 +16,7 @@ import {
   splitCsvLine,
   splitNonEmptyLines,
   tempKey,
+  uploadArtifact,
 } from './file-support'
 import {
   buildRunContextView,
@@ -57,8 +58,8 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
     const key = hasPath ? (path as string) : tempKey('')
 
     const storage = yield* StorageService
-    const wrote = yield* Effect.either(storage.upload(key, bytes, mime))
-    if (wrote._tag === 'Left') return errorOutcome(`failed to upload to ${key}`)
+    const wrote = yield* uploadArtifact(storage, key, bytes, mime)
+    if (!wrote) return errorOutcome(`failed to upload to ${key}`)
 
     const base = { key, contentType: mime, size: bytes.length }
     return {
@@ -80,8 +81,8 @@ export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
     const bytes = downloaded.right
     const mime = mimeByExt(key) ?? 'application/octet-stream'
     const target = tempKey(extOf(key))
-    const wrote = yield* Effect.either(storage.upload(target, bytes, mime))
-    if (wrote._tag === 'Left') return errorOutcome(`failed to stage download for ${key}`)
+    const wrote = yield* uploadArtifact(storage, target, bytes, mime)
+    if (!wrote) return errorOutcome(`failed to stage download for ${key}`)
 
     return {
       status: 'success',
@@ -158,8 +159,8 @@ export const handleFileGenerateCsv: ActionHandler = (action, _app, _automation, 
     const key = destination ?? tempKey('.csv')
 
     const storage = yield* StorageService
-    const wrote = yield* Effect.either(storage.upload(key, bytes, 'text/csv'))
-    if (wrote._tag === 'Left') return errorOutcome(`failed to write csv to ${key}`)
+    const wrote = yield* uploadArtifact(storage, key, bytes, 'text/csv')
+    if (!wrote) return errorOutcome(`failed to write csv to ${key}`)
 
     const base = {
       key,

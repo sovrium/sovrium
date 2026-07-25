@@ -166,8 +166,161 @@ pages:
                       label: Mot de passe
                   onSuccess:
                     navigate: /_admin
+              # Recovery entry point (US-ADMIN-DASHBOARD-PASSWORD-RESET). A `link`
+              # primitive, NOT a second auth form: the card stacks its children, so
+              # this sits under the submit button. Platform-pruned from the rendered
+              # tree when SMTP is unconfigured — a dead link is worse than none.
+              - type: link
+                props:
+                  href: /_admin/forgot-password
+                  className: text-sm text-center mt-4 text-muted-foreground
+                content: Mot de passe oublié ?
           - type: text
             element: p
             content: La configuration vit dans le code. Ici, vous observez ce qui tourne.
+            props:
+              className: text-foreground-subtle font-serif text-sm italic
+
+  # Password-recovery request (US-ADMIN-DASHBOARD-PASSWORD-RESET). Public like
+  # `/login` — an operator who cannot sign in must be able to reach it. Mirrors the
+  # login page shell one-to-one so it introduces no new CSS candidate: the dashboard
+  # renders against the OPERATOR's compiled stylesheet, so a class absent from
+  # BUILTIN_CSS_CANDIDATES renders bare (the mechanism behind LOGIN-008).
+  - id: dashboard-forgot-password
+    name: dashboard-forgot-password
+    path: /forgot-password
+    meta:
+      title: Sovrium — Mot de passe oublié
+      noindex: true
+    components:
+      - type: container
+        element: div
+        props:
+          className: min-h-screen flex flex-col items-center justify-center gap-8 px-6 py-16 bg-background text-foreground
+        children:
+          - type: container
+            props:
+              className: flex flex-col items-center gap-3 text-center
+            children:
+              - type: text
+                element: span
+                content: S
+                props:
+                  className: inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
+              - type: text
+                element: h1
+                content: Mot de passe oublié
+                props:
+                  className: text-2xl font-bold tracking-tight leading-tight text-foreground
+              - type: text
+                element: p
+                content: Saisissez votre adresse e-mail. Nous vous enverrons un lien pour définir un nouveau mot de passe.
+                props:
+                  className: text-sm leading-relaxed text-muted-foreground max-w-sm
+          # `stripAuthActionsIfUnconfigured` drops TOP-LEVEL auth-action components
+          # when the app declares no `auth:` key — and this config declares none. The
+          # strip is SHALLOW, so the form must stay nested container → card → form.
+          - type: card
+            props:
+              className: w-full max-w-sm bg-background-raised border border-border rounded-lg p-8
+            children:
+              - type: form
+                props:
+                  id: admin-forgot-password-form
+                action:
+                  type: auth
+                  method: resetPassword
+                  strategy: email
+                  submitLabel: Envoyer le lien
+                  pendingLabel: Envoi…
+                  fields:
+                    - name: email
+                      label: Adresse e-mail
+                  onSuccess:
+                    # Conditional phrasing, deliberately: the endpoint always answers
+                    # 200 so it never confirms whether an address has an account. The
+                    # banner must not assert one exists.
+                    toast:
+                      message: Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé.
+                      variant: success
+              - type: link
+                props:
+                  href: /_admin/login
+                  className: text-sm text-center mt-4 text-muted-foreground
+                content: Retour à la connexion
+          - type: text
+            element: p
+            content: Le lien expire après une heure. Vous pouvez en redemander un à tout moment.
+            props:
+              className: text-foreground-subtle font-serif text-sm italic
+
+  # Password-recovery completion (US-ADMIN-DASHBOARD-PASSWORD-RESET). Reached from
+  # the emailed link, which carries `?token=…`. Public like `/login` — but unlike
+  # `/login` and `/forgot-password` it must NOT redirect a signed-in admin away:
+  # that would swallow the token and strand the reset half-finished.
+  - id: dashboard-reset-password
+    name: dashboard-reset-password
+    path: /reset-password
+    meta:
+      title: Sovrium — Nouveau mot de passe
+      noindex: true
+    components:
+      - type: container
+        element: div
+        props:
+          className: min-h-screen flex flex-col items-center justify-center gap-8 px-6 py-16 bg-background text-foreground
+        children:
+          - type: container
+            props:
+              className: flex flex-col items-center gap-3 text-center
+            children:
+              - type: text
+                element: span
+                content: S
+                props:
+                  className: inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
+              - type: text
+                element: h1
+                content: Nouveau mot de passe
+                props:
+                  className: text-2xl font-bold tracking-tight leading-tight text-foreground
+              - type: text
+                element: p
+                # No character count here on purpose: the minimum comes from the
+                # OPERATOR's password policy (`resolvePasswordPolicy`, default 8 but
+                # overridable per app), and this config ships in every binary — a
+                # hardcoded number would be wrong on any app with a stricter policy.
+                content: Choisissez un nouveau mot de passe. Il remplacera l'ancien immédiatement.
+                props:
+                  className: text-sm leading-relaxed text-muted-foreground max-w-sm
+          - type: card
+            props:
+              className: w-full max-w-sm bg-background-raised border border-border rounded-lg p-8
+            children:
+              - type: form
+                props:
+                  id: admin-reset-password-form
+                action:
+                  type: auth
+                  method: setNewPassword
+                  strategy: email
+                  submitLabel: Enregistrer le mot de passe
+                  pendingLabel: Enregistrement…
+                  fields:
+                    - name: password
+                      label: Nouveau mot de passe
+                  onSuccess:
+                    navigate: /_admin/login
+                    toast:
+                      message: Mot de passe mis à jour. Vous pouvez vous connecter.
+                      variant: success
+              - type: link
+                props:
+                  href: /_admin/login
+                  className: text-sm text-center mt-4 text-muted-foreground
+                content: Retour à la connexion
+          - type: text
+            element: p
+            content: Ce lien ne fonctionne qu'une fois. Demandez-en un nouveau si besoin.
             props:
               className: text-foreground-subtle font-serif text-sm italic

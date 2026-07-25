@@ -209,7 +209,7 @@ function metricsSection(formName: string): Component {
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-subtle font-serif text-sm italic' },
+        props: { className: 'text-foreground-subtle text-sm italic' },
         content:
           'Le taux de conversion attend un compteur de vues — Sovrium ne le mesure pas encore.',
       },

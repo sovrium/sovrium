@@ -76,6 +76,7 @@ import {
   setupPageRoutes,
   type HonoAppConfig,
 } from '@/infrastructure/server/route-setup/page-routes'
+import { setupRedirectRoutes } from '@/infrastructure/server/route-setup/redirect-routes'
 import { setupSeoRoutes } from '@/infrastructure/server/route-setup/seo-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
 import {
@@ -215,25 +216,28 @@ export async function createHonoApp(
   const honoWithBootstrap = setupBootstrapRoutes(honoWithLogger, app)
 
   const honoWithRoutes = setupPageRoutes(
-    setupDevReloadRoute(
-      await setupStaticAssets(
-        setupSeoRoutes(
-          setupMcpRoutes(
-            setupAuthRoutes(
-              setupAuthMiddleware(
-                setupOpenApiRoutes(createApiRoutes(app, honoWithBootstrap as Hono), app),
-                app
+    setupRedirectRoutes(
+      setupDevReloadRoute(
+        await setupStaticAssets(
+          setupSeoRoutes(
+            setupMcpRoutes(
+              setupAuthRoutes(
+                setupAuthMiddleware(
+                  setupOpenApiRoutes(createApiRoutes(app, honoWithBootstrap as Hono), app),
+                  app
+                ),
+                app,
+                authInstance
               ),
-              app,
-              authInstance
+              app
             ),
             app
           ),
-          app
-        ),
-        app,
-        config.publicDir
-      )
+          app,
+          config.publicDir
+        )
+      ),
+      app
     ),
     { ...config, getSession }
   )

@@ -44,7 +44,7 @@ function placeholderBody(label: string): ReadonlyArray<Component> {
           props: {
             href: '/_admin',
             className:
-              'text-warmth-fg w-fit pt-1 text-sm font-medium hover:underline underline-offset-4',
+              'text-foreground-muted w-fit pt-1 text-sm font-medium hover:underline underline-offset-4',
           },
           content: '← Retour aux Données',
         },

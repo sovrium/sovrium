@@ -115,38 +115,3 @@ export const generateStaticSite = (
         cause: error,
       }),
   })
-
-interface SitemapPage {
-  readonly path: string
-  readonly priority?: string
-  readonly changefreq?: string
-}
-
-export const sitemapPlugin = (baseUrl: string) => ({
-  name: 'sitemap',
-  async generate(pages: readonly SitemapPage[]) {
-    const entries = pages.map(
-      (page) => `  <url>
-    <loc>${baseUrl}${page.path}</loc>
-    <priority>${page.priority || '0.5'}</priority>
-    <changefreq>${page.changefreq || 'monthly'}</changefreq>
-  </url>`
-    )
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${entries.join('\n')}
-</urlset>`
-  },
-})
-
-export const robotsPlugin = (baseUrl: string, includeSitemap: boolean = false) => ({
-  name: 'robots',
-  async generate() {
-    const baseLines = ['User-agent: *', 'Allow: /'] as const
-    const sitemapLine = includeSitemap ? ([`Sitemap: ${baseUrl}/sitemap.xml`] as const) : []
-    const lines = [...baseLines, ...sitemapLine] as readonly string[]
-
-    return lines.join('\n')
-  },
-})

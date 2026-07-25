@@ -75,16 +75,6 @@ export type StorageEnvConfig = Schema.Schema.Type<typeof StorageEnvSchema>
 export type S3StorageEnvConfig = Schema.Schema.Type<typeof S3StorageEnvSchema>
 export type LocalStorageEnvConfig = Schema.Schema.Type<typeof LocalStorageEnvSchema>
 
-export const STORAGE_TEMP_CLEANUP_AFTER_DEFAULT = 24 * 60 * 60 * 1000
-
-export const parseStorageTempCleanupAfter = (): number => {
-  const value = process.env.STORAGE_TEMP_CLEANUP_AFTER
-  if (!value) return STORAGE_TEMP_CLEANUP_AFTER_DEFAULT
-  const ms = parseInt(value, 10)
-  if (isNaN(ms) || ms < 0) return STORAGE_TEMP_CLEANUP_AFTER_DEFAULT
-  return ms
-}
-
 const warnedLegacyKeys = new Set<string>()
 const readS3Env = (canonical: string, legacy: string): string | undefined => {
   const canonicalValue = process.env[canonical]

@@ -54,10 +54,14 @@ async function handleLogout(): Promise<string | undefined> {
   return result.error ? (result.error.message ?? 'Sign out failed') : undefined
 }
 
+const RESET_PASSWORD_CALLBACK_PATH = '/_admin/reset-password'
+
+const RESET_PASSWORD_SENT_MESSAGE = 'Check your email — a reset link has been sent'
+
 async function handleResetPasswordRequest(email: string): Promise<string | undefined> {
   const result = await authClient.requestPasswordReset({
     email,
-    redirectTo: '/auth/reset-password',
+    redirectTo: RESET_PASSWORD_CALLBACK_PATH,
   })
   return result.error ? (result.error.message ?? 'Password reset request failed') : undefined
 }
@@ -68,11 +72,17 @@ async function handleSetNewPassword(password: string): Promise<string | undefine
   return result.error ? (result.error.message ?? 'Password reset failed') : undefined
 }
 
+interface AuthMethodInput {
+  readonly method: AuthMethod
+  readonly email: string
+  readonly password: string
+  readonly successToast: ToastConfig | undefined
+}
+
 async function executeAuthMethod(
-  method: AuthMethod,
-  email: string,
-  password: string
+  input: AuthMethodInput
 ): Promise<{ error?: string; success?: string }> {
+  const { method, email, password } = input
   switch (method) {
     case 'login':
       return { error: await handleLogin(email, password) }
@@ -82,7 +92,8 @@ async function executeAuthMethod(
       return { error: await handleLogout() }
     case 'resetPassword': {
       const error = await handleResetPasswordRequest(email)
-      return error ? { error } : { success: 'Check your email — a reset link has been sent' }
+      if (error) return { error }
+      return { success: input.successToast?.message ?? RESET_PASSWORD_SENT_MESSAGE }
     }
     case 'setNewPassword':
       return { error: await handleSetNewPassword(password) }
@@ -119,7 +130,12 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
   ctx.setState({ isPending: true })
   try {
     const { email, password } = pickCredentials(ctx.fields, ctx.values)
-    const result = await executeAuthMethod(ctx.method, email, password)
+    const result = await executeAuthMethod({
+      method: ctx.method,
+      email,
+      password,
+      successToast: ctx.successToast,
+    })
     if (result.error) {
       fireToast(ctx.errorToast)
       ctx.setState({ error: result.error, isPending: false })

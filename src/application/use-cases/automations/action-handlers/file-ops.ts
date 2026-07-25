@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
-import { mimeByExt } from './file-support'
+import { mimeByExt, uploadArtifact } from './file-support'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -73,8 +73,8 @@ const copyBytes = (
     const downloaded = yield* Effect.either(storage.download(sourceKey))
     if (downloaded._tag === 'Left') return softError(`file not found: ${sourceKey}`)
     const mime = mimeByExt(destinationKey) ?? mimeByExt(sourceKey) ?? 'application/octet-stream'
-    const wrote = yield* Effect.either(storage.upload(destinationKey, downloaded.right, mime))
-    if (wrote._tag === 'Left') return softError(`failed to write ${destinationKey}`)
+    const wrote = yield* uploadArtifact(storage, destinationKey, downloaded.right, mime)
+    if (!wrote) return softError(`failed to write ${destinationKey}`)
     return downloaded.right.length
   })
 

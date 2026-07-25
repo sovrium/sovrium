@@ -61,7 +61,7 @@ function analyticsDisabledRegion(): Component {
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-subtle mt-1 max-w-md font-serif text-sm italic' },
+        props: { className: 'text-foreground-subtle mt-1 max-w-md text-sm italic' },
         content: 'Rien à mesurer tant que la mesure dort.',
       },
     ],

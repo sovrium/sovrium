@@ -26,11 +26,3 @@ export const ServerEnvSchema = Schema.Struct({
     )
   ),
 })
-
-export type ServerEnvConfig = Schema.Schema.Type<typeof ServerEnvSchema>
-
-export const parseServerEnvConfig = (): ServerEnvConfig =>
-  Schema.decodeUnknownSync(ServerEnvSchema)({
-    port: process.env.PORT,
-    baseUrl: process.env.BASE_URL,
-  })

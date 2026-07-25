@@ -30,8 +30,6 @@ export const getSubscribers = (channel: string): readonly string[] => [
   ...(subscriptions.get(channel) ?? []),
 ]
 
-export const getChannelCount = (): number => subscriptions.size
-
 
 type ChannelListener = (event: Record<string, unknown>) => void
 

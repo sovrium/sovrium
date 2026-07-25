@@ -29,7 +29,6 @@ export interface ParsedArgs {
   readonly outputPath?: string
   readonly templateName?: string
   readonly subcommand?: string
-  readonly targetPath?: string
   readonly appName?: string
   readonly forceFlag: boolean
   readonly publicDir?: string | false
@@ -49,7 +48,6 @@ const getFlagValue = (argv: readonly string[], flag: string): string | undefined
 const FLAG_VALUE_OPTIONS = [
   '--output',
   '--template',
-  '--target',
   '--publicDir',
   '--name',
   '--password',
@@ -71,7 +69,6 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--output',
   '--template',
-  '--target',
   '--publicDir',
   '--name',
   '--password',
@@ -129,7 +126,6 @@ interface ParsedFlags {
   readonly forceFlag: boolean
   readonly outputPath: string | undefined
   readonly templateName: string | undefined
-  readonly targetPath: string | undefined
   readonly publicDir: string | false | undefined
   readonly appName: string | undefined
   readonly password: string | undefined
@@ -145,7 +141,6 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   forceFlag: argv.includes('--force'),
   outputPath: getFlagValue(argv, '--output'),
   templateName: getFlagValue(argv, '--template'),
-  targetPath: getFlagValue(argv, '--target'),
   publicDir: resolvePublicDirFlag(argv),
   appName: getFlagValue(argv, '--name'),
   password: getFlagValue(argv, '--password'),
@@ -170,7 +165,6 @@ const buildStandardResult = (
     outputPath: flags.outputPath,
     templateName: flags.templateName,
     subcommand,
-    targetPath: flags.targetPath,
     appName: flags.appName,
     forceFlag: flags.forceFlag,
     publicDir: flags.publicDir,

@@ -31,7 +31,7 @@ export function OverviewNavLink({ activePath }: { readonly activePath: string })
       data-testid="data-nav-overview"
       className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
         active
-          ? 'bg-warmth-subtle text-warmth-fg font-medium'
+          ? 'text-foreground-muted bg-background-subtle font-medium'
           : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
       }`}
     >
@@ -56,7 +56,7 @@ function ReadyDataRow({
         data-testid={`data-nav-${item.key}`}
         className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
           active
-            ? 'bg-warmth-subtle text-warmth-fg font-medium'
+            ? 'text-foreground-muted bg-background-subtle font-medium'
             : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
         }`}
       >
@@ -177,7 +177,7 @@ function DeveloperNavRow({
         data-testid={`developer-nav-${item.key}`}
         className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
           active
-            ? 'bg-warmth-subtle text-warmth-fg font-medium'
+            ? 'text-foreground-muted bg-background-subtle font-medium'
             : 'text-foreground-muted hover:text-foreground hover:bg-background-subtle'
         }`}
       >

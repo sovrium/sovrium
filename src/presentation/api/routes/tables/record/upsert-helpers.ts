@@ -32,36 +32,6 @@ export async function validateUpsertRequiredFields(
   })
 }
 
-export function checkFieldPermissions(config: {
-  readonly app: App
-  readonly tableName: string
-  readonly userRole: string
-  readonly records: readonly { fields: Record<string, unknown> }[]
-  readonly c: Context
-}): { allowed: true } | { allowed: false; response: Response } {
-  const { app, tableName, userRole, records, c } = config
-
-  const allForbiddenFields = records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-    .filter((fields) => fields.length > 0)
-
-  if (allForbiddenFields.length > 0) {
-    return {
-      allowed: false,
-      response: c.json(
-        {
-          success: false,
-          message: 'Resource not found',
-          code: 'NOT_FOUND',
-        },
-        404
-      ),
-    }
-  }
-
-  return { allowed: true }
-}
-
 
 export async function checkUpsertPermissionsWithUpdateCheck(config: {
   readonly app: App

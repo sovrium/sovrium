@@ -57,7 +57,3 @@ export const listAutomationRuns = (filter?: {
 
 export const getAutomationRun = (id: string): AutomationRunRecord | undefined =>
   runs.find((r) => r.id === id)
-
-export const clearAutomationRuns = (): void => {
-  runs = []
-}

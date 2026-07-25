@@ -13,7 +13,7 @@ import {
 import { StorageService } from '@/application/ports/services/storage-service'
 import { extractTextFromBytes, type ExtractTextFormat } from './file-extract'
 import { renderHtmlToPdf } from './file-pdf'
-import { extOf, mimeByExt, tempKey } from './file-support'
+import { extOf, mimeByExt, tempKey, uploadArtifact } from './file-support'
 import { buildStoredZip } from './file-zip'
 import { numberProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -58,8 +58,8 @@ export const handleFileCompress: ActionHandler = (action) =>
 
     const destination = optionalString(p, 'destination')
     const key = destination ?? tempKey('.zip')
-    const wrote = yield* Effect.either(storage.upload(key, zip, 'application/zip'))
-    if (wrote._tag === 'Left') return softError(`failed to write zip to ${key}`)
+    const wrote = yield* uploadArtifact(storage, key, zip, 'application/zip')
+    if (!wrote) return softError(`failed to write zip to ${key}`)
 
     const base = {
       key,
@@ -195,8 +195,8 @@ export const handleFileTransformImage: ActionHandler = (action) =>
 
     const { destination, destinationKey } = resolveDestinationKey(p, key, inputs)
     const contentType = mimeByExt(destinationKey) ?? result.contentType
-    const wrote = yield* Effect.either(storage.upload(destinationKey, result.bytes, contentType))
-    if (wrote._tag === 'Left') return softError(`failed to write image to ${destinationKey}`)
+    const wrote = yield* uploadArtifact(storage, destinationKey, result.bytes, contentType)
+    if (!wrote) return softError(`failed to write image to ${destinationKey}`)
 
     return {
       status: 'success',
@@ -223,8 +223,8 @@ export const handleFileGeneratePdf: ActionHandler = (action) =>
     const destination = optionalString(p, 'destination')
     const key = destination ?? tempKey('.pdf')
     const storage = yield* StorageService
-    const wrote = yield* Effect.either(storage.upload(key, pdf, 'application/pdf'))
-    if (wrote._tag === 'Left') return softError(`failed to write pdf to ${key}`)
+    const wrote = yield* uploadArtifact(storage, key, pdf, 'application/pdf')
+    if (!wrote) return softError(`failed to write pdf to ${key}`)
 
     const base = { key, filename, contentType: 'application/pdf', size: pdf.length }
     return {

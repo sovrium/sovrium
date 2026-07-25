@@ -25,7 +25,7 @@ export function BrandHeader({
         target="_blank"
         rel="noopener"
         aria-label={`Ouvrir ${label} dans un nouvel onglet`}
-        className="hover:text-warmth-fg focus-visible:ring-primary flex min-w-0 flex-1 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+        className="hover:text-foreground-muted focus-visible:ring-primary flex min-w-0 flex-1 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
       >
         <span className="bg-foreground text-background flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sm font-semibold">
           {label.charAt(0).toUpperCase()}

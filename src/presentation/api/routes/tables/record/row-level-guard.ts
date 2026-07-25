@@ -186,9 +186,6 @@ const predicateFor = (rlp: RowLevelPermissions, op: RowLevelOperation) => {
   return rlp.delete?.when
 }
 
-export const findAppTable = (app: App, tableName: string): Table | undefined =>
-  app.tables?.find((t) => t.name === tableName)
-
 
 const NOT_FOUND_BODY = (c: Context): Response =>
   c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)

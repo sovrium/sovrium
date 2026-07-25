@@ -44,13 +44,3 @@ export const AuthEnvSchema = Schema.Struct({
     )
   ),
 })
-
-export type AuthEnvConfig = Schema.Schema.Type<typeof AuthEnvSchema>
-
-export const parseAuthEnvConfig = (): AuthEnvConfig =>
-  Schema.decodeUnknownSync(AuthEnvSchema)({
-    authSecret: process.env.AUTH_SECRET,
-    adminEmail: process.env.AUTH_ADMIN_EMAIL,
-    adminPassword: process.env.AUTH_ADMIN_PASSWORD,
-    adminName: process.env.AUTH_ADMIN_NAME,
-  })

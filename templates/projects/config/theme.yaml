@@ -1,17 +1,18 @@
 # Default Sovrium theming.
 #
-# `baseline: extend` inherits Sovrium's built-in v1 design system — the OKLch
-# warm-neutral token ramp (--sv-*) that IS the Sovrium visual identity. We only
-# layer on a brand typeface (Inter) and a small border-radius scale; every color,
-# shadow, and spacing token falls back to the canonical baseline.
+# `baseline: extend` inherits Sovrium's built-in design system — the achromatic
+# OKLCH neutral ramp (`--sv-*`) plus the self-hosted IBM Plex Sans / JetBrains
+# Mono type that IS the Sovrium visual identity. Colour is reserved for
+# consequence (see ADR-024), so a template that needs an accent declares its own
+# colour key rather than borrowing one from the engine.
+#
+# No `fonts` block: the workhorse and mono families ship self-hosted with the
+# platform. This template previously pulled Inter from the Google Fonts CDN,
+# which contradicted the no-CDN-ever rule in
+# `docs/architecture/patterns/fonts.md` — every such request leaks the
+# operator's IP and Referer to a third party, which an internal tool cannot
+# accept. Author a `fonts` block here only for a genuinely self-hosted family.
 baseline: extend
-
-fonts:
-  sans:
-    family: Inter
-    fallback: system-ui, -apple-system, sans-serif
-    weights: [400, 500, 600, 700]
-    url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 
 borderRadius:
   sm: 0.25rem

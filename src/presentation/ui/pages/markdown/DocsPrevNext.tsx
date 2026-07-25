@@ -23,7 +23,7 @@ export function DocsPrevNext({
 }: DocsPrevNextProps): Readonly<ReactElement> | undefined {
   if (previous === undefined && next === undefined) return undefined
   const cardClass =
-    'group flex flex-col gap-1 rounded-xl border border-border bg-background-overlay/40 px-4 py-3 no-underline transition-colors duration-150 hover:border-warmth-border hover:bg-background-overlay'
+    'group flex flex-col gap-1 rounded-xl border border-border bg-background-overlay/40 px-4 py-3 no-underline transition-colors duration-150 hover:border-border-strong hover:bg-background-overlay'
   return (
     <div
       data-component="docs-prev-next"

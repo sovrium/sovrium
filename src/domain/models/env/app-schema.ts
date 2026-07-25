@@ -18,10 +18,3 @@ export const AppSchemaEnvSchema = Schema.Struct({
     )
   ),
 })
-
-export type AppSchemaEnvConfig = Schema.Schema.Type<typeof AppSchemaEnvSchema>
-
-export const parseAppSchemaEnvConfig = (): AppSchemaEnvConfig =>
-  Schema.decodeUnknownSync(AppSchemaEnvSchema)({
-    appSchema: process.env.APP_SCHEMA,
-  })

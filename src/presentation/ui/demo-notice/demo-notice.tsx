@@ -44,7 +44,7 @@ const DEMO_NOTICE_PREFILL_SCRIPT = `(function () {
 
 function DemoNoticeSummary({ label }: { readonly label: string }): Readonly<ReactElement> {
   return (
-    <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm transition-colors hover:text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 [&::-webkit-details-marker]:hidden">
+    <summary className="border-border bg-background-raised text-foreground-muted hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors [&::-webkit-details-marker]:hidden">
       {label}
       {}
       <svg
@@ -79,10 +79,10 @@ function DemoNoticeCredentials({
       <div className="flex flex-wrap items-center gap-1.5">
         <span>{labels.credentialsLabel}</span>
         {}
-        <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
+        <code className="bg-background-subtle text-foreground rounded px-1.5 py-0.5 font-mono">
           {credentials.email}
         </code>
-        <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
+        <code className="bg-background-subtle text-foreground rounded px-1.5 py-0.5 font-mono">
           {credentials.password}
         </code>
       </div>
@@ -93,7 +93,7 @@ function DemoNoticeCredentials({
         data-testid="demo-notice-prefill"
         data-demo-email={credentials.email}
         data-demo-password={credentials.password}
-        className="mt-1.5 rounded border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+        className="border-border text-foreground-muted hover:text-foreground mt-1.5 rounded border px-2 py-1 text-xs font-medium transition-colors"
       >
         {labels.prefill}
       </button>
@@ -109,11 +109,9 @@ function DemoNoticePanel({
   readonly labels: DemoNoticeLabels
 }): Readonly<ReactElement> {
   return (
-    <div className="mb-2 hidden w-72 max-w-full rounded-lg border border-neutral-200 bg-white p-3 text-xs text-neutral-600 shadow-sm group-open:block dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+    <div className="border-border bg-background-raised text-foreground-muted mb-2 hidden w-72 max-w-full rounded-lg border p-3 text-xs shadow-sm group-open:block">
       {}
-      <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
-        {labels.title(config.name)}
-      </p>
+      <p className="text-foreground text-xs font-semibold">{labels.title(config.name)}</p>
       <p className="mt-1 text-xs leading-relaxed">{labels.body}</p>
       {config.credentials && (
         <DemoNoticeCredentials
@@ -128,7 +126,7 @@ function DemoNoticePanel({
           target="_blank"
           rel="noopener"
           data-testid="demo-notice-cta"
-          className="mt-1 -mb-1 inline-block py-1 font-medium text-neutral-600 underline underline-offset-2 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+          className="text-foreground-muted hover:text-foreground mt-1 -mb-1 inline-block py-1 font-medium underline underline-offset-2 transition-colors"
         >
           {labels.cta}
         </a>

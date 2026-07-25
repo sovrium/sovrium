@@ -141,12 +141,3 @@ export const readFileMetadata = async (
       : new Date(row.modified as unknown as string).toISOString()
   return { contentType: row.mimeType, size: Number(row.size), lastModified: modified }
 }
-
-export const byteaExists = async (key: string): Promise<boolean> => {
-  const result = (await db.execute(sql`
-    SELECT 1 FROM system.file_storage_metadata
-    WHERE key = ${key} AND storage_provider = 'bytea'
-    LIMIT 1
-  `)) as readonly Record<string, unknown>[]
-  return result.length > 0
-}

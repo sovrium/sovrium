@@ -38,7 +38,8 @@ export function ChartError({ error }: { readonly error: unknown }): ReactElement
       data-chart-state="error"
       role="alert"
     >
-      Failed to load chart records: {error instanceof Error ? error.message : String(error)}
+      <p>Failed to load chart records: {error instanceof Error ? error.message : String(error)}</p>
+      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
     </div>
   )
 }
@@ -65,7 +66,12 @@ export function ChartEmpty({
         role="region"
         aria-label={emptyState.name}
       >
-        {emptyState.title ?? message ?? 'No data available'}
+        <p>{emptyState.title ?? message ?? 'No data to chart yet.'}</p>
+        {emptyState.title === undefined && message === undefined && (
+          <p className="mt-1 opacity-80">
+            Records matching this chart&apos;s data source will appear here.
+          </p>
+        )}
       </section>
     )
   }
@@ -75,7 +81,12 @@ export function ChartEmpty({
       data-component="chart"
       data-chart-state="empty"
     >
-      {message ?? 'No data available'}
+      <p>{message ?? 'No data to chart yet.'}</p>
+      {message === undefined && (
+        <p className="mt-1 opacity-80">
+          Records matching this chart&apos;s data source will appear here.
+        </p>
+      )}
     </div>
   )
 }
@@ -88,7 +99,8 @@ export function ChartMissingTable(): ReactElement {
       data-chart-state="missing-table"
       role="alert"
     >
-      Chart is missing a dataSource.table binding.
+      <p>Chart is missing a dataSource.table binding.</p>
+      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
     </div>
   )
 }
@@ -101,7 +113,8 @@ export function ChartMissingAxes(): ReactElement {
       data-chart-state="missing-axes"
       role="alert"
     >
-      Chart is missing xAxis or yAxis configuration.
+      <p>Chart is missing xAxis or yAxis configuration.</p>
+      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
     </div>
   )
 }
