@@ -12,6 +12,8 @@ import { OAuthStateStore } from '@/application/ports/services/oauth-state-store'
 import { isAdminTier } from '@/domain/models/app'
 import { generateCodeVerifier, generateOAuthState } from '@/domain/utils/auth/pkce'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { provideConnectionLive } from './effect-runner'
 import { connectionError } from './error-envelopes'
@@ -114,9 +116,12 @@ async function handleAuthorize(c: Context, app: App) {
       redirectUri: props.redirectUri,
     })
   })
-  const saveResult = await Effect.runPromise(provideConnectionLive(saveProgram).pipe(Effect.either))
+  const saveResult = await runRequestEffect(
+    c,
+    provideConnectionLive(saveProgram).pipe(Effect.either)
+  )
   if (saveResult._tag === 'Left') {
-    console.error('[connections] state save failed', saveResult.left)
+    logError('[connections] state save failed', saveResult.left)
     return connectionError(c, 500, 'state_save_failed')
   }
 
@@ -188,11 +193,12 @@ const resolveCallbackContext = async (
     const store = yield* OAuthStateStore
     return yield* store.consume(inputs.state)
   })
-  const consumeResult = await Effect.runPromise(
+  const consumeResult = await runRequestEffect(
+    c,
     provideConnectionLive(consumeProgram).pipe(Effect.either)
   )
   if (consumeResult._tag === 'Left') {
-    console.error('[connections] state consume failed', consumeResult.left)
+    logError('[connections] state consume failed', consumeResult.left)
     return { response: connectionError(c, 500, 'state_consume_failed') }
   }
   const stateEntry = consumeResult.right
@@ -239,7 +245,8 @@ async function handleCallback(c: Context, app: App) {
     return connectionError(c, 502, 'token_response_missing_access_token')
   }
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     provideConnectionLive(
       persistTokenProgram({
         conn: ctx.conn,
@@ -250,7 +257,7 @@ async function handleCallback(c: Context, app: App) {
     ).pipe(Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[connections] token persistence failed', result.left)
+    logError('[connections] token persistence failed', result.left)
     return connectionError(c, 500, 'token_persistence_failed')
   }
   return c.json({ success: true, connectionId: result.right }, 200)
@@ -301,11 +308,12 @@ async function handleStatus(c: Context, app: App) {
   const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     provideConnectionLive(statusLookupProgram({ name, userId: session.userId })).pipe(Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[connections] status lookup failed', result.left)
+    logError('[connections] status lookup failed', result.left)
     return connectionError(c, 500, 'status_lookup_failed')
   }
   const { connected, expiresAt } = result.right
@@ -350,9 +358,9 @@ async function handleDisconnect(c: Context, app: App) {
       )
   })
 
-  const result = await Effect.runPromise(provideConnectionLive(program).pipe(Effect.either))
+  const result = await runRequestEffect(c, provideConnectionLive(program).pipe(Effect.either))
   if (result._tag === 'Left') {
-    console.error('[connections] disconnect failed', result.left)
+    logError('[connections] disconnect failed', result.left)
     return connectionError(c, 500, 'disconnect_failed')
   }
   return c.json({ success: true, deleted: result.right }, 200)

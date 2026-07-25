@@ -6,6 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database/drizzle'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 
@@ -35,5 +36,5 @@ export async function checkForExistingRecords(
   )
 
   const firstRecord = existingRecords[0]
-  return firstRecord !== undefined && Number(firstRecord.count) > 0
+  return firstRecord !== undefined && toFiniteCount(firstRecord.count) > 0
 }

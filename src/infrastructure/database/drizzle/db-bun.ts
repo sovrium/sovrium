@@ -10,7 +10,10 @@ import { dirname } from 'node:path'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import {
+  parseDatabaseDialectConfig,
+  resolveDatabasePoolMax,
+} from '@/domain/models/env/database/database-dialect'
 import { primeSqliteVec, resetSqliteVecCache } from '../sql/sqlite-vec-extension'
 import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
 import * as schemaPg from './schema'
@@ -27,7 +30,10 @@ const buildClient = (): DrizzleDB => {
   const config = parseDatabaseDialectConfig()
 
   if (config.dialect === 'postgres') {
-    return drizzlePg({ connection: { url: config.databaseUrl }, schema: schemaPg })
+    return drizzlePg({
+      connection: { url: config.databaseUrl, max: resolveDatabasePoolMax() },
+      schema: schemaPg,
+    })
   }
 
   if (config.path !== ':memory:') {

@@ -7,6 +7,7 @@
 
 
 import Handlebars from 'handlebars'
+import { logError } from '@/infrastructure/logging/logger'
 import { registerHelpers } from './handlebars-helpers'
 
 const engine = Handlebars.create()
@@ -26,7 +27,7 @@ const getCompiled = (template: string): Compiled => {
       return engine.compile(template, { noEscape: true, strict: false })
     } catch (error) {
       if (process.env['DEBUG']?.includes('sovrium:templates')) {
-        console.error('[templates] compile failed', { template, error })
+        logError('[templates] compile failed', error, { template })
       }
       return FAILED_COMPILE
     }
@@ -46,7 +47,7 @@ export const renderTemplate = (
     return compiled(context)
   } catch (error) {
     if (process.env['DEBUG']?.includes('sovrium:templates')) {
-      console.error('[templates] render failed', { template, error })
+      logError('[templates] render failed', error, { template })
     }
     return template
   }

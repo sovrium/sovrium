@@ -7,10 +7,7 @@
 
 
 import { Effect } from 'effect'
-import {
-  AdminFormsRepository,
-  type AdminFormAggregateRow,
-} from '@/application/ports/repositories/forms/admin-forms-repository'
+import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { TablesOverviewRepository } from '@/application/ports/repositories/tables/tables-overview-repository'
 import { StorageService } from '@/application/ports/services/storage-service'
 import {
@@ -22,6 +19,7 @@ import {
   BuildConnectionsList,
 } from '@/application/use-cases/admin/connections'
 import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
+import { sumSubmissionCounts } from '@/application/use-cases/admin/overview-projections'
 import {
   BuildUsersOverview,
   UsersOverviewLayer,
@@ -53,6 +51,15 @@ const parseBlockTimeoutMs = (raw: string | undefined): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_BLOCK_TIMEOUT_MS
 }
 const BLOCK_TIMEOUT_MS = parseBlockTimeoutMs(process.env.ADMIN_OVERVIEW_BLOCK_TIMEOUT_MS)
+
+const DEFAULT_MAX_CONCURRENT_OVERVIEWS = 1
+const parseMaxConcurrent = (raw: string | undefined): number => {
+  const parsed = raw === undefined ? Number.NaN : Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CONCURRENT_OVERVIEWS
+}
+const overviewSemaphore = Effect.unsafeMakeSemaphore(
+  parseMaxConcurrent(process.env.ADMIN_OVERVIEW_MAX_CONCURRENT)
+)
 
 const recordsBlock = (app: App): Effect.Effect<{ readonly total: number }> => {
   const dbNames = (app.tables ?? []).map((t) => sanitizeTableName(t.name))
@@ -96,11 +103,7 @@ const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> =
       forms.map((form) => repo.aggregateForForm(form.name)),
       { concurrency: 2 }
     )
-    const total = aggregates.reduce(
-      (acc: number, agg: AdminFormAggregateRow) => acc + Number(agg.submissionCount ?? 0),
-      0
-    )
-    return { total }
+    return { total: sumSubmissionCounts(aggregates) }
   }).pipe(
     Effect.provide(AdminFormsRepositoryLive),
     Effect.catchAll(() => Effect.succeed(SUBMISSIONS_ZERO))
@@ -148,4 +151,4 @@ export const buildAdminOverview = (app: App): Effect.Effect<AdminOverviewRespons
       { concurrency: 'unbounded' }
     )
     return { records, submissions, runs, users, storage, connections }
-  })
+  }).pipe(overviewSemaphore.withPermits(1))

@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
 import { createListRecordsProgram } from '@/application/use-cases/tables/programs'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { passesTableRoleGate, resolveGuardForTable } from './record/row-level-guard'
 import { buildListFilter, type FilterStructure } from './record/row-level-read-helpers'
@@ -208,7 +209,7 @@ export async function handleExportTableCsv(c: Context, app: App) {
     filter: finalFilter,
     limit: Number.MAX_SAFE_INTEGER,
   })
-  const either = await Effect.runPromise(Effect.either(provideTableLive(program)))
+  const either = await runRequestEffect(c, Effect.either(provideTableLive(program)))
   if (either._tag === 'Left') {
     return c.json({ success: false, message: 'Export failed', code: 'INTERNAL_ERROR' }, 500)
   }

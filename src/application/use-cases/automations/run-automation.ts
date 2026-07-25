@@ -11,6 +11,7 @@ import {
   AutomationRepository,
   type AutomationDatabaseError,
 } from '@/application/ports/repositories/automations/automation-repository'
+import { traceAutomationRun } from '@/infrastructure/telemetry/automation-run-trace'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { notifyPlatformFailure } from './notify-platform-failure'
@@ -281,38 +282,46 @@ const finaliseAndRelease = (input: {
 export const executeAutomationRun = (
   input: ExecuteAutomationRunInput
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
-  Effect.gen(function* () {
-    const { name, automation, automationId, app, processEnv, triggerData } = input
-    const startedAtDate = new Date()
-    const rawActions = expandAutomationActions(app, automation)
-    const runTimeoutMs = resolveRunTimeoutMs(automation)
-    const skipActionNames = input.skipActionNames ?? new Set<string>()
+  traceAutomationRun(
+    input.name,
+    Effect.gen(function* () {
+      const { name, automation, automationId, app, processEnv, triggerData } = input
+      const startedAtDate = new Date()
+      const rawActions = expandAutomationActions(app, automation)
+      const runTimeoutMs = resolveRunTimeoutMs(automation)
+      const skipActionNames = input.skipActionNames ?? new Set<string>()
 
-    const runId = yield* enqueueAndAdmit(input, startedAtDate)
-    const ctx = buildStepContext({ ...input, runId })
-    const finalState = yield* runActionsWithTimeout(rawActions, ctx, runTimeoutMs, skipActionNames)
-    const finishedAtDate = new Date()
-    const { observedRunId, effectiveState } = yield* finaliseAndRelease({
-      name,
-      automationId,
-      runId,
-      finalState,
-      triggerData,
-      startedAt: startedAtDate,
-      finishedAt: finishedAtDate,
+      const runId = yield* enqueueAndAdmit(input, startedAtDate)
+      const ctx = buildStepContext({ ...input, runId })
+      const finalState = yield* runActionsWithTimeout(
+        rawActions,
+        ctx,
+        runTimeoutMs,
+        skipActionNames
+      )
+      const finishedAtDate = new Date()
+      const { observedRunId, effectiveState } = yield* finaliseAndRelease({
+        name,
+        automationId,
+        runId,
+        finalState,
+        triggerData,
+        startedAt: startedAtDate,
+        finishedAt: finishedAtDate,
+      })
+      yield* dispatchPostRunFailureEffects({
+        app,
+        processEnv,
+        automation,
+        name,
+        runId: observedRunId,
+        finalState: effectiveState,
+        startedAtDate,
+        finishedAtDate,
+      })
+      return buildRunResult(observedRunId, effectiveState)
     })
-    yield* dispatchPostRunFailureEffects({
-      app,
-      processEnv,
-      automation,
-      name,
-      runId: observedRunId,
-      finalState: effectiveState,
-      startedAtDate,
-      finishedAtDate,
-    })
-    return buildRunResult(observedRunId, effectiveState)
-  })
+  )
 
 const boundAutomationInvoker = buildAutomationInvoker({
   resolveAutomationId,

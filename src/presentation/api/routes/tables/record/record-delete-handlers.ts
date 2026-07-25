@@ -20,6 +20,7 @@ import {
   provideTableWithAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
@@ -99,7 +100,7 @@ async function executePermanentDelete({
     }),
     Effect.tap(({ previous, success }) => fireDeleteWebhooks(app, tableName, previous, !success))
   )
-  const result = await Effect.runPromise(Effect.either(provideTableWithAutomationsLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideTableWithAutomationsLive(program)))
   if (result._tag === 'Left' || !result.right.success)
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   return c.json({ success: true }, 200)
@@ -159,7 +160,8 @@ function softDeleteResultToResponse(
 
 async function executeSoftDelete(input: SoftDeletePipelineInput & { readonly c: Context }) {
   const { c } = input
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     Effect.either(provideTableWithAutomationsLive(buildSoftDeleteProgram(input)))
   )
   if (outcome._tag === 'Left')
@@ -422,7 +424,7 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
     app,
     userId: session.userId,
   })
-  const result = await Effect.runPromise(Effect.either(provideTableWithAutomationsLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideTableWithAutomationsLive(program)))
 
   if (result._tag === 'Left' || !result.right.result.success) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)

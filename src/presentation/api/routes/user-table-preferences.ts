@@ -16,6 +16,7 @@ import {
   userTablePreferencesPatchSchema,
   userTablePreferencesResponseSchema,
 } from '@/domain/models/api/tables/user-preferences'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound, unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideDatabaseLive } from './user-table-preferences/effect-runner'
@@ -34,7 +35,8 @@ const handleGet = async (c: Context): Promise<Response> => {
   const tableName = c.req.param('tableId')
   if (!tableName) return notFound(c, 'Table not found')
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     getUserTablePreferences({ userId: session.userId, tableName }).pipe(
       provideDatabaseLive,
       Effect.either
@@ -50,7 +52,8 @@ const handleDelete = async (c: Context): Promise<Response> => {
   const tableName = c.req.param('tableId')
   if (!tableName) return notFound(c, 'Table not found')
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     deleteUserTablePreferences({ userId: session.userId, tableName }).pipe(
       provideDatabaseLive,
       Effect.either
@@ -72,7 +75,8 @@ const handlePatch = async (c: Context): Promise<Response> => {
   const parsed = userTablePreferencesPatchSchema.safeParse(body)
   if (!parsed.success) return badRequest(c)
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     updateUserTablePreferences({
       userId: session.userId,
       tableName,

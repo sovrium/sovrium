@@ -12,7 +12,7 @@ import { fieldToRequestConfig } from '@/domain/services/ai-compute/build-request
 import { AiLive } from '@/infrastructure/ai/layer'
 import { upsertAiComputeStatus } from '@/infrastructure/database/ai-compute-status-repository'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { logDebug } from '@/infrastructure/logging/logger'
+import { logError } from '@/infrastructure/logging/logger'
 import { refineAiComputeField, type RefineAiComputeFieldInput } from './refine-field'
 import type { App, Table } from '@/domain/models/app'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -105,7 +105,7 @@ const buildRefinementInput = (params: {
 
 const runDetached = (program: Effect.Effect<unknown, never, never>, label: string): void => {
   void Effect.runPromise(program).catch((error: unknown) => {
-    logDebug(`[ai-compute] ${label} failed: ${String(error)}`)
+    logError('[ai-compute] detached program failed', error, { label })
   })
 }
 

@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import {
   ListRecent,
   MAX_RECENT_ITEMS,
   RecordRecent,
 } from '@/application/use-cases/user-entity-lists'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideUserEntityListsLive } from '@/presentation/api/routes/favorites/effect-runner'
 import { parseEntityMutationBody } from '@/presentation/api/routes/user-entity-lists'
 import { unauthorized } from '@/presentation/api/utils/auth-helpers'
@@ -31,7 +31,8 @@ const handleList = async (c: Context) => {
 
   const limit = resolveLimit(c)
 
-  const visible = await Effect.runPromise(
+  const visible = await runRequestEffect(
+    c,
     ListRecent(session.userId, limit).pipe(provideUserEntityListsLive)
   )
 
@@ -48,7 +49,7 @@ const handleAdd = async (c: Context) => {
     return c.json({ success: false, message: 'Invalid recent payload', code: 'BAD_REQUEST' }, 400)
   }
 
-  await Effect.runPromise(RecordRecent(session.userId, input).pipe(provideUserEntityListsLive))
+  await runRequestEffect(c, RecordRecent(session.userId, input).pipe(provideUserEntityListsLive))
 
   return c.json({ success: true }, 201)
 }

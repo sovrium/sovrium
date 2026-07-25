@@ -11,6 +11,7 @@ import {
   appendAuditEntryToDb,
   listAuditEntriesFromDb,
 } from '@/infrastructure/audit-log/drizzle-store'
+import { logWarning } from '@/infrastructure/logging/logger'
 import type { Actor } from '@/domain/models/api/admin/_shared/actor'
 import type { Severity } from '@/domain/models/api/admin/_shared/severity'
 import type {
@@ -35,7 +36,7 @@ export async function emitAuditEvent(input: EmitAuditInput): Promise<void> {
   const resourceType = resolveResourceType(input.action)
   if (!resourceType) {
 
-    console.warn(
+    logWarning(
       `[audit-log] action "${input.action}" not in catalog — emit dropped. Add to action-catalog.ts.`
     )
     return

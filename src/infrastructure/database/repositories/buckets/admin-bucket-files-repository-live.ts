@@ -13,6 +13,7 @@ import {
   type AdminBucketFileRow,
   type AdminBucketFilesListFilters,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -85,6 +86,6 @@ export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepo
       const rows = (await db
         .select({ total: sql<number | string | null>`COALESCE(SUM(${files.size}), 0)` })
         .from(files)) as ReadonlyArray<{ total: number | string | null }>
-      return Number(rows[0]?.total ?? 0)
+      return toFiniteCount(rows[0]?.total)
     }),
 })

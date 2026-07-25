@@ -25,6 +25,8 @@ import {
   resolvePresetTransform,
 } from '@/domain/services/image-transform/image-transform-presets'
 import { inferMimeFromKey, isImageKey } from '@/domain/utils/mime-types'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import {
   applyImageTransform,
   mimeForFormat,
@@ -170,13 +172,13 @@ async function produceTransformResponse(
     return yield* storage.download(key)
   })
 
-  const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
   if (result._tag === 'Left') {
     const { cause } = result.left as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
     const isNotFound = isNotFoundError(cause)
     if (!isNotFound) {
-      console.error('[buckets] download (transform path) failed', result.left)
+      logError('[buckets] download (transform path) failed', result.left)
     }
     return c.json(
       {
@@ -365,11 +367,11 @@ async function persistUpload(c: Context, file: File, explicitPath?: string): Pro
     yield* storage.upload(key, content, mimeType)
   })
 
-  const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
   if (result._tag === 'Left') {
     const { cause } = result.left as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
-    console.error('[buckets] upload failed', result.left)
+    logError('[buckets] upload failed', result.left)
     return c.json(
       { success: false, error: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
       500
@@ -391,7 +393,7 @@ async function checkStorageQuota(c: Context, incomingSize: number): Promise<Resp
     return yield* storage.getTotalBytes()
   })
 
-  const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
   if (result._tag === 'Left') {
     return undefined
   }
@@ -439,13 +441,13 @@ function createHandleDeleteBucketFile(app: App) {
       yield* storage['delete'](key)
     })
 
-    const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+    const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
     if (result._tag === 'Left') {
       const { cause } = result.left as { readonly cause?: unknown }
       const isNotFound = isNotFoundError(cause)
       const message = cause instanceof Error ? cause.message : String(cause)
       if (!isNotFound) {
-        console.error('[buckets] delete failed', result.left)
+        logError('[buckets] delete failed', result.left)
       }
       return c.json(
         {

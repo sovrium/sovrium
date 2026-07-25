@@ -19,6 +19,7 @@ import {
   isPredicateGroup,
   type CurrentUserContext,
 } from '@/domain/validators/row-level-evaluator'
+import { logError } from '@/infrastructure/logging/logger'
 import {
   extractSessionTimeout,
   shouldInjectAnalytics,
@@ -331,7 +332,7 @@ async function resolveIslandEntryFile(
     const result = await islandBuilder.buildIslands()
     return result.entryFile
   } catch (error) {
-    console.error('[RENDER] Failed to build island bundle', error)
+    logError('[RENDER] Failed to build island bundle', error)
     return undefined
   }
 }

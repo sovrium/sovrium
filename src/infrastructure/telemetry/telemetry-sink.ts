@@ -7,15 +7,14 @@
 
 
 import { hostname } from 'node:os'
-import {
-  isErrorReportingEnabled,
-  isLogExportEnabled,
-} from '@/domain/models/env/telemetry/telemetry'
+import { isErrorReportingEnabled } from '@/domain/models/env/telemetry/telemetry'
 import { initErrorReporter, registerProcessErrorHandlers, reportException } from './error-reporter'
+import { disposeObsRuntime, emitLog, initObsRuntime, setLogResource } from './observability-runtime'
 import { getTelemetryConfig } from './telemetry-config'
-import { disposeLogRuntime, emitOtlpLog, initLogRuntime, setLogResource } from './telemetry-runtime'
 
 export type TelemetryLogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+export type LogAttributes = Readonly<Record<string, string>>
 
 export interface ActivateTelemetryOptions {
   readonly appName: string
@@ -34,25 +33,28 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
     registerProcessErrorHandlers()
   }
 
-  if (isLogExportEnabled(config) && config.logExport !== undefined) {
+  const otlp = config.logExport ?? config.metricsExport ?? config.traces
+  if (otlp !== undefined) {
     setLogResource({
-      serviceName: config.logExport.serviceName || options.appName || 'sovrium',
+      serviceName: otlp.serviceName || options.appName || 'sovrium',
       serviceVersion: options.version,
-      environment: config.logExport.environment,
+      environment: otlp.environment,
     })
-    initLogRuntime()
+    void initObsRuntime()
   }
 }
 
 export const emitTelemetryLog = (
   level: TelemetryLogLevel,
   message: string,
-  cause?: unknown
+  cause?: unknown,
+  attributes?: LogAttributes
 ): void => {
-  emitOtlpLog(level, message)
+  emitLog(level, message, attributes)
   if (cause instanceof Error) {
+    process.stderr.write((cause.stack ?? String(cause)) + '\n')
     void reportException(cause)
   }
 }
 
-export const shutdownTelemetry = (): Promise<void> => disposeLogRuntime()
+export const shutdownTelemetry = (): Promise<void> => disposeObsRuntime()

@@ -83,9 +83,9 @@ export const build = async (
     const validatedApp = Schema.decodeUnknownSync(AppSchema)(app)
 
     const program = Effect.gen(function* () {
-      logDebug('Generating static site...')
+      logDebug('[ssg] generating static site...')
       const result = yield* generateStaticUseCase(app, options)
-      logDebug(`Static site generated to ${result.outputDir} (${result.files.length} files)`)
+      logDebug(`[ssg] static site generated to ${result.outputDir} (${result.files.length} files)`)
 
       if (hasPageSearchComponent(validatedApp)) {
         const publicPagePaths = getPublicPagePaths(validatedApp.pages)

@@ -8,7 +8,7 @@
 
 import { Effect, Layer } from 'effect'
 import { RealtimeService, RealtimeError } from '@/application/ports/services/realtime-service'
-import { logInfo } from '@/infrastructure/logging/logger'
+import { logDebug } from '@/infrastructure/logging/logger'
 import { addSubscription, removeSubscription, getSubscribers } from './channel-manager'
 
 export const RealtimeServiceLive = Layer.succeed(
@@ -31,13 +31,15 @@ export const RealtimeServiceLive = Layer.succeed(
         catch: (error: unknown) => new RealtimeError({ cause: error }),
       }),
 
-    broadcast: (channel: string, event: string, data: Record<string, unknown>) =>
+    broadcast: (channel: string, event: string, _data: Record<string, unknown>) =>
       Effect.try({
         try: () => {
           const subscribers = getSubscribers(channel)
-          logInfo(
-            `[realtime] broadcast channel=${channel} event=${event} subscribers=${String(subscribers.length)} data=${JSON.stringify(data).slice(0, 100)}`
-          )
+          logDebug('[realtime] broadcast', {
+            channel,
+            event,
+            subscribers: String(subscribers.length),
+          })
         },
         catch: (error: unknown) => new RealtimeError({ cause: error }),
       }),

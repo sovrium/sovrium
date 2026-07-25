@@ -28,6 +28,8 @@ import {
 } from '@/domain/models/shared/form-access-flow'
 import { evaluateAvailabilityWindow } from '@/domain/models/shared/form-availability-flow'
 import { hashIp, readIpHashSalt } from '@/infrastructure/forms/ip-hash'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
 import { provideFormsLive } from '@/presentation/api/routes/forms/effect-runner'
 import {
@@ -269,7 +271,7 @@ function respondSubmissionFailure(c: Context, isJsonClient: boolean, failure: un
     return c.html(renderSubmissionErrorHtml(failure.message, '400 — upload failed'), 400)
   }
   const message = failure instanceof Error ? failure.message : String(failure)
-  console.error('[forms] submission rejected:', message, failure)
+  logError(`[forms] submission rejected: ${message}`, failure)
   if (isJsonClient) return c.json({ error: 'submission_invalid', message }, 422)
   return c.html(renderSubmissionErrorHtml(message, '422 — submission rejected'), 422)
 }
@@ -323,7 +325,8 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   if (decision.kind === 'not-found') return c.json({ error: 'form_not_found' }, 404)
 
   const rawBody = await readSubmissionBody(c)
-  const uploadResult = await Effect.runPromise(
+  const uploadResult = await runRequestEffect(
+    c,
     provideFormsLive(transformMultipartFiles(app, form, rawBody)).pipe(Effect.either)
   )
   if (uploadResult._tag === 'Left') {
@@ -331,7 +334,8 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   }
 
   const referer = c.req.header('referer')
-  const revalidation = await Effect.runPromise(
+  const revalidation = await runRequestEffect(
+    c,
     provideFormsLive(
       revalidateInlinePrefillParent({
         app,
@@ -379,7 +383,7 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
     ...(userAgent !== undefined ? { userAgent } : {}),
     ...(submitterUserId !== undefined ? { submitterUserId } : {}),
   })
-  const result = await Effect.runPromise(provideFormsLive(program).pipe(Effect.either))
+  const result = await runRequestEffect(c, provideFormsLive(program).pipe(Effect.either))
   if (result._tag === 'Left') {
     return respondSubmissionFailure(c, isJsonClient, result.left)
   }

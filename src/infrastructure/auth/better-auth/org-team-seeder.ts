@@ -13,7 +13,7 @@ import {
   authOrganizationsTable,
   authTeamsTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
-import { logDebug } from '@/infrastructure/logging/logger'
+import { logDebug, logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 
 export const SOVRIUM_ORGANIZATION_ID = 'sovrium-org'
@@ -114,6 +114,6 @@ export const runOrgTeamSeeding = async (app: App): Promise<void> => {
     await ensureOrganization(app.name)
     await ensureTeamsFromGroups((app.auth.groups ?? []).map((group) => group.name))
   } catch (error) {
-    logDebug(`[org-team-seeder] Seeding skipped (non-fatal): ${String(error)}`)
+    logError('[org-team-seeder] seeding failed (non-fatal)', error)
   }
 }

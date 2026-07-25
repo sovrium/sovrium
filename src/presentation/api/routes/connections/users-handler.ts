@@ -8,6 +8,8 @@
 import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound, requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { provideConnectionLive } from './effect-runner'
 import { connectionError } from './error-envelopes'
@@ -79,9 +81,9 @@ export async function handleListUsers(c: Context, app: App) {
       )
   })
 
-  const result = await Effect.runPromise(provideConnectionLive(program).pipe(Effect.either))
+  const result = await runRequestEffect(c, provideConnectionLive(program).pipe(Effect.either))
   if (result._tag === 'Left') {
-    console.error('[connections] list users failed', result.left)
+    logError('[connections] list users failed', result.left)
     return connectionError(c, 500, 'list_users_failed')
   }
   const memberEntries = await dropAdminUsers(result.right)

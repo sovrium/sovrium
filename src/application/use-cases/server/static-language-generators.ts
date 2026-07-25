@@ -47,7 +47,7 @@ export const generateMultiLanguageFiles = (
   never
 > =>
   Effect.gen(function* () {
-    logDebug('Generating multi-language static site...')
+    logDebug('[ssg] generating multi-language static site...')
     const supportedLanguages = validatedApp.languages!.supported
 
     const langFiles = yield* Effect.forEach(
@@ -147,7 +147,7 @@ export const generateSingleLanguageFiles = (
     yield* serverInstance.stop
 
     const pagePaths = getPublicPagePaths(validatedApp.pages)
-    logDebug(`Generating static HTML files for ${pagePaths.length} pages...`)
+    logDebug(`[ssg] generating static HTML files for ${pagePaths.length} pages...`)
     const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
       outputDir,
       pagePaths,

@@ -8,6 +8,8 @@
 
 import { Effect } from 'effect'
 import { extractAndStoreFact, recallAgentFacts } from '@/application/use-cases/ai/facts-memory'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { handleAgentChat } from '@/presentation/api/routes/agents/agent-chat'
 import { provideAiFactsRepoLive } from '@/presentation/api/routes/ai/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
@@ -90,14 +92,15 @@ const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Respo
   if (userId === undefined) {
     return c.json({ error: 'Authentication required.' }, 401)
   }
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     recallAgentFacts({ namespace: resolveNamespace(agent), userId }).pipe(
       provideAiFactsRepoLive,
       Effect.either
     )
   )
   if (result._tag === 'Left') {
-    console.error('[ai] recall-facts failed', result.left)
+    logError('[ai] recall-facts failed', result.left)
     return c.json({ error: 'Failed to recall facts.' }, 500)
   }
   const facts = result.right.map((f) => ({

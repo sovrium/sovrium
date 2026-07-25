@@ -16,7 +16,9 @@ import {
 } from '@/domain/models/api/admin/tables/overview'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { TablesOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/tables-overview-repository-live'
-import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { getSessionContext, requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -59,9 +61,9 @@ export function createHandleGetTablesOverview(app: App) {
       now: new Date(),
     }).pipe(Effect.provide(Layer.merge(TablesOverviewRepositoryLive, Layer.empty)))
 
-    const exitEither = await Effect.runPromise(program.pipe(Effect.either))
+    const exitEither = await runRequestEffect(c, program.pipe(Effect.either))
     if (exitEither._tag === 'Left') {
-      console.error('[admin] tables/overview failed', exitEither.left)
+      logError('[admin] tables/overview failed', exitEither.left, requestLogAttributes(c))
       return c.json(
         { success: false, message: 'Failed to build tables overview', code: 'INTERNAL_ERROR' },
         500

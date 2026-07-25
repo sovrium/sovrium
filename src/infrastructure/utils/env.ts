@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isDebugLevel } from '@/domain/models/env/logging/logging'
 import { isLocalDevDefault } from '@/domain/utils/dev-mode'
 import { isInsecureOptOut, isLoopbackHost } from '@/infrastructure/utils/security-posture'
 import type { StartupPhase } from '@/infrastructure/logging/logger'
@@ -14,6 +15,8 @@ const env = process.env as Record<string, string | undefined>
 export const getNodeEnv = (): string | undefined => env['NODE_ENV']
 export const isProduction = (): boolean => getNodeEnv() === 'production'
 export const isDevelopment = (): boolean => getNodeEnv() === 'development'
+
+export const isDebugEnabled = (): boolean => isDebugLevel()
 
 export const isDevCacheDisabled = (): boolean =>
   env['SOVRIUM_DEV_NO_CACHE'] === '1' || isDevelopment()

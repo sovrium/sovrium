@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { errorResponseSchema } from '@/domain/models/api/_shared/error'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { sanitizeError, getStatusCode } from './error-sanitizer'
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
@@ -39,7 +40,7 @@ export async function runEffect<T, S>(
   successStatus: number = 200
 ) {
   try {
-    const either = await Effect.runPromise(Effect.either(program))
+    const either = await runRequestEffect(c, Effect.either(program))
 
     if (either._tag === 'Left') {
       return handleErrorResponse(c, either.left)

@@ -11,6 +11,8 @@ import {
   listUserConversations,
   loadChatHistory,
 } from '@/application/use-cases/ai/conversation-memory'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAiMemoryRepoLive } from '@/presentation/api/routes/ai/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { Hono, Context } from 'hono'
@@ -26,11 +28,12 @@ const handleListConversations = async (c: Readonly<Context>): Promise<Response> 
   if (userId === undefined) {
     return c.json({ error: 'Authentication required.' }, 401)
   }
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     listUserConversations({ userId }).pipe(provideAiMemoryRepoLive, Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[ai] list-conversations failed', result.left)
+    logError('[ai] list-conversations failed', result.left)
     return c.json({ error: 'Failed to load conversations.' }, 500)
   }
   const conversations = result.right.map((conv) => ({
@@ -52,11 +55,12 @@ const handleGetConversation = async (c: Readonly<Context>): Promise<Response> =>
   if (sessionId === undefined || sessionId.length === 0) {
     return c.json({ error: 'Conversation not found.' }, 404)
   }
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     loadChatHistory({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[ai] get-conversation failed', result.left)
+    logError('[ai] get-conversation failed', result.left)
     return c.json({ error: 'Failed to load conversation.' }, 500)
   }
   if (result.right.length === 0) {
@@ -80,11 +84,12 @@ const handleDeleteConversation = async (c: Readonly<Context>): Promise<Response>
   if (sessionId === undefined || sessionId.length === 0) {
     return c.json({ error: 'Conversation not found.' }, 404)
   }
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     deleteUserConversation({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[ai] delete-conversation failed', result.left)
+    logError('[ai] delete-conversation failed', result.left)
     return c.json({ error: 'Failed to delete conversation.' }, 500)
   }
   return c.json({ deleted: true, sessionId }, 200)

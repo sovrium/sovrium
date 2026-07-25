@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
@@ -56,7 +57,7 @@ export const triggerAuthEventAutomations = (
   }).pipe(
     Effect.catchAllCause((cause) =>
       Effect.sync(() => {
-        console.error('[automation:auth-event] dispatch failure', cause)
+        logError('[automation:auth-event] dispatch failure', cause)
       })
     )
   )

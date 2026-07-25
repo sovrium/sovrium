@@ -9,6 +9,7 @@
 import { sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { logError } from '@/infrastructure/logging/logger'
 
 const AGENT_EMAIL_DOMAIN = 'agents.sovrium.local'
 
@@ -87,6 +88,6 @@ export const runSyncAgentUsers = async (input: {
   if (!input.hasAuth) return
   if (isSqliteRuntime()) return
   await syncAgentUsers(input.agents).catch((error: unknown) => {
-    console.warn('[agents] agent-user sync failed:', error)
+    logError('[agents] agent-user sync failed', error)
   })
 }

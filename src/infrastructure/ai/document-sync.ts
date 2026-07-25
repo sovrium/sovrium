@@ -15,7 +15,7 @@ import {
   resolveChunkSettings,
   type ChunkSettings,
 } from '@/domain/services/rag/rag-chunking'
-import { logWarning } from '@/infrastructure/logging/logger'
+import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { isSupportedDocument, parseDocument } from './document-parser'
 import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
@@ -83,7 +83,7 @@ const documentToChunks = async (input: {
       content,
     }))
   } catch (error) {
-    logWarning(`[ai-rag] failed to parse knowledge document ${input.path}: ${String(error)}`)
+    logError('[ai-rag] failed to parse knowledge document', error, { path: input.path })
     return []
   }
 }
@@ -149,6 +149,6 @@ export const runSyncDocuments = async (
 
 export const runSyncDocumentsAtStartup = async (): Promise<void> => {
   await runSyncDocuments(process.env).catch((error: unknown) => {
-    logWarning(`[ai-rag] document sync failed: ${String(error)}`)
+    logError('[ai-rag] document sync failed', error)
   })
 }

@@ -6,15 +6,17 @@
  */
 
 
-import { Effect } from 'effect'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { BuildUsersDirectory } from '@/application/use-cases/admin/users-directory'
 import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { usersOverviewQuerySchema } from '@/domain/models/api/admin/users'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideUsersDirectoryLive } from '@/presentation/api/routes/admin/users-directory/effect-runner'
 import { provideUsersOverviewLive } from '@/presentation/api/routes/admin/users-overview/effect-runner'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -31,10 +33,17 @@ async function handleUsersOverview(c: Context): Promise<Response> {
   }
   const { period } = parsedQuery.data
 
-  const outcome = await Effect.runPromise(BuildUsersOverview(period).pipe(provideUsersOverviewLive))
+  const outcome = await runRequestEffect(
+    c,
+    BuildUsersOverview(period).pipe(provideUsersOverviewLive)
+  )
 
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] users overview response validation failed', outcome.error)
+    logError(
+      '[admin] users overview response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build users overview', code: 'INTERNAL_ERROR' },
       500
@@ -56,10 +65,14 @@ async function handleUsersOverview(c: Context): Promise<Response> {
 
 
 async function handleUsersDirectory(c: Context): Promise<Response> {
-  const outcome = await Effect.runPromise(BuildUsersDirectory().pipe(provideUsersDirectoryLive))
+  const outcome = await runRequestEffect(c, BuildUsersDirectory().pipe(provideUsersDirectoryLive))
 
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] users directory response validation failed', outcome.error)
+    logError(
+      '[admin] users directory response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build users directory', code: 'INTERNAL_ERROR' },
       500

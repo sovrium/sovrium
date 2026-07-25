@@ -14,6 +14,7 @@ import {
   type AdminAgentMessageRow,
   type AdminAgentConversationsListFilters,
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -80,7 +81,7 @@ const toConversationRow = (row: {
   id: row.id,
   title: row.title,
   sessionId: row.sessionId,
-  messageCount: Number(row.messageCount),
+  messageCount: toFiniteCount(row.messageCount),
   updatedAt: row.updatedAt,
   createdAt: row.createdAt,
 })

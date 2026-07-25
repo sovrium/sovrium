@@ -18,6 +18,7 @@ import {
   userViewResponseSchema,
   userViewsListResponseSchema,
 } from '@/domain/models/api/tables/user-views'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound, unauthorized } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideDatabaseLive } from './user-views/effect-runner'
@@ -73,7 +74,8 @@ const handleList = async (c: Context): Promise<Response> => {
   const tableName = c.req.param('tableId')
   if (!tableName) return notFound(c, 'Table not found')
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     listUserViews({ userId: session.userId, tableName }).pipe(provideDatabaseLive, Effect.either)
   )
   if (result._tag === 'Left') return internalError(c)
@@ -90,7 +92,8 @@ const handleCreate = async (c: Context): Promise<Response> => {
   const payload = parseCreatePayload(body)
   if (!payload) return badRequest(c)
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     createUserView({ userId: session.userId, tableName, ...payload }).pipe(
       provideDatabaseLive,
       Effect.either
@@ -114,7 +117,8 @@ const handleUpdate = async (c: Context): Promise<Response> => {
   const b = await parsePatchBody(c)
   if (!b) return badRequest(c)
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     updateUserView({
       userId: session.userId,
       tableName,
@@ -143,7 +147,8 @@ const handleDelete = async (c: Context): Promise<Response> => {
   const viewId = c.req.param('viewId')
   if (!tableName || !viewId) return notFound(c, 'View not found')
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     deleteUserView({ userId: session.userId, tableName, viewId }).pipe(
       provideDatabaseLive,
       Effect.either
@@ -173,7 +178,8 @@ const handleShared = async (c: Context, app: App): Promise<Response> => {
   const viewId = c.req.param('viewId')
   if (!viewId) return notFound(c, 'View not found')
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     getSharedView({ userId: session.userId, viewId, app }).pipe(provideDatabaseLive, Effect.either)
   )
   if (result._tag === 'Left') {

@@ -23,11 +23,13 @@ import {
 } from '@/domain/models/api/admin/storage/status'
 import { resolveRuntimeLabel } from '@/domain/models/env/database/database-dialect'
 import { parseStorageEnvConfig } from '@/domain/models/env/storage/storage'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
 import { handleGetAuditLog } from '@/presentation/api/routes/admin/audit-log'
 import { createHandleGetTablesOverview } from '@/presentation/api/routes/admin/tables-overview'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
-import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import { getSessionContext, requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -129,9 +131,9 @@ async function handleGetBucketsQuota(c: Context): Promise<Response> {
     return { totalBytes, fileCount: keys.length }
   })
 
-  const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
   if (result._tag === 'Left') {
-    console.error('[admin] storage-quota lookup failed', result.left)
+    logError('[admin] storage-quota lookup failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, error: 'Failed to retrieve storage quota', code: 'STORAGE_ERROR' },
       500
@@ -147,11 +149,11 @@ function handleDeleteTransformCache(c: Context): Response {
 
 function createHandleGetOverview(app: App) {
   return async function handleGetOverview(c: Context): Promise<Response> {
-    const overview = await Effect.runPromise(buildAdminOverview(app))
+    const overview = await runRequestEffect(c, buildAdminOverview(app))
 
     const parsed = adminOverviewResponseSchema.safeParse(overview)
     if (!parsed.success) {
-      console.error('[admin] overview response validation failed', parsed.error)
+      logError('[admin] overview response validation failed', parsed.error, requestLogAttributes(c))
       return c.json(
         { success: false, message: 'Failed to build overview', code: 'INTERNAL_ERROR' },
         500
@@ -166,7 +168,8 @@ function createHandleGetOverview(app: App) {
 function createHandleGetSearch(app: App) {
   return async function handleGetSearch(c: Context): Promise<Response> {
     const query = c.req.query('q') ?? ''
-    const response = await Effect.runPromise(
+    const response = await runRequestEffect(
+      c,
       SearchAdminGlobal(app, query).pipe(
         Effect.provide(AdminSearchLayer),
         Effect.orElseSucceed(() => ({ query: query.trim(), groups: [] }))
@@ -175,7 +178,7 @@ function createHandleGetSearch(app: App) {
 
     const parsed = adminSearchResponseSchema.safeParse(response)
     if (!parsed.success) {
-      console.error('[admin] search response validation failed', parsed.error)
+      logError('[admin] search response validation failed', parsed.error, requestLogAttributes(c))
       return c.json(
         { success: false, message: 'Failed to run search', code: 'INTERNAL_ERROR' },
         500

@@ -15,6 +15,7 @@ import {
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { createdByFieldNames } from '@/domain/services/authorship-fields'
 import { evaluateRecordAgainstPredicate } from '@/domain/validators/row-level-evaluator'
+import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
@@ -236,7 +237,7 @@ export const triggerCommentEventAutomations = (
   }).pipe(
     Effect.catchAllCause((cause) =>
       Effect.sync(() => {
-        console.error('[automation:comment-posted] dispatch failure', cause)
+        logError('[automation:comment-posted] dispatch failure', cause)
       })
     )
   )

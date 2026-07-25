@@ -14,8 +14,10 @@ import {
   type DynamicRecordCondition,
   type DynamicRecordFilter,
 } from '@/application/ports/repositories/tables/dynamic-record-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 import { generateSqlConditionFragment } from '@/infrastructure/database/table-queries/filter-operators'
 import {
   castToFloat,
@@ -59,10 +61,8 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
       const query = sql`SELECT ${countAsIntSelectClause()} AS count FROM ${sql.identifier(
         input.table
       )}${conditionsClause(input.filter, input.conditions)}`
-      const result = (await db.execute(query)) as unknown as ReadonlyArray<{
-        readonly count: number
-      }>
-      return Number(result[0]?.count ?? 0)
+      const result = await executeRawTyped<{ readonly count: number }>(db, query)
+      return toFiniteCount(result[0]?.count)
     }),
 
   aggregate: (input) =>
@@ -74,9 +74,7 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
       const query = sql`SELECT ${aggExpr} AS value FROM ${sql.identifier(
         input.table
       )}${whereClause(input.filter)}`
-      const result = (await db.execute(query)) as unknown as ReadonlyArray<{
-        readonly value: number | null
-      }>
+      const result = await executeRawTyped<{ readonly value: number | null }>(db, query)
       const value = result[0]?.value
       return value === null || value === undefined ? undefined : Number(value)
     }),
@@ -92,7 +90,7 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
       const query = sql`SELECT ${selectClause(input.columns)} FROM ${sql.identifier(
         input.table
       )}${conditionsClause(input.filter, input.conditions)}${orderBy} LIMIT ${input.limit}`
-      return (await db.execute(query)) as unknown as ReadonlyArray<Record<string, unknown>>
+      return await executeRawTyped<Record<string, unknown>>(db, query)
     }),
 
   insert: (input) =>
@@ -108,9 +106,7 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
               entries.map(([, value]) => sql`${value}`),
               sql`, `
             )}) RETURNING id`
-      const result = (await db.execute(query)) as unknown as ReadonlyArray<{
-        readonly id: number | string
-      }>
+      const result = await executeRawTyped<{ readonly id: number | string }>(db, query)
       return result[0]?.id ?? 0
     }),
 
@@ -120,11 +116,12 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
         Object.entries(input.data).map(([key, value]) => sql`${sql.identifier(key)} = ${value}`),
         sql`, `
       )
-      const result = (await db.execute(
+      const result = await executeRawTyped<{ readonly id: number }>(
+        db,
         sql`UPDATE ${sql.identifier(
           input.table
         )} SET ${assignments} WHERE id = ${input.recordId} RETURNING id`
-      )) as unknown as ReadonlyArray<{ readonly id: number }>
+      )
       return result.length > 0
     }),
 
@@ -134,9 +131,10 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
         Object.entries(input.data).map(([key, value]) => sql`${sql.identifier(key)} = ${value}`),
         sql`, `
       )
-      const result = (await db.execute(
+      const result = await executeRawTyped<{ readonly id: number }>(
+        db,
         sql`UPDATE ${sql.identifier(input.table)} SET ${assignments} RETURNING id`
-      )) as unknown as ReadonlyArray<{ readonly id: number }>
+      )
       return result.map((row) => row.id)
     }),
 
@@ -146,9 +144,7 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
         input.filter === undefined
           ? sql`DELETE FROM ${sql.identifier(input.table)} RETURNING id`
           : sql`DELETE FROM ${sql.identifier(input.table)}${whereClause(input.filter)} RETURNING id`
-      const result = (await db.execute(query)) as unknown as ReadonlyArray<{
-        readonly id: number
-      }>
+      const result = await executeRawTyped<{ readonly id: number }>(db, query)
       return result.map((row) => row.id)
     }),
 })

@@ -13,23 +13,27 @@ import {
   TablesOverviewRepository,
   type TableAggregateRow,
 } from '@/application/ports/repositories/tables/tables-overview-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
+import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 
 async function aggregateOneTable(tableName: string): Promise<TableAggregateRow> {
   try {
-    const liveResult = (await db.execute(
+    const liveResult = await executeRawTyped<{ readonly count: number | string }>(
+      db,
       sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE deleted_at IS NULL`
-    )) as unknown as ReadonlyArray<{ readonly count: number | string }>
-    const rowCount = Number(liveResult[0]?.count ?? 0)
+    )
+    const rowCount = toFiniteCount(liveResult[0]?.count)
 
-    const softDeletedResult = (await db.execute(
+    const softDeletedResult = await executeRawTyped<{ readonly count: number | string }>(
+      db,
       sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`
-    )) as unknown as ReadonlyArray<{ readonly count: number | string }>
-    const softDeletedCount = Number(softDeletedResult[0]?.count ?? 0)
+    )
+    const softDeletedCount = toFiniteCount(softDeletedResult[0]?.count)
 
-    const lastWriteResult = (await db.execute(
-      sql`SELECT MAX(updated_at) AS last_write FROM ${sql.identifier(tableName)}`
-    )) as unknown as ReadonlyArray<{ readonly last_write: Date | string | undefined }>
+    const lastWriteResult = await executeRawTyped<{
+      readonly last_write: Date | string | undefined
+    }>(db, sql`SELECT MAX(updated_at) AS last_write FROM ${sql.identifier(tableName)}`)
     const rawLastWrite = lastWriteResult[0]?.last_write
     const lastWriteAt =
       rawLastWrite === undefined || rawLastWrite === null
@@ -58,10 +62,11 @@ const countLiveRowsOne = (tableName: string): Effect.Effect<number, TablesOvervi
   Effect.tryPromise({
     try: async () => {
       try {
-        const result = (await db.execute(
+        const result = await executeRawTyped<{ readonly count: number | string }>(
+          db,
           sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE deleted_at IS NULL`
-        )) as unknown as ReadonlyArray<{ readonly count: number | string }>
-        return Number(result[0]?.count ?? 0)
+        )
+        return toFiniteCount(result[0]?.count)
       } catch {
         return 0
       }
@@ -75,10 +80,11 @@ async function countWritesInWindow(
   end: Readonly<Date>
 ): Promise<number> {
   try {
-    const result = (await db.execute(
+    const result = await executeRawTyped<{ readonly count: number | string }>(
+      db,
       sql`SELECT COUNT(*) AS count FROM ${sql.identifier(tableName)} WHERE updated_at >= ${start.toISOString()} AND updated_at < ${end.toISOString()}`
-    )) as unknown as ReadonlyArray<{ readonly count: number | string }>
-    return Number(result[0]?.count ?? 0)
+    )
+    return toFiniteCount(result[0]?.count)
   } catch {
     return 0
   }

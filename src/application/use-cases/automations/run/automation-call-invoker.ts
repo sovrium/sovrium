@@ -8,6 +8,7 @@
 
 import { Effect } from 'effect'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
+import { logError } from '@/infrastructure/logging/logger'
 import { cryptoRandomId } from './types'
 import type { AutomationInvoker, RunAutomationResult, RunRequirements, StepContext } from './types'
 import type { App } from '@/domain/models/app'
@@ -133,7 +134,7 @@ export const buildAutomationInvoker =
         Effect.runPromise(provideAutomationRuntime(subRun)).then(
           () => undefined,
           (err) => {
-            console.error('[automation] async automation:call run rejected', err)
+            logError('[automation] async automation:call run rejected', err)
           }
         )
         return Promise.resolve({ result: {} })

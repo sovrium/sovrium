@@ -160,14 +160,16 @@ const bootstrapAdminAndToken = (
 ): Effect.Effect<string | undefined, never, AuthRepository | Auth> =>
   Effect.gen(function* () {
     yield* bootstrapAdmin(validatedApp).pipe(
-      Effect.catchAll((error) => logger.warn('Admin bootstrap error', formatBootstrapError(error)))
+      Effect.catchAll((error) =>
+        logger.warn(`Admin bootstrap error: ${formatBootstrapError(error)}`)
+      )
     )
     return yield* runBootstrapTokenFlow(validatedApp).pipe(
       Effect.catchAll((error) => {
         const { cause } = error
         const message = cause instanceof Error ? cause.message : String(cause)
         return Effect.zipRight(
-          logger.warn('Bootstrap token generation skipped', message),
+          logger.warn(`Bootstrap token generation skipped: ${message}`),
           Effect.succeed(undefined)
         )
       })

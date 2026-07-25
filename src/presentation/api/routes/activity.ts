@@ -12,6 +12,8 @@ import {
   ListActivityLogs,
 } from '@/application/use-cases/list-activity-logs'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
 import { provideActivityLive, provideListActivityLogsLive } from './activity/effect-runner'
@@ -89,7 +91,7 @@ async function handleGetActivityById(c: Context) {
 
   const program = GetActivityById(activityId).pipe(provideActivityLive)
 
-  const result = await Effect.runPromise(program.pipe(Effect.either))
+  const result = await runRequestEffect(c, program.pipe(Effect.either))
 
   if (result._tag === 'Left') {
     const error = result.left
@@ -105,7 +107,7 @@ async function handleGetActivityById(c: Context) {
       return c.json({ success: false, message: 'Activity not found', code: 'NOT_FOUND' }, 404)
     }
 
-    console.error('[activity] get-by-id failed', error)
+    logError('[activity] get-by-id failed', error)
     return c.json(
       { success: false, message: 'Failed to fetch activity', code: 'DATABASE_ERROR' },
       500
@@ -227,7 +229,8 @@ async function handleListActivityLogs(c: Context) {
   const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))!
   const { tableName, action, userId, startDate } = parseQueryFilters(c)
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     ListActivityLogs({ userId: session.userId }).pipe(provideListActivityLogsLive, Effect.either)
   )
 

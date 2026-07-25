@@ -25,8 +25,11 @@ import {
   automationsRunsListQuerySchema,
   type AutomationRunAdminItem,
 } from '@/domain/models/api/admin/automations'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminAutomationsLive } from '@/presentation/api/routes/admin/automations/effect-runner'
 import { provideAutomationLive } from '@/presentation/api/routes/automations/effect-runner'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { ReplayAutomationRunError } from '@/application/use-cases/automations/replay-automation-run'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -45,11 +48,16 @@ async function handleAutomationsOverview(c: Context, app: App): Promise<Response
   }
   const period = parsedQuery.data.period ?? '24h'
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildAutomationsOverview(app, period).pipe(provideAdminAutomationsLive)
   )
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] automations overview response validation failed', outcome.error)
+    logError(
+      '[admin] automations overview response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build automations overview', code: 'INTERNAL_ERROR' },
       500
@@ -92,7 +100,8 @@ async function handleListRuns(c: Context, app: App): Promise<Response> {
     return c.json({ success: false, message: 'from > to', code: 'BAD_REQUEST' }, 400)
   }
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildAdminRunsList(app, {
       status: query.status,
       automationName: query.automationName,
@@ -104,7 +113,7 @@ async function handleListRuns(c: Context, app: App): Promise<Response> {
     }).pipe(provideAdminAutomationsLive)
   )
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] automations runs list response validation failed', outcome.error)
+    logError('[admin] automations runs list response validation failed', outcome.error)
     return c.json(
       { success: false, message: 'Failed to build runs list', code: 'INTERNAL_ERROR' },
       500
@@ -136,7 +145,8 @@ async function handleRunDetail(c: Context, app: App): Promise<Response> {
   }
   const { runId } = parsedParams.data
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildAdminRunDetail(app, runId).pipe(provideAdminAutomationsLive)
   )
 
@@ -144,7 +154,11 @@ async function handleRunDetail(c: Context, app: App): Promise<Response> {
     return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
   }
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] automations run detail response validation failed', outcome.error)
+    logError(
+      '[admin] automations run detail response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build run detail', code: 'INTERNAL_ERROR' },
       500
@@ -199,7 +213,8 @@ async function handleRetryRun(c: Context, app: App): Promise<Response> {
     processEnv: process.env,
     userId: session.userId,
   }
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     Effect.either(provideAutomationLive(retryAutomationRun(options)))
   )
   if (result._tag === 'Left') {

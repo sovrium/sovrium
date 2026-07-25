@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { runCronAutomation } from '@/application/use-cases/automations/run-cron-automation'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
+import { logError } from '@/infrastructure/logging/logger'
 import { CronSchedulerLive, disposeCronScheduler } from './cron-scheduler-live'
 import type { App } from '@/domain/models/app'
 
@@ -28,7 +29,7 @@ const buildCronCallback =
     provideAutomationRuntime(runCronAutomation({ name: automation.name, app, processEnv })).pipe(
       Effect.tapError((err) =>
         Effect.sync(() => {
-          console.error('[cron-scheduler] automation run failed', { name: automation.name, err })
+          logError('[cron-scheduler] automation run failed', err, { name: automation.name })
         })
       ),
       Effect.catchAll(() => Effect.void),
@@ -51,9 +52,8 @@ const scheduleOne = (
     .pipe(
       Effect.catchAll((err) =>
         Effect.sync(() => {
-          console.error('[cron-scheduler] failed to schedule automation', {
+          logError('[cron-scheduler] failed to schedule automation', err, {
             name: automation.name,
-            err,
           })
           return automation.name
         })

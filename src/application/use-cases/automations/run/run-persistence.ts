@@ -8,6 +8,7 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import { logError } from '@/infrastructure/logging/logger'
 import { recordAutomationRun, type AutomationRunRecord } from '../run-history-store'
 import { toApiStatus, toApiStepStatus } from './run-status'
 import type { ExecutedStep, RunAccumulator } from './types'
@@ -29,7 +30,7 @@ export const persistQueuedRun = (input: {
       })
     )
     if (result._tag === 'Left') {
-      console.error('[automation] failed to persist queued run row', result.left)
+      logError('[automation] failed to persist queued run row', result.left)
       return undefined
     }
     return result.right.id
@@ -42,7 +43,7 @@ export const markRunRunning = (
     const repo = yield* AutomationRunRepository
     const result = yield* Effect.either(repo.updateStatus({ id: runId, status: 'running' }))
     if (result._tag === 'Left') {
-      console.error('[automation] failed to mark run as running', result.left)
+      logError('[automation] failed to mark run as running', result.left)
     }
   })
 
@@ -99,7 +100,7 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
       })
     )
     if (fallback._tag === 'Left') {
-      console.error('[automation] failed to finalise run (fallback insert)', fallback.left)
+      logError('[automation] failed to finalise run (fallback insert)', fallback.left)
       return undefined
     }
     return fallback.right.id
@@ -121,7 +122,7 @@ export const finaliseRun = (
       })
     )
     if (finalised._tag === 'Left' || finalised.right === undefined) {
-      console.error(
+      logError(
         '[automation] failed to finalise run on existing row; falling back to insert',
         finalised._tag === 'Left' ? finalised.left : 'row missing'
       )

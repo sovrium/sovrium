@@ -22,15 +22,21 @@ import type { SentryDsn } from '@/domain/models/env/telemetry/sentry-dsn'
 
 const RATE_LIMIT = 30
 const RATE_WINDOW_MS = 60_000
-const DEDUP_WINDOW_MS = 60_000
 const POST_TIMEOUT_MS = 3000
 const FLUSH_CAP_MS = 2000
+
+const DEFAULT_DEDUP_WINDOW_MS = 60_000
+const parseDedupWindowMs = (raw: string | undefined): number => {
+  const parsed = raw === undefined ? Number.NaN : Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_DEDUP_WINDOW_MS
+}
+const DEDUP_WINDOW_MS = parseDedupWindowMs(process.env.SENTRY_DEDUP_WINDOW_MS)
 
 
 const metaState = new Map<'meta', EventMeta>()
 const handlerState = new Map<'registered', true>()
 const muteState = new Map<'until', number>()
-const reportedObjects = new WeakSet<object>()
+const reportedObjects = new WeakMap<object, number>()
 const fingerprintSeen = new Map<string, number>()
 const rateWindow = new Map<'all', ReadonlyArray<number>>()
 
@@ -53,7 +59,7 @@ export const reportException = (error: unknown, request?: RequestContext): Promi
 
     const now = Date.now()
     if (isMuted(now)) return Promise.resolve()
-    if (isDuplicateObject(error)) return Promise.resolve()
+    if (isDuplicateObject(error, now)) return Promise.resolve()
     if (isDuplicateFingerprint(error, now)) return Promise.resolve()
     if (!allowByRate(now)) return Promise.resolve()
 
@@ -81,10 +87,11 @@ export const reportTransaction = (name: string, startMs: number, endMs: number):
 
 const isMuted = (now: number): boolean => now < (muteState.get('until') ?? 0)
 
-const isDuplicateObject = (error: unknown): boolean => {
+const isDuplicateObject = (error: unknown, now: number): boolean => {
   if (typeof error !== 'object' || error === null) return false
-  if (reportedObjects.has(error)) return true
-  reportedObjects.add(error)
+  const last = reportedObjects.get(error)
+  if (last !== undefined && now - last < DEDUP_WINDOW_MS) return true
+  reportedObjects.set(error, now)
   return false
 }
 

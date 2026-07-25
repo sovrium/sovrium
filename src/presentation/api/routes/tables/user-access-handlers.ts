@@ -12,6 +12,7 @@ import {
 } from '@/application/ports/repositories/auth/user-access-repository'
 import { validateUserAccessInput } from '@/domain/validators/user-access-validators'
 import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
+import { logError } from '@/infrastructure/logging/logger'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -66,7 +67,7 @@ const respondValidationError = (c: ContextLike, message: string, field?: string)
   )
 
 const respondServerError = (c: ContextLike, error: unknown) => {
-  console.error('[tables] user-access handler failed', error)
+  logError('[tables] user-access handler failed', error)
   return c.json(
     {
       success: false,

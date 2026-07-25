@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { logError, logWarning } from '@/infrastructure/logging/logger'
 import type { Session } from '@/application/ports/models/user-session'
 import type { AdminRoleResolvable } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
@@ -74,7 +75,7 @@ function processSessionResult(
   if (validateSessionBinding(sessionResult.session as Session, currentIP, currentUserAgent)) {
     c.set('session', sessionResult.session as Session)
   } else {
-    console.warn(
+    logWarning(
       `[AUTH] Session binding validation failed: ${JSON.stringify({
         sessionId: sessionResult.session.id,
         expectedIP: sessionResult.session.ipAddress,
@@ -104,7 +105,7 @@ export function authMiddleware(auth: BetterAuthLike) {
         processSessionResult(c, result)
       }
     } catch (error) {
-      console.error('[AUTH] Session extraction failed', error)
+      logError('[AUTH] Session extraction failed', error)
     }
 
     await next()

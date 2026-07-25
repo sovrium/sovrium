@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db } from '@/infrastructure/database'
 import { authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
+import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
   buildAggregationSelects,
   parseAggregationResult,
@@ -39,23 +40,27 @@ export function listRecords(config: {
   }
 }): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   const { tableName, filter, includeDeleted, sort, app } = config
-  return Effect.tryPromise({
-    try: () =>
-      db.transaction(async (tx) => {
-        validateTableName(tableName)
+  return traceDbQuery(
+    'select',
+    tableName,
+    Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          validateTableName(tableName)
 
-        const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
+          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
 
-        const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-        const orderByClause = buildOrderByClause(sort, app, tableName)
+          const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+          const orderByClause = buildOrderByClause(sort, app, tableName)
 
-        return await typedExecute(
-          tx,
-          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}`
-        )
-      }),
-    catch: wrapDatabaseError(`Failed to list records from ${tableName}`),
-  })
+          return await typedExecute(
+            tx,
+            sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}`
+          )
+        }),
+      catch: wrapDatabaseError(`Failed to list records from ${tableName}`),
+    })
+  )
 }
 
 
@@ -84,26 +89,30 @@ export function computeAggregations(config: {
   SessionContextError
 > {
   const { tableName, filter, includeDeleted, aggregate } = config
-  return Effect.tryPromise({
-    try: () =>
-      db.transaction(async (tx) => {
-        validateTableName(tableName)
-        const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
-        const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-        const aggregationSelects = buildAggregationSelects(aggregate)
-        if (aggregationSelects.length === 0) return {}
+  return traceDbQuery(
+    'select',
+    tableName,
+    Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          validateTableName(tableName)
+          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
+          const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+          const aggregationSelects = buildAggregationSelects(aggregate)
+          if (aggregationSelects.length === 0) return {}
 
-        const selectClause = sql.raw(aggregationSelects.join(', '))
-        const rows = await typedExecute(
-          tx,
-          sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
-        )
-        if (rows.length === 0) return {}
+          const selectClause = sql.raw(aggregationSelects.join(', '))
+          const rows = await typedExecute(
+            tx,
+            sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
+          )
+          if (rows.length === 0) return {}
 
-        return parseAggregationResult(rows[0]!, aggregate)
-      }),
-    catch: wrapDatabaseError(`Failed to compute aggregations from ${tableName}`),
-  })
+          return parseAggregationResult(rows[0]!, aggregate)
+        }),
+      catch: wrapDatabaseError(`Failed to compute aggregations from ${tableName}`),
+    })
+  )
 }
 
 function buildAuthorshipSelectFields(authorshipColumns: {
@@ -222,34 +231,38 @@ export function listTrash(config: {
   readonly sort?: string
 }): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   const { tableName, filter, sort } = config
-  return Effect.tryPromise({
-    try: () =>
-      db.transaction(async (tx) => {
-        validateTableName(tableName)
+  return traceDbQuery(
+    'select',
+    tableName,
+    Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          validateTableName(tableName)
 
-        const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
+          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
 
-        if (!hasDeletedAt) {
-          return [] as readonly Record<string, unknown>[]
-        }
+          if (!hasDeletedAt) {
+            return [] as readonly Record<string, unknown>[]
+          }
 
-        const authorshipColumns = await Effect.runPromise(checkAuthorshipColumns(tx, tableName))
+          const authorshipColumns = await Effect.runPromise(checkAuthorshipColumns(tx, tableName))
 
-        const selectFields = buildAuthorshipSelectFields(authorshipColumns)
-        const selectClause = sql.raw(selectFields.join(', '))
-        const initialQuery = sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)} t`
+          const selectFields = buildAuthorshipSelectFields(authorshipColumns)
+          const selectClause = sql.raw(selectFields.join(', '))
+          const initialQuery = sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)} t`
 
-        const queryWithJoins = buildAuthorshipJoins(initialQuery, authorshipColumns)
-        const queryWithWhere = sql`${queryWithJoins} WHERE t.deleted_at IS NOT NULL`
-        const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
-        const query = addTrashSorting(queryWithFilters, sort)
+          const queryWithJoins = buildAuthorshipJoins(initialQuery, authorshipColumns)
+          const queryWithWhere = sql`${queryWithJoins} WHERE t.deleted_at IS NOT NULL`
+          const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
+          const query = addTrashSorting(queryWithFilters, sort)
 
-        const rows = await typedExecute(tx, query)
+          const rows = await typedExecute(tx, query)
 
-        return rows.map(transformRowWithAuthorship)
-      }),
-    catch: wrapDatabaseError(`Failed to list trash from ${tableName}`),
-  })
+          return rows.map(transformRowWithAuthorship)
+        }),
+      catch: wrapDatabaseError(`Failed to list trash from ${tableName}`),
+    })
+  )
 }
 
 export function getRecord(
@@ -258,25 +271,29 @@ export function getRecord(
   recordId: string,
   includeDeleted?: boolean
 ): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
-  return Effect.tryPromise({
-    try: () =>
-      db.transaction(async (tx) => {
-        validateTableName(tableName)
+  return traceDbQuery(
+    'select',
+    tableName,
+    Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          validateTableName(tableName)
 
-        const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
+          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
 
-        const whereClause =
-          hasDeletedAt && !includeDeleted
-            ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
-            : sql` WHERE id = ${recordId}`
+          const whereClause =
+            hasDeletedAt && !includeDeleted
+              ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
+              : sql` WHERE id = ${recordId}`
 
-        const rows = await typedExecute(
-          tx,
-          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
-        )
+          const rows = await typedExecute(
+            tx,
+            sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
+          )
 
-        return rows[0] ?? null
-      }),
-    catch: wrapDatabaseError(`Failed to get record ${recordId} from ${tableName}`),
-  })
+          return rows[0] ?? null
+        }),
+      catch: wrapDatabaseError(`Failed to get record ${recordId} from ${tableName}`),
+    })
+  )
 }

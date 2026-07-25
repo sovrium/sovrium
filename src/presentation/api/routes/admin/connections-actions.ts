@@ -14,6 +14,7 @@ import {
   type OAuthStateEntry,
 } from '@/application/ports/services/oauth-state-store'
 import { generateCodeVerifier, generateOAuthState } from '@/domain/utils/auth/pkce'
+import { logError } from '@/infrastructure/logging/logger'
 import { provideAdminConnectionsLive } from '@/presentation/api/routes/admin/connections/effect-runner'
 import {
   buildAuthorizeUrl,
@@ -28,6 +29,7 @@ import {
   type OAuth2Props,
 } from '@/presentation/api/routes/connections/oauth2-props'
 import { requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -76,7 +78,7 @@ const lookupConnection = async (
     })
   )
   if (result._tag === 'Left') {
-    console.error('[admin] connection lookup failed', result.left)
+    logError('[admin] connection lookup failed', result.left, requestLogAttributes(c))
     return { _tag: 'Failed', response: actionError(c, 500, 'connection_lookup_failed') }
   }
   return result.right === undefined ? { _tag: 'Missing' } : { _tag: 'Found', row: result.right }
@@ -152,7 +154,11 @@ async function handleAuthorize(c: Context, app: App): Promise<Response> {
     })
   )
   if (saveResult._tag === 'Left') {
-    console.error('[admin] connection authorize state save failed', saveResult.left)
+    logError(
+      '[admin] connection authorize state save failed',
+      saveResult.left,
+      requestLogAttributes(c)
+    )
     return actionError(c, 500, 'state_save_failed')
   }
 
@@ -205,7 +211,11 @@ const consumeCallbackState = async (
     })
   )
   if (consume._tag === 'Left') {
-    console.error('[admin] connection callback state consume failed', consume.left)
+    logError(
+      '[admin] connection callback state consume failed',
+      consume.left,
+      requestLogAttributes(c)
+    )
     return { response: actionError(c, 500, 'state_consume_failed') }
   }
   const entry = consume.right
@@ -300,7 +310,11 @@ async function handleCallback(c: Context, app: App): Promise<Response> {
     })
   )
   if (persistResult._tag === 'Left') {
-    console.error('[admin] connection callback token persistence failed', persistResult.left)
+    logError(
+      '[admin] connection callback token persistence failed',
+      persistResult.left,
+      requestLogAttributes(c)
+    )
     return actionError(c, 500, 'token_persistence_failed')
   }
 
@@ -337,7 +351,7 @@ async function handleDisconnect(c: Context): Promise<Response> {
     })
   )
   if (result._tag === 'Left') {
-    console.error('[admin] connection disconnect failed', result.left)
+    logError('[admin] connection disconnect failed', result.left, requestLogAttributes(c))
     return actionError(c, 500, 'disconnect_failed')
   }
   if (!result.right.found) return actionError(c, 404, 'connection_not_found')

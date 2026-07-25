@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import { SearchCommandPalette } from '@/application/use-cases/command-search'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideCommandSearchLive } from '@/presentation/api/routes/command-search/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
@@ -20,7 +20,8 @@ const buildSearchHandler =
     const query = (c.req.query('q') ?? '').trim()
     if (query.length === 0) return c.json([], 200)
 
-    const results = await Effect.runPromise(
+    const results = await runRequestEffect(
+      c,
       SearchCommandPalette(app, query, session?.userId).pipe(provideCommandSearchLive)
     )
 

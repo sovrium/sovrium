@@ -10,7 +10,7 @@ import { sql } from 'drizzle-orm'
 import { type Context } from 'hono'
 import { db } from '@/infrastructure/database'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
-import { logWarning } from '@/infrastructure/logging/logger'
+import { logError } from '@/infrastructure/logging/logger'
 import type { McpCaller, McpCallerRole } from '@/infrastructure/server/route-setup/mcp/auth'
 
 
@@ -71,11 +71,7 @@ const insertAuditRow = async (input: {
           )`
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    const cause = error instanceof Error && error.cause instanceof Error ? error.cause.message : ''
-    logWarning(
-      `[mcp-audit] failed to persist tool-call audit row: ${message}${cause ? ` | cause: ${cause}` : ''}`
-    )
+    logError('[mcp-audit] failed to persist tool-call audit row', error)
   }
 }
 

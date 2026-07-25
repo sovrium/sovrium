@@ -76,7 +76,6 @@ export const recordMigration = (
   app: App
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    logDebug('[recordMigration] Recording migration in history table...')
     const checksum = generateSchemaChecksum(app)
     const schemaSnapshot = createSchemaSnapshot(app)
 
@@ -87,7 +86,6 @@ export const recordMigration = (
     const versionResult = yield* executeSQL(tx, versionQuery)
     const nextVersion =
       (versionResult[0] as { next_version: number } | undefined)?.next_version ?? 1
-    logDebug(`[recordMigration] Next version: ${nextVersion}`)
 
     const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
     const insertSQL = `
@@ -95,7 +93,7 @@ export const recordMigration = (
       VALUES (${nextVersion}, '${checksum}', '${escapedSchema}')
     `
     yield* executeSQL(tx, insertSQL)
-    logDebug('[recordMigration] Migration recorded successfully')
+    logDebug('[migrations] migration recorded', { version: String(nextVersion) })
   })
 
 export const logRollbackOperation = (
@@ -103,14 +101,13 @@ export const logRollbackOperation = (
   reason: string
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    logDebug('[logRollbackOperation] Logging rollback operation...')
     const escapedReason = escapeSqlString(reason)
     const insertSQL = `
       INSERT INTO ${MIGRATION_LOG_TABLE} (operation, reason, status)
       VALUES ('ROLLBACK', '${escapedReason}', 'COMPLETED')
     `
     yield* executeSQL(tx, insertSQL)
-    logDebug('[logRollbackOperation] Rollback operation logged')
+    logDebug('[migrations] rollback operation logged')
   })
 
 export const storeSchemaChecksum = (
@@ -118,7 +115,6 @@ export const storeSchemaChecksum = (
   app: App
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    logDebug('[storeSchemaChecksum] Storing schema checksum...')
     const checksum = generateSchemaChecksum(app)
     const schemaSnapshot = createSchemaSnapshot(app)
 
@@ -133,27 +129,24 @@ export const storeSchemaChecksum = (
       DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = ${now}
     `
     yield* executeSQL(tx, upsertSQL)
-    logDebug('[storeSchemaChecksum] Schema checksum stored successfully')
+    logDebug('[migrations] schema checksum stored')
   })
 
 export const getPreviousSchema = (
   tx: TransactionLike
 ): Effect.Effect<{ readonly tables: readonly object[] } | undefined, SQLExecutionError> =>
   Effect.gen(function* () {
-    logDebug('[getPreviousSchema] Retrieving previous schema...')
-
     const selectSQL = `SELECT schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
 
     if (!result || result.length === 0) {
-      logDebug('[getPreviousSchema] No previous schema found')
+      logDebug('[migrations] no previous schema found')
       return undefined
     }
 
     const schemaData = normalizeStoredSchema(
       (result[0] as { schema?: unknown } | undefined)?.schema
     )
-    logDebug('[getPreviousSchema] Previous schema retrieved successfully')
     return schemaData
   })
 
@@ -161,13 +154,11 @@ export const getStoredChecksum = (
   tx: TransactionLike
 ): Effect.Effect<string | undefined, SQLExecutionError> =>
   Effect.gen(function* () {
-    logDebug('[getStoredChecksum] Retrieving stored checksum...')
-
     const tableExistsResult = yield* executeSQL(tx, systemObjectExistsSql('schema_checksum'))
     const tableExists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists
 
     if (!tableExists) {
-      logDebug('[getStoredChecksum] Checksum table does not exist')
+      logDebug('[migrations] checksum table does not exist')
       return undefined
     }
 
@@ -175,12 +166,11 @@ export const getStoredChecksum = (
     const result = yield* executeSQL(tx, selectSQL)
 
     if (!result || result.length === 0) {
-      logDebug('[getStoredChecksum] No stored checksum found')
+      logDebug('[migrations] no stored checksum found')
       return undefined
     }
 
     const storedChecksum = (result[0] as { checksum: string } | undefined)?.checksum
-    logDebug(`[getStoredChecksum] Retrieved checksum: ${storedChecksum}`)
     return storedChecksum
   })
 
@@ -216,17 +206,15 @@ export const validateStoredChecksum = (
   tx: TransactionLike
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    logDebug('[validateStoredChecksum] Validating stored checksum...')
-
     const tableExists = yield* checksumTableExists(tx)
     if (!tableExists) {
-      logDebug('[validateStoredChecksum] Checksum table does not exist - skipping validation')
+      logDebug('[migrations] checksum table missing — skipping validation')
       return
     }
 
     const row = yield* getStoredChecksumData(tx)
     if (!row) {
-      logDebug('[validateStoredChecksum] No stored checksum found - skipping validation')
+      logDebug('[migrations] no stored checksum — skipping validation')
       return
     }
 
@@ -234,13 +222,9 @@ export const validateStoredChecksum = (
     const storedSchema = row.schema
     const recalculatedChecksum = calculateChecksum(storedSchema.tables)
 
-    logDebug(`[validateStoredChecksum] Stored checksum: ${storedChecksum}`)
-    logDebug(`[validateStoredChecksum] Recalculated checksum: ${recalculatedChecksum}`)
-
     if (storedChecksum !== recalculatedChecksum) {
       const errorMsg =
         'Schema drift detected: checksum mismatch. The stored checksum does not match the recalculated checksum from the stored schema. This indicates database tampering or corruption.'
-      logDebug(`[validateStoredChecksum] ${errorMsg}`)
       return yield* new SQLExecutionError({
         message: errorMsg,
         sql: 'validateStoredChecksum',
@@ -248,5 +232,5 @@ export const validateStoredChecksum = (
       })
     }
 
-    logDebug('[validateStoredChecksum] Checksum validation passed')
+    logDebug('[migrations] checksum validation passed')
   })

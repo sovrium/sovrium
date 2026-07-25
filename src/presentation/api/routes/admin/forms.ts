@@ -6,7 +6,6 @@
  */
 
 
-import { Effect } from 'effect'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import {
   BuildFormDetail,
@@ -26,7 +25,10 @@ import {
   tooManyIdsErrorSchema,
 } from '@/domain/models/api/admin/forms/submissions-bulk'
 import { formsSubmissionsListQuerySchema } from '@/domain/models/api/admin/forms/submissions-list'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminFormsLive } from '@/presentation/api/routes/admin/forms/effect-runner'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
@@ -65,11 +67,16 @@ async function handleListForms(c: FormsRouteContext, resolveApp: () => App): Pro
   const app = resolveApp()
   const { cursor, limit, search } = parseFormsListQuery(c)
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildFormsList(app, { cursor, limit, search }).pipe(provideAdminFormsLive)
   )
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] forms list response validation failed', outcome.error)
+    logError(
+      '[admin] forms list response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build forms list', code: 'INTERNAL_ERROR' },
       500
@@ -96,14 +103,19 @@ async function handleFormDetail(c: FormsRouteContext, resolveApp: () => App): Pr
     return c.json({ success: false, message: 'Invalid form name', code: 'BAD_REQUEST' }, 400)
   }
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildFormDetail(app, formName).pipe(provideAdminFormsLive)
   )
   if (outcome._tag === 'NotFound') {
     return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
   }
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] form detail response validation failed', outcome.error)
+    logError(
+      '[admin] form detail response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build form detail', code: 'INTERNAL_ERROR' },
       500
@@ -149,7 +161,8 @@ async function handleListSubmissions(
   }
   const query = parsedQuery.data
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildSubmissionsList({
       formName,
       includeDeleted: query.include_deleted,
@@ -161,7 +174,11 @@ async function handleListSubmissions(
     }).pipe(provideAdminFormsLive)
   )
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] submissions list response validation failed', outcome.error)
+    logError(
+      '[admin] submissions list response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build submissions list', code: 'INTERNAL_ERROR' },
       500
@@ -207,7 +224,8 @@ async function handleSubmissionDetail(
   const isAdmin = actor.role === 'admin'
   const captureAllowed = process.env['ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED'] === 'true'
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildSubmissionDetail({
       formName,
       submissionId,
@@ -224,7 +242,11 @@ async function handleSubmissionDetail(
     return c.json(bodyCaptureDisabledErrorSchema.parse({ error: 'body-capture-disabled' }), 403)
   }
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] submission detail response validation failed', outcome.error)
+    logError(
+      '[admin] submission detail response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build submission detail', code: 'INTERNAL_ERROR' },
       500
@@ -282,11 +304,16 @@ async function handleSubmissionsBulk(
     return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
   }
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     BuildSubmissionsBulk(formName, requestIds).pipe(provideAdminFormsLive)
   )
   if (outcome._tag === 'ValidationFailed') {
-    console.error('[admin] submissions bulk response validation failed', outcome.error)
+    logError(
+      '[admin] submissions bulk response validation failed',
+      outcome.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build bulk response', code: 'INTERNAL_ERROR' },
       500

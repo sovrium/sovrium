@@ -26,6 +26,7 @@ import {
   type AutomationRunRecord,
 } from '@/application/use-cases/automations/run-history-store'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideAutomationLive } from './effect-runner'
 import { chainRunControlRoutes } from './runs-handlers'
@@ -137,7 +138,7 @@ async function handleManualTrigger(c: Context, app: App) {
     body,
     userId: session?.userId,
   })
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
 
   if (result._tag === 'Left') {
     return manualTriggerErrorResponse(c, result.left)
@@ -189,7 +190,7 @@ async function handleListRunsByName(c: Context, app: App) {
     )
   })
 
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
   if (result._tag === 'Right' && result.right.length > 0) {
     return c.json(result.right, 200)
   }
@@ -219,7 +220,7 @@ async function handleListRuns(c: Context, app: App) {
     return { ...result, stepsPerRun }
   })
 
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
   if (result._tag === 'Right') {
     const { runs, total, stepsPerRun } = result.right
     const runsBody = {
@@ -339,7 +340,8 @@ async function handleGetRunDetail(c: Context, app: App) {
     return c.json({ success: false, message: 'Run id required' }, 400)
   }
 
-  const dbResult = await Effect.runPromise(
+  const dbResult = await runRequestEffect(
+    c,
     Effect.either(provideAutomationLive(loadDbRunDetail(id)))
   )
   if (dbResult._tag === 'Right' && dbResult.right !== undefined) {
@@ -377,7 +379,7 @@ async function handleFormAction(c: Context, app: App) {
     userId: session?.userId,
   })
 
-  const result = await Effect.runPromise(provideAutomationLive(program))
+  const result = await runRequestEffect(c, provideAutomationLive(program))
   if (result === undefined) {
     return c.json({ success: false, message: 'Automation dispatch failed' }, 500)
   }
@@ -419,7 +421,7 @@ async function handleReplayRun(c: Context, app: App) {
     processEnv: process.env,
     ...(overrideTriggerData !== undefined ? { triggerData: overrideTriggerData } : {}),
   })
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
 
   if (result._tag === 'Left') {
     return replayErrorResponse(c, result.left)

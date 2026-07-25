@@ -7,6 +7,7 @@
 
 import { Effect, Data } from 'effect'
 import { bodyLimit } from 'hono/body-limit'
+import { HTTPException } from 'hono/http-exception'
 import { timeout } from 'hono/timeout'
 import {
   healthResponseSchema,
@@ -201,7 +202,10 @@ const applyRequestGuards = (honoApp: Hono): Hono => {
   const timeoutMs = envInt('API_TIMEOUT_MS', 30_000)
   const bodyLimitBytes = envInt('API_BODY_LIMIT_BYTES', 25 * 1024 * 1024)
 
-  const timeoutMiddleware = timeout(timeoutMs)
+  const timeoutMiddleware = timeout(
+    timeoutMs,
+    () => new HTTPException(504, { message: 'Gateway Timeout' })
+  )
 
   return honoApp
     .use('/api/*', async (c, next) => {

@@ -17,6 +17,7 @@ import {
 import { db } from '@/infrastructure/database'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { logError } from '@/infrastructure/logging/logger'
 import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
 import type { RagAgent } from './rag-agent-input'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
@@ -195,7 +196,7 @@ export const runSyncKnowledgeAtStartup = async (input: {
     .filter((agent) => agent.tables.length > 0)
   if (agents.length === 0) return
   await runSyncKnowledge(agents).catch((error: unknown) => {
-    console.warn('[ai-rag] knowledge sync failed:', error)
+    logError('[ai-rag] knowledge sync failed', error)
   })
 }
 

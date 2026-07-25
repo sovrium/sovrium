@@ -14,7 +14,10 @@ import {
 } from '@/application/use-cases/admin/connections'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminConnectionsLive } from '@/presentation/api/routes/admin/connections/effect-runner'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -30,15 +33,20 @@ const CONNECTION_LIST_RESOURCE_ID = 'connections'
 async function handleListConnections(c: Context): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     BuildConnectionsList().pipe(provideAdminConnectionsLive, Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[admin] connection-list lookup failed', result.left)
+    logError('[admin] connection-list lookup failed', result.left, requestLogAttributes(c))
     return c.json(INTERNAL_ERROR, 500)
   }
   if (result.right._tag === 'ValidationFailed') {
-    console.error('[admin] connection-list response validation failed', result.right.error)
+    logError(
+      '[admin] connection-list response validation failed',
+      result.right.error,
+      requestLogAttributes(c)
+    )
     return c.json(INTERNAL_ERROR, 500)
   }
 
@@ -60,18 +68,23 @@ async function handleConnectionDetail(c: Context): Promise<Response> {
   const id = c.req.param('id')
   if (!id) return c.json(NOT_FOUND, 404)
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     BuildConnectionDetail(id).pipe(provideAdminConnectionsLive, Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[admin] connection-detail lookup failed', result.left)
+    logError('[admin] connection-detail lookup failed', result.left, requestLogAttributes(c))
     return c.json(INTERNAL_ERROR, 500)
   }
   if (result.right._tag === 'NotFound') {
     return c.json(NOT_FOUND, 404)
   }
   if (result.right._tag === 'ValidationFailed') {
-    console.error('[admin] connection-detail response validation failed', result.right.error)
+    logError(
+      '[admin] connection-detail response validation failed',
+      result.right.error,
+      requestLogAttributes(c)
+    )
     return c.json(INTERNAL_ERROR, 500)
   }
 

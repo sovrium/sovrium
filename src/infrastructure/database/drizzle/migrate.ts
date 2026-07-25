@@ -152,11 +152,9 @@ export const runMigrations = (
   config: DatabaseDialectConfig
 ): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
-    logDebug(`[Migrations] Running Drizzle migrations (${config.dialect})...`)
-
     yield* config.dialect === 'postgres'
       ? runPostgresMigrations(config.databaseUrl)
       : runSqliteMigrations(config.path)
 
-    logDebug('[Migrations] Drizzle migrations completed')
+    logDebug('[migrations] migrations applied', { dialect: config.dialect })
   })

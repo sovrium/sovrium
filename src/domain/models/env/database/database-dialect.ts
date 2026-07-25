@@ -93,5 +93,13 @@ export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
   })
 }
 
+const DEFAULT_DATABASE_POOL_MAX = 10
+
+export const resolveDatabasePoolMax = (): number => {
+  const raw = process.env.DATABASE_POOL_MAX
+  const parsed = raw === undefined ? Number.NaN : Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_DATABASE_POOL_MAX
+}
+
 export const resolveRuntimeLabel = (): SovriumRuntimeLabel =>
   parseDatabaseDialectConfig().dialect === 'postgres' ? 'postgres' : 'sqlite-aio'

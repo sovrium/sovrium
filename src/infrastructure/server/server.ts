@@ -10,6 +10,7 @@ import { readFileSync, rmSync } from 'node:fs'
 import { Effect, Config } from 'effect'
 import { Hono } from 'hono'
 import { websocket } from 'hono/bun'
+import { HTTPException } from 'hono/http-exception'
 import { requestId } from 'hono/request-id'
 import { AiService } from '@/application/ports/services/ai-service'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
@@ -43,6 +44,7 @@ import { isIpHashSaltConfigured } from '@/infrastructure/forms/ip-hash'
 import {
   logDebug,
   logError,
+  logInfo,
   logWarning,
   renderStartupSummary,
   type StartupPhase,
@@ -94,6 +96,7 @@ import { shutdownTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
 import type { ServerInstance } from '@/application/models/server'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
+import type { ApiErrorCode } from '@/domain/models/api/_shared/error'
 import type { App } from '@/domain/models/app'
 import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import type { SessionInfo } from '@/domain/types/session-info'
@@ -243,9 +246,48 @@ export async function createHonoApp(
         url: c.req.url,
         headers: Object.fromEntries(c.req.raw.headers.entries()),
       })
-      logError(`[SERVER] ${c.req.method} ${c.req.path} → 500`, error)
-      return c.html(await renderErrorPage(app), 500)
+
+      const status = error instanceof HTTPException ? error.status : 500
+      logError(`[SERVER] ${c.req.method} ${c.req.path} → ${status}`, error)
+
+      if (isApiPath(c.req.path)) {
+        return c.json(
+          {
+            success: false,
+            message: apiErrorMessage(error, status),
+            code: apiErrorCodeForStatus(status),
+          },
+          status
+        )
+      }
+
+      if (error instanceof HTTPException && error.res !== undefined) {
+        return error.getResponse()
+      }
+      return c.html(await renderErrorPage(app), status)
     })
+}
+
+const isApiPath = (path: string): boolean => path === '/api' || path.startsWith('/api/')
+
+const API_ERROR_CODE_BY_STATUS: Readonly<Record<number, ApiErrorCode>> = {
+  400: 'BAD_REQUEST',
+  401: 'UNAUTHORIZED',
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+  409: 'CONFLICT',
+  413: 'PAYLOAD_TOO_LARGE',
+  429: 'RATE_LIMITED',
+  503: 'SERVICE_UNAVAILABLE',
+  504: 'SERVICE_UNAVAILABLE',
+}
+
+const apiErrorCodeForStatus = (status: number): ApiErrorCode =>
+  API_ERROR_CODE_BY_STATUS[status] ?? 'INTERNAL_ERROR'
+
+const apiErrorMessage = (error: unknown, status: number): string => {
+  if (error instanceof HTTPException && error.message.length > 0) return error.message
+  return status === 500 ? 'Internal server error' : 'Request failed'
 }
 
 const parsePort = (value: string | undefined): number | undefined => {
@@ -259,13 +301,13 @@ const createStopEffect = (
   aiComputeListener?: Readonly<AiComputeListener>
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    logDebug('Stopping server...')
+    logDebug('[server] stopping...')
     disposeCronScheduler()
     if (aiComputeListener) yield* Effect.promise(() => aiComputeListener.stop().catch(() => {}))
     yield* Effect.promise(() => stopAiKnowledgeListener().catch(() => {}))
     yield* Effect.promise(() => shutdownTelemetry().catch(() => {}))
     yield* Effect.promise(() => server.stop())
-    logDebug('Server stopped')
+    logInfo('[server] stopped')
   })
 
 const getDatabaseUrl = (): Effect.Effect<string, never> =>
@@ -561,6 +603,7 @@ export const createServer = (
       yield* writeLockFile(server.port, configHash, configPath)
       registerLockFileCleanup(honoApp, configPath)
       yield* renderStartup(phases, url, durationMs, config.bootstrapToken)
+      logInfo(`[server] listening on ${url}`)
     }
 
     return {

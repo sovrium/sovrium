@@ -10,6 +10,7 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
+import { logError } from '@/infrastructure/logging/logger'
 import type { ActorRole, ActorType } from '@/domain/models/api/admin/_shared/actor'
 import type { Severity } from '@/domain/models/api/admin/_shared/severity'
 import type {
@@ -77,11 +78,10 @@ export async function appendAuditEntryToDb(entry: Readonly<AuditLogEntry>): Prom
   try {
     await db.insert(auditLog).values(rowFromEntry(entry))
   } catch (error) {
-    console.warn(
-      `[audit-log] failed to persist entry ${entry.id} (${entry.action}): ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    )
+    logError('[audit-log] failed to persist entry', error, {
+      id: entry.id,
+      action: entry.action,
+    })
   }
 }
 
@@ -116,9 +116,7 @@ export async function listAuditEntriesFromDb(
 
     return rows.map((row) => rowToEntry(row as AuditLogRow))
   } catch (error) {
-    console.warn(
-      `[audit-log] failed to read entries: ${error instanceof Error ? error.message : String(error)}`
-    )
+    logError('[audit-log] failed to read entries', error)
     return []
   }
 }
@@ -128,9 +126,7 @@ export async function clearAuditLogTable(): Promise<void> {
     await db.delete(auditLog).where(sql`true`)
   } catch (error) {
     if (isMissingTableError(error)) return
-    console.warn(
-      `[audit-log] failed to clear table: ${error instanceof Error ? error.message : String(error)}`
-    )
+    logError('[audit-log] failed to clear table', error)
   }
 }
 

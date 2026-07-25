@@ -75,20 +75,12 @@ const ensureAuthPrerequisites = (
   hasAuthConfig: boolean
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    logDebug('[executeSchemaInit] Checking if Better Auth users table is needed...')
     const needs = needsUsersTable(tables)
-    logDebug(`[executeSchemaInit] needsUsersTable: ${needs}`)
-    logDebug(`[executeSchemaInit] hasAuthConfig: ${hasAuthConfig}`)
 
     if (needs && hasAuthConfig) {
-      logDebug('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
       yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
     } else if (needs && !hasAuthConfig) {
-      logDebug(
-        '[executeSchemaInit] User fields present but auth not configured - fields will be NULL'
-      )
-    } else {
-      logDebug('[executeSchemaInit] Better Auth users table not needed')
+      logDebug('[schema] user fields present but auth not configured — authorship will be NULL')
     }
 
     if (needsUpdatedByTrigger(tables)) {
@@ -218,7 +210,7 @@ const createMigrateTables = (
         ? lookupViewModule.getBaseTableName(sanitized)
         : sanitized
       const exists = yield* tableExists(tx, physicalTableName)
-      logDebug(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
+      logDebug('[schema] create/migrate table', { table: table.name, exists: String(exists) })
       yield* createOrMigrateTableEffect({
         tx,
         table,
@@ -229,7 +221,6 @@ const createMigrateTables = (
         skipForeignKeys: circularTables.has(table.name),
         hasAuthConfig,
       })
-      logDebug(`[Created/migrated table] ${table.name}`)
     }
   })
 
@@ -241,10 +232,9 @@ const addCircularFKConstraints = (
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     if (circularTables.size === 0) return
-    logDebug(`[Adding FK constraints for circular dependencies]`)
+    logDebug('[schema] adding FK constraints for circular dependencies')
     for (const table of sortedTables.filter((t) => circularTables.has(t.name))) {
       yield* syncForeignKeyConstraints(tx, table, tableUsesView)
-      logDebug(`[Added FK constraints] ${table.name}`)
     }
   })
 
@@ -270,13 +260,11 @@ const createJunctionTables = (
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     if (junctionTableSpecs.size === 0) return
-    logDebug(`[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`)
+    logDebug('[schema] creating junction tables', {
+      tables: Array.from(junctionTableSpecs.keys()).join(', '),
+    })
     yield* Effect.all(
-      Array.from(junctionTableSpecs.values()).map((spec) =>
-        executeSQL(tx, spec.ddl).pipe(
-          Effect.tap(() => logDebug(`[Created junction table] ${spec.name}`))
-        )
-      ),
+      Array.from(junctionTableSpecs.values()).map((spec) => executeSQL(tx, spec.ddl)),
       { concurrency: 'unbounded' }
     )
   })
@@ -334,11 +322,15 @@ const executeMigrationSteps = (
     const tableUsesView = buildTableUsesViewMap(tables, lookupViewGenerators)
     const circularTables = detectCircularDependenciesWithOptionalFK(tables)
     if (circularTables.size > 0) {
-      logDebug(`[Circular dependencies detected] ${Array.from(circularTables).join(', ')}`)
+      logDebug('[schema] circular dependencies detected', {
+        tables: Array.from(circularTables).join(', '),
+      })
     }
 
     const sortedTables = sortTablesByDependencies(tables)
-    logDebug(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
+    logDebug('[schema] table creation order', {
+      order: sortedTables.map((t) => t.name).join(' → '),
+    })
 
     const tablesForCreation = applySchemaDefaults(sortedTables, app)
 
@@ -377,7 +369,6 @@ const cleanupObsoleteViews = (
   tables: readonly Table[]
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
-    logDebug('[Schema] Schema unchanged, cleaning up obsolete views...')
     if (dialectConfig.dialect === 'sqlite') {
       const sqliteDb = openSqliteDdlDatabase(dialectConfig.path)
       try {
@@ -414,28 +405,16 @@ const cleanupObsoleteViews = (
         yield* Effect.promise(() => db.close())
       }
     }
-    logDebug('[Schema] Schema unchanged, view cleanup complete')
+    logDebug('[schema] obsolete views cleaned up (schema unchanged)')
   })
 
 const initializeSchemaInternal = (
   app: App
 ): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
   Effect.gen(function* () {
-    logDebug('[initializeSchemaInternal] Starting schema initialization...')
-    logDebug(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
-
     const tables = app.tables ?? []
 
-    const tablesNeedUsersTable = needsUsersTable(tables)
-    const hasAuthConfig = !!app.auth
-    logDebug(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
-    logDebug(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
-
-
     const dialectConfig = parseDatabaseDialectConfig()
-    logDebug(`[initializeSchemaInternal] Database dialect: ${dialectConfig.dialect}`)
-
-    logDebug('[Schema] Initializing database schema...')
 
     const currentChecksum = generateSchemaChecksum(app)
     const shouldSkipMigration = yield* checkShouldSkipMigration(
@@ -452,7 +431,7 @@ const initializeSchemaInternal = (
 
     yield* executeSchemaInit(dialectConfig, tables, app, executeMigrationSteps)
 
-    logDebug('[Schema] Database schema initialized successfully')
+    logDebug('[schema] database schema initialized')
   })
 
 export const initializeSchema = (

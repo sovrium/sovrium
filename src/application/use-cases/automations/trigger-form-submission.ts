@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
+import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'
@@ -75,7 +76,7 @@ const advanceLedgerStatus = (
       .pipe(
         Effect.catchAllCause((cause) =>
           Effect.sync(() => {
-            console.error('[automation:form-submission] ledger updateStatus failure', cause)
+            logError('[automation:form-submission] ledger updateStatus failure', cause)
           })
         )
       )
@@ -116,7 +117,7 @@ export const triggerFormSubmissionAutomations = (
   }).pipe(
     Effect.catchAllCause((cause) =>
       Effect.sync(() => {
-        console.error('[automation:form-submission] dispatch failure', cause)
+        logError('[automation:form-submission] dispatch failure', cause)
       })
     )
   )

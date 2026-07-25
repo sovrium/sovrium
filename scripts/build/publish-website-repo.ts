@@ -67,7 +67,6 @@ export const FORBIDDEN_PATHS = [
 export const FORBIDDEN_CONTENT = [
   'git.sovrium.com',
   'forgejo',
-  'scaleway',
   'sovrium-runner',
   'sovrium-git',
   'TDD_BOT',

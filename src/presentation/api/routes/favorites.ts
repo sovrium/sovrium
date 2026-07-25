@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import {
   AddFavorite,
   ListFavorites,
   RemoveFavorite,
 } from '@/application/use-cases/user-entity-lists'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideUserEntityListsLive } from '@/presentation/api/routes/favorites/effect-runner'
 import { parseEntityMutationBody } from '@/presentation/api/routes/user-entity-lists'
 import { unauthorized } from '@/presentation/api/utils/auth-helpers'
@@ -25,7 +25,8 @@ const handleList = async (c: Context) => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
 
-  const visible = await Effect.runPromise(
+  const visible = await runRequestEffect(
+    c,
     ListFavorites(session.userId).pipe(provideUserEntityListsLive)
   )
 
@@ -40,7 +41,7 @@ const handleAdd = async (c: Context) => {
   const input = parseEntityMutationBody(body)
   if (!input) return badRequest(c)
 
-  await Effect.runPromise(AddFavorite(session.userId, input).pipe(provideUserEntityListsLive))
+  await runRequestEffect(c, AddFavorite(session.userId, input).pipe(provideUserEntityListsLive))
   return c.json({ success: true }, 201)
 }
 
@@ -52,7 +53,7 @@ const handleRemove = async (c: Context) => {
   const input = parseEntityMutationBody(body)
   if (!input) return badRequest(c)
 
-  await Effect.runPromise(RemoveFavorite(session.userId, input).pipe(provideUserEntityListsLive))
+  await runRequestEffect(c, RemoveFavorite(session.userId, input).pipe(provideUserEntityListsLive))
 
   return c.json({ success: true }, 200)
 }

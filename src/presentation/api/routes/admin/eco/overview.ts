@@ -14,8 +14,10 @@ import {
 } from '@/application/use-cases/admin/eco/get-eco-overview'
 import { ecoOverviewResponseSchema } from '@/domain/models/api/admin/eco/overview'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { logError } from '@/infrastructure/logging/logger'
 import { readEcoIndexTrackerSnapshot } from '@/infrastructure/utils/eco-index-tracker'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -61,7 +63,11 @@ export function createHandleGetEcoOverview(app: App) {
 
     const parsed = ecoOverviewResponseSchema.safeParse(response)
     if (!parsed.success) {
-      console.error('[admin] eco/overview response validation failed', parsed.error)
+      logError(
+        '[admin] eco/overview response validation failed',
+        parsed.error,
+        requestLogAttributes(c)
+      )
       return c.json(
         { success: false, message: 'Failed to build eco overview', code: 'INTERNAL_ERROR' },
         500

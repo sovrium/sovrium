@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { SessionContextError } from '@/domain/errors'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
@@ -171,7 +172,7 @@ export async function checkRestrictConstraint(
         sql`SELECT COUNT(*) as count FROM ${sql.identifier(relatedInfo.tableName)} WHERE ${sql.identifier(relatedInfo.fieldName)} = ${recordId}`
       )
 
-      return Number(result[0]?.count ?? 0) > 0
+      return toFiniteCount(result[0]?.count) > 0
     })
   )
 

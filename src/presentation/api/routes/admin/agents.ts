@@ -15,8 +15,11 @@ import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { agentConversationsListQuerySchema } from '@/domain/models/api/admin/agents/conversations'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminAgentConversationsLive } from '@/presentation/api/routes/admin/agents/effect-runner'
 import { hasAgent } from '@/presentation/api/routes/agents/agent-lookup'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
@@ -57,15 +60,20 @@ async function handleListConversations(c: Context, app: App): Promise<Response> 
     limit,
   })
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     program.pipe(provideAdminAgentConversationsLive, Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[admin] agent conversation-list lookup failed', result.left)
+    logError('[admin] agent conversation-list lookup failed', result.left, requestLogAttributes(c))
     return c.json(INTERNAL_ERROR, 500)
   }
   if (result.right._tag === 'ValidationFailed') {
-    console.error('[admin] agent conversation-list response validation failed', result.right.error)
+    logError(
+      '[admin] agent conversation-list response validation failed',
+      result.right.error,
+      requestLogAttributes(c)
+    )
     return c.json(INTERNAL_ERROR, 500)
   }
 
@@ -90,20 +98,26 @@ async function handleConversationDetail(c: Context, app: App): Promise<Response>
   if (!id) return c.json(NOT_FOUND, 404)
 
   const program = BuildAgentConversationDetail(name, id)
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     program.pipe(provideAdminAgentConversationsLive, Effect.either)
   )
   if (result._tag === 'Left') {
-    console.error('[admin] agent conversation-detail lookup failed', result.left)
+    logError(
+      '[admin] agent conversation-detail lookup failed',
+      result.left,
+      requestLogAttributes(c)
+    )
     return c.json(INTERNAL_ERROR, 500)
   }
   if (result.right._tag === 'NotFound') {
     return c.json(NOT_FOUND, 404)
   }
   if (result.right._tag === 'ValidationFailed') {
-    console.error(
+    logError(
       '[admin] agent conversation-detail response validation failed',
-      result.right.error
+      result.right.error,
+      requestLogAttributes(c)
     )
     return c.json(INTERNAL_ERROR, 500)
   }

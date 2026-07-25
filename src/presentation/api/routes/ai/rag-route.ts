@@ -19,6 +19,7 @@ import {
 import { RagSyncLayer } from '@/infrastructure/ai/embed-pipeline'
 import { runSyncKnowledge } from '@/infrastructure/ai/knowledge-sync'
 import { AiLive } from '@/infrastructure/ai/layer'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
@@ -41,7 +42,7 @@ const handleConfig = async (c: Readonly<Context>): Promise<Response> => {
     const ai = yield* AiService
     return resolveRagConfig(process.env, ai.embeddingModel())
   }).pipe(Effect.provide(AiLive))
-  const config = await Effect.runPromise(program)
+  const config = await runRequestEffect(c, program)
   return c.json(config)
 }
 
@@ -87,7 +88,7 @@ const handleSearch = async (c: Readonly<Context>): Promise<Response> => {
     Effect.provide(RagSyncLayer),
     Effect.catchAll(() => Effect.succeed([]))
   )
-  const results = await Effect.runPromise(program)
+  const results = await runRequestEffect(c, program)
   return c.json({
     results: results.map((r) => ({
       agentName: r.agentName,

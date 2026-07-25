@@ -6,6 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { getDb } from '@/infrastructure/database/drizzle/db-bun'
 
 export interface DeliveryLogEntry {
@@ -110,7 +111,7 @@ export const listDeliveries = async (
     WHERE table_name = ${tableName} AND webhook_name = ${webhookName}${statusClause}
   `)
   const countRow = rowsOf<{ count: number }>(countResult)[0]
-  const totalCount = Number(countRow?.count ?? 0)
+  const totalCount = toFiniteCount(countRow?.count)
 
   const lastRow = rows[rows.length - 1]
   const nextCursor =

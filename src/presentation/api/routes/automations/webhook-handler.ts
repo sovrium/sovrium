@@ -9,6 +9,8 @@ import { Effect } from 'effect'
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
 import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
 import { runWebhookAutomation } from '@/application/use-cases/automations/run-automation'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideAutomationLive } from './effect-runner'
 import { runWebhookAuth } from './webhook-auth'
@@ -281,7 +283,7 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
   Effect.runPromise(Effect.either(provideAutomationLive(program))).then(
     (res) => {
       if (res._tag === 'Left') {
-        console.error('[automation] async webhook run failed', res.left)
+        logError('[automation] async webhook run failed', res.left)
       }
       if (resolveRunId !== undefined) {
         resolveRunId(generateRunId())
@@ -289,7 +291,7 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
       }
     },
     (err) => {
-      console.error('[automation] async webhook run rejected', err)
+      logError('[automation] async webhook run rejected', err)
       if (resolveRunId !== undefined) {
         resolveRunId(generateRunId())
         resolveRunId = undefined
@@ -311,10 +313,10 @@ const dispatchSync = async (
     triggerData: input.triggerData,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
   })
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
   if (result._tag === 'Left') {
     if (result.left._tag === 'AutomationRegistrySeedError') {
-      console.error('[automation] webhook dispatch failed: registry seed error', result.left)
+      logError('[automation] webhook dispatch failed: registry seed error', result.left)
       return c.json({ error: 'internal_error' }, 500)
     }
     return c.json({ error: 'not_found' }, 404)

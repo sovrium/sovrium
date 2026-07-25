@@ -17,6 +17,7 @@ import {
   type ResolveApprovalError,
 } from '@/application/use-cases/automations/resolve-automation-approval'
 import { signalCancellation } from '@/application/use-cases/automations/run/scheduler'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAutomationLive } from './effect-runner'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -48,7 +49,10 @@ export async function handleReplayRunById(c: Context, app: App) {
     return c.json({ success: false, message: 'Run id required' }, 400)
   }
 
-  const lookup = await Effect.runPromise(Effect.either(provideAutomationLive(loadRunForReplay(id))))
+  const lookup = await runRequestEffect(
+    c,
+    Effect.either(provideAutomationLive(loadRunForReplay(id)))
+  )
   if (lookup._tag === 'Left' || lookup.right === undefined) {
     return c.json({ success: false, message: 'Run not found' }, 404)
   }
@@ -68,7 +72,7 @@ export async function handleReplayRunById(c: Context, app: App) {
     processEnv: process.env,
     ...(overrideTriggerData !== undefined ? { triggerData: overrideTriggerData } : {}),
   })
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
 
   if (result._tag === 'Left') {
     return replayErrorResponse(c, result.left)
@@ -95,7 +99,7 @@ export async function handleCancelRun(c: Context, _app: App) {
     const repo = yield* AutomationRunRepository
     return yield* repo.updateStatus({ id, status: 'cancelled' })
   })
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
   if (result._tag === 'Left' || result.right === undefined) {
     return c.json({ success: false, message: 'Run not found' }, 404)
   }
@@ -126,7 +130,7 @@ export async function handleResolveApproval(c: Context, app: App, decision: 'app
     app,
     processEnv: process.env,
   })
-  const result = await Effect.runPromise(Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
   if (result._tag === 'Left') {
     return resolveApprovalErrorResponse(c, result.left)
   }

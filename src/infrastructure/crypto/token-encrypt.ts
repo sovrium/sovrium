@@ -6,6 +6,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto'
+import { logWarning } from '@/infrastructure/logging/logger'
 import { isDevKeyAllowed } from '@/infrastructure/utils/security-posture'
 
 
@@ -29,7 +30,7 @@ const resolveMasterKey = (): Buffer => {
   }
   const nodeEnv = process.env['NODE_ENV']
   if (nodeEnv !== undefined && nodeEnv !== '' && nodeEnv !== 'development') {
-    console.warn(
+    logWarning(
       '[crypto] SOVRIUM_ENCRYPTION_KEY not set; using deterministic dev fallback. Do NOT run this configuration in production.'
     )
   }

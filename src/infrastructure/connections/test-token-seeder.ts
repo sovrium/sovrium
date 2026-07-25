@@ -10,6 +10,7 @@ import { ConnectionRepository } from '@/application/ports/repositories/connectio
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
+import { logError } from '@/infrastructure/logging/logger'
 import { isProduction } from '@/infrastructure/utils/env'
 import { SENTINEL_ACCESS_TOKEN, SENTINEL_REFRESH_TOKEN } from './sentinel-tokens'
 
@@ -188,7 +189,7 @@ export const runSeedAllConnectionDefinitions = async (input: {
   )
   const result = await Effect.runPromise(Effect.either(program))
   if (result._tag === 'Left') {
-    console.warn('[connections] startup connection-definition seed failed:', result.left)
+    logError('[connections] startup connection-definition seed failed', result.left)
   }
 }
 
@@ -204,6 +205,6 @@ export const runSeedTestConnectionTokens = async (input: {
   const program = seedTestConnectionTokensProgram(input).pipe(Effect.provide(layers))
   const result = await Effect.runPromise(Effect.either(program))
   if (result._tag === 'Left') {
-    console.warn('[connections] test-token seed failed:', result.left)
+    logError('[connections] test-token seed failed', result.left)
   }
 }

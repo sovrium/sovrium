@@ -11,6 +11,7 @@ import {
   AnalyticsRepository,
   AnalyticsDatabaseError,
 } from '@/application/ports/repositories/analytics/analytics-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'
@@ -304,7 +305,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .from(analyticsEvents)
         .where(and(...conditions))
 
-      const total = Number(totalResult?.count ?? 0)
+      const total = toFiniteCount(totalResult?.count)
 
       const rows = await db
         .select()

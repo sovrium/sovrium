@@ -29,9 +29,12 @@ import {
 } from '@/domain/models/api/admin/buckets/overview'
 import { bucketFileUploadResponseSchema } from '@/domain/models/api/admin/buckets/upload'
 import { parseStorageEnvConfig } from '@/domain/models/env/storage/storage'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminBucketFilesLive } from '@/presentation/api/routes/admin/buckets/effect-runner'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import { buildUploadStorageKey } from '@/presentation/api/routes/buckets/upload-key'
+import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -148,7 +151,11 @@ async function handleListBuckets(c: Context): Promise<Response> {
   const body = { items: page, nextCursor }
   const parsed = bucketsListResponseSchema.safeParse(body)
   if (!parsed.success) {
-    console.error('[admin] bucket list response validation failed', parsed.error)
+    logError(
+      '[admin] bucket list response validation failed',
+      parsed.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build bucket list', code: 'INTERNAL_ERROR' },
       500
@@ -219,7 +226,11 @@ async function handleBucketsOverview(c: Context): Promise<Response> {
 
   const parsed = bucketsOverviewResponseSchema.safeParse(body)
   if (!parsed.success) {
-    console.error('[admin] bucket overview response validation failed', parsed.error)
+    logError(
+      '[admin] bucket overview response validation failed',
+      parsed.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build bucket overview', code: 'INTERNAL_ERROR' },
       500
@@ -261,16 +272,20 @@ async function handleListBucketFiles(c: Context): Promise<Response> {
     limit,
   })
 
-  const result = await Effect.runPromise(program.pipe(provideAdminBucketFilesLive, Effect.either))
+  const result = await runRequestEffect(c, program.pipe(provideAdminBucketFilesLive, Effect.either))
   if (result._tag === 'Left') {
-    console.error('[admin] bucket file-list lookup failed', result.left)
+    logError('[admin] bucket file-list lookup failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to build bucket file list', code: 'INTERNAL_ERROR' },
       500
     )
   }
   if (result.right._tag === 'ValidationFailed') {
-    console.error('[admin] bucket file-list response validation failed', result.right.error)
+    logError(
+      '[admin] bucket file-list response validation failed',
+      result.right.error,
+      requestLogAttributes(c)
+    )
     return c.json(
       { success: false, message: 'Failed to build bucket file list', code: 'INTERNAL_ERROR' },
       500
@@ -342,11 +357,11 @@ async function persistAdminUpload(c: Context, file: File): Promise<Response> {
     return yield* storage.getMetadata(key)
   })
 
-  const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
   if (result._tag === 'Left') {
     const { cause } = result.left as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
-    console.error('[admin] bucket upload failed', result.left)
+    logError('[admin] bucket upload failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, message: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
       500
@@ -365,7 +380,7 @@ async function persistAdminUpload(c: Context, file: File): Promise<Response> {
     },
   })
   if (!parsed.success) {
-    console.error('[admin] bucket upload response validation failed', parsed.error)
+    logError('[admin] bucket upload response validation failed', parsed.error)
     return c.json(
       { success: false, message: 'Failed to build upload response', code: 'INTERNAL_ERROR' },
       500

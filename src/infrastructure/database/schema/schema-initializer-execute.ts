@@ -42,13 +42,13 @@ export const logRollbackError = (
   runtime: Runtime.Runtime<never>
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    logDebug(`[executeSchemaInit] CATCH HANDLER - Error caught: ${errorMessage}`)
+    logDebug('[schema] schema init failed — recording rollback')
 
     const runLogged = (logTx: TransactionLike): Promise<void> =>
       Runtime.runPromise(runtime)(
         logRollbackOperation(logTx, errorMessage).pipe(
-          Effect.catchAll((logError) => {
-            logDebug(`[executeSchemaInit] Failed to log rollback: ${logError.message}`)
+          Effect.catchAll(() => {
+            logDebug('[schema] failed to record rollback (non-fatal)')
             return Effect.void
           })
         )
@@ -89,7 +89,6 @@ const executeSchemaInitSqlite = (
             await Runtime.runPromise(runtime)(
               runMigrationSteps(tx, tables, app) as Effect.Effect<void, never, never>
             )
-            logDebug('[executeSchemaInit] SQLite transaction committed successfully')
           }),
         catch: (error) =>
           new SchemaInitializationError({
@@ -124,7 +123,6 @@ const executeSchemaInitPostgres = (
             await Runtime.runPromise(runtime)(
               runMigrationSteps(tx, tables, app) as Effect.Effect<void, never, never>
             )
-            logDebug('[executeSchemaInit] Transaction completed successfully (auto-commit)')
           })
         },
         catch: (error) =>
@@ -216,13 +214,13 @@ const resolveSkip = async (
   sanitizeTableName: (name: string) => string
 ): Promise<boolean> => {
   if (!(await checksumMatches(quick, currentChecksum))) {
-    logDebug('[checkShouldSkipMigration] Schema checksum differs or missing - full migration')
+    logDebug('[schema] checksum differs or missing — full migration')
     return false
   }
 
   const firstTableName = tables[0]?.name
   if (tables.length === 0 || !firstTableName) {
-    logDebug('[checkShouldSkipMigration] Checksum matches, no tables to verify - skipping')
+    logDebug('[schema] checksum matches, no tables to verify — skipping migration')
     return true
   }
 
@@ -231,9 +229,9 @@ const resolveSkip = async (
     exists: boolean
   }[]
   if (!tableCheck[0]?.exists) {
-    logDebug(
-      `[checkShouldSkipMigration] Checksum matches but '${sanitizedTableName}' missing - full migration`
-    )
+    logDebug('[schema] checksum matches but table missing — full migration', {
+      table: sanitizedTableName,
+    })
     return false
   }
 
@@ -252,13 +250,13 @@ const resolveSkip = async (
 
   const missingView = viewCheckResults.find((r) => !r.exists)
   if (missingView) {
-    logDebug(
-      `[checkShouldSkipMigration] Checksum matches but auto-generated view '${missingView.viewName}' missing - full migration`
-    )
+    logDebug('[schema] checksum matches but auto-generated view missing — full migration', {
+      view: missingView.viewName,
+    })
     return false
   }
 
-  logDebug('[checkShouldSkipMigration] Checksum matches and tables verified - skipping (fast path)')
+  logDebug('[schema] checksum matches and tables verified — skipping migration (fast path)')
   return true
 }
 
@@ -274,7 +272,7 @@ export const checkShouldSkipMigration = (
       try {
         return await resolveSkip(quick, currentChecksum, tables, sanitizeTableName)
       } catch {
-        logDebug('[checkShouldSkipMigration] Checksum table not found - running full migration')
+        logDebug('[schema] checksum table not found — full migration')
         return false
       } finally {
         await quick.close()

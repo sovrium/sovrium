@@ -14,7 +14,7 @@ import {
   removeKnowledgeRecordEmbeddings,
   runSyncKnowledgeAtStartup,
 } from '@/infrastructure/ai/knowledge-sync'
-import { logDebug } from '@/infrastructure/logging/logger'
+import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { isSqliteRuntime } from './unsupported-in-sqlite'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
 
@@ -98,7 +98,7 @@ export class AiKnowledgeListener {
     client.on('notification', (msg) => {
       if (msg.channel !== CHANNEL || !msg.payload) return
       this.handlePayload(msg.payload).catch((error: unknown) => {
-        logDebug(`[ai-knowledge] payload handler error: ${String(error)}`)
+        logError('[ai-knowledge] payload handler error', error)
       })
     })
     client.on('error', () => {
@@ -167,7 +167,7 @@ export const startAiKnowledgeListener = async (
   const listener = new AiKnowledgeListener(databaseUrl, bindings)
   listenerHolder.current = listener
   await listener.start().catch((error: unknown) => {
-    logDebug(`[ai-knowledge] listener failed to start: ${String(error)}`)
+    logError('[ai-knowledge] listener failed to start', error)
   })
 }
 

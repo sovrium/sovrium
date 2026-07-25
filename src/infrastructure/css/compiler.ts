@@ -291,14 +291,8 @@ const makeScanlessSource = (sourceCSS: string, app?: App): string => {
   )
 }
 
-const logCompilationError = (error: unknown, sourceCSS: string): CSSCompilationError => {
-  logError('CSS Compilation Error Details', error)
-  logDebug(`Error type: ${error instanceof Error ? error.constructor.name : typeof error}`)
-  logDebug(`Error message: ${error instanceof Error ? error.message : String(error)}`)
-  if (error instanceof Error && error.stack) {
-    logDebug(`Error stack: ${error.stack}`)
-  }
-  logDebug(`Source CSS preview (first 500 chars): ${sourceCSS.slice(0, 500)}`)
+const logCompilationError = (error: unknown): CSSCompilationError => {
+  logError('[css] compilation failed', error)
   return new CSSCompilationError(error)
 }
 
@@ -334,7 +328,7 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
 
     const result = yield* Effect.tryPromise({
       try: () => processWithPostCSS(makeScanlessSource(sourceCSS, app)),
-      catch: (error) => logCompilationError(error, sourceCSS),
+      catch: (error) => logCompilationError(error),
     })
 
     logDebug('[CSS] Compiled and cached')

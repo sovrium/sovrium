@@ -7,6 +7,8 @@
 
 import { Effect } from 'effect'
 import { GetActivityById } from '@/application/use-cases/activity/programs'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideActivityLive } from './effect-runner'
 import type { Context } from 'hono'
 
@@ -15,7 +17,7 @@ export async function getActivityByIdHandler(c: Context) {
 
   const program = GetActivityById(activityId).pipe(provideActivityLive)
 
-  const result = await Effect.runPromise(program.pipe(Effect.either))
+  const result = await runRequestEffect(c, program.pipe(Effect.either))
 
   if (result._tag === 'Left') {
     const error = result.left
@@ -42,7 +44,7 @@ export async function getActivityByIdHandler(c: Context) {
       )
     }
 
-    console.error('[activity] get-by-id handler failed', error)
+    logError('[activity] get-by-id handler failed', error)
     return c.json(
       {
         success: false,

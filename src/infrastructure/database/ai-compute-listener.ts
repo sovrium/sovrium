@@ -10,7 +10,7 @@ import { Effect } from 'effect'
 import { Client } from 'pg'
 import { refineAiComputeField } from '@/application/use-cases/ai-compute/refine-field'
 import { AiLive } from '@/infrastructure/ai/layer'
-import { logDebug } from '@/infrastructure/logging/logger'
+import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { isSqliteRuntime } from './unsupported-in-sqlite'
 import type { AiComputeKind } from '@/domain/services/ai-compute/baseline'
 import type { AiComputeRequestConfig } from '@/domain/services/ai-compute/build-request'
@@ -56,7 +56,7 @@ export class AiComputeListener {
     client.on('notification', (msg) => {
       if (msg.channel !== 'sovrium_ai_compute' || !msg.payload) return
       this.handlePayload(msg.payload).catch((error: unknown) => {
-        logDebug(`[ai-compute] payload handler error: ${String(error)}`)
+        logError('[ai-compute] payload handler error', error)
       })
     })
 
@@ -104,7 +104,7 @@ export class AiComputeListener {
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(AiLive), Effect.either))
     if (result._tag === 'Left') {
-      logDebug(`[ai-compute] refinement program failed: ${String(result.left)}`)
+      logError('[ai-compute] refinement program failed', result.left)
     }
   }
 }

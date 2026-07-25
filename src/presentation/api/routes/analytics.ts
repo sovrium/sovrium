@@ -21,8 +21,10 @@ import {
   analyticsQuerySchema,
 } from '@/domain/models/api/analytics/analytics'
 import { matchesAnyGlobPattern } from '@/domain/utils/matching/glob-matcher'
+import { logError } from '@/infrastructure/logging/logger'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { unauthorized, validationError } from '@/presentation/api/utils/auth-helpers'
-import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import { getSessionContext, requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import { provideAnalyticsLive } from './analytics/effect-runner'
 import type { Context, Hono } from 'hono'
 
@@ -158,7 +160,8 @@ async function handleOverview(c: Context, appName: string): Promise<Response> {
     )
   }
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     queryOverview({
       appName: params.appName,
       from: params.from,
@@ -168,7 +171,7 @@ async function handleOverview(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
-    console.error('[analytics] overview query failed', result.left)
+    logError('[analytics] overview query failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query analytics', code: 'INTERNAL_ERROR' },
       500
@@ -196,7 +199,8 @@ async function handlePages(c: Context, appName: string): Promise<Response> {
     )
   }
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     queryPages({
       appName: params.appName,
       from: params.from,
@@ -205,7 +209,7 @@ async function handlePages(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
-    console.error('[analytics] pages query failed', result.left)
+    logError('[analytics] pages query failed', result.left, requestLogAttributes(c))
     return c.json({ success: false, message: 'Failed to query pages', code: 'INTERNAL_ERROR' }, 500)
   }
 
@@ -230,7 +234,8 @@ async function handleReferrers(c: Context, appName: string): Promise<Response> {
     )
   }
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     queryReferrers({
       appName: params.appName,
       from: params.from,
@@ -239,7 +244,7 @@ async function handleReferrers(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
-    console.error('[analytics] referrers query failed', result.left)
+    logError('[analytics] referrers query failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query referrers', code: 'INTERNAL_ERROR' },
       500
@@ -267,7 +272,8 @@ async function handleDevices(c: Context, appName: string): Promise<Response> {
     )
   }
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     queryDevices({
       appName: params.appName,
       from: params.from,
@@ -276,7 +282,7 @@ async function handleDevices(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
-    console.error('[analytics] devices query failed', result.left)
+    logError('[analytics] devices query failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query devices', code: 'INTERNAL_ERROR' },
       500
@@ -350,7 +356,8 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
     ])
   }
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     Effect.gen(function* () {
       const repo = yield* AnalyticsRepository
       return yield* repo.listEvents({
@@ -366,7 +373,7 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
-    console.error('[analytics] events query failed', result.left)
+    logError('[analytics] events query failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query events', code: 'INTERNAL_ERROR' },
       500
@@ -406,7 +413,8 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
     )
   }
 
-  const result = await Effect.runPromise(
+  const result = await runRequestEffect(
+    c,
     queryCampaigns({
       appName: params.appName,
       from: params.from,
@@ -415,7 +423,7 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
   )
 
   if (result._tag === 'Left') {
-    console.error('[analytics] campaigns query failed', result.left)
+    logError('[analytics] campaigns query failed', result.left, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query campaigns', code: 'INTERNAL_ERROR' },
       500

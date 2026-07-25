@@ -16,6 +16,7 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { chatRequestSchema, type ChatResponse, type ChatAction } from '@/domain/models/api/ai/chat'
 import { type ContextPageScope } from '@/domain/services/ai-chat/ai-chat-context'
 import { buildChatToolDefinitions } from '@/domain/services/ai-chat/ai-chat-tools'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { handleAgentChat } from '@/presentation/api/routes/agents/agent-chat'
 import {
   recordActivityLogRow,
@@ -266,7 +267,7 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
           Effect.retry({ while: isTransientChatError, times: errorConfig.maxRetries })
         )
 
-  const result = await Effect.runPromise(program.pipe(provideAiLive, Effect.either))
+  const result = await runRequestEffect(c, program.pipe(provideAiLive, Effect.either))
 
   if (result._tag === 'Left') {
     const status = chatErrorStatus(result.left)

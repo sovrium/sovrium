@@ -7,6 +7,7 @@
 
 export * from './config-parsing/format-detection'
 export * from './config-parsing/content-parsing'
+export * from './database/count-coercion'
 export * from './database/sql-formatting'
 export * from './database/table-naming'
 export * from './matching/glob-matcher'

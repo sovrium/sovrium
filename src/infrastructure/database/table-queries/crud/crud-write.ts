@@ -15,6 +15,7 @@ import {
   type DrizzleTransaction,
 } from '@/infrastructure/database'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
+import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
   injectCreateAuthorship,
   injectUpdateAuthorship,
@@ -110,25 +111,29 @@ export function createRecord(
   SessionContextError | UniqueConstraintViolationError | ForeignKeyViolationError
 > {
   return Effect.gen(function* () {
-    const record = yield* Effect.tryPromise({
-      try: () => db.transaction((tx) => executeCreateRecordTx(tx, session, tableName, fields)),
-      catch: (error) => {
-        if (error instanceof SessionContextError) return error
-        if (error instanceof UniqueConstraintViolationError) return error
-        if (error instanceof ForeignKeyViolationError) return error
-        if (isForeignKeyViolation(error)) {
-          const fieldName = extractFkFieldName(error)
-          const message = fieldName
-            ? `referenced ${fieldName} does not exist`
-            : 'referenced record does not exist'
-          return new ForeignKeyViolationError(message, fieldName, error)
-        }
-        if (isUniqueConstraintViolation(error)) {
-          return new UniqueConstraintViolationError('Unique constraint violation', error)
-        }
-        return new SessionContextError(`Failed to create record in ${tableName}`, error)
-      },
-    })
+    const record = yield* traceDbQuery(
+      'insert',
+      tableName,
+      Effect.tryPromise({
+        try: () => db.transaction((tx) => executeCreateRecordTx(tx, session, tableName, fields)),
+        catch: (error) => {
+          if (error instanceof SessionContextError) return error
+          if (error instanceof UniqueConstraintViolationError) return error
+          if (error instanceof ForeignKeyViolationError) return error
+          if (isForeignKeyViolation(error)) {
+            const fieldName = extractFkFieldName(error)
+            const message = fieldName
+              ? `referenced ${fieldName} does not exist`
+              : 'referenced record does not exist'
+            return new ForeignKeyViolationError(message, fieldName, error)
+          }
+          if (isUniqueConstraintViolation(error)) {
+            return new UniqueConstraintViolationError('Unique constraint violation', error)
+          }
+          return new SessionContextError(`Failed to create record in ${tableName}`, error)
+        },
+      })
+    )
 
     yield* logActivity({
       session,
@@ -174,26 +179,30 @@ export function updateRecord(
 ): Effect.Effect<Record<string, unknown>, SessionContextError> {
   const { fields, app } = params
   return Effect.gen(function* () {
-    const { recordBefore, updatedRecord } = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
-          validateTableName(tableName)
+    const { recordBefore, updatedRecord } = yield* traceDbQuery(
+      'update',
+      tableName,
+      Effect.tryPromise({
+        try: () =>
+          db.transaction(async (tx) => {
+            validateTableName(tableName)
 
-          const fieldsWithUpdatedBy = await injectUpdateAuthorship(
-            fields,
-            session.userId,
-            tx,
-            tableName
-          )
+            const fieldsWithUpdatedBy = await injectUpdateAuthorship(
+              fields,
+              session.userId,
+              tx,
+              tableName
+            )
 
-          const entries = await validateFieldsNotEmpty(fieldsWithUpdatedBy)
-          const before = await fetchRecordById(tx, tableName, recordId)
-          const setClause = buildUpdateSetClauseCRUD(entries)
-          const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
-          return { recordBefore: before, updatedRecord: updated }
-        }),
-      catch: wrapDatabaseError(`Failed to update record in ${tableName}`),
-    })
+            const entries = await validateFieldsNotEmpty(fieldsWithUpdatedBy)
+            const before = await fetchRecordById(tx, tableName, recordId)
+            const setClause = buildUpdateSetClauseCRUD(entries)
+            const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
+            return { recordBefore: before, updatedRecord: updated }
+          }),
+        catch: wrapDatabaseError(`Failed to update record in ${tableName}`),
+      })
+    )
 
     yield* logRecordUpdateActivity({
       session,
@@ -296,11 +305,15 @@ export function deleteRecord(
   SessionContextError
 > {
   return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction((tx) => runDeleteTransaction({ tx, session, tableName, recordId, app })),
-      catch: wrapDatabaseError(`Failed to delete record from ${tableName}`),
-    })
+    const result = yield* traceDbQuery(
+      'delete',
+      tableName,
+      Effect.tryPromise({
+        try: () =>
+          db.transaction((tx) => runDeleteTransaction({ tx, session, tableName, recordId, app })),
+        catch: wrapDatabaseError(`Failed to delete record from ${tableName}`),
+      })
+    )
 
     if (result.success && result.recordBeforeData) {
       yield* logActivity({
@@ -326,19 +339,23 @@ export function permanentlyDeleteRecord(
   recordId: string
 ): Effect.Effect<boolean, SessionContextError> {
   return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
-          validateTableName(tableName)
+    const result = yield* traceDbQuery(
+      'delete',
+      tableName,
+      Effect.tryPromise({
+        try: () =>
+          db.transaction(async (tx) => {
+            validateTableName(tableName)
 
-          const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
+            const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
 
-          const success = await executeHardDelete(tx, tableName, recordId)
+            const success = await executeHardDelete(tx, tableName, recordId)
 
-          return { success, recordBeforeData: success ? recordBeforeData : undefined }
-        }),
-      catch: wrapDatabaseError(`Failed to permanently delete record from ${tableName}`),
-    })
+            return { success, recordBeforeData: success ? recordBeforeData : undefined }
+          }),
+        catch: wrapDatabaseError(`Failed to permanently delete record from ${tableName}`),
+      })
+    )
 
     if (result.success && result.recordBeforeData) {
       yield* logActivity({
@@ -360,43 +377,47 @@ export function restoreRecord(
   recordId: string
 ): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
   return Effect.gen(function* () {
-    const restoredRecord = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
-          validateTableName(tableName)
-          const tableIdent = sql.identifier(tableName)
+    const restoredRecord = yield* traceDbQuery(
+      'update',
+      tableName,
+      Effect.tryPromise({
+        try: () =>
+          db.transaction(async (tx) => {
+            validateTableName(tableName)
+            const tableIdent = sql.identifier(tableName)
 
-          const checkResult = await typedExecute(
-            tx,
-            sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-          )
+            const checkResult = await typedExecute(
+              tx,
+              sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+            )
 
-          if (checkResult.length === 0) {
-            return null
-          }
+            if (checkResult.length === 0) {
+              return null
+            }
 
-          const record = checkResult[0]
+            const record = checkResult[0]
 
-          if (!record?.deleted_at) {
-            return { _error: 'not_deleted' } as Record<string, unknown>
-          }
+            if (!record?.deleted_at) {
+              return { _error: 'not_deleted' } as Record<string, unknown>
+            }
 
-          const hasDeletedBy = await columnExists(tx, tableName, 'deleted_by')
+            const hasDeletedBy = await columnExists(tx, tableName, 'deleted_by')
 
-          const result = hasDeletedBy
-            ? await typedExecute(
-                tx,
-                sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id = ${recordId} RETURNING *`
-              )
-            : await typedExecute(
-                tx,
-                sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
-              )
+            const result = hasDeletedBy
+              ? await typedExecute(
+                  tx,
+                  sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id = ${recordId} RETURNING *`
+                )
+              : await typedExecute(
+                  tx,
+                  sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
+                )
 
-          return result[0] ?? {}
-        }),
-      catch: wrapDatabaseError(`Failed to restore record ${recordId} from ${tableName}`),
-    })
+            return result[0] ?? {}
+          }),
+        catch: wrapDatabaseError(`Failed to restore record ${recordId} from ${tableName}`),
+      })
+    )
 
     if (restoredRecord && !('_error' in restoredRecord)) {
       yield* logActivity({

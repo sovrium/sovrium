@@ -9,6 +9,7 @@
 
 import { Duration, Effect, Stream } from 'effect'
 import { streamSSE } from 'hono/streaming'
+import { logError } from '@/infrastructure/logging/logger'
 import {
   SSE_HEARTBEAT_INTERVAL_MS,
   SSE_STREAM_MAX_LIFETIME_MS,
@@ -41,7 +42,7 @@ const createTerminationLatch = (
     try {
       await onTerminate?.(reason)
     } catch (err) {
-      console.error('[sse] onTerminate threw — swallowed', err)
+      logError('[sse] onTerminate threw — swallowed', err)
     }
   }
 }
@@ -155,13 +156,13 @@ export const runEffectSse = <A, E, R>(
         provideLayer: options.provideLayer,
       })
       if (outcome.tag === 'failed') {
-        console.error('[sse] mid-stream error', outcome.error)
+        logError('[sse] mid-stream error', outcome.error)
         await terminate('aborted')
       } else {
         await terminate(outcome.tag)
       }
     } catch (err) {
-      console.error('[sse] mid-stream defect', err)
+      logError('[sse] mid-stream defect', err)
       await terminate('aborted')
     } finally {
       stopHeartbeat()

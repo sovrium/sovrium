@@ -11,6 +11,7 @@ import {
   DataSourceRepository,
   DataSourceDatabaseError,
 } from '@/application/ports/repositories/tables/data-source-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { formatLikePattern, formatSqlValue } from '@/domain/utils/database/sql-formatting'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -117,7 +118,7 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
         .filter(Boolean)
         .join(' ')
       const rows = await executeQuery<Array<{ count: number | string }>>(query)
-      return Number(rows[0]?.count ?? 0)
+      return toFiniteCount(rows[0]?.count)
     }),
 
   fetchSingleRecord: (tableName, paramField, paramValue, fields) =>

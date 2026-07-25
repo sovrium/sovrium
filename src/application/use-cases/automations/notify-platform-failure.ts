@@ -11,7 +11,7 @@ import { Data, Effect } from 'effect'
 import { db } from '@/infrastructure/database'
 import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { sendEmail } from '@/infrastructure/email/email-service'
-import { logDebug } from '@/infrastructure/logging/logger'
+import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 
 class AdminLookupError extends Data.TaggedError('AdminLookupError')<{
@@ -60,7 +60,7 @@ const loadAdminEmails = (): Effect.Effect<readonly string[], never> =>
     catch: (cause) => new AdminLookupError({ cause }),
   }).pipe(
     Effect.catchAll((err) => {
-      logDebug(`[notify-platform-failure] admin email lookup failed: ${String(err.cause)}`)
+      logError('[notify-platform-failure] admin email lookup failed', err.cause)
       return Effect.succeed([] as readonly string[])
     })
   )
@@ -75,7 +75,7 @@ const sendOneNotification = (
     catch: (cause) => new AdminEmailSendError({ cause }),
   }).pipe(
     Effect.catchAll((err) => {
-      logDebug(`[notify-platform-failure] sendEmail to ${to} failed: ${String(err.cause)}`)
+      logError('[notify-platform-failure] sendEmail failed', err.cause, { to })
       return Effect.void
     }),
     Effect.asVoid

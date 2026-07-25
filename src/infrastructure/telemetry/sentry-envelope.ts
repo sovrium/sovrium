@@ -76,6 +76,28 @@ const HEADER_ALLOWLIST: ReadonlySet<string> = new Set([
   'referer',
 ])
 
+const REDACTED_VALUE = '[REDACTED]'
+
+export const redactUrlQueryValues = (rawUrl: string): string => {
+  if (typeof rawUrl !== 'string') return ''
+  const queryStart = rawUrl.indexOf('?')
+  if (queryStart === -1) return rawUrl
+
+  const base = rawUrl.slice(0, queryStart)
+  const query = rawUrl.slice(queryStart + 1)
+  if (query === '') return rawUrl
+
+  const redacted = query
+    .split('&')
+    .map((pair) => {
+      const separator = pair.indexOf('=')
+      return separator === -1 ? pair : `${pair.slice(0, separator)}=${REDACTED_VALUE}`
+    })
+    .join('&')
+
+  return `${base}?${redacted}`
+}
+
 const newEventId = (): string => crypto.randomUUID().replace(/-/g, '')
 
 const randomHex = (length: number): string =>
@@ -153,7 +175,7 @@ export const buildEventFromError = (
       ? {
           request: {
             method: request.method,
-            url: request.url,
+            url: redactUrlQueryValues(request.url),
             headers: scrubHeaders(request.headers),
           },
         }

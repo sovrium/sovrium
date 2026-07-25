@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import {
   CancelAccountDeletion,
   ExportAccount,
@@ -18,6 +17,7 @@ import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { accountDeleteRequestSchema } from '@/domain/models/api/account/account'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge'
+import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAccountLive } from '@/presentation/api/routes/account/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
@@ -37,7 +37,8 @@ async function handleExport(c: Context, app: App): Promise<Response> {
   if (session === undefined) return unauthorized(c)
   const { userId } = session
 
-  const outcome = await Effect.runPromise(
+  const outcome = await runRequestEffect(
+    c,
     ExportAccount(
       userId,
       (app.tables ?? []).map((t) => t.name)
@@ -52,7 +53,10 @@ async function handlePendingErasure(c: Context): Promise<Response> {
   const session = getSessionContext(c)
   if (session === undefined) return unauthorized(c)
 
-  const body = await Effect.runPromise(LoadPendingErasure(session.userId).pipe(provideAccountLive))
+  const body = await runRequestEffect(
+    c,
+    LoadPendingErasure(session.userId).pipe(provideAccountLive)
+  )
   return c.json(body, 200)
 }
 
@@ -72,11 +76,11 @@ async function handleDelete(c: Context): Promise<Response> {
   }
 
   if ('cancel' in parsed.data) {
-    const body = await Effect.runPromise(CancelAccountDeletion(userId).pipe(provideAccountLive))
+    const body = await runRequestEffect(c, CancelAccountDeletion(userId).pipe(provideAccountLive))
     return c.json(body, 200)
   }
 
-  const result = await Effect.runPromise(ScheduleAccountDeletion(userId).pipe(provideAccountLive))
+  const result = await runRequestEffect(c, ScheduleAccountDeletion(userId).pipe(provideAccountLive))
 
   const actor = await resolveActor(userId)
   await emitAuditEvent({

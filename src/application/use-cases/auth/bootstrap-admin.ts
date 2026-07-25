@@ -109,12 +109,12 @@ const validateBootstrapConfig = (
 ): Effect.Effect<void, InvalidEmailError | WeakPasswordError> =>
   Effect.gen(function* () {
     if (!isValidEmail(config.email)) {
-      logDebug(`[bootstrap-admin] Invalid email format: ${config.email}`)
+      logDebug('[bootstrap-admin] invalid email format', { email: config.email })
       return yield* new InvalidEmailError({ email: config.email })
     }
 
     if (!isValidPassword(config.password)) {
-      logDebug('[bootstrap-admin] Password too weak')
+      logDebug('[bootstrap-admin] password too weak')
       return yield* new WeakPasswordError({
         message: 'Password must be at least 8 characters',
       })
@@ -127,18 +127,15 @@ const checkBootstrapPreconditions = (
 ): Effect.Effect<AdminBootstrapConfig | undefined, never> =>
   Effect.sync(() => {
     if (!config) {
-      logDebug('[bootstrap-admin] No admin bootstrap config found')
+      logDebug('[bootstrap-admin] no admin bootstrap config — skipping')
       return undefined
     }
-
-    logDebug(`[bootstrap-admin] Admin bootstrap config found: ${config.email}`)
 
     if (!app.auth) {
-      logDebug('[bootstrap-admin] Auth not configured, skipping')
+      logDebug('[bootstrap-admin] auth not configured — skipping')
       return undefined
     }
 
-    logDebug('[bootstrap-admin] Auth is configured')
     return config
   })
 
@@ -148,8 +145,7 @@ const handlePostCreation = (
 ): Effect.Effect<void, never> =>
   Effect.sync(() => {
     if (requireEmailVerification && userId) {
-      logDebug('[bootstrap-admin] Sending verification email...')
-      logDebug('[bootstrap-admin] Verification email sent to admin')
+      logDebug('[bootstrap-admin] verification email required for new admin')
     }
   })
 
@@ -186,30 +182,28 @@ export const bootstrapAdmin = (
     const existingUserCount = yield* authRepo.countHumanUsers()
     if (existingUserCount > 0) {
       logDebug(
-        `[bootstrap-admin] Skipped: ${existingUserCount} human user(s) already exist — env-var bootstrap is a no-op once a real admin is present`
+        '[bootstrap-admin] skipped — human user(s) already exist (env-var bootstrap no-op)',
+        {
+          humanUsers: String(existingUserCount),
+        }
       )
       return
     }
 
     yield* validateBootstrapConfig(config)
-    logDebug('[bootstrap-admin] Email and password validated, proceeding to create user')
 
     const auth = yield* Auth
 
     const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
     const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
 
-    logDebug(
-      `[bootstrap-admin] requireEmailVerification=${requireEmailVerification}, will set emailVerified=${!requireEmailVerification}`
-    )
-
     const { alreadyExists, userId } = yield* createAdminUser(auth, config, requireEmailVerification)
 
     if (alreadyExists) {
-      logDebug(`[bootstrap-admin] Skipped: User ${config.email} already exists`)
+      logDebug('[bootstrap-admin] skipped — admin user already exists', { email: config.email })
       return
     }
 
-    logDebug(`[bootstrap-admin] Admin account created: ${config.email}`)
+    logDebug('[bootstrap-admin] admin account created', { email: config.email })
     yield* handlePostCreation(requireEmailVerification, userId)
   })

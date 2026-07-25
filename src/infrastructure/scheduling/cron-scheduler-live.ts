@@ -7,6 +7,7 @@
 
 import { Cron, DateTime, Effect, Either, Layer } from 'effect'
 import { CronScheduler, CronSchedulerError } from '@/application/ports/services/cron-scheduler'
+import { logError } from '@/infrastructure/logging/logger'
 
 
 interface ScheduledJob {
@@ -61,11 +62,11 @@ export const defaultArmTimerDeps: ArmTimerDeps = {
     Effect.runPromise(Effect.either(callback() as Effect.Effect<void, unknown, never>)).then(
       (result) => {
         if (result._tag === 'Left') {
-          console.error('[cron-scheduler] callback failed', { jobId, error: result.left })
+          logError('[cron-scheduler] callback failed', result.left, { jobId })
         }
       },
       (err) => {
-        console.error('[cron-scheduler] callback rejected', { jobId, error: err })
+        logError('[cron-scheduler] callback rejected', err, { jobId })
       }
     )
   },

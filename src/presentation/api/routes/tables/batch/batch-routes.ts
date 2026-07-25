@@ -32,6 +32,7 @@ import {
   upsertRecordsResponseSchema,
 } from '@/domain/models/api/tables/tables'
 import { runTableProgram, provideTableLive } from '@/infrastructure/layers/table-layer'
+import { logError } from '@/infrastructure/logging/logger'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateRequest } from '@/presentation/api/utils/validate-request'
@@ -322,7 +323,7 @@ async function handleBatchDelete(c: Context, app: App) {
   const tappedProgram = batchDeleteProgram(session, tableName, result.data.ids, permanent).pipe(
     Effect.tapError((error) =>
       Effect.sync(() => {
-        console.error(`[tables] batch ${permanent ? 'hard-' : 'soft-'}delete failed`, error)
+        logError(`[tables] batch ${permanent ? 'hard-' : 'soft-'}delete failed`, error)
       })
     )
   )

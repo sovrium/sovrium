@@ -23,6 +23,7 @@ import {
   detectLanguageIfEnabled,
   validateLanguageSubdirectory,
 } from '@/infrastructure/server/language-detection'
+import { runRequestEffect } from '@/infrastructure/server/run-request-effect'
 import { isPageCacheDevBypassed, isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import { setupAdminDashboardRoutes } from './admin-dashboard-routes'
 import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
@@ -30,6 +31,8 @@ import { setupMarkdownExportRoutes } from './markdown-export-routes'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/types/session-info'
+
+const ERROR_PAGE_STATUS = 500
 
 export interface HonoAppConfig {
   readonly app: App
@@ -177,6 +180,20 @@ function resolvePreviewMode(
   return c.req.query('preview') === 'true'
 }
 
+function renderTracedPage(
+  c: Context,
+  config: HonoAppConfig,
+  path: string,
+  reqCtx: PageRequestContext
+): Promise<Response | undefined> {
+  return runRequestEffect(
+    c,
+    Effect.promise(() => renderWithCache(config, path, reqCtx, c)).pipe(
+      Effect.withSpan('page.render', { attributes: { route: c.req.routePath } })
+    )
+  )
+}
+
 export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
   const { app, renderErrorPage } = config
 
@@ -188,7 +205,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       const reqCtx = { session, cookies, previewMode, requestQuery: c.req.query() }
 
       if (!app.languages || app.languages.detectBrowser === false) {
-        return (await renderWithCache(config, '/', reqCtx, c)) ?? c.html('')
+        return (await renderTracedPage(c, config, '/', reqCtx)) ?? c.html('')
       }
 
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
@@ -198,10 +215,10 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
         return c.redirect(`/${targetLanguage}/`, 302)
       }
 
-      return (await renderWithCache(config, '/', reqCtx, c)) ?? c.html('')
+      return (await renderTracedPage(c, config, '/', reqCtx)) ?? c.html('')
     } catch (error) {
-      logError('[SERVER] GET / → 500 Error rendering homepage', error)
-      return c.html(await renderErrorPage(app), 500)
+      logError(`[SERVER] GET / → ${ERROR_PAGE_STATUS} Error rendering homepage`, error)
+      return c.html(await renderErrorPage(app), ERROR_PAGE_STATUS)
     }
   })
 }
@@ -252,9 +269,9 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       )
       return lang ?? c.html('')
     } catch (error) {
-      logError(`[SERVER] GET ${c.req.path} → 500 Error rendering homepage`, error)
+      logError(`[SERVER] GET ${c.req.path} → ${ERROR_PAGE_STATUS} Error rendering homepage`, error)
       const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
-      return c.html(await renderErrorPage(app, detectedLang), 500)
+      return c.html(await renderErrorPage(app, detectedLang), ERROR_PAGE_STATUS)
     }
   }
 }
@@ -295,8 +312,8 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
       )
       return lang ?? c.html(await renderNotFoundPage(app, urlLanguage), 404)
     } catch (error) {
-      logError(`[SERVER] GET ${path} → 500 Error rendering page`, error)
-      return c.html(await renderErrorPage(app, detectedLanguage), 500)
+      logError(`[SERVER] GET ${path} → ${ERROR_PAGE_STATUS} Error rendering page`, error)
+      return c.html(await renderErrorPage(app, detectedLanguage), ERROR_PAGE_STATUS)
     }
   }
 }
@@ -353,8 +370,8 @@ export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig
         'Cache-Control': 'public, max-age=300',
       })
     } catch (error) {
-      logError('[SERVER] GET /feed.xml → 500 Error rendering RSS feed', error)
-      return c.html(await renderErrorPage(app), 500)
+      logError(`[SERVER] GET /feed.xml → ${ERROR_PAGE_STATUS} Error rendering RSS feed`, error)
+      return c.html(await renderErrorPage(app), ERROR_PAGE_STATUS)
     }
   })
 }

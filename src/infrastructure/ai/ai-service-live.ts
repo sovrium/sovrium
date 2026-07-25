@@ -20,6 +20,7 @@ import {
   type EmbedInput,
 } from '@/application/ports/services/ai-service'
 import { resolveAiEcoRouting, resolveOllamaBaseUrl } from '@/domain/models/env/ai/ai-eco-routing'
+import { traceAiRequest } from '@/infrastructure/telemetry/ai-request-trace'
 import {
   DEFAULT_CLOUD_EMBEDDING_MODEL,
   DEFAULT_OLLAMA_EMBEDDING_MODEL,
@@ -308,7 +309,8 @@ const makeOllamaAdapter = (
   }
   const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_OLLAMA_EMBEDDING_MODEL
   return AiService.of({
-    chat: (input: ChatInput) => ollamaChat(conn, input),
+    chat: (input: ChatInput) =>
+      traceAiRequest('ollama', input.model ?? conn.defaultModel, 'chat', ollamaChat(conn, input)),
     chatStream: (input: ChatInput) => ollamaChatStream(conn, input),
     embed: (input: EmbedInput) =>
       embedOllama({ baseUrl: ollamaBaseUrl, apiKey: config.apiKey, model: embeddingModel }, input),
@@ -318,7 +320,8 @@ const makeOllamaAdapter = (
 }
 
 const makeCloudAdapter = (
-  config: ReturnType<typeof parseAiEnvConfig>
+  config: ReturnType<typeof parseAiEnvConfig>,
+  provider: string
 ): ReturnType<typeof AiService.of> => {
   const { baseUrl, apiKey } = config
   const defaultModel = config.model ?? 'mock-model'
@@ -326,9 +329,14 @@ const makeCloudAdapter = (
   const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_CLOUD_EMBEDDING_MODEL
   return AiService.of({
     chat: (input: ChatInput) =>
-      baseUrl === undefined || apiKey === undefined
-        ? Effect.fail(missingCredentialsError())
-        : callChatCompletions({ baseUrl, apiKey, defaultModel, defaults }, input),
+      traceAiRequest(
+        provider,
+        input.model ?? defaultModel,
+        'chat',
+        baseUrl === undefined || apiKey === undefined
+          ? Effect.fail(missingCredentialsError())
+          : callChatCompletions({ baseUrl, apiKey, defaultModel, defaults }, input)
+      ),
     chatStream: (input: ChatInput) =>
       baseUrl === undefined || apiKey === undefined
         ? Stream.fail(missingCredentialsError())
@@ -355,6 +363,6 @@ export const AiServiceLive = Layer.effect(
     if (routing.resolvedProvider === 'ollama' && ollamaBaseUrl !== undefined) {
       return makeOllamaAdapter(ollamaBaseUrl, config)
     }
-    return makeCloudAdapter(config)
+    return makeCloudAdapter(config, routing.resolvedProvider)
   })
 )

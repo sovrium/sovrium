@@ -25,6 +25,7 @@ import {
   type FormSubmissionAdminItem,
   type FormSubmissionStatus,
 } from '@/domain/models/api/admin/forms/submissions-list'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { AdminFormsRepositoryLive } from '@/infrastructure/database/repositories/forms/admin-forms-repository-live'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -62,7 +63,7 @@ function buildFormAdminItem(
   form: Form,
   aggregate: AdminFormAggregateRow
 ): FormAdminItem {
-  const submissionCount = Number(aggregate.submissionCount ?? 0)
+  const submissionCount = toFiniteCount(aggregate.submissionCount)
   const lastSubmissionAt = aggregateLastSubmissionIso(aggregate.lastSubmissionAt ?? null)
 
   return {

@@ -17,6 +17,7 @@ import {
   type AutomationCandidate,
 } from '@/domain/services/ai-chat/ai-chat-automation-parser'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
+import { logError } from '@/infrastructure/logging/logger'
 import { recordActivityLogRow, recordChatActivity } from './chat-activity-log'
 import { appendConversationTurn } from './chat-conversation-store'
 import { persistTurnDurably } from './chat-durable-memory'
@@ -126,13 +127,13 @@ const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurn
   })
   const outcome = await Effect.runPromise(Effect.either(provideAutomationRuntime(program)))
   if (outcome._tag === 'Left') {
-    console.error(`[ai] automation "${name}" run failed (engine error)`, outcome.left)
+    logError(`[ai] automation "${name}" run failed (engine error)`, outcome.left)
     return errorToResult(outcome.left, name)
   }
 
   const status = toActionStatus(outcome.right.status)
   if (status === 'failed') {
-    console.error(
+    logError(
       `[ai] automation "${name}" run failed (runId=${outcome.right.runId})`,
       outcome.right.error ?? '(no error captured)'
     )

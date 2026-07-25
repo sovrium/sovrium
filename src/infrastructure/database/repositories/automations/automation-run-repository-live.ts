@@ -16,6 +16,7 @@ import {
   type PersistedRun,
   type PersistedStep,
 } from '@/application/ports/repositories/automations/automation-run-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -125,7 +126,7 @@ const listAllRuns = async (
     .from(automationRuns)
     .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
   const countRows = await (whereClause === undefined ? countQuery : countQuery.where(whereClause))
-  const total = Number(countRows[0]?.value ?? 0)
+  const total = toFiniteCount(countRows[0]?.value)
 
   const baseQuery = db
     .select({

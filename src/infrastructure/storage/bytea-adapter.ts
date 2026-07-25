@@ -7,6 +7,7 @@
 
 
 import { eq, sql } from 'drizzle-orm'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 
@@ -94,7 +95,7 @@ export const byteaGetTotalBytes = async (): Promise<number> => {
     WHERE storage_provider = 'bytea'
   `)) as readonly Record<string, unknown>[]
   const row = result[0] as { total: string | number } | undefined
-  return Number(row?.total ?? 0)
+  return toFiniteCount(row?.total)
 }
 
 export const writeFileMetadata = async (

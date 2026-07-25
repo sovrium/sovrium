@@ -64,7 +64,7 @@ export function createJavaScriptHandler(
         'Cache-Control': getCacheControlHeader(),
       })
     } catch (error) {
-      logError(`[ASSETS] Failed to load ${scriptName}`, error)
+      logError('[assets] failed to load script', error, { script: scriptName })
       return c.text(`/* ${scriptName} failed to load */`, 500, {
         'Content-Type': 'application/javascript',
       })
@@ -145,7 +145,7 @@ export function setupClientBundleRoute(honoApp: Readonly<Hono>): Readonly<Hono> 
         'Cache-Control': getCacheControlHeader(),
       })
     } catch (error) {
-      logError('[ASSETS] Failed to build client bundle', error)
+      logError('[assets] failed to build client bundle', error)
       return c.text('/* client bundle build failed */', 500, {
         'Content-Type': 'application/javascript',
       })
@@ -181,8 +181,8 @@ export async function setupPublicDirRoute(
   honoApp: Readonly<Hono>,
   publicDir: string
 ): Promise<Readonly<Hono>> {
-  const rootRealpath = await realpath(publicDir).catch((error: unknown) => {
-    logDebug(`[ASSETS] publicDir not mounted: ${publicDir} (${String(error)})`)
+  const rootRealpath = await realpath(publicDir).catch(() => {
+    logDebug('[assets] publicDir not mounted', { publicDir })
     return undefined
   })
   if (rootRealpath === undefined) return honoApp

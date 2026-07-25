@@ -21,6 +21,7 @@ import { stripHtmlToText } from '@/domain/utils/html-sanitization'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { db } from '@/infrastructure/database'
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
+import { logError } from '@/infrastructure/logging/logger'
 import { isTransportRelaxed } from '@/infrastructure/utils/security-posture'
 import { createEmailHandlers } from './email-handlers'
 import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
@@ -285,7 +286,7 @@ const dispatchAuthEvent = (
     userId: typeof user['id'] === 'string' ? (user['id'] as string) : undefined,
   })
   return Effect.runPromise(provideAutomationRuntime(program)).catch((err) => {
-    console.error('[automation:auth-event] runtime provision failed', err)
+    logError('[automation:auth-event] runtime provision failed', err)
   })
 }
 

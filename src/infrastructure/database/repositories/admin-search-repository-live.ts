@@ -14,6 +14,7 @@ import {
   type AdminSearchStaleness,
   type AdminSearchUpsertRow,
 } from '@/application/ports/repositories/admin-search-repository'
+import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
 import {
@@ -252,7 +253,7 @@ export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
             FROM ${contentTableRef()}`
       )
       const row = rows[0] ?? {}
-      const count = Number(row['row_count'] ?? 0)
+      const count = toFiniteCount(row['row_count'])
       const lastRaw = row['last_built']
       const lastBuiltAt =
         lastRaw === null || lastRaw === undefined

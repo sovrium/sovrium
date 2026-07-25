@@ -14,6 +14,11 @@ export function getSessionContext(c: Context): Session | undefined {
   return (c as ContextWithSession).var.session
 }
 
+export function requestLogAttributes(c: Context): { readonly 'request.id': string } | undefined {
+  const requestId = c.get('requestId')
+  return typeof requestId === 'string' && requestId !== '' ? { 'request.id': requestId } : undefined
+}
+
 export function getTableContext(c: Context): {
   readonly session: Session
   readonly tableName: string

@@ -1,3 +1,12 @@
+## [0.18.1](https://github.com/sovrium/sovrium/compare/v0.18.0...v0.18.1) (2026-07-25)
+
+### Bug Fixes
+
+- **ai**: restore chat record queries and mutations on SQLite
+- **admin**: correct record, submission and storage counts on the overview
+- **observability**: preserve error status codes and keep secrets out of reports
+- **observability**: export debug logs to OTLP when LOG_LEVEL=debug
+
 ## [0.18.0](https://github.com/sovrium/sovrium/compare/v0.17.0...v0.18.0) (2026-07-24)
 
 ### Features
