@@ -9,14 +9,14 @@
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { SessionContextError } from '@/domain/errors'
+import type { DatabaseError } from '@/domain/errors'
 
 export function rawListRecordsProgram(
   session: Readonly<UserSession>,
   tableName: string,
   filter: Parameters<TableRepository['Type']['listRecords']>[0]['filter'],
   includeDeleted?: boolean
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError, TableRepository> {
+): Effect.Effect<readonly Record<string, unknown>[], DatabaseError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     return yield* repo.listRecords({ session, tableName, filter, includeDeleted })

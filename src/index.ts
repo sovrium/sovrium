@@ -203,7 +203,7 @@ export const createAdmin = async (
         ? `Invalid email address: ${error.email}`
         : error._tag === 'WeakPasswordError'
           ? error.message
-          : error._tag === 'DatabaseError'
+          : error._tag === 'BootstrapDatabaseError'
             ? error.cause instanceof Error
               ? error.cause.message
               : String(error.cause)

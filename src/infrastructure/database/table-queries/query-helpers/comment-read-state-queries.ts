@@ -7,7 +7,7 @@
 
 import { sql, and, eq, ne, or, gt, isNull } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database'
+import { DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { commentReadState as commentReadStatePg } from '@/infrastructure/database/drizzle/schema/comment-read-state'
@@ -25,7 +25,7 @@ export function markRecordCommentsRead(config: {
   readonly session: Readonly<Session>
   readonly tableId: string
   readonly recordId: string
-}): Effect.Effect<void, SessionContextError> {
+}): Effect.Effect<void, DatabaseError> {
   const { session, tableId, recordId } = config
   const now = new Date()
   return Effect.tryPromise({
@@ -52,10 +52,10 @@ export function getUnreadCommentCount(config: {
   readonly session: Readonly<Session>
   readonly tableId: string
   readonly recordId: string
-}): Effect.Effect<number, SessionContextError> {
+}): Effect.Effect<number, DatabaseError> {
   const { session, tableId, recordId } = config
   const { userId } = session
-  return Effect.tryPromise<Array<{ count: number }>, SessionContextError>({
+  return Effect.tryPromise<Array<{ count: number }>, DatabaseError>({
     try: () =>
       db
         .select({ count: castToInt(sql`COUNT(*)`) })
@@ -80,6 +80,6 @@ export function getUnreadCommentCount(config: {
             )
           )
         ),
-    catch: (error) => new SessionContextError('Failed to count unread comments', error),
+    catch: (error) => new DatabaseError('Failed to count unread comments', error),
   }).pipe(Effect.map((result) => result[0]?.count ?? 0))
 }

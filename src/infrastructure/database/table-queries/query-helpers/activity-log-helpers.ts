@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { db, SessionContextError, activityLogs } from '@/infrastructure/database'
+import { db, DatabaseError, activityLogs } from '@/infrastructure/database'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -38,7 +38,7 @@ export function logActivity(config: {
           changes,
         })
       },
-      catch: (error) => new SessionContextError('Failed to log activity', error),
+      catch: (error) => new DatabaseError('Failed to log activity', error),
     })
   )
 }

@@ -9,7 +9,7 @@ import { Context } from 'effect'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type {
   ForeignKeyViolationError,
-  SessionContextError,
+  DatabaseError,
   UniqueConstraintViolationError,
 } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
@@ -62,21 +62,21 @@ export class TableRepository extends Context.Tag('TableRepository')<
           readonly fields: readonly unknown[]
         }[]
       }
-    }) => Effect.Effect<readonly Record<string, unknown>[], SessionContextError>
+    }) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError>
 
     readonly listTrash: (config: {
       readonly session: Readonly<UserSession>
       readonly tableName: string
       readonly filter?: QueryFilter
       readonly sort?: string
-    }) => Effect.Effect<readonly Record<string, unknown>[], SessionContextError>
+    }) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError>
 
     readonly getRecord: (
       session: Readonly<UserSession>,
       tableName: string,
       recordId: string,
       includeDeleted?: boolean
-    ) => Effect.Effect<Record<string, unknown> | null, SessionContextError>
+    ) => Effect.Effect<Record<string, unknown> | null, DatabaseError>
 
     readonly createRecord: (
       session: Readonly<UserSession>,
@@ -84,7 +84,7 @@ export class TableRepository extends Context.Tag('TableRepository')<
       fields: Readonly<Record<string, unknown>>
     ) => Effect.Effect<
       Record<string, unknown>,
-      SessionContextError | UniqueConstraintViolationError | ForeignKeyViolationError
+      DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError
     >
 
     readonly updateRecord: (
@@ -95,7 +95,7 @@ export class TableRepository extends Context.Tag('TableRepository')<
         readonly fields: Readonly<Record<string, unknown>>
         readonly app?: App
       }
-    ) => Effect.Effect<Record<string, unknown>, SessionContextError>
+    ) => Effect.Effect<Record<string, unknown>, DatabaseError>
 
     readonly deleteRecord: (
       session: Readonly<UserSession>,
@@ -104,20 +104,20 @@ export class TableRepository extends Context.Tag('TableRepository')<
       app?: App
     ) => Effect.Effect<
       { success: boolean; setNullPerformed: boolean; restrictViolation: boolean },
-      SessionContextError
+      DatabaseError
     >
 
     readonly permanentlyDeleteRecord: (
       session: Readonly<UserSession>,
       tableName: string,
       recordId: string
-    ) => Effect.Effect<boolean, SessionContextError>
+    ) => Effect.Effect<boolean, DatabaseError>
 
     readonly restoreRecord: (
       session: Readonly<UserSession>,
       tableName: string,
       recordId: string
-    ) => Effect.Effect<Record<string, unknown> | null, SessionContextError>
+    ) => Effect.Effect<Record<string, unknown> | null, DatabaseError>
 
     readonly computeAggregations: (config: {
       readonly session: Readonly<UserSession>
@@ -125,7 +125,7 @@ export class TableRepository extends Context.Tag('TableRepository')<
       readonly filter?: QueryFilter
       readonly includeDeleted?: boolean
       readonly aggregate: AggregateQuery
-    }) => Effect.Effect<AggregationResult, SessionContextError>
+    }) => Effect.Effect<AggregationResult, DatabaseError>
 
     readonly linkManyToMany: (input: {
       readonly sourceTable: string
@@ -135,15 +135,12 @@ export class TableRepository extends Context.Tag('TableRepository')<
         readonly relatedIds: readonly (string | number)[]
         readonly hasReciprocal: boolean
       }[]
-    }) => Effect.Effect<void, SessionContextError>
+    }) => Effect.Effect<void, DatabaseError>
 
     readonly readManyToMany: (input: {
       readonly sourceTable: string
       readonly sourceIds: readonly (string | number)[]
       readonly fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
-    }) => Effect.Effect<
-      Record<string, Record<string, readonly (string | number)[]>>,
-      SessionContextError
-    >
+    }) => Effect.Effect<Record<string, Record<string, readonly (string | number)[]>>, DatabaseError>
   }
 >() {}

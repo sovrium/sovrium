@@ -21,16 +21,15 @@ import {
   FormRateLimitedError,
   FormSubmissionLimitError,
 } from '@/application/use-cases/forms/submit-form'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
-import {
-  evaluateFormAccess,
-  type FormAccessDecision,
-} from '@/domain/models/shared/form-access-flow'
 import { evaluateAvailabilityWindow } from '@/domain/models/shared/form-availability-flow'
 import { hashIp, readIpHashSalt } from '@/infrastructure/forms/ip-hash'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
+import {
+  denyFormAccess,
+  evaluateFormAccessForRequest,
+} from '@/presentation/api/routes/forms/access-gate'
 import { provideFormsLive } from '@/presentation/api/routes/forms/effect-runner'
 import {
   FormUploadError,
@@ -85,20 +84,15 @@ function extractClientIp(c: Context): string | undefined {
   return c.req.header('x-real-ip') ?? undefined
 }
 
-function renderFormUnauthorizedHtml(formName: string, require: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>401 — authentication required</title></head><body><main class="form-access-denied" data-status="401"><p>Form "${formName}" requires ${require} access.</p></main></body></html>`
-}
-
-async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Promise<Response> {
-  const name = c.req.param('name')
-  if (!name) return c.notFound()
-  const form = findFormByName(app, name)
-  if (!form) return c.notFound()
+async function respondWithForm(
+  c: Context,
+  app: App,
+  form: Readonly<Form>,
+  renderers: FormRenderers
+): Promise<Response> {
   const { decision } = await evaluateFormAccessForRequest(c, form)
-  if (decision.kind === 'unauthorized') {
-    return c.html(renderFormUnauthorizedHtml(form.name, decision.require), 401)
-  }
-  if (decision.kind === 'not-found') return c.notFound()
+  const denied = denyFormAccess(c, form.name, decision, 'html')
+  if (denied !== undefined) return denied
   const activeLang = c.req.query('lang')
   const windowState = evaluateAvailabilityWindow(form.availability, Date.now())
   if (windowState.kind === 'not-yet-open') {
@@ -110,6 +104,14 @@ async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Pr
   return c.html(renderers.renderForm(app, form, activeLang, await buildPrefillContext(c)))
 }
 
+async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Promise<Response> {
+  const name = c.req.param('name')
+  if (!name) return c.notFound()
+  const form = findFormByName(app, name)
+  if (!form) return c.notFound()
+  return respondWithForm(c, app, form, renderers)
+}
+
 async function buildPrefillContext(c: Context): Promise<FormPrefillContext> {
   const query = c.req.query() as Record<string, string>
   const session = getSessionContext(c)
@@ -118,27 +120,6 @@ async function buildPrefillContext(c: Context): Promise<FormPrefillContext> {
   const user: Record<string, unknown> =
     email !== undefined ? { id: session.userId, email } : { id: session.userId }
   return { query, user }
-}
-
-async function resolveFormSession(
-  c: Context
-): Promise<{ readonly userId: string; readonly role: string } | undefined> {
-  const session = getSessionContext(c)
-  if (!session) return undefined
-  const role = await getUserRole(session.userId)
-  return { userId: session.userId, role }
-}
-
-async function evaluateFormAccessForRequest(
-  c: Context,
-  form: Readonly<Form>
-): Promise<{
-  readonly decision: FormAccessDecision
-  readonly session: { readonly userId: string; readonly role: string } | undefined
-}> {
-  const session = await resolveFormSession(c)
-  const decision = evaluateFormAccess(form.access?.require, session)
-  return { decision, session }
 }
 
 
@@ -316,13 +297,8 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   if (!form) return c.json({ error: 'form_not_found' }, 404)
 
   const { decision, session } = await evaluateFormAccessForRequest(c, form)
-  if (decision.kind === 'unauthorized') {
-    return c.json(
-      { error: 'authentication required', form: form.name, require: decision.require },
-      401
-    )
-  }
-  if (decision.kind === 'not-found') return c.json({ error: 'form_not_found' }, 404)
+  const denied = denyFormAccess(c, form.name, decision, 'json')
+  if (denied !== undefined) return denied
 
   const rawBody = await readSubmissionBody(c)
   const uploadResult = await runRequestEffect(
@@ -411,8 +387,7 @@ export function chainFormRoutes<T extends Hono>(
     return acc.get(form.path, async (c) => {
       const resolved = findFormByName(app, form.name)
       if (!resolved) return c.notFound()
-      const activeLang = c.req.query('lang')
-      return c.html(renderers.renderForm(app, resolved, activeLang, await buildPrefillContext(c)))
+      return respondWithForm(c, app, resolved, renderers)
     }) as T
   }, withCanonical as T)
 }

@@ -8,7 +8,7 @@
 import { Context } from 'effect'
 import type { UserMetadataWithImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { SessionContextError } from '@/domain/errors'
+import type { DatabaseError } from '@/domain/errors'
 import type { Effect } from 'effect'
 
 export interface ActivityHistoryEntry {
@@ -32,12 +32,12 @@ export class ActivityRepository extends Context.Tag('ActivityRepository')<
         readonly entries: readonly ActivityHistoryEntry[]
         readonly total: number
       },
-      SessionContextError
+      DatabaseError
     >
     readonly checkRecordExists: (config: {
       readonly session: Readonly<UserSession>
       readonly tableName: string
       readonly recordId: string
-    }) => Effect.Effect<boolean, SessionContextError>
+    }) => Effect.Effect<boolean, DatabaseError>
   }
 >() {}

@@ -4,14 +4,17 @@
 # Usage:
 #   curl -fsSL https://sovrium.com/install | sh
 #   curl -fsSL https://sovrium.com/install | sh -s -- --version 0.3.0
-#   SOVRIUM_INSTALL_DIR=/usr/local/bin curl -fsSL https://sovrium.com/install | sh
+#   SOVRIUM_INSTALL_DIR=/usr/local curl -fsSL https://sovrium.com/install | sh
 #
 # Options:
 #   --no-modify-path    Don't add Sovrium to your shell PATH
 #   --version X.Y.Z     Install a specific version (default: latest)
 #
 # Environment variables:
-#   SOVRIUM_INSTALL_DIR   Custom install directory (default: ~/.sovrium)
+#   SOVRIUM_INSTALL_DIR   Custom install PREFIX (default: ~/.sovrium). The
+#                         binary lands in $SOVRIUM_INSTALL_DIR/bin, so pass
+#                         /usr/local — not /usr/local/bin — to install to
+#                         /usr/local/bin/sovrium.
 
 set -eu
 

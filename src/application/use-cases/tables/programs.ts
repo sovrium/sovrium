@@ -9,7 +9,7 @@
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { buildAiComputeProjection } from '@/application/use-cases/ai-compute/status-projection'
-import { SessionContextError } from '@/domain/errors'
+import { NotFoundError, ValidationError } from '@/domain/errors'
 import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
@@ -33,6 +33,7 @@ import { transformRecord } from './utils/record-transformer'
 import type { TransformedRecord } from './utils/record-transformer'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
+import type { DatabaseError } from '@/domain/errors'
 import type {
   ListRecordsResponse,
   GetRecordResponse,
@@ -172,7 +173,7 @@ const readManyToManyLinks = (
   app: App | undefined,
   tableName: string,
   ids: readonly (string | number)[]
-): Effect.Effect<ManyToManyLinkMap, SessionContextError, TableRepository> =>
+): Effect.Effect<ManyToManyLinkMap, DatabaseError, TableRepository> =>
   Effect.gen(function* () {
     const specs = getManyToManyFieldSpecs(app?.tables, tableName)
     if (specs.length === 0 || ids.length === 0) return {}
@@ -198,7 +199,7 @@ const writeManyToManyLinks = (
   tableName: string,
   sourceId: string | number,
   links: readonly ManyToManyWriteLink[]
-): Effect.Effect<void, SessionContextError> =>
+): Effect.Effect<void, DatabaseError> =>
   links.length === 0
     ? Effect.void
     : repo.linkManyToMany({ sourceTable: tableName, sourceId, links })
@@ -207,7 +208,7 @@ const enrichRecordsWithManyToMany = (
   app: App | undefined,
   tableName: string,
   records: readonly TransformedRecord[]
-): Effect.Effect<readonly TransformedRecord[], SessionContextError, TableRepository> =>
+): Effect.Effect<readonly TransformedRecord[], DatabaseError, TableRepository> =>
   Effect.gen(function* () {
     const linkMap = yield* readManyToManyLinks(
       app,
@@ -255,7 +256,7 @@ const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<str
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
-): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
+): Effect.Effect<ListRecordsResponse, DatabaseError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config
@@ -315,7 +316,7 @@ function extractDeletedByUserId(rawRecord: Readonly<Record<string, unknown>>): s
 
 export function createListTrashProgram(
   config: ListTrashConfig
-): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
+): Effect.Effect<ListRecordsResponse, DatabaseError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { session, tableName, app, userRole, filter, sort, limit, offset } = config
@@ -370,13 +371,13 @@ interface GetRecordConfig {
 
 export function createGetRecordProgram(
   config: GetRecordConfig
-): Effect.Effect<GetRecordResponse, SessionContextError, TableRepository> {
+): Effect.Effect<GetRecordResponse, DatabaseError | NotFoundError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { session, tableName, recordId, app, userRole, includeDeleted } = config
 
     const record = yield* repo.getRecord(session, tableName, recordId, includeDeleted)
-    if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
+    if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
 
     const filteredRecord = filterReadableFields({ app, tableName, userRole, record })
     const transformedRaw = transformRecord(filteredRecord, {
@@ -512,7 +513,7 @@ const resolveUpdatedBaseRecord = (
     readonly app?: App
     readonly userRole?: string
   }
-): Effect.Effect<Record<string, unknown>, SessionContextError, TableRepository> =>
+): Effect.Effect<Record<string, unknown>, DatabaseError, TableRepository> =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
     const m2mSpecs = getManyToManyFieldSpecs(params.app?.tables, tableName)
@@ -593,13 +594,17 @@ export function restoreRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordId: string
-): Effect.Effect<RestoreRecordResponse, SessionContextError, TableRepository> {
+): Effect.Effect<
+  RestoreRecordResponse,
+  DatabaseError | NotFoundError | ValidationError,
+  TableRepository
+> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const record = yield* repo.restoreRecord(session, tableName, recordId)
     if (record && '_error' in record && record._error === 'not_deleted')
-      return yield* Effect.fail(new SessionContextError('Record is not deleted'))
-    if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
+      return yield* Effect.fail(new ValidationError('Record is not deleted'))
+    if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
     return { success: true as const, record: transformRecord(record) }
   })
 }
@@ -608,7 +613,7 @@ export function rawGetRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordId: string
-): Effect.Effect<Record<string, unknown> | null, SessionContextError, TableRepository> {
+): Effect.Effect<Record<string, unknown> | null, DatabaseError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     return yield* repo.getRecord(session, tableName, recordId)
@@ -622,7 +627,7 @@ export function deleteRecordProgram(
   app?: App
 ): Effect.Effect<
   { success: boolean; setNullPerformed: boolean; restrictViolation: boolean },
-  SessionContextError,
+  DatabaseError,
   TableRepository
 > {
   return Effect.gen(function* () {
@@ -635,7 +640,7 @@ export function permanentlyDeleteRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordId: string
-): Effect.Effect<boolean, SessionContextError, TableRepository> {
+): Effect.Effect<boolean, DatabaseError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     return yield* repo.permanentlyDeleteRecord(session, tableName, recordId)

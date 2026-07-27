@@ -7,7 +7,7 @@
 
 
 import { and, eq, like, sql } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   AiEmbeddingDatabaseError,
   AiEmbeddingRepository,
@@ -19,7 +19,7 @@ import {
   deserializeEmbedding,
   serializeEmbedding,
 } from '@/infrastructure/database/sql/ai-embedding-vector-math'
-import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import { searchSqliteVec } from '@/infrastructure/database/sql/sqlite-vec-search'
 import type {
@@ -44,27 +44,28 @@ const padVector = (embedding: ReadonlyArray<number>): ReadonlyArray<number> => {
 const toVectorLiteral = (embedding: ReadonlyArray<number>): string =>
   `[${padVector(embedding).join(',')}]`
 
-const insertManyImpl = async (rows: ReadonlyArray<NewEmbedding>): Promise<void> => {
-  if (rows.length === 0) return
-  await Promise.all(
-    rows.map((row) => {
-      const metadata =
-        row.metadata !== undefined ? sql`${JSON.stringify(row.metadata)}::jsonb` : sql`NULL`
-      return db.execute(
-        sql`
-          INSERT INTO system.ai_embeddings
-            (source_type, source_id, agent_name, source_ref, chunk_index, content, embedding, metadata)
-          VALUES (
-            ${row.sourceType}, ${row.sourceId}, ${row.agentName}, ${row.sourceRef},
-            ${row.chunkIndex}, ${row.content},
-            ${toVectorLiteral(row.embedding)}::vector,
-            ${metadata}
-          )
-        `
+const insertEmbeddingRow = (row: Readonly<NewEmbedding>): Promise<unknown> => {
+  const metadata =
+    row.metadata !== undefined ? sql`${JSON.stringify(row.metadata)}::jsonb` : sql`NULL`
+  return db.execute(
+    sql`
+      INSERT INTO system.ai_embeddings
+        (source_type, source_id, agent_name, source_ref, chunk_index, content, embedding, metadata)
+      VALUES (
+        ${row.sourceType}, ${row.sourceId}, ${row.agentName}, ${row.sourceRef},
+        ${row.chunkIndex}, ${row.content},
+        ${toVectorLiteral(row.embedding)}::vector,
+        ${metadata}
       )
-    })
+    `
   )
 }
+
+const insertManyEffect = (rows: ReadonlyArray<NewEmbedding>) =>
+  Effect.all(
+    rows.map((row) => wrap(() => insertEmbeddingRow(row))),
+    { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
+  ).pipe(Effect.asVoid)
 
 interface SearchRow {
   readonly agent_name: string | null
@@ -114,7 +115,7 @@ const deleteBySourceIdPrefixImpl = async (prefix: string): Promise<void> => {
 export const AiEmbeddingRepositoryLive = Layer.succeed(
   AiEmbeddingRepository,
   AiEmbeddingRepository.of({
-    insertMany: (rows) => wrap(() => insertManyImpl(rows)),
+    insertMany: (rows) => insertManyEffect(rows),
     search: (input) => wrap(() => searchImpl(input)),
     deleteBySourceIdPrefix: (prefix) => wrap(() => deleteBySourceIdPrefixImpl(prefix)),
   })

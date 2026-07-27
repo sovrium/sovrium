@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { isAdminEquivalent } from '@/domain/models/app'
+import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { hasPermission } from '@/domain/models/app/tables/permissions'
 import { inferMimeFromKey } from '@/domain/utils/mime-types'
@@ -17,6 +18,7 @@ import {
   FieldFormatError,
   ValidationContext,
 } from '../../middleware/validation'
+import type { FieldErrorDetail } from '../../middleware/validation'
 
 const hasUserDefault = (field: { readonly type: string }): boolean =>
   'default' in field && (field as { readonly default?: unknown }).default !== undefined
@@ -40,18 +42,35 @@ export function validateReadonlyComputedFields(
     const readonlyComputedFields =
       table?.fields?.filter((f) => isReadonlyComputedFieldType(f.type)) ?? []
 
-    const attemptedComputedField = readonlyComputedFields.find((f) => f.name in fields)
+    const attempted = readonlyComputedFields
+      .filter((f) => f.name in fields)
+      .map((f) => ({ field: f.name, message: `Cannot write to readonly field '${f.name}'` }))
 
-    if (attemptedComputedField) {
+    const firstAttempted = attempted[0]
+    if (firstAttempted) {
       return yield* Effect.fail(
-        new FieldValidationError(
-          `Cannot write to readonly field '${attemptedComputedField.name}'`,
-          attemptedComputedField.name
-        )
+        new FieldValidationError(firstAttempted.message, firstAttempted.field, attempted)
       )
     }
   })
 }
+
+const findBlankRequiredFields = <
+  F extends { readonly name: string; readonly type: string; readonly required?: boolean },
+>(
+  tableFields: readonly F[],
+  fields: Record<string, unknown>
+): readonly FieldErrorDetail[] =>
+  tableFields
+    .filter(
+      (field) =>
+        field.required &&
+        field.type === 'single-line-text' &&
+        field.name in fields &&
+        typeof fields[field.name] === 'string' &&
+        (fields[field.name] as string).trim().length === 0
+    )
+    .map((field) => ({ field: field.name, message: 'This field is required' }))
 
 export function validateRequiredFields(
   fields: Record<string, unknown>
@@ -77,29 +96,28 @@ export function validateRequiredFields(
           !autoInjectedFields.has(field.name) &&
           !hasUserDefault(field)
       )
-      .map((field) => field.name)
+      .map((field) => ({
+        field: field.name,
+        message: `Missing required field '${field.name}'`,
+      }))
 
-    if (missingRequiredFields.length > 0) {
+    const firstMissing = missingRequiredFields[0]
+    if (firstMissing) {
       return yield* Effect.fail(
         new FieldValidationError(
           'Missing required fields',
-          missingRequiredFields[0]
+          firstMissing.field,
+          missingRequiredFields
         )
       )
     }
 
-    const tooShortField = table.fields.find(
-      (field) =>
-        field.required &&
-        field.type === 'single-line-text' &&
-        field.name in fields &&
-        typeof fields[field.name] === 'string' &&
-        (fields[field.name] as string).trim().length < 2
-    )
+    const blankRequiredFields = findBlankRequiredFields(table.fields, fields)
 
-    if (tooShortField) {
+    const firstBlank = blankRequiredFields[0]
+    if (firstBlank) {
       return yield* Effect.fail(
-        new FieldValidationError('This field is too short', tooShortField.name)
+        new FieldValidationError(firstBlank.message, firstBlank.field, blankRequiredFields)
       )
     }
   })
@@ -125,8 +143,6 @@ export function filterAllowedFields(
     const ctx = yield* ValidationContext
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
 
-    const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
-
     const isUnrestricted = isAdminEquivalent(ctx.userRole, ctx.app)
 
     const forbiddenFields: readonly string[] = isUnrestricted
@@ -140,14 +156,19 @@ export function filterAllowedFields(
         })
 
     const allowedData = Object.fromEntries(
-      Object.entries(fields).filter(
-        ([fieldName]) =>
-          !forbiddenFields.includes(fieldName) && !SYSTEM_PROTECTED_FIELDS.has(fieldName)
-      )
+      Object.entries(fields).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
     )
 
     return { allowedData, forbiddenFields }
   })
+}
+
+const isWellFormedUrl = (value: string): boolean => {
+  try {
+    return new URL(value).protocol.length > 0
+  } catch {
+    return false
+  }
 }
 
 export function validateFieldFormats(
@@ -158,25 +179,21 @@ export function validateFieldFormats(
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
     if (!table) return
 
-    const urlField = table.fields.find(
-      (f) => f.type === 'url' && f.name in fields && typeof fields[f.name] === 'string'
-    )
+    const malformed = table.fields
+      .filter(
+        (f) =>
+          f.type === 'url' &&
+          f.name in fields &&
+          typeof fields[f.name] === 'string' &&
+          !isWellFormedUrl(fields[f.name] as string)
+      )
+      .map((f) => ({ field: f.name, message: `Invalid URL format for field '${f.name}'` }))
 
-    if (urlField) {
-      const value = fields[urlField.name] as string
-      const isValidUrl = (() => {
-        try {
-          const _url = new URL(value)
-          return _url.protocol.length > 0
-        } catch {
-          return false
-        }
-      })()
-      if (!isValidUrl) {
-        return yield* Effect.fail(
-          new FieldFormatError(`Invalid URL format for field '${urlField.name}'`, urlField.name)
-        )
-      }
+    const firstMalformed = malformed[0]
+    if (firstMalformed) {
+      return yield* Effect.fail(
+        new FieldFormatError(firstMalformed.message, firstMalformed.field, malformed)
+      )
     }
   })
 }
@@ -320,6 +337,7 @@ export function enrichAttachmentMetadata(
       (acc, f) => {
         if (!(f.name in acc) || typeof acc[f.name] !== 'string') return Effect.succeed(acc)
         const key = acc[f.name] as string
+        const bucket = resolveFieldBucket(ctx.app, ctx.tableName, f.name) ?? 'default'
         return storage.download(key).pipe(
           Effect.catchAll(() => Effect.succeed(new Uint8Array(0))),
           Effect.map((content) => ({
@@ -328,7 +346,7 @@ export function enrichAttachmentMetadata(
               filename: stripUuidPrefix(key),
               mimeType: inferMimeFromKey(key),
               size: content.length,
-              url: `/api/buckets/default/files/${key}`,
+              url: `/api/buckets/${bucket}/files/${key}`,
             },
           }))
         )

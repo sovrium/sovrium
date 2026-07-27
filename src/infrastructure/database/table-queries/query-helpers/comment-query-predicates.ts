@@ -20,6 +20,15 @@ export function activeCommentsByRecordId(recordId: string) {
   return and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt))
 }
 
+export function approvedGuestCommentByEmail(tableId: string, guestEmail: string) {
+  return and(
+    eq(recordComments.tableId, tableId),
+    eq(recordComments.guestEmail, guestEmail),
+    eq(recordComments.status, 'approved'),
+    isNull(recordComments.deletedAt)
+  )
+}
+
 export function visibleCommentsByRecordId(recordId: string, includeAllStatuses: boolean) {
   return includeAllStatuses
     ? activeCommentsByRecordId(recordId)

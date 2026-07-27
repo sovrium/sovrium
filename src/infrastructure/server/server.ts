@@ -29,6 +29,7 @@ import {
   runRagKnowledgeStartup,
   stopAiKnowledgeListener,
 } from '@/infrastructure/database/ai-knowledge-listener'
+import { runAttachmentUrlBackfill } from '@/infrastructure/database/attachment-url-backfill'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
@@ -412,6 +413,7 @@ const runDatabaseStartup = (
   const ragDatabaseUrl = dialectConfig.dialect === 'postgres' ? dialectConfig.databaseUrl : ''
   return runMigrations(dialectConfig).pipe(
     Effect.flatMap(() => initializeSchema(app)),
+    Effect.flatMap(() => Effect.promise(() => runAttachmentUrlBackfill(app))),
     Effect.flatMap(() =>
       Effect.promise(() => runSeedAllConnectionDefinitions({ connections: app.connections }))
     ),

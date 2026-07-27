@@ -6,6 +6,7 @@
  */
 
 import { humanizeFieldName } from '@/presentation/utils/string-utils'
+import type { FieldType } from '@/domain/models/app/tables/fields'
 
 export type ConditionRule =
   | {
@@ -18,7 +19,7 @@ export type ConditionRule =
 
 export interface FieldDef {
   readonly name: string
-  readonly type: string
+  readonly type: FieldType
   readonly required?: boolean
   readonly options?: readonly string[]
   readonly language?: string
@@ -43,6 +44,7 @@ export interface FieldDef {
   readonly maxFiles?: number
   readonly maxFileSize?: number
   readonly allowedFileTypes?: readonly string[]
+  readonly bucket?: string
 }
 
 export function labelOf(field: FieldDef): string {

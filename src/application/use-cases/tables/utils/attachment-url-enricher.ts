@@ -6,12 +6,15 @@
  */
 
 import { createHmac } from 'node:crypto'
+import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { resolveStoragePublicAccess } from '@/domain/models/env/storage/storage-public-access'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'
 
 
 const DEFAULT_EXPIRES_IN_SECONDS = 3600
+
+const DEFAULT_BUCKET = 'default'
 
 const signingSecret = (env: Readonly<NodeJS.ProcessEnv>): string =>
   env['AUTH_SECRET'] || 'sovrium-signed-url-dev-secret'
@@ -27,60 +30,87 @@ const computeDownloadToken = (
     .digest('hex')
 
 const isAttachmentObject = (
-  value: RecordFieldValue | FormattedFieldValue
+  value: unknown
 ): value is Readonly<Record<string, unknown>> & { readonly key: string } =>
   typeof value === 'object' &&
   value !== null &&
   !Array.isArray(value) &&
   typeof (value as { key?: unknown }).key === 'string'
 
-const ATTACHMENT_FIELD_TYPES = new Set(['attachment'])
+const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
+  'attachment',
+  'single-attachment',
+  'multiple-attachments',
+])
 
-const isAttachmentColumn = (app: Readonly<App>, tableName: string, fieldName: string): boolean => {
-  const table = app.tables?.find((t) => t.name === tableName)
-  return ATTACHMENT_FIELD_TYPES.has(table?.fields.find((f) => f.name === fieldName)?.type ?? '')
+const fieldTypeOf = (
+  app: Readonly<App>,
+  tableName: string,
+  fieldName: string
+): string | undefined =>
+  app.tables?.find((t) => t.name === tableName)?.fields.find((f) => f.name === fieldName)?.type
+
+interface ColumnContext {
+  readonly bucket: string
+  readonly isPublic: boolean
+  readonly origin: string
+  readonly env: NodeJS.ProcessEnv
+  readonly now: number
 }
 
-const buildPublicUrl = (origin: string, key: string): string => {
-  const path = `/api/buckets/default/files/${key}`
-  return origin ? `${origin}${path}` : path
+const buildPublicUrl = (key: string, ctx: ColumnContext): string => {
+  const path = `/api/buckets/${ctx.bucket}/files/${key}`
+  return ctx.origin ? `${ctx.origin}${path}` : path
 }
 
 const buildSignedDownloadUrl = (
-  env: Readonly<NodeJS.ProcessEnv>,
-  origin: string,
   key: string,
-  now: number
+  ctx: ColumnContext
 ): { readonly signedUrl: string; readonly signedUrlExpiresAt: string } => {
-  const expires = now + DEFAULT_EXPIRES_IN_SECONDS * 1000
-  const token = computeDownloadToken(env, 'default', key, expires)
+  const expires = ctx.now + DEFAULT_EXPIRES_IN_SECONDS * 1000
+  const token = computeDownloadToken(ctx.env, ctx.bucket, key, expires)
   const params = new URLSearchParams({
     path: key,
     op: 'download',
     expires: String(expires),
     token,
   })
-  const path = `/api/buckets/default/signed?${params.toString()}`
+  const path = `/api/buckets/${ctx.bucket}/signed?${params.toString()}`
   return {
-    signedUrl: origin ? `${origin}${path}` : path,
+    signedUrl: ctx.origin ? `${ctx.origin}${path}` : path,
     signedUrlExpiresAt: new Date(expires).toISOString(),
   }
 }
 
-const enrichAttachmentValue = (
-  value: Readonly<Record<string, unknown>>,
-  options: {
-    readonly origin: string
-    readonly env: NodeJS.ProcessEnv
-    readonly now: number
+const urlPropsForKey = (key: string, ctx: ColumnContext): Readonly<Record<string, unknown>> =>
+  ctx.isPublic ? { url: buildPublicUrl(key, ctx) } : buildSignedDownloadUrl(key, ctx)
+
+const enrichAttachmentValue = (value: unknown, ctx: ColumnContext): unknown => {
+  if (typeof value === 'string') {
+    return value.length > 0 ? { key: value, ...urlPropsForKey(value, ctx) } : value
   }
-): Readonly<Record<string, unknown>> => {
-  const key = value['key'] as string
-  const access = resolveStoragePublicAccess(options.env)
-  if (access.defaultPublic) {
-    return { ...value, url: buildPublicUrl(options.origin, key) }
+  if (Array.isArray(value)) return value.map((entry) => enrichAttachmentValue(entry, ctx))
+  if (isAttachmentObject(value)) return { ...value, ...urlPropsForKey(value.key, ctx) }
+  return value
+}
+
+const parseJsonArray = (value: unknown): readonly unknown[] | undefined => {
+  if (typeof value !== 'string' || !value.startsWith('[')) return undefined
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : undefined
+  } catch {
+    return undefined
   }
-  return { ...value, ...buildSignedDownloadUrl(options.env, options.origin, key, options.now) }
+}
+
+const enrichField = (
+  value: RecordFieldValue | FormattedFieldValue,
+  fieldType: string,
+  ctx: ColumnContext
+): RecordFieldValue | FormattedFieldValue => {
+  const source = fieldType === 'multiple-attachments' ? (parseJsonArray(value) ?? value) : value
+  return enrichAttachmentValue(source, ctx) as RecordFieldValue | FormattedFieldValue
 }
 
 const enrichRecordAttachments = (
@@ -93,11 +123,24 @@ const enrichRecordAttachments = (
     readonly now: number
   }
 ): TransformedRecord => {
+  const { app, tableName } = options
+  const { defaultPublic } = resolveStoragePublicAccess(options.env)
   const enrichedFields = Object.fromEntries(
     Object.entries(record.fields).map(([name, value]) => {
-      if (!isAttachmentColumn(options.app, options.tableName, name)) return [name, value]
-      if (!isAttachmentObject(value)) return [name, value]
-      return [name, enrichAttachmentValue(value, options)]
+      const fieldType = fieldTypeOf(app, tableName, name)
+      if (fieldType === undefined || !ATTACHMENT_FIELD_TYPES.has(fieldType)) return [name, value]
+      const bucket = resolveFieldBucket(app, tableName, name) ?? DEFAULT_BUCKET
+      const isPublic = defaultPublic || app.buckets?.find((b) => b.name === bucket)?.public === true
+      return [
+        name,
+        enrichField(value, fieldType, {
+          bucket,
+          isPublic,
+          origin: options.origin,
+          env: options.env,
+          now: options.now,
+        }),
+      ]
     })
   )
   return { ...record, fields: enrichedFields }

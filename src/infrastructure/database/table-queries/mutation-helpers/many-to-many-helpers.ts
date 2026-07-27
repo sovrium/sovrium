@@ -7,7 +7,7 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, type SessionContextError } from '@/infrastructure/database'
+import { db, type DatabaseError } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import {
   generateJunctionTableName,
@@ -16,6 +16,8 @@ import {
 import { wrapDatabaseError } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
 
+
+const READ_FIELD_FANOUT_CONCURRENCY = 2
 
 const coerceId = (value: string | number): string | number =>
   typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value
@@ -56,9 +58,7 @@ const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>
     })
   )
 
-export const linkManyToMany = (
-  input: LinkManyToManyInput
-): Effect.Effect<void, SessionContextError> => {
+export const linkManyToMany = (input: LinkManyToManyInput): Effect.Effect<void, DatabaseError> => {
   const statements = buildLinkStatements(input)
   if (statements.length === 0) return Effect.void
   return Effect.tryPromise({
@@ -117,27 +117,29 @@ const foldFieldRows = (
 
 export const readManyToMany = (
   input: ReadManyToManyInput
-): Effect.Effect<ManyToManyResult, SessionContextError> => {
+): Effect.Effect<ManyToManyResult, DatabaseError> => {
   if (input.fields.length === 0 || input.sourceIds.length === 0) return Effect.succeed({})
-  return Effect.tryPromise({
-    try: async () => {
-      const perField = await Promise.all(
-        input.fields.map(async (field) => {
-          const rows = await readFieldRows(input.sourceTable, input.sourceIds, field)
-          return { field, byRecord: foldFieldRows(rows) }
-        })
-      )
-      return perField.reduce<ManyToManyResult>((acc, { field, byRecord }) => {
-        const merged = Object.entries(byRecord).reduce<ManyToManyResult>(
-          (inner, [recordId, ids]) => {
+  return Effect.all(
+    input.fields.map((field) =>
+      Effect.tryPromise({
+        try: async () => ({
+          field,
+          byRecord: foldFieldRows(await readFieldRows(input.sourceTable, input.sourceIds, field)),
+        }),
+        catch: wrapDatabaseError(`Failed to read many-to-many records for ${input.sourceTable}`),
+      })
+    ),
+    { concurrency: READ_FIELD_FANOUT_CONCURRENCY }
+  ).pipe(
+    Effect.map((perField) =>
+      perField.reduce<ManyToManyResult>(
+        (acc, { field, byRecord }) =>
+          Object.entries(byRecord).reduce<ManyToManyResult>((inner, [recordId, ids]) => {
             const existing = inner[recordId] ?? {}
             return { ...inner, [recordId]: { ...existing, [field.fieldName]: ids } }
-          },
-          acc
-        )
-        return merged
-      }, {})
-    },
-    catch: wrapDatabaseError(`Failed to read many-to-many records for ${input.sourceTable}`),
-  })
+          }, acc),
+        {}
+      )
+    )
+  )
 }

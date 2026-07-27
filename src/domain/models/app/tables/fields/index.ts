@@ -230,6 +230,14 @@ export const FieldsSchema = Schema.Array(FieldUnionSchema).pipe(
 
 export type Fields = Schema.Schema.Type<typeof FieldsSchema>
 
+type KnownFieldTypeOf<F> = F extends { readonly type: infer T }
+  ? string extends T
+    ? never
+    : T
+  : never
+
+export type FieldType = KnownFieldTypeOf<Fields[number]>
+
 export const validateComputedFieldRelationship = (params: {
   readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
   readonly computedFieldName: string

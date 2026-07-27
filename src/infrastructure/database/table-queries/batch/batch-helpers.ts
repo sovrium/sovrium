@@ -16,6 +16,8 @@ export class BatchValidationError extends Data.TaggedError('BatchValidationError
   readonly details?: readonly string[]
 }> {}
 
+export const BATCH_FANOUT_CONCURRENCY = 2
+
 export async function runEffectInTx<A, E>(effect: Effect.Effect<A, E, never>): Promise<A> {
   const exit = await Effect.runPromiseExit(effect)
   if (Exit.isSuccess(exit)) return exit.value

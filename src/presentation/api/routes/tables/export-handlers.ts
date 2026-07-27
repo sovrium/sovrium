@@ -32,6 +32,36 @@ function getRawValue(fv: unknown): unknown {
   return fv
 }
 
+const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
+  'attachment',
+  'single-attachment',
+  'multiple-attachments',
+])
+
+function attachmentFieldNames(table: ReturnType<NonNullable<App['tables']>['find']>): Set<string> {
+  return new Set(
+    (table?.fields ?? []).filter((f) => ATTACHMENT_FIELD_TYPES.has(f.type)).map((f) => f.name)
+  )
+}
+
+function unwrapAttachment(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(unwrapAttachment)
+  if (value !== null && typeof value === 'object') {
+    const { key } = value as { readonly key?: unknown }
+    if (typeof key === 'string') return key
+  }
+  return value
+}
+
+function exportValue(
+  fields: Record<string, unknown>,
+  fieldName: string,
+  attachments: ReadonlySet<string>
+): unknown {
+  const raw = getRawValue(fields[fieldName])
+  return attachments.has(fieldName) ? unwrapAttachment(raw) : raw
+}
+
 type ExportFilterClause = {
   readonly field: string
   readonly operator: string
@@ -62,8 +92,12 @@ function buildCsvResponse(
   records: readonly { fields: Record<string, unknown> }[],
   tableFieldNames: readonly string[],
   tableName: string,
-  visibleFields?: readonly string[]
+  opts: {
+    readonly attachments: ReadonlySet<string>
+    readonly visibleFields?: readonly string[]
+  }
 ): Response {
+  const { attachments, visibleFields } = opts
   const firstRecordFields = records[0]?.fields ?? {}
   const allFieldKeys = Object.keys(firstRecordFields)
   const allOrderedFields =
@@ -80,7 +114,7 @@ function buildCsvResponse(
 
   const header = orderedFields.map(escapeCsvValue).join(',')
   const rows = records.map((record) =>
-    orderedFields.map((f) => escapeCsvValue(getRawValue(record.fields[f]))).join(',')
+    orderedFields.map((f) => escapeCsvValue(exportValue(record.fields, f, attachments))).join(',')
   )
   const csvContent = [header, ...rows].join('\n') + '\n'
   const date = new Date().toISOString().slice(0, 10)
@@ -110,10 +144,13 @@ function buildEmptyCsvResponse(tableFieldNames: readonly string[], tableName: st
 
 function buildJsonResponse(
   records: readonly { fields: Record<string, unknown> }[],
-  tableName: string
+  tableName: string,
+  attachments: ReadonlySet<string>
 ): Response {
   const data = records.map((record) =>
-    Object.fromEntries(Object.entries(record.fields).map(([k, v]) => [k, getRawValue(v)]))
+    Object.fromEntries(
+      Object.keys(record.fields).map((k) => [k, exportValue(record.fields, k, attachments)])
+    )
   )
   const date = new Date().toISOString().slice(0, 10)
   const filename = `${tableName}-${date}.json`
@@ -176,7 +213,7 @@ function parseExportQuery(c: Context): {
 }
 
 function buildEmptyExportResponse(format: string, tableName: string, tableFieldNames: string[]) {
-  if (format === 'json') return buildJsonResponse([], tableName)
+  if (format === 'json') return buildJsonResponse([], tableName, new Set())
   return buildEmptyCsvResponse(tableFieldNames, tableName)
 }
 
@@ -213,6 +250,10 @@ export async function handleExportTableCsv(c: Context, app: App) {
   if (either._tag === 'Left') {
     return c.json({ success: false, message: 'Export failed', code: 'INTERNAL_ERROR' }, 500)
   }
-  if (format === 'json') return buildJsonResponse(either.right.records, tableName)
-  return buildCsvResponse(either.right.records, tableFieldNames, tableName, visibleFields)
+  const attachments = attachmentFieldNames(table)
+  if (format === 'json') return buildJsonResponse(either.right.records, tableName, attachments)
+  return buildCsvResponse(either.right.records, tableFieldNames, tableName, {
+    attachments,
+    visibleFields,
+  })
 }

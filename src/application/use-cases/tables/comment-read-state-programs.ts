@@ -7,22 +7,23 @@
 
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
-import { SessionContextError } from '@/domain/errors'
+import { NotFoundError } from '@/domain/errors'
 import type { UserSession } from '@/application/ports/models/user-session'
+import type { DatabaseError } from '@/domain/errors'
 
 export function markRecordCommentsReadProgram(config: {
   readonly session: Readonly<UserSession>
   readonly tableId: string
   readonly recordId: string
   readonly tableName: string
-}): Effect.Effect<void, SessionContextError, CommentRepository> {
+}): Effect.Effect<void, DatabaseError | NotFoundError, CommentRepository> {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
     const { session, tableId, recordId, tableName } = config
 
     const hasAccess = yield* comments.checkRecordExists({ session, tableName, recordId })
     if (!hasAccess) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
+      return yield* Effect.fail(new NotFoundError('Record not found'))
     }
 
     yield* comments.markRead({ session, tableId, recordId })

@@ -33,6 +33,78 @@ const ContentDirSortSchema = Schema.Struct({
   })
 )
 
+const ContentDirNavTabSchema = Schema.Struct({
+  id: Schema.String.pipe(
+    Schema.minLength(1),
+    Schema.annotations({
+      description:
+        'Stable tab identifier, announced as data-docs-active-zone on the docs sidebar (e.g. "tables")',
+    })
+  ),
+
+  label: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description:
+          'Tab display label, also the breadcrumb root-crumb name. Already-localised per locale. Absent = humanized id.',
+      })
+    )
+  ),
+
+  href: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({
+        description:
+          "Tab landing URL used as the breadcrumb root href. Absent = derived from the tab's first sidebar entry (self-healing).",
+      })
+    )
+  ),
+
+  sections: Schema.Array(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({ description: 'A groupBy section slug owned by this tab' })
+    )
+  ).pipe(
+    Schema.minItems(1),
+    Schema.annotations({
+      description:
+        'Section slugs owned by this tab, in sidebar group order within the tab (orthogonal to contentDir.sort, which orders entries inside each group)',
+    })
+  ),
+}).pipe(
+  Schema.annotations({
+    identifier: 'ContentDirNavTab',
+    title: 'Content Directory Navigation Tab',
+    description: 'One docs navigation tab (zone) owning a set of sidebar sections',
+  })
+)
+
+const ContentDirNavTabsSchema = Schema.Array(ContentDirNavTabSchema).pipe(
+  Schema.minItems(1),
+  Schema.annotations({
+    identifier: 'ContentDirNavTabs',
+    title: 'Content Directory Navigation Tabs',
+    description:
+      'Docs navigation tabs (zones) in tab-strip order. Each owns a disjoint set of sidebar sections.',
+  }),
+  Schema.filter((tabs) => {
+    const duplicateId = tabs
+      .map((tab) => tab.id)
+      .find((id, index, ids) => ids.indexOf(id) !== index)
+    if (duplicateId !== undefined) return `duplicate nav tab id "${duplicateId}"`
+    const claims = tabs.flatMap((tab) => tab.sections.map((section) => ({ section, id: tab.id })))
+    const conflict = claims.find(
+      (claim, index) => claims.findIndex((other) => other.section === claim.section) !== index
+    )
+    if (conflict !== undefined)
+      return `section "${conflict.section}" is claimed by more than one nav tab (last: "${conflict.id}") — a section belongs to exactly one tab`
+    return true
+  })
+)
+
 const ContentDirNavSchema = Schema.Struct({
   enabled: Schema.optional(
     Schema.Boolean.pipe(
@@ -84,6 +156,8 @@ const ContentDirNavSchema = Schema.Struct({
       })
     )
   ),
+
+  tabs: Schema.optional(ContentDirNavTabsSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'ContentDirNav',

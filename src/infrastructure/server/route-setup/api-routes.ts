@@ -282,8 +282,17 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   const resolveAppForGuestCommentExemption = (): App => (getLiveApp() as App | undefined) ?? app
   const resolveAppForTier = (): App => (getLiveApp() as App | undefined) ?? app
+  const honoWithFormPathAuth = app.auth
+    ? (app.forms ?? []).reduce<typeof honoWithActivityRateLimit>(
+        (acc, form) =>
+          typeof form.path === 'string'
+            ? (acc.use(form.path, authMiddleware(auth)) as typeof honoWithActivityRateLimit)
+            : acc,
+        honoWithActivityRateLimit
+      )
+    : honoWithActivityRateLimit
   const honoWithAuth = app.auth
-    ? honoWithActivityRateLimit
+    ? honoWithFormPathAuth
         .use('/api/tables', authMiddleware(auth))
         .use('/api/tables', requireAuth())
         .use('/api/tables/*', authMiddleware(auth))

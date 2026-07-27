@@ -16,7 +16,7 @@ import {
 } from './permissions/permissions'
 import { processRecords } from './utils/list-helpers'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { SessionContextError } from '@/domain/errors'
+import type { DatabaseError } from '@/domain/errors'
 import type { GetTableResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -302,11 +302,7 @@ export function getViewRecordsProgram(config: {
   readonly app: App
   readonly userRole: string
   readonly session: Readonly<UserSession>
-}): Effect.Effect<
-  unknown,
-  TableNotFoundError | ForbiddenError | SessionContextError,
-  TableRepository
-> {
+}): Effect.Effect<unknown, TableNotFoundError | ForbiddenError | DatabaseError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { tableId, viewId, app, userRole, session } = config

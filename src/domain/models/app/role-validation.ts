@@ -7,6 +7,7 @@
 
 import { isGroupReference } from '@/domain/models/app/auth/groups/group-reference'
 import { BUILT_IN_ROLES } from '@/domain/models/app/auth/roles'
+import { BUCKET_ACTIONS } from '@/domain/models/app/buckets/permissions'
 import { extractRolesFromPermission } from '@/domain/models/shared/permissions'
 
 const rolesOnly = (entries: readonly string[]): readonly string[] =>
@@ -68,7 +69,7 @@ const validateBucketRoles = (
   validRoles: ReadonlySet<string>,
   validLabel: string
 ): string | undefined => {
-  const keys = ['upload', 'download', 'sign', 'signUpload', 'delete'] as const
+  const keys = BUCKET_ACTIONS
   const errors = buckets
     .filter((b) => b.permissions)
     .map((b) => ({

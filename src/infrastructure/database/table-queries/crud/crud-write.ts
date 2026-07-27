@@ -10,7 +10,7 @@ import { Effect } from 'effect'
 import {
   db,
   ForeignKeyViolationError,
-  SessionContextError,
+  DatabaseError,
   UniqueConstraintViolationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
@@ -56,7 +56,7 @@ async function executeCreateRecordTx(
 ): Promise<Readonly<Record<string, unknown>>> {
   validateTableName(tableName)
   if (Object.keys(fields).length === 0) {
-    throw new SessionContextError('Cannot create record with no fields', undefined)
+    throw new DatabaseError('Cannot create record with no fields', undefined)
   }
   const fieldsWithAuthorship = await injectCreateAuthorship(fields, session.userId, tx, tableName)
   const arrayColumnNames = Object.entries(fieldsWithAuthorship)
@@ -108,7 +108,7 @@ export function createRecord(
   fields: Readonly<Record<string, unknown>>
 ): Effect.Effect<
   Record<string, unknown>,
-  SessionContextError | UniqueConstraintViolationError | ForeignKeyViolationError
+  DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError
 > {
   return Effect.gen(function* () {
     const record = yield* traceDbQuery(
@@ -117,7 +117,7 @@ export function createRecord(
       Effect.tryPromise({
         try: () => db.transaction((tx) => executeCreateRecordTx(tx, session, tableName, fields)),
         catch: (error) => {
-          if (error instanceof SessionContextError) return error
+          if (error instanceof DatabaseError) return error
           if (error instanceof UniqueConstraintViolationError) return error
           if (error instanceof ForeignKeyViolationError) return error
           if (isForeignKeyViolation(error)) {
@@ -130,7 +130,7 @@ export function createRecord(
           if (isUniqueConstraintViolation(error)) {
             return new UniqueConstraintViolationError('Unique constraint violation', error)
           }
-          return new SessionContextError(`Failed to create record in ${tableName}`, error)
+          return new DatabaseError(`Failed to create record in ${tableName}`, error)
         },
       })
     )
@@ -176,7 +176,7 @@ export function updateRecord(
     readonly fields: Readonly<Record<string, unknown>>
     readonly app?: App
   }
-): Effect.Effect<Record<string, unknown>, SessionContextError> {
+): Effect.Effect<Record<string, unknown>, DatabaseError> {
   const { fields, app } = params
   return Effect.gen(function* () {
     const { recordBefore, updatedRecord } = yield* traceDbQuery(
@@ -302,7 +302,7 @@ export function deleteRecord(
   app?: DeleteAppSchema
 ): Effect.Effect<
   { success: boolean; setNullPerformed: boolean; restrictViolation: boolean },
-  SessionContextError
+  DatabaseError
 > {
   return Effect.gen(function* () {
     const result = yield* traceDbQuery(
@@ -337,7 +337,7 @@ export function permanentlyDeleteRecord(
   session: Readonly<Session>,
   tableName: string,
   recordId: string
-): Effect.Effect<boolean, SessionContextError> {
+): Effect.Effect<boolean, DatabaseError> {
   return Effect.gen(function* () {
     const result = yield* traceDbQuery(
       'delete',
@@ -375,7 +375,7 @@ export function restoreRecord(
   session: Readonly<Session>,
   tableName: string,
   recordId: string
-): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
+): Effect.Effect<Record<string, unknown> | null, DatabaseError> {
   return Effect.gen(function* () {
     const restoredRecord = yield* traceDbQuery(
       'update',

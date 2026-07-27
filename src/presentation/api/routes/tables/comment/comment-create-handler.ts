@@ -13,6 +13,7 @@ import {
   hasReadPermission,
 } from '@/application/use-cases/tables/permissions/permissions'
 import {
+  isModerationEnabled,
   resolveCommentModerationStatus,
   requiresAuthenticationForComment,
   type CommentModerationConfig,
@@ -134,27 +135,50 @@ function resolveCommentableTable(
   return table
 }
 
+async function resolvePriorGuestApproval(input: {
+  readonly session: ReturnType<typeof getTableContext>['session']
+  readonly tableId: string
+  readonly moderationConfig: CommentModerationConfig
+  readonly isAuthenticated: boolean
+  readonly guestEmail: string | undefined
+}): Promise<boolean> {
+  const { session, tableId, moderationConfig, isAuthenticated, guestEmail } = input
+  if (!isModerationEnabled(moderationConfig)) return false
+  if (moderationConfig.autoApprove?.previouslyApproved !== true) return false
+  if (isAuthenticated || guestEmail === undefined) return false
+
+  const lookup = await runTableProgram(
+    Effect.gen(function* () {
+      const repo = yield* CommentRepository
+      return yield* repo.hasApprovedGuestComment({ session, tableId, guestEmail })
+    })
+  )
+  return lookup._tag === 'Right' && lookup.right
+}
+
+function requireCommentAuthentication(input: {
+  readonly c: Context
+  readonly moderationConfig: CommentModerationConfig
+  readonly isAuthenticated: boolean
+}): Response | undefined {
+  const { c, moderationConfig, isAuthenticated } = input
+  if (!requiresAuthenticationForComment(moderationConfig) || isAuthenticated) return undefined
+  return c.json(
+    { success: false, message: 'Authentication required to post comments', code: 'AUTH_REQUIRED' },
+    401
+  )
+}
+
 async function checkCreateCommentGate(c: Context, app: App): Promise<CreateCommentGate> {
-  const { tableName, userRole, session } = getTableContext(c)
+  const { tableName, tableId, userRole, session } = getTableContext(c)
   const tableOrResponse = resolveCommentableTable(c, app, tableName, userRole)
   if (tableOrResponse instanceof Response) return { ok: false, response: tableOrResponse }
   const table = tableOrResponse
 
   const moderationConfig = readModerationConfig(table)
   const isAuthenticated = isAuthenticatedSession(session.userId)
-  if (requiresAuthenticationForComment(moderationConfig) && !isAuthenticated) {
-    return {
-      ok: false,
-      response: c.json(
-        {
-          success: false,
-          message: 'Authentication required to post comments',
-          code: 'AUTH_REQUIRED',
-        },
-        401
-      ),
-    }
-  }
+  const authResponse = requireCommentAuthentication({ c, moderationConfig, isAuthenticated })
+  if (authResponse !== undefined) return { ok: false, response: authResponse }
 
   const body = await c.req.json().catch(() => undefined)
 
@@ -176,11 +200,20 @@ async function checkCreateCommentGate(c: Context, app: App): Promise<CreateComme
     }
   }
 
+  const priorApprovedCommentExists = await resolvePriorGuestApproval({
+    session,
+    tableId,
+    moderationConfig,
+    isAuthenticated,
+    guestEmail: validated.guestEmail,
+  })
+
   const { spamStatus, combinedStatus } = classifyComment({
     table,
     content: validated.content,
     moderationConfig,
     isAuthenticated,
+    priorApprovedCommentExists,
   })
 
   return { ok: true, table, validated, spamStatus, combinedStatus }
@@ -191,38 +224,15 @@ function classifyComment(input: {
   readonly content: string
   readonly moderationConfig: CommentModerationConfig
   readonly isAuthenticated: boolean
+  readonly priorApprovedCommentExists: boolean
 }): { readonly spamStatus: CommentSpamStatus; readonly combinedStatus: CombinedModerationStatus } {
   const spamStatus = classifySpam(input.table, input.content)
 
   const moderationStatus = resolveCommentModerationStatus(input.moderationConfig, {
     isAuthenticated: input.isAuthenticated,
-    priorApprovedCommentExists: false,
+    priorApprovedCommentExists: input.priorApprovedCommentExists,
   })
   return { spamStatus, combinedStatus: combineModerationVerdicts(spamStatus, moderationStatus) }
-}
-
-function synthesizeClassifiedComment(input: {
-  readonly status: CombinedModerationStatus
-  readonly recordId: string
-  readonly tableId: string
-  readonly content: string
-  readonly parentCommentId: string | undefined
-}): { readonly status: CombinedModerationStatus; readonly comment: Record<string, unknown> } {
-  const now = new Date().toISOString()
-  return {
-    status: input.status,
-    comment: {
-      id: crypto.randomUUID(),
-      tableId: input.tableId,
-      recordId: input.recordId,
-      userId: null,
-      content: input.content,
-      parentCommentId: input.parentCommentId ?? null,
-      createdAt: now,
-      updatedAt: now,
-      status: input.status,
-    },
-  }
 }
 
 async function checkSingleLevelThreading(
@@ -273,29 +283,6 @@ export async function handleCreateComment(c: Context, app: App) {
     userRole,
     status: combinedStatus,
   })
-}
-
-function handleCreateProgramLeft(c: Context, error: unknown): Response {
-  return handleCommentError(c, error)
-}
-
-function handleResolvedCommentLeft(input: {
-  readonly c: Context
-  readonly error: unknown
-  readonly status: CombinedModerationStatus
-  readonly recordId: string
-  readonly tableId: string
-  readonly content: string
-  readonly parentCommentId: string | undefined
-}): Response {
-  const { c, error, status, recordId, tableId, content, parentCommentId } = input
-  if (status !== 'approved' && isAuthorizationError(error)) {
-    return c.json(
-      synthesizeClassifiedComment({ status, recordId, tableId, content, parentCommentId }),
-      201
-    )
-  }
-  return handleCreateProgramLeft(c, error)
 }
 
 async function maybeFireCommentPostedTrigger(input: {
@@ -353,17 +340,7 @@ async function persistResolvedComment(input: {
     })
   )
 
-  if (result._tag === 'Left') {
-    return handleResolvedCommentLeft({
-      c,
-      error: result.left,
-      status,
-      recordId,
-      tableId,
-      content: validated.content,
-      parentCommentId: validated.parentCommentId,
-    })
-  }
+  if (result._tag === 'Left') return handleCommentError(c, result.left)
 
   await maybeFireCommentPostedTrigger({
     app,

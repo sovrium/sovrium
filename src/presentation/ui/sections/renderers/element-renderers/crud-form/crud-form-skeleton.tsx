@@ -7,13 +7,13 @@
 
 import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/utils/html-sanitization'
+import { fieldWidgetOf, type FieldWidget } from '@/presentation/utils/field-type-behavior'
 import { CrudFieldShell } from './crud-field-shell'
-
-type SingleSelectField = { options?: readonly string[] }
+import type { FieldType } from '@/domain/models/app/tables/fields'
 
 export type SkeletonFieldDef = {
   readonly name: string
-  readonly type: string
+  readonly type: FieldType
   readonly required?: boolean
   readonly options?: readonly string[]
   readonly displayLabel?: string
@@ -28,11 +28,13 @@ export type SkeletonFieldDef = {
   readonly maxFiles?: number
 }
 
-const TYPED_INPUT_MAP: Record<string, string> = {
+const INPUT_TYPE_BY_WIDGET: Partial<Record<FieldWidget, string>> = {
   email: 'email',
-  number: 'number',
   url: 'url',
-  phone: 'tel',
+}
+
+function inputTypeOf(field: SkeletonFieldDef): string {
+  return INPUT_TYPE_BY_WIDGET[fieldWidgetOf(field.type)] ?? 'text'
 }
 
 function renderCodeSkeleton(field: SkeletonFieldDef): ReactElement {
@@ -77,13 +79,18 @@ function renderRichTextSkeleton(field: SkeletonFieldDef): ReactElement {
 }
 
 function renderSelectSkeleton(field: SkeletonFieldDef): ReactElement {
-  const options = (field as unknown as SingleSelectField).options ?? []
+  const options = field.options ?? []
+  const defaultValue = field.defaultValue !== undefined ? String(field.defaultValue) : ''
   return (
     <CrudFieldShell
       key={field.name}
       field={field}
     >
-      <select name={field.name}>
+      <select
+        name={field.name}
+        defaultValue={defaultValue}
+        {...(field.disabled && { disabled: true })}
+      >
         <option value="">Select...</option>
         {options.map((opt) => (
           <option
@@ -191,7 +198,7 @@ function renderHiddenSkeleton(field: SkeletonFieldDef): ReactElement {
 }
 
 function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
-  const inputType = TYPED_INPUT_MAP[field.type] ?? 'text'
+  const inputType = inputTypeOf(field)
   return (
     <CrudFieldShell
       key={field.name}
@@ -212,6 +219,19 @@ function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
   )
 }
 
+const SKELETON_RENDERERS: Record<FieldWidget, (field: SkeletonFieldDef) => ReactElement> = {
+  code: renderCodeSkeleton,
+  'rich-text': renderRichTextSkeleton,
+  select: renderSelectSkeleton,
+  'file-single': (field) => renderFileSkeleton(field, false),
+  'file-multiple': (field) => renderFileSkeleton(field, true),
+  textarea: renderDefaultSkeleton,
+  checkbox: renderDefaultSkeleton,
+  text: renderDefaultSkeleton,
+  email: renderDefaultSkeleton,
+  url: renderDefaultSkeleton,
+}
+
 export function renderSkeletonField(field: SkeletonFieldDef): ReactElement {
   if (field.hidden) return renderHiddenSkeleton(field)
   if (field.visibleWhen) {
@@ -222,20 +242,7 @@ export function renderSkeletonField(field: SkeletonFieldDef): ReactElement {
       />
     )
   }
-  switch (field.type) {
-    case 'code':
-      return renderCodeSkeleton(field)
-    case 'rich-text':
-      return renderRichTextSkeleton(field)
-    case 'single-select':
-      return renderSelectSkeleton(field)
-    case 'single-attachment':
-      return renderFileSkeleton(field, false)
-    case 'multiple-attachments':
-      return renderFileSkeleton(field, true)
-    default:
-      return renderDefaultSkeleton(field)
-  }
+  return SKELETON_RENDERERS[fieldWidgetOf(field.type)](field)
 }
 
 function renderUpdateRichTextSkeleton(field: SkeletonFieldDef, currentValue: string): ReactElement {
@@ -272,7 +279,7 @@ function renderUpdateHiddenSkeleton(field: SkeletonFieldDef, currentValue: strin
 }
 
 function renderUpdateInputSkeleton(field: SkeletonFieldDef, currentValue: string): ReactElement {
-  const inputType = TYPED_INPUT_MAP[field.type] ?? 'text'
+  const inputType = inputTypeOf(field)
   return (
     <CrudFieldShell
       key={field.name}

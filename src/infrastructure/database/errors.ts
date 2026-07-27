@@ -6,7 +6,8 @@
  */
 
 export {
-  SessionContextError,
+  DatabaseError,
+  NotFoundError,
   ForbiddenError,
   ForeignKeyViolationError,
   UniqueConstraintViolationError,

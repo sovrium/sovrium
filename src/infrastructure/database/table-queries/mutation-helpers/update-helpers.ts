@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { validateColumnName } from '../shared/validation'
@@ -17,7 +17,7 @@ export async function validateFieldsNotEmpty(
   const entries = Object.entries(fields)
 
   if (entries.length === 0) {
-    throw new SessionContextError('Cannot update record with no fields', undefined)
+    throw new DatabaseError('Cannot update record with no fields', undefined)
   }
 
   return entries
@@ -56,8 +56,8 @@ export async function executeRecordUpdateCRUD(
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     if (errorMsg.includes('not found') || errorMsg.includes('access denied')) {
-      throw new SessionContextError(errorMsg, error)
+      throw new DatabaseError(errorMsg, error)
     }
-    throw new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error)
+    throw new DatabaseError(`Failed to update record ${recordId} in ${tableName}`, error)
   }
 }

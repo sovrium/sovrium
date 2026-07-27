@@ -5,11 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  castFormulaDivisionOperands,
-  getViewComputedFormulaFields,
-  translateFormulaToPostgres,
-} from './formula-utils'
+import { translateFormula } from './formula-translation'
+import { castFormulaDivisionOperands, getViewComputedFormulaFields } from './formula-utils'
 import type { NumericCastField } from './formula-numeric-cast'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -71,7 +68,7 @@ export const getViewFormulaLayers = (
   return ordered.map((field) => ({
     name: field.name,
     render: (previousAlias: string): string => {
-      const translated = translateFormulaToPostgres(field.formula, allFields)
+      const translated = translateFormula(field.formula, allFields)
       const expression = qualifyViewFormula(translated, allFields, previousAlias)
       return `(${expression}) AS ${field.name}`
     },

@@ -12,7 +12,7 @@ import {
 } from '@/application/ports/repositories/tables/batch-repository'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { SessionContextError, ValidationError } from '@/domain/errors'
+import type { NotFoundError, DatabaseError, ValidationError } from '@/domain/errors'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -24,7 +24,7 @@ export function batchCreateProgram(config: {
   readonly app?: App
 }): Effect.Effect<
   { readonly created: number; readonly records?: readonly TransformedRecord[] },
-  SessionContextError | ValidationError,
+  DatabaseError | ValidationError,
   BatchRepository
 > {
   const { session, tableName, recordsData, returnRecords = false, app } = config
@@ -60,7 +60,7 @@ export function batchUpdateProgram(config: {
   readonly app?: App
 }): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
-  SessionContextError | ValidationError,
+  DatabaseError | ValidationError,
   BatchRepository
 > {
   const { session, tableName, recordsData, returnRecords = false, app } = config
@@ -89,7 +89,7 @@ export function batchDeleteProgram(
   tableName: string,
   ids: readonly string[],
   permanent = false
-): Effect.Effect<{ deleted: number }, SessionContextError, BatchRepository> {
+): Effect.Effect<{ deleted: number }, DatabaseError, BatchRepository> {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
     const deletedCount = yield* batch.batchDelete(session, tableName, ids, permanent)
@@ -103,7 +103,7 @@ export function batchRestoreProgram(
   session: Readonly<UserSession>,
   tableName: string,
   ids: readonly string[]
-): Effect.Effect<BatchRestoreRecordsResponse, SessionContextError, BatchRepository> {
+): Effect.Effect<BatchRestoreRecordsResponse, DatabaseError | NotFoundError, BatchRepository> {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
     const restored = yield* batch.batchRestore(session, tableName, ids)
@@ -129,7 +129,7 @@ export function upsertProgram(
     readonly created: number
     readonly updated: number
   },
-  SessionContextError | ValidationError | BatchValidationError,
+  DatabaseError | ValidationError | BatchValidationError,
   BatchRepository
 > {
   return Effect.gen(function* () {

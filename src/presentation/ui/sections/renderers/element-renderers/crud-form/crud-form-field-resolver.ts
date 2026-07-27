@@ -5,14 +5,45 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { showsDeclaredDefault } from '@/presentation/utils/field-type-behavior'
 import { humanizeFieldName } from '@/presentation/utils/string-utils'
 import type { ResolvedFieldDef } from './crud-form-renderer'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { FormFieldConfig } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { Tables } from '@/domain/models/app/tables'
+import type { FieldType } from '@/domain/models/app/tables/fields'
 
-type SingleSelectField = { options?: readonly string[] }
+function normalizeOptions(raw: unknown): readonly string[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw
+    .map((entry) => {
+      if (typeof entry === 'string') return entry
+      if (typeof entry === 'object' && entry !== null) {
+        const { value } = entry as Record<string, unknown>
+        return typeof value === 'string' ? value : undefined
+      }
+      return undefined
+    })
+    .filter((value): value is string => value !== undefined)
+}
+
+function declaredDefaultOf(
+  tableField: { readonly type: string },
+  fieldType: string
+): string | number | boolean | undefined {
+  if (!showsDeclaredDefault(fieldType)) return undefined
+  const value = (tableField as unknown as Record<string, unknown>)['default']
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value
+  }
+  return undefined
+}
+
+const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
+  'single-attachment',
+  'multiple-attachments',
+])
 
 type FieldTypePassthrough = {
   readonly placeholder?: string
@@ -45,7 +76,7 @@ function resolveCfgOverrides(cfg: FormFieldConfig, fallbackLabel: string) {
     placeholder: cfg.placeholder,
     readOnly: cfg.readOnly,
     disabled: cfg.disabled,
-    defaultValue: cfg.defaultValue,
+    ...(cfg.defaultValue !== undefined && { defaultValue: cfg.defaultValue }),
     hidden: cfg.hidden,
     visibleWhen: cfg.visibleWhen,
     requiredWhen: cfg.requiredWhen,
@@ -56,33 +87,55 @@ function resolveCfgOverrides(cfg: FormFieldConfig, fallbackLabel: string) {
   }
 }
 
+function resolveAttachmentBucket(
+  fieldType: string,
+  tf: Readonly<Record<string, unknown>>
+): string | undefined {
+  if (!ATTACHMENT_FIELD_TYPES.has(fieldType)) return undefined
+  const { bucket } = tf
+  return typeof bucket === 'string' && bucket.length > 0 ? bucket : undefined
+}
+
+function resolveMaxFileSize(tf: Readonly<Record<string, unknown>>): number | undefined {
+  return typeof tf['maxFileSize'] === 'number' ? (tf['maxFileSize'] as number) : undefined
+}
+
+function resolveAllowedFileTypes(
+  tf: Readonly<Record<string, unknown>>
+): readonly string[] | undefined {
+  const value = tf['allowedFileTypes']
+  return Array.isArray(value) && value.every((v) => typeof v === 'string')
+    ? (value as readonly string[])
+    : undefined
+}
+
 function resolveFieldDef(
   tableField: { readonly name: string; readonly type: string; readonly required?: boolean },
   cfg: FormFieldConfig | undefined,
   imageBucket: string | undefined
 ): ResolvedFieldDef {
-  const { options } = tableField as unknown as SingleSelectField
+  const options = normalizeOptions((tableField as Record<string, unknown>)['options'])
   const fallbackLabel = humanizeFieldName(tableField.name)
   const passthrough = extractFieldTypePassthrough(tableField)
   const richTextBucket = tableField.type === 'rich-text' ? imageBucket : undefined
   const tf = tableField as Record<string, unknown>
-  const maxFileSize =
-    typeof tf['maxFileSize'] === 'number' ? (tf['maxFileSize'] as number) : undefined
-  const allowedFileTypes =
-    Array.isArray(tf['allowedFileTypes']) &&
-    (tf['allowedFileTypes'] as unknown[]).every((v) => typeof v === 'string')
-      ? (tf['allowedFileTypes'] as readonly string[])
-      : undefined
+  const maxFileSize = resolveMaxFileSize(tf)
+  const allowedFileTypes = resolveAllowedFileTypes(tf)
+  const attachmentBucket = resolveAttachmentBucket(tableField.type, tf)
+  const fieldType = tableField.type as FieldType
+  const declaredDefault = declaredDefaultOf(tableField, fieldType)
   return {
     name: tableField.name,
-    type: tableField.type,
+    type: fieldType,
     required: tableField.required,
     options,
     displayLabel: fallbackLabel,
+    ...(declaredDefault !== undefined && { defaultValue: declaredDefault }),
     ...passthrough,
     ...(richTextBucket && { imageBucket: richTextBucket }),
     ...(maxFileSize !== undefined && { maxFileSize }),
     ...(allowedFileTypes !== undefined && { allowedFileTypes }),
+    ...(attachmentBucket !== undefined && { bucket: attachmentBucket }),
     ...(cfg ? resolveCfgOverrides(cfg, fallbackLabel) : undefined),
   }
 }

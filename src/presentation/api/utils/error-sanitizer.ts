@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  classifyDriverFailure,
+  type CallerInputRejectionClass,
+  type ConstraintViolationClass,
+} from '@/domain/errors/driver-failure'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
@@ -120,6 +125,61 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
   }
 }
 
+const CONSTRAINT_ERROR_CODES = {
+  unique: 'CONFLICT',
+  check: 'VALIDATION_ERROR',
+  'foreign-key': 'INTERNAL_ERROR',
+  'not-null': 'INTERNAL_ERROR',
+} satisfies Record<ConstraintViolationClass, ErrorCode>
+
+const CONSTRAINT_MESSAGES = {
+  unique: 'Resource already exists',
+  check: 'A submitted value is not allowed by this resource',
+  'foreign-key': 'An unexpected error occurred. Please try again later.',
+  'not-null': 'An unexpected error occurred. Please try again later.',
+} satisfies Record<ConstraintViolationClass, string>
+
+const CALLER_INPUT_MESSAGES = {
+  'undefined-column': 'A submitted field is not recognised for this resource',
+  'data-exception': 'A submitted value has an invalid format for its field',
+} satisfies Record<CallerInputRejectionClass, string>
+
+const INTERNAL_ERROR: SanitizedError = {
+  error: 'Internal Server Error',
+  code: 'INTERNAL_ERROR',
+  message: 'An unexpected error occurred. Please try again later.',
+}
+
+const SANITIZED_ERROR_TITLES = {
+  CONFLICT: 'Conflict',
+  VALIDATION_ERROR: 'Validation Error',
+  INTERNAL_ERROR: 'Internal Server Error',
+} satisfies Partial<Record<ErrorCode, string>>
+
+function mapDriverFailure(error: unknown): SanitizedError | undefined {
+  const failure = classifyDriverFailure(error)
+  switch (failure.origin) {
+    case 'constraint': {
+      const code = CONSTRAINT_ERROR_CODES[failure.violation]
+      return {
+        error: SANITIZED_ERROR_TITLES[code],
+        code,
+        message: CONSTRAINT_MESSAGES[failure.violation],
+      }
+    }
+    case 'caller-input':
+      return {
+        error: SANITIZED_ERROR_TITLES.VALIDATION_ERROR,
+        code: 'VALIDATION_ERROR',
+        message: CALLER_INPUT_MESSAGES[failure.rejection],
+      }
+    case 'operator':
+      return INTERNAL_ERROR
+    case 'application':
+      return undefined
+  }
+}
+
 export function sanitizeError(error: unknown, requestId?: string): SanitizedError {
   logErrorDetails(error, requestId)
 
@@ -131,6 +191,9 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
     if (sanitized) return sanitized
   }
 
+  const driverFailure = mapDriverFailure(error)
+  if (driverFailure) return driverFailure
+
   if (isNotFoundError(error)) {
     return {
       error: 'Not Found',
@@ -139,11 +202,7 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
     }
   }
 
-  return {
-    error: 'Internal Server Error',
-    code: 'INTERNAL_ERROR',
-    message: 'An unexpected error occurred. Please try again later.',
-  }
+  return INTERNAL_ERROR
 }
 
 export function getStatusCode(code: ErrorCode): ContentfulStatusCode {

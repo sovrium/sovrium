@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   AccountDatabaseError,
   AccountRepository,
@@ -17,7 +17,7 @@ import {
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
 import { authTableRef } from '@/infrastructure/database/drizzle/dialect-schema'
-import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import {
   executeRaw,
   executeRawTyped,
@@ -38,20 +38,22 @@ function toOptionalDate(value: unknown) {
   return undefined
 }
 
-const tablesWithCreatedByImpl = async (
-  tableNames: readonly string[]
-): Promise<readonly string[]> => {
+const probeCreatedByColumn = async (
+  runner: Readonly<RawSqlRunner>,
+  name: string
+): Promise<string | undefined> => {
+  const columns = await getExistingColumnNames(runner, name, [AUTHORSHIP_FIELDS.CREATED_BY])
+  return columns.has(AUTHORSHIP_FIELDS.CREATED_BY) ? name : undefined
+}
+
+const tablesWithCreatedByEffect = (tableNames: readonly string[]) => {
   const sanitized = [...new Set(tableNames.map(sanitizeTableName))].filter((n) => n.length > 0)
-  if (sanitized.length === 0) return []
 
   const runner = db as unknown as RawSqlRunner
-  const matched = await Promise.all(
-    sanitized.map(async (name) => {
-      const columns = await getExistingColumnNames(runner, name, [AUTHORSHIP_FIELDS.CREATED_BY])
-      return columns.has(AUTHORSHIP_FIELDS.CREATED_BY) ? name : undefined
-    })
-  )
-  return matched.filter((name): name is string => name !== undefined)
+  return Effect.all(
+    sanitized.map((name) => wrap(() => probeCreatedByColumn(runner, name))),
+    { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
+  ).pipe(Effect.map((matched) => matched.filter((name): name is string => name !== undefined)))
 }
 
 export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
@@ -98,7 +100,7 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
       return toOptionalDate(rows[0]?.scheduledErasureAt)
     }),
 
-  tablesWithCreatedBy: (tableNames) => wrap(async () => tablesWithCreatedByImpl(tableNames)),
+  tablesWithCreatedBy: (tableNames) => tablesWithCreatedByEffect(tableNames),
 
   readAuthoredRecords: (tableName, userId) =>
     wrap(async () =>

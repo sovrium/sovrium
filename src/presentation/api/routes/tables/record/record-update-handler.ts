@@ -130,10 +130,7 @@ export function filterAllowedFieldsWithRole(
   const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, data)
 
   const allowedData = Object.fromEntries(
-    Object.entries(data).filter(
-      ([fieldName]) =>
-        !forbiddenFields.includes(fieldName) && !SYSTEM_PROTECTED_FIELDS.has(fieldName)
-    )
+    Object.entries(data).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
   )
 
   return { allowedData, forbiddenFields }

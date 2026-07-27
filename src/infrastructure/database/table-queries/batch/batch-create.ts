@@ -6,20 +6,41 @@
  */
 
 import { Effect } from 'effect'
-import { db, SessionContextError } from '@/infrastructure/database'
+import { db, DatabaseError } from '@/infrastructure/database'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseErrorWithValidation } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
-import { createSingleRecordInBatch, runEffectInTx } from './batch-helpers'
+import { BATCH_FANOUT_CONCURRENCY, createSingleRecordInBatch, runEffectInTx } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { ValidationError } from '@/infrastructure/database'
+import type { DrizzleTransaction, ValidationError } from '@/infrastructure/database'
+
+const batchCreateFailure = (tableName: string): string =>
+  `Failed to create batch records in ${tableName}`
+
+const injectAuthorshipForBatch = (
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  userId: string | undefined,
+  recordsData: readonly Record<string, unknown>[]
+): Promise<readonly Record<string, unknown>[]> =>
+  runEffectInTx(
+    Effect.all(
+      recordsData.map((fields) =>
+        Effect.tryPromise({
+          try: () => injectCreateAuthorship(fields, userId, tx, tableName),
+          catch: wrapDatabaseErrorWithValidation(batchCreateFailure(tableName)),
+        })
+      ),
+      { concurrency: BATCH_FANOUT_CONCURRENCY }
+    )
+  )
 
 export function batchCreateRecords(
   session: Readonly<Session>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError> {
+): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const createdRecords = yield* Effect.tryPromise({
       try: () =>
@@ -27,13 +48,14 @@ export function batchCreateRecords(
           validateTableName(tableName)
 
           if (recordsData.length === 0) {
-            throw new SessionContextError('Cannot create batch with no records', undefined)
+            throw new DatabaseError('Cannot create batch with no records', undefined)
           }
 
-          const recordsWithAuthorship = await Promise.all(
-            recordsData.map((fields) =>
-              injectCreateAuthorship(fields, session.userId, tx, tableName)
-            )
+          const recordsWithAuthorship = await injectAuthorshipForBatch(
+            tx,
+            tableName,
+            session.userId,
+            recordsData
           )
 
           return await runEffectInTx(
@@ -47,7 +69,7 @@ export function batchCreateRecords(
             )
           )
         }),
-      catch: wrapDatabaseErrorWithValidation(`Failed to create batch records in ${tableName}`),
+      catch: wrapDatabaseErrorWithValidation(batchCreateFailure(tableName)),
     })
 
     yield* Effect.forEach(createdRecords, (record) =>

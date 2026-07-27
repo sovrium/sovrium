@@ -6,6 +6,7 @@
  */
 
 
+import { elidedLabel, resolveCauseChain } from './error-chain'
 import type { SentryDsn } from '@/domain/models/env/telemetry/sentry-dsn'
 
 export interface SentryStackFrame {
@@ -14,6 +15,12 @@ export interface SentryStackFrame {
   readonly lineno?: number
   readonly colno?: number
   readonly in_app: boolean
+}
+
+export interface SentryExceptionValue {
+  readonly type: string
+  readonly value: string
+  readonly stacktrace: { readonly frames: ReadonlyArray<SentryStackFrame> }
 }
 
 export interface SentryEvent {
@@ -25,11 +32,7 @@ export interface SentryEvent {
   readonly environment: string
   readonly server_name: string
   readonly exception: {
-    readonly values: ReadonlyArray<{
-      readonly type: string
-      readonly value: string
-      readonly stacktrace: { readonly frames: ReadonlyArray<SentryStackFrame> }
-    }>
+    readonly values: ReadonlyArray<SentryExceptionValue>
   }
   readonly request?: {
     readonly method: string
@@ -148,12 +151,26 @@ const frame = (filename: string, lineno: number, colno: number, fn?: string): Se
   in_app: !filename.includes('node_modules'),
 })
 
+const exceptionValue = (err: Readonly<Error>, elided: number): SentryExceptionValue => ({
+  type: err.name || 'Error',
+  value: elided > 0 ? `${err.message} [${elidedLabel(elided)}]` : err.message,
+  stacktrace: { frames: parseStackFrames(err.stack) },
+})
+
+const buildExceptionValues = (error: unknown): ReadonlyArray<SentryExceptionValue> => {
+  const { links, elided } = resolveCauseChain(error)
+  const rootIndex = links.length - 1
+  return links.reduceRight<ReadonlyArray<SentryExceptionValue>>(
+    (acc, item, index) => [...acc, exceptionValue(item, index === rootIndex ? elided : 0)],
+    []
+  )
+}
+
 export const buildEventFromError = (
   error: unknown,
   meta: EventMeta,
   request?: RequestContext
 ): SentryEvent => {
-  const err = error instanceof Error ? error : new Error(String(error))
   return {
     event_id: newEventId(),
     timestamp: Date.now() / 1000,
@@ -163,13 +180,7 @@ export const buildEventFromError = (
     environment: meta.environment,
     server_name: meta.serverName,
     exception: {
-      values: [
-        {
-          type: err.name || 'Error',
-          value: err.message,
-          stacktrace: { frames: parseStackFrames(err.stack) },
-        },
-      ],
+      values: buildExceptionValues(error),
     },
     ...(request
       ? {

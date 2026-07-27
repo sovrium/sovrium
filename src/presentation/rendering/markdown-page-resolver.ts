@@ -282,13 +282,12 @@ const resolveIssueUrl = (
 }
 
 const buildDocsRootCrumb = (
-  collectionNav: CollectionNavData | undefined,
-  currentLang: string | undefined
+  collectionNav: CollectionNavData | undefined
 ): DocsRootCrumb | undefined => {
   if (collectionNav === undefined) return undefined
   const current = collectionNav.sidebar.find((entry) => entry.isCurrent)
   if (current === undefined) return undefined
-  return resolveDocsRootCrumb(collectionNav.sidebar, current, currentLang)
+  return resolveDocsRootCrumb(collectionNav.sidebar, current, collectionNav.tabs)
 }
 
 const buildOptionalPageFields = (input: {
@@ -337,7 +336,7 @@ const resolvePageChrome = async (input: {
   readonly docsRootCrumb: DocsRootCrumb | undefined
 }> => {
   const { page, routeParams, app, currentLang, indexBasePathPattern, frontmatter } = input
-  const docsRootCrumb = buildDocsRootCrumb(input.collectionNav, currentLang)
+  const docsRootCrumb = buildDocsRootCrumb(input.collectionNav)
   const seo = buildContentDirSeo(
     page,
     routeParams,

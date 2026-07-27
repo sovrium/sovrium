@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { NotFoundError } from '@/domain/errors'
+import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
+import { handleRouteError } from './error-handlers'
 import type { Session } from '@/application/ports/models/user-session'
 import type { Context } from 'hono'
 
@@ -12,35 +15,21 @@ import type { Context } from 'hono'
 export type { Session }
 
 
-const AUTH_KEYWORDS = ['not found', 'access denied'] as const
-
-
-const containsAuthKeywords = (text: string): boolean =>
-  AUTH_KEYWORDS.some((keyword) => text.includes(keyword))
-
-const extractErrorDetails = (
-  error: unknown
-): { message: string; name: string; causeMessage: string; errorString: string } => {
-  const errorMessage = error instanceof Error ? error.message : ''
+const extractErrorDetails = (error: unknown): { name: string; errorString: string } => {
   const errorName = error instanceof Error ? error.name : ''
   const errorString = String(error)
-  const causeMessage =
-    error instanceof Error && 'cause' in error && error.cause instanceof Error
-      ? error.cause.message
-      : ''
 
-  return { message: errorMessage, name: errorName, causeMessage, errorString }
+  return { name: errorName, errorString }
 }
 
 export const isAuthorizationError = (error: unknown): boolean => {
-  const { message, name, causeMessage, errorString } = extractErrorDetails(error)
+  if (isDriverOriginatedFailure(error)) return false
 
-  return (
-    containsAuthKeywords(message) ||
-    containsAuthKeywords(causeMessage) ||
-    name.includes('SessionContextError') ||
-    errorString.includes('SessionContextError')
-  )
+  const { name, errorString } = extractErrorDetails(error)
+
+  if (name === 'ForbiddenError' || name === 'NotFoundError') return true
+
+  return name === 'DatabaseError' || errorString.startsWith('DatabaseError:')
 }
 
 export const handleBatchRestoreError = (c: Context, error: unknown) => {
@@ -55,35 +44,17 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
     )
   }
 
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
-  if (errorMessage.includes('not found')) {
-    const recordIdMatch = errorMessage.match(/Record (\S+) not found/)
-    const recordId = recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined
+  if (error instanceof NotFoundError) {
     return c.json(
       {
         success: false,
         message: 'Resource not found',
         code: 'NOT_FOUND',
-        recordId,
+        recordId: error.recordId === undefined ? undefined : Number.parseInt(error.recordId),
       },
       404
     )
   }
 
-  if (errorMessage.includes('is not deleted')) {
-    const recordIdMatch = errorMessage.match(/Record (\S+) is not deleted/)
-    const recordId = recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined
-    return c.json(
-      {
-        success: false,
-        message: 'Record is not deleted',
-        code: 'BAD_REQUEST',
-        recordId,
-      },
-      400
-    )
-  }
-
-  return c.json({ success: false, message: errorMessage, code: 'INTERNAL_ERROR' }, 500)
+  return handleRouteError(c, error)
 }

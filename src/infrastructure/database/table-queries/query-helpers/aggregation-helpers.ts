@@ -8,7 +8,7 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
-import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import {
   columnExists,
   getExistingColumnNames,
@@ -143,11 +143,11 @@ export function parseAggregationResult(
 export function checkDeletedAtColumn(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
-): Effect.Effect<boolean, SessionContextError> {
+): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
     try: () => columnExists(tx, tableName, 'deleted_at'),
     catch: (error) =>
-      new SessionContextError(`Failed to check deleted_at column for ${tableName}`, error),
+      new DatabaseError(`Failed to check deleted_at column for ${tableName}`, error),
   })
 }
 
@@ -289,7 +289,7 @@ export function checkAuthorshipColumns(
     readonly hasUpdatedBy: boolean
     readonly hasDeletedBy: boolean
   },
-  SessionContextError
+  DatabaseError
 > {
   return Effect.tryPromise({
     try: async () => {
@@ -305,6 +305,6 @@ export function checkAuthorshipColumns(
       }
     },
     catch: (error) =>
-      new SessionContextError(`Failed to check authorship columns for ${tableName}`, error),
+      new DatabaseError(`Failed to check authorship columns for ${tableName}`, error),
   })
 }

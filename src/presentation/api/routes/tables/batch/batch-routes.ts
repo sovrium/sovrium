@@ -34,6 +34,7 @@ import {
 import { runTableProgram, provideTableLive } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { runEffect } from '@/presentation/api/utils'
+import { payloadTooLarge } from '@/presentation/api/utils/auth-helpers'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateRequest } from '@/presentation/api/utils/validate-request'
 import {
@@ -76,14 +77,7 @@ async function handleBatchRestore(c: Context, _app: App) {
 
   const body = await c.req.json()
   if (body.ids && body.ids.length > 1000) {
-    return c.json(
-      {
-        success: false,
-        message: 'Batch size exceeds maximum of 1000 records',
-        code: 'PAYLOAD_TOO_LARGE',
-      },
-      413
-    )
+    return payloadTooLarge(c, 'Batch size exceeds maximum of 1000 records')
   }
 
   const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
@@ -289,14 +283,7 @@ async function handleBatchDelete(c: Context, app: App) {
 
   const body = await c.req.json()
   if (body.ids && body.ids.length > 1000) {
-    return c.json(
-      {
-        success: false,
-        message: 'Batch size exceeds maximum of 1000 records',
-        code: 'PAYLOAD_TOO_LARGE',
-      },
-      413
-    )
+    return payloadTooLarge(c, 'Batch size exceeds maximum of 1000 records')
   }
 
   const result = await validateRequest(c, batchDeleteRecordsRequestSchema)

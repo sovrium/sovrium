@@ -16,6 +16,7 @@ import {
   isFieldVisible,
 } from '@/domain/models/shared/form-field-helpers'
 import { findStep, resolveNextStepId, isStepVisible } from '@/domain/models/shared/multi-step-flow'
+import { denyFormAccess, evaluateFormAccessForRequest } from './access-gate'
 import { generateDraftSessionId, mergeDraft, readDraft } from './step-draft-store'
 import type { App } from '@/domain/models/app'
 import type { Form, FormField } from '@/domain/models/app/forms'
@@ -83,6 +84,9 @@ export async function handleGetStepFragment(
   if (!name || !stepId) return c.notFound()
   const form = findFormByName(app, name)
   if (!form) return c.notFound()
+  const { decision } = await evaluateFormAccessForRequest(c, form)
+  const denied = denyFormAccess(c, form.name, decision, 'html')
+  if (denied !== undefined) return denied
   const step = findStep(form, stepId)
   if (!step) return c.notFound()
   const sessionId = ensureDraftSession(c)
@@ -97,6 +101,9 @@ export async function handlePostStepAdvance(c: Context, app: App): Promise<Respo
   if (!name || !stepId) return c.notFound()
   const form = findFormByName(app, name)
   if (!form) return c.notFound()
+  const { decision } = await evaluateFormAccessForRequest(c, form)
+  const denied = denyFormAccess(c, form.name, decision, 'json')
+  if (denied !== undefined) return denied
   const step = findStep(form, stepId)
   if (!step) return c.notFound()
 
@@ -120,16 +127,20 @@ export async function handlePostStepAdvance(c: Context, app: App): Promise<Respo
 
   mergeDraft(sessionId, name, body)
 
+  return c.json({
+    nextStepId: resolveVisibleNextStepId(form, stepId, merged) ?? null,
+  })
+}
+
+function resolveVisibleNextStepId(
+  form: Readonly<Form>,
+  stepId: string,
+  merged: Readonly<Record<string, unknown>>
+): string | undefined {
   const valueMap = buildConditionValueMap(form, merged)
   const nextStepId = resolveNextStepId(form, stepId, valueMap)
-  const nextStepResolved =
-    nextStepId !== undefined &&
-    (() => {
-      const target = findStep(form, nextStepId)
-      return target !== undefined && isStepVisible(target, valueMap)
-    })()
-
-  return c.json({
-    nextStepId: nextStepResolved ? nextStepId : null,
-  })
+  if (nextStepId === undefined) return undefined
+  const target = findStep(form, nextStepId)
+  if (target === undefined || !isStepVisible(target, valueMap)) return undefined
+  return nextStepId
 }

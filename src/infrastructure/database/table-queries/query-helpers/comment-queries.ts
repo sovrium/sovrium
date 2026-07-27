@@ -8,7 +8,7 @@
 import { sql, eq, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { isGuestSession } from '@/domain/services/guest-session'
-import { SessionContextError } from '@/infrastructure/database'
+import { NotFoundError, DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import {
   authUsersTable,
@@ -83,7 +83,7 @@ export function createComment(config: {
     readonly guestName: string | null
     readonly guestEmail: string | null
   },
-  SessionContextError
+  DatabaseError
 > {
   return Effect.tryPromise({
     try: async () => {
@@ -91,7 +91,7 @@ export function createComment(config: {
       const result = await db.insert(recordComments).values(values).returning()
 
       if (result.length === 0) {
-        throw new SessionContextError('Failed to create comment')
+        throw new DatabaseError('Failed to create comment')
       }
 
       const comment = result[0]!
@@ -115,7 +115,7 @@ export function createComment(config: {
 export function listCommentAuthorsForRecord(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
-}): Effect.Effect<readonly string[], SessionContextError> {
+}): Effect.Effect<readonly string[], DatabaseError> {
   const { recordId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -159,13 +159,13 @@ export function getCommentWithUser(config: {
       readonly guestEmail: string | null
     }
   | undefined,
-  SessionContextError
+  DatabaseError
 > {
   const { commentId } = config
   return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
+    const result = yield* Effect.tryPromise<Array<CommentQueryRow>, DatabaseError>({
       try: () => executeCommentQuery(commentId),
-      catch: (error) => new SessionContextError('Failed to get comment', error),
+      catch: (error) => new DatabaseError('Failed to get comment', error),
     })
 
     if (result.length === 0 || !result[0]) {
@@ -185,7 +185,7 @@ export function getCommentWithUser(config: {
 export function deleteComment(config: {
   readonly session: Readonly<Session>
   readonly commentId: string
-}): Effect.Effect<void, SessionContextError> {
+}): Effect.Effect<void, DatabaseError> {
   const { commentId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -198,7 +198,7 @@ export function deleteComment(config: {
         .returning()
 
       if (result.length === 0) {
-        throw new SessionContextError('Comment not found')
+        throw new NotFoundError('Comment not found')
       }
     },
     catch: wrapDatabaseError('Failed to delete comment'),
@@ -216,7 +216,7 @@ export function getCommentForAuth(config: {
       readonly tableId: string
     }
   | undefined,
-  SessionContextError
+  DatabaseError
 > {
   const { commentId } = config
   return Effect.gen(function* () {
@@ -232,7 +232,7 @@ export function getCommentForAuth(config: {
           .from(recordComments)
           .where(activeCommentById(commentId))
           .limit(1),
-      catch: (error) => new SessionContextError('Failed to get comment', error),
+      catch: (error) => new DatabaseError('Failed to get comment', error),
     })
 
     if (result.length === 0 || !result[0]) {
@@ -297,14 +297,14 @@ export function listComments(config: {
     readonly guestName: string | null
     readonly guestEmail: string | null
   }[],
-  SessionContextError
+  DatabaseError
 > {
   const { recordId, limit, offset, sortOrder, includeAllStatuses } = config
   return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
+    const result = yield* Effect.tryPromise<Array<CommentQueryRow>, DatabaseError>({
       try: () =>
         executeListCommentsQuery(recordId, { limit, offset, sortOrder, includeAllStatuses }),
-      catch: (error) => new SessionContextError('Failed to list comments', error),
+      catch: (error) => new DatabaseError('Failed to list comments', error),
     })
 
     return result.map((row) =>
@@ -322,16 +322,16 @@ export function getCommentsCount(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
   readonly includeAllStatuses?: boolean
-}): Effect.Effect<number, SessionContextError> {
+}): Effect.Effect<number, DatabaseError> {
   const { recordId, includeAllStatuses } = config
   return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise<Array<{ count: number }>, SessionContextError>({
+    const result = yield* Effect.tryPromise<Array<{ count: number }>, DatabaseError>({
       try: () =>
         db
           .select({ count: castToInt(sql`COUNT(*)`) })
           .from(recordComments)
           .where(visibleCommentsByRecordId(recordId, includeAllStatuses ?? false)),
-      catch: (error) => new SessionContextError('Failed to count comments', error),
+      catch: (error) => new DatabaseError('Failed to count comments', error),
     })
 
     return result[0]?.count ?? 0
@@ -352,7 +352,7 @@ export function updateComment(config: {
     readonly createdAt: Date
     readonly updatedAt: Date
   },
-  SessionContextError
+  DatabaseError
 > {
   const { commentId, content } = config
   return Effect.tryPromise({
@@ -366,7 +366,7 @@ export function updateComment(config: {
         .returning()
 
       if (result.length === 0) {
-        throw new SessionContextError('Comment not found')
+        throw new NotFoundError('Comment not found')
       }
 
       const comment = result[0]!
@@ -381,9 +381,7 @@ export function updateComment(config: {
       }
     },
     catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError('Failed to update comment', error),
+      error instanceof DatabaseError ? error : new DatabaseError('Failed to update comment', error),
   })
 }
 
@@ -403,7 +401,7 @@ export function updateCommentStatus(config: {
       readonly updatedAt: Date
     }
   | undefined,
-  SessionContextError
+  DatabaseError
 > {
   const { session, commentId, status } = config
   return Effect.tryPromise({

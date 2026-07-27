@@ -8,7 +8,7 @@
 import { Context } from 'effect'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { SessionContextError } from '@/domain/errors'
+import type { DatabaseError } from '@/domain/errors'
 import type { Effect } from 'effect'
 
 export interface CommentWithUser {
@@ -76,61 +76,67 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
         readonly guestName: string | null
         readonly guestEmail: string | null
       },
-      SessionContextError
+      DatabaseError
     >
 
     readonly listAuthorsForRecord: (config: {
       readonly session: Readonly<UserSession>
       readonly recordId: string
-    }) => Effect.Effect<readonly string[], SessionContextError>
+    }) => Effect.Effect<readonly string[], DatabaseError>
 
     readonly listAuthorEmailsForRecord: (config: {
       readonly session: Readonly<UserSession>
       readonly recordId: string
     }) => Effect.Effect<
       readonly { readonly userId: string; readonly email: string }[],
-      SessionContextError
+      DatabaseError
     >
 
     readonly getUserEmailById: (config: {
       readonly session: Readonly<UserSession>
       readonly userId: string
-    }) => Effect.Effect<string | undefined, SessionContextError>
+    }) => Effect.Effect<string | undefined, DatabaseError>
 
     readonly getUserMetadataById: (config: {
       readonly session: Readonly<UserSession>
       readonly userId: string
     }) => Effect.Effect<
       { readonly id: string; readonly email: string; readonly name: string } | undefined,
-      SessionContextError
+      DatabaseError
     >
+
+    readonly hasApprovedGuestComment: (config: {
+      readonly session: Readonly<UserSession>
+      readonly tableId: string
+      readonly guestEmail: string
+    }) => Effect.Effect<boolean, DatabaseError>
 
     readonly getWithUser: (config: {
       readonly session: Readonly<UserSession>
       readonly commentId: string
-    }) => Effect.Effect<CommentWithUser | undefined, SessionContextError>
+    }) => Effect.Effect<CommentWithUser | undefined, DatabaseError>
 
     readonly checkRecordExists: (config: {
       readonly session: Readonly<UserSession>
       readonly tableName: string
       readonly recordId: string
       readonly isAdmin?: boolean
-    }) => Effect.Effect<boolean, SessionContextError>
+    }) => Effect.Effect<boolean, DatabaseError>
 
     readonly getForAuth: (config: {
       readonly session: Readonly<UserSession>
       readonly commentId: string
-    }) => Effect.Effect<CommentForAuth | undefined, SessionContextError>
+    }) => Effect.Effect<CommentForAuth | undefined, DatabaseError>
 
     readonly getUserById: (config: {
       readonly session: Readonly<UserSession>
       readonly userId: string
-    }) => Effect.Effect<CommentUser | undefined, SessionContextError>
+    }) => Effect.Effect<CommentUser | undefined, DatabaseError>
 
     readonly remove: (config: {
       readonly session: Readonly<UserSession>
       readonly commentId: string
-    }) => Effect.Effect<void, SessionContextError>
+    }) => Effect.Effect<void, DatabaseError>
 
     readonly list: (config: {
       readonly session: Readonly<UserSession>
@@ -139,25 +145,25 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly offset?: number
       readonly sortOrder?: 'asc' | 'desc'
       readonly includeAllStatuses?: boolean
-    }) => Effect.Effect<readonly ListedComment[], SessionContextError>
+    }) => Effect.Effect<readonly ListedComment[], DatabaseError>
 
     readonly getCount: (config: {
       readonly session: Readonly<UserSession>
       readonly recordId: string
       readonly includeAllStatuses?: boolean
-    }) => Effect.Effect<number, SessionContextError>
+    }) => Effect.Effect<number, DatabaseError>
 
     readonly markRead: (config: {
       readonly session: Readonly<UserSession>
       readonly tableId: string
       readonly recordId: string
-    }) => Effect.Effect<void, SessionContextError>
+    }) => Effect.Effect<void, DatabaseError>
 
     readonly countUnread: (config: {
       readonly session: Readonly<UserSession>
       readonly tableId: string
       readonly recordId: string
-    }) => Effect.Effect<number, SessionContextError>
+    }) => Effect.Effect<number, DatabaseError>
 
     readonly update: (config: {
       readonly session: Readonly<UserSession>
@@ -173,7 +179,7 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
         readonly createdAt: Date
         readonly updatedAt: Date
       },
-      SessionContextError
+      DatabaseError
     >
 
     readonly updateStatus: (config: {
@@ -192,7 +198,7 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
           readonly updatedAt: Date
         }
       | undefined,
-      SessionContextError
+      DatabaseError
     >
   }
 >() {}

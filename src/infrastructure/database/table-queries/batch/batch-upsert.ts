@@ -9,7 +9,7 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
   db,
-  SessionContextError,
+  DatabaseError,
   ValidationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
@@ -56,7 +56,7 @@ function findExistingRecord(
   tableName: string,
   fields: Readonly<Record<string, unknown>>,
   fieldsToMergeOn: readonly string[]
-): Effect.Effect<Readonly<Record<string, unknown>> | undefined, SessionContextError> {
+): Effect.Effect<Readonly<Record<string, unknown>> | undefined, DatabaseError> {
   const whereConditions = fieldsToMergeOn.map((field) => {
     validateColumnName(field)
     return sql`${sql.identifier(field)} = ${fields[field]}`
@@ -71,8 +71,7 @@ function findExistingRecord(
       )
       return result[0]
     },
-    catch: (error) =>
-      new SessionContextError(`Failed to check existing record in ${tableName}`, error),
+    catch: (error) => new DatabaseError(`Failed to check existing record in ${tableName}`, error),
   })
 }
 
@@ -86,7 +85,7 @@ function handleUpsertUpdate(
     readonly existing: Record<string, unknown>
     readonly acc: UpsertResult
   }
-): Effect.Effect<UpsertResult, SessionContextError> {
+): Effect.Effect<UpsertResult, DatabaseError> {
   return Effect.gen(function* () {
     const recordId = String(params.existing.id)
     const updated = yield* Effect.tryPromise({
@@ -95,8 +94,7 @@ function handleUpsertUpdate(
           fields: params.fields,
           fieldsToMergeOn: params.fieldsToMergeOn,
         }),
-      catch: (error) =>
-        new SessionContextError(`Failed to update record in ${params.tableName}`, error),
+      catch: (error) => new DatabaseError(`Failed to update record in ${params.tableName}`, error),
     })
 
     if (!updated) {
@@ -131,7 +129,7 @@ function handleUpsertCreate(
     readonly fields: Record<string, unknown>
     readonly acc: UpsertResult
   }
-): Effect.Effect<UpsertResult, SessionContextError | ValidationError> {
+): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const created = yield* Effect.tryPromise({
       try: async () => createSingleRecord(tx, params.tableName, params.fields),
@@ -139,7 +137,7 @@ function handleUpsertCreate(
         if (error instanceof ValidationError) {
           return error
         }
-        return new SessionContextError(`Failed to create record in ${params.tableName}`, error)
+        return new DatabaseError(`Failed to create record in ${params.tableName}`, error)
       },
     })
 
@@ -170,7 +168,7 @@ function processSingleUpsert(
     readonly fieldsToMergeOn: readonly string[]
     readonly acc: UpsertResult
   }
-): Effect.Effect<UpsertResult, SessionContextError | ValidationError> {
+): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const existing = yield* findExistingRecord(
       tx,
@@ -268,20 +266,16 @@ export function upsertRecords(
   tableName: string,
   recordsData: readonly Record<string, unknown>[],
   fieldsToMergeOn: readonly string[]
-): Effect.Effect<UpsertResult, SessionContextError | BatchValidationError | ValidationError> {
+): Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError> {
   return Effect.gen(function* () {
     validateTableName(tableName)
 
     if (recordsData.length === 0) {
-      return yield* Effect.fail(
-        new SessionContextError('Cannot upsert batch with no records', undefined)
-      )
+      return yield* Effect.fail(new DatabaseError('Cannot upsert batch with no records', undefined))
     }
 
     if (fieldsToMergeOn.length === 0) {
-      return yield* Effect.fail(
-        new SessionContextError('Cannot upsert without merge fields', undefined)
-      )
+      return yield* Effect.fail(new DatabaseError('Cannot upsert without merge fields', undefined))
     }
 
     fieldsToMergeOn.forEach((field) => validateColumnName(field))
@@ -303,11 +297,11 @@ export function upsertRecords(
           )
         }),
       catch: (error) => {
-        if (error instanceof SessionContextError) return error
+        if (error instanceof DatabaseError) return error
         if (error instanceof BatchValidationError) {
-          return new SessionContextError(error.message, error)
+          return new DatabaseError(error.message, error)
         }
-        return new SessionContextError(`Failed to upsert records in ${tableName}`, error)
+        return new DatabaseError(`Failed to upsert records in ${tableName}`, error)
       },
     })
 

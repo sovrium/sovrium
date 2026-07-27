@@ -7,7 +7,7 @@
 
 import { sql, eq } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database'
+import { DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
@@ -42,12 +42,12 @@ export function checkRecordExists(config: {
   readonly tableName: string
   readonly recordId: string
   readonly isAdmin?: boolean
-}): Effect.Effect<boolean, SessionContextError> {
+}): Effect.Effect<boolean, DatabaseError> {
   const { session, tableName, recordId, isAdmin = false } = config
   return Effect.gen(function* () {
     const columns = yield* Effect.tryPromise({
       try: () => getExistingColumnNames(db, tableName, ['deleted_at', 'owner_id']),
-      catch: (error) => new SessionContextError('Failed to check table columns', error),
+      catch: (error) => new DatabaseError('Failed to check table columns', error),
     })
 
     const hasDeletedAt = columns.has('deleted_at')
@@ -63,7 +63,7 @@ export function checkRecordExists(config: {
     })
     const result = yield* Effect.tryPromise({
       try: () => executeRaw(db, query),
-      catch: (error) => new SessionContextError('Failed to check record existence', error),
+      catch: (error) => new DatabaseError('Failed to check record existence', error),
     })
 
     return result.length > 0
@@ -79,7 +79,7 @@ export function getUserById(config: {
       readonly role: string | undefined
     }
   | undefined,
-  SessionContextError
+  DatabaseError
 > {
   const { userId } = config
   return Effect.gen(function* () {
@@ -92,7 +92,7 @@ export function getUserById(config: {
           .where(eq(users.id, userId))
           .limit(1)
       },
-      catch: (error) => new SessionContextError('Failed to get user', error),
+      catch: (error) => new DatabaseError('Failed to get user', error),
     })
 
     if (result.length === 0 || !result[0]) {

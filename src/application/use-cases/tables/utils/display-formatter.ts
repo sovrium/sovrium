@@ -311,6 +311,19 @@ function formatBytes(bytes: number): string {
   return `${formatted} ${sizes[i]}`
 }
 
+function attachmentDisplayLabel(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (Array.isArray(value)) return value.map(attachmentDisplayLabel).join(', ')
+  if (typeof value === 'object') {
+    const entry = value as Record<string, unknown>
+    const label = [entry['filename'], entry['name'], entry['key'], entry['url']].find(
+      (candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0
+    )
+    return label ?? ''
+  }
+  return String(value)
+}
+
 function formatAttachmentFieldResult(
   value: unknown,
   field: Readonly<{ allowedFileTypes?: readonly string[]; maxFileSize?: number }>
@@ -318,7 +331,7 @@ function formatAttachmentFieldResult(
   if (!field.allowedFileTypes && !field.maxFileSize) return undefined
 
   return {
-    displayValue: String(value ?? ''),
+    displayValue: attachmentDisplayLabel(value),
     ...(field.allowedFileTypes ? { allowedFileTypes: field.allowedFileTypes } : {}),
     ...(field.maxFileSize !== undefined
       ? { maxFileSize: field.maxFileSize, maxFileSizeDisplay: formatBytes(field.maxFileSize) }

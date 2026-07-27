@@ -16,6 +16,7 @@ import {
   deleteRecordProgram,
   permanentlyDeleteRecordProgram,
 } from '@/application/use-cases/tables/programs'
+import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import {
   provideTableWithAutomationsLive,
   runTableProgram,
@@ -26,7 +27,7 @@ import { StorageServiceLive } from '@/infrastructure/storage/storage-service-liv
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
-import { handleRestoreRecordError } from '../error-handlers'
+import { handleRestoreRecordError, handleRouteError } from '../error-handlers'
 import {
   enforceFormMutationGate,
   enforceRestoreGate,
@@ -39,6 +40,11 @@ import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 type SessionContext = ReturnType<typeof getTableContext>['session']
+
+function deleteFailureResponse(c: Context, error: unknown): Response {
+  if (isDriverOriginatedFailure(error)) return handleRouteError(c, error)
+  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+}
 
 function fireDeleteWebhooks(
   app: App,
@@ -101,7 +107,8 @@ async function executePermanentDelete({
     Effect.tap(({ previous, success }) => fireDeleteWebhooks(app, tableName, previous, !success))
   )
   const result = await runRequestEffect(c, Effect.either(provideTableWithAutomationsLive(program)))
-  if (result._tag === 'Left' || !result.right.success)
+  if (result._tag === 'Left') return deleteFailureResponse(c, result.left)
+  if (!result.right.success)
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   return c.json({ success: true }, 200)
 }
@@ -164,8 +171,7 @@ async function executeSoftDelete(input: SoftDeletePipelineInput & { readonly c: 
     c,
     Effect.either(provideTableWithAutomationsLive(buildSoftDeleteProgram(input)))
   )
-  if (outcome._tag === 'Left')
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  if (outcome._tag === 'Left') return deleteFailureResponse(c, outcome.left)
   return softDeleteResultToResponse(c, outcome.right.result)
 }
 
@@ -426,7 +432,8 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
   })
   const result = await runRequestEffect(c, Effect.either(provideTableWithAutomationsLive(program)))
 
-  if (result._tag === 'Left' || !result.right.result.success) {
+  if (result._tag === 'Left') return deleteFailureResponse(c, result.left)
+  if (!result.right.result.success) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 

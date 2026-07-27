@@ -7,10 +7,11 @@
 
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
-import { SessionContextError } from '@/domain/errors'
+import { ForbiddenError, NotFoundError } from '@/domain/errors'
 import { isGuestSession } from '@/domain/services/guest-session'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
+import type { DatabaseError } from '@/domain/errors'
 
 interface CreateCommentConfig {
   readonly session: Readonly<UserSession>
@@ -89,7 +90,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
     readonly comment: CreatedCommentWithGuestEmail
     readonly author: UserMetadataWithOptionalImage | undefined
   },
-  SessionContextError,
+  DatabaseError | NotFoundError,
   CommentRepository
 > {
   return Effect.gen(function* () {
@@ -108,7 +109,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
 
     const hasAccess = yield* comments.checkRecordExists({ session, tableName, recordId })
     if (!hasAccess) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
+      return yield* Effect.fail(new NotFoundError('Record not found'))
     }
 
     const comment = yield* comments.create({
@@ -147,7 +148,7 @@ interface DeleteCommentConfig {
 
 export function deleteCommentProgram(
   config: DeleteCommentConfig
-): Effect.Effect<void, SessionContextError, CommentRepository> {
+): Effect.Effect<void, DatabaseError | ForbiddenError | NotFoundError, CommentRepository> {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
     const { session, commentId, tableName } = config
@@ -155,13 +156,13 @@ export function deleteCommentProgram(
     const comment = yield* comments.getForAuth({ session, commentId })
 
     if (!comment) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
+      return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
     const currentUser = yield* comments.getUserById({ session, userId: session.userId })
 
     if (!currentUser) {
-      return yield* Effect.fail(new SessionContextError('User not found'))
+      return yield* Effect.fail(new NotFoundError('User not found'))
     }
 
     const isAuthor = comment.userId === session.userId
@@ -175,11 +176,11 @@ export function deleteCommentProgram(
     })
 
     if (!hasRecordAccess) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
+      return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
     if (!isAuthor && !isAdmin) {
-      return yield* Effect.fail(new SessionContextError('Forbidden'))
+      return yield* Effect.fail(new ForbiddenError('Forbidden'))
     }
 
     yield* comments.remove({ session, commentId })
@@ -206,7 +207,7 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
       readonly user?: CommentDisplayUser | undefined
     }
   },
-  SessionContextError,
+  DatabaseError | NotFoundError,
   CommentRepository
 > {
   return Effect.gen(function* () {
@@ -216,7 +217,7 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
     const comment = yield* comments.getWithUser({ session, commentId })
 
     if (!comment) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
+      return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
     const recordExists = yield* comments.checkRecordExists({
@@ -227,7 +228,7 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
     })
 
     if (!recordExists) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
+      return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
     return formatCommentResponse(comment)
@@ -293,12 +294,12 @@ function verifyRecordAccess(params: {
   readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly recordId: string
-}): Effect.Effect<void, SessionContextError, CommentRepository> {
+}): Effect.Effect<void, DatabaseError | NotFoundError, CommentRepository> {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
     const hasAccess = yield* comments.checkRecordExists(params)
     if (!hasAccess) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
+      return yield* Effect.fail(new NotFoundError('Record not found'))
     }
   })
 }
@@ -323,7 +324,7 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
       readonly user?: CommentDisplayUser | undefined
     }
   },
-  SessionContextError,
+  DatabaseError | ForbiddenError | NotFoundError,
   CommentRepository
 > {
   return Effect.gen(function* () {
@@ -333,7 +334,7 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
     const comment = yield* comments.getForAuth({ session, commentId })
 
     if (!comment) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
+      return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
     const isAuthor = comment.userId === session.userId
@@ -345,11 +346,11 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
     })
 
     if (!hasRecordAccess) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
+      return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
     if (!isAuthor) {
-      return yield* Effect.fail(new SessionContextError('Forbidden'))
+      return yield* Effect.fail(new ForbiddenError('Forbidden'))
     }
 
     yield* comments.update({ session, commentId, content })
@@ -357,7 +358,7 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
     const updatedComment = yield* comments.getWithUser({ session, commentId })
 
     if (!updatedComment) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
+      return yield* Effect.fail(new NotFoundError('Comment not found'))
     }
 
     return formatCommentResponse(updatedComment)
@@ -384,7 +385,7 @@ export interface ModeratedCommentResult {
 
 export function updateCommentStatusProgram(
   config: UpdateCommentStatusConfig
-): Effect.Effect<ModeratedCommentResult | undefined, SessionContextError, CommentRepository> {
+): Effect.Effect<ModeratedCommentResult | undefined, DatabaseError, CommentRepository> {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
     const { session, commentId, status } = config
@@ -416,7 +417,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     }
     readonly unreadCount?: number
   },
-  SessionContextError,
+  DatabaseError | NotFoundError,
   CommentRepository
 > {
   return Effect.gen(function* () {

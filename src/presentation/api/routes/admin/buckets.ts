@@ -34,6 +34,7 @@ import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminBucketFilesLive } from '@/presentation/api/routes/admin/buckets/effect-runner'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import { buildUploadStorageKey } from '@/presentation/api/routes/buckets/upload-key'
+import { payloadTooLarge } from '@/presentation/api/utils/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
@@ -331,13 +332,9 @@ async function handleUploadBucketFile(c: Context): Promise<Response> {
   }
 
   if (file.size > ADMIN_UPLOAD_MAX_SIZE) {
-    return c.json(
-      {
-        success: false,
-        message: `File size ${file.size} bytes exceeds the ${ADMIN_UPLOAD_MAX_SIZE}-byte limit`,
-        code: 'PAYLOAD_TOO_LARGE',
-      },
-      413
+    return payloadTooLarge(
+      c,
+      `File size ${file.size} bytes exceeds the ${ADMIN_UPLOAD_MAX_SIZE}-byte limit`
     )
   }
 

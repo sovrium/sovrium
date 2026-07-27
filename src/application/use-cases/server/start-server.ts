@@ -135,7 +135,7 @@ const decodeAndValidateApp = (
 const formatBootstrapError = (
   error: Readonly<{ readonly _tag?: string; readonly message: string; readonly cause?: unknown }>
 ): string =>
-  '_tag' in error && error._tag === 'DatabaseError'
+  '_tag' in error && error._tag === 'BootstrapDatabaseError'
     ? error.cause instanceof Error
       ? error.cause.message
       : String(error.cause)

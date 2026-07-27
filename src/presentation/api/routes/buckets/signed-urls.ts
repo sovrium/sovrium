@@ -12,6 +12,7 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { hasPermission } from '@/domain/models/shared/permissions'
 import { inferMimeFromKey, isInlineSafeImageKey } from '@/domain/utils/mime-types'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
+import { payloadTooLarge } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
 import type { App } from '@/domain/models/app'
@@ -279,14 +280,7 @@ async function storeSignedUpload(c: Context, params: SignedUploadParams): Promis
 
   const body = new Uint8Array(await c.req.arrayBuffer())
   if (body.byteLength > maxSize) {
-    return c.json(
-      {
-        success: false,
-        error: 'Upload exceeds the maximum allowed size',
-        code: 'PAYLOAD_TOO_LARGE',
-      },
-      413
-    )
+    return payloadTooLarge(c, 'Upload exceeds the maximum allowed size')
   }
 
   const mimeType = requestType !== '' ? requestType : inferMimeFromKey(path)
@@ -449,14 +443,12 @@ export function createHandleSign(app: App) {
     const operation = body.operation === 'upload' ? 'upload' : 'download'
 
     const session = getSessionContext(c)
-    if (!session) {
-      return c.json({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }, 401)
-    }
-
-    const userRole = await getUserRole(session.userId)
+    const userRole = session ? await getUserRole(session.userId) : undefined
 
     if (!canSign(bucket, operation, userRole)) {
-      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+      return session
+        ? c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+        : c.json({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }, 401)
     }
 
     return buildSignResponse(c, bucketName, operation, body)

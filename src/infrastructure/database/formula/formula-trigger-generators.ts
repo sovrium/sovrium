@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { translateFormula } from './formula-translation'
 import {
   castFormulaDivisionOperands,
   isFormulaVolatile,
   getFormulaFieldsNeedingTrigger,
   getViewComputedFormulaFields,
   qualifyColumnReferences,
-  translateFormulaToPostgres,
 } from './formula-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -28,7 +28,7 @@ const getTriggerFormulaFields = (
       return false
     }
     if (viewComputedNames.has(field.name)) return false
-    const translatedFormula = translateFormulaToPostgres(field.formula, fields)
+    const translatedFormula = translateFormula(field.formula, fields)
     return isFormulaVolatile(translatedFormula) || triggerFieldNames.has(field.name)
   })
 
@@ -55,7 +55,7 @@ export const generateVolatileFormulaTriggerFunction = (
   const functionName = `compute_${tableName}_formulas`
   const assignments = volatileFields
     .map((field) => {
-      const translatedFormula = translateFormulaToPostgres(field.formula, fields)
+      const translatedFormula = translateFormula(field.formula, fields)
       const qualifiedFormula = qualifyColumnReferences(translatedFormula, fields, 't')
       const castFormula = castFormulaDivisionOperands(qualifiedFormula, fields, 't')
       return `  SELECT (${castFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`

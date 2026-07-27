@@ -176,9 +176,9 @@ function ErrorSummary(props: {
   readonly fieldError: { readonly field: string; readonly message: string }
 }) {
   const { fields, fieldError } = props
-  const matchedField = fields.find((f) => f.name === fieldError.field) ?? {
+  const matchedField: FieldDef = fields.find((f) => f.name === fieldError.field) ?? {
     name: fieldError.field,
-    type: 'text',
+    type: 'single-line-text',
   }
   return (
     <div

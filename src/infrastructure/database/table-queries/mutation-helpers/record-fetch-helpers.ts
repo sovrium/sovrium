@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError } from '@/domain/errors'
+import { DatabaseError } from '@/domain/errors'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
@@ -23,7 +23,7 @@ export async function fetchRecordById(
     )
     return result[0]
   } catch (error) {
-    throw new SessionContextError(`Failed to fetch record ${recordId}`, error)
+    throw new DatabaseError(`Failed to fetch record ${recordId}`, error)
   }
 }
 
@@ -48,7 +48,7 @@ export function fetchRecordsByIds(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordIds: readonly string[]
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
   return Effect.tryPromise({
     try: async () => {
       const idParams = sql.join(
@@ -61,6 +61,6 @@ export function fetchRecordsByIds(
       )
       return result
     },
-    catch: (error) => new SessionContextError('Failed to fetch records before operation', error),
+    catch: (error) => new DatabaseError('Failed to fetch records before operation', error),
   })
 }

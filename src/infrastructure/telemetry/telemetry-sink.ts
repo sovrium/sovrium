@@ -8,6 +8,7 @@
 
 import { hostname } from 'node:os'
 import { isErrorReportingEnabled } from '@/domain/models/env/telemetry/telemetry'
+import { formatErrorChain } from './error-chain'
 import { initErrorReporter, registerProcessErrorHandlers, reportException } from './error-reporter'
 import { disposeObsRuntime, emitLog, initObsRuntime, setLogResource } from './observability-runtime'
 import { getTelemetryConfig } from './telemetry-config'
@@ -52,7 +53,7 @@ export const emitTelemetryLog = (
 ): void => {
   emitLog(level, message, attributes)
   if (cause instanceof Error) {
-    process.stderr.write((cause.stack ?? String(cause)) + '\n')
+    process.stderr.write(formatErrorChain(cause) + '\n')
     void reportException(cause)
   }
 }

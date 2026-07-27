@@ -29,6 +29,13 @@ const RedirectToSchema = Schema.String.pipe(
   })
 )
 
+const RedirectLocalizeTargetSchema = Schema.Boolean.pipe(
+  Schema.annotations({
+    description:
+      "Whether a root-relative target inherits the language prefix matched by 'from' (default: true). Set false when the target lives outside the locale namespace (e.g. '/_admin/login'), so it is emitted verbatim.",
+  })
+)
+
 const RedirectStatusSchema = Schema.Literal(301, 302, 307, 308).pipe(
   Schema.annotations({
     description: 'HTTP redirect status code. Defaults to 301 (Moved Permanently) when omitted.',
@@ -39,6 +46,7 @@ export const RedirectSchema = Schema.Struct({
   from: RedirectFromSchema,
   to: RedirectToSchema,
   status: Schema.optional(RedirectStatusSchema),
+  localizeTarget: Schema.optional(RedirectLocalizeTargetSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'Redirect',
@@ -61,6 +69,9 @@ export const stripLanguagePrefix = (
   const remainder = path.slice(`/${first}`.length)
   return { language: first, path: remainder === '' ? '/' : remainder }
 }
+
+export const isAbsoluteRedirectTarget = (to: string): boolean =>
+  to.startsWith('http://') || to.startsWith('https://')
 
 const toComparablePath = (to: string): string | undefined => {
   if (!to.startsWith('/')) return undefined
@@ -116,6 +127,14 @@ export const RedirectsSchema = Schema.Array(RedirectSchema).pipe(
     return selfRedirect === undefined
       ? true
       : `Redirect '${selfRedirect.from}' points at itself — a self-redirect loops forever`
+  }),
+  Schema.filter((rules) => {
+    const inertFlag = rules.find(
+      (rule) => rule.localizeTarget !== undefined && isAbsoluteRedirectTarget(rule.to)
+    )
+    return inertFlag === undefined
+      ? true
+      : `Redirect '${inertFlag.from}' sets 'localizeTarget' on the absolute target '${inertFlag.to}' — an absolute URL leaves the app and is always emitted verbatim, so the flag has no effect. Remove 'localizeTarget', or point the rule at a root-relative path.`
   }),
   Schema.filter((rules) => {
     const cycleEntry = findCycleEntry(rules)

@@ -13,14 +13,21 @@ import type { ReactElement } from 'react'
 
 const ATTACHMENT_FIELD_TYPES = new Set(['attachment', 'single-attachment', 'multiple-attachments'])
 
-function resolveFieldType(
+const DEFAULT_BUCKET = 'default'
+
+function resolveField(
   tables: Tables | undefined,
   tableName: string | undefined,
   fieldName: string | undefined
-): string | undefined {
+): { readonly type: string; readonly bucket?: unknown } | undefined {
   if (!tables || !tableName || !fieldName) return undefined
   const table = tables.find((t) => t.name === tableName)
-  return table?.fields.find((f) => f.name === fieldName)?.type
+  return table?.fields.find((f) => f.name === fieldName)
+}
+
+function resolveBucket(field: { readonly bucket?: unknown } | undefined): string {
+  const bucket = field?.bucket
+  return typeof bucket === 'string' && bucket.length > 0 ? bucket : DEFAULT_BUCKET
 }
 
 interface AttachmentValue {
@@ -30,17 +37,20 @@ interface AttachmentValue {
   readonly url?: string
 }
 
-function attachmentHref(value: AttachmentValue): string | undefined {
+function attachmentHref(value: AttachmentValue, bucket: string): string | undefined {
   if (typeof value.url === 'string' && value.url.length > 0) return value.url
   if (typeof value.key === 'string' && value.key.length > 0) {
-    return `/api/buckets/default/files/${value.key}`
+    return `/api/buckets/${bucket}/files/${value.key}`
   }
   return undefined
 }
 
 function toAttachmentList(value: unknown): readonly AttachmentValue[] {
   if (Array.isArray(value)) {
-    return value.filter((v): v is AttachmentValue => typeof v === 'object' && v !== null)
+    return value.flatMap((v): readonly AttachmentValue[] => {
+      if (typeof v === 'string' && v.length > 0) return [{ key: v }]
+      return typeof v === 'object' && v !== null ? [v as AttachmentValue] : []
+    })
   }
   if (typeof value === 'object' && value !== null) return [value as AttachmentValue]
   if (typeof value === 'string' && value.length > 0) return [{ key: value }]
@@ -50,7 +60,8 @@ function toAttachmentList(value: unknown): readonly AttachmentValue[] {
 function renderAttachment(
   id: string | undefined,
   testId: string | undefined,
-  value: unknown
+  value: unknown,
+  bucket: string
 ): ReactElement {
   const items = toAttachmentList(value)
   return (
@@ -60,7 +71,7 @@ function renderAttachment(
       data-component="record-field"
     >
       {items.map((item, i) => {
-        const href = attachmentHref(item)
+        const href = attachmentHref(item, bucket)
         const label = item.filename ?? item.name ?? item.key ?? 'file'
         return href ? (
           <a
@@ -148,11 +159,12 @@ export const recordFieldComponent: ComponentRenderer = ({ rawProps, tables }): R
   const tableName = props['_recordTable'] as string | undefined
   const value = props['_recordValue']
 
-  const fieldType = resolveFieldType(tables, tableName, fieldName)
+  const field = resolveField(tables, tableName, fieldName)
+  const fieldType = field?.type
 
   if (fieldType === 'rich-text') return renderRichText(id, testId, value)
   if (fieldType !== undefined && ATTACHMENT_FIELD_TYPES.has(fieldType)) {
-    return renderAttachment(id, testId, value)
+    return renderAttachment(id, testId, value, resolveBucket(field))
   }
   return renderPlainText(id, testId, value)
 }

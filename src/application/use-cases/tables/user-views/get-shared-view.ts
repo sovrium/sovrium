@@ -44,10 +44,19 @@ export const getSharedView = (
       return yield* new UserViewNotFoundError({ viewId: input.viewId })
     }
 
-    const [userRole, userGroups] = yield* Effect.tryPromise({
-      try: () => Promise.all([getUserRole(input.userId), getUserGroups(input.userId)]),
-      catch: (cause) => new UserViewDbError({ cause }),
-    })
+    const [userRole, userGroups] = yield* Effect.all(
+      [
+        Effect.tryPromise({
+          try: () => getUserRole(input.userId),
+          catch: (cause) => new UserViewDbError({ cause }),
+        }),
+        Effect.tryPromise({
+          try: () => getUserGroups(input.userId),
+          catch: (cause) => new UserViewDbError({ cause }),
+        }),
+      ],
+      { concurrency: 2 }
+    )
     const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
     if (!hasReadPermissionForRoles(targetTable, effectiveRoles, input.app.tables)) {
       return yield* new UserViewForbiddenError({ viewId: input.viewId })

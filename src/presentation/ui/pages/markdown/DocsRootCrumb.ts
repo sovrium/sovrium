@@ -8,10 +8,13 @@
 
 import {
   getTabLabel,
-  sectionHasTab,
+  hasDocsTabs,
   tabOfSection,
 } from '@/presentation/ui/pages/markdown/DocsSidebarTabs'
-import type { CollectionNavEntry } from '@/presentation/rendering/content-dir-lister'
+import type {
+  CollectionNavEntry,
+  CollectionNavTabs,
+} from '@/presentation/rendering/content-dir-lister'
 
 export interface DocsRootCrumb {
   readonly name: string
@@ -21,11 +24,14 @@ export interface DocsRootCrumb {
 export const resolveDocsRootCrumb = (
   sidebar: readonly CollectionNavEntry[],
   current: CollectionNavEntry,
-  lang: string | undefined
+  tabs: CollectionNavTabs | undefined
 ): DocsRootCrumb | undefined => {
-  if (!sidebar.some((entry) => sectionHasTab(entry.group))) return undefined
-  const activeZone = tabOfSection(current.group)
-  const landing = sidebar.find((entry) => tabOfSection(entry.group) === activeZone)
-  if (landing === undefined) return undefined
-  return { name: getTabLabel(activeZone, lang), href: landing.href }
+  if (!hasDocsTabs(tabs)) return undefined
+  const activeTab = tabOfSection(current.group, tabs)
+  if (activeTab === undefined) return undefined
+  const href =
+    activeTab.href ??
+    sidebar.find((entry) => tabOfSection(entry.group, tabs)?.id === activeTab.id)?.href
+  if (href === undefined) return undefined
+  return { name: getTabLabel(activeTab), href }
 }

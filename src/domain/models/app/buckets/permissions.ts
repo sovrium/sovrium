@@ -49,3 +49,19 @@ export const BucketPermissionsSchema = Schema.Struct({
 )
 
 export type BucketPermissions = Schema.Schema.Type<typeof BucketPermissionsSchema>
+
+export type BucketAction = keyof BucketPermissions
+
+const BUCKET_ACTION_KIND = {
+  upload: 'write',
+  download: 'read',
+  sign: 'sign',
+  signUpload: 'sign',
+  delete: 'write',
+} as const satisfies Record<BucketAction, 'read' | 'write' | 'sign'>
+
+export const BUCKET_ACTIONS = Object.keys(BUCKET_ACTION_KIND) as readonly BucketAction[]
+
+export type BucketFileAction = {
+  [K in BucketAction]: (typeof BUCKET_ACTION_KIND)[K] extends 'sign' ? never : K
+}[BucketAction]

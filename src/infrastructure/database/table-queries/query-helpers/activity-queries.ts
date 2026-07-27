@@ -7,7 +7,7 @@
 
 import { eq, and, asc, gte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database'
+import { DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import {
   authUsersTable,
@@ -60,7 +60,7 @@ export function getRecordHistory(config: {
     readonly entries: readonly ActivityHistoryEntry[]
     readonly total: number
   },
-  SessionContextError
+  DatabaseError
 > {
   const { tableName, recordId, limit, offset } = config
 
@@ -100,6 +100,6 @@ export function getRecordHistory(config: {
       const results = await paginatedQuery
       return { entries: results.map(transformActivityRow), total }
     },
-    catch: (error) => new SessionContextError('Failed to fetch activity history', error),
+    catch: (error) => new DatabaseError('Failed to fetch activity history', error),
   })
 }

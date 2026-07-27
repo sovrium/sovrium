@@ -30,18 +30,6 @@ export async function validateRequest<T>(
     return { success: true, data }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const hasLargePayloadError = error.issues.some((issue) => {
-        if (issue.code !== 'too_big') return false
-        if (!('origin' in issue) || (issue as { origin?: string }).origin !== 'array') return false
-        if (!('maximum' in issue)) return false
-        const { maximum } = issue as { maximum?: number }
-        return typeof maximum === 'number' && maximum >= 1000
-      })
-
-      if (hasLargePayloadError) {
-        return { success: false, response: c.json({ error: 'PayloadTooLarge' }, 413) }
-      }
-
       const errorResponse = validationErrorResponseSchema.parse({
         success: false,
         message: 'Validation failed',

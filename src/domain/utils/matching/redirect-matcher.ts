@@ -6,7 +6,7 @@
  */
 
 
-import { stripLanguagePrefix } from '@/domain/models/app/redirects'
+import { isAbsoluteRedirectTarget, stripLanguagePrefix } from '@/domain/models/app/redirects'
 
 export type RedirectStatus = 301 | 302 | 307 | 308
 
@@ -14,6 +14,7 @@ export interface RedirectRule {
   readonly from: string
   readonly to: string
   readonly status?: RedirectStatus
+  readonly localizeTarget?: boolean
 }
 
 export interface RedirectResolution {
@@ -23,11 +24,10 @@ export interface RedirectResolution {
 
 const DEFAULT_REDIRECT_STATUS: RedirectStatus = 301
 
-const isAbsoluteTarget = (to: string): boolean =>
-  to.startsWith('http://') || to.startsWith('https://')
-
-const applyLanguagePrefix = (to: string, language: string): string =>
-  isAbsoluteTarget(to) ? to : `/${language}${to}`
+const localizeTargetPath = (rule: RedirectRule, language: string): string =>
+  rule.localizeTarget === false || isAbsoluteRedirectTarget(rule.to)
+    ? rule.to
+    : `/${language}${rule.to}`
 
 const appendSearch = (location: string, search: string): string => {
   if (search === '') return location
@@ -58,7 +58,7 @@ export const resolveRedirect = (
   if (localeAgnostic === undefined) return undefined
 
   return {
-    location: appendSearch(applyLanguagePrefix(localeAgnostic.to, language), search),
+    location: appendSearch(localizeTargetPath(localeAgnostic, language), search),
     status: localeAgnostic.status ?? DEFAULT_REDIRECT_STATUS,
   }
 }

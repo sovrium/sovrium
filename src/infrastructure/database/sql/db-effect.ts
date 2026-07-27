@@ -8,6 +8,8 @@
 
 import { Effect } from 'effect'
 
+export const SHARED_POOL_FANOUT_CONCURRENCY = 2
+
 export const dbEffect = <A, E>(
   toError: (cause: unknown) => E,
   run: () => Promise<A>

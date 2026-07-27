@@ -24,7 +24,7 @@ import { wrapDatabaseError } from '../shared/error-handling'
 import { typedExecute } from '../shared/typed-execute'
 import { validateTableName } from '../shared/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { SessionContextError } from '@/infrastructure/database'
+import type { DatabaseError } from '@/infrastructure/database'
 
 export function listRecords(config: {
   readonly session: Readonly<Session>
@@ -38,7 +38,7 @@ export function listRecords(config: {
   readonly app?: {
     readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
   }
-}): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+}): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
   const { tableName, filter, includeDeleted, sort, app } = config
   return traceDbQuery(
     'select',
@@ -86,7 +86,7 @@ export function computeAggregations(config: {
     readonly min?: Record<string, number>
     readonly max?: Record<string, number>
   },
-  SessionContextError
+  DatabaseError
 > {
   const { tableName, filter, includeDeleted, aggregate } = config
   return traceDbQuery(
@@ -229,7 +229,7 @@ export function listTrash(config: {
     readonly and?: readonly FilterNode[]
   }
   readonly sort?: string
-}): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+}): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
   const { tableName, filter, sort } = config
   return traceDbQuery(
     'select',
@@ -270,7 +270,7 @@ export function getRecord(
   tableName: string,
   recordId: string,
   includeDeleted?: boolean
-): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
+): Effect.Effect<Record<string, unknown> | null, DatabaseError> {
   return traceDbQuery(
     'select',
     tableName,

@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { SessionContextError } from '@/domain/errors'
+import { DatabaseError } from '@/domain/errors'
 import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
@@ -203,7 +203,7 @@ export async function executeSoftDelete(
 
     return result.length > 0
   } catch (error) {
-    throw new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error)
+    throw new DatabaseError(`Failed to delete record ${recordId} from ${tableName}`, error)
   }
 }
 
@@ -220,7 +220,7 @@ export async function executeHardDelete(
     )
     return result.length > 0
   } catch (error) {
-    throw new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error)
+    throw new DatabaseError(`Failed to delete record ${recordId} from ${tableName}`, error)
   }
 }
 
@@ -231,6 +231,6 @@ export async function checkDeletedAtColumn(
   try {
     return await columnExists(tx, tableName, 'deleted_at')
   } catch (error) {
-    throw new SessionContextError(`Failed to check columns for ${tableName}`, error)
+    throw new DatabaseError(`Failed to check columns for ${tableName}`, error)
   }
 }

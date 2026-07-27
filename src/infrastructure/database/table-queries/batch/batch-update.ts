@@ -11,7 +11,7 @@ import {
   db,
   ValidationError,
   type DrizzleTransaction,
-  type SessionContextError,
+  type DatabaseError,
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
@@ -101,7 +101,7 @@ export function batchUpdateRecords(
   session: Readonly<Session>,
   tableName: string,
   updates: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[]
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError> {
+): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
   return Effect.tryPromise({
     try: () =>
       db.transaction(async (tx) => {

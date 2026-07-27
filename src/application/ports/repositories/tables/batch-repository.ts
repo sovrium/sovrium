@@ -7,7 +7,7 @@
 
 import { Context } from 'effect'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { SessionContextError, ValidationError } from '@/domain/errors'
+import type { NotFoundError, DatabaseError, ValidationError } from '@/domain/errors'
 import type { Effect } from 'effect'
 
 export interface BatchValidationError extends Error {
@@ -29,7 +29,7 @@ export class BatchRepository extends Context.Tag('BatchRepository')<
       session: Readonly<UserSession>,
       tableName: string,
       recordsData: readonly Record<string, unknown>[]
-    ) => Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError>
+    ) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError>
 
     readonly batchUpdate: (
       session: Readonly<UserSession>,
@@ -38,26 +38,26 @@ export class BatchRepository extends Context.Tag('BatchRepository')<
         readonly id: string
         readonly fields?: Record<string, unknown>
       }[]
-    ) => Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError>
+    ) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError>
 
     readonly batchDelete: (
       session: Readonly<UserSession>,
       tableName: string,
       recordIds: readonly string[],
       permanent?: boolean
-    ) => Effect.Effect<number, SessionContextError>
+    ) => Effect.Effect<number, DatabaseError>
 
     readonly batchRestore: (
       session: Readonly<UserSession>,
       tableName: string,
       recordIds: readonly string[]
-    ) => Effect.Effect<number, SessionContextError>
+    ) => Effect.Effect<number, DatabaseError | NotFoundError>
 
     readonly upsert: (
       session: Readonly<UserSession>,
       tableName: string,
       recordsData: readonly Record<string, unknown>[],
       fieldsToMergeOn: readonly string[]
-    ) => Effect.Effect<UpsertResult, SessionContextError | BatchValidationError | ValidationError>
+    ) => Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError>
   }
 >() {}

@@ -366,7 +366,7 @@ const addNumericCastsToRound = (formula: string): string => {
   )
 }
 
-const escapeReservedFieldNames = (
+export const escapeReservedFieldNames = (
   formula: string,
   allFields?: readonly { name: string; type: string }[]
 ): string => {

@@ -8,10 +8,12 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   isFilePublic,
   resolveStoragePublicAccess,
 } from '@/domain/models/env/storage/storage-public-access'
+import { hasPermission } from '@/domain/models/shared/permissions'
 import {
   buildTransformCacheKey,
   buildTransformETag,
@@ -47,8 +49,10 @@ import {
 import { buildUploadStorageKey } from '@/presentation/api/routes/buckets/upload-key'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
+import type { Session } from '@/application/ports/models/user-session'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
+import type { BucketFileAction } from '@/domain/models/app/buckets/permissions'
 import type { TransformParams } from '@/domain/services/image-transform/image-transform-params'
 import type { Context, Hono } from 'hono'
 
@@ -66,15 +70,19 @@ function createHandleGetBucketFile(app: App) {
 
     const publicAccess = resolveStoragePublicAccess()
     const isPublic = bucket.public || isFilePublic(publicAccess, key)
-    if (!isPublic && !getSessionContext(c)) {
-      return c.json(
-        {
-          success: false,
-          message: 'Resource not found',
-          code: 'NOT_FOUND',
-        },
-        404
-      )
+    if (!isPublic) {
+      const session = getSessionContext(c)
+      const allowed = await canAct(bucket, 'download', session, session !== undefined)
+      if (!allowed) {
+        return c.json(
+          {
+            success: false,
+            message: 'Resource not found',
+            code: 'NOT_FOUND',
+          },
+          404
+        )
+      }
     }
 
     return serveTransformedDownload(c, key)
@@ -210,6 +218,42 @@ function resolveUploadBucket(app: App, bucketName: string | undefined): Bucket |
   return bucketName === 'default' ? { name: 'default', public: !app.auth } : undefined
 }
 
+async function canAct(
+  bucket: Bucket,
+  action: BucketFileAction,
+  session: Session | undefined,
+  legacyGrant: boolean
+): Promise<boolean> {
+  const permission = bucket.permissions?.[action]
+  if (permission === undefined) return legacyGrant
+  if (permission === 'all') return true
+  if (!session) return false
+  if (permission === 'authenticated') return true
+  const userRole = await getUserRole(session.userId)
+  if (userRole === 'admin') return true
+  return hasPermission(permission, userRole)
+}
+
+function legacyWriteGrant(app: App, bucket: Bucket, session: Session | undefined): boolean {
+  if (bucket.public && !app.auth) return true
+  return session !== undefined
+}
+
+function denyWrite(c: Context, session: Session | undefined): Response {
+  if (!session) {
+    return c.json(
+      {
+        success: false,
+        error: 'Unauthorized',
+        message: 'Authentication required',
+        code: 'UNAUTHORIZED',
+      },
+      401
+    )
+  }
+  return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+}
+
 function validateUploadFilename(
   name: string
 ): { readonly error: string; readonly code: string } | undefined {
@@ -337,16 +381,9 @@ function createHandlePostBucketFile(app: App) {
       }
     }
 
-    if (!bucket.public && !getSessionContext(c)) {
-      return c.json(
-        {
-          success: false,
-          error: 'Unauthorized',
-          message: 'Authentication required',
-          code: 'UNAUTHORIZED',
-        },
-        401
-      )
+    const session = getSessionContext(c)
+    if (!(await canAct(bucket, 'upload', session, legacyWriteGrant(app, bucket, session)))) {
+      return denyWrite(c, session)
     }
 
     return persistUpload(c, file, explicitPath)
@@ -419,16 +456,9 @@ function createHandleDeleteBucketFile(app: App) {
       return c.json({ success: false, error: 'Bucket not found', code: 'NOT_FOUND' }, 404)
     }
 
-    if (!bucket.public && !getSessionContext(c)) {
-      return c.json(
-        {
-          success: false,
-          error: 'Unauthorized',
-          message: 'Authentication required',
-          code: 'UNAUTHORIZED',
-        },
-        401
-      )
+    const session = getSessionContext(c)
+    if (!(await canAct(bucket, 'delete', session, legacyWriteGrant(app, bucket, session)))) {
+      return denyWrite(c, session)
     }
 
     const key = c.req.param('filename')

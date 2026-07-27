@@ -5,20 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { SessionContextError, ValidationError } from '@/infrastructure/database'
+import { DatabaseError, ValidationError } from '@/infrastructure/database'
 
 
-export function wrapDatabaseError(message: string): (error: unknown) => SessionContextError {
-  return (error: unknown): SessionContextError =>
-    error instanceof SessionContextError ? error : new SessionContextError(message, error)
+export function wrapDatabaseError(message: string): (error: unknown) => DatabaseError {
+  return (error: unknown): DatabaseError =>
+    error instanceof DatabaseError ? error : new DatabaseError(message, error)
 }
 
 export function wrapDatabaseErrorWithValidation(
   message: string
-): (error: unknown) => SessionContextError | ValidationError {
-  return (error: unknown): SessionContextError | ValidationError => {
-    if (error instanceof SessionContextError) return error
+): (error: unknown) => DatabaseError | ValidationError {
+  return (error: unknown): DatabaseError | ValidationError => {
+    if (error instanceof DatabaseError) return error
     if (error instanceof ValidationError) return error
-    return new SessionContextError(message, error)
+    return new DatabaseError(message, error)
   }
 }

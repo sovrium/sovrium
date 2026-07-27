@@ -17,6 +17,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type { VisibleWhenCondition } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { Tables } from '@/domain/models/app/tables'
+import type { FieldType } from '@/domain/models/app/tables/fields'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
 export type SuccessPageActionConfig = {
@@ -58,7 +59,7 @@ export type CrudFormAction = {
 
 export type ResolvedFieldDef = {
   readonly name: string
-  readonly type: string
+  readonly type: FieldType
   readonly required?: boolean
   readonly options?: readonly string[]
   readonly displayLabel: string
@@ -83,6 +84,7 @@ export type ResolvedFieldDef = {
   readonly maxFiles?: number
   readonly maxFileSize?: number
   readonly allowedFileTypes?: readonly string[]
+  readonly bucket?: string
 }
 
 export interface CrudFormRenderContext {

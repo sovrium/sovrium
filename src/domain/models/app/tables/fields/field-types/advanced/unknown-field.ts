@@ -31,6 +31,7 @@ export const KNOWN_FIELD_TYPES = [
   'datetime',
   'decimal',
   'deleted-at',
+  'deleted-by',
   'duration',
   'email',
   'formula',

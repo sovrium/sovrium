@@ -7,10 +7,11 @@
 
 import { Effect } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/analytics/activity-repository'
-import { SessionContextError } from '@/domain/errors'
+import { NotFoundError } from '@/domain/errors'
 import type { UserMetadataWithImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
+import type { DatabaseError } from '@/domain/errors'
 
 interface GetRecordHistoryConfig {
   readonly session: Readonly<UserSession>
@@ -53,7 +54,7 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       readonly total: number
     }
   },
-  SessionContextError,
+  DatabaseError | NotFoundError,
   ActivityRepository
 > {
   return Effect.gen(function* () {
@@ -71,7 +72,7 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
     })
 
     if (!recordExists && total === 0) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
+      return yield* Effect.fail(new NotFoundError('Record not found'))
     }
 
     const resolvedLimit = limit ?? total

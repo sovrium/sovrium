@@ -1,0 +1,1 @@
+CREATE INDEX `record_comments_guest_email_status_idx` ON `system_record_comments` (`table_id`,`guest_email`,`status`);

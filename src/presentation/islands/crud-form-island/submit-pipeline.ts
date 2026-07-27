@@ -6,6 +6,7 @@
  */
 
 import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
+import { omitsEmptyValue } from '@/presentation/utils/field-type-behavior'
 import { dispatch as dispatchIslandEvent } from '../_shared/event-bus'
 import { evaluateCondition, isFieldVisible } from '../components/crud-form/conditions'
 import { type FieldDef } from '../components/crud-form/fields'
@@ -78,12 +79,7 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
       if (!field) return true
       if (field.hidden) return true
       if (!isFieldVisible(field, ctx.values)) return false
-      if (field.type === 'single-select' && value === '') return false
-      if (
-        (field.type === 'single-attachment' || field.type === 'multiple-attachments') &&
-        value.trim() === ''
-      )
-        return false
+      if (omitsEmptyValue(field.type) && value.trim() === '') return false
       return true
     })
   )

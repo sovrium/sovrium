@@ -30,11 +30,14 @@ export interface CollectionPrevNext {
   readonly label: string
 }
 
+export type CollectionNavTabs = NonNullable<NonNullable<ContentDir['nav']>['tabs']>
+
 export interface CollectionNavData {
   readonly sidebar: readonly CollectionNavEntry[]
   readonly previous: CollectionPrevNext | undefined
   readonly next: CollectionPrevNext | undefined
   readonly collapsed: boolean
+  readonly tabs: CollectionNavTabs | undefined
 }
 
 interface ContentDirFile {
@@ -198,5 +201,11 @@ export const listContentDir = async (
   const files = await loadFilteredFiles(contentDir)
   const sidebar = buildSidebarEntries(files, contentDir, pagePath, currentSlug)
   const { previous, next } = buildPrevNext(sidebar, currentSlug)
-  return { sidebar, previous, next, collapsed: contentDir.nav?.collapsed === true }
+  return {
+    sidebar,
+    previous,
+    next,
+    collapsed: contentDir.nav?.collapsed === true,
+    tabs: contentDir.nav?.tabs,
+  }
 }

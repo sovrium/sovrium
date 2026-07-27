@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { SQL } from 'bun'
+import { sql } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   DataSourceRepository,
@@ -14,7 +14,10 @@ import {
 import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { formatLikePattern, formatSqlValue } from '@/domain/utils/database/sql-formatting'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { db } from '@/infrastructure/database/drizzle/db-bun'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 
@@ -90,14 +93,34 @@ function buildWhereClause(filter: readonly DataFilter[]): string {
 
 
 async function executeQuery<T>(query: string): Promise<T> {
-  const databaseUrl = process.env.DATABASE_URL
-  if (!databaseUrl) return [] as unknown as T
+  return (await executeRaw(db, sql.raw(query))) as unknown as T
+}
 
-  const sql = new SQL({ url: databaseUrl })
+const userAccessTableRef = (): string =>
+  isSqliteRuntime() ? `"system_user_access"` : `"system"."user_access"`
+
+const causeChainMessages = (error: unknown, depth = 0): readonly string[] => {
+  if (depth >= 6 || error === null || typeof error !== 'object') return []
+  const node = error as { readonly message?: unknown; readonly cause?: unknown }
+  const own = typeof node.message === 'string' ? [node.message] : []
+  return [...own, ...causeChainMessages(node.cause, depth + 1)]
+}
+
+const isMissingUserAccessTable = (error: unknown): boolean =>
+  causeChainMessages(error).some(
+    (message) =>
+      /relation .*user_access.* does not exist/i.test(message) ||
+      /no such table:.*user_access/i.test(message)
+  )
+
+const toRecordIdList = (value: unknown): readonly string[] => {
+  if (Array.isArray(value)) return value as readonly string[]
+  if (typeof value !== 'string') return []
   try {
-    return (await sql.unsafe(query)) as T
-  } finally {
-    sql.close()
+    const parsed: unknown = JSON.parse(value)
+    return Array.isArray(parsed) ? (parsed as readonly string[]) : []
+  } catch {
+    return []
   }
 }
 
@@ -139,16 +162,13 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
     wrap(async () => {
       const escapedUserId = formatSqlValue(userId)
       const escapedSlug = formatSqlValue(tableSlug)
-      const query = `SELECT "record_ids" FROM "system"."user_access" WHERE "user_id" = ${escapedUserId} AND "table_slug" = ${escapedSlug}`
+      const query = `SELECT "record_ids" FROM ${userAccessTableRef()} WHERE "user_id" = ${escapedUserId} AND "table_slug" = ${escapedSlug}`
       try {
-        const rows = await executeQuery<Array<{ record_ids: readonly string[] | null }>>(query)
-        const flattened = rows.flatMap((row) =>
-          Array.isArray(row.record_ids) ? row.record_ids : []
-        )
+        const rows = await executeQuery<Array<{ record_ids: unknown }>>(query)
+        const flattened = rows.flatMap((row) => toRecordIdList(row.record_ids))
         return flattened
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        if (/relation .*user_access.* does not exist/i.test(message)) {
+        if (isMissingUserAccessTable(error)) {
           return [] as readonly string[]
         }
         throw error
@@ -158,15 +178,14 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
   fetchUserAccessRoles: (userId) =>
     wrap(async () => {
       const escapedUserId = formatSqlValue(userId)
-      const query = `SELECT DISTINCT "role" FROM "system"."user_access" WHERE "user_id" = ${escapedUserId}`
+      const query = `SELECT DISTINCT "role" FROM ${userAccessTableRef()} WHERE "user_id" = ${escapedUserId}`
       try {
         const rows = await executeQuery<Array<{ role: string | null }>>(query)
         return rows
           .map((row) => row.role)
           .filter((role): role is string => typeof role === 'string' && role.length > 0)
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        if (/relation .*user_access.* does not exist/i.test(message)) {
+        if (isMissingUserAccessTable(error)) {
           return [] as readonly string[]
         }
         throw error

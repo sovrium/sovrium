@@ -24,6 +24,12 @@ export const forbidden = (c: Context, message?: string) =>
 export const notFound = (c: Context, message?: string) =>
   c.json({ success: false, message: message ?? 'Resource not found', code: 'NOT_FOUND' }, 404)
 
+export const payloadTooLarge = (c: Context, message?: string) =>
+  c.json(
+    { success: false, message: message ?? 'Payload too large', code: 'PAYLOAD_TOO_LARGE' },
+    413
+  )
+
 export const validationError = (c: Context, errors: readonly FieldError[], message?: string) =>
   c.json(
     {

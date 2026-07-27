@@ -18,6 +18,15 @@ import type {
   TableOverviewBreakdownItem,
 } from '@/domain/models/api/admin/tables/overview'
 
+const DEFAULT_MAX_CONCURRENT_TABLES_OVERVIEWS = 1
+const parseMaxConcurrent = (raw: string | undefined): number => {
+  const parsed = raw === undefined ? Number.NaN : Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CONCURRENT_TABLES_OVERVIEWS
+}
+const tablesOverviewSemaphore = Effect.unsafeMakeSemaphore(
+  parseMaxConcurrent(process.env.ADMIN_TABLES_OVERVIEW_MAX_CONCURRENT)
+)
+
 export interface BuildTablesOverviewInput {
   readonly tables: ReadonlyArray<{ readonly displayName: string; readonly dbName: string }>
   readonly period: PeriodPreset
@@ -108,4 +117,4 @@ export const buildTablesOverview = (
       by_table: [...byTable],
       series: { interval: spec.interval, points: [...points] },
     }
-  })
+  }).pipe(tablesOverviewSemaphore.withPermits(1))

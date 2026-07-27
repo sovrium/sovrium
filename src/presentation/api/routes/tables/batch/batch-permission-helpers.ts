@@ -6,6 +6,7 @@
  */
 
 import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
+import { payloadTooLarge } from '@/presentation/api/utils/auth-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import type {
   RecordFieldValue,
@@ -38,14 +39,7 @@ export function checkRecordLimitExceeded(
   c: Context
 ): Response | undefined {
   if (records.length > 1000) {
-    return c.json(
-      {
-        success: false,
-        message: 'Batch size exceeds maximum of 1000 records',
-        code: 'PAYLOAD_TOO_LARGE',
-      },
-      413
-    )
+    return payloadTooLarge(c, 'Batch size exceeds maximum of 1000 records')
   }
   return undefined
 }

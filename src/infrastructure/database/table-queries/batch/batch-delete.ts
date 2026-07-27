@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { db, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
@@ -15,7 +15,7 @@ import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
-import { runEffectInTx } from './batch-helpers'
+import { BATCH_FANOUT_CONCURRENCY, runEffectInTx } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 async function validateRecordsForDelete(
@@ -23,19 +23,25 @@ async function validateRecordsForDelete(
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Promise<void> {
-  const validationResults = await Promise.all(
-    recordIds.map(async (recordId) => {
-      const checkResult = await executeRaw(
-        tx,
-        sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-      )
+  const validationResults = await runEffectInTx(
+    Effect.all(
+      recordIds.map((recordId) =>
+        Effect.tryPromise({
+          try: async () => {
+            const checkResult = await executeRaw(
+              tx,
+              sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+            )
 
-      if (checkResult.length === 0) {
-        return { recordId, error: 'not found' }
-      }
-
-      return { recordId, error: undefined }
-    })
+            return checkResult.length === 0
+              ? { recordId, error: 'not found' as string | undefined }
+              : { recordId, error: undefined }
+          },
+          catch: (error) => error,
+        })
+      ),
+      { concurrency: BATCH_FANOUT_CONCURRENCY }
+    )
   )
 
   const firstError = validationResults.find((result) => result.error !== undefined)
@@ -48,12 +54,12 @@ function validateRecordsForDeleteWithEffect(
   tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
-): Effect.Effect<void, SessionContextError> {
+): Effect.Effect<void, DatabaseError> {
   return Effect.tryPromise({
     try: () => validateRecordsForDelete(tx, tableIdent, recordIds),
     catch: (error) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return new SessionContextError(`Validation failed: ${errorMessage}`, error)
+      return new DatabaseError(`Validation failed: ${errorMessage}`, error)
     },
   })
 }
@@ -61,20 +67,20 @@ function validateRecordsForDeleteWithEffect(
 function checkSoftDeleteSupport(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
-): Effect.Effect<boolean, SessionContextError> {
+): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
     try: () => columnExists(tx, tableName, 'deleted_at'),
-    catch: (error) => new SessionContextError('Failed to check deleted_at column', error),
+    catch: (error) => new DatabaseError('Failed to check deleted_at column', error),
   })
 }
 
 function checkDeletedBySupport(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
-): Effect.Effect<boolean, SessionContextError> {
+): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
     try: () => columnExists(tx, tableName, 'deleted_by'),
-    catch: (error) => new SessionContextError('Failed to check deleted_by column', error),
+    catch: (error) => new DatabaseError('Failed to check deleted_by column', error),
   })
 }
 
@@ -88,7 +94,7 @@ function executeDeleteQuery(
     readonly permanent: boolean
     readonly userId: string
   }
-): Effect.Effect<number, SessionContextError> {
+): Effect.Effect<number, DatabaseError> {
   return Effect.tryPromise({
     try: async () => {
       const tableIdent = sql.identifier(params.tableName)
@@ -108,8 +114,7 @@ function executeDeleteQuery(
       const result = await executeRaw(tx, query)
       return result.length
     },
-    catch: (error) =>
-      new SessionContextError(`Failed to delete records in ${params.tableName}`, error),
+    catch: (error) => new DatabaseError(`Failed to delete records in ${params.tableName}`, error),
   })
 }
 
@@ -134,7 +139,7 @@ export function batchDeleteRecords(
   tableName: string,
   recordIds: readonly string[],
   permanent = false
-): Effect.Effect<number, SessionContextError> {
+): Effect.Effect<number, DatabaseError> {
   return Effect.gen(function* () {
     const { deletedCount, recordsBefore } = yield* Effect.tryPromise({
       try: () =>

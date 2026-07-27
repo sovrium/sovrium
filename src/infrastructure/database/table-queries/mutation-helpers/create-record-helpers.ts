@@ -6,6 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { findConstraintViolation } from '@/domain/errors/driver-failure'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import { type DrizzleTransaction } from '@/infrastructure/database'
 import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
@@ -13,33 +14,12 @@ import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { validateColumnName, validateTableName } from '../shared/validation'
 
-interface PostgresErrorLike {
-  readonly code?: string
-  readonly constraint?: string
-  readonly message?: string
-  readonly cause?: PostgresErrorLike
-}
-
-function hasUniqueViolationMarkers(obj: PostgresErrorLike | null | undefined): boolean {
-  return obj?.code === '23505' || !!obj?.constraint || !!obj?.message?.includes('unique constraint')
-}
-
 export function isUniqueConstraintViolation(error: unknown): boolean {
-  const err = error as PostgresErrorLike | null | undefined
-  return hasUniqueViolationMarkers(err) || hasUniqueViolationMarkers(err?.cause)
-}
-
-function hasForeignKeyViolationMarkers(obj: PostgresErrorLike | null | undefined): boolean {
-  if (obj === null || obj === undefined) return false
-  if (obj.code === '23503') return true
-  if (obj.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') return true
-  const message = obj.message?.toLowerCase()
-  return !!message && (message.includes('foreign key') || message.includes('foreign_key'))
+  return findConstraintViolation(error) === 'unique'
 }
 
 export function isForeignKeyViolation(error: unknown): boolean {
-  const err = error as PostgresErrorLike | null | undefined
-  return hasForeignKeyViolationMarkers(err) || hasForeignKeyViolationMarkers(err?.cause)
+  return findConstraintViolation(error) === 'foreign-key'
 }
 
 export function buildInsertClauses(

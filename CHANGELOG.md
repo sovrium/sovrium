@@ -1,3 +1,33 @@
+## [0.20.0](https://github.com/sovrium/sovrium/compare/v0.19.0...v0.20.0) (2026-07-27)
+
+### BREAKING CHANGES
+
+- **buckets**: bind attachment URLs to the field's declared bucket
+
+### Features
+
+- **pages**: let a redirect target opt out of locale inheritance
+
+### Bug Fixes
+
+- **pages**: read page and collection data through the configured database
+- **tables**: translate GREATEST and LEAST formulas for SQLite
+- **api**: check every invalid field in a request, not just the first
+- **comments**: honour autoApprove.previouslyApproved
+- **tables**: store attachment URLs against the field's declared bucket
+- **api**: tell the caller why an upload was rejected as too large
+- **records-api**: stop discarding a field named user_id
+- **buckets**: enforce the declared upload, download and delete permissions
+- **database**: repoint the fan-out test and comment after the error-taxonomy rename
+- **api**: accept one-character values and show field errors on the form
+- **forms**: enforce access and availability on custom form paths
+- **tables**: accept deleted-by in the config validator
+- **comments**: stop answering a rejected comment with 201 Created
+- **tables**: answer database failures with the right status code
+- **pages**: create records when constrained fields are left untouched
+- **telemetry**: report the full error cause chain to stderr and the error backend
+- **admin**: bound tables-overview query fan-out to one query per table
+
 ## [0.19.0](https://github.com/sovrium/sovrium/compare/v0.18.1...v0.19.0) (2026-07-25)
 
 ### BREAKING CHANGES

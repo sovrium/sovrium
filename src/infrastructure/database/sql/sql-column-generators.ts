@@ -6,13 +6,13 @@
  */
 
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { translateFormula } from '../formula/formula-translation'
 import {
   castFormulaDivisionOperands,
   isFormulaVolatile,
   getFormulaFieldsNeedingTrigger,
   isFormulaReturningArray,
   isViewComputedFormula,
-  translateFormulaToPostgres,
 } from '../formula/formula-utils'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import { SQLITE_ISO_NOW } from './dialect-ddl'
@@ -130,7 +130,7 @@ const generateFormulaColumn = (
       ? `${baseResultType}[]`
       : baseResultType
 
-  const translatedFormula = translateFormulaToPostgres(field.formula, allFields)
+  const translatedFormula = translateFormula(field.formula, allFields)
 
   const triggerFields = allFields ? getFormulaFieldsNeedingTrigger(allFields) : new Set<string>()
   if (isFormulaVolatile(translatedFormula) || triggerFields.has(field.name)) {

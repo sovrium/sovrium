@@ -49,6 +49,12 @@ export const recordComments = systemTable(
     index('record_comments_parentId_idx').on(table.parentId),
 
     index('record_comments_status_idx').on(table.status),
+
+    index('record_comments_guest_email_status_idx').on(
+      table.tableId,
+      table.guestEmail,
+      table.status
+    ),
   ]
 )
 

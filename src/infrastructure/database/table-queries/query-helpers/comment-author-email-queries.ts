@@ -18,17 +18,14 @@ import { recordComments as recordCommentsSqlite } from '@/infrastructure/databas
 import { wrapDatabaseError } from '../shared/error-handling'
 import { activeCommentsByRecordId } from './comment-query-predicates'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { SessionContextError } from '@/infrastructure/database'
+import type { DatabaseError } from '@/infrastructure/database'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
 export function listCommentAuthorEmailsForRecord(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
-}): Effect.Effect<
-  readonly { readonly userId: string; readonly email: string }[],
-  SessionContextError
-> {
+}): Effect.Effect<readonly { readonly userId: string; readonly email: string }[], DatabaseError> {
   const { recordId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -55,7 +52,7 @@ export function listCommentAuthorEmailsForRecord(config: {
 export function getUserEmailById(config: {
   readonly session: Readonly<Session>
   readonly userId: string
-}): Effect.Effect<string | undefined, SessionContextError> {
+}): Effect.Effect<string | undefined, DatabaseError> {
   const { userId } = config
   return Effect.tryPromise({
     try: async () => {
@@ -77,7 +74,7 @@ export function getUserMetadataById(config: {
   readonly userId: string
 }): Effect.Effect<
   { readonly id: string; readonly email: string; readonly name: string } | undefined,
-  SessionContextError
+  DatabaseError
 > {
   const { userId } = config
   return Effect.tryPromise({

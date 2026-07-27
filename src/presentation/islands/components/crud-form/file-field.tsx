@@ -52,10 +52,16 @@ function firstFileError(files: readonly File[], field: FieldDef): string | undef
   return files.map((file) => validateFile(file, field)).find((error) => error !== undefined)
 }
 
-async function uploadFile(file: File): Promise<StoredFile> {
+const DEFAULT_BUCKET = 'default'
+
+function bucketOf(field: FieldDef): string {
+  return field.bucket ?? DEFAULT_BUCKET
+}
+
+async function uploadFile(file: File, bucket: string): Promise<StoredFile> {
   const body = new FormData()
   body.set('file', file)
-  const res = await fetch('/api/buckets/default/files', { method: 'POST', body })
+  const res = await fetch(`/api/buckets/${bucket}/files`, { method: 'POST', body })
   if (!res.ok) {
     throw new Error(`Upload failed for ${file.name}`)
   }
@@ -64,7 +70,7 @@ async function uploadFile(file: File): Promise<StoredFile> {
   return {
     key,
     meta: {
-      url: `/api/buckets/default/files/${key}`,
+      url: `/api/buckets/${bucket}/files/${key}`,
       name: json.filename ?? file.name,
       size: json.size ?? file.size,
       mimeType: json.mimeType ?? file.type,
@@ -93,12 +99,12 @@ function mimeFromName(name: string): string {
     : 'application/octet-stream'
 }
 
-function storedFromKey(key: string): StoredFile {
+function storedFromKey(key: string, bucket: string): StoredFile {
   const name = filenameFromKey(key)
   return {
     key,
     meta: {
-      url: `/api/buckets/default/files/${key}`,
+      url: `/api/buckets/${bucket}/files/${key}`,
       name,
       size: 0,
       mimeType: mimeFromName(name),
@@ -129,13 +135,13 @@ function tryParseJson(value: string): unknown | undefined {
   }
 }
 
-function parseInitialValue(value: string): readonly StoredFile[] {
+function parseInitialValue(value: string, bucket: string): readonly StoredFile[] {
   if (!value.trim()) return []
   const parsed = tryParseJson(value)
-  if (parsed === undefined) return [storedFromKey(value)]
+  if (parsed === undefined) return [storedFromKey(value, bucket)]
   const list = Array.isArray(parsed) ? parsed : [parsed]
   return list.flatMap((entry): readonly StoredFile[] => {
-    if (typeof entry === 'string') return [storedFromKey(entry)]
+    if (typeof entry === 'string') return [storedFromKey(entry, bucket)]
     if (typeof entry === 'object' && entry !== null) {
       const stored = storedFromMeta(entry as Record<string, unknown>)
       return stored ? [stored] : []
@@ -321,7 +327,8 @@ interface FileFieldProps {
 
 function useFileField(props: FileFieldProps) {
   const { field, multiple, value, onChange } = props
-  const [files, setFiles] = useState<readonly StoredFile[]>(() => parseInitialValue(value))
+  const bucket = bucketOf(field)
+  const [files, setFiles] = useState<readonly StoredFile[]>(() => parseInitialValue(value, bucket))
   const [error, setError] = useState<string | undefined>(undefined)
   const [uploading, setUploading] = useState(false)
   const [inputKey, setInputKey] = useState(0)
@@ -334,7 +341,7 @@ function useFileField(props: FileFieldProps) {
   const uploadAccepted = async (accepted: readonly File[]) => {
     setUploading(true)
     try {
-      const uploaded = await Promise.all(accepted.map(uploadFile))
+      const uploaded = await Promise.all(accepted.map((file) => uploadFile(file, bucket)))
       commit(multiple ? [...files, ...uploaded] : uploaded)
     } catch {
       setError('File upload failed. Please try again.')

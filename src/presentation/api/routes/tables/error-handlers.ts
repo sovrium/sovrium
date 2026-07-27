@@ -24,13 +24,5 @@ export function handleRouteError(c: Context, error: unknown): Response {
 }
 
 export function handleRestoreRecordError(c: Context, error: unknown): Response {
-  const errorMessage = error instanceof Error ? error.message : String(error)
-  if (errorMessage === 'Record is not deleted') {
-    return c.json(
-      { success: false, message: 'Record is not deleted', code: 'VALIDATION_ERROR' },
-      400
-    )
-  }
-
   return handleRouteError(c, error)
 }

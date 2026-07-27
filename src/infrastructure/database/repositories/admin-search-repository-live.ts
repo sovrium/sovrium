@@ -6,7 +6,7 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   AdminSearchRepository,
   AdminSearchDatabaseError,
@@ -21,7 +21,7 @@ import {
   ADMIN_SEARCH_CONTENT_TABLE,
   ADMIN_SEARCH_FTS_TABLE,
 } from '@/infrastructure/database/lookup/admin-search-fts-ddl'
-import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { AdminSearchEntityType } from '@/domain/models/api/admin/search/search'
@@ -200,6 +200,36 @@ const upsertRow = (row: AdminSearchUpsertRow): Promise<unknown> =>
   )
 
 
+const readAllTableRecords = (
+  tables: ReadonlyArray<{
+    readonly displayName: string
+    readonly textColumns: readonly string[]
+  }>
+) =>
+  Effect.all(
+    tables.map((table) => wrap(() => readTableRecords(table.displayName, table.textColumns))),
+    { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
+  )
+
+const readFixedSources = () =>
+  Effect.all(
+    [
+      wrap(readSubmissions),
+      wrap(readRuns),
+      wrap(readUsers),
+      wrap(readFiles),
+      wrap(readConversations),
+    ],
+    { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
+  )
+
+const upsertAllRows = (rows: readonly AdminSearchUpsertRow[]) =>
+  Effect.all(
+    rows.map((row) => wrap(() => upsertRow(row))),
+    { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
+  ).pipe(Effect.asVoid)
+
+
 const toFtsMatch = (query: string): string =>
   query
     .toLowerCase()
@@ -265,17 +295,9 @@ export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
     }),
 
   rebuildIndex: ({ tables, extraRows }) =>
-    wrap(async () => {
-      const perTable = await Promise.all(
-        tables.map((table) => readTableRecords(table.displayName, table.textColumns))
-      )
-      const [submissions, runs, users, files, conversations] = await Promise.all([
-        readSubmissions(),
-        readRuns(),
-        readUsers(),
-        readFiles(),
-        readConversations(),
-      ])
+    Effect.gen(function* () {
+      const perTable = yield* readAllTableRecords(tables)
+      const [submissions, runs, users, files, conversations] = yield* readFixedSources()
       const allRows = [
         ...perTable.flat(),
         ...submissions,
@@ -285,7 +307,7 @@ export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
         ...conversations,
         ...extraRows,
       ]
-      return Promise.all(allRows.map((row) => upsertRow(row))).then(() => undefined)
+      yield* upsertAllRows(allRows)
     }),
 
   search: (query) => wrap(() => (isSqliteRuntime() ? searchSqlite(query) : searchPostgres(query))),

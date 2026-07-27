@@ -7,10 +7,11 @@
 
 import { type ReactElement } from 'react'
 import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
-import { type TabId, TAB_ORDER, sectionHasTab, tabOfSection } from './DocsSidebarTabs'
+import { type DocsNavTab, hasDocsTabs, sectionIsClaimed } from './DocsSidebarTabs'
 import type {
   CollectionNavData,
   CollectionNavEntry,
+  CollectionNavTabs,
 } from '@/presentation/rendering/content-dir-lister'
 
 const renderSectionIcon = (iconName: string | undefined): Readonly<ReactElement> | undefined => {
@@ -149,22 +150,38 @@ const renderGroup = (
 const NAV_WRAPPER_CLASS =
   'border-border sticky top-[6.5rem] hidden h-[calc(100dvh-6.5rem)] w-60 shrink-0 self-start overflow-y-auto border-r py-8 pr-4 text-sm lg:block'
 
+const groupsForTab = (
+  groups: readonly NavGroup[],
+  tab: DocsNavTab,
+  tabs: CollectionNavTabs,
+  isFirst: boolean
+): readonly NavGroup[] => {
+  const declared = tab.sections.flatMap((section) =>
+    groups.filter((group) => group.name === section)
+  )
+  if (!isFirst) return declared
+  return [...declared, ...groups.filter((group) => !sectionIsClaimed(group.name, tabs))]
+}
+
 const resolveActiveZone = (
-  groups: readonly NavGroup[]
-): { readonly zone: TabId; readonly groups: readonly NavGroup[] } => {
-  const groupsFor = (zone: TabId): readonly NavGroup[] =>
-    groups.filter((group) => tabOfSection(group.name) === zone)
-  const zone =
-    TAB_ORDER.find((z) => groupsFor(z).some(groupIsActive)) ??
-    TAB_ORDER.find((z) => groupsFor(z).length > 0) ??
-    'runtime'
-  return { zone, groups: groupsFor(zone) }
+  groups: readonly NavGroup[],
+  tabs: CollectionNavTabs
+): { readonly zone: string; readonly groups: readonly NavGroup[] } => {
+  const groupsFor = (tab: DocsNavTab): readonly NavGroup[] =>
+    groupsForTab(groups, tab, tabs, tab === tabs[0])
+  const active =
+    tabs.find((tab) => groupsFor(tab).some(groupIsActive)) ??
+    tabs.find((tab) => groupsFor(tab).length > 0) ??
+    tabs[0]
+  if (active === undefined) return { zone: '', groups }
+  return { zone: active.id, groups: groupsFor(active) }
 }
 
 export function DocsSidebarNav({ nav }: DocsSidebarNavProps): Readonly<ReactElement> {
   const groups = bucketByGroup(nav.sidebar)
   const collapsed = nav.collapsed === true
-  const zoned = !collapsed && groups.some((group) => sectionHasTab(group.name))
+  const { tabs } = nav
+  const zoned = !collapsed && hasDocsTabs(tabs)
   if (!zoned) {
     return (
       <nav
@@ -176,7 +193,7 @@ export function DocsSidebarNav({ nav }: DocsSidebarNavProps): Readonly<ReactElem
       </nav>
     )
   }
-  const { zone, groups: zoneGroups } = resolveActiveZone(groups)
+  const { zone, groups: zoneGroups } = resolveActiveZone(groups, tabs)
   return (
     <nav
       data-component="docs-sidebar-nav"

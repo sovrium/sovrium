@@ -12,6 +12,7 @@ import {
   getUserEmailById,
   getUserMetadataById,
 } from '@/infrastructure/database/table-queries/query-helpers/comment-author-email-queries'
+import { hasApprovedGuestComment } from '@/infrastructure/database/table-queries/query-helpers/comment-moderation-queries'
 import {
   createComment,
   getCommentWithUser,
@@ -35,6 +36,7 @@ import {
 export const CommentRepositoryLive = Layer.succeed(CommentRepository, {
   create: createComment,
   getWithUser: getCommentWithUser,
+  hasApprovedGuestComment,
   checkRecordExists,
   getForAuth: getCommentForAuth,
   getUserById,

@@ -25,7 +25,7 @@ export class WeakPasswordError extends Data.TaggedError('WeakPasswordError')<{
   readonly message: string
 }> {}
 
-export class DatabaseError extends Data.TaggedError('DatabaseError')<{
+export class BootstrapDatabaseError extends Data.TaggedError('BootstrapDatabaseError')<{
   readonly cause: unknown
 }> {}
 
@@ -59,7 +59,7 @@ const createAdminUser = (
   requireEmailVerification: boolean
 ): Effect.Effect<
   { alreadyExists: boolean; userId?: string },
-  DatabaseError | AuthDatabaseError,
+  BootstrapDatabaseError | AuthDatabaseError,
   AuthRepository
 > =>
   Effect.gen(function* () {
@@ -76,7 +76,7 @@ const createAdminUser = (
 
         return userResult
       },
-      catch: (error) => new DatabaseError({ cause: error }),
+      catch: (error) => new BootstrapDatabaseError({ cause: error }),
     }).pipe(
       Effect.catchAll((dbError) => {
         const originalError = dbError.cause
@@ -154,7 +154,7 @@ export const createAdminAccount = (
   config: AdminBootstrapConfig
 ): Effect.Effect<
   { readonly alreadyExists: boolean; readonly userId?: string },
-  InvalidEmailError | WeakPasswordError | DatabaseError | AuthDatabaseError,
+  InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError,
   Auth | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -169,7 +169,7 @@ export const bootstrapAdmin = (
   app: App
 ): Effect.Effect<
   void,
-  InvalidEmailError | WeakPasswordError | DatabaseError | AuthDatabaseError,
+  InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError,
   Auth | AuthRepository
 > =>
   Effect.gen(function* () {

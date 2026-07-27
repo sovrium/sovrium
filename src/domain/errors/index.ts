@@ -7,14 +7,26 @@
 
 export { createTaggedError } from './create-tagged-error'
 
-export class SessionContextError extends Error {
-  readonly _tag = 'SessionContextError'
+
+export class DatabaseError extends Error {
+  readonly _tag = 'DatabaseError'
   override readonly cause?: unknown
 
   constructor(message: string, cause?: unknown) {
     super(message)
-    this.name = 'SessionContextError'
+    this.name = 'DatabaseError'
     this.cause = cause
+  }
+}
+
+export class NotFoundError extends Error {
+  readonly _tag = 'NotFoundError'
+  readonly recordId?: string
+
+  constructor(message: string, recordId?: string) {
+    super(message)
+    this.name = 'NotFoundError'
+    this.recordId = recordId
   }
 }
 

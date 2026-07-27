@@ -11,6 +11,7 @@ import {
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
 } from '@/presentation/utils/design/form-layout-classes'
+import { fieldWidgetOf, type FieldWidget } from '@/presentation/utils/field-type-behavior'
 import { CodeEditorField } from '../code-editor-field'
 import { RichTextEditorField } from '../rich-text-editor-field'
 import { type ConditionRule, type FieldDef, labelOf } from './field-def'
@@ -24,8 +25,7 @@ interface FieldInputProps {
   readonly onChange: (name: string, value: string) => void
 }
 
-const INPUT_TYPE_MAP: Record<string, string> = {
-  number: 'number',
+const INPUT_TYPE_BY_WIDGET: Partial<Record<FieldWidget, string>> = {
   email: 'email',
   url: 'url',
 }
@@ -190,46 +190,15 @@ function renderRichTextField(
   )
 }
 
-function renderSimpleField(
-  field: FieldDef,
-  value: string,
-  onChange: FieldInputProps['onChange'],
-  invalid: boolean
-) {
-  if (field.type === 'long-text') {
-    return (
-      <TextAreaField
-        field={field}
-        name={field.name}
-        value={value}
-        onChange={onChange}
-        invalid={invalid}
-      />
-    )
-  }
-  if (field.type === 'single-select') {
-    return (
-      <SelectField
-        field={field}
-        name={field.name}
-        value={value}
-        onChange={onChange}
-        options={field.options ?? []}
-        invalid={invalid}
-      />
-    )
-  }
-  if (field.type === 'checkbox') {
-    return (
-      <CheckboxField
-        field={field}
-        name={field.name}
-        value={value}
-        onChange={onChange}
-      />
-    )
-  }
-  const inputType = INPUT_TYPE_MAP[field.type] ?? 'text'
+interface FieldRenderArgs {
+  readonly field: FieldDef
+  readonly value: string
+  readonly onChange: FieldInputProps['onChange']
+  readonly invalid: boolean
+}
+
+function renderTypedInputField(args: FieldRenderArgs, inputType: string) {
+  const { field, value, onChange, invalid } = args
   return (
     <TypedInputField
       field={field}
@@ -242,31 +211,62 @@ function renderSimpleField(
   )
 }
 
+const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.ReactNode> = {
+  code: ({ field, value, onChange }) => renderCodeField(field, value, onChange),
+  'rich-text': ({ field, value, onChange }) => renderRichTextField(field, value, onChange),
+  'file-single': ({ field, value, onChange }) => (
+    <FileField
+      field={field}
+      multiple={false}
+      value={value}
+      onChange={onChange}
+    />
+  ),
+  'file-multiple': ({ field, value, onChange }) => (
+    <FileField
+      field={field}
+      multiple={true}
+      value={value}
+      onChange={onChange}
+    />
+  ),
+  textarea: ({ field, value, onChange, invalid }) => (
+    <TextAreaField
+      field={field}
+      name={field.name}
+      value={value}
+      onChange={onChange}
+      invalid={invalid}
+    />
+  ),
+  select: ({ field, value, onChange, invalid }) => (
+    <SelectField
+      field={field}
+      name={field.name}
+      value={value}
+      onChange={onChange}
+      options={field.options ?? []}
+      invalid={invalid}
+    />
+  ),
+  checkbox: ({ field, value, onChange }) => (
+    <CheckboxField
+      field={field}
+      name={field.name}
+      value={value}
+      onChange={onChange}
+    />
+  ),
+  text: (args) => renderTypedInputField(args, 'text'),
+  email: (args) => renderTypedInputField(args, INPUT_TYPE_BY_WIDGET.email ?? 'text'),
+  url: (args) => renderTypedInputField(args, INPUT_TYPE_BY_WIDGET.url ?? 'text'),
+}
+
 export function renderField(
   field: FieldDef,
   value: string,
   onChange: (name: string, value: string) => void,
   invalid: boolean
 ) {
-  if (field.type === 'code') return renderCodeField(field, value, onChange)
-  if (field.type === 'rich-text') return renderRichTextField(field, value, onChange)
-  if (field.type === 'single-attachment')
-    return (
-      <FileField
-        field={field}
-        multiple={false}
-        value={value}
-        onChange={onChange}
-      />
-    )
-  if (field.type === 'multiple-attachments')
-    return (
-      <FileField
-        field={field}
-        multiple={true}
-        value={value}
-        onChange={onChange}
-      />
-    )
-  return renderSimpleField(field, value, onChange, invalid)
+  return WIDGET_RENDERERS[fieldWidgetOf(field.type)]({ field, value, onChange, invalid })
 }
