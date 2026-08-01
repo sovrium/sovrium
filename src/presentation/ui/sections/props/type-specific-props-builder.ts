@@ -47,6 +47,26 @@ function resolveSourceTable(
   return tables.find((t) => t.name === sourceTable)
 }
 
+function resolveButtonFieldMeta(field: Tables[number]['fields'][number]): Record<string, unknown> {
+  if (field.type !== 'button') return {}
+  const button = field as unknown as {
+    readonly label: string
+    readonly action: string
+    readonly url?: string
+    readonly automation?: string
+    readonly visibleWhen?: Readonly<Record<string, unknown>>
+  }
+  return {
+    button: {
+      label: button.label,
+      action: button.action,
+      ...(button.url === undefined ? {} : { url: button.url }),
+      ...(button.automation === undefined ? {} : { automation: button.automation }),
+      ...(button.visibleWhen === undefined ? {} : { visibleWhen: button.visibleWhen }),
+    },
+  }
+}
+
 function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInputs {
   return {
     dataTableTableFields: table.fields.map((f) => f.name),
@@ -57,6 +77,7 @@ function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInpu
           type: f.type,
           ...('options' in f && f.options ? { options: f.options } : {}),
           ...('required' in f && f.required ? { required: true } : {}),
+          ...resolveButtonFieldMeta(f),
         },
       ])
     ),

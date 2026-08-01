@@ -6,17 +6,12 @@
  */
 
 
-import { eq } from 'drizzle-orm'
 import { Data, Effect } from 'effect'
-import { db } from '@/infrastructure/database'
-import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { sendEmail } from '@/infrastructure/email/email-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
-
-class AdminLookupError extends Data.TaggedError('AdminLookupError')<{
-  readonly cause: unknown
-}> {}
 
 class AdminEmailSendError extends Data.TaggedError('AdminEmailSendError')<{
   readonly cause: unknown
@@ -48,19 +43,13 @@ const renderFailureEmail = (
 }
 
 const loadAdminEmails = (): Effect.Effect<readonly string[], never> =>
-  Effect.tryPromise({
-    try: async () => {
-      const users = authUsersTable()
-      const rows = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.role, 'admin'))
-      return rows.map((r) => r.email).filter((e): e is string => typeof e === 'string' && e !== '')
-    },
-    catch: (cause) => new AdminLookupError({ cause }),
+  Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    return yield* repo.findAdminEmails('admin')
   }).pipe(
-    Effect.catchAll((err) => {
-      logError('[notify-platform-failure] admin email lookup failed', err.cause)
+    Effect.provide(AuthRepositoryLive),
+    Effect.catchAll((error) => {
+      logError('[notify-platform-failure] admin email lookup failed', error.cause)
       return Effect.succeed([] as readonly string[])
     })
   )

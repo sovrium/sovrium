@@ -6,13 +6,18 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
-import { resolveTranslationTokensDeep } from '@/domain/utils/translation-resolver'
+import {
+  resolveTranslationPattern,
+  resolveTranslationTokensDeep,
+} from '@/domain/utils/translation-resolver'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { NavChevronDown, NavItemBadge } from '@/presentation/utils/recipes/nav-menu-parts'
 import {
   computeNavMenuTriggerClasses,
   type BadgeVariant,
 } from '@/presentation/utils/recipes/navbar-default-classes'
 import type { ComponentRenderer } from '../component-dispatch-config'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
 
@@ -109,7 +114,31 @@ function buildCheckboxProps(rawProps: RawProps, elementProps: ElemProps, compone
   }
 }
 
-function buildAccordionItems(rawChildren: unknown): ReadonlyArray<{
+function localizeChildLabel(
+  text: string,
+  currentLang: string | undefined,
+  languages: Languages | undefined
+): string {
+  if (text.length === 0) return text
+  return resolveTranslationPattern(text, currentLang ?? languages?.default ?? '', languages)
+}
+
+function idSourceForLabel(label: string): string {
+  return label.startsWith('$t:') ? label.slice(3) : label
+}
+
+function slugifyLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+function buildAccordionItems(
+  rawChildren: unknown,
+  currentLang: string | undefined,
+  languages: Languages | undefined
+): ReadonlyArray<{
   readonly id: string
   readonly title: string
   readonly content: string
@@ -124,26 +153,42 @@ function buildAccordionItems(rawChildren: unknown): ReadonlyArray<{
       const itemContent = typeof child.content === 'object' ? child.content : undefined
       return {
         id: child.props?.id ?? '',
-        title: itemContent?.title ?? '',
+        title: localizeChildLabel(itemContent?.title ?? '', currentLang, languages),
         content: itemContent?.body ?? '',
       }
     })
     .filter((item) => item.id !== '')
 }
 
+function labelFromPanelId(id: string): string {
+  return id
+    .split(/[-_\s]+/)
+    .filter((word) => word.length > 0)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
 function buildTabsItems(
   rawChildren: unknown,
-  renderedChildren: readonly ReactElement[]
+  renderedChildren: readonly ReactElement[],
+  currentLang: string | undefined,
+  languages: Languages | undefined
 ): ReadonlyArray<{
   readonly id: string
   readonly label: string
   readonly content: string
   readonly disabled?: boolean
+  readonly description?: string
 }> {
   const children = (Array.isArray(rawChildren) ? rawChildren : []) as ReadonlyArray<{
     readonly type?: string
-    readonly props?: { readonly id?: string; readonly label?: string; readonly disabled?: boolean }
-    readonly content?: { readonly label?: string; readonly body?: string } | string
+    readonly props?: {
+      readonly id?: string
+      readonly label?: string
+      readonly description?: string
+      readonly disabled?: boolean
+    }
+    readonly content?:
+      { readonly label?: string; readonly description?: string; readonly body?: string } | string
     readonly children?: readonly unknown[]
   }>
   return children
@@ -151,13 +196,15 @@ function buildTabsItems(
     .filter(({ child }) => child?.type === 'tab-panel')
     .map(({ child, index }) => {
       const tabContent = typeof child.content === 'object' ? child.content : undefined
-      const label = tabContent?.label ?? child.props?.label ?? ''
-      const id =
-        child.props?.id ??
-        label
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '')
+      const authoredLabel = tabContent?.label ?? child.props?.label ?? ''
+      const id = child.props?.id ?? slugifyLabel(idSourceForLabel(authoredLabel))
+      const resolvedLabel = localizeChildLabel(authoredLabel, currentLang, languages)
+      const label = resolvedLabel.length > 0 ? resolvedLabel : labelFromPanelId(id)
+      const authoredDescription = tabContent?.description ?? child.props?.description
+      const resolvedDescription =
+        authoredDescription === undefined
+          ? undefined
+          : localizeChildLabel(authoredDescription, currentLang, languages)
       const stringBody = tabContent?.body
       const childRendered = renderedChildren[index]
       const renderedBody =
@@ -171,9 +218,77 @@ function buildTabsItems(
         label,
         content: renderedBody,
         disabled: child.props?.disabled,
+        description: resolvedDescription,
       }
     })
     .filter((item) => item.id !== '' || item.label !== '' || item.content !== '')
+}
+
+function resolveDefaultPanelSsrHtml(
+  items: ReadonlyArray<{ readonly id: string; readonly content: string }>,
+  defaultTab: string | undefined
+): string | undefined {
+  const active = items.find((item) => item.id === defaultTab) ?? items[0]
+  if (active === undefined || active.content.length === 0) return undefined
+  if (active.content.includes('data-island')) return undefined
+  return active.content
+}
+
+interface TabsSsrItem {
+  readonly id: string
+  readonly label: string
+  readonly description?: string
+}
+
+function computeSsrTabsRootClasses(orientation: 'horizontal' | 'vertical'): string | undefined {
+  return orientation === 'vertical'
+    ? 'grid grid-cols-1 gap-6 md:grid-cols-[18rem_minmax(0,1fr)] md:items-start'
+    : undefined
+}
+
+function renderTabsSsrTriggerStrip(
+  items: readonly TabsSsrItem[],
+  orientation: 'horizontal' | 'vertical'
+): ReactElement {
+  const triggers =
+    items.length > 0 ? (
+      items.map((item) => (
+        <span
+          key={item.id}
+          className="px-1 py-2 text-sm font-medium"
+        >
+          {item.description !== undefined && item.description.length > 0 ? (
+            <>
+              <span className="block">{item.label}</span>
+              <span className="text-foreground-muted mt-0.5 block text-xs font-normal">
+                {item.description}
+              </span>
+            </>
+          ) : (
+            item.label
+          )}
+        </span>
+      ))
+    ) : (
+      <>
+        <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+        <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+        <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+      </>
+    )
+
+  if (orientation === 'vertical') {
+    return (
+      <div className="border-border flex flex-col gap-1 border-b px-4 py-2 md:border-r md:border-b-0">
+        {triggers}
+      </div>
+    )
+  }
+  return (
+    <div className="border-border border-b">
+      <div className="flex gap-4 px-4">{triggers}</div>
+    </div>
+  )
 }
 
 export const islandFormComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
@@ -197,10 +312,10 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
     )
   },
 
-  accordion: ({ component, elementProps }) => {
+  accordion: ({ component, elementProps, currentLang, languages }) => {
     const c = asRecord(component)
     const props = {
-      items: buildAccordionItems(c['children']),
+      items: buildAccordionItems(c['children'], currentLang, languages),
       accordionType: (c['accordionType'] as 'single' | 'multiple' | undefined) ?? 'single',
       defaultOpen: c['defaultOpen'] as readonly string[] | undefined,
       ...baseProps(elementProps),
@@ -223,13 +338,17 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
     )
   },
 
-  tabs: ({ component, elementProps, renderedChildren }) => {
+  tabs: ({ component, elementProps, renderedChildren, currentLang, languages }) => {
     const c = asRecord(component)
+    const items = buildTabsItems(c['children'], renderedChildren, currentLang, languages)
+    const defaultTab = c['defaultTab'] as string | undefined
+    const defaultPanelHtml = resolveDefaultPanelSsrHtml(items, defaultTab)
+    const tabsOrientation =
+      (c['tabsOrientation'] as 'horizontal' | 'vertical' | undefined) ?? 'horizontal'
     const islandProps = {
-      items: buildTabsItems(c['children'], renderedChildren),
-      defaultTab: c['defaultTab'] as string | undefined,
-      tabsOrientation:
-        (c['tabsOrientation'] as 'horizontal' | 'vertical' | undefined) ?? 'horizontal',
+      items,
+      defaultTab,
+      tabsOrientation,
       ariaLabel: elementProps['aria-label'] as string | undefined,
       ...baseProps(elementProps),
     }
@@ -239,15 +358,25 @@ export const islandFormComponents: Partial<Record<Component['type'], ComponentRe
         data-island-props={JSON.stringify(islandProps)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <div className="border-border border-b">
-          <div className="flex gap-4 px-4">
-            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
-            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
-            <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+        <div
+          className={
+            cn(
+              computeSsrTabsRootClasses(tabsOrientation),
+              elementProps.className as string | undefined
+            ) || undefined
+          }
+        >
+          {renderTabsSsrTriggerStrip(items, tabsOrientation)}
+          <div className={tabsOrientation === 'vertical' ? 'min-w-0 p-4' : 'p-4'}>
+            {defaultPanelHtml !== undefined ? (
+              <div
+                data-tab-panel-ssr="true"
+                dangerouslySetInnerHTML={{ __html: defaultPanelHtml }}
+              />
+            ) : (
+              <div className="bg-background-subtle h-24 animate-pulse rounded" />
+            )}
           </div>
-        </div>
-        <div className="p-4">
-          <div className="bg-background-subtle h-24 animate-pulse rounded" />
         </div>
       </div>
     )

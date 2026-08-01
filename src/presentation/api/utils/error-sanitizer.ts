@@ -46,13 +46,28 @@ interface ErrorObject {
       readonly failure?: {
         readonly _tag?: string
         readonly message?: string
-        readonly details?: readonly string[]
+        readonly details?: readonly unknown[]
       }
     }
   }
   readonly _tag?: string
   readonly message?: string
-  readonly details?: readonly string[]
+  readonly details?: readonly unknown[]
+}
+
+const toClientDetails = (
+  details: readonly unknown[] | undefined
+): readonly string[] | undefined => {
+  if (!details) return undefined
+  return details.flatMap((entry) => {
+    if (typeof entry === 'string') return [entry]
+    if (entry !== null && typeof entry === 'object') {
+      const { field, error } = entry as { readonly field?: unknown; readonly error?: unknown }
+      if (typeof field === 'string' && typeof error === 'string') return [`${field}: ${error}`]
+      if (typeof error === 'string') return [error]
+    }
+    return []
+  })
 }
 
 function logErrorDetails(error: unknown, requestId: string | undefined): void {
@@ -105,7 +120,7 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
         error: 'Validation Error',
         code: 'VALIDATION_ERROR',
         message: actualError.message ?? 'Invalid input data',
-        details: actualError.details,
+        details: toClientDetails(actualError.details),
       }
     case 'UniqueConstraintViolationError':
       return {

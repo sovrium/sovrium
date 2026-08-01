@@ -197,10 +197,6 @@ export const TablePermissionsSchema = Schema.Struct({
 
   delete: Schema.optional(TablePermissionSchema),
 
-  permanentDelete: Schema.optional(TablePermissionSchema),
-
-  restore: Schema.optional(TablePermissionSchema),
-
   fields: Schema.optional(TableFieldPermissionsSchema),
 
   inherit: Schema.optional(
@@ -219,8 +215,6 @@ export const TablePermissionsSchema = Schema.Struct({
       create: Schema.optional(TablePermissionSchema),
       update: Schema.optional(TablePermissionSchema),
       delete: Schema.optional(TablePermissionSchema),
-      permanentDelete: Schema.optional(TablePermissionSchema),
-      restore: Schema.optional(TablePermissionSchema),
       admin: Schema.optional(
         Schema.Struct({
           read: Schema.optional(TablePermissionSchema),

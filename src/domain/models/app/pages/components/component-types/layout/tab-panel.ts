@@ -13,6 +13,12 @@ export const TabPanelTypeLiteral = Schema.Literal('tab-panel')
 
 export const TabPanelContentSchema = Schema.Struct({
   label: Schema.String.annotations({ description: 'Text on the tab trigger button' }),
+  description: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Secondary line rendered beneath the label on the tab trigger; associated with the trigger via aria-describedby, and never part of its accessible name',
+    })
+  ),
   body: Schema.optional(
     Schema.String.annotations({
       description: 'Text content of the tab panel; omit when the panel renders children',

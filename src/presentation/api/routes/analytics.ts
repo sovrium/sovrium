@@ -23,18 +23,11 @@ import {
 import { matchesAnyGlobPattern } from '@/domain/utils/matching/glob-matcher'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { unauthorized, validationError } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import { provideAnalyticsLive } from './analytics/effect-runner'
 import type { Context, Hono } from 'hono'
-
-function extractClientIp(xForwardedFor: string | undefined): string {
-  if (xForwardedFor) {
-    const first = xForwardedFor.split(',')[0]
-    return first?.trim() ?? 'unknown'
-  }
-  return 'unknown'
-}
 
 function parseAnalyticsQuery(
   c: Context,
@@ -91,7 +84,7 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
     return c.body(null, 204)
   }
 
-  const ip = extractClientIp(c.req.header('x-forwarded-for'))
+  const ip = getRequestClientIp(c)
   const userAgent = c.req.header('user-agent') ?? ''
   const acceptLanguage = c.req.header('accept-language') ?? ''
 

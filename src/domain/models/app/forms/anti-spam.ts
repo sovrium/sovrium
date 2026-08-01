@@ -34,15 +34,10 @@ export const AntiSpamSchema = Schema.Struct({
     })
   ),
   rateLimit: Schema.optional(RateLimitSchema),
-  captcha: Schema.optional(
-    Schema.String.pipe(Schema.minLength(1)).annotations({
-      description: 'Name of the CAPTCHA connection in app.connections (Phase 3)',
-    })
-  ),
 }).annotations({
   identifier: 'AntiSpam',
   title: 'Anti-Spam Controls',
-  description: 'Anti-spam controls for form submissions (honeypot, rate-limit, CAPTCHA stub)',
+  description: 'Anti-spam controls for form submissions (honeypot, rate-limit)',
 })
 
 export type RateLimit = Schema.Schema.Type<typeof RateLimitSchema>

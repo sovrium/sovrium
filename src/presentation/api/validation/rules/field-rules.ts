@@ -12,6 +12,7 @@ import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { hasPermission } from '@/domain/models/app/tables/permissions'
 import { inferMimeFromKey } from '@/domain/utils/mime-types'
+import { findColumnFormatViolations } from '@/domain/validators/column-formats'
 import {
   FieldValidationError,
   FieldPermissionError,
@@ -19,6 +20,7 @@ import {
   ValidationContext,
 } from '../../middleware/validation'
 import type { FieldErrorDetail } from '../../middleware/validation'
+import type { FormatConstrainedFieldType } from '@/domain/validators/column-formats'
 
 const hasUserDefault = (field: { readonly type: string }): boolean =>
   'default' in field && (field as { readonly default?: unknown }).default !== undefined
@@ -163,12 +165,9 @@ export function filterAllowedFields(
   })
 }
 
-const isWellFormedUrl = (value: string): boolean => {
-  try {
-    return new URL(value).protocol.length > 0
-  } catch {
-    return false
-  }
+const FORMAT_MESSAGES: Readonly<Record<FormatConstrainedFieldType, (field: string) => string>> = {
+  url: (field) => `Invalid URL format for field '${field}'`,
+  email: (field) => `Invalid email format for field '${field}'`,
 }
 
 export function validateFieldFormats(
@@ -179,15 +178,10 @@ export function validateFieldFormats(
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
     if (!table) return
 
-    const malformed = table.fields
-      .filter(
-        (f) =>
-          f.type === 'url' &&
-          f.name in fields &&
-          typeof fields[f.name] === 'string' &&
-          !isWellFormedUrl(fields[f.name] as string)
-      )
-      .map((f) => ({ field: f.name, message: `Invalid URL format for field '${f.name}'` }))
+    const malformed = findColumnFormatViolations(table.fields, fields).map((violation) => ({
+      field: violation.field,
+      message: FORMAT_MESSAGES[violation.type](violation.field),
+    }))
 
     const firstMalformed = malformed[0]
     if (firstMalformed) {

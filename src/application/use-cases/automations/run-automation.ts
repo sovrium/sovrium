@@ -216,11 +216,12 @@ const enqueueAndAdmit = (
   startedAt: Readonly<Date>
 ): Effect.Effect<string, never, RunRequirements> =>
   Effect.gen(function* () {
-    const { name, automation, automationId, processEnv, triggerData } = input
+    const { name, automation, automationId, processEnv, triggerData, userId } = input
     const persistedQueuedId = yield* persistQueuedRun({
       automationId,
       triggerData,
       startedAt,
+      userId,
     })
     const runId = persistedQueuedId ?? cryptoRandomId()
     registerCancellation(runId)
@@ -242,6 +243,7 @@ const finaliseAndRelease = (input: {
   readonly triggerData: TriggerData
   readonly startedAt: Date
   readonly finishedAt: Date
+  readonly userId: string | undefined
 }): Effect.Effect<
   { readonly observedRunId: string; readonly effectiveState: RunAccumulator },
   never,
@@ -265,6 +267,7 @@ const finaliseAndRelease = (input: {
       startedAt: input.startedAt,
       finishedAt: input.finishedAt,
       steps: effectiveState.steps,
+      userId: input.userId,
     })
     const observedRunId = finalisedId ?? input.runId
     recordInMemoryRun({
@@ -308,6 +311,7 @@ export const executeAutomationRun = (
         triggerData,
         startedAt: startedAtDate,
         finishedAt: finishedAtDate,
+        userId: input.userId,
       })
       yield* dispatchPostRunFailureEffects({
         app,

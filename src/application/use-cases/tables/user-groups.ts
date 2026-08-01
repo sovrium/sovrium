@@ -6,13 +6,10 @@
  */
 
 
-import { eq } from 'drizzle-orm'
+import { Effect } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
-import { db } from '@/infrastructure/database'
-import {
-  authTeamMembersTable,
-  authTeamsTable,
-} from '@/infrastructure/database/drizzle/dialect-schema'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 
 export type UserGroupsService = {
   readonly getUserGroups: (userId: string) => Promise<readonly string[]>
@@ -26,19 +23,15 @@ export async function getUserGroups(
     return service.getUserGroups(userId)
   }
 
-  const teams = authTeamsTable()
-  const teamMembers = authTeamMembersTable()
-  try {
-    const rows = await db
-      .select({ name: teams.name })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
-      .where(eq(teamMembers.userId, userId))
+  const program = Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    return yield* repo.getUserGroups(userId)
+  }).pipe(
+    Effect.provide(AuthRepositoryLive),
+    Effect.catchAll(() => Effect.succeed([] as readonly string[]))
+  )
 
-    return rows.map((row) => row.name)
-  } catch {
-    return []
-  }
+  return Effect.runPromise(program)
 }
 
 export function buildEffectiveRoles(

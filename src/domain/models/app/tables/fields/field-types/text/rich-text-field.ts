@@ -42,13 +42,6 @@ export const RichTextFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
-      collaborative: Schema.optional(
-        Schema.Boolean.pipe(
-          Schema.annotations({
-            description: 'Enable real-time collaborative editing via Yjs',
-          })
-        )
-      ),
     })
   ),
   Schema.annotations({

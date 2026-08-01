@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import { useCallback, useMemo } from 'react'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { computeFormLayoutClasses } from '@/presentation/utils/design/form-layout-classes'
 import { type FieldDef } from '../components/crud-form/fields'
 import { FormBody } from '../components/crud-form/layout'
@@ -88,6 +88,10 @@ function CrudFormElement(props: {
   const formAction = useNativeForm ? buildNativeFormAction(table, island.recordId!) : undefined
   const submitLabel = island.buttonLabel ?? defaultSubmitLabelFor(operation)
   const onSubmit = buildSubmitHandler(useNativeForm, fields, values, ctx)
+  const binding = useMemo(
+    () => ({ table, ...(island.recordId === undefined ? {} : { recordId: island.recordId }) }),
+    [table, island.recordId]
+  )
 
   return (
     <form
@@ -117,6 +121,7 @@ function CrudFormElement(props: {
         variant={island.variant}
         fieldGroups={fieldGroups}
         layout={layout}
+        binding={binding}
       />
     </form>
   )

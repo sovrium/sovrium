@@ -99,12 +99,6 @@ export const MetaSchema = Schema.Struct({
       format: 'uri',
     })
   ),
-  socialImage: Schema.optional(
-    Schema.String.annotations({
-      description: 'Default image for social media sharing',
-      format: 'uri',
-    })
-  ),
   openGraph: Schema.optional(OpenGraphSchema),
   twitter: Schema.optional(TwitterCardSchema),
   schema: Schema.optional(
@@ -119,12 +113,6 @@ export const MetaSchema = Schema.Struct({
     Schema.Union(Schema.Record({ key: Schema.String, value: Schema.Unknown }), AnalyticsSchema)
   ),
   customElements: Schema.optional(CustomElementsSchema),
-  viewport: Schema.optional(
-    Schema.String.annotations({
-      description:
-        'Viewport meta tag content (e.g., "width=device-width, initial-scale=1.0") for responsive design',
-    })
-  ),
   twitterCard: Schema.optional(TwitterCardSchema),
   structuredData: Schema.optional(Schema.Unknown),
   'og:site_name': Schema.optional(

@@ -8,7 +8,7 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { subscribe as subscribeIslandEvent } from '@/presentation/islands/_shared/event-bus'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import {
   computeDrawerHeaderClasses,
   computeDrawerPopupClasses,

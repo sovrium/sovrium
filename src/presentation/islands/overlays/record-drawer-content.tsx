@@ -10,6 +10,7 @@
 import { useCallback, useState, type ReactElement } from 'react'
 import { executeFetchAction } from '../shared/action-executor'
 import { InlineConfirmDialog, ObjectConfirmDialog } from '../shared/inline-confirm-dialog'
+import { RecordButton, type RecordButtonConfig } from '../shared/record-button'
 import type { Action, FetchAction } from '@/domain/models/app/pages/components/action'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
@@ -17,6 +18,7 @@ export interface RecordDrawerField {
   readonly name: string
   readonly type: string
   readonly renderAs?: 'text' | 'json' | 'list' | 'key-value' | 'code'
+  readonly button?: RecordButtonConfig
 }
 
 export interface DrawerAction {
@@ -278,6 +280,7 @@ export interface DrawerContentProps {
   readonly actions?: ReadonlyArray<DrawerAction>
   readonly onChange: (name: string, value: string) => void
   readonly onSave: () => void
+  readonly table?: string
 }
 
 function DrawerField({
@@ -286,13 +289,26 @@ function DrawerField({
   record,
   canEdit,
   onChange,
+  table,
 }: {
   readonly field: RecordDrawerField
   readonly values: Values
   readonly record: RawRecord
   readonly canEdit: boolean
   readonly onChange: (name: string, value: string) => void
+  readonly table?: string
 }): ReactElement {
+  if (field.button) {
+    return (
+      <RecordButton
+        config={field.button}
+        fieldName={field.name}
+        record={record}
+        {...(table === undefined ? {} : { table })}
+        {...(record['id'] === undefined ? {} : { recordId: String(record['id']) })}
+      />
+    ) as ReactElement
+  }
   if (isStructured(field)) {
     return (
       <StructuredFieldDisplay
@@ -324,6 +340,7 @@ export function DrawerContent({
   actions = NO_ACTIONS,
   onChange,
   onSave,
+  table,
 }: DrawerContentProps): ReactElement {
   return (
     <>
@@ -344,6 +361,7 @@ export function DrawerContent({
           record={record}
           canEdit={canEdit}
           onChange={onChange}
+          {...(table === undefined ? {} : { table })}
         />
       ))}
       {canEdit && (

@@ -28,6 +28,7 @@ interface RenderProps {
   readonly values: Record<string, string>
   readonly onChange: (name: string, value: string) => void
   readonly fieldError?: { readonly field: string; readonly message: string }
+  readonly binding?: { readonly table?: string; readonly recordId?: string }
 }
 
 function renderHiddenField(field: FieldDef, values: Record<string, string>): React.ReactElement {
@@ -42,28 +43,32 @@ function renderHiddenField(field: FieldDef, values: Record<string, string>): Rea
   )
 }
 
-function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set<string>) {
+function applyConditionalFlags(field: FieldDef, values: Record<string, string>): FieldDef {
   const isDisabled = !!(
     field.disabled ||
-    (field.disabledWhen && evaluateCondition(field.disabledWhen, props.values))
+    (field.disabledWhen && evaluateCondition(field.disabledWhen, values))
   )
   const isRequired = !!(
     field.required ||
-    (field.requiredWhen && evaluateCondition(field.requiredWhen, props.values))
+    (field.requiredWhen && evaluateCondition(field.requiredWhen, values))
   )
-  const effectiveField: FieldDef =
-    isDisabled !== !!field.disabled || isRequired !== !!field.required
-      ? { ...field, disabled: isDisabled, required: isRequired }
-      : field
+  return isDisabled !== !!field.disabled || isRequired !== !!field.required
+    ? { ...field, disabled: isDisabled, required: isRequired }
+    : field
+}
+
+function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set<string>) {
+  const effectiveField = applyConditionalFlags(field, props.values)
   return (
     <React.Fragment key={field.name}>
       <div>
-        {renderField(
-          effectiveField,
-          props.values[field.name] ?? '',
-          props.onChange,
-          invalidSet.has(field.name)
-        )}
+        {renderField({
+          field: effectiveField,
+          value: props.values[field.name] ?? '',
+          onChange: props.onChange,
+          invalid: invalidSet.has(field.name),
+          ...(props.binding === undefined ? {} : { binding: props.binding }),
+        })}
       </div>
       {props.fieldError?.field === field.name && (
         <span
@@ -131,9 +136,10 @@ function GroupedFields(props: {
 }
 
 export function FormFields(props: FormFieldsProps) {
-  const { fields, values, onChange, fieldError, invalidFields, fieldGroups, layout } = props
+  const { fields, values, onChange, fieldError, invalidFields, fieldGroups, layout, binding } =
+    props
   const invalidSet = new Set(invalidFields ?? [])
-  const renderProps: RenderProps = { values, onChange, fieldError }
+  const renderProps: RenderProps = { values, onChange, fieldError, binding }
 
   if (fieldGroups && fieldGroups.length > 0) {
     return (
@@ -169,6 +175,7 @@ interface FormBodyProps {
   readonly variant?: string
   readonly fieldGroups?: readonly FieldGroup[]
   readonly layout?: string
+  readonly binding?: { readonly table?: string; readonly recordId?: string }
 }
 
 function ErrorSummary(props: {
@@ -202,6 +209,7 @@ export function FormBody(props: FormBodyProps) {
     variant,
     fieldGroups,
     layout,
+    binding,
   } = props
   return (
     <>
@@ -219,6 +227,7 @@ export function FormBody(props: FormBodyProps) {
         invalidFields={state.invalidFields}
         fieldGroups={fieldGroups}
         layout={layout}
+        {...(binding === undefined ? {} : { binding })}
       />
       {redirectUrl && useNativeForm && (
         <input

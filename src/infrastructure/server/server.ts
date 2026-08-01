@@ -38,6 +38,8 @@ import {
   type AuthConfigRequiredForUserFields,
   type SchemaInitializationError,
 } from '@/infrastructure/database/schema/schema-initializer'
+import { reconcileUserForeignKeys } from '@/infrastructure/database/schema/user-foreign-key-reconciler'
+import { reconcileTimestamptzColumns } from '@/infrastructure/database/timestamptz-column-reconciler'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isEmailConfigured } from '@/infrastructure/email/email-config'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
@@ -413,6 +415,8 @@ const runDatabaseStartup = (
   const ragDatabaseUrl = dialectConfig.dialect === 'postgres' ? dialectConfig.databaseUrl : ''
   return runMigrations(dialectConfig).pipe(
     Effect.flatMap(() => initializeSchema(app)),
+    Effect.flatMap(() => reconcileTimestamptzColumns(app)),
+    Effect.flatMap(() => reconcileUserForeignKeys(app)),
     Effect.flatMap(() => Effect.promise(() => runAttachmentUrlBackfill(app))),
     Effect.flatMap(() =>
       Effect.promise(() => runSeedAllConnectionDefinitions({ connections: app.connections }))

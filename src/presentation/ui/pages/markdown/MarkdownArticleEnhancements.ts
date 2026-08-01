@@ -26,41 +26,6 @@ const DOCS_PROSE_PATCH = `
 
 export const DOCS_PROSE_PATCH_HTML = { __html: DOCS_PROSE_PATCH }
 
-const CODE_COPY_SCRIPT = `(function(){
-"use strict";
-function enhance(){
-var blocks=document.querySelectorAll("pre.shiki:not([data-copy-ready])");
-for(var i=0;i<blocks.length;i++){
-var pre=blocks[i];
-pre.setAttribute("data-copy-ready","");
-pre.classList.add("sv-code-copy-pre");
-var btn=document.createElement("button");
-btn.type="button";
-btn.className="sv-code-copy-btn";
-btn.setAttribute("aria-label","Copy code");
-btn.textContent="Copy";
-btn.addEventListener("click",(function(p,b){return function(){
-var code=p.querySelector("code");
-var text=(code?code.innerText:p.innerText)||"";
-var done=function(){var o=b.textContent;b.textContent="Copied";setTimeout(function(){b.textContent=o;},1500);};
-if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done).catch(function(){});}
-else{try{var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);done();}catch(e){}}
-};})(pre,btn));
-pre.appendChild(btn);
-}
-}
-if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",enhance);}else{enhance();}
-})();`
-
-const CODE_COPY_STYLE = `
-pre.sv-code-copy-pre{position:relative;}
-.sv-code-copy-btn{position:absolute;top:.5rem;right:.5rem;padding:.2rem .55rem;font-size:.7rem;line-height:1;border:1px solid var(--color-border-strong,#262626);border-radius:.375rem;background:var(--color-background-subtle,#171717);color:var(--color-foreground-muted,#d4d4d4);cursor:pointer;}
-.sv-code-copy-btn:hover{color:var(--color-foreground,#fff);}
-`
-
-export const CODE_COPY_STYLE_HTML = { __html: CODE_COPY_STYLE }
-export const CODE_COPY_SCRIPT_HTML = { __html: CODE_COPY_SCRIPT }
-
 const TOC_SCROLLSPY_STYLE = `
 .sv-toc-link[data-active="true"]{border-left-color:var(--color-warmth-border, var(--color-border-strong));color:var(--color-foreground, #fafafa);font-weight:500;}
 `

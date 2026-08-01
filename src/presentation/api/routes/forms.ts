@@ -25,6 +25,7 @@ import { evaluateAvailabilityWindow } from '@/domain/models/shared/form-availabi
 import { hashIp, readIpHashSalt } from '@/infrastructure/forms/ip-hash'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
 import {
   denyFormAccess,
@@ -74,14 +75,6 @@ export interface FormRenderers {
     reason: 'not-yet-open' | 'closed',
     opensAt?: string
   ) => string
-}
-
-function extractClientIp(c: Context): string | undefined {
-  const forwarded = c.req.header('x-forwarded-for')
-  if (typeof forwarded === 'string' && forwarded !== '') {
-    return forwarded.split(',')[0]?.trim() ?? undefined
-  }
-  return c.req.header('x-real-ip') ?? undefined
 }
 
 async function respondWithForm(
@@ -345,7 +338,7 @@ interface RunSubmitProgramConfig {
 
 async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promise<Response> {
   const { c, app, formName, body, isJsonClient, submitterUserId } = config
-  const ipAddress = extractClientIp(c)
+  const ipAddress = getRequestClientIp(c)
   const userAgent = c.req.header('user-agent')
   const query = c.req.query() as Record<string, string>
   const submitterIpHash = hashIp(readIpHashSalt(), ipAddress ?? '')

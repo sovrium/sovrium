@@ -45,6 +45,9 @@ export const automationRuns = systemSchema.table(
       .references(() => automationDefinitions.id, { onDelete: 'cascade' }),
     status: text('status').notNull().default('pending'),
     triggerData: jsonb('trigger_data'),
+    triggeredByUserId: text('triggered_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     durationMs: integer('duration_ms'),
@@ -55,6 +58,7 @@ export const automationRuns = systemSchema.table(
     index('automation_runs_automationId_idx').on(table.automationId),
     index('automation_runs_status_idx').on(table.status),
     index('automation_runs_createdAt_idx').on(table.createdAt),
+    index('automation_runs_triggeredByUserId_idx').on(table.triggeredByUserId),
   ]
 )
 

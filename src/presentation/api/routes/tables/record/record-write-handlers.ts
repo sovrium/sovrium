@@ -44,6 +44,8 @@ import { handleRouteError } from '../error-handlers'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from '../response-helpers'
 import {
   checkFieldConditionReadOnly,
+  sanitizeUpdateRichTextFields,
+  validateUpdateFieldValues,
   validateUpdateForbiddenFields,
   validateUpdateReadonlyFields,
 } from './record-update-guards'
@@ -442,11 +444,14 @@ export async function handleUpdateRecord(c: Context, app: App) {
     })
   }
 
+  const valueError = await validateUpdateFieldValues(app, tableName, userRole, allowedData)
+  if (valueError) return formatValidationError(valueError, c)
+
   return executeUpdate({
     session,
     tableName,
     recordId,
-    allowedData,
+    allowedData: await sanitizeUpdateRichTextFields(app, tableName, userRole, allowedData),
     app,
     userRole,
     clientUpdatedAt: result.data.updatedAt,

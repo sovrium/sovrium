@@ -57,6 +57,8 @@ export interface BuildColumnsOptions {
   readonly onActionClick?: RowActionHandler
   readonly fieldMeta?: FieldMetaMap
   readonly autoColumnsEditable?: boolean
+  readonly tableName?: string
+  readonly onButtonInvoked?: () => void
 }
 
 export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecord>[] {
@@ -69,9 +71,19 @@ export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecor
     onActionClick,
     fieldMeta,
     autoColumnsEditable,
+    tableName,
+    onButtonInvoked,
   } = options
 
   const locale = resolvePageLocale()
+
+  const autoOptions = {
+    groupByField,
+    editable: autoColumnsEditable,
+    fieldMeta,
+    tableName,
+    onButtonInvoked,
+  }
 
   const baseColumns: ColumnDef<TableRecord>[] =
     columnConfig && columnConfig.length > 0
@@ -81,18 +93,13 @@ export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecor
             groupByField,
             onActionClick,
             fieldMeta,
+            tableName,
+            onButtonInvoked,
           }),
         ]
       : tableFields && tableFields.length > 0
-        ? [
-            ...autoGenerateColumnsFromFields(
-              tableFields,
-              groupByField,
-              autoColumnsEditable,
-              fieldMeta
-            ),
-          ]
-        : [...autoGenerateColumns(records, groupByField, autoColumnsEditable, fieldMeta)]
+        ? [...autoGenerateColumnsFromFields(tableFields, autoOptions)]
+        : [...autoGenerateColumns(records, autoOptions)]
 
   const selectionEnabled =
     selectionConfig?.mode === 'single' || selectionConfig?.mode === 'multiple'

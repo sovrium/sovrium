@@ -11,6 +11,7 @@ import {
   AutomationDigestDatabaseError,
   AutomationDigestRepository,
 } from '@/application/ports/repositories/automations/automation-digest-repository'
+import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -104,7 +105,7 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
       const orderClause =
         sort === undefined
           ? asc(automationDigestItems.collectedAt)
-          : sql`${automationDigestItems.item} ->> ${sql.raw(`'${sort.field.replace(/'/g, "''")}'`)} ${sql.raw(sort.direction === 'desc' ? 'DESC' : 'ASC')}`
+          : sql`${automationDigestItems.item} ->> ${sql.raw(`'${escapeSqlString(sort.field)}'`)} ${sql.raw(sort.direction === 'desc' ? 'DESC' : 'ASC')}`
 
       const itemsQuery = db
         .select({ item: automationDigestItems.item })

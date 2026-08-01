@@ -60,5 +60,15 @@ export class AdminFormsRepository extends Context.Tag('AdminFormsRepository')<
       formName: string,
       ids: readonly string[]
     ) => Effect.Effect<readonly AdminFormSubmissionRow[], AdminFormsDatabaseError>
+
+    readonly listSubmissionsWithData: (
+      formName: string,
+      limit: number
+    ) => Effect.Effect<readonly AdminFormSubmissionDetailRow[], AdminFormsDatabaseError>
+
+    readonly listSubmissionsSince: (
+      formName: string,
+      since: Date
+    ) => Effect.Effect<readonly AdminFormSubmissionRow[], AdminFormsDatabaseError>
   }
 >() {}

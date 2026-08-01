@@ -33,13 +33,6 @@ export const HttpGetActionSchema = Schema.Struct({
         })
       )
     ),
-    expectedStatus: Schema.optional(
-      Schema.Array(Schema.Number.pipe(Schema.int(), Schema.between(100, 599))).pipe(
-        Schema.annotations({
-          description: 'Expected HTTP status codes (fail if not matched). Default: 200-299',
-        })
-      )
-    ),
     connection: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^[a-z][a-z0-9-]*$/),

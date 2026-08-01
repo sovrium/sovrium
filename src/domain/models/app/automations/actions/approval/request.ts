@@ -14,13 +14,15 @@ export const ApprovalRequestActionSchema = Schema.Struct({
   type: Schema.Literal('approval'),
   operator: Schema.Literal('request'),
   props: Schema.Struct({
-    approvers: Schema.Union(
-      Schema.Literal('all-admins'),
-      Schema.Array(TemplateStringSchema).pipe(Schema.minItems(1))
-    ).pipe(
-      Schema.annotations({
-        description: 'Who can approve: "all-admins" or an array of email addresses / role names',
-      })
+    approvers: Schema.optional(
+      Schema.Union(
+        Schema.Literal('all-admins'),
+        Schema.Array(TemplateStringSchema).pipe(Schema.minItems(1))
+      ).pipe(
+        Schema.annotations({
+          description: 'Who can approve: "all-admins" or an array of email addresses / role names',
+        })
+      )
     ),
 
     message: TemplateStringSchema.pipe(

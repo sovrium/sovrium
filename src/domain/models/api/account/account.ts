@@ -55,6 +55,27 @@ export const accountExportRecordSchema = z
   .extend(timestampSchema.shape)
   .openapi('AccountExportRecord')
 
+export const accountExportFormSubmissionSchema = z
+  .object({
+    submissionId: z.string().describe('Ledger row identifier of the submission'),
+    formName: z
+      .string()
+      .nullable()
+      .describe(
+        'Name of the submitted form — nullable because the ledger also stores share-link submissions, which carry no form name'
+      ),
+    status: z.string().nullable().describe('Lifecycle status of the submission (e.g. "received")'),
+    data: z
+      .record(z.string(), z.unknown())
+      .describe('The values the caller actually submitted, keyed by field name'),
+    userAgent: z
+      .string()
+      .nullable()
+      .describe('User agent string the submission was sent with, when recorded'),
+    submittedAt: z.iso.datetime().describe('ISO 8601 timestamp the submission was received'),
+  })
+  .openapi('AccountExportFormSubmission')
+
 export const accountExportResponseSchema = z
   .object({
     exportedAt: z.iso.datetime().describe('ISO 8601 timestamp the export was generated'),
@@ -68,6 +89,9 @@ export const accountExportResponseSchema = z
     authoredRecords: z
       .array(accountExportRecordSchema)
       .describe('Every table record the caller authored (created_by = caller)'),
+    formSubmissions: z
+      .array(accountExportFormSubmissionSchema)
+      .describe('Every form submission the caller made (submitter_user_id = caller)'),
   })
   .openapi('AccountExportResponse')
 
@@ -153,6 +177,7 @@ export type AccountExportProfile = z.infer<typeof accountExportProfileSchema>
 export type AccountExportSession = z.infer<typeof accountExportSessionSchema>
 export type AccountExportLinkedAccount = z.infer<typeof accountExportLinkedAccountSchema>
 export type AccountExportRecord = z.infer<typeof accountExportRecordSchema>
+export type AccountExportFormSubmission = z.infer<typeof accountExportFormSubmissionSchema>
 export type AccountExportResponse = z.infer<typeof accountExportResponseSchema>
 export type AccountDeleteConfirmRequest = z.infer<typeof accountDeleteConfirmRequestSchema>
 export type AccountDeleteCancelRequest = z.infer<typeof accountDeleteCancelRequestSchema>

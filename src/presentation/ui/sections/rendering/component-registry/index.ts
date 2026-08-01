@@ -6,11 +6,13 @@
  */
 
 import { aiChatComponent } from './ai-chat-component'
+import { codeBlockComponent } from './code-block-component'
 import { commandPaletteComponent } from './command-palette-component'
 import { displayComponents } from './display-components'
 import { favoritesButtonComponent } from './favorites-button-component'
 import { interactiveComponents } from './interactive-components'
 import { islandComponents } from './island-components'
+import { marqueeComponent } from './marquee-component'
 import { mediaComponents } from './media-components'
 import { navigationComponents } from './navigation-components'
 import { progressComponent } from './progress-component'
@@ -36,6 +38,8 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   ...displayComponents,
   ...navigationComponents,
   ...islandComponents,
+  code: codeBlockComponent,
+  marquee: marqueeComponent,
   'ai-chat': aiChatComponent,
   'split-pane': splitPaneComponent,
   'record-field': recordFieldComponent,

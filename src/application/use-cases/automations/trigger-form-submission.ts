@@ -13,6 +13,13 @@ import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'
 import type { App } from '@/domain/models/app'
 
+export interface FormSubmitterMeta {
+  readonly submittedAt: string
+  readonly submitterUserId: string
+  readonly submitterUserAgent: string
+  readonly submitterIpHash: string
+}
+
 export interface TriggerFormSubmissionInput {
   readonly app: App
   readonly formName: string
@@ -20,6 +27,7 @@ export interface TriggerFormSubmissionInput {
   readonly submissionId: string | null
   readonly formId: number | null
   readonly linkedRecord?: { readonly table: string; readonly id: string } | null
+  readonly meta: FormSubmitterMeta
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly userId?: string
 }
@@ -36,7 +44,7 @@ const findMatchingFormAutomations = (
   })
 
 const buildFormTriggerData = (input: TriggerFormSubmissionInput): TriggerData => {
-  const { formName, submissionData, submissionId, formId, linkedRecord } = input
+  const { formName, submissionData, submissionId, formId, linkedRecord, meta } = input
   const linkedRecordValue = linkedRecord ?? null
   const envelope = {
     body: submissionData,
@@ -44,6 +52,7 @@ const buildFormTriggerData = (input: TriggerFormSubmissionInput): TriggerData =>
     submissionId,
     formId,
     linkedRecord: linkedRecordValue,
+    meta,
   }
   return envelope as unknown as TriggerData
 }

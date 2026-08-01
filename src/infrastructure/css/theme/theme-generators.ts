@@ -93,6 +93,29 @@ export function generateAuthorSvBridge(colors?: ColorsConfig): string {
   return `:root {\n${allEntries.join('\n')}\n  }`
 }
 
+export function generateDarkColorOverrides(darkColors?: ColorsConfig): string {
+  if (!darkColors || Object.keys(darkColors).length === 0) return ''
+
+  const colorEntries = Object.entries(darkColors).map(
+    ([name, value]) => `    --color-${name}: ${value};`
+  )
+
+  const svBridgeEntries = Object.entries(darkColors).flatMap(([name, value]) => {
+    const svKey = COLOR_TO_SV_TOKEN[name]
+    if (!svKey) return []
+    return [`    --sv-${svKey}: ${value};`]
+  })
+
+  const derivedBorderStrong =
+    darkColors['border'] && !darkColors['border-strong']
+      ? [`    --sv-border-strong: ${darkColors['border']};`]
+      : []
+
+  const allEntries = [...colorEntries, ...svBridgeEntries, ...derivedBorderStrong]
+
+  return `html:is(.dark, [data-theme='dark']) {\n${allEntries.join('\n')}\n  }`
+}
+
 export function generateThemeFonts(fonts?: FontsConfig): string {
   if (!fonts || Object.keys(fonts).length === 0) return ''
 

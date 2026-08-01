@@ -7,7 +7,7 @@
 
 
 import { useState } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 
 interface FormState {
   readonly error?: string

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, count, desc, eq, gt, inArray, isNull, lt, max, type SQL } from 'drizzle-orm'
+import { and, count, desc, eq, gt, gte, inArray, isNull, lt, max, type SQL } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AdminFormsDatabaseError,
@@ -117,6 +117,45 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
             inArray(submissions.id, [...ids]),
             eq(submissions.formName, formName),
             isNull(submissions.deletedAt)
+          )
+        )) as ReadonlyArray<AdminFormSubmissionRow>
+    }),
+
+  listSubmissionsWithData: (formName, limit) =>
+    wrap(async () => {
+      const submissions = formSubmissionsTable()
+      return (await db
+        .select({
+          id: submissions.id,
+          formName: submissions.formName,
+          submittedAt: submissions.submittedAt,
+          status: submissions.status,
+          deletedAt: submissions.deletedAt,
+          data: submissions.data,
+        })
+        .from(submissions)
+        .where(and(eq(submissions.formName, formName), isNull(submissions.deletedAt)))
+        .orderBy(desc(submissions.submittedAt))
+        .limit(limit)) as ReadonlyArray<AdminFormSubmissionDetailRow>
+    }),
+
+  listSubmissionsSince: (formName, since) =>
+    wrap(async () => {
+      const submissions = formSubmissionsTable()
+      return (await db
+        .select({
+          id: submissions.id,
+          formName: submissions.formName,
+          submittedAt: submissions.submittedAt,
+          status: submissions.status,
+          deletedAt: submissions.deletedAt,
+        })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.formName, formName),
+            isNull(submissions.deletedAt),
+            gte(submissions.submittedAt, since)
           )
         )) as ReadonlyArray<AdminFormSubmissionRow>
     }),

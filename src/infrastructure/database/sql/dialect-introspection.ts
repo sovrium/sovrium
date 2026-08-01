@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import { executeRaw, type RawSqlRunner } from './dialect-execute'
+import { sqliteSystemTableName } from './dialect-sql'
 
 
 export interface IntrospectedColumn {
@@ -74,6 +75,28 @@ export const getExistingColumnNames = async (
   const wanted = new Set(columnNames)
   const columns = await listTableColumns(runner, tableName)
   return new Set(columns.map((c) => c.name).filter((name) => wanted.has(name)))
+}
+
+export const systemTableExists = async (
+  runner: Readonly<RawSqlRunner>,
+  name: string
+): Promise<boolean> => {
+  const { dialect } = parseDatabaseDialectConfig()
+
+  const rows =
+    dialect === 'postgres'
+      ? await executeRaw(
+          runner,
+          sql`SELECT 1 AS present FROM information_schema.tables
+              WHERE table_schema = 'system' AND table_name = ${name} LIMIT 1`
+        )
+      : await executeRaw(
+          runner,
+          sql`SELECT 1 AS present FROM sqlite_master
+              WHERE type = 'table' AND name = ${sqliteSystemTableName(name)} LIMIT 1`
+        )
+
+  return (rows as unknown as readonly unknown[]).length > 0
 }
 
 export const columnExists = async (

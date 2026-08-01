@@ -255,6 +255,8 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     onActionClick: executeRowAction,
     fieldMeta,
     autoColumnsEditable: dataSource.refreshMode === 'realtime',
+    tableName: tableKey,
+    onButtonInvoked: handleRefresh,
   })
 
   const { conflict, dismissConflict } = useRealtimeReconciliation({
@@ -299,8 +301,10 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
   useIslandSearch(tableState.setGlobalFilter, searchSourceId)
 
   const onBulkExecute = useCallback(
-    (action: DataTableBulkAction) => executeBulkAction(table, action),
-    [table]
+    (action: DataTableBulkAction) => {
+      void executeBulkAction(table, action, { queryClient, queryKey })
+    },
+    [table, queryClient, queryKey]
   )
 
   const editableFields = useMemo(() => resolveEditableFields(columnConfig), [columnConfig])

@@ -67,7 +67,6 @@ export type Action =
         readonly body?: string | { readonly [key: string]: unknown }
         readonly contentType?: 'json' | 'form' | 'text' | 'xml'
         readonly timeout?: number
-        readonly expectedStatus?: readonly number[]
       }>)
   | (ActionBase & {
       readonly type: 'http'
@@ -76,7 +75,6 @@ export type Action =
         readonly url: string
         readonly headers?: { readonly [key: string]: string }
         readonly timeout?: number
-        readonly expectedStatus?: readonly number[]
         readonly connection?: string
       }>)
   | (ActionBase & {
@@ -88,7 +86,6 @@ export type Action =
         readonly body?: string | { readonly [key: string]: unknown }
         readonly contentType?: 'json' | 'form' | 'text' | 'xml'
         readonly timeout?: number
-        readonly expectedStatus?: readonly number[]
         readonly connection?: string
       }>)
   | (ActionBase & {
@@ -99,7 +96,6 @@ export type Action =
         readonly headers?: { readonly [key: string]: string }
         readonly body?: string | { readonly [key: string]: unknown }
         readonly timeout?: number
-        readonly expectedStatus?: readonly number[]
         readonly connection?: string
       }>)
   | (ActionBase & {
@@ -277,7 +273,7 @@ export type Action =
       readonly type: 'approval'
       readonly operator: 'request'
     } & Props<{
-        readonly approvers: 'all-admins' | readonly string[]
+        readonly approvers?: 'all-admins' | readonly string[]
         readonly message: string
         readonly options?: readonly {
           readonly value: string
@@ -293,7 +289,6 @@ export type Action =
     } & Props<{
         readonly table: string
         readonly items: string
-        readonly batchSize?: number
         readonly continueOnItemError?: boolean
       }>)
   | (ActionBase & {
@@ -302,7 +297,6 @@ export type Action =
     } & Props<{
         readonly table: string
         readonly items: string
-        readonly batchSize?: number
         readonly continueOnItemError?: boolean
       }>)
   | (ActionBase & {

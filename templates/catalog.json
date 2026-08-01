@@ -13,19 +13,19 @@
   },
   "blog": {
     "name": "Blog",
-    "description": "A self-hostable blog CMS \u2014 a WordPress alternative.",
+    "description": "A self-hostable blog CMS: a WordPress alternative.",
     "category": "blog",
     "topics": ["sovrium", "template", "self-hosted", "blog", "cms"]
   },
   "docs-site": {
     "name": "Docs Site",
-    "description": "A docs website from markdown \u2014 a Docusaurus alternative.",
+    "description": "A docs website from markdown: a Docusaurus alternative.",
     "category": "docs",
     "topics": ["sovrium", "template", "self-hosted", "docs", "markdown"]
   },
   "api-only": {
     "name": "Task API",
-    "description": "A headless REST API \u2014 tables and auth, no pages.",
+    "description": "A headless REST API: tables and auth, no pages.",
     "category": "apiAi",
     "topics": ["sovrium", "template", "self-hosted", "api", "headless"]
   },
@@ -37,7 +37,7 @@
   },
   "crm": {
     "name": "CRM",
-    "description": "A sales CRM \u2014 pipeline kanban, grids, calendar.",
+    "description": "A sales CRM: pipeline kanban, grids, calendar.",
     "category": "internal",
     "topics": ["sovrium", "template", "self-hosted", "crm", "sales"]
   },
@@ -85,7 +85,7 @@
   },
   "intranet": {
     "name": "Intranet",
-    "description": "A company hub \u2014 announcements, people, resources.",
+    "description": "A company hub: announcements, people, resources.",
     "category": "portal",
     "topics": ["sovrium", "template", "self-hosted", "intranet", "portal"]
   },

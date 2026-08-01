@@ -6,6 +6,7 @@
  */
 
 import { logError, logWarning } from '@/infrastructure/logging/logger'
+import { getRequestTrustedClientIp } from './client-ip'
 import type { Session } from '@/application/ports/models/user-session'
 import type { AdminRoleResolvable } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
@@ -20,25 +21,6 @@ export type ContextWithSession = Context & {
   readonly var: {
     readonly session?: Session
   }
-}
-
-function getClientIP(c: Context): string | undefined {
-  const xForwardedFor = c.req.header('x-forwarded-for')
-  if (xForwardedFor) {
-    return xForwardedFor.split(',')[0]?.trim()
-  }
-
-  const xRealIp = c.req.header('x-real-ip')
-  if (xRealIp) {
-    return xRealIp
-  }
-
-  const cfConnectingIp = c.req.header('cf-connecting-ip')
-  if (cfConnectingIp) {
-    return cfConnectingIp
-  }
-
-  return undefined
 }
 
 function validateSessionBinding(
@@ -69,7 +51,7 @@ function processSessionResult(
     return
   }
 
-  const currentIP = getClientIP(c)
+  const currentIP = getRequestTrustedClientIp(c)
   const currentUserAgent = c.req.header('user-agent')
 
   if (validateSessionBinding(sessionResult.session as Session, currentIP, currentUserAgent)) {

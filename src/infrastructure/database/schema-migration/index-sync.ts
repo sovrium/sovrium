@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { generateIndexStatements } from '../generators/index-generators'
+import { generateIndexStatements, standardIndexName } from '../generators/index-generators'
 import {
   executeSQLStatements,
   type TransactionLike,
@@ -19,7 +19,7 @@ const generateDropIndexStatements = (
   previousTable:
     | {
         readonly name: string
-        readonly fields?: readonly { name?: string; indexed?: boolean }[]
+        readonly fields?: readonly { name?: string; type?: string; indexed?: boolean }[]
         readonly indexes?: readonly { name: string }[]
       }
     | undefined
@@ -27,35 +27,31 @@ const generateDropIndexStatements = (
   if (!previousTable) return []
 
   const previousIndexedFields =
-    previousTable.fields
-      ?.filter((f) => f.name && 'indexed' in f && f.indexed)
-      .map((f) => f.name!) ?? []
+    previousTable.fields?.filter((f) => f.name && 'indexed' in f && f.indexed) ?? []
 
   const currentIndexedFields = new Set(
     table.fields.filter((f) => 'indexed' in f && f.indexed).map((f) => f.name)
   )
 
   const removedIndexedFields = previousIndexedFields.filter(
-    (fieldName) => !currentIndexedFields.has(fieldName)
+    (field) => !currentIndexedFields.has(field.name!)
   )
 
-  const fieldIndexDrops = removedIndexedFields.map((fieldName) => {
-    const indexName = `idx_${table.name}_${fieldName}`
-    return `DROP INDEX IF EXISTS ${indexName}`
-  })
+  const fieldIndexDrops = removedIndexedFields.map(
+    (field) => `DROP INDEX IF EXISTS ${standardIndexName(table.name, field)}`
+  )
 
   const currentUniqueFields = new Set(
     table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
   )
 
-  const indexToUniqueFields = previousIndexedFields.filter((fieldName) =>
-    currentUniqueFields.has(fieldName)
+  const indexToUniqueFields = previousIndexedFields.filter((field) =>
+    currentUniqueFields.has(field.name!)
   )
 
-  const indexToUniqueDrops = indexToUniqueFields.map((fieldName) => {
-    const indexName = `idx_${table.name}_${fieldName}`
-    return `DROP INDEX IF EXISTS ${indexName}`
-  })
+  const indexToUniqueDrops = indexToUniqueFields.map(
+    (field) => `DROP INDEX IF EXISTS ${standardIndexName(table.name, field)}`
+  )
 
   const previousCustomIndexes = previousTable.indexes?.map((idx) => idx.name) ?? []
   const currentCustomIndexes = table.indexes?.map((idx) => idx.name) ?? []
@@ -80,7 +76,7 @@ export const syncIndexes = (
     ) as
       | {
           name: string
-          fields?: readonly { name?: string; indexed?: boolean }[]
+          fields?: readonly { name?: string; type?: string; indexed?: boolean }[]
           indexes?: readonly { name: string }[]
         }
       | undefined

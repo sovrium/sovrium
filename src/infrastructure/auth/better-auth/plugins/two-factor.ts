@@ -17,7 +17,7 @@ export const buildTwoFactorPlugin = (authConfig?: Auth) => {
       totpOptions:
         config.digits !== undefined || config.period !== undefined
           ? {
-              ...(config.digits !== undefined ? { digits: config.digits as 6 | 8 } : {}),
+              ...(config.digits !== undefined ? { digits: config.digits } : {}),
               ...(config.period !== undefined ? { period: config.period } : {}),
             }
           : undefined,

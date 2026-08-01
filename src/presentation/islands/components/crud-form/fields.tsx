@@ -12,6 +12,7 @@ import {
   computeFormFieldLabelClasses,
 } from '@/presentation/utils/design/form-layout-classes'
 import { fieldWidgetOf, type FieldWidget } from '@/presentation/utils/field-type-behavior'
+import { RecordButton } from '../../shared/record-button'
 import { CodeEditorField } from '../code-editor-field'
 import { RichTextEditorField } from '../rich-text-editor-field'
 import { type ConditionRule, type FieldDef, labelOf } from './field-def'
@@ -195,6 +196,7 @@ interface FieldRenderArgs {
   readonly value: string
   readonly onChange: FieldInputProps['onChange']
   readonly invalid: boolean
+  readonly binding?: { readonly table?: string; readonly recordId?: string }
 }
 
 function renderTypedInputField(args: FieldRenderArgs, inputType: string) {
@@ -212,6 +214,15 @@ function renderTypedInputField(args: FieldRenderArgs, inputType: string) {
 }
 
 const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.ReactNode> = {
+  button: ({ field, binding }) =>
+    field.button ? (
+      <RecordButton
+        config={field.button}
+        fieldName={field.name}
+        {...(binding?.table === undefined ? {} : { table: binding.table })}
+        {...(binding?.recordId === undefined ? {} : { recordId: binding.recordId })}
+      />
+    ) : undefined,
   code: ({ field, value, onChange }) => renderCodeField(field, value, onChange),
   'rich-text': ({ field, value, onChange }) => renderRichTextField(field, value, onChange),
   'file-single': ({ field, value, onChange }) => (
@@ -262,11 +273,6 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
   url: (args) => renderTypedInputField(args, INPUT_TYPE_BY_WIDGET.url ?? 'text'),
 }
 
-export function renderField(
-  field: FieldDef,
-  value: string,
-  onChange: (name: string, value: string) => void,
-  invalid: boolean
-) {
-  return WIDGET_RENDERERS[fieldWidgetOf(field.type)]({ field, value, onChange, invalid })
+export function renderField(args: FieldRenderArgs) {
+  return WIDGET_RENDERERS[fieldWidgetOf(args.field.type)](args)
 }

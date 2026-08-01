@@ -20,6 +20,7 @@ import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
+import type { SQL } from 'drizzle-orm'
 
 const wrap = makeDbWrap((error) => new DataSourceDatabaseError({ cause: error }))
 
@@ -96,8 +97,14 @@ async function executeQuery<T>(query: string): Promise<T> {
   return (await executeRaw(db, sql.raw(query))) as unknown as T
 }
 
-const userAccessTableRef = (): string =>
-  isSqliteRuntime() ? `"system_user_access"` : `"system"."user_access"`
+async function executeSqlQuery<T>(query: Readonly<SQL>): Promise<T> {
+  return (await executeRaw(db, query)) as unknown as T
+}
+
+const userAccessTableSql = (): Readonly<SQL> =>
+  isSqliteRuntime()
+    ? sql`${sql.identifier('system_user_access')}`
+    : sql`${sql.identifier('system')}.${sql.identifier('user_access')}`
 
 const causeChainMessages = (error: unknown, depth = 0): readonly string[] => {
   if (depth >= 6 || error === null || typeof error !== 'object') return []
@@ -146,25 +153,24 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
 
   fetchSingleRecord: (tableName, paramField, paramValue, fields) =>
     wrap(async () => {
-      const sanitized = sanitizeTableName(tableName)
-      const sanitizedField = sanitizeTableName(paramField)
       const columns =
         fields && fields.length > 0
-          ? fields.map((f) => `"${sanitizeTableName(f)}"`).join(', ')
-          : '*'
-      const formattedValue = formatSqlValue(paramValue)
-      const query = `SELECT ${columns} FROM "${sanitized}" WHERE "${sanitizedField}" = ${formattedValue} LIMIT 1`
-      const rows = await executeQuery<Record<string, unknown>[]>(query)
+          ? sql.join(
+              fields.map((f) => sql.identifier(sanitizeTableName(f))),
+              sql.raw(', ')
+            )
+          : sql.raw('*')
+      const rows = await executeSqlQuery<Record<string, unknown>[]>(
+        sql`SELECT ${columns} FROM ${sql.identifier(sanitizeTableName(tableName))} WHERE ${sql.identifier(sanitizeTableName(paramField))} = ${paramValue} LIMIT 1`
+      )
       return rows[0]
     }),
 
   fetchUserAssignments: (userId, tableSlug) =>
     wrap(async () => {
-      const escapedUserId = formatSqlValue(userId)
-      const escapedSlug = formatSqlValue(tableSlug)
-      const query = `SELECT "record_ids" FROM ${userAccessTableRef()} WHERE "user_id" = ${escapedUserId} AND "table_slug" = ${escapedSlug}`
+      const query = sql`SELECT ${sql.identifier('record_ids')} FROM ${userAccessTableSql()} WHERE ${sql.identifier('user_id')} = ${userId} AND ${sql.identifier('table_slug')} = ${tableSlug}`
       try {
-        const rows = await executeQuery<Array<{ record_ids: unknown }>>(query)
+        const rows = await executeSqlQuery<Array<{ record_ids: unknown }>>(query)
         const flattened = rows.flatMap((row) => toRecordIdList(row.record_ids))
         return flattened
       } catch (error) {
@@ -177,10 +183,9 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
 
   fetchUserAccessRoles: (userId) =>
     wrap(async () => {
-      const escapedUserId = formatSqlValue(userId)
-      const query = `SELECT DISTINCT "role" FROM ${userAccessTableRef()} WHERE "user_id" = ${escapedUserId}`
+      const query = sql`SELECT DISTINCT ${sql.identifier('role')} FROM ${userAccessTableSql()} WHERE ${sql.identifier('user_id')} = ${userId}`
       try {
-        const rows = await executeQuery<Array<{ role: string | null }>>(query)
+        const rows = await executeSqlQuery<Array<{ role: string | null }>>(query)
         return rows
           .map((row) => row.role)
           .filter((role): role is string => typeof role === 'string' && role.length > 0)

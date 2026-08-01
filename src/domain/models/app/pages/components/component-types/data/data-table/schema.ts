@@ -110,17 +110,6 @@ export const DataTableSchema = Schema.Struct({
   pagination: Schema.optional(DataTablePaginationSchema),
   search: Schema.optional(ComponentSearchSchema),
 
-  defaultSort: Schema.optional(
-    Schema.Array(DataSortSchema).annotations({
-      description: 'Default sort rules (applied if no view sorts, or as initial state)',
-    })
-  ),
-  defaultFilters: Schema.optional(
-    Schema.Array(DataFilterSchema).annotations({
-      description: 'Additional filter conditions stacked on view filters',
-    })
-  ),
-
   groupBy: Schema.optional(DataTableGroupBySchema),
   summary: Schema.optional(
     Schema.Array(DataTableSummaryItemSchema).pipe(
@@ -200,14 +189,6 @@ function validateDbTableColumns(
     checkField(item.field, 'summary')
   )
 
-  const sortErrors: readonly string[] = (dataTable.defaultSort ?? []).flatMap((s) =>
-    checkField(s.field, 'defaultSort')
-  )
-
-  const filterErrors: readonly string[] = (dataTable.defaultFilters ?? []).flatMap((f) =>
-    checkField(f.field, 'defaultFilters')
-  )
-
   const dataSourceSortErrors: readonly string[] = (dbSource.sort ?? []).flatMap((s) =>
     checkField(s.field, 'dataSource.sort')
   )
@@ -220,8 +201,6 @@ function validateDbTableColumns(
     ...columnErrors,
     ...groupByErrors,
     ...summaryErrors,
-    ...sortErrors,
-    ...filterErrors,
     ...dataSourceSortErrors,
     ...dataSourceFilterErrors,
   ]

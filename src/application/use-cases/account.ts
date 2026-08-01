@@ -10,6 +10,7 @@ import { Effect, Layer } from 'effect'
 import {
   AccountRepository,
   type AccountDatabaseError,
+  type AccountFormSubmissionRow,
   type AccountLinkedRow,
   type AccountSessionRow,
   type AccountUserRow,
@@ -54,16 +55,40 @@ function shapeAuthoredRecord(
   }
 }
 
+interface ExportedFormSubmission {
+  readonly submissionId: string
+  readonly formName: string | null
+  readonly status: string | null
+  readonly data: Record<string, unknown>
+  readonly userAgent: string | null
+  readonly submittedAt: string
+}
+
+function shapeFormSubmission(row: Readonly<AccountFormSubmissionRow>): ExportedFormSubmission {
+  return {
+    submissionId: row.id,
+    formName: row.formName,
+    status: row.status,
+    data: (row.data ?? {}) as Record<string, unknown>,
+    userAgent: row.userAgent,
+    submittedAt: new Date(row.submittedAt).toISOString(),
+  }
+}
+
 function normalizeRole(role: string | null): 'admin' | 'member' | 'viewer' {
   return role === 'admin' || role === 'viewer' ? role : 'member'
 }
 
-function buildExportPayload(
-  user: Readonly<AccountUserRow>,
-  sessionRows: readonly AccountSessionRow[],
-  accountRows: readonly AccountLinkedRow[],
-  authoredRecords: readonly AuthoredRecord[]
-) {
+interface ExportSources {
+  readonly user: AccountUserRow
+  readonly sessionRows: readonly AccountSessionRow[]
+  readonly accountRows: readonly AccountLinkedRow[]
+  readonly authoredRecords: readonly AuthoredRecord[]
+  readonly formSubmissions: readonly ExportedFormSubmission[]
+}
+
+function buildExportPayload(sources: Readonly<ExportSources>) {
+  const { user, sessionRows, accountRows, authoredRecords, formSubmissions } = sources
   return {
     exportedAt: new Date().toISOString(),
     format: 'json' as const,
@@ -97,6 +122,7 @@ function buildExportPayload(
       updatedAt: new Date(a.updatedAt).toISOString(),
     })),
     authoredRecords,
+    formSubmissions,
   }
 }
 
@@ -117,9 +143,10 @@ export const ExportAccount = (
       return { _tag: 'Unauthorized' } as const
     }
 
-    const [sessionRows, accountRows] = yield* Effect.all([
+    const [sessionRows, accountRows, submissionRows] = yield* Effect.all([
       repo.loadSessions(userId),
       repo.loadAccounts(userId),
+      repo.loadFormSubmissions(userId),
     ])
 
     const recordTables = yield* repo.tablesWithCreatedBy(tableNames)
@@ -134,7 +161,13 @@ export const ExportAccount = (
     const authoredRecords = perTable.flat()
 
     const body = accountExportResponseSchema.parse(
-      buildExportPayload(user, sessionRows, accountRows, authoredRecords)
+      buildExportPayload({
+        user,
+        sessionRows,
+        accountRows,
+        authoredRecords,
+        formSubmissions: submissionRows.map(shapeFormSubmission),
+      })
     )
     return { _tag: 'Ok', body } as const
   })

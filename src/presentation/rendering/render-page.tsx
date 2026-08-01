@@ -24,6 +24,10 @@ import {
   extractSessionTimeout,
   shouldInjectAnalytics,
 } from '@/presentation/rendering/analytics-helpers'
+import {
+  resolveComponentsCodeHighlights,
+  resolvePageCodeHighlights,
+} from '@/presentation/rendering/code-highlight-resolver'
 import { highlightComponentCodeBlocks } from '@/presentation/rendering/component-code-highlighter'
 import { resolveCustomHtmlSources } from '@/presentation/rendering/custom-html-resolver'
 import { resolvePageDataSources } from '@/presentation/rendering/data-source-resolver'
@@ -399,6 +403,7 @@ interface RenderPageHtmlInput {
   readonly resolvedSidebar: readonly ResolvedSidebarSection[] | undefined
   readonly markdownPayload: ResolvedMarkdownPage | undefined
   readonly session: SessionInfo | undefined
+  readonly appComponents: App['components']
 }
 
 function renderPageHtml(input: RenderPageHtmlInput): string {
@@ -411,6 +416,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
     resolvedSidebar,
     markdownPayload,
     session,
+    appComponents,
   } = input
   const injectAnalytics = shouldInjectAnalytics(app.analytics, page.path)
   const sessionTimeout = extractSessionTimeout(app.analytics)
@@ -419,7 +425,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
       page={page}
       badgeEnabled={isBadgeEnabled(app.badge)}
       demoNoticeEnabled={!isOperatorConsoleApp(app)}
-      components={app.components}
+      components={appComponents}
       theme={app.theme}
       languages={app.languages}
       tables={app.tables}
@@ -675,14 +681,23 @@ export async function renderPageByPath(
 
   if (await isContentDirSlugNotFound(page, routeParams)) return undefined
 
-  const [resolvedSidebar, islandEntryFile, markdownPayload] = await Promise.all([
+  const [
+    resolvedSidebar,
+    islandEntryFile,
+    markdownPayload,
+    highlightedComponents,
+    highlightedTemplates,
+  ] = await Promise.all([
     resolvePageSidebar(page.layout?.sidebar, app, { session, cookies, db: db ?? noopDb }),
     resolveIslandEntryFile(page, app.components, islandBuilder),
     resolveMarkdownPage(page, routeParams, app, detectedLanguage, indexBasePathPattern),
+    resolvePageCodeHighlights(page.components, app.theme?.codeBlock?.theme),
+    resolveComponentsCodeHighlights(app.components, app.theme?.codeBlock?.theme),
   ])
   const pageHtml = renderPageHtml({
     app,
-    page,
+    page: { ...page, components: highlightedComponents },
+    appComponents: highlightedTemplates,
     routeParams,
     detectedLanguage,
     islandEntryFile,

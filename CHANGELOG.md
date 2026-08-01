@@ -1,3 +1,54 @@
+## [0.21.0](https://github.com/sovrium/sovrium/compare/v0.20.0...v0.21.0) (2026-08-01)
+
+### BREAKING CHANGES
+
+- **schema**: remove eight page-component types that never rendered
+
+### Features
+
+- **pages**: apply a vertical tab set's layout once, and honour its className
+- **automations**: record which user triggered each automation run
+- **tables**: render a button field as a real button
+- **tables**: record who invoked a record button in the audit log
+- **tables**: run a record's button field through its named automation
+- **tables**: close the button field's action vocabulary and gate it per record
+- **pages**: honour debounceMs and minQueryLength on the search input
+- **pages**: show which tab is active, and let a tab trigger carry a subtitle
+- **pages**: give every code block a header with an icon copy button
+- **theme**: apply darkColors to the compiled stylesheet
+- **pages**: add a scrolling marquee band and code-block chrome
+- **pages**: add a marquee component and code-block frame options
+
+### Bug Fixes
+
+- **database**: repair user foreign keys that leave an assigned account unerasable
+- **account**: remove three lingering traces of an erased account
+- **account**: allow an account to be erased when its user is assigned on another author's record
+- **admin**: record one consistent role for a user across every audit entry
+- **tables**: refresh the listing and report the outcome after a record button runs
+- **admin**: apply the resource-type filter on the audit log
+- **account**: erase and export a user's form submissions
+- **automations**: include submission metadata and the submitting user in form-trigger payloads
+- **pages**: show the configured toast after a data-table bulk action
+- **pages**: apply the search list's own debounce delay
+- **tables**: store dynamic-table timestamps as timestamptz
+- **tables**: sanitize rich-text fields on bulk record updates
+- **tables**: enforce field-level write permissions on bulk record updates
+- **tables**: enforce multi-select option and selection limits on record writes
+- **records-api**: sanitize rich-text fields on record update, matching create
+- **records**: validate email and URL formats when updating a record
+- **pages**: localize tab and accordion captions
+- **records**: stop batch write errors revealing database internals
+- **tables**: enforce delete and field-read permissions on every query path
+- **api**: return validation details in the documented response shape
+- **auth**: stop rate limits being bypassed via a forged forwarding header
+- **tables**: validate email and URL columns on every write path
+- **permissions**: stop hiding row-level permission lookup failures
+- **records**: allow sorting on system and authorship columns
+- **tables**: stop an infrastructure failure looking like a name conflict
+- **tables**: remove indexes reliably when a table name contains spaces
+- **tables**: store SQLite soft-delete timestamps in ISO-8601 format
+
 ## [0.20.0](https://github.com/sovrium/sovrium/compare/v0.19.0...v0.20.0) (2026-07-27)
 
 ### BREAKING CHANGES

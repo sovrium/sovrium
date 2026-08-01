@@ -7,11 +7,8 @@
 
 export { StaticTableTypeLiteral, staticTableFields } from './static-table'
 export { EmptyStateTypeLiteral, emptyStateFields } from './empty-state'
-export { CarouselTypeLiteral, carouselFields } from './carousel'
-export { CommandTypeLiteral, commandFields } from './command'
-export { ResizableTypeLiteral, resizableFields } from './resizable'
+export { MarqueeTypeLiteral, marqueeFields } from './marquee'
 export { ScrollAreaTypeLiteral, scrollAreaFields } from './scroll-area'
-export { AspectRatioTypeLiteral, aspectRatioFields } from './aspect-ratio'
 export { AccordionTypeLiteral, accordionFields } from './accordion'
 export { TabsTypeLiteral, tabsFields } from './tabs'
 export { TimelineTypeLiteral, timelineFields } from './timeline'

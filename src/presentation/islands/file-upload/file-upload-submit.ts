@@ -6,8 +6,8 @@
  */
 
 
-import { renderToast } from '../data-table/island/toast'
 import { applyFetchSuccessEffects } from '../shared/action-executor'
+import { renderToast } from '../shared/toast'
 import type {
   FetchSuccessResponse,
   FetchToastResponse,

@@ -7,7 +7,7 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useEffect, useState } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { dispatchConfirmAction, type DialogConfirmAction } from './dialog-confirm-action'
 import {
   computeAlertDialogPopupClasses,

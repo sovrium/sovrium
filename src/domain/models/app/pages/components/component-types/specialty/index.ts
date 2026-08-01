@@ -6,10 +6,8 @@
  */
 
 export { FileUploadTypeLiteral, fileUploadFields } from './file-upload'
-export { WizardTypeLiteral, wizardFields } from './wizard'
 export { NumberInputTypeLiteral, numberInputFields } from './number-input'
 export { TimePickerTypeLiteral, timePickerFields } from './time-picker'
-export { StatusIndicatorTypeLiteral, statusIndicatorFields } from './status-indicator'
 export { ReorderableListTypeLiteral, reorderableListFields } from './reorderable-list'
 export { LanguageSwitcherTypeLiteral, languageSwitcherFields } from './language-switcher'
 export {

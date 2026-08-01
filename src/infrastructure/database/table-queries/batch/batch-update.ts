@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { findConstraintViolation } from '@/domain/errors/driver-failure'
 import {
   db,
   ValidationError,
@@ -22,6 +23,14 @@ import { wrapDatabaseErrorWithValidation } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
 import { runEffectInTx } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+const extractNotNullColumn = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error)
+  const postgres = message.match(/column "([^"]+)"/)
+  if (postgres?.[1]) return postgres[1]
+  const sqlite = message.match(/NOT NULL constraint failed:\s*[^.\s]+\.([^\s,]+)/i)
+  return sqlite?.[1] ?? 'unknown'
+}
 
 function extractFieldsFromUpdate(update: {
   readonly id: string
@@ -45,19 +54,13 @@ function executeRecordUpdate(
       return result[0]
     },
     catch: (error) => {
-      const pgError = error as { code?: string; message?: string; constraint?: string }
-      if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
-        const fieldMatch = pgError.message?.match(/column "([^"]+)"/)
-        const fieldName: string = fieldMatch?.[1] ?? 'unknown'
+      if (findConstraintViolation(error) === 'not-null') {
+        const fieldName = extractNotNullColumn(error)
         return new ValidationError(`Cannot set required field '${fieldName}' to null`, [
           { record: 0, field: fieldName, error: 'Required field cannot be null' },
         ])
       }
-      const errorMessage: string =
-        pgError.message !== undefined
-          ? pgError.message
-          : 'Update failed due to constraint violation'
-      return new ValidationError(errorMessage, [])
+      return new ValidationError('Update failed due to constraint violation', [])
     },
   })
 }

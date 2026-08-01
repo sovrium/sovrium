@@ -7,6 +7,8 @@
 
 import { Data, Effect } from 'effect'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
 import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
@@ -73,6 +75,8 @@ export type ActionHandler = (
   | TableRepository
   | AutomationStateRepository
   | AutomationDigestRepository
+  | AutomationApprovalRepository
+  | AuthRepository
   | ConnectionRepository
   | ConnectionTokenRepository
   | PackageResolver

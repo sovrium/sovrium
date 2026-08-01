@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isFieldReadableByRole } from '@/application/use-cases/tables/utils/field-read-filter'
 import type { FilterStructure, FilterLeaf, FilterNode } from '../record/row-level-read-helpers'
+import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 type AggregateParams = {
@@ -19,79 +21,36 @@ type AggregateParams = {
 const isFilterLeaf = (node: FilterNode): node is FilterLeaf =>
   'field' in node && typeof node.field === 'string'
 
-function isSensitiveFieldType(fieldType: string): boolean {
-  const sensitiveTypes = new Set(['email', 'phone-number', 'currency'])
-  return sensitiveTypes.has(fieldType)
+type FieldAccessContext = {
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly c: Context
 }
 
-function shouldExcludeForViewer(fieldName: string, fieldType: string): boolean {
-  const allowedFieldTypes = new Set(['single-line-text'])
-  const allowedFieldNames = new Set(['name', 'title'])
-
-  if (isSensitiveFieldType(fieldType)) {
-    return true
-  }
-
-  if (!allowedFieldNames.has(fieldName) && !allowedFieldTypes.has(fieldType)) {
-    return true
-  }
-
-  if (fieldType === 'single-line-text' && !allowedFieldNames.has(fieldName)) {
-    return true
-  }
-
-  return false
+function fieldPermissionDenied(c: Context) {
+  return c.json(
+    {
+      success: false,
+      message: 'Resource not found',
+      code: 'NOT_FOUND',
+    },
+    404
+  )
 }
 
-export function shouldExcludeFieldByDefault(
-  fieldName: string,
-  userRole: string,
-  table:
-    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined
-): boolean {
-  if (userRole === 'admin') {
-    return false
-  }
+export function validateFilterParam(filter: FilterStructure, access: FieldAccessContext) {
+  const { app, tableName, userRole, c } = access
 
-  const field = table?.fields.find((f) => f.name === fieldName)
-  if (!field) return false
-
-  if (userRole === 'viewer') {
-    return shouldExcludeForViewer(fieldName, field.type)
-  }
-
-  if (userRole === 'member') {
-    return fieldName === 'salary' && field.type === 'currency'
-  }
-
-  return false
-}
-
-export function validateFilterParam(
-  filter: FilterStructure,
-  table:
-    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
-  userRole: string,
-  c: Context
-) {
   if (!filter) return undefined
 
   const filterFields = filter.and?.filter(isFilterLeaf).map((leaf) => leaf.field) ?? []
 
-  const inaccessibleField = filterFields.find((fieldName) =>
-    shouldExcludeFieldByDefault(fieldName, userRole, table)
+  const inaccessibleField = filterFields.find(
+    (fieldName) => !isFieldReadableByRole(app, tableName, userRole, fieldName)
   )
 
-  if (inaccessibleField) {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
+  if (inaccessibleField) return fieldPermissionDenied(c)
 
   return undefined
 }
@@ -126,17 +85,15 @@ export function validateFieldsParam(
   return undefined
 }
 
-export function validateGroupByParam(
-  groupBy: string | undefined,
-  table:
-    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
-  userRole: string,
-  c: Context
-) {
+export function validateGroupByParam(groupBy: string | undefined, access: FieldAccessContext) {
+  const { app, tableName, userRole, c } = access
+
   if (!groupBy) return undefined
 
   const fieldName = groupBy.trim()
   if (fieldName.length === 0) return undefined
+
+  const table = app.tables?.find((t) => t.name === tableName)
 
   const fieldExists = table?.fields.some((f) => f.name === fieldName) ?? false
   if (!fieldExists) {
@@ -150,15 +107,8 @@ export function validateGroupByParam(
     )
   }
 
-  if (shouldExcludeFieldByDefault(fieldName, userRole, table)) {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
+  if (!isFieldReadableByRole(app, tableName, userRole, fieldName)) {
+    return fieldPermissionDenied(c)
   }
 
   return undefined
@@ -166,11 +116,10 @@ export function validateGroupByParam(
 
 export function validateAggregateParam(
   aggregate: AggregateParams | undefined,
-  table:
-    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined,
-  userRole: string,
-  c: Context
+  access: FieldAccessContext
 ) {
+  const { app, tableName, userRole, c } = access
+
   if (!aggregate) return undefined
 
   const aggregateFields = [
@@ -180,20 +129,11 @@ export function validateAggregateParam(
     ...(aggregate.max ?? []),
   ]
 
-  const inaccessibleField = aggregateFields.find((fieldName) =>
-    shouldExcludeFieldByDefault(fieldName, userRole, table)
+  const inaccessibleField = aggregateFields.find(
+    (fieldName) => !isFieldReadableByRole(app, tableName, userRole, fieldName)
   )
 
-  if (inaccessibleField) {
-    return c.json(
-      {
-        success: false,
-        message: 'Resource not found',
-        code: 'NOT_FOUND',
-      },
-      404
-    )
-  }
+  if (inaccessibleField) return fieldPermissionDenied(c)
 
   return undefined
 }

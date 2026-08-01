@@ -7,16 +7,21 @@
 
 import { sql } from 'drizzle-orm'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { nowSqlLiteral } from './dialect-ddl'
 
 
-export const nowExpr = () =>
-  parseDatabaseDialectConfig().dialect === 'sqlite'
-    ? sql.raw('CURRENT_TIMESTAMP')
-    : sql.raw('NOW()')
+export const nowExpr = () => sql.raw(nowSqlLiteral())
 
 export const authTableRef = (name: string) =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? sql.raw(`auth_${name}`)
     : sql.raw(`auth.${name}`)
+
+export const sqliteSystemTableName = (name: string) => `system_${name}`
+
+export const systemTableRef = (name: string) =>
+  parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? sql.raw(sqliteSystemTableName(name))
+    : sql.raw(`system."${name}"`)
 
 export const authUserTableRef = () => authTableRef('user')

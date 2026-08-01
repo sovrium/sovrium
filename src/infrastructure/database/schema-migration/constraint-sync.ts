@@ -13,6 +13,7 @@ import {
   type SQLExecutionError,
 } from '../sql/sql-execution'
 import { generateForeignKeyConstraints, generateTableConstraints } from '../sql/sql-generators'
+import { isBtreeUniqueField } from '../sql/sql-key-constraints'
 import type { Table } from '@/domain/models/app/tables'
 
 
@@ -79,7 +80,7 @@ export const syncUniqueConstraints = (
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     if (isSqliteRuntime()) return
-    const uniqueFields = table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
+    const uniqueFields = table.fields.filter(isBtreeUniqueField).map((f) => f.name)
     const dropStatements = getUniqueConstraintDropStatements(table, previousSchema, uniqueFields)
     const addStatements = buildUniqueConstraintAddStatements(table, uniqueFields)
 

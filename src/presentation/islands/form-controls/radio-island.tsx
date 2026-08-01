@@ -7,7 +7,7 @@
 
 import { Radio } from '@base-ui/react/radio'
 import { RadioGroup } from '@base-ui/react/radio-group'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import type { ReactElement } from 'react'
 
 interface OptionItem {

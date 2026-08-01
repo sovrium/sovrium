@@ -6,6 +6,10 @@
  */
 
 import { Schema } from 'effect'
+import {
+  ConditionOperatorsSchema,
+  FieldConditionSchema,
+} from '@/domain/models/shared/condition-operators'
 import { ActionSchema } from '../../../action'
 import { ConfirmGateSchema } from '../../../confirm-gate'
 import { optStr } from '../../../shared-schemas'
@@ -30,26 +34,6 @@ export const ColumnFormatSchema = Schema.Literal(
 })
 
 
-const ConditionValueSchema = Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
-
-const ConditionValueArraySchema = Schema.Array(ConditionValueSchema)
-
-const ConditionOperatorsSchema = Schema.Struct({
-  eq: Schema.optional(ConditionValueSchema),
-  neq: Schema.optional(ConditionValueSchema),
-  in: Schema.optional(ConditionValueArraySchema),
-  notIn: Schema.optional(ConditionValueArraySchema),
-  contains: Schema.optional(ConditionValueSchema),
-  gt: Schema.optional(ConditionValueSchema),
-  lt: Schema.optional(ConditionValueSchema),
-  gte: Schema.optional(ConditionValueSchema),
-  lte: Schema.optional(ConditionValueSchema),
-}).annotations({
-  title: 'Condition Operators',
-  description:
-    'Condition matcher: { operator: value }. Supports eq, neq, in, notIn, contains, gt, lt, gte, lte. Shared by cellStyle[].when and action visibleWhen.',
-})
-
 export const CellStyleConditionSchema = Schema.Struct({
   when: ConditionOperatorsSchema.annotations({
     description:
@@ -65,16 +49,7 @@ export const CellStyleConditionSchema = Schema.Struct({
 })
 
 
-const actionVisibleWhenSchema = Schema.Struct({
-  field: Schema.String.annotations({
-    description: 'Row field whose value the visibility predicate is matched against',
-  }),
-  ...ConditionOperatorsSchema.fields,
-}).annotations({
-  title: 'Action Visible When',
-  description:
-    'Per-row visibility predicate: the action renders only on rows whose `field` value satisfies the operator(s). Reuses the shared condition vocabulary (eq, neq, in, notIn, contains, gt, lt, gte, lte). Omit to show the action on every row.',
-})
+const actionVisibleWhenSchema = FieldConditionSchema
 
 
 const EditSelectOptionSchema = Schema.Struct({

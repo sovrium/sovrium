@@ -8,8 +8,8 @@
 
 import { Effect, Layer } from 'effect'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
+import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { buildTablesOverview } from '@/application/use-cases/admin/tables-overview'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   tablesOverviewQuerySchema,
   tablesOverviewResponseSchema,
@@ -25,14 +25,10 @@ import type { Context } from 'hono'
 async function emitTablesOverviewAudit(c: Context): Promise<void> {
   const session = getSessionContext(c)
   if (!session) return
-  const role = await getUserRole(session.userId)
+  const actor = await resolveActor(session.userId)
   await emitAuditEvent({
     action: 'table.overview.queried',
-    actor: {
-      id: session.userId,
-      type: 'user',
-      role: role === 'admin' ? 'admin' : 'operator',
-    },
+    actor,
     resourceId: 'overview',
     severity: 'info',
     result: 'success',

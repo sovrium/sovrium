@@ -6,7 +6,7 @@
  */
 
 
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, type Column } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
@@ -93,11 +93,16 @@ export async function appendAuditEntryToDbTx(
   await writer.insert(auditLog).values(rowFromEntry(entry))
 }
 
+function eqWhenSet(column: Readonly<Column>, value: string | undefined) {
+  return value === undefined ? undefined : eq(column, value)
+}
+
 function buildAuditWhere(filter?: AuditListFilter) {
   const conditions = [
-    filter?.actorId !== undefined ? eq(auditLog.actorId, filter.actorId) : undefined,
-    filter?.action !== undefined ? eq(auditLog.action, filter.action) : undefined,
-    filter?.transport !== undefined ? eq(auditLog.transport, filter.transport) : undefined,
+    eqWhenSet(auditLog.actorId, filter?.actorId),
+    eqWhenSet(auditLog.action, filter?.action),
+    eqWhenSet(auditLog.transport, filter?.transport),
+    eqWhenSet(auditLog.resourceType, filter?.resourceType),
   ].filter((c): c is NonNullable<typeof c> => c !== undefined)
   if (conditions.length === 0) return undefined
   return conditions.length === 1 ? conditions[0] : and(...conditions)

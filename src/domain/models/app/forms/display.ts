@@ -8,22 +8,6 @@
 import { Schema } from 'effect'
 
 export const FormDisplaySchema = Schema.Struct({
-  columns: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.lessThanOrEqualTo(4),
-      Schema.annotations({
-        description: 'Column count for the form layout (1-4)',
-      })
-    )
-  ),
-  progressBar: Schema.optional(
-    Schema.Boolean.annotations({
-      description:
-        'Show a progress bar in multi-step / one-question layouts (no effect on single-page)',
-    })
-  ),
   theme: Schema.optional(
     Schema.Struct({
       primaryColor: Schema.optional(Schema.String),

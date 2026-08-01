@@ -6,7 +6,7 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { NavChevronDown, NavItemBadge } from '@/presentation/utils/recipes/nav-menu-parts'
 import { computeMenuPopupClasses, computeNavMenuTriggerClasses } from './overlay-default-classes'
 import type { BadgeVariant } from '@/presentation/utils/recipes/navbar-default-classes'

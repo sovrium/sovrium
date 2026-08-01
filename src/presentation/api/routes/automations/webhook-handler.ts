@@ -11,6 +11,7 @@ import { resolveTriggerInValue } from '@/application/use-cases/automations/resol
 import { runWebhookAutomation } from '@/application/use-cases/automations/run-automation'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideAutomationLive } from './effect-runner'
 import { runWebhookAuth } from './webhook-auth'
@@ -30,9 +31,6 @@ type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 const METHODS: ReadonlyArray<Method> = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
 const isMethod = (m: string): m is Method => (METHODS as ReadonlyArray<string>).includes(m)
-
-const extractClientIp = (forwardedFor: string | undefined): string =>
-  forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? '127.0.0.1') : '127.0.0.1'
 
 const allowedMethodsFor = (trigger: Trigger): ReadonlyArray<Method> => {
   if (trigger.type !== 'webhook') return []
@@ -114,7 +112,7 @@ const runRateLimitGate = (
   if (trigger.rateLimit === undefined) return undefined
   const config = normalizeRateLimit(trigger.rateLimit)
   if (config === undefined) return undefined
-  const ip = extractClientIp(c.req.header('x-forwarded-for'))
+  const ip = getRequestClientIp(c)
   const limit = isRateLimited(name, ip, config)
   return limit.limited
     ? c.json({ error: 'rate_limited' }, 429, { 'Retry-After': String(limit.retryAfter) })
@@ -169,7 +167,7 @@ const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
       body,
       headers: headersToRecord(c.req),
       query: queryRecord,
-      ip: extractClientIp(c.req.header('x-forwarded-for')),
+      ip: getRequestClientIp(c),
     }
     const dedup = checkAndRecordDedup({
       automationName: name,
@@ -192,7 +190,7 @@ const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
   body: gate.rawBody === '' ? undefined : safeParseJson(gate.rawBody),
   headers: headersToRecord(c.req),
   query: gate.queryRecord,
-  ip: extractClientIp(c.req.header('x-forwarded-for')),
+  ip: getRequestClientIp(c),
 })
 
 

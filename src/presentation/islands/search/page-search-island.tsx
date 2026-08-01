@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { cn } from '../lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { usePageSearch } from '../page-search/use-page-search'
 import type { SearchResult } from '../page-search/matcher'
 import type { MouseEvent, ReactElement } from 'react'

@@ -5,10 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
-const SYSTEM_FIELDS = new Set(['id', 'created_at', 'updated_at', 'deleted_at'])
+const SYSTEM_FIELDS = new Set([
+  'id',
+  'created_at',
+  'updated_at',
+  'created_by',
+  'updated_by',
+  'deleted_by',
+  'deleted_at',
+])
 
 export function canUserReadField(
   app: App,
@@ -16,7 +25,11 @@ export function canUserReadField(
   fieldName: string,
   userRole: string
 ): boolean {
-  if (userRole === 'admin') {
+  if (isAdminEquivalent(userRole, app)) {
+    return true
+  }
+
+  if (SYSTEM_FIELDS.has(fieldName)) {
     return true
   }
 

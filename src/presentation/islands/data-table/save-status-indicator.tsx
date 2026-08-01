@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import type { SaveStatus } from '../hooks/use-inline-editing'
 import type { ReactElement } from 'react'
 

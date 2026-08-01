@@ -7,8 +7,8 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
 import { authClient } from '@/presentation/islands/shared/auth-client'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
 import { NavChevronDown } from '@/presentation/utils/recipes/nav-menu-parts'
 import {

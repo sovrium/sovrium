@@ -12,40 +12,16 @@ export const AutonumberFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('autonumber'),
-      prefix: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Optional prefix for the autonumber',
-            examples: ['INV-', 'ORD-', ''],
-          })
-        )
-      ),
-      startFrom: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({ description: 'Starting number' })
-        )
-      ),
-      digits: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.lessThanOrEqualTo(10),
-          Schema.annotations({ description: 'Number of digits with zero padding' })
-        )
-      ),
     })
   ),
   Schema.annotations({
     title: 'Autonumber Field',
-    description: 'Auto-incrementing number field with optional prefix and zero padding.',
+    description: 'Auto-incrementing number field assigned by the database.',
     examples: [
       {
         id: 1,
         name: 'invoice_number',
         type: 'autonumber',
-        prefix: 'INV-',
-        startFrom: 1000,
-        digits: 5,
       },
     ],
   })

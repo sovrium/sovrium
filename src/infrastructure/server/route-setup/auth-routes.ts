@@ -21,11 +21,11 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { logError } from '@/infrastructure/logging/logger'
 import { isTransportRelaxed } from '@/infrastructure/utils/security-posture'
+import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { chainAdminInvitationRoutes } from './admin-invitation-routes'
 import {
   isRateLimitExceeded,
   recordRateLimitRequest,
-  extractClientIp,
   isAuthRateLimitExceeded,
   recordAuthRateLimitRequest,
   getAuthRateLimitRetryAfter,
@@ -102,7 +102,7 @@ const applyAdminRoleCheckMiddleware = (
 
 const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
   return honoApp.use('/api/auth/admin/*', async (c, next) => {
-    const ip = extractClientIp(c.req.header('x-forwarded-for'))
+    const ip = getRequestClientIp(c)
 
     if (isRateLimitExceeded(ip)) {
       return c.json(
@@ -130,7 +130,7 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
 
   const result = endpoints.reduce((app, endpoint) => {
     return app.use(endpoint, async (c, next) => {
-      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const ip = getRequestClientIp(c)
       const { path } = c.req
 
       if (isAuthRateLimitExceeded(path, ip)) {

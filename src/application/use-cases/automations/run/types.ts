@@ -10,6 +10,8 @@ import { Duration, Effect } from 'effect'
 import type { ActionHandler, ActionKey, ActionOutcome, AutomationContext } from '../action-handlers'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
 import type { AutomationRepository } from '@/application/ports/repositories/automations/automation-repository'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
@@ -77,6 +79,8 @@ export type StepRequirements =
   | TableRepository
   | AutomationStateRepository
   | AutomationDigestRepository
+  | AutomationApprovalRepository
+  | AuthRepository
   | ConnectionRepository
   | ConnectionTokenRepository
   | AnalyticsRepository
@@ -91,6 +95,8 @@ export type RunRequirements =
   | AutomationRunRepository
   | AutomationStateRepository
   | AutomationDigestRepository
+  | AutomationApprovalRepository
+  | AuthRepository
   | ConnectionRepository
   | ConnectionTokenRepository
   | AnalyticsRepository

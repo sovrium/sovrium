@@ -15,10 +15,6 @@ const getRateLimitWindowMs = (): number => {
   return windowSeconds ? parseInt(windowSeconds, 10) * 1000 : 60 * 1000
 }
 
-export const extractClientIp = (forwardedFor: string | undefined): string => {
-  return forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? '127.0.0.1') : '127.0.0.1'
-}
-
 interface EndpointRateLimitConfig {
   readonly windowMs: number
   readonly maxRequests: number

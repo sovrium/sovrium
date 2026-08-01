@@ -9,6 +9,7 @@
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { isPredicateGroup, type CurrentUserContext } from '@/domain/validators/row-level-evaluator'
+import { logError } from '@/infrastructure/logging'
 import type { Session } from '@/application/ports/models/user-session'
 import type { RowLevelPermissions, RowLevelWhen } from '@/domain/models/app/tables/permissions'
 
@@ -29,7 +30,14 @@ export const loadCurrentUserContext = (
     const entries = yield* Effect.all(
       scopeTables.map((slug) =>
         repo.fetchUserAssignments(session.userId, slug).pipe(
-          Effect.catchAll(() => Effect.succeed([] as readonly string[])),
+          Effect.catchAll((error) => {
+            logError(
+              '[PERMISSIONS] Row-level scope lookup failed; denying access for this scope table',
+              error,
+              { tableSlug: slug, userId: session.userId }
+            )
+            return Effect.succeed([] as readonly string[])
+          }),
           Effect.map((ids) => [slug, ids] as const)
         )
       ),

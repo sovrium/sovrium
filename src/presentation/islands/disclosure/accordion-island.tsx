@@ -7,7 +7,7 @@
 
 import { Accordion } from '@base-ui/react/accordion'
 import { useMemo } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import {
   computeAccordionIconClasses,
   computeAccordionPanelClasses,

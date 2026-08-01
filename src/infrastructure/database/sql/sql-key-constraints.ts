@@ -15,15 +15,17 @@ import {
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+export const isBtreeUniqueField = (
+  field: Fields[number]
+): field is Fields[number] & { unique: true } =>
+  'unique' in field && !!field.unique && field.type !== 'geolocation'
+
 export const generateUniqueConstraints = (
   tableName: string,
   fields: readonly Fields[number][]
 ): readonly string[] =>
   fields
-    .filter(
-      (field): field is Fields[number] & { unique: true } =>
-        'unique' in field && !!field.unique && field.type !== 'geolocation'
-    )
+    .filter(isBtreeUniqueField)
     .map((field) => `CONSTRAINT ${tableName}_${field.name}_key UNIQUE (${field.name})`)
 
 const mapReferentialAction = (
@@ -86,6 +88,8 @@ const generateRelationshipConstraint = (
   return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
 }
 
+const USER_FIELD_ON_DELETE = ' ON DELETE SET NULL'
+
 export const generateForeignKeyConstraints = (
   tableName: string,
   fields: readonly Fields[number][],
@@ -101,7 +105,7 @@ export const generateForeignKeyConstraints = (
 ): readonly string[] => {
   const userFieldConstraints = fields.filter(isUserField).map((field) => {
     const constraintName = `${tableName}_${field.name}_fkey`
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${qualifiedAuthTable('user')}(id)`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${qualifiedAuthTable('user')}(id)${USER_FIELD_ON_DELETE}`
   })
 
   const relationshipFieldConstraints = fields

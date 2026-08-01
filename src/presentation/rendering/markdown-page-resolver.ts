@@ -23,6 +23,7 @@ import { highlightCodeBlocks } from '@/infrastructure/markdown/shiki-highlighter
 import { getContentBaseDir } from '@/presentation/rendering/content-base-dir'
 import { listContentDir, type CollectionNavData } from '@/presentation/rendering/content-dir-lister'
 import { buildContentDirSeo } from '@/presentation/rendering/content-dir-structured-data-synthesis'
+import { spliceMarkdownCodeFrames } from '@/presentation/rendering/markdown-code-frames'
 import { spliceMarkdownDirectives } from '@/presentation/rendering/markdown-directives'
 import { resolveMarkdownTranslations } from '@/presentation/rendering/markdown-i18n'
 import {
@@ -177,7 +178,8 @@ const composeMarkdownHtml = async (
     codeBlockTheme
   )
   const sanitizedHtml = sanitizeRichTextHTML(highlightedHtml)
-  return spliceMarkdownDirectives(sanitizedHtml, rendered.directives, app?.theme)
+  const withDirectives = spliceMarkdownDirectives(sanitizedHtml, rendered.directives, app?.theme)
+  return spliceMarkdownCodeFrames(withDirectives, rendered.codeBlocks)
 }
 
 const localiseMarkdownSource = (

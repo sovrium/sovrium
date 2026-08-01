@@ -27,6 +27,7 @@ import {
   type RowLevelFilterNode,
 } from '@/domain/validators/row-level-evaluator'
 import { provideTableLive, runTableProgram } from '@/infrastructure/layers/table-layer'
+import { logError } from '@/infrastructure/logging'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from '../response-helpers'
 import type { Session, UserSession } from '@/application/ports/models/user-session'
 import type { App, Table } from '@/domain/models/app'
@@ -57,9 +58,16 @@ export const buildRowLevelGuardContext = (
 
     const current = yield* loadCurrentUserContext(projection, scopeTables)
 
-    const userAccessRoles = yield* repo
-      .fetchUserAccessRoles(session.userId)
-      .pipe(Effect.catchAll(() => Effect.succeed([] as readonly string[])))
+    const userAccessRoles = yield* repo.fetchUserAccessRoles(session.userId).pipe(
+      Effect.catchAll((error) => {
+        logError(
+          '[PERMISSIONS] user_access role lookup failed; proceeding without the role overlay',
+          error,
+          { userId: session.userId }
+        )
+        return Effect.succeed([] as readonly string[])
+      })
+    )
 
     const effectiveRoles = mergeRoles(userRole, userAccessRoles)
 

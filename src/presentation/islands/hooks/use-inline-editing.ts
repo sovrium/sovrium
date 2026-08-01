@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useUpdateRecord } from './use-table-mutations'
+import type { RecordButtonConfig } from '../shared/record-button'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 
 
@@ -27,6 +28,7 @@ export interface FieldMeta {
   readonly type: string
   readonly options?: readonly string[]
   readonly required?: boolean
+  readonly button?: RecordButtonConfig
 }
 
 export type FieldMetaMap = Readonly<Record<string, FieldMeta>>

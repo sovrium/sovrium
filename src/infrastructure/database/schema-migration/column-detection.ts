@@ -13,6 +13,7 @@ import {
   normalizeDataType,
   doesColumnTypeMatch,
   generateAlterColumnTypeStatement,
+  isGatedTimestamptzConversion,
 } from './type-utils'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -92,6 +93,7 @@ export const findTypeChanges = (
   filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
     const existing = existingColumns.get(field.name)!
     if (doesColumnTypeMatch(field, existing.dataType)) return []
+    if (isGatedTimestamptzConversion(field, existing.dataType)) return []
 
     return [generateAlterColumnTypeStatement(table.name, field, existing.dataType)]
   })

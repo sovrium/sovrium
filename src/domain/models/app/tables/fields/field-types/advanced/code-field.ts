@@ -25,13 +25,6 @@ export const CodeFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
-      readOnly: Schema.optional(
-        Schema.Boolean.pipe(
-          Schema.annotations({
-            description: 'Make the editor read-only',
-          })
-        )
-      ),
       minLines: Schema.optional(
         Schema.Int.pipe(
           Schema.greaterThanOrEqualTo(1),

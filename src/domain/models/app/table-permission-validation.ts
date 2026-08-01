@@ -8,15 +8,7 @@
 
 import { extractGroupNames } from './auth/groups/group-reference'
 
-const PERMISSION_OPS = [
-  'read',
-  'comment',
-  'create',
-  'update',
-  'delete',
-  'permanentDelete',
-  'restore',
-] as const
+const PERMISSION_OPS = ['read', 'comment', 'create', 'update', 'delete'] as const
 
 interface AppForTablePermissionValidation {
   readonly auth?: { readonly groups?: ReadonlyArray<{ readonly name: string }> }

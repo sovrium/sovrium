@@ -44,6 +44,15 @@ export interface AccountLinkedRow {
   readonly updatedAt: Date
 }
 
+export interface AccountFormSubmissionRow {
+  readonly id: string
+  readonly formName: string | null
+  readonly status: string | null
+  readonly data: unknown
+  readonly userAgent: string | null
+  readonly submittedAt: Date
+}
+
 export class AccountRepository extends Context.Tag('AccountRepository')<
   AccountRepository,
   {
@@ -58,6 +67,10 @@ export class AccountRepository extends Context.Tag('AccountRepository')<
     readonly loadAccounts: (
       userId: string
     ) => Effect.Effect<readonly AccountLinkedRow[], AccountDatabaseError>
+
+    readonly loadFormSubmissions: (
+      userId: string
+    ) => Effect.Effect<readonly AccountFormSubmissionRow[], AccountDatabaseError>
 
     readonly loadScheduledErasure: (
       userId: string

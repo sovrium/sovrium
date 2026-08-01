@@ -6,14 +6,14 @@
  */
 
 
-import { and, desc, eq, gte, isNull } from 'drizzle-orm'
+import { Effect } from 'effect'
+import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { db } from '@/infrastructure/database'
-import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
+import { provideAdminFormsLive } from '@/presentation/api/routes/admin/forms/effect-runner'
 import type { App } from '@/domain/models/app'
 import type { Form, FormField } from '@/domain/models/app/forms'
 import type { PermissionValue } from '@/domain/models/shared/permissions'
@@ -115,23 +115,12 @@ async function handleExport(c: Context, resolveApp: () => App): Promise<Response
   }
 
   const role = await getUserRole(session.userId)
-  const submissions = formSubmissionsTable()
-  const rawRows = (await db
-    .select({
-      id: submissions.id,
-      submittedAt: submissions.submittedAt,
-      status: submissions.status,
-      data: submissions.data,
-    })
-    .from(submissions)
-    .where(and(eq(submissions.formName, formName), isNull(submissions.deletedAt)))
-    .orderBy(desc(submissions.submittedAt))
-    .limit(EXPORT_INLINE_CAP + 1)) as ReadonlyArray<{
-    id: string
-    submittedAt: Date | string
-    status: string | null
-    data: unknown
-  }>
+  const rawRows = await Effect.runPromise(
+    Effect.gen(function* () {
+      const repository = yield* AdminFormsRepository
+      return yield* repository.listSubmissionsWithData(formName, EXPORT_INLINE_CAP + 1)
+    }).pipe(provideAdminFormsLive)
+  )
 
   const truncated = rawRows.length > EXPORT_INLINE_CAP
   const exported = rawRows.slice(0, EXPORT_INLINE_CAP)
@@ -205,21 +194,12 @@ async function handleAnalytics(c: Context, resolveApp: () => App): Promise<Respo
   }
 
   const windowStart = parseWindowStart(c.req.query('window'))
-  const submissions = formSubmissionsTable()
-  const rows = (await db
-    .select({
-      id: submissions.id,
-      submittedAt: submissions.submittedAt,
-      status: submissions.status,
-    })
-    .from(submissions)
-    .where(
-      and(
-        eq(submissions.formName, formName),
-        isNull(submissions.deletedAt),
-        gte(submissions.submittedAt, windowStart)
-      )
-    )) as readonly AggregateRow[]
+  const rows: readonly AggregateRow[] = await Effect.runPromise(
+    Effect.gen(function* () {
+      const repository = yield* AdminFormsRepository
+      return yield* repository.listSubmissionsSince(formName, windowStart)
+    }).pipe(provideAdminFormsLive)
+  )
 
   const totalCount = rows.length
   const doneCount = rows.filter((r) => r.status === 'done' || r.status === 'processed').length

@@ -25,6 +25,14 @@ export class AutomationApprovalDatabaseError extends Data.TaggedError(
 export class AutomationApprovalRepository extends Context.Tag('AutomationApprovalRepository')<
   AutomationApprovalRepository,
   {
+    readonly insertPending: (input: {
+      readonly message: string
+      readonly stepIndex: number
+      readonly runId: string | undefined
+      readonly timeoutSeconds: number | undefined
+      readonly expiresAt: Date | undefined
+    }) => Effect.Effect<void, AutomationApprovalDatabaseError>
+
     readonly findById: (
       id: string
     ) => Effect.Effect<AutomationApprovalRow | undefined, AutomationApprovalDatabaseError>

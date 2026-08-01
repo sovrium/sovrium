@@ -42,6 +42,7 @@ export interface CreateRunInput {
   readonly automationId: string
   readonly status: string
   readonly triggerData?: unknown
+  readonly triggeredByUserId?: string
   readonly startedAt?: Date
   readonly completedAt?: Date
   readonly durationMs?: number

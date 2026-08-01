@@ -37,10 +37,6 @@ export const submissionMetaSchema = z
 export const createSubmissionRequestSchema = z
   .object({
     data: z.record(z.string(), z.unknown()).describe('Submitted field values keyed by field name'),
-    captchaToken: z
-      .string()
-      .optional()
-      .describe('CAPTCHA verification token (Phase 3 — required when antiSpam.captcha is set)'),
   })
   .openapi('CreateSubmissionRequest')
 

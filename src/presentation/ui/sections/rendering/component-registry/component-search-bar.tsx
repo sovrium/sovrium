@@ -11,8 +11,6 @@ import type { ReactElement } from 'react'
 interface ComponentSearch {
   readonly enabled?: boolean
   readonly placeholder?: string
-  readonly debounceMs?: number
-  readonly highlight?: boolean
 }
 
 export function renderComponentSearchBar(search: unknown): ReactElement | undefined {
@@ -31,8 +29,6 @@ export function renderComponentSearchBar(search: unknown): ReactElement | undefi
         role="searchbox"
         placeholder={placeholder}
         aria-label={placeholder}
-        data-search-debounce={cfg.debounceMs ?? 300}
-        data-search-highlight={cfg.highlight === true ? 'true' : 'false'}
         className="border-border w-full rounded-md border px-3 py-2 text-sm"
       />
     </div>

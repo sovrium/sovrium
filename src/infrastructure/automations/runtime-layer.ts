@@ -9,6 +9,7 @@ import { Effect, Layer } from 'effect'
 import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
 import { PackageResolverLive } from '@/infrastructure/automations/package-resolver'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { AutomationApprovalRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-approval-repository-live'
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
 import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-repository-live'
@@ -25,6 +26,7 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   AutomationRepositoryLive,
   AutomationRunRepositoryLive,
   AutomationApprovalRepositoryLive,
+  AuthRepositoryLive,
   AutomationStateRepositoryLive,
   AutomationDigestRepositoryLive,
   ConnectionRepositoryLive,

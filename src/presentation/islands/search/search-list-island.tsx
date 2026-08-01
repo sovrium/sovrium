@@ -5,13 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import React, { useCallback, useEffect, useState } from 'react'
-import {
-  renderResultsBody,
-  substituteRecordVars,
-  type ChildTemplate,
-  type ItemTemplate,
-} from './search-list-renderers'
+import React, { useState } from 'react'
+import { renderResultsBody, substituteRecordVars } from './search-list-renderers'
+import { useBoundQuery, useUnboundQuery } from './search-query-binding'
+import type { ChildTemplate, ItemTemplate } from './search-list-renderers'
 
 interface SearchListIslandProps {
   readonly id?: string
@@ -97,22 +94,10 @@ function SearchBox({ value, placeholder, onChange }: SearchBoxProps) {
   )
 }
 
-function useBoundQuery(bindTo: string | undefined, setQuery: (value: string) => void): void {
-  useEffect(() => {
-    if (!bindTo) return undefined
-    const container = document.getElementById(bindTo)
-    const input = container?.querySelector('input') ?? document.querySelector(`#${bindTo} input`)
-    if (!input) return undefined
-    const onInput = (e: Event) => setQuery((e.target as HTMLInputElement).value)
-    input.addEventListener('input', onInput)
-    return () => input.removeEventListener('input', onInput)
-  }, [bindTo, setQuery])
-}
-
 export default function SearchListIsland({
   records,
   searchFields,
-  debounceMs: _debounceMs = 0,
+  debounceMs = 0,
   limit = 0,
   childTemplate,
   itemTemplate,
@@ -122,18 +107,15 @@ export default function SearchListIsland({
   className,
   'data-testid': testid,
 }: SearchListIslandProps) {
-  const [inputValue, setInputValue] = useState('')
+  const [query, setQuery] = useState('')
 
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value),
-    []
-  )
+  const searchBox = useUnboundQuery(debounceMs, setQuery)
 
-  useBoundQuery(bindTo, setInputValue)
+  useBoundQuery(bindTo, setQuery)
 
   const filteredRecords = filterRecords({
     records,
-    query: inputValue,
+    query,
     searchFields,
     limit,
     childTemplate,
@@ -153,9 +135,9 @@ export default function SearchListIsland({
     >
       {bindTo ? undefined : (
         <SearchBox
-          value={inputValue}
+          value={searchBox.value}
           placeholder={placeholder}
-          onChange={handleInputChange}
+          onChange={searchBox.onChange}
         />
       )}
       {results}

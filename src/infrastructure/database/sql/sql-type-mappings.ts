@@ -55,9 +55,9 @@ export const fieldTypeToPostgresMap: Record<string, string> = {
   'created-by': 'TEXT',
   'updated-by': 'TEXT',
   'deleted-by': 'TEXT',
-  'created-at': 'TIMESTAMP',
-  'updated-at': 'TIMESTAMP',
-  'deleted-at': 'TIMESTAMP',
+  'created-at': 'TIMESTAMPTZ',
+  'updated-at': 'TIMESTAMPTZ',
+  'deleted-at': 'TIMESTAMPTZ',
   button: 'TEXT',
   code: 'TEXT',
 }

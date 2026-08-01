@@ -76,6 +76,7 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
 
 const runInsertOptionals = (input: Readonly<CreateRunInput>) => ({
   ...(input.triggerData !== undefined ? { triggerData: input.triggerData as object } : {}),
+  ...(input.triggeredByUserId !== undefined ? { triggeredByUserId: input.triggeredByUserId } : {}),
   ...(input.startedAt !== undefined ? { startedAt: input.startedAt } : {}),
   ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
   ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),

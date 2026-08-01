@@ -8,6 +8,7 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
 import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import {
   columnExists,
@@ -217,7 +218,7 @@ function buildSingleSelectCaseExpression(
   direction: string
 ): string {
   const caseWhen = options
-    .map((opt, idx) => `WHEN "${field}" = '${opt.replace(/'/g, "''")}' THEN ${idx}`)
+    .map((opt, idx) => `WHEN "${field}" = '${escapeSqlString(opt)}' THEN ${idx}`)
     .join(' ')
   return `CASE ${caseWhen} END ${direction}`
 }

@@ -6,7 +6,7 @@
  */
 
 import { useRef, type ChangeEventHandler, type ReactElement, type Ref } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { FileNameList } from './file-name-list'
 import { useFileUploadState } from './use-file-upload-state'
 import type {

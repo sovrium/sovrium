@@ -13,7 +13,9 @@ export const actorTypeSchema = z
 
 export const actorRoleSchema = z
   .enum(['admin', 'operator', 'system'])
-  .describe('RBAC role bound to the actor at the moment the action was emitted')
+  .describe(
+    'Coarse trust tier of the actor: `admin`, `operator` (any other human), or `system` (non-human). A tier, not the actor’s role — read `id`/`email` for attribution.'
+  )
 
 export const actorSchema = z
   .object({
@@ -37,3 +39,6 @@ export const actorSchema = z
 export type ActorType = z.infer<typeof actorTypeSchema>
 export type ActorRole = z.infer<typeof actorRoleSchema>
 export type Actor = z.infer<typeof actorSchema>
+
+export const coerceHumanActorRole = (roleName: string): ActorRole =>
+  roleName === 'admin' ? 'admin' : 'operator'

@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { countDistinct, eq } from 'drizzle-orm'
 import { Data, Effect, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { StorageService } from '@/application/ports/services/storage-service'
@@ -30,16 +30,14 @@ import { parseDatabaseDialectConfig } from '@/domain/models/env/database/databas
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { PackageResolver } from '@/infrastructure/automations/package-resolver'
 import { TypeScriptValidator } from '@/infrastructure/automations/typescript-validator'
-import { db } from '@/infrastructure/database'
-import { authUsersTable, authAccountsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { BootstrapTokenRepositoryLive } from '@/infrastructure/database/repositories/auth/bootstrap-token-repository-live'
 import { Logger } from '@/infrastructure/logging/logger'
 import { activateTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { ServerInstance } from '@/application/models/server'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/infrastructure/auth/better-auth'
 import type { PackageResolutionError } from '@/infrastructure/automations/package-resolver'
@@ -72,19 +70,13 @@ class BootstrapTokenBootError extends Data.TaggedError('BootstrapTokenBootError'
 }> {}
 
 const userTableIsEmpty = (): Effect.Effect<boolean, never> =>
-  Effect.tryPromise({
-    try: async () => {
-      const users = authUsersTable()
-      const accounts = authAccountsTable()
-      const rows = await db
-        .select({ value: countDistinct(users.id) })
-        .from(users)
-        .innerJoin(accounts, eq(accounts.userId, users.id))
-      const userCount = Number(rows[0]?.value ?? 0)
-      return userCount === 0
-    },
-    catch: (cause) => new BootstrapTokenBootError({ cause }),
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+  Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    return (yield* repo.countHumanUsers()) === 0
+  }).pipe(
+    Effect.provide(AuthRepositoryLive),
+    Effect.catchAll(() => Effect.succeed(false))
+  )
 
 const runBootstrapTokenFlow = (
   app: Readonly<{ readonly auth?: unknown }>

@@ -17,6 +17,7 @@ import {
   type UpdateUserViewInput,
   type UserViewResponse,
 } from '@/application/ports/repositories/tables/user-view-repository'
+import { findConstraintViolation } from '@/domain/errors/driver-failure'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { Database } from '@/infrastructure/database/drizzle/layer'
 import { userSavedViews as userSavedViewsPg } from '@/infrastructure/database/drizzle/schema/user-views'
@@ -28,12 +29,7 @@ const userSavedViews = resolveDialectSchema(userSavedViewsPg, userSavedViewsSqli
 
 type SavedViewRow = Readonly<typeof userSavedViewsPg.$inferSelect>
 
-const isUniqueViolation = (err: unknown): boolean => {
-  const message = err instanceof Error ? err.message : String(err)
-  return (
-    message.includes('unique') || message.includes('UNIQUE') || message.includes('duplicate key')
-  )
-}
+const isUniqueViolation = (err: unknown): boolean => findConstraintViolation(err) === 'unique'
 
 const readConfig = (raw: unknown): Record<string, unknown> => {
   if (raw === null || raw === undefined) return {}

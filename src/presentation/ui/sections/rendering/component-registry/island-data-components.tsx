@@ -13,7 +13,6 @@ import {
 import { renderComponentSearchBar } from './component-search-bar'
 import { islandCalendarComponent } from './island-calendar-component'
 import { islandChartComponent } from './island-chart-component'
-import { islandDropdownComponent } from './island-dropdown-component'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -97,7 +96,6 @@ function extractTimelineProps(elementProps: Record<string, unknown>): Record<str
 }
 
 export const islandDataComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
-  dropdown: islandDropdownComponent,
   calendar: islandCalendarComponent,
   gallery: ({ elementProps }) => {
     const islandProps = extractGalleryProps(elementProps)

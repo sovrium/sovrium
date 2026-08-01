@@ -20,3 +20,8 @@ export function isSystemSession(userId: string | undefined): boolean {
 export function isAuthenticatedSession(userId: string | undefined): boolean {
   return !isGuestSession(userId)
 }
+
+export function resolveActorUserId(userId: string | undefined): string | undefined {
+  if (!userId || isGuestSession(userId) || isSystemSession(userId)) return undefined
+  return userId
+}

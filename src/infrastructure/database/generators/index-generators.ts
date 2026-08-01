@@ -18,6 +18,14 @@ import type { Fields } from '@/domain/models/app/tables/fields'
 const indexTableRef = (sanitized: string): string =>
   isSqliteRuntime() ? sanitized : `public.${sanitized}`
 
+export const standardIndexName = (
+  tableName: string,
+  field: { readonly name?: string | undefined; readonly type?: string | undefined }
+): string => {
+  const suffix = field.type === 'status' ? 'status' : field.name
+  return `idx_${sanitizeTableName(tableName)}_${suffix}`
+}
+
 const generateStandardIndexes = (table: Table): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
   const sqlite = isSqliteRuntime()
@@ -29,8 +37,7 @@ const generateStandardIndexes = (table: Table): readonly string[] => {
       const needsGin = field.type === 'array' || field.type === 'json'
       const needsGist = field.type === 'geolocation'
       if (sqlite && (needsGin || needsGist)) return []
-      const indexSuffix = field.type === 'status' ? 'status' : field.name
-      const indexName = `idx_${sanitized}_${indexSuffix}`
+      const indexName = standardIndexName(table.name, field)
       if (sqlite) {
         return [`CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${field.name})`]
       }

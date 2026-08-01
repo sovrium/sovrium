@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  matchesConditionOperators,
+  satisfiesFieldCondition,
+} from '@/domain/models/shared/condition-operators'
 import { computeCurrencyDisplayClasses } from '../recipes/field-affordances-default-classes'
+import { RecordButton } from '../shared/record-button'
 import { ActionButton } from './action-cell'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
@@ -96,34 +101,6 @@ function formatCellValue(value: unknown, format: ColumnFormat, locale: string): 
 }
 
 
-function matchesCondition(
-  operator: string,
-  expected: unknown,
-  strValue: string,
-  numValue: number
-): boolean {
-  const matchers: Record<string, () => boolean> = {
-    eq: () => strValue === String(expected),
-    neq: () => strValue !== String(expected),
-    in: () => Array.isArray(expected) && expected.some((entry) => String(entry) === strValue),
-    notIn: () => Array.isArray(expected) && !expected.some((entry) => String(entry) === strValue),
-    contains: () => strValue.includes(String(expected)),
-    gt: () => !Number.isNaN(numValue) && numValue > Number(expected),
-    lt: () => !Number.isNaN(numValue) && numValue < Number(expected),
-    gte: () => !Number.isNaN(numValue) && numValue >= Number(expected),
-    lte: () => !Number.isNaN(numValue) && numValue <= Number(expected),
-  }
-  return matchers[operator]?.() ?? false
-}
-
-function matchesConditionOperators(operators: CellStyleCondition['when'], value: unknown): boolean {
-  const strValue = String(value)
-  const numValue = Number(value)
-  return Object.entries(operators)
-    .filter(([, expected]) => expected !== undefined)
-    .every(([operator, expected]) => matchesCondition(operator, expected, strValue, numValue))
-}
-
 export function evaluateCellStyle(
   value: unknown,
   conditions: readonly CellStyleCondition[]
@@ -133,9 +110,7 @@ export function evaluateCellStyle(
 }
 
 function isActionVisible(action: ActionColumnItem, record: TableRecord): boolean {
-  if (!action.visibleWhen) return true
-  const { field, ...operators } = action.visibleWhen
-  return matchesConditionOperators(operators, record[field])
+  return satisfiesFieldCondition(action.visibleWhen, record)
 }
 
 
@@ -145,7 +120,36 @@ function wrapWithClass(content: React.ReactNode, className: string): React.React
   return className ? <span className={className}>{content}</span> : content
 }
 
-function buildFieldCellRenderer(col: FieldColumn, locale: string, fieldMeta?: FieldMetaMap) {
+interface ButtonCellOptions {
+  readonly tableName?: string
+  readonly fieldMeta?: FieldMetaMap
+  readonly onButtonInvoked?: () => void
+}
+
+function buildButtonCellRenderer(
+  field: string,
+  options: ButtonCellOptions
+): ((ctx: CellContext<TableRecord, unknown>) => React.ReactNode) | undefined {
+  const { tableName, fieldMeta, onButtonInvoked } = options
+  const config = fieldMeta?.[field]?.button
+  if (!config) return undefined
+  return ({ row }: CellContext<TableRecord, unknown>) => (
+    <RecordButton
+      config={config}
+      fieldName={field}
+      record={row.original}
+      {...(tableName === undefined ? {} : { table: tableName })}
+      {...(row.original['id'] === undefined ? {} : { recordId: String(row.original['id']) })}
+      {...(onButtonInvoked === undefined ? {} : { onInvoked: onButtonInvoked })}
+    />
+  )
+}
+
+function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapColumnsOptions) {
+  const { fieldMeta } = options
+  const buttonRenderer = buildButtonCellRenderer(col.field, options)
+  if (buttonRenderer) return buttonRenderer
+
   const fieldTypeRenderer = fieldMeta?.[col.field]?.type
     ? FIELD_TYPE_TO_CELL_RENDERER[fieldMeta[col.field]!.type]
     : undefined
@@ -197,18 +201,20 @@ export interface MapColumnsOptions {
   readonly groupByField?: string
   readonly onActionClick?: RowActionHandler
   readonly fieldMeta?: FieldMetaMap
+  readonly tableName?: string
+  readonly onButtonInvoked?: () => void
 }
 
 export function mapColumnsToColumnDefs(
   columns: readonly DataTableColumn[],
   options: MapColumnsOptions
 ): readonly ColumnDef<TableRecord>[] {
-  const { locale, groupByField, onActionClick, fieldMeta } = options
+  const { locale, groupByField, onActionClick } = options
   const visibleColumns = columns.filter((col) => !('field' in col && col.visible === false))
 
   return visibleColumns.map((col, index) => {
     if ('field' in col) {
-      const cellRenderer = buildFieldCellRenderer(col, locale, fieldMeta)
+      const cellRenderer = buildFieldCellRenderer(col, locale, options)
       return {
         accessorKey: col.field,
         header: col.label ?? col.field,
@@ -238,51 +244,55 @@ export function mapColumnsToColumnDefs(
 
 function buildAutoCellRenderer(
   field: string,
-  fieldMeta?: FieldMetaMap
-): ((ctx: { getValue: () => unknown }) => React.ReactNode) | undefined {
+  options: AutoColumnOptions
+): ((ctx: CellContext<TableRecord, unknown>) => React.ReactNode) | undefined {
+  const { fieldMeta } = options
+  const buttonRenderer = buildButtonCellRenderer(field, options)
+  if (buttonRenderer) return buttonRenderer
+
   const fieldType = fieldMeta?.[field]?.type
   if (!fieldType) return undefined
   const renderer = FIELD_TYPE_TO_CELL_RENDERER[fieldType]
   if (!renderer) return undefined
-  return ({ getValue }: { getValue: () => unknown }) => renderer({ value: getValue() })
+  return ({ getValue }: CellContext<TableRecord, unknown>) => renderer({ value: getValue() })
+}
+
+export interface AutoColumnOptions {
+  readonly groupByField?: string
+  readonly editable?: boolean
+  readonly fieldMeta?: FieldMetaMap
+  readonly tableName?: string
+  readonly onButtonInvoked?: () => void
+}
+
+function buildAutoColumn(field: string, options: AutoColumnOptions): ColumnDef<TableRecord> {
+  const cellRenderer = buildAutoCellRenderer(field, options)
+  const header = options.fieldMeta?.[field]?.button?.label ?? field
+  return {
+    accessorKey: field,
+    header,
+    enableSorting: true,
+    meta: { field, ...(options.editable === true && { editable: true }) },
+    ...(options.groupByField && field === options.groupByField && { enableGrouping: true }),
+    ...(cellRenderer && { cell: cellRenderer }),
+  } satisfies ColumnDef<TableRecord>
 }
 
 export function autoGenerateColumns(
   records: readonly TableRecord[],
-  groupByField?: string,
-  editable?: boolean,
-  fieldMeta?: FieldMetaMap
+  options: AutoColumnOptions
 ): readonly ColumnDef<TableRecord>[] {
   const firstRecord = records[0]
   if (!firstRecord) return []
-  return Object.keys(firstRecord).map((key) => {
-    const cellRenderer = buildAutoCellRenderer(key, fieldMeta)
-    return {
-      accessorKey: key,
-      header: key,
-      enableSorting: true,
-      meta: { field: key, ...(editable === true && { editable: true }) },
-      ...(groupByField && key === groupByField && { enableGrouping: true }),
-      ...(cellRenderer && { cell: cellRenderer }),
-    } satisfies ColumnDef<TableRecord>
-  })
+  const buttonFields = Object.keys(options.fieldMeta ?? {}).filter(
+    (name) => options.fieldMeta?.[name]?.button && !(name in firstRecord)
+  )
+  return [...Object.keys(firstRecord), ...buttonFields].map((key) => buildAutoColumn(key, options))
 }
 
 export function autoGenerateColumnsFromFields(
   fields: readonly string[],
-  groupByField?: string,
-  editable?: boolean,
-  fieldMeta?: FieldMetaMap
+  options: AutoColumnOptions
 ): readonly ColumnDef<TableRecord>[] {
-  return fields.map((field) => {
-    const cellRenderer = buildAutoCellRenderer(field, fieldMeta)
-    return {
-      accessorKey: field,
-      header: field,
-      enableSorting: true,
-      meta: { field, ...(editable === true && { editable: true }) },
-      ...(groupByField && field === groupByField && { enableGrouping: true }),
-      ...(cellRenderer && { cell: cellRenderer }),
-    } satisfies ColumnDef<TableRecord>
-  })
+  return fields.map((field) => buildAutoColumn(field, options))
 }

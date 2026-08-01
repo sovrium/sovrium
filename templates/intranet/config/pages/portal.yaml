@@ -59,9 +59,9 @@ components:
                 props:
                   dataSource:
                     table: posts
-                    defaultSort:
-                      field: created_at
-                      direction: desc
+                    sort:
+                      - field: created_at
+                        direction: desc
                   columns:
                     - field: title
                       header: Title
@@ -101,9 +101,9 @@ components:
                 props:
                   dataSource:
                     table: resources
-                    defaultSort:
-                      field: added_at
-                      direction: desc
+                    sort:
+                      - field: added_at
+                        direction: desc
                   columns:
                     - field: title
                       header: Title
@@ -145,9 +145,9 @@ components:
                 props:
                   dataSource:
                     table: members
-                    defaultSort:
-                      field: joined_at
-                      direction: desc
+                    sort:
+                      - field: joined_at
+                        direction: desc
                   columns:
                     - field: name
                       header: Name

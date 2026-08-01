@@ -72,6 +72,13 @@ type ListRecordsValidationInput = {
 }
 
 function validateListRecordsParams(input: ListRecordsValidationInput) {
+  const access = {
+    app: input.app,
+    tableName: input.tableName,
+    userRole: input.userRole,
+    c: input.c,
+  }
+
   return (
     validateTimezoneParam(input.timezone, input.c) ??
     validateSortPermission({
@@ -81,9 +88,9 @@ function validateListRecordsParams(input: ListRecordsValidationInput) {
       userRole: input.userRole,
       c: input.c,
     }) ??
-    validateFilterParam(input.filter, input.table, input.userRole, input.c) ??
-    validateAggregateParam(input.aggregate, input.table, input.userRole, input.c) ??
-    validateGroupByParam(input.groupBy, input.table, input.userRole, input.c) ??
+    validateFilterParam(input.filter, access) ??
+    validateAggregateParam(input.aggregate, access) ??
+    validateGroupByParam(input.groupBy, access) ??
     validateFieldsParam(input.fields, input.table, input.c)
   )
 }
@@ -300,7 +307,7 @@ export async function handleListTrash(c: Context, app: App) {
   const sortError = validateSortPermission({ sort, app, tableName, userRole, c })
   if (sortError) return sortError
 
-  const filterError = validateFilterParam(filter.value, table, userRole, c)
+  const filterError = validateFilterParam(filter.value, { app, tableName, userRole, c })
   if (filterError) return filterError
 
   return runEffect(

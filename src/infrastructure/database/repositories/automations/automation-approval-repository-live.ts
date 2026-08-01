@@ -7,7 +7,7 @@
 
 
 import { eq } from 'drizzle-orm'
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   AutomationApprovalDatabaseError,
   AutomationApprovalRepository,
@@ -24,6 +24,18 @@ const automationApprovalRequests = resolveDialectSchema(approvalsPg, approvalsSq
 const wrap = makeDbWrap((cause) => new AutomationApprovalDatabaseError({ cause }))
 
 export const AutomationApprovalRepositoryLive = Layer.succeed(AutomationApprovalRepository, {
+  insertPending: ({ message, stepIndex, runId, timeoutSeconds, expiresAt }) =>
+    wrap(() =>
+      db.insert(automationApprovalRequests).values({
+        stepIndex,
+        status: 'pending',
+        message,
+        ...(runId !== undefined ? { runId } : {}),
+        ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
+        ...(expiresAt !== undefined ? { expiresAt } : {}),
+      })
+    ).pipe(Effect.asVoid),
+
   findById: (id) =>
     wrap(async (): Promise<AutomationApprovalRow | undefined> => {
       const rows = await db

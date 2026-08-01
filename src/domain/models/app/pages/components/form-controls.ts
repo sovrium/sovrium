@@ -61,18 +61,6 @@ export const DrawerSizeSchema = Schema.Literal('sm', 'md', 'lg', 'full').annotat
 })
 
 
-export const CarouselOrientationSchema = Schema.Literal('horizontal', 'vertical').annotations({
-  title: 'Carousel Orientation',
-  description: 'Scroll direction for the carousel',
-})
-
-
-export const ResizableDirectionSchema = Schema.Literal('horizontal', 'vertical').annotations({
-  title: 'Resizable Direction',
-  description: 'Direction of the resizable panel layout',
-})
-
-
 export const ScrollOrientationSchema = Schema.Literal('vertical', 'horizontal', 'both').annotations(
   {
     title: 'Scroll Orientation',
@@ -106,8 +94,6 @@ export type InputType = Schema.Schema.Type<typeof InputTypeSchema>
 export type SkeletonVariant = Schema.Schema.Type<typeof SkeletonVariantSchema>
 export type DrawerSide = Schema.Schema.Type<typeof DrawerSideSchema>
 export type DrawerSize = Schema.Schema.Type<typeof DrawerSizeSchema>
-export type CarouselOrientation = Schema.Schema.Type<typeof CarouselOrientationSchema>
-export type ResizableDirection = Schema.Schema.Type<typeof ResizableDirectionSchema>
 export type ScrollOrientation = Schema.Schema.Type<typeof ScrollOrientationSchema>
 export type AccordionType = Schema.Schema.Type<typeof AccordionTypeSchema>
 export type TabsOrientation = Schema.Schema.Type<typeof TabsOrientationSchema>

@@ -34,6 +34,7 @@ import {
 } from '@/domain/models/shared/form-field-helpers'
 import { collectFieldsInSkippedSteps } from '@/domain/models/shared/multi-step-flow'
 import { buildCreateAuthorshipOverrides } from '@/domain/services/authorship-fields'
+import type { FormSubmitterMeta } from '@/application/use-cases/automations/trigger-form-submission'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -238,6 +239,13 @@ interface SubmitFormConfig {
   readonly processEnv?: Readonly<Record<string, string | undefined>>
   readonly submitterUserId?: string
 }
+
+const buildSubmitterMeta = (config: Readonly<SubmitFormConfig>): FormSubmitterMeta => ({
+  submittedAt: new Date().toISOString(),
+  submitterUserId: config.submitterUserId ?? '',
+  submitterUserAgent: config.userAgent ?? '',
+  submitterIpHash: config.submitterIpHash ?? '',
+})
 
 const coerceLinkedRecordId = (
   linkedRecord: { readonly id: unknown } | undefined
@@ -510,7 +518,9 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       submissionId: submissionId ?? null,
       formId: form.id,
       linkedRecord: buildLinkedRecord(form, linkedRecordPresent, linkedRecordId),
+      meta: buildSubmitterMeta(config),
       processEnv: processEnv ?? {},
+      ...(submitterUserId !== undefined ? { userId: submitterUserId } : {}),
     })
 
     return {

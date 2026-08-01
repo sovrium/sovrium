@@ -97,10 +97,6 @@ export const formResponseSchema = z
           .string()
           .optional()
           .describe('Hidden honeypot field name to render (when enabled)'),
-        captchaProvider: z
-          .string()
-          .optional()
-          .describe('CAPTCHA connection name to invoke client-side (Phase 3)'),
       })
       .optional(),
     onSuccess: z

@@ -38,7 +38,11 @@ export {
 
 export { generateColumnDefinition } from './sql-column-generators'
 
-export { generateForeignKeyConstraints, generateUniqueConstraints } from './sql-key-constraints'
+export {
+  generateForeignKeyConstraints,
+  generateUniqueConstraints,
+  isBtreeUniqueField,
+} from './sql-key-constraints'
 
 export {
   generateJunctionTableDDL,

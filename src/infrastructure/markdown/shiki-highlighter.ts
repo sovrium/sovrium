@@ -109,6 +109,13 @@ const highlightOne = async (
   }
 }
 
+const withFenceIndexClass = (html: string, index: number): string => {
+  const marker = `sv-md-code-${index}`
+  const stamped = html.replace(/^(<pre\b[^>]*?\bclass=")/, `$1${marker} `)
+  if (stamped !== html) return stamped
+  return html.replace(/^<pre\b/, `<pre class="${marker}"`)
+}
+
 const PLACEHOLDER_RE =
   /<pre><code(?:\s+class="[^"]*")?\s+data-md-code="(\d+)">[\s\S]*?<\/code><\/pre>/g
 
@@ -122,7 +129,9 @@ export const highlightCodeBlocks = async (
   const codeToHtml = await getShikiForTheme(activeTheme)
 
   const highlighted = await Promise.all(
-    codeBlocks.map(({ lang, code }) => highlightOne(codeToHtml, lang, code, activeTheme))
+    codeBlocks.map(async ({ lang, code }, index) =>
+      withFenceIndexClass(await highlightOne(codeToHtml, lang, code, activeTheme), index)
+    )
   )
 
   return html.replace(PLACEHOLDER_RE, (_match, idxStr: string) => {

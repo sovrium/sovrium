@@ -187,7 +187,14 @@ export function renderFileUpload(config: RenderFileUploadConfig): ReactElement {
   )
 }
 
-export function renderSearchInput(props: ElementProps): ReactElement {
+export interface RenderSearchInputConfig {
+  readonly props: ElementProps
+  readonly debounceMs?: number
+  readonly minQueryLength?: number
+}
+
+export function renderSearchInput(config: RenderSearchInputConfig): ReactElement {
+  const { props, debounceMs, minQueryLength } = config
   const id = props.id as string | undefined
   const placeholder = props.placeholder as string | undefined
   const className = props.className as string | undefined
@@ -208,6 +215,8 @@ export function renderSearchInput(props: ElementProps): ReactElement {
         placeholder={placeholder ?? 'Search...'}
         aria-label={placeholder ?? 'Search...'}
         className={fieldClassName}
+        data-search-debounce={debounceMs === undefined ? undefined : String(debounceMs)}
+        data-search-min-length={minQueryLength === undefined ? undefined : String(minQueryLength)}
       />
     </div>
   )

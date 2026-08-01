@@ -8,16 +8,23 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import { resolveActorUserId } from '@/domain/services/guest-session'
 import { logError } from '@/infrastructure/logging/logger'
 import { recordAutomationRun, type AutomationRunRecord } from '../run-history-store'
 import { toApiStatus, toApiStepStatus } from './run-status'
 import type { ExecutedStep, RunAccumulator } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
 
+const runActorOverlay = (userId: string | undefined): { readonly triggeredByUserId?: string } => {
+  const actorId = resolveActorUserId(userId)
+  return actorId === undefined ? {} : { triggeredByUserId: actorId }
+}
+
 export const persistQueuedRun = (input: {
   readonly automationId: string
   readonly triggerData: TriggerData
   readonly startedAt: Date
+  readonly userId: string | undefined
 }): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
@@ -27,6 +34,7 @@ export const persistQueuedRun = (input: {
         status: 'queued',
         triggerData: input.triggerData as unknown,
         startedAt: input.startedAt,
+        ...runActorOverlay(input.userId),
       })
     )
     if (result._tag === 'Left') {
@@ -82,6 +90,7 @@ type FinaliseRunInput = {
   readonly startedAt: Date
   readonly finishedAt: Date
   readonly steps: ReadonlyArray<ExecutedStep>
+  readonly userId: string | undefined
 }
 
 const finaliseRunFallback = (input: FinaliseRunInput) =>
@@ -95,6 +104,7 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
         startedAt: input.startedAt,
         completedAt: input.finishedAt,
         durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
+        ...runActorOverlay(input.userId),
         ...(input.engineError !== undefined ? { error: input.engineError } : {}),
         steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt),
       })

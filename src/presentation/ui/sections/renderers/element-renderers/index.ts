@@ -57,6 +57,5 @@ export {
   renderLanguageSwitcher,
   renderAlert,
   renderList,
-  renderUnorderedList,
   renderListItem,
 } from '../specialized-renderers'

@@ -9,41 +9,6 @@
 import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
 
 
-const CAROUSEL_CONTAINER = [
-  'relative overflow-hidden',
-  `bg-[${v('sv-bg', T.bg)}]`,
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `rounded-[${v('sv-radius-lg', T.radiusLg)}]`,
-].join(' ')
-
-export const computeCarouselContainerClasses = (): string => CAROUSEL_CONTAINER
-
-const CAROUSEL_NAV_BUTTON_LAYOUT =
-  'absolute top-1/2 -translate-y-1/2 flex items-center justify-center h-9 w-9 transition-colors'
-
-const CAROUSEL_NAV_BUTTON_SURFACE = [
-  `bg-[${v('sv-bg-overlay', T.bgOverlay)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `rounded-[${v('sv-radius-full', T.radiusFull)}]`,
-  `shadow-[${v('sv-shadow-sm', T.shadowSm)}]`,
-]
-
-export type CarouselNavDirection = 'prev' | 'next'
-
-export const computeCarouselNavButtonClasses = ({
-  direction,
-}: {
-  readonly direction: CarouselNavDirection
-}): string =>
-  [
-    CAROUSEL_NAV_BUTTON_LAYOUT,
-    direction === 'prev' ? 'left-2' : 'right-2',
-    ...CAROUSEL_NAV_BUTTON_SURFACE,
-  ].join(' ')
-
-
 const EMPTY_STATE_CONTAINER = [
   'flex flex-col items-center justify-center text-center gap-3 px-6 py-12',
   'border border-dashed',

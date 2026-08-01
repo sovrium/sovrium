@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Data, Effect, Exit, Cause } from 'effect'
+import { findConstraintViolation } from '@/domain/errors/driver-failure'
 import { ValidationError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { validateColumnName } from '../shared/validation'
@@ -46,15 +47,12 @@ function buildInsertClauses(fields: Readonly<Record<string, unknown>>):
 }
 
 function handleInsertError(error: unknown): ValidationError {
-  const pgError = error as { code?: string; message?: string }
-  if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
+  if (findConstraintViolation(error) === 'not-null') {
     return new ValidationError('Validation failed: Required field is missing', [
       { record: 0, field: 'unknown', error: 'Required field is missing' },
     ])
   }
-  const errorMessage: string =
-    pgError.message !== undefined ? pgError.message : 'Insert failed due to constraint violation'
-  return new ValidationError(errorMessage, [])
+  return new ValidationError('Insert failed due to constraint violation', [])
 }
 
 export async function createSingleRecord(

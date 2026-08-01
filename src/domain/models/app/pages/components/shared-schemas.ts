@@ -193,44 +193,6 @@ export const BreadcrumbItemSchema = Schema.Struct({
 })
 
 
-export const CommandItemSchema = Schema.Struct({
-  label: Schema.String.annotations({
-    description: 'Display text for the command',
-  }),
-  icon: Schema.optional(
-    Schema.String.annotations({
-      description: 'Lucide icon name displayed before the label',
-    })
-  ),
-  shortcut: Schema.optional(
-    Schema.String.annotations({
-      description: 'Keyboard shortcut hint (e.g. "Ctrl+K")',
-    })
-  ),
-  action: Schema.optional(ActionSchema),
-}).annotations({
-  title: 'Command Item',
-  description: 'A single command in a command palette group',
-})
-
-export const CommandGroupSchema = Schema.Struct({
-  heading: Schema.optional(
-    Schema.String.annotations({
-      description: 'Group heading text displayed above the items',
-    })
-  ),
-  items: Schema.Array(CommandItemSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
-      description: 'Command items belonging to this group',
-    })
-  ),
-}).annotations({
-  title: 'Command Group',
-  description: 'A group of commands in a command palette',
-})
-
-
 export const ButtonVariantSchema = Schema.Literal(
   'default',
   'destructive',
@@ -298,8 +260,6 @@ export type ComponentSize = Schema.Schema.Type<typeof ComponentSizeSchema>
 export type OptionItem = Schema.Schema.Type<typeof OptionItemSchema>
 export type MenuItem = Schema.Schema.Type<typeof MenuItemSchema>
 export type BreadcrumbItem = Schema.Schema.Type<typeof BreadcrumbItemSchema>
-export type CommandItem = Schema.Schema.Type<typeof CommandItemSchema>
-export type CommandGroup = Schema.Schema.Type<typeof CommandGroupSchema>
 export type ButtonVariant = Schema.Schema.Type<typeof ButtonVariantSchema>
 export type BadgeVariant = Schema.Schema.Type<typeof BadgeVariantSchema>
 export type AlertVariant = Schema.Schema.Type<typeof AlertVariantSchema>

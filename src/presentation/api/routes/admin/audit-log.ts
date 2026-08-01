@@ -17,11 +17,13 @@ export async function handleGetAuditLog(c: Context): Promise<Response> {
   const actorId = c.req.query('actorId')
   const action = c.req.query('action')
   const transport = c.req.query('transport')
+  const resourceType = c.req.query('resourceType')
 
   const items = await listAuditEvents({
     ...(actorId ? { actorId } : {}),
     ...(action ? { action } : {}),
     ...(transport ? { transport } : {}),
+    ...(resourceType ? { resourceType } : {}),
   })
 
   const response: AuditLogListResponse = { items: items.slice(), nextCursor: null }

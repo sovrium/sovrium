@@ -16,6 +16,8 @@ import {
   authUsersTable,
   authSessionsTable,
   authAccountsTable,
+  authTeamsTable,
+  authTeamMembersTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
@@ -61,6 +63,55 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       const users = authUsersTable()
       return db.update(users).set({ role }).where(eq(users.id, userId))
     }).pipe(Effect.asVoid),
+
+  userExists: (userId: string) =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1)
+      })
+      return rows.length > 0
+    }),
+
+  banUser: (userId: string, reason?: string) =>
+    wrap(() => {
+      const users = authUsersTable()
+      return db
+        .update(users)
+        .set(reason === undefined ? { banned: true } : { banned: true, banReason: reason })
+        .where(eq(users.id, userId))
+    }).pipe(Effect.asVoid),
+
+  unbanUser: (userId: string) =>
+    wrap(() => {
+      const users = authUsersTable()
+      return db.update(users).set({ banned: false, banReason: null }).where(eq(users.id, userId))
+    }).pipe(Effect.asVoid),
+
+  getUserGroups: (userId: string) =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(async () => {
+        const teams = authTeamsTable()
+        const teamMembers = authTeamMembersTable()
+        return await db
+          .select({ name: teams.name })
+          .from(teamMembers)
+          .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+          .where(eq(teamMembers.userId, userId))
+      })
+      return rows.map((row) => row.name)
+    }),
+
+  findAdminEmails: (adminRole: string) =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db.select({ email: users.email }).from(users).where(eq(users.role, adminRole))
+      })
+      return rows
+        .map((row) => row.email)
+        .filter((email): email is string => typeof email === 'string' && email !== '')
+    }),
 
   getUserSessionToken: (userId: string) =>
     Effect.gen(function* () {

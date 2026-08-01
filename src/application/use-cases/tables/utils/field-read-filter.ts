@@ -47,16 +47,15 @@ function shouldExcludeForViewer(fieldName: string, fieldType: string): boolean {
   return false
 }
 
-function shouldExcludeFieldByDefault(
+type FieldBearingTable = {
+  readonly fields: readonly { readonly name: string; readonly type: string }[]
+}
+
+function isFieldExcludedByDefaultRules(
   fieldName: string,
   userRole: string,
-  table:
-    { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined
+  table: FieldBearingTable | undefined
 ): boolean {
-  if (userRole === 'admin') {
-    return false
-  }
-
   const field = table?.fields.find((f) => f.name === fieldName)
   if (!field) return false
 
@@ -71,6 +70,29 @@ function shouldExcludeFieldByDefault(
   return false
 }
 
+export function isFieldReadableByRole(
+  app: App,
+  tableName: string,
+  userRole: string,
+  fieldName: string
+): boolean {
+  if (isAdminEquivalent(userRole, app)) return true
+
+  if (isSystemField(fieldName)) return true
+
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  if (table?.permissions?.fields) {
+    const fieldPermission = table.permissions.fields.find((fp) => fp.field === fieldName)
+
+    if (!fieldPermission?.read) return true
+
+    return hasFieldReadPermission(fieldPermission.read, userRole)
+  }
+
+  return !isFieldExcludedByDefaultRules(fieldName, userRole, table)
+}
+
 export function filterReadableFields<T extends Record<string, unknown>>(
   params: Readonly<{
     app: App
@@ -81,43 +103,12 @@ export function filterReadableFields<T extends Record<string, unknown>>(
 ): Readonly<Record<string, unknown>> {
   const { app, tableName, userRole, record } = params
 
-  const table = app.tables?.find((t) => t.name === tableName)
-
-  const isUnrestricted = isAdminEquivalent(userRole, app)
-
-  if (!table?.permissions?.fields) {
-    return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-      if (isSystemField(fieldName)) {
-        return { ...acc, [fieldName]: record[fieldName] }
-      }
-
-      if (shouldExcludeFieldByDefault(fieldName, userRole, table)) {
-        return acc
-      }
-
-      return { ...acc, [fieldName]: record[fieldName] }
-    }, {})
-  }
-
-  const filteredRecord = Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-    if (isSystemField(fieldName)) {
-      return { ...acc, [fieldName]: record[fieldName] }
+  return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
+    if (!isFieldReadableByRole(app, tableName, userRole, fieldName)) {
+      return acc
     }
-
-    const fieldPermission = table.permissions?.fields?.find((fp) => fp.field === fieldName)
-
-    if (!fieldPermission?.read) {
-      return { ...acc, [fieldName]: record[fieldName] }
-    }
-
-    if (isUnrestricted || hasFieldReadPermission(fieldPermission.read, userRole)) {
-      return { ...acc, [fieldName]: record[fieldName] }
-    }
-
-    return acc
+    return { ...acc, [fieldName]: record[fieldName] }
   }, {})
-
-  return filteredRecord
 }
 
 function hasFieldReadPermission(permission: TablePermission, userRole: string): boolean {

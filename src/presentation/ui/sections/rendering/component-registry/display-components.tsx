@@ -7,8 +7,6 @@
 
 
 import {
-  computeCarouselContainerClasses,
-  computeCarouselNavButtonClasses,
   computeEmptyStateContainerClasses,
   computeEmptyStateTitleClasses,
   computeSpeechBubbleClasses,
@@ -92,40 +90,6 @@ export const displayComponents: Partial<Record<Component['type'], ComponentRende
         className={className}
       >
         {content || renderedChildren}
-      </div>
-    )
-  },
-
-  carousel: ({ elementProps, renderedChildren }) => {
-    const showArrows = elementProps['showArrows'] === true
-    const authorClassName = elementProps['className'] as string | undefined
-    const className = mergePrestyle(computeCarouselContainerClasses(), authorClassName)
-    return (
-      <div
-        data-testid={elementProps['data-testid'] as string | undefined}
-        id={elementProps['id'] as string | undefined}
-        className={className}
-        data-component="carousel"
-      >
-        {renderedChildren}
-        {showArrows && (
-          <>
-            <button
-              type="button"
-              aria-label="Previous slide"
-              className={computeCarouselNavButtonClasses({ direction: 'prev' })}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              aria-label="Next slide"
-              className={computeCarouselNavButtonClasses({ direction: 'next' })}
-            >
-              ›
-            </button>
-          </>
-        )}
       </div>
     )
   },

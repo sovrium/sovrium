@@ -21,6 +21,7 @@ export interface MarkdownDirective {
 export interface MarkdownCodeBlock {
   readonly lang: string
   readonly code: string
+  readonly title?: string
 }
 
 export interface RenderedMarkdown {

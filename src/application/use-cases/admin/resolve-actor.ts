@@ -8,8 +8,9 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { coerceHumanActorRole } from '@/domain/models/api/admin/_shared/actor'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
-import type { Actor, ActorRole } from '@/domain/models/api/admin/_shared/actor'
+import type { Actor } from '@/domain/models/api/admin/_shared/actor'
 
 const DEFAULT_ROLE = 'member'
 
@@ -25,13 +26,10 @@ export async function resolveActor(userId: string): Promise<Actor> {
 
   const { role, email } = await Effect.runPromise(program)
 
-  const resolvedRole: ActorRole =
-    role === 'admin' || role === 'operator' || role === 'system' ? role : 'system'
-
   return {
     id: userId,
     type: 'user',
-    role: resolvedRole,
+    role: coerceHumanActorRole(role),
     ...(email ? { email } : {}),
   }
 }

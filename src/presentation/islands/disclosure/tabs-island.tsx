@@ -6,13 +6,16 @@
  */
 
 import { Tabs } from '@base-ui/react/tabs'
-import { useCallback, useEffect, useRef, type ReactElement } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import { useCallback, useEffect, useId, useRef, type ReactElement } from 'react'
+import { cn } from '@/presentation/utils/design/class-merge'
 import {
   computeTabClasses,
+  computeTabDescriptionClasses,
   computeTabIndicatorClasses,
+  computeTabLabelClasses,
   computeTabPanelClasses,
   computeTabsListClasses,
+  computeTabsRootClasses,
 } from './disclosure-default-classes'
 
 interface TabItem {
@@ -20,6 +23,42 @@ interface TabItem {
   readonly label: string
   readonly content: string
   readonly disabled?: boolean
+  readonly description?: string
+}
+
+function TabTrigger({
+  tab,
+  orientation,
+  descriptionId,
+}: {
+  readonly tab: TabItem
+  readonly orientation: 'horizontal' | 'vertical'
+  readonly descriptionId: string
+}): ReactElement {
+  const described = tab.description !== undefined && tab.description.length > 0
+  return (
+    <Tabs.Tab
+      value={tab.id}
+      disabled={tab.disabled}
+      className={computeTabClasses({ orientation })}
+      aria-label={described ? tab.label : undefined}
+      aria-describedby={described ? descriptionId : undefined}
+    >
+      {described ? (
+        <>
+          <span className={computeTabLabelClasses()}>{tab.label}</span>
+          <span
+            id={descriptionId}
+            className={computeTabDescriptionClasses()}
+          >
+            {tab.description}
+          </span>
+        </>
+      ) : (
+        tab.label
+      )}
+    </Tabs.Tab>
+  )
 }
 
 interface TabsIslandProps {
@@ -60,13 +99,14 @@ export default function TabsIsland({
   const defaultValue = defaultTab ?? items[0]?.id
   const rootRef = useRef<HTMLDivElement>(null)
   const rescanNestedIslands = useNestedIslandMount(rootRef)
+  const uid = useId()
 
   return (
     <Tabs.Root
       ref={rootRef}
       defaultValue={defaultValue}
       orientation={tabsOrientation}
-      className={cn(className)}
+      className={cn(computeTabsRootClasses({ orientation: tabsOrientation }), className)}
       id={id}
       data-testid={testId}
       onValueChange={rescanNestedIslands}
@@ -77,14 +117,12 @@ export default function TabsIsland({
         data-scrollable={isHorizontalTabList(tabsOrientation)}
       >
         {items.map((tab) => (
-          <Tabs.Tab
+          <TabTrigger
             key={tab.id}
-            value={tab.id}
-            disabled={tab.disabled}
-            className={computeTabClasses()}
-          >
-            {tab.label}
-          </Tabs.Tab>
+            tab={tab}
+            orientation={tabsOrientation}
+            descriptionId={`${uid}tab-description-${tab.id}`}
+          />
         ))}
         <Tabs.Indicator className={computeTabIndicatorClasses()} />
       </Tabs.List>
@@ -92,7 +130,7 @@ export default function TabsIsland({
         <Tabs.Panel
           key={tab.id}
           value={tab.id}
-          className={computeTabPanelClasses()}
+          className={computeTabPanelClasses({ orientation: tabsOrientation })}
           dangerouslySetInnerHTML={{ __html: tab.content }}
         />
       ))}

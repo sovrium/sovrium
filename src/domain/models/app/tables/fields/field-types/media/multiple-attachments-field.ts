@@ -44,13 +44,6 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
-      generateThumbnails: Schema.optional(
-        Schema.Boolean.pipe(
-          Schema.annotations({
-            description: 'Whether to generate thumbnails for image attachments',
-          })
-        )
-      ),
       storeMetadata: Schema.optional(
         Schema.Boolean.pipe(
           Schema.annotations({

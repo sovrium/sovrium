@@ -15,8 +15,6 @@ import { DocsContributionFooter } from '@/presentation/ui/pages/markdown/DocsCon
 import { DocsPrevNext } from '@/presentation/ui/pages/markdown/DocsPrevNext'
 import { DocsSidebarNav } from '@/presentation/ui/pages/markdown/DocsSidebarNav'
 import {
-  CODE_COPY_SCRIPT_HTML,
-  CODE_COPY_STYLE_HTML,
   COPY_MARKDOWN_SCRIPT_HTML,
   DOCS_PROSE_PATCH_HTML,
   TOC_SCROLLSPY_SCRIPT_HTML,
@@ -245,19 +243,12 @@ export function MarkdownArticle({ markdown }: MarkdownArticleProps): Readonly<Re
   if (markdown.layout === 'none') return renderRawMarkdown(markdown)
   const labels = getDocsChromeLabels(markdown.lang)
   const body = renderMarkdownBody(markdown, labels)
-  const hasCode = markdown.html.includes('class="shiki')
   const hasToc = markdown.tocHeadings !== undefined && markdown.tocHeadings.length > 0
   const hasDocsHeader = markdown.layout === 'docs' && markdown.collectionNav !== undefined
-  if (!hasCode && !hasToc && !hasDocsHeader) return body
+  if (!hasToc && !hasDocsHeader) return body
   return (
     <>
       {body}
-      {hasCode && (
-        <>
-          <style dangerouslySetInnerHTML={CODE_COPY_STYLE_HTML} />
-          <script dangerouslySetInnerHTML={CODE_COPY_SCRIPT_HTML} />
-        </>
-      )}
       {hasToc && (
         <>
           <style dangerouslySetInnerHTML={TOC_SCROLLSPY_STYLE_HTML} />

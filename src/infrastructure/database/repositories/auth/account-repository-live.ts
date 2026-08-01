@@ -5,18 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AccountDatabaseError,
   AccountRepository,
+  type AccountFormSubmissionRow,
   type AccountLinkedRow,
   type AccountSessionRow,
   type AccountUserRow,
 } from '@/application/ports/repositories/auth/account-repository'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
-import { authTableRef } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  authTableRef,
+  formSubmissionsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import {
   executeRaw,
@@ -89,6 +93,23 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
             FROM ${authTableRef('account')} WHERE user_id = ${userId}`
       )
     ),
+
+  loadFormSubmissions: (userId) =>
+    wrap(async () => {
+      const submissions = formSubmissionsTable()
+      return (await db
+        .select({
+          id: submissions.id,
+          formName: submissions.formName,
+          status: submissions.status,
+          data: submissions.data,
+          userAgent: submissions.userAgent,
+          submittedAt: submissions.submittedAt,
+        })
+        .from(submissions)
+        .where(eq(submissions.submitterUserId, userId))
+        .orderBy(desc(submissions.submittedAt))) as readonly AccountFormSubmissionRow[]
+    }),
 
   loadScheduledErasure: (userId) =>
     wrap(async () => {

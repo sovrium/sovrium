@@ -32,6 +32,7 @@ import {
   requireAdmin,
   requireAdminTier,
 } from '@/presentation/api/middleware/auth'
+import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import {
   chainTableRoutes,
   chainAccountRoutes,
@@ -68,7 +69,6 @@ import { chainRealtimeRoutes } from '@/presentation/api/routes/realtime'
 import { chainRecentRoutes } from '@/presentation/api/routes/recent'
 import { sharedViewsRateLimitMiddleware } from '@/presentation/api/routes/user-views/shared-views-rate-limit'
 import {
-  extractClientIp,
   isTablesRateLimitExceeded,
   recordTablesRateLimitRequest,
   getTablesRateLimitRetryAfter,
@@ -91,7 +91,7 @@ const isRealtimeSubscriptionPath = (path: string): boolean =>
 const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
   return honoApp
     .use('/api/tables', async (c, next) => {
-      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const ip = getRequestClientIp(c)
       const { method } = c.req
       const path = '/api/tables'
 
@@ -113,7 +113,7 @@ const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
       await next()
     })
     .use('/api/tables/*', async (c, next) => {
-      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const ip = getRequestClientIp(c)
       const { method } = c.req
       const { path } = c.req
 
@@ -144,7 +144,7 @@ const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
 const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
   return honoApp
     .use('/api/activity', async (c, next) => {
-      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const ip = getRequestClientIp(c)
       const { method } = c.req
       const path = '/api/activity'
 
@@ -166,7 +166,7 @@ const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
       await next()
     })
     .use('/api/activity/*', async (c, next) => {
-      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const ip = getRequestClientIp(c)
       const { method } = c.req
       const { path } = c.req
 

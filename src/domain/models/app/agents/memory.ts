@@ -7,39 +7,6 @@
 
 import { Schema } from 'effect'
 
-const ConversationMemorySchema = Schema.Struct({
-  enabled: Schema.optional(
-    Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Whether conversation memory is enabled (default: false)' })
-    )
-  ),
-
-  windowSize: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
-        description: 'Number of recent messages to keep in context (default: 10)',
-      })
-    )
-  ),
-
-  summarize: Schema.optional(
-    Schema.Boolean.pipe(
-      Schema.annotations({
-        description:
-          'Compress older messages into a summary instead of dropping them (default: false)',
-      })
-    )
-  ),
-}).pipe(
-  Schema.annotations({
-    identifier: 'ConversationMemory',
-    title: 'Conversation Memory',
-    description: 'Session-level message history for maintaining conversational context',
-  })
-)
-
 const KnowledgeMemorySchema = Schema.Struct({
   enabled: Schema.optional(
     Schema.Boolean.pipe(
@@ -122,8 +89,6 @@ const FactsMemorySchema = Schema.Struct({
 )
 
 export const AgentMemorySchema = Schema.Struct({
-  conversation: Schema.optional(ConversationMemorySchema),
-
   knowledge: Schema.optional(KnowledgeMemorySchema),
 
   facts: Schema.optional(FactsMemorySchema),
@@ -131,8 +96,7 @@ export const AgentMemorySchema = Schema.Struct({
   Schema.annotations({
     identifier: 'AgentMemory',
     title: 'Agent Memory',
-    description:
-      'Memory configuration for an AI agent: conversation history, knowledge retrieval, and learned facts',
+    description: 'Memory configuration for an AI agent: knowledge retrieval and learned facts',
   })
 )
 

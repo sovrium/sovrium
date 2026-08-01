@@ -20,6 +20,7 @@ import {
   DrawerContent,
   isStructured,
   type DrawerAction,
+  type DrawerContentProps,
   type RecordDrawerField,
 } from './record-drawer-content'
 import { DialogSurface, RegionSurface } from './record-drawer-surfaces'
@@ -163,6 +164,10 @@ function useDrawerHandlers(
   return { onChange, onClose }
 }
 
+function renderDrawerBody(props: DrawerContentProps): ReactElement {
+  return <DrawerContent {...props} />
+}
+
 export default function RecordDrawerIsland({
   id,
   title,
@@ -187,18 +192,17 @@ export default function RecordDrawerIsland({
   const { onChange, onClose } = useDrawerHandlers(setValues, setOpen, setError)
   const onSave = useRecordSave({ recordFields, values, table, recordId, setOpen, setError })
 
-  const body = (
-    <DrawerContent
-      fields={recordFields}
-      values={values}
-      record={record}
-      canEdit={canEdit}
-      error={error}
-      actions={actions}
-      onChange={onChange}
-      onSave={onSave}
-    />
-  )
+  const body = renderDrawerBody({
+    fields: recordFields,
+    values,
+    record,
+    canEdit,
+    actions,
+    onChange,
+    onSave,
+    ...(error === undefined ? {} : { error }),
+    ...(table === undefined ? {} : { table }),
+  })
 
   if (role === 'region') {
     if (!open) return null

@@ -6,7 +6,7 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import {
   computeMenuItemClasses,
   computeMenuPopupClasses,

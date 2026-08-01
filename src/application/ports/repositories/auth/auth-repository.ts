@@ -24,6 +24,13 @@ export class AuthRepository extends Context.Tag('AuthRepository')<
       userId: string,
       role: string
     ) => Effect.Effect<void, AuthDatabaseError>
+    readonly userExists: (userId: string) => Effect.Effect<boolean, AuthDatabaseError>
+    readonly banUser: (userId: string, reason?: string) => Effect.Effect<void, AuthDatabaseError>
+    readonly unbanUser: (userId: string) => Effect.Effect<void, AuthDatabaseError>
+    readonly getUserGroups: (userId: string) => Effect.Effect<readonly string[], AuthDatabaseError>
+    readonly findAdminEmails: (
+      adminRole: string
+    ) => Effect.Effect<readonly string[], AuthDatabaseError>
     readonly getUserSessionToken: (
       userId: string
     ) => Effect.Effect<string | undefined, AuthDatabaseError>

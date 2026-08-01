@@ -96,6 +96,24 @@ const generateContainerChrome = (chrome: ChromeColors): string =>
     width: 100%;
   }`
 
+const FRAME_CHROME = `figure[data-code-frame] pre.shiki,
+  figure[data-code-frame] pre[data-code-command],
+  figure[data-code-frame] pre[data-code-output] {
+    border-radius: 0;
+    border-width: 0;
+    margin: 0;
+  }
+  figure[data-code-frame] figcaption {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-style: normal;
+    color: var(--sv-fg-muted, oklch(0.445 0 0));
+  }
+  [data-copy-code] [data-copy-glyph="copied"] { display: none; }
+  [data-copy-code][data-copied="true"] [data-copy-glyph="copied"] { display: inline; }
+  [data-copy-code][data-copied="true"] [data-copy-glyph="copy"] { display: none; }`
+
 const generateTokenColorRules = (): string =>
   Object.entries(COMMON_TOKEN_COLORS)
     .map(([hex, color]) => `  .tok-${hex} { color: ${color}; }`)
@@ -120,5 +138,5 @@ export const generateCodeBlockStyles = (theme?: Theme): string => {
   const chrome = generateContainerChrome(chromeColors)
   const tokenRules = generateTokenColorRules()
   const themeHook = generateThemeScopedHook(themeName, chromeColors)
-  return `${chrome}\n${tokenRules}\n${themeHook}`
+  return `${chrome}\n${FRAME_CHROME}\n${tokenRules}\n${themeHook}`
 }

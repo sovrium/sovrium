@@ -61,10 +61,12 @@ import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 
-async function handleBatchRestore(c: Context, _app: App) {
+async function handleBatchRestore(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
-  if (userRole === 'viewer') {
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  if (!hasDeletePermission(table, userRole, app.tables)) {
     return c.json(
       {
         success: false,

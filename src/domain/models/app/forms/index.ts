@@ -20,7 +20,6 @@ import { FormPathSchema } from './path'
 import { PrefillSchema } from './prefill'
 import { FormStepSchema } from './steps'
 import { SubmitToSchema } from './submit-to'
-import { SubmitterOptionsSchema } from './submitter'
 
 export const FormLayoutModeSchema = Schema.Literal(
   'single-page',
@@ -58,7 +57,6 @@ export const FormSchema = Schema.Struct({
   antiSpam: Schema.optional(AntiSpamSchema),
   analytics: Schema.optional(FormAnalyticsSchema),
   prefill: Schema.optional(PrefillSchema),
-  submitter: Schema.optional(SubmitterOptionsSchema),
   onSuccess: Schema.optional(FormOnSuccessSchema),
   onError: Schema.optional(FormOnErrorSchema),
 }).pipe(
@@ -116,7 +114,6 @@ export * from './path'
 export * from './prefill'
 export * from './steps'
 export * from './submit-to'
-export * from './submitter'
 export {
   ConditionOperatorSchema,
   VisibleWhenSchema,

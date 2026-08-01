@@ -7,9 +7,8 @@
 
 
 import { Effect } from 'effect'
+import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import { parseDuration } from '@/domain/utils/parse-duration'
-import { db } from '@/infrastructure/database'
-import { automationApprovalRequests } from '@/infrastructure/database/drizzle/schema/automation'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -19,21 +18,11 @@ const insertApprovalRequest = (input: {
   readonly expiresAt: Date | undefined
   readonly runId: string | undefined
   readonly stepIndex: number
-}): Effect.Effect<void> =>
-  Effect.promise(() =>
-    db
-      .insert(automationApprovalRequests)
-      .values({
-        stepIndex: input.stepIndex,
-        status: 'pending',
-        message: input.message,
-        ...(input.runId !== undefined ? { runId: input.runId } : {}),
-        ...(input.timeoutSeconds !== undefined ? { timeoutSeconds: input.timeoutSeconds } : {}),
-        ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
-      })
-      .then(() => undefined)
-      .catch(() => undefined)
-  )
+}): Effect.Effect<void, never, AutomationApprovalRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* AutomationApprovalRepository
+    yield* repo.insertPending(input)
+  }).pipe(Effect.catchAll(() => Effect.void))
 
 const deriveTimeout = (
   timeout: unknown

@@ -285,9 +285,6 @@ export const specialComponents: Partial<Record<Component['type'], ComponentRende
     return Renderers.renderList(domProps, content, theme)
   },
 
-  ul: ({ elementProps, content, renderedChildren }) =>
-    Renderers.renderUnorderedList(elementProps, content, renderedChildren),
-
   li: ({ elementProps, content, renderedChildren }) =>
     Renderers.renderListItem(elementProps, content, renderedChildren),
 

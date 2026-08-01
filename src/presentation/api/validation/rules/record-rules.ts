@@ -20,6 +20,10 @@ import {
   enrichAttachmentMetadata,
   uploadInlineAttachmentContent,
 } from './field-rules'
+import {
+  validateMultiSelectOptions,
+  validateMultiSelectSelectionLimits,
+} from './multi-select-rules'
 import type { FieldValidationError, FieldPermissionError } from '../../middleware/validation'
 import type { StorageService } from '@/application/ports/services/storage-service'
 
@@ -58,7 +62,7 @@ function applySlugAutoDerive(
   })
 }
 
-function sanitizeRichTextFields(
+export function sanitizeRichTextFields(
   fields: Record<string, unknown>
 ): Effect.Effect<Record<string, unknown>, never, ValidationContext> {
   return Effect.gen(function* () {
@@ -103,6 +107,10 @@ export function validateRecordCreation(
     yield* validateRequiredFields(slugAppliedData)
 
     yield* validateFieldFormats(slugAppliedData)
+
+    yield* validateMultiSelectOptions(slugAppliedData)
+
+    yield* validateMultiSelectSelectionLimits(slugAppliedData)
 
     yield* validateAttachmentConstraints(slugAppliedData)
 

@@ -19,9 +19,8 @@ export const TwoFactorConfigSchema = Schema.Union(
       Schema.Boolean.pipe(Schema.annotations({ description: 'Generate backup codes for recovery' }))
     ),
     digits: Schema.optional(
-      Schema.Number.pipe(
-        Schema.between(4, 8),
-        Schema.annotations({ description: 'Number of digits in TOTP code (4-8)' })
+      Schema.Literal(6, 8).pipe(
+        Schema.annotations({ description: 'Number of digits in TOTP code (6 or 8)' })
       )
     ),
     period: Schema.optional(

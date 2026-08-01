@@ -139,14 +139,6 @@ export function renderList(
   return <ul {...props}>{renderedItems}</ul>
 }
 
-export function renderUnorderedList(
-  props: ElementProps,
-  content: string | undefined,
-  children: readonly React.ReactNode[]
-): ReactElement {
-  return <ul {...props}>{content || children}</ul>
-}
-
 export function renderListItem(
   props: ElementProps,
   content: string | undefined,

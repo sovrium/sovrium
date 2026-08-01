@@ -18,6 +18,7 @@ export type FieldWidget =
   | 'rich-text'
   | 'file-single'
   | 'file-multiple'
+  | 'button'
 
 export interface FieldTypeBehavior {
   readonly widget: FieldWidget
@@ -71,7 +72,7 @@ const FIELD_TYPE_BEHAVIOR = {
   lookup: TEXT_OMITS_EMPTY,
   count: TEXT_OMITS_EMPTY,
   autonumber: TEXT_OMITS_EMPTY,
-  button: TEXT_OMITS_EMPTY,
+  button: { widget: 'button', omitWhenEmpty: true },
   'created-at': TEXT_OMITS_EMPTY,
   'created-by': TEXT_OMITS_EMPTY,
   'updated-at': TEXT_OMITS_EMPTY,
@@ -110,6 +111,7 @@ const WIDGET_SHOWS_DECLARED_DEFAULT: Record<FieldWidget, boolean> = {
   'rich-text': false,
   'file-single': false,
   'file-multiple': false,
+  button: false,
 }
 
 export function showsDeclaredDefault(type: string): boolean {

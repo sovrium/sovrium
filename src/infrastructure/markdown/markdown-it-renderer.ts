@@ -15,6 +15,7 @@ import {
   type MarkdownHeading,
   type RenderedMarkdown,
 } from '@/domain/services/markdown/markdown-renderer'
+import { parseFenceInfo } from '@/domain/utils/code-frame-defaults'
 
 interface MdToken {
   readonly type: string
@@ -123,11 +124,10 @@ const createRenderer = (): MarkdownIt => {
   md.renderer.rules.fence = (tokens, idx, _options, env: RenderEnv) => {
     const token = tokens[idx]
     if (!token) return ''
-    const info = (token.info ?? '').trim()
-    const lang = info.split(/\s+/, 1)[0] ?? ''
+    const { lang, title } = parseFenceInfo(token.info ?? '')
     const code = token.content.replace(/\n$/, '')
     const index = env.codeBlocks.length
-    env.codeBlocks[index] = { lang, code }
+    env.codeBlocks[index] = { lang, code, ...(title === undefined ? {} : { title }) }
     const langAttr = lang.length > 0 ? ` class="language-${escapeHtml(lang)}"` : ''
     return `<pre><code${langAttr} data-md-code="${index}">${escapeHtml(code)}</code></pre>\n`
   }

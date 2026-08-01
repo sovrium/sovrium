@@ -23,15 +23,6 @@ export const AgentPermissionsSchema = Schema.Struct({
       })
     )
   ),
-
-  emailDomain: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotations({
-        description:
-          "Domain for synthetic agent email addresses (defaults to 'agents.sovrium.local')",
-      })
-    )
-  ),
 }).pipe(
   Schema.annotations({
     identifier: 'AgentPermissions',

@@ -31,7 +31,6 @@ import { PaletteSchema } from './palette'
 import { RedirectsSchema } from './redirects'
 import { validateAllRedirectRules } from './redirects-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
-import { AppScriptsSchema } from './scripts'
 import { validateAllSystemSourceReferences } from './system-source-validation'
 import { SystemSourceCatalogSchema } from './systemSources'
 import { validateAllTablePermissionGroups } from './table-permission-validation'
@@ -77,8 +76,6 @@ export const AppSchema = Schema.Struct({
   agents: Schema.optional(AgentsSchema),
 
   buckets: Schema.optional(BucketsSchema),
-
-  scripts: Schema.optional(AppScriptsSchema),
 
   llms: Schema.optional(LlmsSchema),
 

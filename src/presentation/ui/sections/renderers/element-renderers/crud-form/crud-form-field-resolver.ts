@@ -109,6 +109,22 @@ function resolveAllowedFileTypes(
     : undefined
 }
 
+function resolveButtonConfig(
+  fieldType: string,
+  tf: Record<string, unknown>
+): Record<string, unknown> {
+  if (fieldType !== 'button') return {}
+  return {
+    button: {
+      label: tf['label'],
+      action: tf['action'],
+      ...(tf['url'] === undefined ? {} : { url: tf['url'] }),
+      ...(tf['automation'] === undefined ? {} : { automation: tf['automation'] }),
+      ...(tf['visibleWhen'] === undefined ? {} : { visibleWhen: tf['visibleWhen'] }),
+    },
+  }
+}
+
 function resolveFieldDef(
   tableField: { readonly name: string; readonly type: string; readonly required?: boolean },
   cfg: FormFieldConfig | undefined,
@@ -136,6 +152,7 @@ function resolveFieldDef(
     ...(maxFileSize !== undefined && { maxFileSize }),
     ...(allowedFileTypes !== undefined && { allowedFileTypes }),
     ...(attachmentBucket !== undefined && { bucket: attachmentBucket }),
+    ...resolveButtonConfig(tableField.type, tf),
     ...(cfg ? resolveCfgOverrides(cfg, fallbackLabel) : undefined),
   }
 }

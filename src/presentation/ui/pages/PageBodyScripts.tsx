@@ -177,6 +177,10 @@ const clickScript = `!function(){function openModal(id){window.__sovriumOpenModa
 
 const themeToggleScript = `!function(){document.addEventListener("click",function(t){var e=t.target.closest("[data-theme-toggle]");if(!e)return;var root=document.documentElement;var willEnable=!root.classList.contains("dark");if(willEnable){root.classList.add("dark")}else{root.classList.remove("dark")}try{window.localStorage.setItem("theme",willEnable?"dark":"light")}catch(err){}})}();`
 
+const copyCodeScript = `!function(){document.addEventListener("click",function(t){var b=t.target.closest("[data-copy-code]");if(!b)return;var s=b.closest("[data-code-copy-scope]");if(!s)return;var p=s.querySelector("[data-copy-target]")||s.querySelector("[data-code-command]")||s.querySelector("pre:not([data-code-output])");if(!p)return;var c=p.querySelector("code")||p;var text=c.textContent||"";if(!text)return;var st=s.querySelector("[data-copy-status]");var done=function(){var copied=b.getAttribute("data-copied-label")||"Copied";b.setAttribute("data-copied","true");if(st)st.textContent=copied;setTimeout(function(){b.removeAttribute("data-copied");if(st)st.textContent=""},2000)};if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done).catch(function(){})}else{try{var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);done()}catch(err){}}})}();`
+
+const marqueePauseScript = `!function(){document.addEventListener("click",function(t){var b=t.target.closest("[data-marquee-pause]");if(!b)return;var m=b.closest("[data-marquee]");if(!m)return;if(m.getAttribute("data-marquee-paused")==="true"){m.removeAttribute("data-marquee-paused");b.textContent=b.getAttribute("data-marquee-pause-label")||"Pause"}else{m.setAttribute("data-marquee-paused","true");b.textContent=b.getAttribute("data-marquee-resume-label")||"Resume"}})}();`
+
 function DevLiveReloadScript(): ReactElement | undefined {
   if (!isLocalDevDefault(process.env.NODE_ENV)) return undefined
   return (
@@ -209,7 +213,14 @@ function renderBodyEndScripts(config: {
         })}
       {}
       <script
-        dangerouslySetInnerHTML={{ __html: clickScript + autoResizeScript + themeToggleScript }}
+        dangerouslySetInnerHTML={{
+          __html:
+            clickScript +
+            autoResizeScript +
+            themeToggleScript +
+            copyCodeScript +
+            marqueePauseScript,
+        }}
       />
       <DevLiveReloadScript />
     </>

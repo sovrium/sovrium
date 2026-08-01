@@ -25,6 +25,7 @@ import {
   handleMarkCommentsRead,
   handleUpdateComment,
 } from './comment/comment-handlers'
+import { handleInvokeRecordButton } from './record/record-button-handlers'
 import {
   handleListRecords,
   handleListTrash,
@@ -78,6 +79,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
     )
     .post('/api/tables/:tableId/records/:recordId/restore', (c) =>
       handleRestoreRecord(c, resolveApp())
+    )
+    .post('/api/tables/:tableId/records/:recordId/buttons/:fieldName', (c) =>
+      handleInvokeRecordButton(c, resolveApp())
     )
     .get('/api/tables/:tableId/records/:recordId/history', (c) =>
       handleGetRecordHistory(c, resolveApp())

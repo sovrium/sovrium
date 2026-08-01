@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { cn } from '@/presentation/islands/lib/cn'
 import {
   authPendingLabel,
   authSubmitLabel,
@@ -13,6 +12,7 @@ import {
   type AuthFormField,
   type AuthMethod,
 } from '@/presentation/utils/auth-form-types'
+import { cn } from '@/presentation/utils/design/class-merge'
 import {
   AUTH_ERROR_BANNER_STYLE,
   AUTH_SUCCESS_BANNER_STYLE,

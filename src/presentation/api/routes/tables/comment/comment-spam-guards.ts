@@ -8,6 +8,7 @@
 import { classifyCommentBySpam } from '@/domain/services/comments/comment-spam-classification'
 import { checkAndRecord, type RateLimitPolicy } from '@/infrastructure/forms/form-rate-limiter'
 import { hashIp, readIpHashSalt } from '@/infrastructure/forms/ip-hash'
+import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import type { App } from '@/domain/models/app'
 import type {
   CommentSpamProtectionConfig,
@@ -46,21 +47,13 @@ export function resolveRateLimitPolicy(
   }
 }
 
-function extractClientIp(c: Context): string | undefined {
-  const forwarded = c.req.header('x-forwarded-for')
-  if (typeof forwarded === 'string' && forwarded !== '') {
-    return forwarded.split(',')[0]?.trim() ?? undefined
-  }
-  return c.req.header('x-real-ip') ?? undefined
-}
-
 export function applyRateLimit(input: {
   readonly c: Context
   readonly table: NonNullable<App['tables']>[number]
 }): Response | undefined {
   const policy = resolveRateLimitPolicy(input.table)
   if (policy === undefined) return undefined
-  const ip = extractClientIp(input.c)
+  const ip = getRequestClientIp(input.c)
   const ipHash = hashIp(readIpHashSalt(), ip ?? '')
   const formName = `comments-${input.table.name}`
   const result = checkAndRecord({ ipHash, formName, policy })

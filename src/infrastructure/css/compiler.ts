@@ -25,6 +25,7 @@ import {
   generateComponentsLayer,
   generateUtilitiesLayer,
 } from '@/infrastructure/css/styles/component-layer-generators'
+import { generateMarqueeStyles } from '@/infrastructure/css/styles/marquee-styles-generator'
 import { generateCodeBlockStyles } from '@/infrastructure/css/theme/code-block-styles-generator'
 import {
   NEUTRAL_FLOOR_LAYER,
@@ -35,6 +36,7 @@ import {
 import { SELF_HOSTED_FONT_FACES } from '@/infrastructure/css/theme/fonts'
 import {
   generateAuthorSvBridge,
+  generateDarkColorOverrides,
   generateThemeBorderRadius,
   generateThemeBreakpoints,
   generateThemeColors,
@@ -67,12 +69,14 @@ function generateThemeCSS(theme?: Theme): string {
 
   const authorSvBridge = generateAuthorSvBridge(theme.colors)
 
-  if (themeTokens.length === 0 && !authorSvBridge) return ''
+  const darkColorOverrides = generateDarkColorOverrides(theme.darkColors)
+
+  if (themeTokens.length === 0 && !authorSvBridge && !darkColorOverrides) return ''
 
   const themeStaticBlock =
     themeTokens.length > 0 ? `@theme static {\n${themeTokens.join('\n')}\n  }` : ''
 
-  return [themeStaticBlock, authorSvBridge].filter(Boolean).join('\n\n')
+  return [themeStaticBlock, authorSvBridge, darkColorOverrides].filter(Boolean).join('\n\n')
 }
 
 const LAYOUT_UTILITY_SAFELIST = [
@@ -231,6 +235,7 @@ function buildSourceCSS(theme?: Theme): string {
   const componentsLayerCSS = generateComponentsLayer(theme)
   const utilitiesLayerCSS = generateUtilitiesLayer()
   const codeBlockCSS = generateCodeBlockStyles(theme)
+  const marqueeCSS = generateMarqueeStyles()
 
   return [
     STATIC_IMPORTS,
@@ -244,6 +249,8 @@ function buildSourceCSS(theme?: Theme): string {
     animationCSS,
     '/*---break---\n     */',
     codeBlockCSS,
+    '/*---break---\n     */',
+    marqueeCSS,
     '/*---break---\n     */',
     FINAL_BASE_LAYER,
   ]

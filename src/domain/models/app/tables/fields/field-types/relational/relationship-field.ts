@@ -75,14 +75,6 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
-      limitToView: Schema.optional(
-        Schema.String.pipe(
-          Schema.nonEmptyString({ message: () => 'limitToView is required' }),
-          Schema.annotations({
-            description: 'Name of the view to limit linkable records to',
-          })
-        )
-      ),
       relatedField: Schema.optional(
         Schema.String.pipe(
           Schema.nonEmptyString({ message: () => 'relatedField is required' }),

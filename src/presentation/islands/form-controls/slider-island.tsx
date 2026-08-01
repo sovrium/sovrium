@@ -7,7 +7,7 @@
 
 import { Slider } from '@base-ui/react/slider'
 import { useCallback, useRef, useState } from 'react'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import { computeSliderRangeClasses, computeSliderTrackClasses } from './numeric-default-classes'
 import { useSliderAriaSync } from './slider-aria-sync'
 import { SliderThumb } from './slider-thumb'

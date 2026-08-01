@@ -6,7 +6,7 @@
  */
 
 import { Checkbox } from '@base-ui/react/checkbox'
-import { cn } from '@/presentation/islands/lib/cn'
+import { cn } from '@/presentation/utils/design/class-merge'
 import type { ReactElement } from 'react'
 
 interface CheckboxIslandProps {

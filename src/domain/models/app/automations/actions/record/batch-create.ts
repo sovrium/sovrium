@@ -36,15 +36,6 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
       )
     ),
 
-    batchSize: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 1000),
-        Schema.annotations({
-          description: 'Records per batch (1-1000, default: 100)',
-        })
-      )
-    ),
 
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(

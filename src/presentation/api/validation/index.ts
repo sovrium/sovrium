@@ -26,4 +26,13 @@ export {
   validateAttachmentConstraints,
 } from './rules/field-rules'
 
-export { validateRecordCreation, validateRecordUpdate } from './rules/record-rules'
+export {
+  validateMultiSelectOptions,
+  validateMultiSelectSelectionLimits,
+} from './rules/multi-select-rules'
+
+export {
+  validateRecordCreation,
+  validateRecordUpdate,
+  sanitizeRichTextFields,
+} from './rules/record-rules'

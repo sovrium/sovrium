@@ -6,37 +6,33 @@
  */
 
 
-import { eq } from 'drizzle-orm'
 import { Data, Effect } from 'effect'
+import {
+  AuthRepository,
+  type AuthDatabaseError,
+} from '@/application/ports/repositories/auth/auth-repository'
 import { BUILT_IN_ROLES } from '@/domain/models/app/auth/roles'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import { db } from '@/infrastructure/database'
-import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { App } from '@/domain/models/app'
-import type { users } from '@/infrastructure/auth/better-auth/schema'
+import type { Context } from 'effect'
 
 const knownRoleNames = (app: App): ReadonlySet<string> => {
   const custom = app.auth?.roles?.map((r) => r.name) ?? []
   return new Set<string>([...BUILT_IN_ROLES, ...custom])
 }
 
-const userExists = (userId: string): Effect.Effect<boolean> =>
-  Effect.promise(() => {
-    const users = authUsersTable()
-    return db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.id, userId))
-      .then((rows) => rows.length > 0)
-      .catch(() => false)
-  })
+const userExists = (userId: string): Effect.Effect<boolean, never, AuthRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    return yield* repo.userExists(userId)
+  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
 
 const requireExistingUser = (
   userId: string,
   actionName: string
-): Effect.Effect<'ok' | ActionOutcome> =>
+): Effect.Effect<'ok' | ActionOutcome, never, AuthRepository> =>
   Effect.gen(function* () {
     if (userId === '') {
       return {
@@ -54,19 +50,13 @@ const requireExistingUser = (
     return 'ok' as const
   })
 
-const updateUserRow = (
-  userId: string,
-  patch: Readonly<Partial<typeof users.$inferInsert>>
-): Effect.Effect<void> =>
-  Effect.promise(() => {
-    const users = authUsersTable()
-    return db
-      .update(users)
-      .set(patch)
-      .where(eq(users.id, userId))
-      .then(() => undefined)
-      .catch(() => undefined)
-  })
+const mutateUser = (
+  run: (repo: Context.Tag.Service<typeof AuthRepository>) => Effect.Effect<void, AuthDatabaseError>
+): Effect.Effect<void, never, AuthRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    yield* run(repo)
+  }).pipe(Effect.catchAll(() => Effect.void))
 
 export const handleAuthAssignRole: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {
@@ -84,7 +74,7 @@ export const handleAuthAssignRole: ActionHandler = (action, app, _automation) =>
     const guard = yield* requireExistingUser(userId, 'auth.assignRole')
     if (guard !== 'ok') return guard
 
-    yield* updateUserRow(userId, { role })
+    yield* mutateUser((repo) => repo.updateUserRole(userId, role))
 
     return {
       status: 'success',
@@ -102,10 +92,7 @@ export const handleAuthBanUser: ActionHandler = (action, _app, _automation) =>
     const guard = yield* requireExistingUser(userId, 'auth.banUser')
     if (guard !== 'ok') return guard
 
-    yield* updateUserRow(
-      userId,
-      reason === undefined ? { banned: true } : { banned: true, banReason: reason }
-    )
+    yield* mutateUser((repo) => repo.banUser(userId, reason))
 
     return {
       status: 'success',
@@ -121,7 +108,7 @@ export const handleAuthUnbanUser: ActionHandler = (action, _app, _automation) =>
     const guard = yield* requireExistingUser(userId, 'auth.unbanUser')
     if (guard !== 'ok') return guard
 
-    yield* updateUserRow(userId, { banned: false, banReason: null })
+    yield* mutateUser((repo) => repo.unbanUser(userId))
 
     return {
       status: 'success',

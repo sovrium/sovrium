@@ -6,6 +6,7 @@
  */
 
 import { humanizeFieldName } from '@/presentation/utils/string-utils'
+import type { RecordButtonConfig } from '../../shared/record-button'
 import type { FieldType } from '@/domain/models/app/tables/fields'
 
 export type ConditionRule =
@@ -45,6 +46,7 @@ export interface FieldDef {
   readonly maxFileSize?: number
   readonly allowedFileTypes?: readonly string[]
   readonly bucket?: string
+  readonly button?: RecordButtonConfig
 }
 
 export function labelOf(field: FieldDef): string {

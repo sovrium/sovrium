@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { FieldConditionSchema } from '../../../../../shared/condition-operators'
 import { BaseFieldSchema } from '../base-field'
 import { validateButtonAction } from '../validation-utils'
 
@@ -17,7 +18,12 @@ const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
         Schema.nonEmptyString({ message: () => 'label is required' }),
         Schema.annotations({ description: 'Button text label' })
       ),
-      action: Schema.String.pipe(Schema.annotations({ description: 'Type of action to trigger' })),
+      action: Schema.Literal('url', 'automation').pipe(
+        Schema.annotations({
+          description:
+            "What the button does: 'url' opens a link client-side, 'automation' runs a named automation against the record",
+        })
+      ),
       url: Schema.optional(
         Schema.String.pipe(
           Schema.annotations({ description: "URL to open (when action is 'url')" })
@@ -29,6 +35,12 @@ const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
             description: "Automation name to trigger (when action is 'automation')",
           })
         )
+      ),
+      visibleWhen: Schema.optional(
+        FieldConditionSchema.annotations({
+          description:
+            'Render the button only on records whose named field satisfies the condition. Omit to show it on every record.',
+        })
       ),
     })
   )

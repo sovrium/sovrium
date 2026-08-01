@@ -9,8 +9,8 @@ import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { buildAdminOverview } from '@/application/use-cases/admin/overview'
+import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { AdminSearchLayer, SearchAdminGlobal } from '@/application/use-cases/admin/search'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   configVersionResponseSchema,
   type ConfigVersionResponse,
@@ -65,14 +65,10 @@ async function handleGetConfigVersion(c: Context): Promise<Response> {
 
   const session = getSessionContext(c)
   if (session) {
-    const role = await getUserRole(session.userId)
+    const actor = await resolveActor(session.userId)
     await emitAuditEvent({
       action: 'config.version.queried',
-      actor: {
-        id: session.userId,
-        type: 'user',
-        role: role === 'admin' ? 'admin' : 'operator',
-      },
+      actor,
       resourceId: 'version',
       severity: 'info',
       result: 'success',

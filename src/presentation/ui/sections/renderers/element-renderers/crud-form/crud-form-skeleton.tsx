@@ -9,6 +9,7 @@ import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/utils/html-sanitization'
 import { fieldWidgetOf, type FieldWidget } from '@/presentation/utils/field-type-behavior'
 import { CrudFieldShell } from './crud-field-shell'
+import { renderButtonSkeleton } from './crud-form-button-skeleton'
 import type { FieldType } from '@/domain/models/app/tables/fields'
 
 export type SkeletonFieldDef = {
@@ -26,6 +27,7 @@ export type SkeletonFieldDef = {
   readonly accept?: string
   readonly dropZone?: boolean
   readonly maxFiles?: number
+  readonly button?: { readonly label?: string }
 }
 
 const INPUT_TYPE_BY_WIDGET: Partial<Record<FieldWidget, string>> = {
@@ -220,6 +222,7 @@ function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
 }
 
 const SKELETON_RENDERERS: Record<FieldWidget, (field: SkeletonFieldDef) => ReactElement> = {
+  button: renderButtonSkeleton,
   code: renderCodeSkeleton,
   'rich-text': renderRichTextSkeleton,
   select: renderSelectSkeleton,

@@ -29,6 +29,7 @@ import {
 import { convertBadgeProps } from '../component-registry-helpers'
 import { buildIconClassName, buildLinkClassName, variantFromButtonClassName } from './interactive-prestyle-builders'
 import { pickCompField, resolveUploadActionUrl } from './island-overlay-props-builders'
+import { searchShellComponents } from './search-shell-components'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -433,12 +434,5 @@ export const interactiveComponents: Partial<Record<Component['type'], ComponentR
   'language-switcher': ({ elementProps, languages }) =>
     Renderers.renderLanguageSwitcher(elementProps, languages),
 
-  searchInput: ({ elementProps }) => Renderers.renderSearchInput(elementProps),
-
-  pageSearch: ({ elementProps, component }) => {
-    const c = (component ?? {}) as Record<string, unknown>
-    const placeholder = c['placeholder'] as string | undefined
-    const maxResults = c['maxResults'] as number | undefined
-    return Renderers.renderPageSearch({ props: elementProps, placeholder, maxResults })
-  },
+  ...searchShellComponents,
 }
