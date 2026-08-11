@@ -46,6 +46,7 @@ import {
 } from '@/domain/models/api/account/account'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { AccountRepositoryLive } from '@/infrastructure/database/repositories/auth/account-repository-live'
+import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 
 /** Grace period (days) before a scheduled erasure is hard-purged. */
 export const GRACE_PERIOD_DAYS = 7
@@ -235,7 +236,7 @@ export const ExportAccount = (
           .readAuthoredRecords(tableName, userId)
           .pipe(Effect.map((rows) => rows.map((row) => shapeAuthoredRecord(tableName, row))))
       ),
-      { concurrency: 'unbounded' }
+      { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
     const authoredRecords = perTable.flat()
 

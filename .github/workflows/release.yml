@@ -117,8 +117,25 @@ jobs:
       # npm's `latest` dist-tag pinned to the higher (dead) version, and npm
       # refuses implicit-`latest` assignment when the new version is lower.
       # Drop the flag once project version is again > 1.0.0.
+      #
+      # npm versions are immutable — a version can never be published twice.
+      # If an earlier attempt at this release already pushed the package and a
+      # later job failed, re-running the workflow would hit that wall here and
+      # fail permanently. So query the registry first and skip when the version
+      # is already there. `npm view` prints the version when it exists; for a
+      # version (or package) that is not published yet it prints nothing and may
+      # exit non-zero, which is the signal to go ahead and publish.
       - name: Publish @sovrium/types to npm
-        run: cd packages/types && npm publish --access public --tag latest
+        working-directory: packages/types
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view "${NAME}@${VERSION}" version 2>/dev/null || true)
+          if [ -n "${PUBLISHED}" ]; then
+            echo "${NAME}@${VERSION} is already published — skipping."
+            exit 0
+          fi
+          npm publish --access public --tag latest
 
   # ── Build macOS binaries on native runners ──────────────────
   build-binary-macos:

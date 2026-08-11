@@ -15,6 +15,11 @@ import { generateTrackingScript } from '@/infrastructure/analytics/tracking-scri
 import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
 import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import {
+  getVersionedCssHash,
+  parseVersionedCssHash,
+  VERSIONED_CSS_FILE_PATTERN,
+} from '@/infrastructure/css/versioned-css-path'
 import { logError, logDebug } from '@/infrastructure/logging/logger'
 import { isDevCacheDisabled, isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import {
@@ -47,21 +52,53 @@ export function getCacheControlHeader(): string {
  * @returns Hono app with CSS route configured
  */
 export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
-  return honoApp.get('/assets/output.css', async (c) => {
-    try {
-      const result = await Effect.runPromise(compileCSS(app))
+  return (
+    honoApp
+      .get('/assets/output.css', async (c) => {
+        try {
+          const result = await Effect.runPromise(compileCSS(app))
 
-      return c.text(result.css, 200, {
-        'Content-Type': 'text/css',
-        'Cache-Control': getCacheControlHeader(),
+          return c.text(result.css, 200, {
+            'Content-Type': 'text/css',
+            'Cache-Control': getCacheControlHeader(),
+          })
+        } catch (error) {
+          logError('[CSS] Compilation failed', error)
+          return c.text('/* CSS compilation failed */', 500, {
+            'Content-Type': 'text/css',
+          })
+        }
       })
-    } catch (error) {
-      logError('[CSS] Compilation failed', error)
-      return c.text('/* CSS compilation failed */', 500, {
-        'Content-Type': 'text/css',
+      // The param MUST span the WHOLE path segment. Hono's router does not match
+      // a param embedded mid-segment between a literal prefix and suffix
+      // (`/assets/output-:hash{…}.css` compiles but never matches — every
+      // rendered page then links a 404ing stylesheet and renders unstyled), so
+      // the regex carries the `output-`/`.css` literals and the hash is sliced
+      // back out of the matched filename.
+      .get(`/assets/:file{${VERSIONED_CSS_FILE_PATTERN}}`, async (c) => {
+        // Content-versioned stylesheet URL (linked by rendered HTML). The hash
+        // is derived from the theme + candidate inputs that determine the CSS,
+        // so the CURRENT hash may be cached forever; a STALE hash (HTML cached
+        // from a previous deploy) still gets working CSS under the short
+        // header — never a 404 and never an unstyled page.
+        try {
+          const result = await Effect.runPromise(compileCSS(app))
+          const isCurrent = parseVersionedCssHash(c.req.param('file')) === getVersionedCssHash(app)
+          return c.text(result.css, 200, {
+            'Content-Type': 'text/css',
+            'Cache-Control':
+              isCurrent && isProduction
+                ? 'public, max-age=31536000, immutable'
+                : getCacheControlHeader(),
+          })
+        } catch (error) {
+          logError('[CSS] Compilation failed', error)
+          return c.text('/* CSS compilation failed */', 500, {
+            'Content-Type': 'text/css',
+          })
+        }
       })
-    }
-  })
+  )
 }
 
 /**

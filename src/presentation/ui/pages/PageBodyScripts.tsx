@@ -87,11 +87,24 @@ function LanguageSwitcherScripts({
   // Build enriched metadata with i18n translations for all languages
   const enrichedMeta = buildPageMetadataI18n(page, languages, frontmatter)
 
+  // Deliberately excludes `translations`: the client switcher reads only these
+  // fields (per-element strings arrive via `data-translations` attributes), and
+  // the full dictionary is ~100s of KB serialized into EVERY page — twice.
+  const switcherConfig = {
+    supported: languages.supported,
+    default: languages.default,
+    fallback: languages.fallback ?? languages.default,
+    ...(languages.detectBrowser !== undefined ? { detectBrowser: languages.detectBrowser } : {}),
+    ...(languages.persistSelection !== undefined
+      ? { persistSelection: languages.persistSelection }
+      : {}),
+  }
+
   return (
     <>
       {/* Configuration data for external script (CSP-compliant) */}
       <div
-        data-language-switcher-config={JSON.stringify(languages)}
+        data-language-switcher-config={JSON.stringify(switcherConfig)}
         style={HIDDEN_STYLE}
       />
       {/* Page metadata for client-side updates (title, i18n) */}
@@ -102,10 +115,7 @@ function LanguageSwitcherScripts({
       {/* Expose languages config to window for testing/debugging - fallback defaults to default language */}
       {renderWindowConfig({
         windowKey: 'APP_LANGUAGES',
-        data: {
-          ...languages,
-          fallback: languages.fallback ?? languages.default,
-        },
+        data: switcherConfig,
         reactKey: 'window-app-languages',
       })}
       {/* Expose theme config with RTL-aware direction to window for testing/debugging */}

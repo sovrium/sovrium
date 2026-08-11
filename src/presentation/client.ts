@@ -23,6 +23,7 @@
  *   the inline confirm gate) via the shared `executeFetchAction` runtime
  */
 
+import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 import { executeFetchAction } from '@/presentation/islands/shared/action-executor'
 import {
   openFetchConfirmObjectGate,
@@ -285,7 +286,10 @@ function setupAuthButtonHandlers(): void {
         headers: { 'Content-Type': 'application/json' },
       })
     } finally {
-      if (navigate && navigate.startsWith('/')) {
+      // The target comes off a DOM attribute, so it is only navigated to once
+      // proven same-origin — a bare leading-slash test would let
+      // `//evil.com` through as a protocol-relative URL.
+      if (isSafeRedirectPath(navigate)) {
         window.location.assign(navigate)
       }
     }

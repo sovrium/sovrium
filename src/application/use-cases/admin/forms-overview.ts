@@ -50,6 +50,7 @@ import {
 import { classifyPermissionRung } from '@/domain/models/shared/permission-evaluation'
 import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { AdminFormsRepositoryLive } from '@/infrastructure/database/repositories/forms/admin-forms-repository-live'
+import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -296,7 +297,7 @@ export const BuildFormsList = (
       pageSlice.map((form) =>
         repo.aggregateForForm(form.name).pipe(Effect.map((agg) => buildFormAdminItem(form, agg)))
       ),
-      { concurrency: 'unbounded' }
+      { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
 
     const body = { items, nextCursor }

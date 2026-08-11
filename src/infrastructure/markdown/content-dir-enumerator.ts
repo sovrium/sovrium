@@ -29,6 +29,7 @@
  * resolve identically in the deployed binary and the E2E harness.
  */
 
+import { stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 import { splitFrontmatter } from '@/domain/services/markdown/markdown-renderer'
 import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
@@ -56,8 +57,12 @@ export interface ContentDirEntry {
   readonly path: string
 }
 
-/** Parsed file record before slug derivation. Internal to this module. */
-interface ParsedFile {
+/**
+ * Parsed file record before slug derivation — one file of a cached corpus.
+ * Exported for the presentation `content-dir-lister`, which derives its own
+ * slug/sidebar shape from the shared corpus.
+ */
+export interface ParsedFile {
   readonly relativePath: string
   readonly frontmatter: Readonly<Record<string, string>>
   readonly body: string
@@ -207,12 +212,123 @@ const toEntry = (
   }
 }
 
+/** A cached scan+parse result for one `(directory, include)` pair. */
+interface CachedCorpus {
+  readonly files: readonly ParsedFile[]
+  readonly signature: string
+}
+
+/**
+ * Process-global corpus cache, keyed by `${absoluteDir}::${include}`.
+ *
+ * The scan + read + frontmatter-parse of a whole content directory (hundreds
+ * of files for a real docs site) used to run on EVERY page render, sitemap
+ * build, and palette search. The corpus is cached here and revalidated by a
+ * cheap stat signature — except in production, where content is immutable for
+ * the process lifetime (deploys replace the whole tree), so the first fill is
+ * trusted without further stats.
+ *
+ * Dev safety: `--watch` only watches the config file, so markdown edits never
+ * restart the server — the stat-signature revalidation (re-glob + `stat` per
+ * file, ~1-2ms for ~200 files vs ~50ms+ for read+parse-all) is what keeps the
+ * dev edit-refresh loop working. Memory note: bodies stay resident (~a few MB
+ * for a large docs corpus) — the deliberate trade for not re-reading disk.
+ */
+const corpusCache = new Map<string, CachedCorpus>()
+
+const isProductionEnv = (): boolean => process.env['NODE_ENV'] === 'production'
+
+/** Resolve the absolute directory a `contentDir.directory` points at. */
+const resolveAbsoluteDir = (directory: string): string =>
+  isAbsolute(directory) ? directory : resolve(getContentBaseDir(), directory)
+
+/** `path:mtimeMs:size` for every scanned file, joined — order-stable. */
+const computeStatSignature = async (
+  absoluteDir: string,
+  relativePaths: readonly string[]
+): Promise<string> => {
+  const stats = await Promise.all(
+    [...relativePaths].toSorted().map(async (relativePath) => {
+      try {
+        const s = await stat(`${absoluteDir}/${relativePath}`)
+        return `${relativePath}:${s.mtimeMs}:${s.size}`
+      } catch {
+        return `${relativePath}:missing`
+      }
+    })
+  )
+  return stats.join('|')
+}
+
+/**
+ * Compute a short checksum of a content directory's CURRENT on-disk state — the
+ * page cache's corpus key for a `'content'` page ([internal ref]
+ * -CACHE, [internal ref]..008).
+ *
+ * Deliberately does its own glob + `stat` scan on EVERY call rather than
+ * reusing {@link loadContentDirCorpus}'s memoized signature: that cache
+ * short-circuits under `NODE_ENV=production` (first fill is trusted), which
+ * would make page-cache invalidation dead in exactly the deployed binaries
+ * where it matters. A stats-only scan costs ~1-2 ms for a few hundred files —
+ * against 50 ms+ to re-read, re-parse and re-render the collection — so paying
+ * it per request is the right trade.
+ *
+ * Both `mtimeMs` and `size` participate (via {@link computeStatSignature}), so
+ * a same-millisecond rewrite that changes a file's length still changes the
+ * checksum. A missing/unreadable directory yields the checksum of an empty
+ * scan, which is stable and therefore still safe to key on.
+ *
+ * @param directory - The `contentDir.directory` value (trailing `/` tolerated).
+ * @param include - Optional include glob; defaults to every `.md` file, recursively.
+ */
+export const computeContentDirCorpusChecksum = async (
+  directory: string,
+  include?: string
+): Promise<string> => {
+  const normalised = normaliseDirectory(directory)
+  const relativePaths = await scanMarkdownFiles(normalised, include)
+  const signature = await computeStatSignature(resolveAbsoluteDir(normalised), relativePaths)
+  return Bun.hash(signature).toString(36)
+}
+
+/** Clear the corpus cache (tests + hot-reload paths). */
+export const clearContentDirCache = (): void => {
+  // eslint-disable-next-line functional/immutable-data -- cache reset is this helper's entire purpose
+  corpusCache.clear()
+}
+
+/**
+ * Load the parsed (pre-filter, pre-sort) corpus of a content directory, from
+ * the cache when the stat signature still matches. Exported so the
+ * presentation `content-dir-lister` shares the same cached scan instead of
+ * re-reading the whole directory per sidebar render.
+ *
+ * @param directory - The `contentDir.directory` value (trailing `/` tolerated).
+ * @param include - Optional include glob; defaults to every `.md` file, recursively.
+ */
+export const loadContentDirCorpus = async (
+  directory: string,
+  include?: string
+): Promise<readonly ParsedFile[]> => {
+  const normalised = normaliseDirectory(directory)
+  const cacheKey = `${resolveAbsoluteDir(normalised)}::${include ?? '**/*.md'}`
+  const cached = corpusCache.get(cacheKey)
+  if (cached !== undefined && isProductionEnv()) return cached.files
+
+  const relativePaths = await scanMarkdownFiles(normalised, include)
+  const signature = await computeStatSignature(resolveAbsoluteDir(normalised), relativePaths)
+  if (cached !== undefined && cached.signature === signature) return cached.files
+
+  const parsed = await Promise.all(relativePaths.map((path) => readFile(normalised, path)))
+  const files = parsed.filter((file): file is ParsedFile => file !== undefined)
+  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- memoization write; the surrounding function stays referentially transparent per signature
+  corpusCache.set(cacheKey, { files, signature })
+  return files
+}
+
 /** Scan + parse + filter + sort the markdown files for a `contentDir`. */
 const collectSortedFiles = async (contentDir: ContentDir): Promise<readonly ParsedFile[]> => {
-  const directory = normaliseDirectory(contentDir.directory)
-  const relativePaths = await scanMarkdownFiles(directory, contentDir.include)
-  const parsed = await Promise.all(relativePaths.map((path) => readFile(directory, path)))
-  const present = parsed.filter((file): file is ParsedFile => file !== undefined)
+  const present = await loadContentDirCorpus(contentDir.directory, contentDir.include)
   const filtered = present.filter((file) =>
     matchesContentDirFilter(contentDir.filter, file.frontmatter)
   )

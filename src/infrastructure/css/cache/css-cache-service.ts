@@ -99,10 +99,7 @@ const sortObjectKeys = (obj: unknown): unknown => {
   const record = obj as Record<string, unknown>
   const sortedKeys = Object.keys(record).toSorted()
 
-  return sortedKeys.reduce<Record<string, unknown>>(
-    (acc, key) => ({ ...acc, [key]: sortObjectKeys(record[key]) }),
-    {}
-  )
+  return Object.fromEntries(sortedKeys.map((key) => [key, sortObjectKeys(record[key])]))
 }
 
 /**

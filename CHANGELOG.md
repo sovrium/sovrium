@@ -1,3 +1,23 @@
+## [0.22.2](https://github.com/sovrium/sovrium/compare/v0.22.1...v0.22.2) (2026-08-11)
+
+### Bug Fixes
+
+- serve the versioned stylesheet route and finish boot before the ready banner
+- stop command-palette searches from scanning every table unindexed
+- **redirects**: reject protocol-relative redirect targets
+
+### Performance Improvements
+
+- cache rendered pages backed by markdown collections
+- bind the server port before running background maintenance tasks
+- serve the stylesheet under a content-hashed URL with immutable caching
+- let browsers and CDNs briefly cache anonymous pages that skip the render cache
+- bound database fan-outs to the shared pool ceiling
+- cache the docs content scan so article pages stop re-reading every file
+- stop embedding the full translations dictionary twice in every page
+- cap the in-memory page cache to protect small-server deployments
+- compute the page-cache checksum once per app instead of on every request
+
 ## [0.22.1](https://github.com/sovrium/sovrium/compare/v0.22.0...v0.22.1) (2026-08-11)
 
 ### Bug Fixes

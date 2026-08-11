@@ -12,10 +12,19 @@ import {
   CommandSearchDatabaseError,
   type TableSearchMatch,
 } from '@/application/ports/repositories/command-search-repository'
+import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { userFavorites as userFavoritesPg } from '@/infrastructure/database/drizzle/schema/favorites'
 import { userFavorites as userFavoritesSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/favorites'
+import {
+  pgSearchVectorExpression,
+  SQLITE_FTS_RECORD_ID_COLUMN,
+  sqliteFtsTableName,
+  toFtsTokens,
+  toPgTsQuery,
+  toSqliteFtsMatch,
+} from '@/infrastructure/database/schema/command-search-fts-ddl'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
@@ -52,6 +61,52 @@ const labelExpression = (columns: readonly string[]): Readonly<SQL> => {
     columns.map((column) => sql.identifier(column)),
     sql`, `
   )})`
+}
+
+/**
+ * The FTS candidate predicate for `query`, or `undefined` when there is none to
+ * apply.
+ *
+ * `undefined` is returned for a query that tokenizes to NOTHING — a
+ * punctuation-only search such as `%%%`. That case has two natural and opposite
+ * wrong answers, and both are silent: an empty `to_tsquery('')` matches nothing,
+ * so every punctuation search returns empty; a degenerate match-all candidate
+ * set makes the acceleration a no-op. Neither is what the reader asked for. The
+ * right answer is to drop the gate and let the escaped `LIKE` — which already
+ * matches `%` and `_` literally — answer alone. Such a query is rare and
+ * inherently unselective, so paying one scan for it is the correct trade.
+ */
+const ftsCandidatePredicate = (
+  physicalTable: string,
+  columns: readonly string[],
+  query: string
+): Readonly<SQL> | undefined => {
+  const tokens = toFtsTokens(query)
+  if (tokens.length === 0) return undefined
+
+  if (parseDatabaseDialectConfig().dialect === 'sqlite') {
+    // Expressed as `id IN (SELECT …)` rather than a JOIN on purpose: the FTS5
+    // mirror carries columns of the SAME NAMES as the base table, so a joined
+    // shape would make every unqualified reference in the label expression
+    // ambiguous. A semi-join keeps the outer query — and `labelExpression` —
+    // byte-identical to the unaccelerated one.
+    //
+    // `CAST(id AS TEXT)` because `record_id` is TEXT (a Sovrium primary key may
+    // be an integer or a string, and SQLite does not compare across storage
+    // classes in `IN`).
+    const ftsTable = sqliteFtsTableName(physicalTable)
+    return sql`CAST(id AS TEXT) IN (
+      SELECT ${sql.identifier(SQLITE_FTS_RECORD_ID_COLUMN)}
+      FROM ${sql.identifier(ftsTable)}
+      WHERE ${sql.identifier(ftsTable)} MATCH ${toSqliteFtsMatch(tokens)}
+    )`
+  }
+
+  // Postgres: the expression MUST be byte-identical to the one the GIN index was
+  // built over, or the planner silently falls back to a sequential scan — which
+  // is the exact cost this predicate exists to remove. Both come from
+  // `pgSearchVectorExpression`; do not inline it here.
+  return sql`${sql.raw(pgSearchVectorExpression(columns))} @@ to_tsquery('simple', ${toPgTsQuery(tokens)})`
 }
 
 /**
@@ -99,18 +154,42 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
         // has `ILIKE`, SQLite does not) AND the metacharacter escaping, so a
         // reader searching for `50%` gets the rows containing `50%` rather than
         // every row containing `50`.
-        const predicate = sql.join(
+        //
+        // This stays the SEMANTIC AUTHORITY under the hybrid below. The FTS
+        // candidate set only narrows what this predicate is asked to verify, so
+        // the literal-metacharacter contract is inherited rather than
+        // re-derived.
+        const likePredicate = sql.join(
           columns.map((column) => containsInsensitive(sql.identifier(column), query)),
           sql` OR `
         )
 
-        const rows = await executeRaw(
-          db,
-          sql`SELECT id, ${labelExpression(columns)} AS __label
-              FROM ${sql.identifier(physicalTable)}
-              WHERE ${predicate}
-              LIMIT 25`
-        )
+        const run = async (
+          candidate: Readonly<SQL> | undefined
+        ): Promise<ReadonlyArray<Record<string, unknown>>> =>
+          executeRaw(
+            db,
+            sql`SELECT id, ${labelExpression(columns)} AS __label
+                FROM ${sql.identifier(physicalTable)}
+                WHERE ${candidate === undefined ? likePredicate : sql`${candidate} AND (${likePredicate})`}
+                LIMIT 25`
+          )
+
+        const candidate = ftsCandidatePredicate(physicalTable, columns, query)
+        // The index is an ACCELERATOR, so its absence is not a failure: a table
+        // created before this feature shipped, one whose reconciliation was
+        // skipped, and a view-backed relation the index cannot serve all land in
+        // the `catch`. Re-running without the candidate gate returns the SAME
+        // rows this table has always returned, just by an unindexed scan.
+        //
+        // The unaccelerated query is never wrapped, so ITS failure still reaches
+        // the error channel for `orElseSucceed` to absorb per-table — a real
+        // database problem is not disguised as an empty search.
+        const rows =
+          candidate === undefined
+            ? await run(undefined)
+            : await run(candidate).catch(() => run(undefined))
+
         return rows.map((row) => ({
           id: String(row['id']),
           label: typeof row['__label'] === 'string' ? row['__label'] : String(row['id']),

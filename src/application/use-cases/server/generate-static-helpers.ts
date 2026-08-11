@@ -62,8 +62,16 @@ export interface PathModuleLike {
  * @param outputDir - Output directory path
  * @param css - Compiled CSS content
  * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param versionedFileName - Optional content-versioned twin filename
+ *   (`output-<hash8>.css`). Rendered HTML links the versioned URL, so the
+ *   static export must ship that filename too — same bytes, hashed name.
  */
-export function writeCssFile(outputDir: string, css: string, fs: FileSystemLike) {
+export function writeCssFile(
+  outputDir: string,
+  css: string,
+  fs: FileSystemLike,
+  versionedFileName?: string
+) {
   return Effect.gen(function* () {
     logDebug('Writing compiled CSS...')
 
@@ -84,6 +92,17 @@ export function writeCssFile(outputDir: string, css: string, fs: FileSystemLike)
           cause: error,
         }),
     })
+
+    if (versionedFileName !== undefined) {
+      yield* Effect.tryPromise({
+        try: () => fs.writeFile(`${outputDir}/assets/${versionedFileName}`, css, 'utf-8'),
+        catch: (error) =>
+          new StaticGenerationError({
+            message: 'Failed to write versioned CSS file',
+            cause: error,
+          }),
+      })
+    }
 
     return 'assets/output.css'
   })
@@ -171,6 +190,7 @@ export function formatHtmlFiles(
   return Effect.gen(function* () {
     logDebug('Formatting HTML files with Prettier...')
 
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem/SSG work on a dedicated process, no shared database pool connection is held.
     yield* Effect.forEach(
       generatedFiles.filter((f) => f.endsWith('.html') && !f.endsWith('.js.html')),
       (file) =>

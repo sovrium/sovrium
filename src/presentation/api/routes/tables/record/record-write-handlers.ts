@@ -26,6 +26,7 @@ import {
 } from '@/domain/models/api/tables/records'
 import { createRecordResponseSchema } from '@/domain/models/api/tables/tables'
 import { applyAiComputeBaseline } from '@/domain/services/ai-compute/apply-baseline'
+import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 import {
   hasCreatePermissionForRoles,
   hasReadPermissionForRoles,
@@ -446,8 +447,10 @@ async function executeFormUpdate(config: {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
-    // Redirect to specified path, referer, or respond with JSON
-    if (redirectPath && redirectPath.startsWith('/')) {
+    // Redirect to specified path, referer, or respond with JSON. The path
+    // arrives in the request body, so it is only honoured once proven
+    // same-origin — otherwise it is an open redirect off this site.
+    if (isSafeRedirectPath(redirectPath)) {
       return c.redirect(redirectPath, 302)
     }
     if (referer) {

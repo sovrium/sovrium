@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 import { type AuthMethod } from '@/presentation/utils/auth-form-types'
 import { showSuccessToast } from '../components/crud-form/toast'
 import { authClient } from '../shared/auth-client'
@@ -161,10 +162,10 @@ function fireToast(toast: ToastConfig | undefined): void {
  */
 function handleAuthSuccess(ctx: SubmitContext): void {
   fireToast(ctx.successToast)
-  if (ctx.redirectUrl?.startsWith('/')) {
+  const target = ctx.redirectUrl
+  if (isSafeRedirectPath(target)) {
     // Delay the redirect so the success toast is observable before the page
     // unloads — mirrors the crud-form submit-pipeline navigation pattern.
-    const target = ctx.redirectUrl
     setTimeout(() => globalThis.location.assign(target), 500)
   } else {
     ctx.setState({ isPending: false })

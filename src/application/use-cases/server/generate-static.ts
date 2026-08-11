@@ -19,6 +19,7 @@ import {
 } from '@/application/ports/services/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
 import { writePrecompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
+import { getVersionedCssFileName } from '@/infrastructure/css/versioned-css-path'
 import { logDebug } from '@/infrastructure/logging'
 import {
   fs,
@@ -176,8 +177,9 @@ function generateCssFile(
     logDebug('Getting compiled CSS...')
     const { css } = yield* cssCompiler.compile(app)
 
-    // Write to static output directory (dist/assets/output.css)
-    const cssFile = yield* writeCssFile(outputDir, css, fs)
+    // Write to static output directory (dist/assets/output.css), plus the
+    // content-versioned twin the rendered HTML actually links.
+    const cssFile = yield* writeCssFile(outputDir, css, fs, getVersionedCssFileName(app))
 
     if (!emitPrecompiledCss) {
       return cssFile

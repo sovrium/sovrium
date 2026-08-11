@@ -12,8 +12,10 @@ import {
   type CommandSearchDatabaseError,
 } from '@/application/ports/repositories/command-search-repository'
 import { extractMatchExcerpt, stripMarkdownToPlainText } from '@/domain/utils/content-dir-excerpt'
+import { searchableTextColumns } from '@/domain/utils/database/searchable-text-columns'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { CommandSearchRepositoryLive } from '@/infrastructure/database/repositories/command-search-repository-live'
+import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { App } from '@/domain/models/app'
 
@@ -31,8 +33,21 @@ import type { App } from '@/domain/models/app'
  * infrastructure repository, accessed via {@link CommandSearchRepository}.
  */
 
-/** Field types whose physical columns are searchable as text. */
-const TEXT_FIELD_TYPES = new Set(['single-line-text', 'long-text', 'rich-text', 'email', 'url'])
+/**
+ * Per-source result ceiling for the two PAGE sources
+ *.
+ *
+ * Records were already capped at 25; `searchPages` and `searchContentDirPages`
+ * were not, and both are unbounded in the same way that produced the 504. A
+ * documentation site is exactly the shape that breaks it: `apps/website` alone
+ * serves ~204 articles per locale, so a short query against its content
+ * directory serialized hundreds of results into a palette that renders roughly
+ * ten of them. Total response is now bounded at 10 + 10 + 25.
+ */
+const PAGE_RESULT_CAP = 10
+
+/** Record-result ceiling — unchanged, stated here beside its page siblings. */
+const RECORD_RESULT_CAP = 25
 
 /** Shape of a single palette search result (record or page). */
 export interface CommandSearchResult {
@@ -213,11 +228,15 @@ const searchContentDirPages = async (
   return perPage.flat()
 }
 
-/** The text column names of a table that are searchable as text. */
+/**
+ * The text column names of a table that are searchable as text.
+ *
+ * Delegates to the shared domain definition so this list and the one the FTS
+ * index is built over cannot drift — see `domain/utils/database/
+ * searchable-text-columns.ts` for why a divergence would fail closed.
+ */
 const searchableColumns = (table: NonNullable<App['tables']>[number]): readonly string[] =>
-  (table.fields ?? [])
-    .filter((field) => TEXT_FIELD_TYPES.has(field.type))
-    .map((field) => field.name)
+  searchableTextColumns(table.fields)
 
 /**
  * Run the command-palette search for `query` on behalf of `userId` (or no user,
@@ -265,7 +284,7 @@ export const SearchCommandPalette = (
           }))
         })
       ),
-      { concurrency: 'unbounded' }
+      { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
 
     // Favorited records rank above non-favorited ones; ordering within each
@@ -274,13 +293,18 @@ export const SearchCommandPalette = (
     const rankedRecords = [
       ...flat.filter((result) => result.favorited),
       ...flat.filter((result) => !result.favorited),
-    ].slice(0, 25)
+    ].slice(0, RECORD_RESULT_CAP)
 
     // Page matches rank ahead of record matches in the palette so navigable
     // destinations surface first. Static pages are joined by the concrete
-    // markdown routes contentDir pages generate.
-    const pages = searchPages(app, query)
-    const contentDirPages = yield* Effect.promise(() => searchContentDirPages(app, query))
+    // markdown routes contentDir pages generate. Each page source is capped
+    // independently — see PAGE_RESULT_CAP; a content directory is unbounded by
+    // config and the palette renders roughly ten rows either way.
+    const pages = searchPages(app, query).slice(0, PAGE_RESULT_CAP)
+    const contentDirPages = (yield* Effect.promise(() => searchContentDirPages(app, query))).slice(
+      0,
+      PAGE_RESULT_CAP
+    )
 
     return [...pages, ...contentDirPages, ...rankedRecords]
   })

@@ -123,14 +123,19 @@ export const FORBIDDEN_PATHS = [
  * Note `[internal ref]` was dropped for this same reason, which had
  * left the guard permitting `[internal ref]`
  *                   while forbidding the sibling CLAUDE.md the same scaffold writes.
+ * - `[internal ref]` + `[internal ref]` — dropped by founder decision (2026-08-11):
+ *                   the "How Sovrium is built" docs article deliberately names
+ *                   both as public transparency about the development model,
+ *                   and it ships in this payload (it is equally public on
+ *                   sovrium.com either way). The leak surface stays covered by
+ *                   the SPECIFIC terms below: the bare product name is fine to
+ *                   say; the hostnames, VM names, and bot identity are not.
  */
 export const FORBIDDEN_CONTENT = [
   'git.sovrium.com',
-  'forgejo',
   'sovrium-runner',
   'sovrium-git',
   'TDD_BOT',
-  'SPEC-PROGRESS',
   'apps/website/',
   // Fingerprints of THIS repo's CLAUDE.md: its H1, and the `@docs/` on-demand
   // import convention it uses 52 times. Neither occurs in legitimate public prose.

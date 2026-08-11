@@ -6,10 +6,10 @@
  */
 
 /**
- * `isPageCacheable` — pure Domain predicate deciding whether a page's rendered
- * HTML is request-invariant and therefore safe to serve from the static
- * page-output cache (`ECO_PAGE_CACHE`, see
- * `[internal ref]`).
+ * `classifyPageCacheability` — pure Domain verdict deciding whether a page's
+ * rendered HTML can be served from the static page-output cache
+ * (`ECO_PAGE_CACHE`), and if
+ * so under which cache key.
  *
  * ## Safety model
  *
@@ -22,11 +22,33 @@
  *
  * The only remaining sources of per-request variation are reads from OUTSIDE
  * the schema — the database and the filesystem — because their content can
- * change without the app render-checksum changing. This predicate therefore
- * excludes exactly the pages that trigger such reads. Everything else (theme,
+ * change without the app render-checksum changing. Everything else (theme,
  * `$ref` expansion, `$vars` substitution, island SSR skeletons) is a pure
  * function of the schema and is already covered by the render-checksum cache
  * key.
+ *
+ * ## Three-way verdict
+ *
+ * | Verdict     | Meaning                                                       |
+ * | ----------- | ------------------------------------------------------------- |
+ * | `'static'`  | Request-invariant. Cached under the render-checksum key alone. |
+ * | `'content'` | Corpus-invariant. Its ONLY out-of-schema input is a directory  |
+ * |             | of markdown files, so it is cached under the render-checksum   |
+ * |             | key EXTENDED by a corpus checksum the route layer computes.    |
+ * | `'dynamic'` | Anything else — never cached.                                  |
+ *
+ * The `'content'` verdict is deliberately narrow: it requires an actual
+ * `contentDir` (there must be a corpus to measure) AND that every tripped
+ * dynamic signal is one of the filesystem-backed set
+ * ({@link CONTENT_BACKED_SIGNALS}). A `:param` page with no `contentDir` has
+ * nothing to checksum and stays `'dynamic'`, and a `layout.sidebar` page stays
+ * `'dynamic'` because `SidebarItem.dataSource` is REQUIRED — it is a database
+ * read a corpus checksum can never observe.
+ *
+ * A `source` single-file markdown page also stays `'dynamic'`. The same
+ * corpus-checksum argument would apply to its degenerate one-file corpus, but
+ * its resolution path (no collection nav, no slug derivation) differs enough
+ * that it is a deliberate follow-up rather than a half-covered case.
  */
 
 import { isOpenToEveryone, toPermissionValue } from '@/domain/models/shared/permission-evaluation'
@@ -45,21 +67,61 @@ const hasNonPublicAccess = (access: Page['access']): boolean =>
   access !== undefined && !isOpenToEveryone(toPermissionValue(access))
 
 /**
+ * The cacheability verdict for a page — see the module header for the full
+ * decision table.
+ */
+export type PageCacheability = 'static' | 'content' | 'dynamic'
+
+/**
+ * Identifiers for the page-level signals that make a page's HTML vary per
+ * request. Naming them (rather than keeping an anonymous predicate list) is
+ * what lets the `'content'` verdict ask WHICH signals tripped, not just how
+ * many.
+ */
+type DynamicSignalId =
+  | 'access'
+  | 'collection'
+  | 'dataSource'
+  | 'contentDir'
+  | 'source'
+  | 'markdown'
+  | 'presence'
+  | 'sidebar'
+  | 'paramPath'
+
+/**
  * Page-level signals that make a page's HTML vary per request — each reads the
  * database or filesystem, enables a real-time feature, gates by session, or
- * carries a dynamic route parameter. A page with any of these is not cacheable.
+ * carries a dynamic route parameter. A page with any of these is not `'static'`.
  */
-const DYNAMIC_PAGE_SIGNALS: readonly ((page: Page) => boolean)[] = [
-  (page) => hasNonPublicAccess(page.access),
-  (page) => page.collection !== undefined,
-  (page) => page.dataSource !== undefined,
-  (page) => page.contentDir !== undefined,
-  (page) => page.source !== undefined,
-  (page) => page.markdown !== undefined,
-  (page) => page.presence === true,
-  (page) => page.layout?.sidebar !== undefined,
-  (page) => page.path.includes(':'),
+const DYNAMIC_PAGE_SIGNALS: readonly {
+  readonly id: DynamicSignalId
+  readonly trips: (page: Page) => boolean
+}[] = [
+  { id: 'access', trips: (page) => hasNonPublicAccess(page.access) },
+  { id: 'collection', trips: (page) => page.collection !== undefined },
+  { id: 'dataSource', trips: (page) => page.dataSource !== undefined },
+  { id: 'contentDir', trips: (page) => page.contentDir !== undefined },
+  { id: 'source', trips: (page) => page.source !== undefined },
+  { id: 'markdown', trips: (page) => page.markdown !== undefined },
+  { id: 'presence', trips: (page) => page.presence === true },
+  { id: 'sidebar', trips: (page) => page.layout?.sidebar !== undefined },
+  { id: 'paramPath', trips: (page) => page.path.includes(':') },
 ]
+
+/**
+ * The signals a `'content'` page is allowed to trip — the filesystem-backed
+ * set a per-request corpus checksum of the page's `contentDir` fully observes.
+ *
+ * `sidebar` is deliberately ABSENT: `SidebarItem.dataSource` is required, so a
+ * `layout.sidebar` is database-backed navigation whose rows a corpus checksum
+ * cannot see. `source` is absent as the documented single-file follow-up.
+ */
+const CONTENT_BACKED_SIGNALS: ReadonlySet<DynamicSignalId> = new Set<DynamicSignalId>([
+  'contentDir',
+  'markdown',
+  'paramPath',
+])
 
 /**
  * Walks a component tree depth-first and reports whether any node carries a
@@ -83,15 +145,25 @@ function componentTreeHasDataSource(items: readonly unknown[]): boolean {
 }
 
 /**
- * Decide whether a page's rendered HTML is request-invariant and safe to
- * cache. A page is cacheable only when it carries no {@link DYNAMIC_PAGE_SIGNALS}
- * and no component (at any depth) has a `dataSource` binding.
+ * Decide how a page's rendered HTML may be cached.
+ *
+ * `'static'` when it trips no {@link DYNAMIC_PAGE_SIGNALS} and no component (at
+ * any depth) has a `dataSource` binding; `'content'` when it owns a
+ * `contentDir` and every tripped signal is in {@link CONTENT_BACKED_SIGNALS};
+ * `'dynamic'` otherwise.
+ *
+ * Pure: this only classifies. Measuring the corpus (a filesystem read) belongs
+ * to the infrastructure layer.
  *
  * @param page - The resolved page schema object.
  */
-export const isPageCacheable = (page: Page): boolean =>
-  !DYNAMIC_PAGE_SIGNALS.some((signal) => signal(page)) &&
-  !componentTreeHasDataSource(page.components)
+export const classifyPageCacheability = (page: Page): PageCacheability => {
+  if (componentTreeHasDataSource(page.components ?? [])) return 'dynamic'
+  const tripped = DYNAMIC_PAGE_SIGNALS.filter((signal) => signal.trips(page))
+  if (tripped.length === 0) return 'static'
+  if (page.contentDir === undefined) return 'dynamic'
+  return tripped.every((signal) => CONTENT_BACKED_SIGNALS.has(signal.id)) ? 'content' : 'dynamic'
+}
 
 /**
  * True when a form's form-level `prefill` reads any `$query.*` reference. Such a
@@ -143,33 +215,51 @@ function componentTreeHasQueryPrefillForm(
 }
 
 /**
- * Whether the page that would render for `path` is safe to serve from the
- * static page-output cache.
+ * How the page that would render for `path` may be cached, paired with the
+ * matched page so the route layer can reach its `contentDir` when the verdict
+ * is `'content'` (it needs the directory to checksum).
+ */
+export interface RenderablePathCacheability {
+  readonly verdict: PageCacheability
+  /** The matched page, or `undefined` for the implicit default homepage. */
+  readonly page: Page | undefined
+}
+
+/** The verdict for a path that resolves to no authored page. */
+const unmatched = (path: string): RenderablePathCacheability => ({
+  verdict: path === '/' ? 'static' : 'dynamic',
+  page: undefined,
+})
+
+/**
+ * Classify how the page that would render for `path` may be cached.
  *
- * Combines route matching (`findMatchingRoute`) with {@link isPageCacheable}.
- * The default homepage — `/` with no authored page — is treated as cacheable
- * because `DefaultHomePage` is fully static. Any unmatched non-`/` path is not
- * cacheable (it renders a 404, which is never stored).
+ * Combines route matching (`findMatchingRoute`) with
+ * {@link classifyPageCacheability}. The default homepage — `/` with no authored
+ * page — is `'static'` because `DefaultHomePage` is fully static. Any unmatched
+ * non-`/` path is `'dynamic'` (it renders a 404, which is never stored).
  *
  * @param app - The application schema.
  * @param path - The request path passed to the renderer.
  */
-export function isRenderablePathCacheable(app: App, path: string): boolean {
+export function classifyRenderablePath(app: App, path: string): RenderablePathCacheability {
   const { pages } = app
-  if (!pages || pages.length === 0) return path === '/'
+  if (!pages || pages.length === 0) return unmatched(path)
 
   const match = findMatchingRoute(
     pages.map((page) => page.path),
     path
   )
-  if (!match) return path === '/'
+  if (!match) return unmatched(path)
 
   const page = pages[match.index]
-  if (!page) return path === '/'
+  if (!page) return unmatched(path)
   // GAP-3 / [internal ref]: a page embedding a formRef form whose form-level
   // `prefill` reads `$query.*` renders query-dependent output. The page cache is
   // keyed by path only (no query string), so serving such a page from cache
   // would leak a prior request's `?param` values — exclude it.
-  if (componentTreeHasQueryPrefillForm(page.components ?? [], app.forms ?? [])) return false
-  return isPageCacheable(page)
+  if (componentTreeHasQueryPrefillForm(page.components ?? [], app.forms ?? [])) {
+    return { verdict: 'dynamic', page }
+  }
+  return { verdict: classifyPageCacheability(page), page }
 }

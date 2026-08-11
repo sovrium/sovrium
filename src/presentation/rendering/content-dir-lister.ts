@@ -8,10 +8,11 @@
 /**
  * Content-directory navigation lister.
  *
- * Walks the markdown files under `contentDir.directory` via `Bun.Glob`, parses
- * each file's YAML frontmatter via the domain `splitFrontmatter` helper, then
- * applies the same `filter`/`sort` semantics the markdown-page-resolver uses
- * for individual route resolution. Returns:
+ * Reads the markdown files under `contentDir.directory` through the shared,
+ * stat-revalidated corpus cache in `infrastructure/markdown/content-dir-enumerator`
+ * (which globs + parses frontmatter once instead of per render), then applies
+ * the same `filter`/`sort` semantics the markdown-page-resolver uses for
+ * individual route resolution. Returns:
  *
  *   - `sidebar`: an ordered list of entries (optionally grouped by a
  *     frontmatter field) backing the `DocsSidebarNav` SSR component.
@@ -24,11 +25,9 @@
  * `markdown-page-resolver.ts`.
  */
 
-import { isAbsolute, resolve } from 'node:path'
-import { splitFrontmatter } from '@/domain/services/markdown/markdown-renderer'
 import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
 import { deriveContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-base-path'
-import { getContentBaseDir } from '@/presentation/rendering/content-base-dir'
+import { loadContentDirCorpus } from '@/infrastructure/markdown/content-dir-enumerator'
 import { humanizeFieldName } from '@/presentation/utils/string-utils'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 
@@ -119,44 +118,6 @@ const normaliseDirectory = (directory: string): string => directory.replace(/\/+
  */
 const filePathToSlug = (relativePath: string): string =>
   stripLeadingSlash(relativePath).replace(/\.md$/i, '')
-
-/**
- * Read a markdown file from disk and parse its frontmatter. Returns
- * `undefined` on any I/O failure so the lister gracefully skips unreadable
- * files (matches the leniency of `readMarkdownFile` in the page resolver).
- */
-const readContentDirFile = async (
-  directory: string,
-  relativePath: string
-): Promise<ContentDirFile | undefined> => {
-  try {
-    const absolutePath = isAbsolute(directory)
-      ? `${directory}/${relativePath}`
-      : resolve(getContentBaseDir(), directory, relativePath)
-    const file = Bun.file(absolutePath)
-    if (!(await file.exists())) return undefined
-    const text = await file.text()
-    const { frontmatter } = splitFrontmatter(text)
-    return { slug: filePathToSlug(relativePath), frontmatter }
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * Glob-scan a directory for `.md` files (relative paths). Returns an empty
- * array when the directory does not exist so the route still renders an
- * (empty) sidebar instead of throwing.
- */
-const scanMarkdownFiles = async (directory: string): Promise<readonly string[]> => {
-  try {
-    const absoluteDir = isAbsolute(directory) ? directory : resolve(getContentBaseDir(), directory)
-    const glob = new Bun.Glob('**/*.md')
-    return await Array.fromAsync(glob.scan({ cwd: absoluteDir }))
-  } catch {
-    return []
-  }
-}
 
 /**
  * Sort comparator backing `contentDir.sort`. Numeric fields (like `order`)
@@ -291,17 +252,20 @@ const buildSidebarEntries = (
 }
 
 /**
- * Read every markdown file under `contentDir.directory`, parse frontmatter,
- * drop unreadable entries, then apply `filter` + `sort`. Pure-data result —
- * the caller turns this into the `sidebar`/`previous`/`next` shape.
+ * Read every markdown file under `contentDir.directory` (via the shared,
+ * stat-revalidated corpus cache in the infrastructure enumerator), then apply
+ * `filter` + `sort`. Pure-data result — the caller turns this into the
+ * `sidebar`/`previous`/`next` shape.
+ *
+ * Note: deliberately scans every `.md` file (no `include` narrowing) — the
+ * sidebar has always listed the full directory; keep that behavior.
  */
 const loadFilteredFiles = async (contentDir: ContentDir): Promise<readonly ContentDirFile[]> => {
-  const directory = normaliseDirectory(contentDir.directory)
-  const relativePaths = await scanMarkdownFiles(directory)
-  const fileRecords = await Promise.all(
-    relativePaths.map((path) => readContentDirFile(directory, path))
-  )
-  const presentFiles = fileRecords.filter((file): file is ContentDirFile => file !== undefined)
+  const corpus = await loadContentDirCorpus(normaliseDirectory(contentDir.directory))
+  const presentFiles = corpus.map((file) => ({
+    slug: filePathToSlug(file.relativePath),
+    frontmatter: file.frontmatter,
+  }))
   const filteredFiles = presentFiles.filter((file) =>
     matchesContentDirFilter(contentDir.filter, file.frontmatter)
   )

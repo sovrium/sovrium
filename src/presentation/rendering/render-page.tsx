@@ -24,6 +24,7 @@ import {
   isPredicateGroup,
   type CurrentUserContext,
 } from '@/domain/validators/row-level-evaluator'
+import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   extractSessionTimeout,
@@ -676,6 +677,7 @@ function renderPageHtml(input: RenderPageHtmlInput): string {
       resolvedSidebar={resolvedSidebar}
       markdownPayload={markdownPayload}
       session={session}
+      cssHref={getVersionedCssPath(app)}
     />
   )
   return `<!DOCTYPE html>\n${html}`
@@ -1063,12 +1065,6 @@ export async function renderPageByPath(
   }
   const page: Page = resolvedPage
 
-  // [internal ref]: a contentDir page whose requested slug has no
-  // backing markdown file (in an existing collection directory) is a genuine
-  // not-found — return undefined so the caller renders the 404 not-found page
-  // instead of an empty 200 article shell.
-  if (await isContentDirSlugNotFound(page, routeParams)) return undefined
-
   // [internal ref]..033 / [internal ref]: highlight every `code`
   // component BEFORE `renderToString`, so a block nested inside a `tabs` panel
   // survives the island's `renderToStaticMarkup` serialisation already
@@ -1086,6 +1082,16 @@ export async function renderPageByPath(
     resolvePageCodeHighlights(page.components, app.theme?.codeBlock?.theme),
     resolveComponentsCodeHighlights(app.components, app.theme?.codeBlock?.theme),
   ])
+
+  // [internal ref]: a contentDir page whose requested slug has no
+  // backing markdown file (in an existing collection directory) is a genuine
+  // not-found — return undefined so the caller renders the 404 not-found page
+  // instead of an empty 200 article shell. Checked AFTER the parallel resolve
+  // (instead of as a pre-flight read) so the hot path reads the article file
+  // once; the discriminator only re-reads on the rare no-payload branch, and
+  // is a constant `false` for non-contentDir pages.
+  if (markdownPayload === undefined && (await isContentDirSlugNotFound(page, routeParams)))
+    return undefined
   const pageHtml = renderPageHtml({
     app,
     page: { ...page, components: highlightedComponents },

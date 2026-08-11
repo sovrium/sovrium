@@ -16,6 +16,7 @@ import {
   type UserEntityListDatabaseError,
 } from '@/application/ports/repositories/tables/user-entity-list-repository'
 import { UserEntityListRepositoryLive } from '@/infrastructure/database/repositories/tables/user-entity-list-repository-live'
+import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import type { Context } from 'effect'
 
 /**
@@ -69,7 +70,7 @@ const filterLiveEntities = <T extends EntityRef>(
   Effect.gen(function* () {
     const existenceFlags = yield* Effect.all(
       rows.map((row) => repo.recordStillExists(row)),
-      { concurrency: 'unbounded' }
+      { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
     return rows.filter((_, index) => existenceFlags[index])
   })

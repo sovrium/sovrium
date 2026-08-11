@@ -43,6 +43,12 @@ type PageHeadProps = {
   readonly components?: Components
   readonly theme: Theme | undefined
   readonly directionStyles: string
+  /**
+   * Content-versioned stylesheet URL (`/assets/output-<hash8>.css`), computed
+   * by the server-side renderer. Falls back to the unversioned
+   * `/assets/output.css` when absent so partial render paths stay styled.
+   */
+  readonly cssHref?: string
   readonly title: string
   readonly description: string
   readonly keywords?: string
@@ -260,12 +266,18 @@ function GoogleFonts({
  * - XSS Protection: CSS syntax prevents script execution
  * - Content: Fixed format like "[dir='rtl'] { direction: rtl; }"
  */
-function GlobalStyles({ directionStyles }: { readonly directionStyles: string }): ReactElement {
+function GlobalStyles({
+  directionStyles,
+  cssHref,
+}: {
+  readonly directionStyles: string
+  readonly cssHref?: string
+}): ReactElement {
   return (
     <>
       <link
         rel="stylesheet"
-        href="/assets/output.css"
+        href={cssHref ?? '/assets/output.css'}
       />
       {/* eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <style> element; never re-renders client-side */}
       <style dangerouslySetInnerHTML={{ __html: directionStyles }} />
@@ -355,7 +367,6 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
   const { components, contentDirSeo } = props
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
-  const robots = resolveRobotsDirective(page)
   const { openGraphData, effectiveCanonical, synthesizedJsonLd } = computeHeadMeta(props)
 
   return (
@@ -365,7 +376,7 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
         description={description}
         keywords={keywords}
         canonical={effectiveCanonical}
-        robots={robots}
+        robots={resolveRobotsDirective(page)}
         hasCustomViewport={hasCustomViewport}
       />
       {/* No-FOUC color-scheme bootstrap — emitted before the stylesheet so the
@@ -404,7 +415,10 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
       <CustomStylesheet stylesheet={page.meta?.stylesheet} />
       <GoogleFonts googleFonts={page.meta?.googleFonts} />
       <ThemeFonts theme={theme} />
-      <GlobalStyles directionStyles={directionStyles} />
+      <GlobalStyles
+        directionStyles={directionStyles}
+        cssHref={props.cssHref}
+      />
       <HeadScripts scripts={scripts} />
     </>
   )

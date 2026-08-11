@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
 import { omitsEmptyValue } from '@/presentation/utils/field-type-behavior'
 import { dispatch as dispatchIslandEvent } from '../_shared/event-bus'
@@ -160,8 +161,13 @@ function resolveRecordFields(result: MutationResult): Record<string, unknown> {
 function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
   ctx.setState({ isPending: false, successPageShown: { values: { ...ctx.values } } })
   const redirect = ctx.successPage?.redirect
-  if (redirect?.startsWith('/')) {
-    const resolved = substituteRecordVars(redirect, resolveRecordFields(result))
+  if (redirect === undefined) return
+  const resolved = substituteRecordVars(redirect, resolveRecordFields(result))
+  // Validate AFTER substitution, not before: a template like `/$record.slug`
+  // passes any leading-slash test on its own, yet a record field holding
+  // `/evil.com` would expand it to the protocol-relative `//evil.com`. The
+  // string actually handed to the browser is the one that must be checked.
+  if (isSafeRedirectPath(resolved)) {
     // Delay redirect so the success page is visible and DB writes propagate.
     setTimeout(() => globalThis.location.assign(resolved), 800)
   }
@@ -182,9 +188,10 @@ function handleDefaultSuccess(ctx: SubmitContext): void {
     ctx.resetValues()
     ctx.afterReset?.()
   }
-  if (ctx.redirectUrl?.startsWith('/')) {
+  const { redirectUrl } = ctx
+  if (isSafeRedirectPath(redirectUrl)) {
     // Delay redirect to allow DB writes to propagate before external queries
-    setTimeout(() => globalThis.location.assign(ctx.redirectUrl!), 500)
+    setTimeout(() => globalThis.location.assign(redirectUrl), 500)
   }
 }
 

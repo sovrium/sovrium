@@ -33,13 +33,20 @@ const sortObjectKeys = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(sortObjectKeys)
 
   const record = value as Record<string, unknown>
-  return Object.keys(record)
-    .toSorted()
-    .reduce<Record<string, unknown>>(
-      (acc, key) => ({ ...acc, [key]: sortObjectKeys(record[key]) }),
-      {}
-    )
+  return Object.fromEntries(
+    Object.keys(record)
+      .toSorted()
+      .map((key) => [key, sortObjectKeys(record[key])])
+  )
 }
+
+/**
+ * Per-`App`-instance memo. The render slice is deep-readonly and an `App`
+ * object is constructed once per server instance, so a reference that was
+ * hashed once can never hash differently — and a config reload builds a new
+ * `App`, which misses here and lets the old entry be garbage-collected.
+ */
+const checksumByApp = new WeakMap<App, string>()
 
 /**
  * Compute a stable SHA-256 hex checksum of the render-affecting slice of `app`.
@@ -54,6 +61,9 @@ const sortObjectKeys = (value: unknown): unknown => {
  * @returns 64-character lowercase SHA-256 hex string.
  */
 export const computeAppRenderChecksum = (app: App): string => {
+  const cached = checksumByApp.get(app)
+  if (cached !== undefined) return cached
+
   const renderSlice = {
     pages: app.pages,
     components: app.components,
@@ -62,5 +72,8 @@ export const computeAppRenderChecksum = (app: App): string => {
     analytics: app.analytics,
   }
   const normalized = sortObjectKeys(renderSlice)
-  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
+  const checksum = createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
+  // eslint-disable-next-line functional/no-expression-statements -- memoization of a pure function over an immutable input is referentially transparent
+  checksumByApp.set(app, checksum)
+  return checksum
 }

@@ -7,6 +7,7 @@
 
 import { markUserAuthoredAiFieldsForRecords } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import { batchDeleteProgram, batchUpdateProgram } from '@/application/use-cases/tables/programs'
+import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 import { hasDeletePermission, hasUpdatePermission } from '@/domain/validators/permission-evaluators'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
@@ -88,7 +89,9 @@ export async function handleFormBulkDelete(c: Context, app: App) {
   // eslint-disable-next-line functional/no-expression-statements -- Side effect: execute batch delete
   await runTableProgram(batchDeleteProgram(session, tableName, ids, false))
 
-  if (redirectPath && redirectPath.startsWith('/')) {
+  // The path arrives in the request body, so it is only honoured once proven
+  // same-origin — otherwise it is an open redirect off this site.
+  if (isSafeRedirectPath(redirectPath)) {
     return c.redirect(redirectPath, 302)
   }
 
@@ -241,7 +244,9 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
   // wrote by hand is no longer reported as a failed computed fallback.
   markUserAuthoredAiFieldsForRecords({ app, tableName, records: recordsData })
 
-  if (redirectPath && redirectPath.startsWith('/')) {
+  // The path arrives in the request body, so it is only honoured once proven
+  // same-origin — otherwise it is an open redirect off this site.
+  if (isSafeRedirectPath(redirectPath)) {
     return c.redirect(redirectPath, 302)
   }
 

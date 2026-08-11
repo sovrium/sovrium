@@ -126,6 +126,13 @@ const sendOneNotification = (
   )
 
 /**
+ * SMTP-send fan-out width for admin failure notifications. Not pool work —
+ * these are outbound emails — but the recipient list is data-dependent (every
+ * admin), so the width is stated rather than `'unbounded'`.
+ */
+const NOTIFICATION_SEND_CONCURRENCY = 2
+
+/**
  * Dispatch the platform admin-notification email after a failed automation
  * run. No-op when `app.auth` is not configured (no users → no admins to
  * notify, and the test fixture's auth gate would have already rejected the
@@ -143,7 +150,7 @@ export const notifyPlatformFailure = (
     if (adminEmails.length === 0) return
     const { subject, body } = renderFailureEmail(input)
     yield* Effect.forEach(adminEmails, (email) => sendOneNotification(email, subject, body), {
-      concurrency: 'unbounded',
+      concurrency: NOTIFICATION_SEND_CONCURRENCY,
       discard: true,
     })
   })

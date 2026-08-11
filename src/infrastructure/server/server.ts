@@ -631,7 +631,6 @@ const runDatabaseStartup = (
   | DatabaseConnectionError
   | MigrationError
 > => {
-  const ragDatabaseUrl = dialectConfig.dialect === 'postgres' ? dialectConfig.databaseUrl : ''
   return runMigrations(dialectConfig).pipe(
     Effect.flatMap(() => initializeSchema(app)),
     // Unify declared `created-at` / `updated-at` / `deleted-at` columns on
@@ -656,17 +655,14 @@ const runDatabaseStartup = (
     // operator upgrading the binary without editing their config never reaches
     // it — exactly the install still carrying the unerasable key.
     Effect.flatMap(() => reconcileUserForeignKeys(app)),
-    // Best-effort post-schema steps (each never blocks startup):
-    // repair default-bound attachment URLs, seed system.connections, sync agent
-    // users, embed RAG knowledge, then install knowledge-change triggers
-    //.
-    //
-    // [internal ref]: the attachment-URL repair MUST live here and NOT inside
-    // `executeMigrationSteps`. That path is guarded by a schema checksum
-    // computed from `app.tables` alone, so an operator who upgrades the binary
-    // without editing their config never reaches it — exactly the install that
-    // has been accumulating `default`-bound rows.
-    Effect.flatMap(() => Effect.promise(() => runAttachmentUrlBackfill(app))),
+    // Best-effort post-schema seeders (each never blocks startup): seed
+    // system.connections, sync agent users, seed orgs/teams. These stay
+    // PRE-bind because auth and agent routes may consult their rows on the
+    // very first request. The two heavyweight best-effort steps — the
+    // attachment-URL backfill and RAG embedding startup — moved to
+    // `runDeferredStartupMaintenance`, which `createServer` runs AFTER the
+    // listener binds and BEFORE it announces readiness: both can take
+    // seconds-to-minutes on large datasets, and the port is open throughout.
     Effect.flatMap(() =>
       Effect.promise(() => runSeedAllConnectionDefinitions({ connections: app.connections }))
     ),
@@ -674,13 +670,6 @@ const runDatabaseStartup = (
       Effect.promise(() => runSyncAgentUsers({ agents: app.agents, hasAuth: !!app.auth }))
     ),
     Effect.flatMap(() => Effect.promise(() => runOrgTeamSeeding(app))), // org + team seeding
-    // [internal ref]: drop knowledge tables the agent's declared role
-    // cannot read so admin-only content never reaches the embedding store of
-    // a lower-privilege agent. Both the startup embed and the change-listener
-    // bindings derive from this filtered set.
-    Effect.flatMap(() =>
-      Effect.promise(() => runRagKnowledgeStartup(filterRagKnowledgeByRole(app), ragDatabaseUrl))
-    ),
     // Two surveys of key material the current secrets may no longer be able to
     // read. Both run AFTER migrations and schema init, so the tables they touch
     // are guaranteed to exist, and both run at boot rather than on first use: an
@@ -701,6 +690,38 @@ const runDatabaseStartup = (
       ...jwksRekeyWarningPhases(rekeyedJwksCount),
       { label: databaseStartupLabel(dialectConfig), type: 'success' as const },
     ])
+  )
+}
+
+/**
+ * Deferred best-effort startup maintenance, run by `createServer` AFTER the
+ * listener binds but BEFORE the startup banner announces readiness:
+ *
+ * - Attachment-URL backfill: repairs `default`-bound attachment URLs
+ *   accumulated before an upgrade. Table scans — seconds on large datasets.
+ * - RAG embedding startup ([internal ref] filtering preserved): embeds
+ *   agent knowledge tables and installs change listeners. Network-bound
+ *   against the AI provider — the slowest boot step by far when agents exist.
+ *
+ * Both remain best-effort — a failure here is logged and never fails the boot
+ * — but they are AWAITED rather than forked. Moving them off the boot path
+ * entirely was tried and reverted: the startup banner then announced a
+ * readiness the process had not reached, and a caller that boots and
+ * immediately reads a backfilled attachment URL or queries embedded knowledge
+ * observed a half-finished boot. Keeping them here still recovers most of the
+ * win, because the listener is already bound when they run.
+ */
+const runDeferredStartupMaintenance = (app: App): Effect.Effect<void, never> => {
+  const dialectConfig = parseDatabaseDialectConfig()
+  const ragDatabaseUrl = dialectConfig.dialect === 'postgres' ? dialectConfig.databaseUrl : ''
+  return Effect.promise(() => runAttachmentUrlBackfill(app)).pipe(
+    Effect.flatMap(() =>
+      Effect.promise(() => runRagKnowledgeStartup(filterRagKnowledgeByRole(app), ragDatabaseUrl))
+    ),
+    Effect.asVoid,
+    Effect.catchAllCause((cause) =>
+      Effect.sync(() => logError('[server] deferred startup maintenance failed', cause))
+    )
   )
 }
 
@@ -1007,13 +1028,26 @@ export const createServer = (
     const server = yield* startBunServer(honoApp, port, hostname)
     const url = `http://${hostname}:${server.port}`
 
-    // Arm cron-triggered automations on the live scheduler (non-blocking).
-    yield* registerCronAutomations(config.app, process.env)
+    // Post-bind arm-ups: cron-triggered automations and the GDPR Art. 17
+    // erasure sweep (hourly; without it, scheduled account erasures would
+    // never complete in production — see register-account-purge.ts).
+    yield* Effect.all([
+      registerCronAutomations(config.app, process.env),
+      registerAccountPurgeScheduler(config.app),
+    ])
 
-    // Arm the GDPR Art. 17 erasure sweep on the live scheduler (hourly,
-    // non-blocking). Without this, scheduled account erasures would never
-    // complete in production — see register-account-purge.ts.
-    yield* registerAccountPurgeScheduler(config.app)
+    // AWAITED, not forked. The port is already bound above, so a health check
+    // or load balancer sees the process live while this runs — that is the
+    // whole boot win, and it is kept. What must NOT move ahead of it is the
+    // startup banner: the `listening on` line is the LAST line of boot and is
+    // exactly what operators and `waitForServerPort`
+    // treat as "boot complete". Forking this made the banner print while the
+    // attachment-URL backfill and RAG embedding were still running, so a
+    // caller that boots a server and immediately asserts on backfilled URLs or
+    // embedded knowledge raced a half-finished boot. Announcing readiness
+    // before the work that readiness implies is a correctness bug, and
+    // correctness outranks the extra seconds.
+    yield* runDeferredStartupMaintenance(config.app)
 
     const durationMs = Date.now() - startTime
 

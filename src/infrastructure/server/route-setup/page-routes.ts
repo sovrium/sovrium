@@ -8,26 +8,24 @@
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { parseEcoPageCache } from '@/domain/models/env/eco/eco-page-cache'
-import { computeAppRenderChecksum } from '@/domain/services/app-render-checksum'
 import { buildRobotsTxt, buildSitemapXml } from '@/domain/services/feeds/sitemap-builder'
-import { isRenderablePathCacheable } from '@/domain/services/pages/page-cacheability'
 import { isSharedViewAccessDenied } from '@/domain/services/pages/page-shared-view-guard'
 import { logError } from '@/infrastructure/logging/logger'
-import {
-  getCachedPage,
-  getPageCacheKey,
-  setCachedPage,
-} from '@/infrastructure/server/cache/page-cache-service'
+import { getCachedPage, setCachedPage } from '@/infrastructure/server/cache/page-cache-service'
 import {
   detectLanguageIfEnabled,
   validateLanguageSubdirectory,
 } from '@/infrastructure/server/language-detection'
 import { runRequestEffect } from '@/infrastructure/server/run-request-effect'
-import { isPageCacheDevBypassed, isProduction as isProductionEnv } from '@/infrastructure/utils/env'
+import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
 import { setupAdminDashboardRoutes } from './admin-dashboard-routes'
 import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
 import { setupMarkdownExportRoutes } from './markdown-export-routes'
+import {
+  CACHED_PAGE_CACHE_CONTROL,
+  buildPageCacheKey,
+  decidePageCache,
+} from './page-cache-decision'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/types/session-info'
@@ -138,15 +136,15 @@ interface PageRequestContext {
  *
  * HTML page responses carry two cache headers:
  *  - `X-Render-Cache`: the {@link CacheStatus} (diagnostic / E2E observable).
- *  - `Cache-Control`: `public, max-age=300` for hits/misses (the render is
- *    request-invariant and may be shared by CDN/proxy layers), or
- *    `private, no-cache` for bypassed responses.
+ *  - `Cache-Control`: the disposition chosen by the caller — see
+ *    `page-cache-decision.ts` for the three constants and the decision matrix.
  *
  * Redirect and unauthorized responses are not pages and carry no cache headers.
  */
 function sendResolved(
   resolved: ReturnType<typeof resolvePageResult>,
   cacheStatus: CacheStatus,
+  cacheControl: string,
   // eslint-disable-next-line functional/prefer-immutable-types
   c: Context
 ): Response | undefined {
@@ -157,21 +155,10 @@ function sendResolved(
   }
   return c.html(resolved.html, 200, {
     'X-Render-Cache': cacheStatus,
-    'Cache-Control': cacheStatus === 'bypass' ? 'private, no-cache' : 'public, max-age=300',
+    'Cache-Control': cacheControl,
   })
 }
 
-/**
- * Render a page, serving it from — or storing it in — the static page-output
- * cache when eligible. Returns the HTTP response, or `undefined` for a 404
- * fall-through (the caller then renders its own not-found page).
- *
- * The cache is consulted only for anonymous, non-preview requests to a
- * cacheable path while `ECO_PAGE_CACHE` is on (see
- * `domain/services/page-cacheability.ts` for the safety model). Every other
- * request renders fresh and reports `bypass`. Cache entries are keyed by the
- * app render-checksum, so a schema change makes stale entries unreachable.
- */
 /**
  * PG-03 / [internal ref] — shared-view anti-enumeration.
  *
@@ -203,6 +190,19 @@ async function checkSharedViewGate(
   return c.html(await config.renderNotFoundPage(config.app, reqCtx.detectedLanguage), 404)
 }
 
+/**
+ * Render a page, serving it from — or storing it in — the static page-output
+ * cache when eligible. Returns the HTTP response, or `undefined` for a 404
+ * fall-through (the caller then renders its own not-found page).
+ *
+ * The cache is consulted only for anonymous, non-preview requests to a
+ * `'static'` or `'content'` path while `ECO_PAGE_CACHE` is on (see
+ * `domain/services/pages/page-cacheability.ts` for the safety model). Every
+ * other request renders fresh and reports `bypass`. Cache entries are keyed by
+ * the app render-checksum — so a schema change makes stale entries unreachable
+ * — plus, for a `'content'` page, its content-corpus checksum, so a markdown
+ * edit invalidates the entry with no schema change and no restart.
+ */
 async function renderWithCache(
   config: HonoAppConfig,
   path: string,
@@ -218,35 +218,29 @@ async function renderWithCache(
   const gateResponse = await checkSharedViewGate(config, path, reqCtx, c)
   if (gateResponse !== undefined) return gateResponse
 
-  const cacheUsable =
-    parseEcoPageCache(process.env) === 'on' &&
-    !isPageCacheDevBypassed() &&
-    reqCtx.session === undefined &&
-    reqCtx.previewMode !== true &&
-    isRenderablePathCacheable(app, path)
-
-  if (!cacheUsable) {
-    return sendResolved(resolvePageResult(await renderPage(app, path, reqCtx)), 'bypass', c)
+  const decision = decidePageCache(app, path, reqCtx)
+  if (!decision.usable) {
+    return sendResolved(
+      resolvePageResult(await renderPage(app, path, reqCtx)),
+      'bypass',
+      decision.bypassCacheControl,
+      c
+    )
   }
 
-  const cacheKey = getPageCacheKey(
-    computeAppRenderChecksum(app),
-    path,
-    reqCtx.detectedLanguage,
-    reqCtx.urlLanguage
-  )
+  const cacheKey = await buildPageCacheKey(app, path, reqCtx, decision.classification)
   const cached = await Effect.runPromise(getCachedPage(cacheKey))
   if (cached !== undefined) {
-    return sendResolved({ html: cached.html }, 'hit', c)
+    return sendResolved({ html: cached.html }, 'hit', CACHED_PAGE_CACHE_CONTROL, c)
   }
 
   const resolved = resolvePageResult(await renderPage(app, path, reqCtx))
   if (resolved !== undefined && 'html' in resolved) {
     // eslint-disable-next-line functional/no-expression-statements
     await Effect.runPromise(setCachedPage(cacheKey, { html: resolved.html, timestamp: Date.now() }))
-    return sendResolved(resolved, 'miss', c)
+    return sendResolved(resolved, 'miss', CACHED_PAGE_CACHE_CONTROL, c)
   }
-  return sendResolved(resolved, 'bypass', c)
+  return sendResolved(resolved, 'bypass', decision.bypassCacheControl, c)
 }
 
 /**

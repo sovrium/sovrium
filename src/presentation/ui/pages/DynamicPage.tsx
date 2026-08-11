@@ -66,6 +66,8 @@ type DynamicPageProps = {
    * user-specific UI affordances (own-comment edit/delete, admin overrides).
    */
   readonly session?: SessionInfo
+  /** Content-versioned stylesheet URL — see `PageHeadProps.cssHref`. */
+  readonly cssHref?: string
   /**
    * "Built with Sovrium" badge toggle — callers pass `isBadgeEnabled(app.badge)`,
    * threaded like `builtInAnalyticsEnabled`. Undefined renders no badge.
@@ -88,6 +90,8 @@ type DynamicPageHeadProps = {
   readonly components?: Components
   readonly theme?: Theme
   readonly directionStyles: string
+  /** Content-versioned stylesheet URL — see `PageHeadProps.cssHref`. */
+  readonly cssHref?: string
   readonly title: string
   readonly description: string
   readonly keywords?: string
@@ -173,6 +177,7 @@ function DynamicPageHead({
   components,
   theme,
   directionStyles,
+  cssHref,
   title,
   description,
   keywords,
@@ -223,6 +228,7 @@ window.addEventListener("popstate",u);
         components={components}
         theme={theme}
         directionStyles={directionStyles}
+        cssHref={cssHref}
         title={title}
         description={description}
         keywords={keywords}
@@ -546,6 +552,7 @@ export function DynamicPage({
   resolvedSidebar,
   markdownPayload,
   session,
+  cssHref,
   badgeEnabled,
   demoNoticeEnabled,
 }: DynamicPageProps): Readonly<ReactElement> {
@@ -571,6 +578,7 @@ export function DynamicPage({
         components={components}
         theme={theme}
         directionStyles={langConfig.directionStyles}
+        cssHref={cssHref}
         title={metadata.title}
         description={metadata.description}
         keywords={metadata.keywords}

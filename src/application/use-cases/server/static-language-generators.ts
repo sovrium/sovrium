@@ -55,6 +55,7 @@ export const generateMultiLanguageFiles = (
     const supportedLanguages = validatedApp.languages!.supported
 
     // Generate files for each language using Effect.forEach
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem/SSG work on a dedicated process, no shared database pool connection is held.
     const langFiles = yield* Effect.forEach(
       supportedLanguages,
       (lang) =>

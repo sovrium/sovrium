@@ -42,6 +42,7 @@ import {
 } from '../table-operations'
 import { sanitizeTableName, isManyToManyRelationship } from '../table-queries/shared/field-utils'
 import * as viewGenerators from '../views/view-generators'
+import { dropCommandSearchFtsObjects, reconcileCommandSearchIndexes } from './command-search-fts'
 import { ensureCommentReadStateTable } from './comment-read-state-table'
 import {
   getPreviousSchema,
@@ -325,6 +326,7 @@ const createJunctionTables = (
     logDebug('[schema] creating junction tables', {
       tables: Array.from(junctionTableSpecs.keys()).join(', '),
     })
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
     yield* Effect.all(
       Array.from(junctionTableSpecs.values()).map((spec) => executeSQL(tx, spec.ddl)),
       { concurrency: 'unbounded' }
@@ -350,6 +352,7 @@ const createAllViews = (
       viewOrderedTables.map((table) => createLookupViewsEffect(tx, table, sortedTables)),
       { concurrency: 1 }
     )
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
     yield* Effect.all(
       sortedTables.map((table) => createTableViewsEffect(tx, table)),
       { concurrency: 'unbounded' }
@@ -395,6 +398,13 @@ const executeMigrationSteps = (
   Effect.gen(function* () {
     // Step 0: Validate stored checksum to detect tampering
     yield* validateStoredChecksum(tx)
+
+    // Step 0.5: Clear the command-palette search structures before ANY table
+    // DDL — on BOTH engines. SQLite aborts a rebuild whose triggers would be
+    // left dangling; PostgreSQL's GIN index is an expression over
+    // `coalesce(col,'')`, so a column changing type aborts the migration.
+    // Rebuilt by `reconcileCommandSearchIndexes` once the migration commits.
+    yield* dropCommandSearchFtsObjects(tx)
 
     // Steps 1-2: Ensure Better Auth prerequisites
     yield* ensureAuthPrerequisites(tx, tables, !!app.auth)
@@ -565,6 +575,13 @@ const initializeSchemaInternal = (
     // they may have been created manually via SQL.
     if (shouldSkipMigration) {
       yield* cleanupObsoleteViews(dialectConfig, tables)
+      // Deliberately reconciled on the SKIP path too. The command-palette
+      // search indexes are introduced by a BINARY upgrade rather than by a
+      // config edit, and the checksum only hashes `app.tables` — so a
+      // deployment whose config never changes would take this fast path
+      // forever and never acquire them. Idempotent, and silent when the
+      // indexes are already in place.
+      yield* reconcileCommandSearchIndexes(dialectConfig, tables)
       return
     }
 
@@ -572,6 +589,12 @@ const initializeSchemaInternal = (
     // `executeMigrationSteps` is passed as the per-transaction work callback —
     // the dialect-aware transaction plumbing lives in schema-initializer-execute.ts.
     yield* executeSchemaInit(dialectConfig, tables, app, executeMigrationSteps)
+
+    // AFTER the migration transaction, not inside it: the indexes are built
+    // over columns the migration may have just created, and a failure here
+    // must not roll back real table DDL — the palette degrades to an
+    // unindexed scan, which is exactly the pre-hardening behaviour.
+    yield* reconcileCommandSearchIndexes(dialectConfig, tables)
 
     logDebug('[schema] database schema initialized')
   })

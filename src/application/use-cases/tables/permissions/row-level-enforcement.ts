@@ -24,6 +24,7 @@
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { isPredicateGroup, type CurrentUserContext } from '@/domain/validators/row-level-evaluator'
+import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { logError } from '@/infrastructure/logging'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { RowLevelPermissions, RowLevelWhen } from '@/domain/models/app/tables/permissions'
@@ -86,7 +87,7 @@ export const loadCurrentUserContext = (
           Effect.map((ids) => [slug, ids] as const)
         )
       ),
-      { concurrency: 'unbounded' }
+      { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
 
     return {

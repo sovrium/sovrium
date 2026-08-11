@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { COMMAND_PALETTE_RUNTIME_ACTIONS } from './command-palette-runtime-actions'
 import { COMMAND_PALETTE_RUNTIME_DOM } from './command-palette-runtime-dom'
+import { COMMAND_PALETTE_RUNTIME_FETCH } from './command-palette-runtime-fetch'
 
 /**
  * Global command-palette runtime for the synthesized `command-palette`
@@ -59,19 +61,7 @@ export const COMMAND_PALETTE_RUNTIME = `(function () {
   var input = null;
   var results = null;
 ${COMMAND_PALETTE_RUNTIME_DOM}
-  function getJson(url) {
-    try {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', url, false);
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.send();
-      if (xhr.status < 200 || xhr.status >= 300) return null;
-      return JSON.parse(xhr.responseText);
-    } catch (err) {
-      return null;
-    }
-  }
-
+${COMMAND_PALETTE_RUNTIME_FETCH}
   function clearResults() {
     while (results.firstChild) results.removeChild(results.firstChild);
     activeIndex = -1;
@@ -130,76 +120,7 @@ ${COMMAND_PALETTE_RUNTIME_DOM}
     return li;
   }
 
-  // Build a quick-action option element. \`action\` is one of:
-  //   create-record:<table> | navigate | toggle-dark-mode
-  function makeActionOption(label, action, href) {
-    var li = document.createElement('div');
-    li.setAttribute('role', 'option');
-    li.setAttribute('aria-label', label);
-    li.setAttribute('data-command-action', action);
-    if (typeof href === 'string' && href) li.setAttribute('data-href', href);
-    var text = document.createElement('span');
-    text.textContent = label;
-    li.appendChild(text);
-    li.addEventListener('click', function () { activate(li); });
-    return li;
-  }
-
-  // The full quick-action catalogue, rebuilt on every render so it stays in
-  // sync with the app's tables/pages config.
-  function quickActions() {
-    var actions = [];
-    for (var t = 0; t < config.tables.length; t++) {
-      var table = config.tables[t];
-      if (table && typeof table.name === 'string') {
-        actions.push({
-          label: 'Create new record in ' + table.name,
-          action: 'create-record:' + table.name,
-        });
-      }
-    }
-    for (var p = 0; p < config.pages.length; p++) {
-      var page = config.pages[p];
-      if (page && typeof page.path === 'string') {
-        var title = typeof page.title === 'string' && page.title ? page.title : page.name;
-        actions.push({ label: 'Go to ' + title, action: 'navigate', href: page.path });
-      }
-    }
-    actions.push({ label: 'Toggle dark mode', action: 'toggle-dark-mode' });
-    return actions;
-  }
-
-  // A quick action matches a query when every whitespace-separated token of
-  // the query appears (case-insensitive substring) somewhere in its label.
-  // This lets "new task" match "Create new record in tasks".
-  function actionMatchesQuery(label, query) {
-    var haystack = label.toLowerCase();
-    var tokens = query.toLowerCase().split(/\\s+/);
-    for (var t = 0; t < tokens.length; t++) {
-      if (tokens[t].length > 0 && haystack.indexOf(tokens[t]) === -1) return false;
-    }
-    return true;
-  }
-
-  // Render a "Quick actions" section, filtered by \`query\` (empty = all).
-  function renderQuickActions(query) {
-    var needle = (query || '').trim();
-    var actions = quickActions();
-    var matched = [];
-    for (var i = 0; i < actions.length; i++) {
-      if (needle.length === 0 || actionMatchesQuery(actions[i].label, needle)) {
-        matched.push(actions[i]);
-      }
-    }
-    if (matched.length === 0) return;
-    var section = document.createElement('section');
-    section.setAttribute('data-command-palette-section', 'actions');
-    section.appendChild(makeHeading('Quick actions'));
-    for (var m = 0; m < matched.length; m++) {
-      section.appendChild(makeActionOption(matched[m].label, matched[m].action, matched[m].href));
-    }
-    results.appendChild(section);
-  }
+${COMMAND_PALETTE_RUNTIME_ACTIONS}
 
   function getOptions() {
     return results.querySelectorAll('[role="option"]');
@@ -284,23 +205,33 @@ ${COMMAND_PALETTE_RUNTIME_DOM}
 
   // Empty-query view: quick actions, then a Favorites section above a Recent
   // section.
-  function renderDefault() {
+  function renderDefault(ctx) {
+    // Quick actions are derived from config alone, so they paint immediately
+    // rather than waiting on the network — the palette is never blank while the
+    // favorites/recent requests are in flight. The two sections below always
+    // append AFTER them, so the resulting order is unchanged.
     clearResults();
     renderQuickActions('');
-    var favorites = getJson('/api/favorites') || [];
-    var recent = getJson('/api/recent?limit=20') || [];
-    if (Array.isArray(favorites) && favorites.length > 0) {
-      var favSection = document.createElement('section');
-      favSection.setAttribute('data-command-palette-section', 'favorites');
-      favSection.appendChild(makeHeading('Favorites'));
-      results.appendChild(favSection);
-    }
-    if (Array.isArray(recent) && recent.length > 0) {
-      var recentSection = document.createElement('section');
-      recentSection.setAttribute('data-command-palette-section', 'recent');
-      recentSection.appendChild(makeHeading('Recent'));
-      results.appendChild(recentSection);
-    }
+    return Promise.all([
+      getJson('/api/favorites', ctx.signal),
+      getJson('/api/recent?limit=20', ctx.signal),
+    ]).then(function (responses) {
+      if (isStale(ctx.token)) return;
+      var favorites = responses[0] || [];
+      var recent = responses[1] || [];
+      if (Array.isArray(favorites) && favorites.length > 0) {
+        var favSection = document.createElement('section');
+        favSection.setAttribute('data-command-palette-section', 'favorites');
+        favSection.appendChild(makeHeading('Favorites'));
+        results.appendChild(favSection);
+      }
+      if (Array.isArray(recent) && recent.length > 0) {
+        var recentSection = document.createElement('section');
+        recentSection.setAttribute('data-command-palette-section', 'recent');
+        recentSection.appendChild(makeHeading('Recent'));
+        results.appendChild(recentSection);
+      }
+    });
   }
 
   // Search view: page matches in a "Pages" category section above the record
@@ -309,9 +240,20 @@ ${COMMAND_PALETTE_RUNTIME_DOM}
   // typed the user is most likely looking for an actual page/record match, so
   // pressing ArrowDown once should highlight a content result, not the generic
   // "Create new record in <table>" quick action (APP-COMMAND-PALETTE-004).
-  function renderSearch(query) {
+  function renderSearch(query, ctx) {
+    // The previous results stay on screen until the new ones arrive: clearing
+    // up front would blank the list on every debounce tick, which reads as
+    // flicker rather than as progress.
+    return getJson('/api/command-search?q=' + encodeURIComponent(query), ctx.signal).then(
+      function (response) {
+        if (isStale(ctx.token)) return;
+        renderMatches(query, response || []);
+      }
+    );
+  }
+
+  function renderMatches(query, matches) {
     clearResults();
-    var matches = getJson('/api/command-search?q=' + encodeURIComponent(query)) || [];
     if (!Array.isArray(matches)) return;
     var pageMatches = [];
     var recordMatches = [];
@@ -369,10 +311,13 @@ ${COMMAND_PALETTE_RUNTIME_DOM}
 
   function refresh() {
     var query = (input.value || '').trim();
-    if (query.length === 0) {
-      renderDefault();
+    // Claim the render slot BEFORE branching, so a sub-floor keystroke also
+    // cancels the request the previous keystroke started.
+    var ctx = beginRender();
+    if (query.length < MIN_QUERY_LENGTH) {
+      renderDefault(ctx);
     } else {
-      renderSearch(query);
+      renderSearch(query, ctx);
     }
   }
 

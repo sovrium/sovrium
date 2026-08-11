@@ -25,6 +25,7 @@ import { renderToString } from 'react-dom/server'
 import { isBadgeEnabled } from '@/domain/models/app/badge'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
 import { isGroupVisible } from '@/domain/models/shared/field-groups-flow'
+import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
 import { DemoNotice } from '@/presentation/ui/demo-notice/demo-notice'
 import {
@@ -67,9 +68,11 @@ interface EmbeddedFormPrefillContext {
 const FormHead = ({
   title,
   description,
+  cssHref,
 }: {
   readonly title: string
   readonly description: string
+  readonly cssHref?: string
 }) => (
   <head>
     <meta charSet="UTF-8" />
@@ -88,7 +91,7 @@ const FormHead = ({
         and --color-text — without a separate per-form bundle). */}
     <link
       rel="stylesheet"
-      href="/assets/output.css"
+      href={cssHref ?? '/assets/output.css'}
     />
   </head>
 )
@@ -423,7 +426,6 @@ function FormPage({
 }) {
   const { languages } = app
   const title = resolveText(form.title, languages, form.name, activeLang)
-  const description = resolveText(form.description, languages, '', activeLang)
   const documentLang = resolveDocumentLang(languages, activeLang)
   // Standalone prefill (literal / $query / $user) renders as editable
   // initial values, so it routes through the prefill context with
@@ -436,7 +438,8 @@ function FormPage({
     <html lang={documentLang}>
       <FormHead
         title={title}
-        description={description}
+        description={resolveText(form.description, languages, '', activeLang)}
+        cssHref={getVersionedCssPath(app)}
       />
       <body>
         <main

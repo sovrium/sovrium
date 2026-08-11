@@ -18,6 +18,7 @@ import {
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { parseJsonObjectCell } from '@/domain/utils/database/sqlite-json-cell'
+import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 import { hasDeletePermission } from '@/domain/validators/permission-evaluators'
 import {
   provideTableWithAutomationsLive,
@@ -546,7 +547,9 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
-  if (redirectPath && redirectPath.startsWith('/')) {
+  // The path arrives in the request body, so it is only honoured once proven
+  // same-origin — otherwise it is an open redirect off this site.
+  if (isSafeRedirectPath(redirectPath)) {
     return c.redirect(redirectPath, 302)
   }
 

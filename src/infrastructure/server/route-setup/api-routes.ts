@@ -63,6 +63,7 @@ import { chainAdminFormsRoutes } from '@/presentation/api/routes/admin/forms'
 import { chainAdminFormsAnalyticsExportRoutes } from '@/presentation/api/routes/admin/forms-analytics-export'
 import { chainAdminUsersRoutes } from '@/presentation/api/routes/admin/users-overview'
 import { chainCommandSearchRoutes } from '@/presentation/api/routes/command-search'
+import { commandSearchRateLimitMiddleware } from '@/presentation/api/routes/command-search/command-search-rate-limit'
 import { chainConnectionRoutes } from '@/presentation/api/routes/connections'
 import { chainFavoriteRoutes } from '@/presentation/api/routes/favorites'
 import { chainRealtimeRoutes } from '@/presentation/api/routes/realtime'
@@ -951,7 +952,15 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // `/api/recent` + `/api/command-search` auth chains are installed above when
   // `app.auth` is configured.
   const honoWithRecent = chainRecentRoutes(honoWithUserDirectory)
-  const honoWithCommandSearch = chainCommandSearchRoutes(honoWithRecent, app)
+  // Palette request ceiling,
+  // registered HERE rather than in either arm of the auth ternary above: the
+  // route is reachable anonymously, so the limiter has to apply on the no-auth
+  // branch too, and this point is downstream of BOTH arms. Mounted before the
+  // handler so a rejected request never reaches the per-table fan-out.
+  const honoWithCommandSearch = chainCommandSearchRoutes(
+    honoWithRecent.use('/api/command-search', commandSearchRateLimitMiddleware),
+    app
+  )
 
   // Chain realtime presence routes (Wave-6): GET /api/realtime/presence.
   // Always registered; the handler returns 401 when no session is attached

@@ -87,6 +87,7 @@ export const applyTableFeatures = (
     // The created/autonumber/updated triggers are dialect-aware in
     // `trigger-generators.ts`; the AI / formula triggers are PL/pgSQL and are
     // omitted on SQLite by `advancedTriggerEffects`.
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
     yield* Effect.all(
       [
         executeSQLStatementsParallel(tx, generateIndexStatements(physicalTable)),
@@ -123,6 +124,7 @@ export const applyTableFeaturesWithoutIndexes = (
 
     // Triggers (can run in parallel - all independent).
     // AI / formula triggers are PL/pgSQL — omitted on SQLite.
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
     yield* Effect.all(
       [
         executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable)),

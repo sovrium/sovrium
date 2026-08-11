@@ -12,18 +12,27 @@
  * `Ref<Map>` singleton with plain Effect-returning accessors (no `Context.Tag`
  * / `Layer` — the cache is a leaf storage utility with no dependencies).
  *
- * Entries are keyed by `${appRenderChecksum}:${path}:${language}`. Because the
- * checksum changes whenever any render-affecting part of the app schema
- * changes (see `domain/services/app-render-checksum.ts`), stale entries simply
- * become unreachable after a schema edit — invalidation is automatic, there is
- * no TTL and no purge logic.
+ * Entries are keyed by `${appRenderChecksum}:${path}:${language}:${urlLanguage}`
+ * plus, for a `'content'` page, a corpus checksum (see {@link getPageCacheKey}).
+ * Because the checksum changes whenever any render-affecting part of the app
+ * schema changes (see `domain/services/app-render-checksum.ts`), stale entries
+ * simply become unreachable after a schema edit — invalidation is automatic and
+ * there is no TTL.
  *
- * Only request-invariant ("static") pages are stored here, and only for
- * anonymous requests — see `domain/services/page-cacheability.ts` for the
+ * The cache IS bounded, by BYTES rather than by entry count: `ECO_PAGE_CACHE_MAX_MB`
+ * (default 64) caps the total HTML held. Entries are admitted until the budget
+ * is reached, then insertion-order-oldest entries are evicted until the new
+ * entry fits; a single entry larger than the whole budget is refused outright.
+ * A byte budget is the right unit once whole docs zones are cacheable — 200
+ * marketing pages and 200 long-form articles differ by an order of magnitude.
+ *
+ * Only `'static'` and `'content'` pages are stored here, and only for anonymous
+ * requests — see `domain/services/pages/page-cacheability.ts` for the
  * cacheability rules and the safety model.
  */
 
 import { Effect, Ref, pipe } from 'effect'
+import { parseEcoPageCacheMaxMb } from '@/domain/models/env/eco/eco-page-cache-max-mb'
 
 /** A cached page render plus the time it was stored (for diagnostics). */
 export interface CachedPage {
@@ -31,11 +40,16 @@ export interface CachedPage {
   readonly timestamp: number
 }
 
+/** A stored entry — a {@link CachedPage} plus its measured UTF-8 byte size. */
+interface PageCacheEntry extends CachedPage {
+  readonly bytes: number
+}
+
 /**
  * Process-global page-HTML cache. `Ref` + immutable `Map` replacement keeps
  * state management functional (no mutation), matching the CSS cache.
  */
-const pageCache = Ref.unsafeMake<Map<string, CachedPage>>(new Map())
+const pageCache = Ref.unsafeMake<Map<string, PageCacheEntry>>(new Map())
 
 /**
  * Build the cache key for a page render.
@@ -46,17 +60,27 @@ const pageCache = Ref.unsafeMake<Map<string, CachedPage>>(new Map())
  * override the page's own `meta.lang` ([internal ref]..039) — so they can
  * produce different HTML and must never share an entry.
  *
+ * `corpusChecksum` is the `'content'`-page dimension: a page whose only
+ * out-of-schema input is a directory of markdown files is corpus-invariant, not
+ * request-invariant, so its entry is keyed by the CURRENT state of that corpus
+ * as well. A markdown edit leaves the app render-checksum untouched and only
+ * this segment can notice it. `'static'` pages pass `undefined` and get `-`.
+ *
  * @param renderChecksum - App render-checksum (see `computeAppRenderChecksum`).
  * @param path - Request path, e.g. `/` or `/about`.
  * @param language - Detected language code, or `undefined` for the default.
- * @param urlLanguage - The `/:lang/` URL-prefix locale, when the request had one.
+ * @param variant - Optional extra key dimensions: the `/:lang/` URL-prefix
+ *   locale (when the request carried one) and the content-corpus checksum
+ *   (for a `'content'` page). Grouped into one object so the key builder keeps
+ *   a readable call shape as dimensions accrue.
  */
 export const getPageCacheKey = (
   renderChecksum: string,
   path: string,
   language: string | undefined,
-  urlLanguage?: string
-): string => `${renderChecksum}:${path}:${language ?? 'default'}:${urlLanguage ?? '-'}`
+  variant?: { readonly urlLanguage?: string; readonly corpusChecksum?: string }
+): string =>
+  `${renderChecksum}:${path}:${language ?? 'default'}:${variant?.urlLanguage ?? '-'}:${variant?.corpusChecksum ?? '-'}`
 
 /**
  * Get a cached page by key, or `undefined` when not present.
@@ -67,11 +91,59 @@ export const getCachedPage = (cacheKey: string): Effect.Effect<CachedPage | unde
     Effect.map((cache) => cache.get(cacheKey))
   )
 
+/** One `[key, entry]` pair of the cache map. */
+type CacheItem = readonly [string, PageCacheEntry]
+
 /**
- * Store a rendered page in the cache.
+ * The live byte budget, read from the environment per insert so an operator's
+ * `ECO_PAGE_CACHE_MAX_MB` takes effect without a restart-time snapshot.
+ */
+const pageCacheBudgetBytes = (): number => parseEcoPageCacheMaxMb(process.env) * 1024 * 1024
+
+/**
+ * Keep the NEWEST suffix of `items` that fits in `budget`, i.e. evict
+ * insertion-order-oldest entries until the total fits.
+ *
+ * Walks from the newest end and stops at the first entry that would overflow —
+ * it does not skip an oversized entry to keep an older, smaller one, because
+ * that would silently reorder eviction away from "oldest first".
+ */
+const keepNewestWithinBudget = (
+  items: readonly CacheItem[],
+  budget: number
+): readonly CacheItem[] =>
+  items.reduceRight<{
+    readonly total: number
+    readonly kept: readonly CacheItem[]
+    readonly stopped: boolean
+  }>(
+    (acc, item) => {
+      if (acc.stopped) return acc
+      const total = acc.total + item[1].bytes
+      if (total > budget) return { ...acc, stopped: true }
+      return { total, kept: [item, ...acc.kept], stopped: false }
+    },
+    { total: 0, kept: [], stopped: false }
+  ).kept
+
+/**
+ * Store a rendered page in the cache, evicting the insertion-order-oldest
+ * entries until the store is back within the `ECO_PAGE_CACHE_MAX_MB` budget.
+ *
+ * Re-setting an existing key replaces it in place at the NEWEST position (the
+ * old entry is dropped first, so its bytes never double-count). An entry larger
+ * than the entire budget is refused rather than evicting everything to make
+ * room for something that still would not fit.
  */
 export const setCachedPage = (cacheKey: string, page: CachedPage): Effect.Effect<void, never> =>
-  Ref.update(pageCache, (currentCache) => new Map([...currentCache, [cacheKey, page]]))
+  Ref.update(pageCache, (currentCache) => {
+    const budget = pageCacheBudgetBytes()
+    const bytes = Buffer.byteLength(page.html, 'utf8')
+    const others = [...currentCache].filter(([key]) => key !== cacheKey)
+    if (bytes > budget) return new Map(others)
+    const entry: PageCacheEntry = { html: page.html, timestamp: page.timestamp, bytes }
+    return new Map(keepNewestWithinBudget([...others, [cacheKey, entry] as const], budget))
+  })
 
 /**
  * Clear the entire page cache (used by tests and hot-reload paths).

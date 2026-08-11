@@ -286,6 +286,7 @@ const connectionsBlock = (): Effect.Effect<{
  */
 export const buildAdminOverview = (app: App): Effect.Effect<AdminOverviewResponse> =>
   Effect.gen(function* () {
+    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- fixed-width fan-out: exactly six literal blocks (not data-dependent), each with its own timeout, and the whole overview is serialized process-wide by `overviewSemaphore` below.
     const [records, submissions, runs, users, storage, connections] = yield* Effect.all(
       [
         withBlockTimeout(recordsBlock(app), RECORDS_ZERO, BLOCK_TIMEOUT_MS),

@@ -30,6 +30,37 @@ import type { Context, Hono } from 'hono'
  */
 
 /**
+ * Minimum length of the TRIMMED query before the endpoint will run the scan
+ *.
+ *
+ * A single character is the worst input this endpoint accepts: `%a%` selects a
+ * large fraction of every text column on every table, the database materializes
+ * all of it, and the use case then discards everything past the first 25 rows —
+ * and a palette fires exactly that on the first keystroke of every search anyone
+ * ever performs. `%ab%` is already ~26x more selective, so the second character
+ * buys nearly all of the benefit; a floor of 3 would make two-letter searches
+ * unreachable for no measured gain.
+ */
+const MIN_QUERY_LENGTH = 2
+
+/**
+ * Cache directive on every 200. Both halves are load-bearing:
+ *
+ *   `private`    results are session-dependent — the `favorited` boost reads the
+ *                caller's own favorites — so a shared cache MUST NOT store them.
+ *                Omitting it would let a proxy serve one reader's favorite
+ *                ordering to another.
+ *   `max-age=10` long enough to absorb the re-issues a palette generates by its
+ *                normal operation (backspace-and-retype, reopening, a re-mount),
+ *                short enough that a record created seconds ago is discoverable.
+ *
+ * Empty results carry it too: an empty answer is the response a fast typist
+ * generates most often, so caching only the hits would miss most of the traffic
+ * that actually costs a scan.
+ */
+const CACHE_CONTROL = 'private, max-age=10'
+
+/**
  * Build the GET /api/command-search handler bound to the resolved app schema.
  */
 const buildSearchHandler =
@@ -37,14 +68,20 @@ const buildSearchHandler =
   async (c: Context): Promise<Response> => {
     const session = getSessionContext(c)
     const query = (c.req.query('q') ?? '').trim()
-    if (query.length === 0) return c.json([], 200)
+    // Below the selectivity floor the honest answer is `200 []`, NOT `400`: a
+    // palette types into this endpoint character by character, and a 400
+    // mid-typing is an error state rendered for a user who has done nothing
+    // wrong. This also covers the empty-query case it replaces.
+    if (query.length < MIN_QUERY_LENGTH) {
+      return c.json([], 200, { 'Cache-Control': CACHE_CONTROL })
+    }
 
     const results = await runRequestEffect(
       c,
       SearchCommandPalette(app, query, session?.userId).pipe(provideCommandSearchLive)
     )
 
-    return c.json(results, 200)
+    return c.json(results, 200, { 'Cache-Control': CACHE_CONTROL })
   }
 
 /**
