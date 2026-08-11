@@ -8,10 +8,19 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Error for realtime operations
+ */
 export class RealtimeError extends Data.TaggedError('RealtimeError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Realtime Service Port
+ *
+ * Provides pub/sub messaging, channel subscriptions, and presence tracking.
+ * Implementation lives in infrastructure layer (e.g., WebSocket, SSE).
+ */
 export class RealtimeService extends Context.Tag('RealtimeService')<
   RealtimeService,
   {

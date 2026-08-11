@@ -46,8 +46,11 @@ import type { SchemaInitializationError } from '@/infrastructure/errors/schema-i
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { FileCopyError } from '@/infrastructure/filesystem/copy-directory'
 
+/**
+ * Options for static site generation
+ */
 export interface GenerateStaticOptions {
-  readonly outputDir?: string
+  readonly outputDir?: string // default: './static'
   readonly baseUrl?: string
   readonly basePath?: string
   readonly deployment?: 'github-pages' | 'generic'
@@ -58,14 +61,50 @@ export interface GenerateStaticOptions {
   readonly hydration?: boolean
   readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
-  readonly publicDir?: string
+  readonly publicDir?: string // Directory containing static assets to copy
+  /**
+   * Also write the compiled CSS to the pre-compiled artifact path
+   * (`SOVRIUM_CSS_FILE`, else `.sovrium/output.css`) so a later
+   * `sovrium start` can serve it without recompiling. Defaults to `true`,
+   * which is what `sovrium build` wants.
+   *
+   * Set to `false` for callers that run this pipeline purely to materialize
+   * throwaway HTML — notably the boot-time search-index pre-render, which
+   * generates into a temp directory it deletes immediately. Such a caller
+   * emitting the artifact would overwrite a stylesheet it does not own.
+   */
+  readonly emitPrecompiledCss?: boolean
 }
 
+/**
+ * Result of static site generation
+ */
 export interface GenerateStaticResult {
   readonly outputDir: string
   readonly files: readonly string[]
 }
 
+/**
+ * Decode the app for static generation — a RE-decode, not the gate.
+ *
+ * `build()` (`src/index.ts`) already ran this config through
+ * `decodeAppConfigObject` — the shared pipeline, `onExcessProperty: 'error'`
+ * and all — and hands `generateStatic` the NORMALIZED result. So by the time
+ * this runs the verdict is settled; what remains is turning an
+ * already-accepted object back into the `App` TYPE this module's callers need.
+ *
+ * THE MULTI-LANGUAGE BRANCH LOOKS LIKE A HOLE AND IS NOT ONE. When the app
+ * declares `languages`, the pages are decoded WITHOUT and then re-attached raw,
+ * because a page in a multi-language app may still carry `{{t.*}}` tokens that
+ * do not typecheck until `replaceAppTokens` substitutes them. The pages are
+ * decoded per language, AFTER substitution, in `static-language-generators.ts`
+ * — so every page is validated, once per language it is emitted in, rather than
+ * once here against a shape it does not yet have.
+ *
+ * Do not "fix" this by decoding the pages here as well: that would reject the
+ * token spellings the feature exists to support, and it would decode every page
+ * twice for no additional verdict.
+ */
 function validateAppSchema(app: unknown): Effect.Effect<App, AppValidationError, never> {
   const rawApp = app as Record<string, unknown>
   const hasLanguages = rawApp.languages !== undefined
@@ -86,6 +125,9 @@ function validateAppSchema(app: unknown): Effect.Effect<App, AppValidationError,
       })
 }
 
+/**
+ * Get required services from Effect context
+ */
 function getServicesFromContext() {
   return Effect.gen(function* () {
     return {
@@ -97,6 +139,9 @@ function getServicesFromContext() {
   })
 }
 
+/**
+ * Generate HTML files for single or multi-language apps
+ */
 function generateHtmlFiles(
   app: App,
   outputDir: string,
@@ -117,24 +162,37 @@ function generateHtmlFiles(
     : generateSingleLanguageFiles(app, outputDir, serverFactory, pageRenderer, staticSiteGenerator)
 }
 
+/**
+ * Generate and write CSS file
+ */
 function generateCssFile(
   outputDir: string,
   app: App,
   cssCompiler: Context.Tag.Service<CSSCompilerService>,
-  fs: FileSystemLike
+  fs: FileSystemLike,
+  emitPrecompiledCss: boolean
 ) {
   return Effect.gen(function* () {
     logDebug('Getting compiled CSS...')
     const { css } = yield* cssCompiler.compile(app)
 
+    // Write to static output directory (dist/assets/output.css)
     const cssFile = yield* writeCssFile(outputDir, css, fs)
 
+    if (!emitPrecompiledCss) {
+      return cssFile
+    }
+
+    // Also write pre-compiled CSS for production start
     const precompiledPath = yield* writePrecompiledCSS(css).pipe(
       Effect.catchAll((error) =>
         Console.log(`⚠️ Could not write pre-compiled CSS: ${error}`).pipe(Effect.as(undefined))
       )
     )
     if (precompiledPath) {
+      // User-visible (not debug): `sovrium build` documents this line as part of
+      // its output contract so operators can confirm the production CSS artifact
+      // was written..
       yield* Console.log(`Pre-compiled CSS written to ${precompiledPath}`)
     }
 
@@ -142,6 +200,14 @@ function generateCssFile(
   })
 }
 
+/**
+ * Optimize HTML files with formatting and transformations
+ *
+ * @param generatedFiles - List of generated file paths
+ * @param outputDir - Output directory path
+ * @param options - Static generation options
+ * @param fsModule - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ */
 function optimizeHtmlFiles(
   generatedFiles: readonly string[],
   outputDir: string,
@@ -160,6 +226,9 @@ function optimizeHtmlFiles(
   })
 }
 
+/**
+ * Generate all supporting files (sitemap, robots.txt, GitHub Pages files)
+ */
 function generateSupportingFiles(
   app: App,
   outputDir: string,
@@ -176,6 +245,19 @@ function generateSupportingFiles(
   })
 }
 
+/**
+ * Generate static site from app configuration
+ *
+ * This use case:
+ * 1. Validates the app schema
+ * 2. Creates a Hono app instance
+ * 3. Generates static HTML files
+ * 4. Creates supporting files (sitemap, robots.txt, etc.)
+ *
+ * @param app - The app configuration (unknown type, will be validated)
+ * @param options - Static generation options
+ * @returns Effect with output directory and generated files
+ */
 export const generateStatic = (
   app: unknown,
   options: GenerateStaticOptions = {}
@@ -193,13 +275,17 @@ export const generateStatic = (
   ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
 > => {
   const program = Effect.gen(function* () {
+    // Step 1: Dependencies are statically imported
     const { replaceAppTokens } = translationReplacer
 
+    // Step 2: Validate app schema
     const validatedApp = yield* validateAppSchema(app)
 
+    // Step 3: Get services and initialize
     const services = yield* getServicesFromContext()
     const outputDir = options.outputDir || './static'
 
+    // Step 4: Generate HTML files
     const htmlFiles = yield* generateHtmlFiles(
       validatedApp,
       outputDir,
@@ -209,10 +295,18 @@ export const generateStatic = (
       services.staticSiteGenerator
     )
 
-    const cssFile = yield* generateCssFile(outputDir, validatedApp, services.cssCompiler, fs)
+    // Step 5: Generate CSS and assets
+    const cssFile = yield* generateCssFile(
+      outputDir,
+      validatedApp,
+      services.cssCompiler,
+      fs,
+      options.emitPrecompiledCss ?? true
+    )
     const hydrationFiles = yield* generateHydrationFiles(outputDir, options.hydration ?? false, fs)
     const assetFiles = yield* copyPublicAssets(options.publicDir, outputDir)
 
+    // Collect all generated files
     const generatedFiles = [
       ...htmlFiles,
       cssFile,
@@ -220,10 +314,13 @@ export const generateStatic = (
       ...assetFiles,
     ] as readonly string[]
 
+    // Step 6: Optimize HTML files
     yield* optimizeHtmlFiles(generatedFiles, outputDir, options, fs)
 
+    // Step 7: Generate supporting files
     const supportingFiles = yield* generateSupportingFiles(validatedApp, outputDir, options, fs)
 
+    // Combine all files immutably
     const allFiles = [...generatedFiles, ...supportingFiles] as readonly string[]
 
     logDebug(`Generated ${allFiles.length} files to ${outputDir}`)

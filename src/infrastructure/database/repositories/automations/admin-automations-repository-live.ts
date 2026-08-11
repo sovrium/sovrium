@@ -26,14 +26,29 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
+// Dialect-aware schema resolution for `automation_runs` / `automation_definitions`
+// — moved verbatim from the former presentation/api/routes/admin/automations.ts.
+// The PG variant generates `system.<table>` qualifiers; the SQLite variant maps
+// flat `system_*` names. Resolved once at module-init (the helper memoizes).
 const automationRuns = resolveDialectSchema(automationRunsPg, automationRunsSqlite)
 const automationDefinitions = resolveDialectSchema(
   automationDefinitionsPg,
   automationDefinitionsSqlite
 )
 
+/** Wrap a DB promise, adapting failures to AdminAutomationsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminAutomationsDatabaseError({ cause }))
 
+/**
+ * Build the WHERE-clause condition list for the runs-list read. Spreads each
+ * optional filter immutably so the result is a frozen ReadonlyArray<SQL>; the
+ * caller wraps with `and(...)` when non-empty.
+ *
+ * The cursor anchors on `createdAt` (non-null by schema) — `startedAt` may be
+ * null for runs that never reached the scheduler, so it cannot anchor a stable
+ * sort. The list is sorted `createdAt DESC`, so the cursor predicate selects
+ * rows strictly older than the cursor's `createdAt`.
+ */
 const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> => {
   const statusFilter: ReadonlyArray<SQL> =
     filters.status !== undefined ? [eq(automationRuns.status, filters.status)] : []
@@ -54,6 +69,11 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
   return [...statusFilter, ...nameFilter, ...idFilter, ...fromFilter, ...toFilter, ...cursorFilter]
 }
 
+/**
+ * Drizzle implementation for {@link AdminAutomationsRepository.listAdminRuns}.
+ * Pulled out of the `wrap()` callback so the latter stays under the complexity
+ * cap. Fetches `limit + 1` joined rows so the use case can derive `hasMore`.
+ */
 const listAdminRunsImpl = async (
   filters: AdminRunsListFilters
 ): Promise<ReadonlyArray<AdminAutomationRunRow>> => {
@@ -79,6 +99,14 @@ const listAdminRunsImpl = async (
     .limit(filters.limit + 1)) as ReadonlyArray<AdminAutomationRunRow>
 }
 
+/**
+ * Admin Automations Repository Implementation (Drizzle).
+ *
+ * Three dialect-aware reads over `system.automation_runs` (joined to
+ * `automation_definitions` for the runs name) backing the admin overview, list,
+ * and detail endpoints. All projection / bucketing / cursor logic lives in the
+ * `automations-overview` use case; this layer emits only raw queries.
+ */
 export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepository, {
   listOverviewRowsSince: (since) =>
     wrap(

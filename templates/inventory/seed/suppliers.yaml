@@ -1,0 +1,122 @@
+# Sample suppliers.
+#
+# `key` is file-local — it exists so products.yaml can name a supplier before
+# either row has a database id. It is never written to a column.
+#
+# `notes` carries real prose rather than filler because this table's seven AI
+# fields all derive from it: `ai_summary`, `ai_tags`, `ai_risk_tier`,
+# `ai_blurb`, `ai_contact_details`, `ai_review_sentiment` and `ai_name_fr` read
+# `sourceFields: [notes]`. Seeded with "Supplier 1" they would compute nothing
+# worth looking at once an AI provider is configured; seeded with a paragraph
+# that names a contact, a city, a risk and a sentiment, they have something to
+# find. None of those columns is seeded here — they are computed on write.
+#
+# `account_manager` (a `user` field) is left unseeded: it needs a real account
+# id that does not exist until someone signs up.
+records:
+  - key: acme-components
+    fields:
+      name: Acme Components
+      contact_email: orders@acme-components.example
+      phone: '+33 1 44 09 12 80'
+      website: https://acme-components.example
+      notes: >-
+        Long-standing supplier for the hardware line. Our contact is Élodie
+        Marchand in Roubaix; she answers within the day and flags shortages
+        before they bite. Quality has been consistently good over four years and
+        two audits. Lead times stretch in August — plan the autumn buy in June.
+      certifications:
+        - ISO 9001
+        - ISO 14001
+        - RoHS
+      integration_config:
+        protocol: sftp
+        host: edi.acme-components.example
+        schedule: '0 6 * * *'
+        ack_required: true
+      edi_mapping: |-
+        order_ref: $.orderNumber
+        line_items: $.lines[*]
+        sku: $.lines[*].partCode
+        quantity: $.lines[*].qty
+
+  - key: nordpack
+    fields:
+      name: Nordpack Emballages
+      contact_email: contact@nordpack.example
+      phone: '+33 3 20 55 41 07'
+      website: https://nordpack.example
+      notes: >-
+        Packaging only — cartons, void fill, tape. Priced per pallet, delivered
+        from Lille. Reliable but rigid: no partial pallets, no rush orders, and
+        the sales contact Bruno Lievens will say so plainly. Cheapest option we
+        have and the least flexible.
+      certifications:
+        - FSC
+        - PEFC
+      integration_config:
+        protocol: email
+        address: commandes@nordpack.example
+        format: pdf
+
+  - key: kessler-elektronik
+    fields:
+      name: Kessler Elektronik
+      contact_email: vertrieb@kessler-elektronik.example
+      phone: '+49 711 90 44 12'
+      website: https://kessler-elektronik.example
+      notes: >-
+        Electronics and spare parts out of Stuttgart. Technically excellent,
+        commercially painful — Herr Kessler prices in small batches and will not
+        hold stock for us. Two late deliveries this year, both communicated
+        late. Worth keeping for the parts nobody else carries; do not make them
+        single-source for anything that stops a line.
+      certifications:
+        - ISO 9001
+        - IATF 16949
+        - RoHS
+        - REACH
+      integration_config:
+        protocol: api
+        base_url: https://api.kessler-elektronik.example/v2
+        auth: oauth2
+        rate_limit_per_minute: 60
+      edi_mapping: |-
+        order_ref: $.header.reference
+        line_items: $.positions
+        sku: $.positions[*].artikelnummer
+        quantity: $.positions[*].menge
+        unit_price: $.positions[*].preis
+
+  - key: lisbon-textiles
+    fields:
+      name: Lisbon Textiles
+      contact_email: geral@lisbontextiles.example
+      phone: '+351 21 397 55 10'
+      website: https://lisbontextiles.example
+      notes: >-
+        Newest supplier, onboarded four months ago through Inês Carvalho in
+        Lisbon. Samples were excellent and the first two production runs matched
+        them. No history to speak of yet, which is the risk — good so far is not
+        the same as proven.
+      certifications:
+        - OEKO-TEX
+        - GOTS
+
+  - key: valmont-consumables
+    fields:
+      name: Valmont Consommables
+      contact_email: adv@valmont-conso.example
+      phone: '+33 4 78 62 30 44'
+      website: https://valmont-conso.example
+      notes: >-
+        Consumables, ordered on a standing monthly schedule from Villeurbanne.
+        Nothing has gone wrong in three years, which is exactly why nobody has
+        looked at the pricing in three years. Renegotiate at the next renewal.
+      certifications:
+        - ISO 9001
+      integration_config:
+        protocol: sftp
+        host: sftp.valmont-conso.example
+        schedule: '0 4 1 * *'
+        ack_required: false

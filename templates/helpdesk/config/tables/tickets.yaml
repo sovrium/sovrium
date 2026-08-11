@@ -8,16 +8,25 @@ fields:
   - id: 2
     name: description
     type: long-text
+  # Option `color` is the author's own datum (ADR-024 A7 ruling 1) and MUST be a
+  # literal `#RRGGBB` — the schema rejects `var(--color-*)`, so these five stay
+  # hex rather than becoming theme tokens. They are five separable hues that each
+  # say who is holding the ticket:
+  #   New       the app's rose accent — the queue's call to action.
+  #   Open      amber: in flight, on us.
+  #   Waiting   sky: blocked on the customer, a different kind of open. Was
+  #             violet, which sat too close to the rose accent to read apart.
+  #   Resolved  green, then Closed grey: done, then archived.
   - id: 3
     name: status
     type: status
     options:
       - value: New
-        color: '#3B82F6'
+        color: '#E11D48'
       - value: Open
         color: '#F59E0B'
       - value: Waiting on customer
-        color: '#A855F7'
+        color: '#0EA5E9'
       - value: Resolved
         color: '#10B981'
       - value: Closed

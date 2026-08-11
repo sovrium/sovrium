@@ -5,4 +5,5 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/** Represents a generic record from a table API response */
 export type TableRecord = Record<string, unknown>

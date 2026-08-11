@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Color Field
+ *
+ * Stores color values in hexadecimal format (#RRGGBB).
+ * Typically rendered with a color picker in the UI.
+ * Supports optional default color value.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'brand_color',
+ *   type: 'color',
+ *   required: true,
+ *   default: '#3B82F6'
+ * }
+ * ```
+ */
 export const ColorFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -36,4 +54,5 @@ export const ColorFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type ColorField = Schema.Schema.Type<typeof ColorFieldSchema>

@@ -7,6 +7,31 @@
 
 import { Schema } from 'effect'
 
+/**
+ * NameSchema defines validation rules for application names.
+ *
+ * Application names must follow npm package naming conventions:
+ * - Lowercase only
+ * - Maximum 214 characters (including scope for scoped packages)
+ * - Cannot start with a dot or underscore
+ * - Cannot contain leading/trailing spaces
+ * - Cannot contain non-URL-safe characters
+ * - Scoped packages: @scope/package-name format allowed
+ * - Can include hyphens and underscores (but not at the start)
+ *
+ * @example
+ * ```typescript
+ * // Valid names
+ * const name1 = 'my-app'
+ * const name2 = 'todo-app'
+ * const name3 = '@myorg/my-app'
+ * const name4 = 'blog-system'
+ * const name5 = 'dashboard-admin'
+ *
+ * // Validate name
+ * const validated = Schema.decodeUnknownSync(NameSchema)(name1)
+ * ```
+ */
 export const NameSchema = Schema.String.pipe(
   Schema.minLength(1, { message: () => 'Name must not be empty' }),
   Schema.maxLength(214, { message: () => 'Name must not exceed 214 characters' }),
@@ -21,6 +46,23 @@ export const NameSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * TypeScript type inferred from NameSchema.
+ *
+ * Use this type for type-safe access to validated application names.
+ *
+ * @example
+ * ```typescript
+ * const name: Name = 'my-app'
+ * ```
+ * @public
+ */
 export type Name = Schema.Schema.Type<typeof NameSchema>
 
+/**
+ * Encoded type of NameSchema (what goes in).
+ *
+ * In this case, it's the same as Name since we don't use transformations.
+ * @public
+ */
 export type NameEncoded = Schema.Schema.Encoded<typeof NameSchema>

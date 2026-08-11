@@ -7,6 +7,29 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Breakpoints configuration (responsive design breakpoints)
+ *
+ * Map of breakpoint names to pixel values.
+ * Standard Tailwind breakpoints:
+ * - sm: 640px (mobile)
+ * - md: 768px (tablet)
+ * - lg: 1024px (laptop)
+ * - xl: 1280px (desktop)
+ * - 2xl: 1536px (large desktop)
+ *
+ * @example
+ * ```typescript
+ * const breakpoints = {
+ *   sm: '640px',
+ *   md: '768px',
+ *   lg: '1024px',
+ *   xl: '1280px',
+ *   '2xl': '1536px',
+ * }
+ * ```
+ *
+ */
 export const BreakpointsConfigSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-z0-9]+$/, {

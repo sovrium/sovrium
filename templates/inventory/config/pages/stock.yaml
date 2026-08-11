@@ -1,0 +1,178 @@
+name: stock
+path: /stock
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Stock
+  description: Stock movements and warehouse locations
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-7xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Stock
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: >-
+          Every movement in and out, append-only. This ledger is what the
+          Movements and Units moved columns on Products count.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Record a movement
+          - type: form
+            dataSource:
+              table: stock_movements
+            fields:
+              - field: reference
+                label: Reference
+                placeholder: e.g. GRN-2043
+              - field: product
+                label: Product
+              - field: warehouse
+                label: Warehouse
+              - field: direction
+                label: Direction
+              - field: quantity
+                label: Quantity
+              - field: moved_on
+                label: Moved on
+            action:
+              type: crud
+              operation: create
+              table: stock_movements
+              onSuccess:
+                navigate: /stock
+                toast:
+                  message: Movement recorded
+                  variant: success
+
+      - type: data-table
+        dataSource:
+          table: stock_movements
+          sort:
+            - field: moved_on
+              direction: desc
+        rowHeight: short
+        striped: true
+        columns:
+          - field: reference
+            label: Reference
+            frozen: true
+            sortable: true
+            filterable: true
+            editable: true
+          - field: product
+            label: Product
+            sortable: true
+            filterable: true
+          - field: warehouse
+            label: Warehouse
+            sortable: true
+            filterable: true
+          - field: direction
+            label: Direction
+            sortable: true
+            filterable: true
+            editable: true
+          - field: quantity
+            label: Qty
+            align: right
+            sortable: true
+            editable: true
+          - field: unit_cost
+            label: Unit cost
+            align: right
+            format: currency
+          - field: moved_on
+            label: Moved on
+            format: short-date
+            sortable: true
+          - field: created_at
+            label: Logged
+            format: relative-date
+        selection:
+          mode: multiple
+        search:
+          enabled: true
+          placeholder: Search movements
+        groupBy:
+          field: direction
+          direction: asc
+        summary:
+          - field: reference
+            function: count
+            label: Movements
+          - field: quantity
+            function: sum
+            label: Net units
+        toolbar:
+          search: true
+          filters: true
+          sort: true
+          groupBy: true
+          views: true
+          export: true
+          columnToggle: true
+          density: true
+        pagination:
+          pageSize: 25
+          pageSizeOptions: [25, 50, 100]
+        emptyMessage: No movements yet. Record the first one above.
+        noMatchMessage: No movements match "{query}".
+
+      - type: text
+        element: h2
+        props:
+          className: text-lg font-semibold mt-10 mb-1
+        content: Warehouses
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-4
+        content: Where the stock physically sits.
+      - type: data-table
+        dataSource:
+          table: warehouses
+        rowHeight: short
+        columns:
+          - field: name
+            label: Warehouse
+            frozen: true
+            sortable: true
+            editable: true
+          - field: code
+            label: Code
+            editable: true
+          - field: coordinates
+            label: Coordinates
+          - field: capacity_pallets
+            label: Capacity
+            align: right
+            sortable: true
+            editable: true
+          - field: is_active
+            label: Active
+            align: center
+            format: check-cross
+        toolbar:
+          search: true
+          columnToggle: true
+        pagination:
+          pageSize: 10
+        emptyMessage: No warehouses yet.

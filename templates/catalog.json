@@ -77,6 +77,12 @@
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "inventory", "assets"]
   },
+  "inventory": {
+    "name": "Inventory",
+    "description": "Products, stock, and orders \u2014 an Airtable alternative.",
+    "category": "business",
+    "topics": ["sovrium", "template", "self-hosted", "inventory", "orders"]
+  },
   "expenses": {
     "name": "Expenses",
     "description": "Receipts, approvals, and spend by category.",

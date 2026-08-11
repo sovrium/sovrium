@@ -5,6 +5,30 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Generate CSS Assets Script
+ *
+ * Produces `src/infrastructure/css/generated-css-assets.ts`, which embeds the
+ * static inputs the native-free CSS compiler needs to run inside the standalone
+ * compiled binary (`bun build --compile`).
+ *
+ * Why this exists (issue #19):
+ *   1. BUILTIN_CSS_CANDIDATES — the compiled binary runs from a virtual
+ *      filesystem with no working directory to scan, so the native
+ *      `@tailwindcss/oxide` scanner cannot discover which utility classes the
+ *      app uses. We run that scanner HERE, on the build machine, and embed the
+ *      result. Critically this captures classes from client-side islands,
+ *      which never appear in server-rendered HTML.
+ *   2. TAILWIND_INDEX_CSS / TW_ANIMATE_CSS — the binary has no node_modules, so
+ *      the stylesheets that `@import 'tailwindcss'` / `@import 'tw-animate-css'`
+ *      resolve to must be inlined.
+ *
+ * Runs automatically from `scripts/build/build-binary.ts` before `bun build
+ * --compile`, or standalone via `bun run build:css-assets`.
+ *
+ * Usage:
+ *   bun run scripts/build/generate-css-assets.ts
+ */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -13,10 +37,42 @@ import { generateArbitraryVarSafelist } from '../../src/infrastructure/css/arbit
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 
+/**
+ * Source globs whose Tailwind class usage must be reflected in the binary's CSS.
+ *
+ * The whole of `src` is scanned (not just `src/presentation`) so any class
+ * emitted anywhere in the application — components, the client-side islands,
+ * page/error renderers — is covered. Islands are the critical case: they
+ * hydrate client-side, so their utility classes never appear in server-rendered
+ * HTML and cannot be recovered by the binary's runtime config scan.
+ *
+ * `[internal ref]` and `[internal ref]` are intentionally excluded: they are not application
+ * code, and the classes mentioned there are not part of any rendered page.
+ * Co-located unit-test files (`*.test.ts`/`*.test.tsx`) live INSIDE `src` but
+ * are excluded for the same reason — see `TEST_FILE_GLOBS` below.
+ */
 const SCAN_SOURCES = ['src', 'templates'] as const
 
+/**
+ * Co-located unit-test files live under `src` but are NOT application code:
+ * the utility classes they mention (often sentinel/arbitrary tokens used only
+ * to assert behaviour) never reach a rendered page, so they must not widen the
+ * binary's builtin candidate set. Excluding them keeps the candidate set to
+ * real application classes and keeps `appAddsCandidatesBeyondBuiltin` honest
+ * (a test-only token must read as "beyond builtin").
+ */
 const TEST_FILE_GLOBS = ['**/*.test.ts', '**/*.test.tsx'] as const
 
+/**
+ * The generator writes its output to
+ * `src/infrastructure/css/generated-css-assets.ts`, which lives INSIDE the `src`
+ * scan root. Scanning it re-extracts every class-shaped token from the previous
+ * (already huge) output and folds it back into the next run — a self-amplifying
+ * loop that grew the file to 404 MB and OOM'd both the runtime Tailwind scan and
+ * the lint/typecheck steps. This negated source breaks the loop; restricting the
+ * pattern to `*.{ts,tsx}` further keeps non-code artifacts out of the candidate
+ * set.
+ */
 const GENERATED_OUTPUT_REL = 'infrastructure/css/generated-css-assets.ts'
 
 const COPYRIGHT_HEADER = `/**
@@ -34,11 +90,14 @@ function scanCandidates(): readonly string[] {
         pattern: '**/*.{ts,tsx}',
         negated: false,
       })),
+      // Break the self-amplifying feedback loop: never scan our own output.
       {
         base: join(PROJECT_ROOT, 'src'),
         pattern: GENERATED_OUTPUT_REL,
         negated: true,
       },
+      // Exclude co-located unit-test files from the candidate scan: their
+      // sentinel/arbitrary classes are not part of any rendered page.
       ...TEST_FILE_GLOBS.map((pattern) => ({
         base: join(PROJECT_ROOT, 'src'),
         pattern,
@@ -46,6 +105,9 @@ function scanCandidates(): readonly string[] {
       })),
     ],
   })
+  // oxide deliberately over-extracts: it returns every class-shaped token.
+  // Tailwind's build() emits CSS only for entries that are valid utilities,
+  // so dead candidates cost nothing. Dedupe + sort for a diff-stable file.
   return [...new Set(scanner.scan())].toSorted()
 }
 
@@ -58,6 +120,15 @@ function formatKb(...strings: readonly string[]): string {
   return `${(bytes / 1000).toFixed(1)} KB`
 }
 
+/**
+ * Runtime-composed recipe classes (`bg-[${v('sv-X', T.Y)}]` in the
+ * `*-default-classes.ts` recipes) are invisible to the oxide source scan — it
+ * sees the `${…}` template placeholder, not the resolved literal — so overlay
+ * surfaces (menu/select/dialog popups) would ship with no background/border/
+ * shadow/ring in the binary (transparent panel + browser-default focus halo).
+ * Fold the resolved safelist into the frozen candidate set. Guard loudly so
+ * this class can never silently drop out of the binary again.
+ */
 const arbitraryVarSafelist = generateArbitraryVarSafelist()
 if (arbitraryVarSafelist.length === 0) {
   throw new Error(

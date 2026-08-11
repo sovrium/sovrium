@@ -7,8 +7,20 @@
 
 import { pgSchema, serial, integer, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
 
+/**
+ * System Schema
+ *
+ * Dedicated PostgreSQL schema for internal Sovrium tables.
+ * Isolates system tables from user data tables.
+ */
 export const systemSchema = pgSchema('system')
 
+/**
+ * Migration History Table Schema
+ *
+ * Tracks all schema migrations with timestamps and checksums.
+ * Each migration is recorded with a version number and the complete schema snapshot.
+ */
 export const sovriumMigrationHistory = systemSchema.table('migration_history', {
   id: serial('id').primaryKey(),
   version: integer('version').notNull(),
@@ -18,6 +30,12 @@ export const sovriumMigrationHistory = systemSchema.table('migration_history', {
   rolledBackAt: timestamp('rolled_back_at'),
 })
 
+/**
+ * Migration Log Table Schema
+ *
+ * Tracks migration operations including rollbacks with status and reason.
+ * Used for debugging and audit trail of schema changes.
+ */
 export const sovriumMigrationLog = systemSchema.table('migration_log', {
   id: serial('id').primaryKey(),
   operation: text('operation').notNull(),
@@ -28,6 +46,12 @@ export const sovriumMigrationLog = systemSchema.table('migration_log', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+/**
+ * Schema Checksum Table Schema
+ *
+ * Singleton table storing current schema checksum for change detection.
+ * Uses a single row with id='singleton' to track the current state.
+ */
 export const sovriumSchemaChecksum = systemSchema.table('schema_checksum', {
   id: text('id').primaryKey(),
   checksum: text('checksum').notNull(),
@@ -35,6 +59,7 @@ export const sovriumSchemaChecksum = systemSchema.table('schema_checksum', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// Type exports for consumers
 export type SovriumMigrationHistory = typeof sovriumMigrationHistory.$inferSelect
 export type NewSovriumMigrationHistory = typeof sovriumMigrationHistory.$inferInsert
 export type SovriumMigrationLog = typeof sovriumMigrationLog.$inferSelect

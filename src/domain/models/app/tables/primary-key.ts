@@ -7,6 +7,19 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Primary Key
+ *
+ * Primary key configuration for the table. The primary key uniquely identifies each row and is automatically indexed.
+ *
+ * @example
+ * ```typescript
+ * {
+ *   "type": "auto-increment",
+ *   "field": "id"
+ * }
+ * ```
+ */
 export const PrimaryKeySchema = Schema.Struct({
   type: Schema.String.pipe(
     Schema.minLength(1),
@@ -46,4 +59,5 @@ export const PrimaryKeySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type PrimaryKey = Schema.Schema.Type<typeof PrimaryKeySchema>

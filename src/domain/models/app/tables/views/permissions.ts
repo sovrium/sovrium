@@ -8,9 +8,30 @@
 import { Schema } from 'effect'
 import { FlexibleRolesSchema, TablePermissionSchema } from '@/domain/models/app/tables/permissions'
 
+/**
+ * Role-Based View Permissions Schema
+ *
+ * Defines view access control using the same permission format as table-level permissions.
+ * Accepts 'all', 'authenticated', or role arrays for read and write operations.
+ *
+ * @example
+ * ```typescript
+ * { read: ['admin', 'member'], write: ['admin'] }
+ * { read: 'authenticated' }
+ * { read: 'all' }
+ * ```
+ */
 export const RoleBasedViewPermissionsSchema = Schema.Struct({
+  /**
+   * Roles that can read (view) this view.
+   * Accepts 'all', 'authenticated', or role arrays.
+   */
   read: Schema.optional(TablePermissionSchema),
 
+  /**
+   * Roles that can write (modify settings of) this view.
+   * Accepts 'all', 'authenticated', or role arrays.
+   */
   write: Schema.optional(FlexibleRolesSchema),
 }).pipe(
   Schema.annotations({
@@ -24,7 +45,20 @@ export const RoleBasedViewPermissionsSchema = Schema.Struct({
   })
 )
 
+/**
+ * Public View Permissions Schema
+ *
+ * Marks a view as publicly accessible (no authentication required).
+ *
+ * @example
+ * ```typescript
+ * { public: true }
+ * ```
+ */
 export const PublicViewPermissionsSchema = Schema.Struct({
+  /**
+   * When true, the view is accessible without authentication.
+   */
   public: Schema.Literal(true),
 }).pipe(
   Schema.annotations({
@@ -34,6 +68,24 @@ export const PublicViewPermissionsSchema = Schema.Struct({
   })
 )
 
+/**
+ * View Permissions Schema
+ *
+ * Permissions configuration for the view, defining who can access or modify it.
+ * Supports two modes:
+ * 1. Role-based: `{ read: ['admin', 'member'], write: ['admin'] }`
+ * 2. Public access: `{ public: true }`
+ *
+ * @example Role-based permissions
+ * ```typescript
+ * { read: ['admin', 'user'], write: ['admin'] }
+ * ```
+ *
+ * @example Public view
+ * ```typescript
+ * { public: true }
+ * ```
+ */
 export const ViewPermissionsSchema = Schema.Union(
   RoleBasedViewPermissionsSchema,
   PublicViewPermissionsSchema
@@ -46,6 +98,9 @@ export const ViewPermissionsSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type ViewPermissions = Schema.Schema.Type<typeof ViewPermissionsSchema>
+/** @public */
 export type RoleBasedViewPermissions = Schema.Schema.Type<typeof RoleBasedViewPermissionsSchema>
+/** @public */
 export type PublicViewPermissions = Schema.Schema.Type<typeof PublicViewPermissionsSchema>

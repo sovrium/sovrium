@@ -5,25 +5,44 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * `split-pane` SSR renderer.
+ *
+ * Renders a resizable two-pane layout as a STATIC side-by-side (or stacked)
+ * structure server-side: a `role="group"` container holding two panes
+ * separated by a `role="separator"` divider. Both panes are present in the
+ * server-rendered markup (the static fallback the spec asserts), so there is
+ * no blank page before hydration.
+ *
+ * The drag-to-resize behaviour is progressive enhancement: a sibling
+ * `data-island="split-pane"` marker (which renders nothing) hydrates and wires
+ * pointer-drag onto THIS static structure by id — it never re-renders the
+ * panes, so nested islands inside each pane (the config editor, the live
+ * preview) survive hydration untouched.
+ */
 
 import { renderHTMLElement } from '../../renderers/element-renderers'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
+/** Default initial split (even) when no `defaultRatio` is authored. */
 const DEFAULT_RATIO = 0.5
 
+/** Resolve the split orientation, defaulting to side-by-side. */
 function resolveOrientation(
   rawProps: Record<string, unknown> | undefined
 ): 'horizontal' | 'vertical' {
   return rawProps?.['orientation'] === 'vertical' ? 'vertical' : 'horizontal'
 }
 
+/** Resolve the first pane's initial ratio (clamped to the open interval). */
 function resolveRatio(rawProps: Record<string, unknown> | undefined): number {
   const raw = rawProps?.['defaultRatio']
   if (typeof raw === 'number' && raw > 0 && raw < 1) return raw
   return DEFAULT_RATIO
 }
 
+/** Stable host id so the enhancement island can locate this split-pane. */
 function resolveHostId(elementProps: Record<string, unknown>, fallback: string): string {
   const authored = elementProps['id']
   return typeof authored === 'string' && authored.length > 0 ? authored : fallback
@@ -42,6 +61,7 @@ interface SplitPaneViewModel {
   readonly islandPropsJson: string
 }
 
+/** Build the static view-model from the dispatch config. */
 function buildViewModel(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
@@ -72,6 +92,7 @@ function buildViewModel(
   }
 }
 
+/** Stable style for the second pane (fills the remaining space). */
 const SECOND_PANE_STYLE: React.CSSProperties = {
   flex: '1 1 0%',
   minWidth: 0,
@@ -79,12 +100,19 @@ const SECOND_PANE_STYLE: React.CSSProperties = {
   overflow: 'auto',
 }
 
+/** Stable hidden-marker style for the empty enhancement island. */
 const HIDDEN_STYLE: React.CSSProperties = { display: 'none' }
 
+/** Flex-basis percentage style for the first pane (the second fills the rest). */
 function firstPaneStyle(ratio: number): React.CSSProperties {
   return { flexBasis: `${Math.round(ratio * 100)}%`, flexGrow: 0, flexShrink: 0, overflow: 'auto' }
 }
 
+/**
+ * Render the static split-pane structure. The `data-island="split-pane"`
+ * marker is an EMPTY sibling controller — it hydrates to wire the drag and
+ * renders nothing, so the panes (and their nested islands) are never replaced.
+ */
 export const splitPaneComponent: ComponentRenderer = ({
   rawProps,
   elementProps,

@@ -9,11 +9,18 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * File Parse CSV Action (type: file, operator: parseCsv)
+ *
+ * Parse a CSV file into structured JSON data.
+ * The parsed data is available as the step output for subsequent actions.
+ */
 export const FileParseCsvActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('parseCsv'),
   props: Schema.Struct({
+    /** Storage key of the CSV file to parse */
     source: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -22,6 +29,7 @@ export const FileParseCsvActionSchema = Schema.Struct({
       )
     ),
 
+    /** Storage key of the CSV file to parse (alias of `source`) */
     key: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -30,9 +38,11 @@ export const FileParseCsvActionSchema = Schema.Struct({
       )
     ),
 
+    /** Column mapping */
     columns: Schema.optional(
       Schema.Array(
         Schema.Struct({
+          /** Object key for the parsed value (alias of `name`) */
           key: Schema.optional(
             Schema.String.pipe(
               Schema.annotations({
@@ -40,6 +50,7 @@ export const FileParseCsvActionSchema = Schema.Struct({
               })
             )
           ),
+          /** Object key for the parsed value */
           name: Schema.optional(
             Schema.String.pipe(
               Schema.annotations({
@@ -47,6 +58,7 @@ export const FileParseCsvActionSchema = Schema.Struct({
               })
             )
           ),
+          /** Zero-based CSV column index this entry maps to */
           index: Schema.optional(
             Schema.Number.pipe(
               Schema.int(),
@@ -71,6 +83,7 @@ export const FileParseCsvActionSchema = Schema.Struct({
       )
     ),
 
+    /** Number of rows to skip from the top */
     skipRows: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -81,6 +94,7 @@ export const FileParseCsvActionSchema = Schema.Struct({
       )
     ),
 
+    /** Field delimiter */
     delimiter: Schema.optional(
       Schema.Literal(',', ';', '\t', '|').pipe(
         Schema.annotations({
@@ -101,4 +115,5 @@ export const FileParseCsvActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileParseCsvAction = Schema.Schema.Type<typeof FileParseCsvActionSchema>

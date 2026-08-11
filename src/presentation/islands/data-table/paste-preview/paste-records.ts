@@ -11,6 +11,7 @@ import { SKIP_VALUE } from './skip-value'
 import type { ParsedTsv } from './parse-tsv'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
+/** Auto-resolve each pasted header to a field (or {@link SKIP_VALUE}). */
 export function buildInitialMappings(
   headers: readonly string[],
   tableFields: readonly string[]
@@ -18,6 +19,16 @@ export function buildInitialMappings(
   return headers.map((header) => matchHeaderToField(header, tableFields) ?? SKIP_VALUE)
 }
 
+/**
+ * Build the batch-create payload from the parsed clipboard data and the
+ * per-column mappings.
+ *
+ * Columns mapped to {@link SKIP_VALUE} are excluded entirely. Cells whose
+ * value is incompatible with the mapped field type (flagged in the preview)
+ * are dropped from that row's payload so the valid columns still import — the
+ * row lands with the type-incompatible field left blank rather than failing
+ * the whole batch.
+ */
 export function buildRecords(
   parsed: ParsedTsv,
   mappings: readonly string[],
@@ -34,11 +45,21 @@ export function buildRecords(
   })
 }
 
+/** Outcome of a paste batch-create: how many rows landed + their record ids. */
 export interface PasteCreateResult {
+  /** Number of records the server reported as created. */
   readonly created: number
+  /** Ids of the created records, used to power the post-paste Undo action. */
   readonly recordIds: readonly string[]
 }
 
+/**
+ * Batch-create the given records against the table records API.
+ *
+ * Requests `returnRecords` so the created ids can power an Undo action.
+ * Resolves regardless of HTTP outcome — the caller closes the dialog and
+ * refreshes the table either way; surfacing transport errors is a follow-up.
+ */
 export async function batchCreatePastedRecords(
   tableName: string,
   records: readonly { fields: Record<string, string> }[]
@@ -58,8 +79,15 @@ export async function batchCreatePastedRecords(
   return { created: body?.created ?? records.length, recordIds }
 }
 
+/** Max ids accepted per batch-delete request (server-enforced). */
 const DELETE_CHUNK_SIZE = 100
 
+/**
+ * Hard-delete the given records — the Undo action for a completed paste.
+ *
+ * Chunks the ids to respect the server's per-request batch-delete cap so an
+ * undo of a large paste (100+ rows) still succeeds.
+ */
 export async function undoPastedRecords(
   tableName: string,
   recordIds: readonly string[]

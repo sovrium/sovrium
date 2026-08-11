@@ -59,6 +59,13 @@ import {
   UserFieldSchema,
 } from './field-types'
 
+/**
+ * Auto-generate field IDs for fields that don't have one.
+ *
+ * Fields without explicit IDs get auto-generated numeric IDs.
+ * IDs are assigned sequentially starting from the highest existing ID + 1.
+ * Fields with explicit IDs keep them unchanged.
+ */
 const autoGenerateFieldIds = (
   fields: ReadonlyArray<Record<string, unknown>>
 ): ReadonlyArray<Record<string, unknown>> => {
@@ -91,16 +98,22 @@ const autoGenerateFieldIds = (
   return fieldsWithIds
 }
 
+/**
+ * Union of all supported field type schemas
+ */
 const FieldUnionSchema = Schema.Union(
+  // Text field types (individual schemas)
   SingleLineTextFieldSchema,
   LongTextFieldSchema,
   PhoneNumberFieldSchema,
   EmailFieldSchema,
   UrlFieldSchema,
+  // Number field types (individual schemas)
   IntegerFieldSchema,
   DecimalFieldSchema,
   CurrencyFieldSchema,
   PercentageFieldSchema,
+  // Date/time field types
   DateFieldSchema,
   DateTimeFieldSchema,
   TimeFieldSchema,
@@ -134,6 +147,7 @@ const FieldUnionSchema = Schema.Union(
   JsonFieldSchema,
   ArrayFieldSchema,
   CodeFieldSchema,
+  // AI field types
   AiCategorizeFieldSchema,
   AiExtractFieldSchema,
   AiGenerateFieldSchema,
@@ -141,9 +155,23 @@ const FieldUnionSchema = Schema.Union(
   AiSummaryFieldSchema,
   AiTagFieldSchema,
   AiTranslateFieldSchema,
+  // Unknown field type (catch-all for invalid types that will fail during SQL generation)
   UnknownFieldSchema
 )
 
+/**
+ * Table Fields
+ *
+ * Collection of all supported field types in a table.
+ * Each field type has specific properties and validation rules.
+ * Fields are the columns in your database tables and determine
+ * what data can be stored and how it is validated.
+ *
+ * Field IDs are optional in input — they are auto-generated sequentially
+ * when omitted, similar to how table IDs are auto-generated.
+ *
+ * @see [internal ref] for full specification
+ */
 export const FieldsSchema = Schema.Array(FieldUnionSchema).pipe(
   Schema.minItems(1),
   Schema.annotations({ title: 'Table Fields' }),
@@ -171,6 +199,7 @@ export const FieldsSchema = Schema.Array(FieldUnionSchema).pipe(
     return names.length === uniqueNames.size || 'Field names must be unique within the table'
   }),
   Schema.filter((fields) => {
+    // Validate count fields reference existing relationship-type fields
     const countFields = fields.filter((field) => field.type === 'count')
 
     const invalidResult = countFields
@@ -188,6 +217,7 @@ export const FieldsSchema = Schema.Array(FieldUnionSchema).pipe(
     return invalidResult !== undefined ? invalidResult : true
   }),
   Schema.filter((fields) => {
+    // Validate rollup fields reference existing relationship-type fields
     const rollupFields = fields.filter((field) => field.type === 'rollup')
 
     const invalidResult = rollupFields
@@ -230,14 +260,48 @@ export const FieldsSchema = Schema.Array(FieldUnionSchema).pipe(
 
 export type Fields = Schema.Schema.Type<typeof FieldsSchema>
 
+/**
+ * Narrow a single field-union member down to its `type` literal, discarding
+ * the {@link UnknownFieldSchema} catch-all branch (whose `type` is a filtered
+ * `Schema.String`, i.e. plain `string`).
+ *
+ * The discard matters: a bare `Fields[number]['type']` collapses to `string`
+ * because `'status' | string` absorbs every literal. Distributing FIRST over
+ * the union of field OBJECTS and rejecting the member whose `type` is
+ * assignable-from `string` keeps the literals intact.
+ */
 type KnownFieldTypeOf<F> = F extends { readonly type: infer T }
   ? string extends T
     ? never
     : T
   : never
 
+/**
+ * Union of every RECOGNIZED field-type discriminator (`'status'`,
+ * `'single-select'`, `'progress'`, …) — the catch-all unknown type is excluded.
+ *
+ * Derived from {@link FieldsSchema}, so adding a field schema to
+ * `FieldUnionSchema` automatically widens this union. That is the mechanism
+ * that makes the presentation-layer field dispatches TOTAL: they are written
+ * as `satisfies Record<FieldType, …>` tables, so a newly declared field type
+ * fails to compile until every dispatch site declares how to handle it.
+ *
+ * @see src/presentation/utils/field-type-behavior.ts
+ */
 export type FieldType = KnownFieldTypeOf<Fields[number]>
 
+/**
+ * Validate that a computed field (count or rollup) references a valid relationship field.
+ *
+ * This helper validates that:
+ * 1. The relationshipField exists in the current table's fields
+ * 2. The relationshipField is a relationship type
+ *
+ * Used by both count and rollup field validation to ensure they reference valid relationships.
+ *
+ * @param params - Validation parameters
+ * @returns Error message if validation fails, true if valid
+ */
 export const validateComputedFieldRelationship = (params: {
   readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
   readonly computedFieldName: string
@@ -261,6 +325,35 @@ export const validateComputedFieldRelationship = (params: {
   return true
 }
 
+/**
+ * Field TYPES that are system-managed / computed and therefore READ-ONLY on
+ * create and update. A direct user write to a field of one of these types must
+ * be rejected with a clean 4xx (NOT a DB-layer crash).
+ *
+ * These fall into two families:
+ *   - Computed: `formula`/`rollup`/`count`/`lookup` are derived from other
+ *     columns (emitted as `GENERATED ALWAYS AS`, trigger-maintained, or
+ *     view-computed) — see `sql-column-generators.ts`.
+ *   - System-managed: `autonumber` is DB-assigned; the authorship/timestamp
+ *     types (`created-at`/`updated-at`/`created-by`/`updated-by`/
+ *     `deleted-at`/`deleted-by`) are populated by the platform, never the
+ *     caller.
+ *
+ * Read-only-ness is TYPE-driven, NOT `default`-driven: a user-declared
+ * `default` is an overridable fallback (the column gets a SQL `DEFAULT`
+ * clause), so a field merely carrying a `default` stays writable.
+ *
+ * Scope: ONLY the truly-computed field types — those with NO legitimate user
+ * write path, where a supplied value is an error (a direct write returns a
+ * clean 4xx instead of crashing the GENERATED-column INSERT). Authorship /
+ * timestamp types (`created-by`/`updated-by`/`created-at`/`updated-at`/
+ * `deleted-at`/`deleted-by`) are deliberately EXCLUDED: they are
+ * system-stamped, so a user-supplied value is silently ignored/overridden by
+ * the authorship + soft-delete pipelines (the request returns 201), NOT
+ * rejected — see `injectCreateAuthorship`.
+ *
+ * Single source of truth for the create/update validation pipeline.
+ */
 export const READONLY_COMPUTED_FIELD_TYPES: ReadonlySet<string> = new Set([
   'formula',
   'rollup',
@@ -269,5 +362,9 @@ export const READONLY_COMPUTED_FIELD_TYPES: ReadonlySet<string> = new Set([
   'autonumber',
 ])
 
+/**
+ * True when a field of this TYPE is system-managed / computed and must reject
+ * a direct user write. See {@link READONLY_COMPUTED_FIELD_TYPES}.
+ */
 export const isReadonlyComputedFieldType = (fieldType: string): boolean =>
   READONLY_COMPUTED_FIELD_TYPES.has(fieldType)

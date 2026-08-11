@@ -7,10 +7,20 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Form onError — what to show when submission fails server-side.
+ *
+ * - `toast`: transient notification.
+ * - `message`: inline message above or below the form.
+ * - `errorPage`: full error page.
+ */
 export const FormOnErrorSchema = Schema.Struct({
   type: Schema.Literal('toast', 'message', 'errorPage'),
+  /** Body message to show. Supports `$t:` keys. */
   message: Schema.String,
+  /** Optional title (used by `errorPage`). */
   title: Schema.optional(Schema.String),
+  /** Toast variant (only meaningful when `type: 'toast'`). */
   variant: Schema.optional(Schema.Literal('error', 'warning')),
 }).annotations({
   identifier: 'FormOnError',
@@ -18,4 +28,5 @@ export const FormOnErrorSchema = Schema.Struct({
   description: 'What to show when a form submission fails server-side',
 })
 
+/** @public */
 export type FormOnError = Schema.Schema.Type<typeof FormOnErrorSchema>

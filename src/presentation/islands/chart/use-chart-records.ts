@@ -48,6 +48,12 @@ export interface ChartFetchResult {
   readonly records: readonly TableRecord[]
 }
 
+/**
+ * Fetches records for the chart component in a single page (limit 100).
+ *
+ * Mirrors `useGalleryRecords` — the basic chart spec works within the
+ * default records-API page envelope; aggregation layers on top.
+ */
 export function useChartRecords(dataSource: ChartRecordsDataSource | undefined) {
   const filterParam = buildFilterParam(dataSource?.filter)
   const sortParam = buildSortParam(dataSource?.sort)
@@ -74,6 +80,7 @@ export function useChartRecords(dataSource: ChartRecordsDataSource | undefined) 
 
       if (!res.ok) {
         const body = await res.text()
+        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
         throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`)
       }
 

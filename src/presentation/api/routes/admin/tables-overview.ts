@@ -5,6 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * `GET /api/admin/tables/overview` route handler.
+ *
+ * Reads the live App configuration to discover the configured tables, runs
+ * `buildTablesOverview` to produce the canonical response, validates it,
+ * and emits a `table.overview.queried` audit-log entry on success.
+ *
+ * Auth gating is handled upstream by `requireAdminTier()` in `api-routes.ts`.
+ */
 
 import { Effect, Layer } from 'effect'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
@@ -22,10 +31,14 @@ import { getSessionContext, requestLogAttributes } from '@/presentation/api/util
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/** Emit the `table.overview.queried` audit event for the calling session. */
 async function emitTablesOverviewAudit(c: Context): Promise<void> {
   const session = getSessionContext(c)
   if (!session) return
+  // `resolveActor` is the ONE place a session becomes an audit Actor, so this
+  // endpoint records the same tier for a given user as every other emit site.
   const actor = await resolveActor(session.userId)
+  // eslint-disable-next-line functional/no-expression-statements -- the audit emit IS the side-effect required by the contract
   await emitAuditEvent({
     action: 'table.overview.queried',
     actor,
@@ -35,6 +48,11 @@ async function emitTablesOverviewAudit(c: Context): Promise<void> {
   })
 }
 
+/**
+ * Build the handler factory bound to an App. The factory closes over `app` so
+ * the handler can enumerate configured tables without re-importing the
+ * runtime App state on every call.
+ */
 export function createHandleGetTablesOverview(app: App) {
   return async function handleGetTablesOverview(c: Context): Promise<Response> {
     const periodParam = c.req.query('period') ?? '24h'
@@ -74,6 +92,7 @@ export function createHandleGetTablesOverview(app: App) {
       )
     }
 
+    // eslint-disable-next-line functional/no-expression-statements -- side-effects required by the contract
     await emitTablesOverviewAudit(c)
 
     c.header('Cache-Control', 'no-store')

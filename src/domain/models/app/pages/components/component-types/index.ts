@@ -201,6 +201,7 @@ import {
 } from './specialty'
 import { DividerTypeLiteral, dividerFields, SpacerTypeLiteral, spacerFields } from './structural'
 
+// ─── Re-export all categories ──────────────────────────────────────────────
 
 export * from './layout'
 export * from './content'
@@ -218,8 +219,10 @@ export * from './editors'
 export * from './custom'
 export * from './modules'
 
+// ─── All component definitions as [TypeLiteral, fields] tuples ─────────────
 
 const allComponents = [
+  // Layout
   [ContainerTypeLiteral, containerFields],
   [SplitPaneTypeLiteral, splitPaneFields],
   [FlexTypeLiteral, flexFields],
@@ -230,6 +233,7 @@ const allComponents = [
   [CardTypeLiteral, cardFields],
   [HeroTypeLiteral, heroFields],
   [ModalTypeLiteral, modalFields],
+  // Content
   [TextTypeLiteral, textFields],
   [IconTypeLiteral, iconFields],
   [ImageTypeLiteral, imageFields],
@@ -240,6 +244,7 @@ const allComponents = [
   [TocTypeLiteral, tocFields],
   [SearchInputTypeLiteral, searchInputFields],
   [PageSearchTypeLiteral, pageSearchFields],
+  // Data
   [DataTableTypeLiteral, dataTableFields],
   [KanbanTypeLiteral, kanbanFields],
   [CalendarTypeLiteral, calendarFields],
@@ -250,6 +255,7 @@ const allComponents = [
   [DataFormTypeLiteral, formFields],
   [ListTypeLiteral, listFields],
   [DataTimelineTypeLiteral, dataTimelineFields],
+  // Form Controls
   [InputTypeLiteral, inputFields],
   [CheckboxTypeLiteral, checkboxFields],
   [RadioGroupTypeLiteral, radioGroupFields],
@@ -261,18 +267,21 @@ const allComponents = [
   [ToggleTypeLiteral, toggleFields],
   [ToggleGroupTypeLiteral, toggleGroupFields],
   [SwitchTypeLiteral, switchFields],
+  // Interactive
   [ButtonTypeLiteral, buttonFields],
   [BadgeTypeLiteral, badgeFields],
   [AlertTypeLiteral, alertFields],
   [LinkTypeLiteral, linkFields],
   [ButtonGroupTypeLiteral, buttonGroupFields],
   [ThemeToggleTypeLiteral, themeToggleFields],
+  // Navigation
   [BreadcrumbTypeLiteral, breadcrumbFields],
   [DropdownMenuTypeLiteral, dropdownMenuFields],
   [ContextMenuTypeLiteral, contextMenuFields],
   [MenubarTypeLiteral, menubarFields],
   [NavigationMenuTypeLiteral, navigationMenuFields],
   [PaginationTypeLiteral, paginationFields],
+  // Overlays
   [AlertDialogTypeLiteral, alertDialogFields],
   [DialogTypeLiteral, dialogFields],
   [DrawerTypeLiteral, drawerFields],
@@ -281,6 +290,7 @@ const allComponents = [
   [TooltipTypeLiteral, tooltipFields],
   [HoverCardTypeLiteral, hoverCardFields],
   [ToastTypeLiteral, toastFields],
+  // Display
   [StaticTableTypeLiteral, staticTableFields],
   [EmptyStateTypeLiteral, emptyStateFields],
   [MarqueeTypeLiteral, marqueeFields],
@@ -291,9 +301,11 @@ const allComponents = [
   [ListItemTypeLiteral, listItemFields],
   [SpeechBubbleTypeLiteral, speechBubbleFields],
   [RecordFieldTypeLiteral, recordFieldFields],
+  // Feedback
   [SkeletonTypeLiteral, skeletonFields],
   [ProgressTypeLiteral, progressFields],
   [SpinnerTypeLiteral, spinnerFields],
+  // Specialty
   [FileUploadTypeLiteral, fileUploadFields],
   [NumberInputTypeLiteral, numberInputFields],
   [TimePickerTypeLiteral, timePickerFields],
@@ -301,18 +313,28 @@ const allComponents = [
   [LanguageSwitcherTypeLiteral, languageSwitcherFields],
   [CommentsTypeLiteral, commentsFields],
   [CommentCountTypeLiteral, commentCountFields],
+  // Structural
   [DividerTypeLiteral, dividerFields],
   [SpacerTypeLiteral, spacerFields],
+  // AI
   [AiChatTypeLiteral, aiChatFields],
+  // Editors (schema/config authoring) — islands deferred (red contract)
   [SchemaJsonEditorTypeLiteral, schemaJsonEditorFields],
   [SchemaYamlEditorTypeLiteral, schemaYamlEditorFields],
   [SchemaFormEditorTypeLiteral, schemaFormEditorFields],
   [SchemaAiAgentTypeLiteral, schemaAiAgentFields],
+  // Custom
   [CustomHtmlTypeLiteral, customHtmlFields],
 ] as const
 
+// ─── ComponentTypeSchema (reconstructed from all type literals) ────────────
 
+/**
+ * Component type enum reconstructed from all per-type literals.
+ * Each component type is defined in its own file with only relevant properties.
+ */
 export const ComponentTypeSchema = Schema.Union(
+  // Layout
   ContainerTypeLiteral,
   SplitPaneTypeLiteral,
   FlexTypeLiteral,
@@ -323,6 +345,7 @@ export const ComponentTypeSchema = Schema.Union(
   CardTypeLiteral,
   HeroTypeLiteral,
   ModalTypeLiteral,
+  // Content
   TextTypeLiteral,
   IconTypeLiteral,
   ImageTypeLiteral,
@@ -333,6 +356,7 @@ export const ComponentTypeSchema = Schema.Union(
   TocTypeLiteral,
   SearchInputTypeLiteral,
   PageSearchTypeLiteral,
+  // Data
   DataTableTypeLiteral,
   KanbanTypeLiteral,
   CalendarTypeLiteral,
@@ -343,6 +367,7 @@ export const ComponentTypeSchema = Schema.Union(
   DataFormTypeLiteral,
   ListTypeLiteral,
   DataTimelineTypeLiteral,
+  // Form Controls
   InputTypeLiteral,
   CheckboxTypeLiteral,
   RadioGroupTypeLiteral,
@@ -354,18 +379,21 @@ export const ComponentTypeSchema = Schema.Union(
   ToggleTypeLiteral,
   ToggleGroupTypeLiteral,
   SwitchTypeLiteral,
+  // Interactive
   ButtonTypeLiteral,
   BadgeTypeLiteral,
   AlertTypeLiteral,
   LinkTypeLiteral,
   ButtonGroupTypeLiteral,
   ThemeToggleTypeLiteral,
+  // Navigation
   BreadcrumbTypeLiteral,
   DropdownMenuTypeLiteral,
   ContextMenuTypeLiteral,
   MenubarTypeLiteral,
   NavigationMenuTypeLiteral,
   PaginationTypeLiteral,
+  // Overlays
   AlertDialogTypeLiteral,
   DialogTypeLiteral,
   DrawerTypeLiteral,
@@ -374,6 +402,7 @@ export const ComponentTypeSchema = Schema.Union(
   TooltipTypeLiteral,
   HoverCardTypeLiteral,
   ToastTypeLiteral,
+  // Display
   StaticTableTypeLiteral,
   EmptyStateTypeLiteral,
   MarqueeTypeLiteral,
@@ -384,9 +413,11 @@ export const ComponentTypeSchema = Schema.Union(
   ListItemTypeLiteral,
   SpeechBubbleTypeLiteral,
   RecordFieldTypeLiteral,
+  // Feedback
   SkeletonTypeLiteral,
   ProgressTypeLiteral,
   SpinnerTypeLiteral,
+  // Specialty
   FileUploadTypeLiteral,
   NumberInputTypeLiteral,
   TimePickerTypeLiteral,
@@ -394,23 +425,41 @@ export const ComponentTypeSchema = Schema.Union(
   LanguageSwitcherTypeLiteral,
   CommentsTypeLiteral,
   CommentCountTypeLiteral,
+  // Structural
   DividerTypeLiteral,
   SpacerTypeLiteral,
+  // AI
   AiChatTypeLiteral,
+  // Editors (schema/config authoring) — islands deferred (red contract)
   SchemaJsonEditorTypeLiteral,
   SchemaYamlEditorTypeLiteral,
   SchemaFormEditorTypeLiteral,
   SchemaAiAgentTypeLiteral,
+  // Custom
   CustomHtmlTypeLiteral
 ).annotations({
   title: 'Component Type',
   description: 'Component type for page building',
 })
 
+/** @public */
 export type ComponentType = Schema.Schema.Type<typeof ComponentTypeSchema>
 
+// ─── Container Types (components that support children nesting) ─────────────
 
+/**
+ * Whitelist of component types that support `children` nesting.
+ *
+ * Only container/wrapper components should accept children. Data-driven components
+ * (data-table, chart, kanban, etc.), leaf elements (icon, divider, spinner, etc.),
+ * form controls, and content components (which use `content` field instead) do NOT
+ * support children.
+ *
+ * New components default to NO children — add here only if they genuinely
+ * wrap arbitrary child components.
+ */
 const CONTAINER_TYPES: ReadonlySet<string> = new Set([
+  // Layout containers
   'container',
   'split-pane',
   'flex',
@@ -421,41 +470,103 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   'card',
   'hero',
   'modal',
+  // Text elements (wrap inline text/component children, e.g. <h1>Welcome</h1>)
   'text',
+  // Interactive containers (wrap icon + text children, e.g. <Button><Icon /> Submit</Button>)
   'button',
   'badge',
   'link',
   'alert',
   'button-group',
+  // Data containers (wrap child components like form fields)
   'form',
   'data-form',
   'list',
+  // Form-control composer (wraps a single input + label + description + error)
   'field',
+  // Overlay containers
   'alert-dialog',
   'dialog',
   'drawer',
   'popover',
   'tooltip',
   'hover-card',
+  // Display containers
   'empty-state',
+  // A marquee scrolls its children, so it must be able to hold them
   'marquee',
   'scroll-area',
   'accordion',
   'tabs',
   'timeline',
   'list-item',
+  // Reorderable list wraps list-item children for drag-and-drop reordering
   'reorderable-list',
+  // Custom components (may need arbitrary children)
   'customHTML',
 ])
 
+// ─── Derived component shape ────────────────────────────────────────────────
 
+/**
+ * Decoded shape of ONE component branch — its `type` literal plus every key its
+ * `<name>Fields` record declares — derived MECHANICALLY from the same
+ * `allComponents` tuple `buildComponentUnion` iterates.
+ *
+ * Deriving rather than hand-writing is the whole point: a hand-written mirror
+ * of 89 component definitions is a second source of truth that drifts, which is
+ * precisely the failure this type exists to end.
+ */
+type ComponentBranchType<D> = D extends readonly [infer TypeLiteral, infer Fields]
+  ? Fields extends Schema.Struct.Fields
+    ? { readonly type: Schema.Schema.Type<TypeLiteral> } & Schema.Struct.Type<Fields>
+    : never
+  : never
+
+/**
+ * Discriminated union of every component's decoded shape, keyed by `type`.
+ *
+ * Does NOT carry `children`: that field is injected per consumer by
+ * {@link buildComponentUnion} and only onto `CONTAINER_TYPES`, so a consumer
+ * intersects its own children shape onto this union. Today only `TypedComponent`
+ * (`pages/components/index.ts`) does; `ComponentTemplateSchema` and
+ * `ComponentChildElementSchema` are still annotated `Schema.Schema<any, …>` and
+ * would each add their own children shape the same way.
+ */
+export type ComponentUnion = {
+  readonly [I in keyof typeof allComponents]: ComponentBranchType<(typeof allComponents)[I]>
+}[number]
+
+// ─── Union Builder ──────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Generic fields injected per consumer (children, name, etc.)
 type InjectableFields = Record<string, any>
 
+/**
+ * Build a discriminated union of component schemas.
+ *
+ * Each consumer (page components, template components, child elements)
+ * calls this with its own `children` field definition, since the children
+ * type differs per context (page children support $ref, template children don't).
+ *
+ * Children are only injected into container types listed in CONTAINER_TYPES.
+ * Data components, leaf elements, form controls, and content components
+ * do NOT receive children — they use structured config or `content` instead.
+ *
+ * Each component type gets ONLY the shared field modules it opts into,
+ * plus its own type-specific properties. A spacer gets only `props`,
+ * while a data-table gets `props + responsive + visibility + i18n + dataBound`.
+ *
+ * @param childrenField - Object with a `children` key (Schema.optional(...))
+ * @param extraFields - Additional fields to add to every branch (e.g. `name` for templates)
+ */
 export function buildComponentUnion(
   childrenField: InjectableFields,
   extraFields: InjectableFields = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- huge discriminated union exceeds the .d.ts serialization limit (TS7056); every consumer already widens to Schema.Schema<any, any, never>
 ): Schema.Schema<any, any, never> {
   const branches = allComponents.map(([typeLiteral, fields]) => {
+    // Extract the type string from the Schema.Literal AST to check container membership
     const { ast } = typeLiteral
     const isContainer =
       ast._tag === 'Literal' && typeof ast.literal === 'string' && CONTAINER_TYPES.has(ast.literal)
@@ -468,6 +579,7 @@ export function buildComponentUnion(
     })
   })
 
+  // Schema.Union requires at least 2 members
   return Schema.Union(
     ...(branches as [(typeof branches)[0], (typeof branches)[0], ...typeof branches])
   )

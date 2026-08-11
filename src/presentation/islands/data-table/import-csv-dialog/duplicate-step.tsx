@@ -33,6 +33,7 @@ function StrategyRadio({
         name="duplicate-strategy"
         value={value}
         checked={current === value}
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one-statement onChange closing over `value`; React Compiler will memoize once enabled in Bun.
         onChange={() => onChange(value)}
       />
       <span>{label}</span>
@@ -81,6 +82,7 @@ export function DuplicateStep({
             id="csv-import-unique-field"
             aria-label="Unique field"
             value={uniqueField ?? ''}
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one-statement select handler; React Compiler will memoize once enabled in Bun.
             onChange={(e) => setUniqueField(e.target.value || undefined)}
             className="border-border rounded border px-2 py-1 text-sm"
           >

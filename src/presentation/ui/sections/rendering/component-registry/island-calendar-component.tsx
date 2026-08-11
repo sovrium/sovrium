@@ -8,6 +8,12 @@
 import { renderComponentSearchBar } from './component-search-bar'
 import type { ComponentRenderer } from '../component-dispatch-config'
 
+/**
+ * Extracts calendar island props from section component props.
+ *
+ * Forwarded to the calendar island for client-side data fetching and
+ * FullCalendar rendering with date-field mapping.
+ */
 function extractCalendarProps(elementProps: Record<string, unknown>): Record<string, unknown> {
   return {
     dataSource: elementProps.dataSource,
@@ -16,6 +22,9 @@ function extractCalendarProps(elementProps: Record<string, unknown>): Record<str
     defaultView: elementProps.defaultView,
     labelField: elementProps.labelField,
     colorField: elementProps.colorField,
+    // `optionValue → hex` for the field `colorField` names, resolved
+    // server-side from `app.tables` (the island only ever sees records).
+    colorFieldColors: elementProps.colorFieldColors,
     maxEventsPerDay: elementProps.maxEventsPerDay,
     calendarEvent: elementProps.calendarEvent,
     calendarInteraction: elementProps.calendarInteraction,
@@ -23,6 +32,10 @@ function extractCalendarProps(elementProps: Record<string, unknown>): Record<str
   }
 }
 
+/**
+ * SSR placeholder for the calendar island. Renders a 5x7 day-grid skeleton
+ * preserved as a Suspense fallback while the FullCalendar bundle loads.
+ */
 export const islandCalendarComponent: ComponentRenderer = ({ elementProps }) => {
   const islandProps = extractCalendarProps(elementProps)
   const propsJson = JSON.stringify(islandProps)
@@ -36,7 +49,7 @@ export const islandCalendarComponent: ComponentRenderer = ({ elementProps }) => 
       data-testid={elementProps['data-testid'] as string | undefined}
     >
       {renderComponentSearchBar(elementProps.search)}
-      {}
+      {/* Loading skeleton — preserved as Suspense fallback */}
       <div
         className="border-border bg-background-raised w-full rounded-lg border p-4"
         aria-label="Loading calendar..."

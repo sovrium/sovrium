@@ -7,6 +7,39 @@
 
 import { COMMAND_PALETTE_RUNTIME_DOM } from './command-palette-runtime-dom'
 
+/**
+ * Global command-palette runtime for the synthesized `command-palette`
+ * component ([internal ref] /
+ * [internal ref]).
+ *
+ * Server-authored constant string (no untrusted interpolation) dropped into an
+ * inline `<script>` so the palette works without shipping the React island
+ * bundle. Mirrors the `favorites-button` inline-runtime pattern.
+ *
+ * Behaviour:
+ *  - `Cmd+K` / `Ctrl+K` opens the centered modal overlay and focuses the
+ *    search input. `Escape` closes it.
+ *  - When opened with an empty query, the palette renders a list of **quick
+ * actions**: "Create new record
+ *    in <table>" for each table, "Go to <page>" for each navigable page, and a
+ *    "Toggle dark mode" action. It also fetches `GET /api/favorites` and
+ *    `GET /api/recent` and renders a "Favorites" section above a "Recent"
+ *    section (each section only appears when it has at least one item).
+ *  - Typing a query filters the quick actions by label substring and calls
+ *    `GET /api/command-search?q=` to render matching records/pages grouped by
+ *    table. Each table group is a `role="group"` section whose `aria-label`
+ *    is the table name; every option shows the table name alongside the
+ *    matching record's label. Favorited records carry a star indicator
+ *    (`data-favorite="true"`).
+ *  - ArrowDown / ArrowUp move a highlighted option; Enter activates the
+ *    highlighted option — navigating (records/pages/go-to actions), opening a
+ *    record-creation dialog (create-record actions) or toggling dark mode.
+ *
+ * Quick-action options carry a `data-command-action` attribute:
+ *  - `create-record:<table>` — opens the hidden per-table creation dialog
+ *  - `navigate` — uses `data-href` (page navigation / "Go to" actions)
+ *  - `toggle-dark-mode` — toggles the `dark` class on `<html>` and shows a toast
+ */
 export const COMMAND_PALETTE_RUNTIME = `(function () {
   var configEl = document.querySelector('[data-command-palette-config]');
   var config = { tables: [], pages: [] };

@@ -1,0 +1,133 @@
+name: suppliers
+path: /suppliers
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Suppliers
+  description: Vendors that supply the catalog
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-7xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Suppliers
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: >-
+          Who you buy from. The AI columns fill in on save once an AI provider is
+          configured, and stay empty until then.
+
+      - type: container
+        props:
+          className: border rounded-lg p-5 mb-8
+        children:
+          - type: text
+            element: h2
+            props:
+              className: text-base font-semibold mb-4
+            content: Add a supplier
+          - type: form
+            dataSource:
+              table: suppliers
+            fields:
+              - field: name
+                label: Supplier name
+              - field: contact_email
+                label: Email
+                placeholder: orders@example.com
+              - field: phone
+                label: Phone
+              - field: website
+                label: Website
+                placeholder: https://example.com
+              - field: notes
+                label: Notes
+            action:
+              type: crud
+              operation: create
+              table: suppliers
+              onSuccess:
+                navigate: /suppliers
+                toast:
+                  message: Supplier added
+                  variant: success
+
+      - type: data-table
+        dataSource:
+          table: suppliers
+          sort:
+            - field: name
+              direction: asc
+        rowHeight: medium
+        striped: true
+        columns:
+          - field: name
+            label: Supplier
+            frozen: true
+            sortable: true
+            filterable: true
+            editable: true
+          - field: contact_email
+            label: Email
+            editable: true
+          - field: phone
+            label: Phone
+            editable: true
+          - field: website
+            label: Website
+          - field: account_manager
+            label: Account manager
+          - field: certifications
+            label: Certifications
+          - field: open_portal
+            label: Portal
+            align: center
+          - field: ai_risk_tier
+            label: Risk tier
+          - field: ai_review_sentiment
+            label: Sentiment
+          - field: ai_tags
+            label: AI tags
+          - field: ai_summary
+            label: AI summary
+          - field: created_at
+            label: Added
+            format: relative-date
+            sortable: true
+        selection:
+          mode: multiple
+        search:
+          enabled: true
+          placeholder: Search suppliers
+        summary:
+          - field: name
+            function: count
+            label: Suppliers
+        toolbar:
+          search: true
+          filters: true
+          sort: true
+          views: true
+          export: true
+          columnToggle: true
+          density: true
+        pagination:
+          pageSize: 25
+        bulkActions:
+          - label: Delete
+            confirm: Delete the selected suppliers? They stay recoverable.
+            action:
+              type: crud
+              operation: delete
+              table: suppliers
+        emptyMessage: No suppliers yet. Add your first one above.
+        noMatchMessage: No suppliers match "{query}".

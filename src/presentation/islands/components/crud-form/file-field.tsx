@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-perf/jsx-no-new-function-as-prop --
+   The file-upload field wires fresh onChange / onClick handlers per render
+   because the upload state lives in component-local useState. Lifting these
+   out requires a state-model refactor covered by the crud-form refactor. */
 
 import { useState } from 'react'
 import {
@@ -16,6 +20,11 @@ import {
 } from '../../recipes/field-affordances-default-classes'
 import { type FieldDef, labelOf } from './field-def'
 
+/**
+ * Canonical file metadata stored in the form value for an attachment field.
+ * Serialised to JSON and submitted as the field's string value, so the
+ * record API writes `{ url, name, size, mimeType }` into the column.
+ */
 export interface UploadedFile {
   readonly url: string
   readonly name: string
@@ -31,11 +40,16 @@ interface BucketUploadResponse {
   readonly filename?: string
 }
 
+/** An uploaded file paired with the storage key persisted into the record column. */
 interface StoredFile {
   readonly meta: UploadedFile
   readonly key: string
 }
 
+/**
+ * Reject a file whose MIME type is not in `allowedFileTypes` or whose size
+ * exceeds `maxFileSize`. Returns a human-readable error or `undefined`.
+ */
 function validateFile(file: File, field: FieldDef): string | undefined {
   const types = field.allowedFileTypes
   if (types !== undefined && types.length > 0 && !types.includes(file.type)) {
@@ -48,21 +62,30 @@ function validateFile(file: File, field: FieldDef): string | undefined {
   return undefined
 }
 
+/** Find the first MIME-type / size validation error in a list of selected files. */
 function firstFileError(files: readonly File[], field: FieldDef): string | undefined {
   return files.map((file) => validateFile(file, field)).find((error) => error !== undefined)
 }
 
+/**
+ * Implicit bucket used when the bound column declares no `bucket` binding.
+ * Mirrors the records read path's fallback — deliberately NOT the
+ * app's first declared bucket, which is the form-upload path's fallback.
+ */
 const DEFAULT_BUCKET = 'default'
 
+/** Resolve the bucket a file field uploads to and previews from. */
 function bucketOf(field: FieldDef): string {
   return field.bucket ?? DEFAULT_BUCKET
 }
 
+/** Upload a single file to the field's declared storage bucket; returns the stored file. */
 async function uploadFile(file: File, bucket: string): Promise<StoredFile> {
   const body = new FormData()
   body.set('file', file)
   const res = await fetch(`/api/buckets/${bucket}/files`, { method: 'POST', body })
   if (!res.ok) {
+    // eslint-disable-next-line functional/no-throw-statements -- caller catches and surfaces the error
     throw new Error(`Upload failed for ${file.name}`)
   }
   const json = (await res.json()) as BucketUploadResponse
@@ -78,12 +101,24 @@ async function uploadFile(file: File, bucket: string): Promise<StoredFile> {
   }
 }
 
+/**
+ * Serialise the stored-file list into the form value.
+ *
+ * `single-attachment` columns are `VARCHAR` and store a single storage key
+ * string. `multiple-attachments` columns are `JSONB` and store a JSON array
+ * of storage keys. Both shapes are what the record-creation attachment
+ * validator (`extractAttachmentKeys`) expects.
+ */
 function serializeValue(files: readonly StoredFile[], multiple: boolean): string {
   if (files.length === 0) return ''
   if (multiple) return JSON.stringify(files.map((f) => f.key))
   return files[0]!.key
 }
 
+/**
+ * Recover the original filename from a storage key (`<uuid>-<filename>`).
+ * Returns the key unchanged when it carries no uuid prefix.
+ */
 function filenameFromKey(key: string): string {
   return (
     key.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i)?.[1] ?? key
@@ -92,6 +127,7 @@ function filenameFromKey(key: string): string {
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif'])
 
+/** Best-effort MIME inference from a filename extension (used for edit-mode previews). */
 function mimeFromName(name: string): string {
   const ext = name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
   return ext !== undefined && IMAGE_EXTENSIONS.has(ext)
@@ -99,6 +135,7 @@ function mimeFromName(name: string): string {
     : 'application/octet-stream'
 }
 
+/** Build a StoredFile from a plain storage key string. */
 function storedFromKey(key: string, bucket: string): StoredFile {
   const name = filenameFromKey(key)
   return {
@@ -112,6 +149,7 @@ function storedFromKey(key: string, bucket: string): StoredFile {
   }
 }
 
+/** Build a StoredFile from a metadata object (edit-mode seeded JSON). */
 function storedFromMeta(entry: Record<string, unknown>): StoredFile | undefined {
   const { name } = entry
   if (typeof name !== 'string') return undefined
@@ -127,6 +165,7 @@ function storedFromMeta(entry: Record<string, unknown>): StoredFile | undefined 
   }
 }
 
+/** Parse a JSON string, returning `undefined` when the input is not valid JSON. */
 function tryParseJson(value: string): unknown | undefined {
   try {
     return JSON.parse(value) as unknown
@@ -135,9 +174,18 @@ function tryParseJson(value: string): unknown | undefined {
   }
 }
 
+/**
+ * Parse an existing form value (edit mode) back into a stored-file list.
+ *
+ * Accepts three shapes for backward compatibility:
+ *   - a plain storage key string,
+ *   - a JSON metadata object (`{ name, url, size, ... }`),
+ *   - a JSON array of either of the above.
+ */
 function parseInitialValue(value: string, bucket: string): readonly StoredFile[] {
   if (!value.trim()) return []
   const parsed = tryParseJson(value)
+  // Not JSON — treat as a single bare storage key.
   if (parsed === undefined) return [storedFromKey(value, bucket)]
   const list = Array.isArray(parsed) ? parsed : [parsed]
   return list.flatMap((entry): readonly StoredFile[] => {
@@ -155,6 +203,7 @@ interface FilePreviewProps {
   readonly onRemove: () => void
 }
 
+/** Render a single uploaded file: thumbnail for images, filename for others. */
 function FilePreview({ file, onRemove }: FilePreviewProps) {
   const isImage = file.mimeType.startsWith('image/')
   return (
@@ -192,11 +241,23 @@ function FilePreview({ file, onRemove }: FilePreviewProps) {
   )
 }
 
+/**
+ * Result of validating a fresh file selection: `error` carries a blocking
+ * (type / size) error or a non-blocking overflow warning, and `accepted`
+ * is the truncated list of files cleared to upload.
+ */
 interface SelectionPlan {
   readonly error: string | undefined
   readonly accepted: readonly File[]
 }
 
+/**
+ * Validate and truncate a fresh file selection against the field's
+ * MIME-type / size / maxFiles constraints.
+ *
+ * - A type / size violation rejects the whole selection (`accepted` empty).
+ * - A maxFiles overflow keeps the files that fit and warns about the rest.
+ */
 function planSelection(
   selected: readonly File[],
   field: FieldDef,
@@ -221,6 +282,7 @@ interface FileUploadProgressProps {
   readonly uploading: boolean
 }
 
+/** Upload progress indicator: in-flight spinner or completed state. */
 function FileUploadProgress({ uploading }: FileUploadProgressProps) {
   return (
     <div
@@ -240,6 +302,7 @@ interface FilePreviewListProps {
   readonly onRemove: (index: number) => void
 }
 
+/** Render the list of selected/uploaded files with per-file remove controls. */
 function FilePreviewList({ files, onRemove }: FilePreviewListProps) {
   return (
     <ul data-file-list>
@@ -262,6 +325,7 @@ interface FileInputProps {
   readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
+/** Native `<input type="file">` with the field's accept / required / disabled attrs. */
 function FileInput({ field, multiple, inputKey, onChange }: FileInputProps) {
   return (
     <input
@@ -287,6 +351,7 @@ interface FileFieldBodyProps {
   readonly onRemove: (index: number) => void
 }
 
+/** Presentational body: label, input / drop-zone, progress, error, previews. */
 function FileFieldBody({
   field,
   fileInput,
@@ -325,9 +390,15 @@ interface FileFieldProps {
   readonly onChange: (name: string, value: string) => void
 }
 
+/**
+ * Encapsulate the file-field's upload/validation state and handlers so the
+ * `FileField` component stays a thin presentational shell.
+ */
 function useFileField(props: FileFieldProps) {
   const { field, multiple, value, onChange } = props
   const bucket = bucketOf(field)
+  // Edit mode: the initial form value (a storage key, JSON metadata object, or
+  // array of either) is parsed once into the displayed stored-file list.
   const [files, setFiles] = useState<readonly StoredFile[]>(() => parseInitialValue(value, bucket))
   const [error, setError] = useState<string | undefined>(undefined)
   const [uploading, setUploading] = useState(false)
@@ -368,6 +439,18 @@ function useFileField(props: FileFieldProps) {
   return { files, error, uploading, inputKey, handleChange, removeAt }
 }
 
+/**
+ * File-upload field for `single-attachment` / `multiple-attachments` columns.
+ *
+ * - Validates MIME type, size, and (multi) file count on selection.
+ * - Uploads valid files to the bucket declared on the bound column (falling
+ *   back to the implicit 'default' bucket) and shows an upload progress
+ *   indicator while the request is in flight.
+ * - Renders a thumbnail preview for images, a filename chip for others, with
+ *   a per-file Remove button.
+ * - Writes canonical `{ url, name, size, mimeType }` JSON metadata into the
+ *   form value so the record API persists the file reference.
+ */
 export function FileField(props: FileFieldProps) {
   const { field, multiple } = props
   const { files, error, uploading, inputKey, handleChange, removeAt } = useFileField(props)

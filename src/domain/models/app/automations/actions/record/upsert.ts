@@ -10,6 +10,17 @@ import { ConditionGroupSchema } from '../../conditions'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Upsert Action (type: record, operator: upsert)
+ *
+ * Atomic create-or-update on a single record. Requires a `table`,
+ * `data` payload, and either an `id` (primary key lookup) or a `filter`
+ * with conditions to match the existing record. If a match is found
+ * the record is updated; otherwise a new record is created.
+ *
+ * The `id` and `filter` props are mutually exclusive — providing both
+ * is a schema validation error (enforced in the cross-validation layer).
+ */
 export const RecordUpsertActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
@@ -49,4 +60,5 @@ export const RecordUpsertActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordUpsertAction = Schema.Schema.Type<typeof RecordUpsertActionSchema>

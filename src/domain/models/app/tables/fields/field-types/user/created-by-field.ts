@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Created By Field
+ *
+ * Automatically captures the user who created a record.
+ * This field is system-managed and cannot be manually edited.
+ * Stores a reference to the user ID from the authentication system.
+ * Commonly used for audit trails and user activity tracking.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'created_by',
+ *   type: 'created-by',
+ *   indexed: true
+ * }
+ * ```
+ */
 export const CreatedByFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -29,4 +47,5 @@ export const CreatedByFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type CreatedByField = Schema.Schema.Type<typeof CreatedByFieldSchema>

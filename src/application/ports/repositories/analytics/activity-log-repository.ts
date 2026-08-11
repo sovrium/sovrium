@@ -9,6 +9,12 @@ import { Context, Data } from 'effect'
 import type { UserMetadata } from '@/application/ports/models/user-metadata'
 import type { Effect } from 'effect'
 
+/**
+ * Activity Log record type (port-level definition)
+ *
+ * Structurally compatible with the Drizzle schema inference.
+ * Defined here to avoid application→infrastructure dependency.
+ */
 export interface ActivityLog {
   readonly id: string
   readonly createdAt: Date
@@ -27,10 +33,19 @@ export interface ActivityLog {
   readonly user?: UserMetadata | null | undefined
 }
 
+/**
+ * Database error for activity log operations
+ */
 export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatabaseError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Activity Log Repository Port
+ *
+ * Provides type-safe database operations for activity logs.
+ * Implementation lives in infrastructure layer (activity-log-repository-live.ts).
+ */
 export class ActivityLogRepository extends Context.Tag('ActivityLogRepository')<
   ActivityLogRepository,
   {

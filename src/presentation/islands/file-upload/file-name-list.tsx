@@ -11,6 +11,7 @@ interface FileNameListProps {
   readonly fileNames: readonly string[]
 }
 
+/** Renders the picked-file name `<ul>` for the file-upload island. */
 export function FileNameList({ fileNames }: FileNameListProps): ReactElement {
   return (
     <ul className="text-foreground text-xs">

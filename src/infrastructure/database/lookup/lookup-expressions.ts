@@ -10,6 +10,9 @@ import { toSingular, generateJunctionTableName } from '../sql/sql-generators'
 import { buildWhereClause } from './lookup-view-helpers'
 import type { ViewFilterCondition } from '@/domain/models/app/tables/views/filters'
 
+/**
+ * Configuration for lookup expression generation
+ */
 export type LookupExpressionConfig = {
   readonly lookupName: string
   readonly relationshipField: string
@@ -20,6 +23,9 @@ export type LookupExpressionConfig = {
   readonly actualTableName: string
 }
 
+/**
+ * Configuration for many-to-many lookup expression
+ */
 export type ManyToManyLookupConfig = {
   readonly lookupName: string
   readonly relatedTable: string
@@ -29,6 +35,9 @@ export type ManyToManyLookupConfig = {
   readonly actualTableName: string
 }
 
+/**
+ * Configuration for forward lookup expression
+ */
 export type ForwardLookupConfig = {
   readonly lookupName: string
   readonly relationshipField: string
@@ -38,6 +47,9 @@ export type ForwardLookupConfig = {
   readonly tableAlias: string
 }
 
+/**
+ * Generate reverse lookup expression (one-to-many)
+ */
 export const generateReverseLookupExpression = (config: LookupExpressionConfig): string => {
   const { lookupName, relationshipField, relatedField, relatedTable, filters, tableAlias } = config
 
@@ -55,6 +67,9 @@ export const generateReverseLookupExpression = (config: LookupExpressionConfig):
   ) AS ${lookupName}`
 }
 
+/**
+ * Generate many-to-many lookup expression (through junction table)
+ */
 export const generateManyToManyLookupExpression = (config: ManyToManyLookupConfig): string => {
   const { lookupName, relatedTable, relatedField, filters, tableAlias, actualTableName } = config
   const alias = `${relatedTable}_for_${lookupName}`
@@ -78,6 +93,9 @@ export const generateManyToManyLookupExpression = (config: ManyToManyLookupConfi
   ) AS ${lookupName}`
 }
 
+/**
+ * Generate forward lookup expression (many-to-one)
+ */
 export const generateForwardLookupExpression = (config: ForwardLookupConfig): string => {
   const { lookupName, relationshipField, relatedTable, relatedField, filters, tableAlias } = config
   const alias = `${relatedTable}_for_${lookupName}`
@@ -91,5 +109,6 @@ export const generateForwardLookupExpression = (config: ForwardLookupConfig): st
     ) AS ${lookupName}`
   }
 
+  // Direct column reference via LEFT JOIN (handled in main VIEW SELECT)
   return `${alias}.${relatedField} AS ${lookupName}`
 }

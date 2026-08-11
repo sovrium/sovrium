@@ -9,29 +9,39 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Crypto HMAC Action (type: crypto, operator: hmac)
+ *
+ * Compute an HMAC (Hash-based Message Authentication Code) for the input string.
+ * Useful for webhook signature verification and secure message authentication.
+ */
 export const CryptoHmacActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('crypto'),
   operator: Schema.Literal('hmac'),
   props: Schema.Struct({
+    /** Input string to sign */
     input: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Input string to sign (supports template variables)',
       })
     ),
 
+    /** Secret key for HMAC computation */
     secret: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Secret key for HMAC computation (supports template variables)',
       })
     ),
 
+    /** HMAC algorithm */
     algorithm: Schema.Literal('sha256', 'sha512').pipe(
       Schema.annotations({
         description: 'HMAC algorithm: sha256 or sha512',
       })
     ),
 
+    /** Output encoding */
     encoding: Schema.optional(
       Schema.Literal('hex', 'base64').pipe(
         Schema.annotations({
@@ -48,4 +58,5 @@ export const CryptoHmacActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type CryptoHmacAction = Schema.Schema.Type<typeof CryptoHmacActionSchema>

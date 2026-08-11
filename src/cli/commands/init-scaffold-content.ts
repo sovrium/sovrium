@@ -5,7 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Static scaffold content for the `init` command.
+ *
+ * Lifted out of `init.ts` so the command file holds orchestration logic while
+ * the (large, rarely-changing) template bodies live as data here. Each export
+ * is pure content — no I/O, no side effects.
+ */
 
+/**
+ * Body of the scaffolded `public/README.md`.
+ *
+ * Documents the three operator-facing rules an author needs to know when
+ * dropping files into this directory: (1) the secret-file blocklist that
+ * suppresses well-known sensitive shapes, (2) the anchor-to-`app.yaml`
+ * resolution so files land at the expected URL regardless of CWD, and (3) the
+ * SSR > built-in routes > publicDir > 404 precedence so a same-named SEO file
+ * (sitemap.xml, robots.txt) is silently shadowed by the generated route. The
+ * [internal ref] reference points readers at the spec that enforces it.
+ */
 export const PUBLIC_README_BODY = [
   '# `public/` — static-asset directory',
   '',
@@ -52,6 +70,16 @@ export const PUBLIC_README_BODY = [
   '',
 ].join('\n')
 
+/**
+ * Body of the scaffolded `CLAUDE.md` (everything below the `# <name>` title).
+ *
+ * Lifted to a module constant so `generateClaudeMd` stays small. This file lands
+ * in the *user's* project (one that USES Sovrium to build an app), not the
+ * platform repo, and orients Claude Code toward the config-driven model: build
+ * the app by editing the declarative `app.yaml`, then validate and run it — do
+ * not hand-write application/server code. Structure and facts are drawn from
+ * https://sovrium.com/llms.txt.
+ */
 export const CLAUDE_MD_BODY = [
   'A [Sovrium](https://sovrium.com) application — a self-hosted, **configuration-driven**',
   'platform. The entire app (data model, auth, pages, theme, i18n) is declared in one or more',

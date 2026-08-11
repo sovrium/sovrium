@@ -9,23 +9,32 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * State Set Action (type: state, operator: set)
+ *
+ * Store a value in key-value state. Supports optional TTL for automatic expiry
+ * and namespace for multi-tenant isolation.
+ */
 export const StateSetActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('state'),
   operator: Schema.Literal('set'),
   props: Schema.Struct({
+    /** State key to set */
     key: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'State key to set (supports template variables)',
       })
     ),
 
+    /** Value to store */
     value: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Value to store (supports template variables)',
       })
     ),
 
+    /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^[a-z][a-z0-9-]*$/),
@@ -36,6 +45,7 @@ export const StateSetActionSchema = Schema.Struct({
       )
     ),
 
+    /** Time-to-live for automatic expiry */
     ttl: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^\d+\s*(ms|s|m|h|d)$/),
@@ -54,4 +64,5 @@ export const StateSetActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type StateSetAction = Schema.Schema.Type<typeof StateSetActionSchema>

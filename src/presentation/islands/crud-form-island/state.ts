@@ -20,18 +20,29 @@ function buildInitialValues(
       const fromRecord = record?.[f.name]
       const fromInitial = initialValues?.[f.name]
       const fallbackDefault = f.defaultValue !== undefined ? String(f.defaultValue) : ''
+      // Object/array record values (e.g. JSONB attachment metadata
+      // `{ name, url, size }`) must be JSON-serialised, not coerced via
+      // `String()` (which would yield "[object Object]") so the file-field
+      // island can re-parse the existing attachment in edit mode (FORM-037).
       const recordValue =
         fromRecord !== undefined && fromRecord !== null
           ? typeof fromRecord === 'object'
             ? JSON.stringify(fromRecord)
             : String(fromRecord)
           : ''
+      // Initial values (from URL/external) > record (edit mode) > defaultValue (create mode)
       const value = fromInitial ?? (recordValue !== '' ? recordValue : fallbackDefault)
       return [f.name, value]
     })
   )
 }
 
+/**
+ * Builds the post-reset field values for a `type: reset` onSuccess response.
+ *
+ * Every field is cleared to its default value, except those listed in
+ * `preserveFields`, which retain their current value for rapid repeat entry.
+ */
 function buildResetValues(
   fields: readonly FieldDef[],
   current: Record<string, string>,

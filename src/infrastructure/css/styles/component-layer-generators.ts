@@ -8,7 +8,25 @@
 import { generateClickAnimationCSS } from '@/infrastructure/css/styles/click-animations'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Component-layer class builders.
+ *
+ * The always-present default token layer (`default-theme-layer.ts`, injected by
+ * `compiler.ts`) guarantees every canonical role token (`bg`, `fg`, `primary`,
+ * `border`, `error-*`, …) is defined — with light/dark values, and recolored by
+ * author `theme.colors` via the alias bridge. So these builders emit canonical
+ * token classes UNCONDITIONALLY; the old literal-color fallback branches
+ * (`bg-blue-600`, `border-gray-200`, …) are dead and have been removed.
+ *
+ * The `theme` parameter is retained where it still drives non-color decisions
+ * (e.g. badge border-radius), but color tokens no longer gate on it.
+ */
 
+/**
+ * Build button classes (always uses the canonical primary token).
+ *
+ * @returns Array of CSS class names for button elements
+ */
 export function buildButtonClasses(): readonly string[] {
   return [
     'inline-flex',
@@ -25,23 +43,63 @@ export function buildButtonClasses(): readonly string[] {
   ]
 }
 
+/**
+ * Build button primary utility classes (canonical primary token).
+ *
+ * @returns CSS class string for primary button variant
+ */
 export function buildButtonPrimaryClasses(): string {
   return 'bg-primary text-primary-fg hover:bg-primary-hover'
 }
 
+/**
+ * Build badge border-radius based on theme configuration
+ * Uses theme.borderRadius.full if defined, otherwise falls back to rounded-full
+ *
+ * @param theme - Optional theme configuration
+ * @returns CSS rule for badge border-radius
+ */
 export function buildBadgeBorderRadius(theme?: Theme): string {
   const hasFullRadius = Boolean(theme?.borderRadius?.full)
   return hasFullRadius ? 'border-radius: var(--radius-full);' : '@apply rounded-full;'
 }
 
+/**
+ * Build card component classes (canonical raised-surface tokens).
+ *
+ * @returns CSS class string for .card
+ */
 export function buildCardClasses(): string {
   return 'rounded-lg border border-border bg-background-raised text-foreground p-6 shadow-sm'
 }
 
+/**
+ * Build badge component classes (canonical subtle-surface tokens).
+ *
+ * @returns CSS class string for .badge (excluding border-radius)
+ */
 export function buildBadgeClasses(): string {
   return 'border border-border bg-background-subtle text-foreground-muted px-2 py-1 text-xs font-medium'
 }
 
+/**
+ * Build input element classes — the Notion / Airtable-grade DEFAULT for every
+ * `<input>` / `<select>` / `<textarea>` across every Sovrium business app AND
+ * the admin console. Emitted ONCE under `@layer components` (see
+ * {@link generateLayoutRules}), so any form gets polished controls with zero
+ * per-app config — the dogfood win — while staying 100% overridable (author
+ * `className` and `app.theme.*` tokens still win at the cascade).
+ *
+ * Beyond the bare surface/border/focus tokens, this paints the chrome bare
+ * inputs were missing: a calm rounded shape (`rounded-md`), comfortable
+ * padding + a consistent control height (`px-3 py-2 text-sm leading-tight`),
+ * full-width so controls fill their field column, a quiet muted placeholder, a
+ * smooth focus transition, a clear focus ring with a tightened border, and a
+ * legible disabled state. Color goes through canonical role tokens only —
+ * never raw colors — so theme overrides win.
+ *
+ * @returns CSS class string for input/select/textarea base styles
+ */
 export function buildInputClasses(): string {
   return [
     'block',
@@ -67,6 +125,11 @@ export function buildInputClasses(): string {
   ].join(' ')
 }
 
+/**
+ * Build modal component classes (canonical overlay/surface tokens).
+ *
+ * @returns Object with overlay and content CSS class strings
+ */
 export function buildModalClasses(): {
   readonly overlay: string
   readonly content: string
@@ -77,6 +140,11 @@ export function buildModalClasses(): {
   }
 }
 
+/**
+ * Build alert variant classes (canonical semantic bg/fg/border tokens).
+ *
+ * @returns Object with CSS class strings per alert variant
+ */
 export function buildAlertClasses(): {
   readonly info: string
   readonly warning: string
@@ -91,18 +159,38 @@ export function buildAlertClasses(): {
   }
 }
 
+/**
+ * Build toast component classes (canonical raised-surface tokens).
+ *
+ * @returns CSS class string for .toast
+ */
 export function buildToastClasses(): string {
   return 'bg-background-raised text-foreground border border-border shadow-lg rounded-lg p-4'
 }
 
+/**
+ * Build navigation component classes (canonical surface/border tokens).
+ *
+ * @returns CSS class string for .nav
+ */
 export function buildNavClasses(): string {
   return 'bg-background border-b border-border'
 }
 
+/**
+ * Build sidebar component classes (canonical raised-surface/border tokens).
+ *
+ * @returns CSS class string for .sidebar
+ */
 export function buildSidebarClasses(): string {
   return 'bg-background-raised border-r border-border'
 }
 
+/**
+ * Build data table component classes (canonical subtle-surface tokens).
+ *
+ * @returns Object with header and row hover CSS class strings
+ */
 export function buildDataTableClasses(): {
   readonly header: string
   readonly rowHover: string
@@ -113,6 +201,11 @@ export function buildDataTableClasses(): {
   }
 }
 
+/**
+ * Build button variant classes (canonical tokens).
+ *
+ * @returns Object with CSS class strings per button variant
+ */
 export function buildButtonVariantClasses(): {
   readonly secondary: string
   readonly destructive: string
@@ -132,6 +225,11 @@ export function buildButtonVariantClasses(): {
   }
 }
 
+/**
+ * Build badge variant classes (canonical tokens).
+ *
+ * @returns Object with CSS class strings per badge variant
+ */
 export function buildBadgeVariantClasses(): {
   readonly secondary: string
   readonly destructive: string
@@ -144,6 +242,17 @@ export function buildBadgeVariantClasses(): {
   }
 }
 
+/**
+ * Generate components layer styles using canonical role tokens.
+ * Applies canonical tokens to component classes and button elements
+ *
+ * @param theme - Optional theme configuration (only drives badge radius)
+ * @returns CSS @layer components rule as string
+ *
+ * @example
+ * generateComponentsLayer(theme)
+ * // => '@layer components { .container-page { ... } .card { ... } ... }'
+ */
 function generateButtonAndBadgeRules(): string {
   const btnClasses = buildButtonClasses()
   const btnPrimaryClasses = buildButtonPrimaryClasses()
@@ -167,6 +276,18 @@ function generateButtonAndBadgeRules(): string {
       .badge-outline { @apply ${badgeVariants.outline}; }`
 }
 
+/**
+ * Build the default chrome for STANDALONE form pages (`form-renderer.tsx`):
+ * the `.form-page` shell, the `.form-title` / `.form-description` header, and
+ * the submit button. These class names were previously decorative (no backing
+ * rule), so a standalone form rendered as edge-to-edge bare controls. Emitting
+ * real rules here gives every `app.forms[]` form an Airtable/Notion-grade
+ * default — a centered card with comfortable padding, a clear title hierarchy,
+ * and a real primary submit button — with zero per-form config, while staying
+ * fully overridable (author `display.theme` tokens + role tokens win).
+ *
+ * @returns the `@layer components` rule fragment for the form shell
+ */
 function buildFormShellRules(): string {
   return `
       .form-page {
@@ -226,6 +347,16 @@ ${generateLayoutRules()}
     }`
 }
 
+/**
+ * Generate utilities layer styles
+ * Combines static utilities with click interaction animations
+ *
+ * @returns CSS @layer utilities rule as string
+ *
+ * @example
+ * generateUtilitiesLayer()
+ * // => '@layer utilities { .text-balance { ... } ... }'
+ */
 export function generateUtilitiesLayer(): string {
   const clickAnimations = generateClickAnimationCSS()
 

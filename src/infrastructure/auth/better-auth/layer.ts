@@ -8,25 +8,64 @@
 import { Context, Effect, Layer } from 'effect'
 import { AuthError } from '../../errors/auth-error'
 import { createAuthInstance } from './auth'
-import type { auth } from './auth'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
+// Re-export AuthError for convenience
 export { AuthError }
 
+/**
+ * The shape `betterAuth` hands back.
+ *
+ * Derived from the factory rather than from a module-level default instance:
+ * that instance was deleted because evaluating it at import time made a keyless
+ * `sovrium init --help` provision a root secret. A type alias costs nothing at
+ * runtime and expresses the same thing.
+ */
+type AuthInstance = ReturnType<typeof createAuthInstance>
+
+/**
+ * Auth Effect Context
+ *
+ * Provides authentication service for dependency injection in Effect programs.
+ * Use this in Application layer to access authentication without direct imports.
+ *
+ * Implementation uses Better Auth library internally.
+ *
+ * @example
+ * ```typescript
+ * const protectedProgram = Effect.gen(function* () {
+ *   const authService = yield* Auth
+ *   const session = yield* authService.requireSession(headers)
+ *   return { userId: session.user.id, email: session.user.email }
+ * })
+ * ```
+ */
 export class Auth extends Context.Tag('Auth')<
   Auth,
   {
-    readonly api: ReturnType<typeof createAuthInstance>['api']
-    readonly handler: ReturnType<typeof createAuthInstance>['handler']
+    readonly api: AuthInstance['api']
+    readonly handler: AuthInstance['handler']
     readonly getSession: (
       headers: Headers
-    ) => Effect.Effect<Awaited<ReturnType<typeof auth.api.getSession>>, AuthError>
+    ) => Effect.Effect<Awaited<ReturnType<AuthInstance['api']['getSession']>>, AuthError>
     readonly requireSession: (
       headers: Headers
-    ) => Effect.Effect<NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>, AuthError>
+    ) => Effect.Effect<
+      NonNullable<Awaited<ReturnType<AuthInstance['api']['getSession']>>>,
+      AuthError
+    >
   }
 >() {}
 
+/**
+ * Create an Auth Layer with a specific auth configuration
+ *
+ * This allows us to create an Auth layer with app-specific configuration
+ * (e.g., with admin plugin enabled) instead of using the default instance.
+ *
+ * @param authConfig - Optional auth configuration from app schema
+ * @returns Layer providing Auth service with the specified configuration
+ */
 export const createAuthLayer = (authConfig?: AuthConfig): Layer.Layer<Auth> => {
   const authInstance = createAuthInstance(authConfig)
 

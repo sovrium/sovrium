@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Runnable wrapper: build the client/island/script runtime assets into `dist/`.
+ * Invoked by `scripts/build/build-binary.ts` before generating the embedded manifest.
+ */
 
 import { join } from 'node:path'
 import { buildRuntimeAssets } from './lib/runtime-assets'

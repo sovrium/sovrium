@@ -8,6 +8,32 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * AI Sentiment Field
+ *
+ * Automatically analyzes the emotional tone of text content using AI.
+ * Returns structured JSON with label, score, and explanation fields.
+ * Ideal for tracking customer satisfaction, feedback polarity, and content mood.
+ *
+ * Business Rules:
+ * - Output is PostgreSQL JSONB with `label`, `score`, and `explanation`
+ * - `label` is one of: positive, negative, neutral, mixed
+ * - `score` is a float between 0.0 and 1.0 representing confidence
+ * - Validates AI output matches expected structure; stores NULL with error if invalid
+ * - Returns NULL when all source fields are empty or NULL
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 3,
+ *   name: 'sentiment',
+ *   type: 'ai-sentiment',
+ *   sourceFields: ['review_title', 'review_text'],
+ *   computeOn: 'create',
+ *   temperature: 0.1,
+ * }
+ * ```
+ */
 export const AiSentimentFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -103,4 +129,5 @@ export const AiSentimentFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AiSentimentField = Schema.Schema.Type<typeof AiSentimentFieldSchema>

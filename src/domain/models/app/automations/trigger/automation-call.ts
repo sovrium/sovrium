@@ -7,6 +7,17 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Automation Call Trigger
+ *
+ * Makes an automation callable by other automations via the automation/call action.
+ * Defines the input contract that callers must satisfy.
+ *
+ * Trigger data context:
+ * - {{trigger.data.*}} — input data passed by the caller
+ * - {{trigger.caller.name}} — name of the calling automation
+ * - {{trigger.caller.depth}} — current call depth (for recursion awareness)
+ */
 export const AutomationCallTriggerSchema = Schema.Struct({
   type: Schema.Literal('automation-call'),
   inputSchema: Schema.optional(
@@ -26,4 +37,5 @@ export const AutomationCallTriggerSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AutomationCallTrigger = Schema.Schema.Type<typeof AutomationCallTriggerSchema>

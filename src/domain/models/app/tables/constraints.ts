@@ -7,7 +7,25 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Check Constraint Schema
+ *
+ * Defines a custom CHECK constraint that validates data at the database level.
+ * CHECK constraints allow you to enforce complex business rules beyond basic
+ * field-level validation.
+ *
+ * @example
+ * ```typescript
+ * const constraint = {
+ *   name: 'chk_active_members_have_email',
+ *   check: '(is_active = false) OR (email IS NOT NULL)'
+ * }
+ * ```
+ */
 export const CheckConstraintSchema = Schema.Struct({
+  /**
+   * Constraint name (must be unique within the table)
+   */
   name: Schema.String.pipe(
     Schema.minLength(1),
     Schema.pattern(/^[a-z][a-z0-9_]*$/),
@@ -19,6 +37,9 @@ export const CheckConstraintSchema = Schema.Struct({
     })
   ),
 
+  /**
+   * SQL check expression
+   */
   check: Schema.String.pipe(
     Schema.minLength(1),
     Schema.annotations({
@@ -34,8 +55,28 @@ export const CheckConstraintSchema = Schema.Struct({
   ),
 })
 
+/** @public */
 export type CheckConstraint = Schema.Schema.Type<typeof CheckConstraintSchema>
 
+/**
+ * Check Constraints Schema
+ *
+ * Array of CHECK constraints applied at the table level.
+ *
+ * @example
+ * ```typescript
+ * const constraints = [
+ *   {
+ *     name: 'chk_active_members_have_email',
+ *     check: '(is_active = false) OR (email IS NOT NULL)'
+ *   },
+ *   {
+ *     name: 'chk_price_positive',
+ *     check: 'price > 0'
+ *   }
+ * ]
+ * ```
+ */
 export const CheckConstraintsSchema = Schema.Array(CheckConstraintSchema).pipe(
   Schema.annotations({
     title: 'Check Constraints',
@@ -62,4 +103,5 @@ export const CheckConstraintsSchema = Schema.Array(CheckConstraintSchema).pipe(
   })
 )
 
+/** @public */
 export type CheckConstraints = Schema.Schema.Type<typeof CheckConstraintsSchema>

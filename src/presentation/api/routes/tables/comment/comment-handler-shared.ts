@@ -7,6 +7,11 @@
 
 import type { Context } from 'hono'
 
+/**
+ * Uniform 404 envelope. Used by the comment handlers for both genuine
+ * "not found" and S1 anti-enumeration "access denied" cases so the
+ * author-vs-existence boundary is not discoverable.
+ */
 export function notFoundResponse(c: Context): Response {
   return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 }

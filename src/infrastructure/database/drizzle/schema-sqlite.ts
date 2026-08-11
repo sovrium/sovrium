@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// SQLite schema barrel — sqlite-core mirror of `schema.ts`.
+//
+// Re-exports the parallel `schema-sqlite/` tree plus the Better Auth sqlite
+// auth tables/relations. Every exported identifier matches the pg-core barrel
+// so a future runtime barrel swap is transparent to the ~36 `db` importers.
+//
+// Purely additive — nothing imports this barrel yet (Phase 2).
 
 import type {
   accounts,
@@ -24,9 +31,11 @@ import type {
   verifications,
 } from './schema-sqlite/auth-tables'
 
+// Better Auth schema (sqlite-core mirror)
 export * from './schema-sqlite/auth-tables'
 export * from './schema-sqlite/auth-relations'
 
+// System / application tables (sqlite-core mirrors)
 export * from './schema-sqlite/activity-log'
 export * from './schema-sqlite/admin-search'
 export * from './schema-sqlite/audit-log'
@@ -47,6 +56,8 @@ export * from './schema-sqlite/user-access'
 export * from './schema-sqlite/user-views'
 export * from './schema-sqlite/webhook'
 
+// Better Auth inferred types (kept alongside the public surface, mirroring
+// the pg-core `auth/better-auth/schema.ts` re-export)
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Session = typeof sessions.$inferSelect

@@ -34,4 +34,5 @@ export const kanbanFields = {
   ),
 } as const
 
+// Re-export all sub-schemas
 export * from './schema'

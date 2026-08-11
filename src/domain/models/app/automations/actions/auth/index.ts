@@ -11,6 +11,9 @@ import { AuthBanUserActionSchema } from './ban-user'
 import { AuthCreateUserActionSchema } from './create-user'
 import { AuthUnbanUserActionSchema } from './unban-user'
 
+/**
+ * Auth Action — union of all authentication operators
+ */
 export const AuthActionSchema = Schema.Union(
   AuthCreateUserActionSchema,
   AuthAssignRoleActionSchema,
@@ -24,6 +27,7 @@ export const AuthActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type AuthAction = Schema.Schema.Type<typeof AuthActionSchema>
 
 export * from './assign-role'

@@ -21,17 +21,28 @@ import { FileSignUrlActionSchema } from './sign-url'
 import { FileTransformImageActionSchema } from './transform-image'
 import { FileUploadActionSchema } from './upload'
 
+/**
+ * File Action — union of all file operation operators
+ *
+ * Phase 1 (Core): upload, download, delete, copy, move, list, getMetadata, signUrl,
+ *                 generateCsv (enhanced), generatePdf (enhanced)
+ * Phase 2 (Advanced): parseCsv, extractText, transformImage, compress
+ */
 export const FileActionSchema = Schema.Union(
+  // Phase 1 — Storage Operations
   FileUploadActionSchema,
   FileDownloadActionSchema,
   FileDeleteActionSchema,
   FileCopyActionSchema,
   FileMoveActionSchema,
   FileListActionSchema,
+  // Phase 1 — Metadata & Access
   FileGetMetadataActionSchema,
   FileSignUrlActionSchema,
+  // Phase 1 — Generation (enhanced with destination)
   FileGenerateCsvActionSchema,
   FileGeneratePdfActionSchema,
+  // Phase 2 — Advanced
   FileParseCsvActionSchema,
   FileExtractTextActionSchema,
   FileTransformImageActionSchema,
@@ -44,6 +55,7 @@ export const FileActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type FileAction = Schema.Schema.Type<typeof FileActionSchema>
 
 export * from './shared'

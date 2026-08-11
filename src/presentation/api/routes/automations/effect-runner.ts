@@ -8,6 +8,16 @@
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import type { Effect } from 'effect'
 
+/**
+ * Provide the automation runtime's required infrastructure layers.
+ *
+ * Thin re-export of the shared {@link provideAutomationRuntime} adapter so
+ * route handlers in this folder keep their existing import path.
+ *
+ * Isolating the `@/infrastructure/*` reach into a single shared module
+ * lets the live cron scheduler (and any future background dispatcher)
+ * provide the same runtime layer without duplicating wiring.
+ */
 export function provideAutomationLive<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {

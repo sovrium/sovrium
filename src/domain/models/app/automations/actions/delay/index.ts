@@ -10,6 +10,9 @@ import { DelayQueueActionSchema } from './queue'
 import { DelayWaitActionSchema } from './wait'
 import { DelayWebhookActionSchema } from './webhook'
 
+/**
+ * Delay Action — union of all delay operators
+ */
 export const DelayActionSchema = Schema.Union(
   DelayWaitActionSchema,
   DelayWebhookActionSchema,
@@ -22,6 +25,7 @@ export const DelayActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type DelayAction = Schema.Schema.Type<typeof DelayActionSchema>
 
 export * from './queue'

@@ -8,6 +8,16 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Autonumber field — a database-assigned sequence.
+ *
+ * The column is emitted as SERIAL (Postgres) / INTEGER AUTOINCREMENT (SQLite),
+ * so the value is allocated by the database on insert and starts at 1. There is
+ * deliberately nothing to configure: `prefix` / `startFrom` / `digits` used to
+ * be accepted here and were read by no code path, which made a config that set
+ * them silently wrong. A human-facing reference (`INV-01000`) is composed by a
+ * `formula` field over this column.
+ */
 export const AutonumberFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -27,4 +37,5 @@ export const AutonumberFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AutonumberField = Schema.Schema.Type<typeof AutonumberFieldSchema>

@@ -5,14 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines -- the record create-write orchestration surface
+   (create gate/predicate → validation → SQLite AI-compute baseline merge →
+   create program with realtime + automations + webhooks + [internal ref] AI-compute
+   write-phase signalling taps, plus the form-update create variant). The taps
+   share one create program; splitting would duplicate that composition. */
 
 import { Effect } from 'effect'
 import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
-import {
-  hasCreatePermissionForRoles,
-  hasReadPermissionForRoles,
-} from '@/application/use-cases/tables/permissions/permissions'
 import {
   createRecordProgram,
   rawGetRecordProgram,
@@ -25,6 +26,10 @@ import {
 } from '@/domain/models/api/tables/records'
 import { createRecordResponseSchema } from '@/domain/models/api/tables/tables'
 import { applyAiComputeBaseline } from '@/domain/services/ai-compute/apply-baseline'
+import {
+  hasCreatePermissionForRoles,
+  hasReadPermissionForRoles,
+} from '@/domain/validators/permission-evaluators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   provideTableWithAutomationsLive,
@@ -62,13 +67,17 @@ import {
   resolveGuardForTable,
   type RowLevelGuardContext,
 } from './row-level-guard'
+import type { App, Table } from '@/domain/models/app'
 import type {
   hasCreatePermission,
   hasReadPermission,
-} from '@/application/use-cases/tables/permissions/permissions'
-import type { App, Table } from '@/domain/models/app'
+} from '@/domain/validators/permission-evaluators'
 import type { Context } from 'hono'
 
+/**
+ * Check create permission for table and user role
+ * Returns error response if permission denied, undefined otherwise
+ */
 function checkCreatePermission(
   table: Parameters<typeof hasCreatePermission>[0],
   effectiveRoles: readonly string[],
@@ -76,6 +85,7 @@ function checkCreatePermission(
   allTables?: App['tables']
 ) {
   if (hasCreatePermissionForRoles(table, effectiveRoles, allTables)) return undefined
+  // Enumeration protection: users without read access get 404 (prevents resource discovery)
   const readTable = table as Parameters<typeof hasReadPermission>[0]
   if (!hasReadPermissionForRoles(readTable, effectiveRoles, allTables)) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
@@ -88,10 +98,14 @@ interface CreateGateInput {
   readonly app: App
   readonly table: Table | undefined
   readonly userRole: string
+  /** Group names the user belongs to (un-prefixed) — group-aware RBAC. */
   readonly userGroups: readonly string[]
   readonly guard: RowLevelGuardContext | undefined
 }
 
+/**
+ * Z-3 create role gate. Returns 404/403/undefined depending on permissions.
+ */
 function checkCreateGate(input: CreateGateInput): Response | undefined {
   const { c, app, table, userRole, userGroups, guard } = input
   if (!guard) {
@@ -99,12 +113,17 @@ function checkCreateGate(input: CreateGateInput): Response | undefined {
     return checkCreatePermission(table, effectiveRoles, c, app.tables)
   }
   if (passesTableRoleGate(table?.permissions, 'create', guard.effectiveRoles)) return undefined
+  // Lack of read access collapses to 404 (enumeration safety).
   if (!passesTableRoleGate(table?.permissions, 'read', guard.effectiveRoles)) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
   return forbiddenCreateResponse(c)
 }
 
+/**
+ * Z-3 create.when predicate check. The user's proposed row must satisfy
+ * the predicate; out-of-scope creates return 403.
+ */
 function checkCreatePredicate(
   c: Context,
   table: Table | undefined,
@@ -129,6 +148,11 @@ interface UpdateGateInput {
   readonly guard: RowLevelGuardContext | undefined
 }
 
+/**
+ * Z-3 update gate helper: enumeration-safe write role-gate. Per S1, all
+ * authz denials return 404 so the write-permission boundary is not
+ * discoverable — uniform with the read-deny path.
+ */
 function checkWriteRoleGate(
   c: Context,
   table: Table | undefined,
@@ -147,6 +171,7 @@ interface WritePredicateInput {
   readonly guard: RowLevelGuardContext
 }
 
+/** Helper: evaluate write.when against an existing row. */
 async function checkWritePredicate(input: WritePredicateInput): Promise<Response | undefined> {
   const { c, table, session, tableName, recordId, guard } = input
   if (!table?.rowLevelPermissions?.write?.when) return undefined
@@ -173,6 +198,7 @@ async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Resp
   )
 }
 
+/** Wave-1 realtime `insert`-event publish, tappable into the create pipeline. */
 const publishInsertChange = (
   appId: string,
   tableName: string,
@@ -188,10 +214,18 @@ const publishInsertChange = (
     })
   )
 
+/**
+ * Build the create-record Effect program: create row, tap matching
+ * record-triggered automations. Tap errors are absorbed inside the
+ * downstream use cases so an automation failure cannot mask a successful
+ * record-create. Sequential `Effect.tap` chains so callers observing
+ * downstream state (automation_runs) do not see a race window.
+ */
 function buildCreateRecordProgram(input: {
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableName: string
   readonly fields: Record<string, unknown>
+  /** The user-supplied field map (pre baseline merge) — AI-compute override detection. */
   readonly incoming: Readonly<Record<string, unknown>>
   readonly app: App
   readonly userRole: string
@@ -215,6 +249,8 @@ function buildCreateRecordProgram(input: {
         triggerTableWebhooks({
           table: app.tables?.find((t) => t.name === tableName),
           event: 'create',
+          // `createdAt`/`updatedAt` are surfaced so webhooks configured with
+          // `payload.includeMetadata` can expose them under `data.record`.
           record: {
             id: record.id,
             ...record.fields,
@@ -224,6 +260,11 @@ function buildCreateRecordProgram(input: {
         })
       )
     ),
+    // [internal ref] Phase 2: signal the AI-compute write phase. A user override is
+    // recorded as `skipped` (both dialects — the only signal for that case,
+    // since the Postgres trigger short-circuits before NOTIFY); a computed
+    // field is enqueued to the shared worker on SQLite (Postgres uses the NOTIFY
+    // listener). Fire-and-forget; no-op for non-AI tables.
     Effect.tap((record) =>
       Effect.sync(() =>
         signalAiComputeWritePhase({
@@ -263,6 +304,11 @@ export async function handleCreateRecord(c: Context, app: App) {
   const predicateError = checkCreatePredicate(c, table, guard, validationResult.right)
   if (predicateError) return predicateError
 
+  // [internal ref] Phase 2 baseline: Postgres computes the AI-compute baseline in a
+  // synchronous BEFORE trigger; SQLite has no procedural language, so the
+  // deterministic baseline is merged into the field map here (in-process,
+  // pre-insert) so it lands in the SAME write — the "never empty after write"
+  // invariant. No-op when the table has no AI-compute fields, or on Postgres.
   const fields =
     table && isSqliteRuntime()
       ? {
@@ -289,6 +335,22 @@ export async function handleCreateRecord(c: Context, app: App) {
   )
 }
 
+/**
+ * Handle form-based UPDATE (POST) with redirect
+ *
+ * Used for update forms rendered as <form method="POST">.
+ * Performs the record update and redirects to the _redirect path from form body
+ * (or back to the Referer URL if no redirect is specified).
+ *
+ * This synchronous-navigation approach ensures the database write completes
+ * before the browser proceeds, eliminating race conditions in E2E tests and
+ * providing reliable behavior for users on slow connections.
+ */
+/**
+ * Z-3 form-update auth gate: row-level scoping when declared, canonical
+ * role-only check otherwise. Extracted so handleFormUpdateRecord stays
+ * under the 50-line/function limit.
+ */
 async function resolveFormUpdateAuth(input: {
   readonly c: Context
   readonly app: App
@@ -322,6 +384,7 @@ export async function handleFormUpdateRecord(c: Context, app: App) {
   const body = await c.req.parseBody()
   const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
 
+  // Extract field values from form body (exclude internal fields)
   const INTERNAL_FIELDS = new Set(['_redirect'])
   const fields = Object.fromEntries(
     Object.entries(body).filter(([key]) => !INTERNAL_FIELDS.has(key))
@@ -358,6 +421,9 @@ export async function handleFormUpdateRecord(c: Context, app: App) {
   })
 }
 
+/**
+ * Execute update via form submission and redirect
+ */
 async function executeFormUpdate(config: {
   readonly session: Parameters<typeof updateRecordProgram>[0]
   readonly tableName: string
@@ -380,6 +446,7 @@ async function executeFormUpdate(config: {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
+    // Redirect to specified path, referer, or respond with JSON
     if (redirectPath && redirectPath.startsWith('/')) {
       return c.redirect(redirectPath, 302)
     }
@@ -392,10 +459,16 @@ async function executeFormUpdate(config: {
   }
 }
 
+/**
+ * Run all pre-mutation update gates in order: the Z-3 role/predicate gate
+ * then the field-`condition` read-only lock. Returns the first failing
+ * response, or `undefined` when the update may proceed.
+ */
 async function checkUpdateGates(input: UpdateGateInput): Promise<Response | undefined> {
   const { c, table, session, tableName, recordId } = input
   const updateGateError = await checkUpdateGateAndPredicate(input)
   if (updateGateError) return updateGateError
+  // Reject updates to records locked by a field `condition` (readOnly: true).
   return checkFieldConditionReadOnly({ c, table, session, tableName, recordId })
 }
 
@@ -405,6 +478,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   const result = await validateRequest(c, updateRecordRequestSchema)
   if (!result.success) return result.response
 
+  // Check for readonly fields BEFORE permission checks
   const readonlyValidation = validateUpdateReadonlyFields(result.data.fields, c)
   if (readonlyValidation) return readonlyValidation
 
@@ -424,6 +498,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   })
   if (gateError) return gateError
 
+  // Extract fields from nested format
   const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
     app,
     tableName,
@@ -431,6 +506,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
     result.data.fields
   )
 
+  // Validate forbidden fields
   const forbiddenValidation = validateUpdateForbiddenFields(forbiddenFields, c)
   if (forbiddenValidation) return forbiddenValidation
 
@@ -444,6 +520,10 @@ export async function handleUpdateRecord(c: Context, app: App) {
     })
   }
 
+  // Per-value rules — column formats (`email`, `url`) plus `multi-select`
+  // option membership and `maxSelections` — run on the update path with the
+  // same shared rules the create path runs, so both verbs on this resource
+  // enforce one contract. Inspects only the columns the payload supplies.
   const valueError = await validateUpdateFieldValues(app, tableName, userRole, allowedData)
   if (valueError) return formatValidationError(valueError, c)
 
@@ -451,6 +531,10 @@ export async function handleUpdateRecord(c: Context, app: App) {
     session,
     tableName,
     recordId,
+    // `rich-text` columns are HTML-sanitized with the same shared rule the
+    // create path runs, so both verbs leave the column in one state. Unlike
+    // the guards above this TRANSFORMS the write, so it sits at the hand-off
+    // itself — the sanitized map is what reaches the row.
     allowedData: await sanitizeUpdateRichTextFields(app, tableName, userRole, allowedData),
     app,
     userRole,

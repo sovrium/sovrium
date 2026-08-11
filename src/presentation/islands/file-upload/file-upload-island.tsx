@@ -21,9 +21,15 @@ interface FileUploadIslandProps {
   readonly dropZone?: boolean
   readonly disabled?: boolean
   readonly label?: string
+  // `id` is the host wrapper's id (used to build a stable input id) — we do
+  // NOT re-emit it on our own wrapper because the SSR placeholder host carries
+  // the same id already. See the comment near the JSX wrapper.
   readonly id?: string
+  /** Destination URL for the multipart upload (resolved from `uploadAction`). */
   readonly uploadAction?: string
+  /** Success effects (status badge + sibling refetch) run on a 2xx upload. */
   readonly onSuccess?: FetchSuccessResponse
+  /** Failure toast dispatched when the upload resolves non-2xx. */
   readonly onError?: FetchToastResponse
 }
 
@@ -44,6 +50,14 @@ interface UploadInputProps {
   readonly onChange: ChangeEventHandler<HTMLInputElement>
 }
 
+/*
+ * The file input is intentionally visible (not `sr-only`). Playwright's
+ * `setInputFiles(...)` works against hidden inputs in theory, but in
+ * practice some browser builds skip the synthetic `change` propagation
+ * when the input is fully off-screen via `position: absolute` /
+ * `clip-path`. Keeping the input on-screen mirrors the working pattern
+ * in `src/presentation/islands/components/crud-form/file-field.tsx`.
+ */
 function UploadInput({
   inputRef,
   inputId,
@@ -92,6 +106,7 @@ interface FileUploadFeedbackProps {
   readonly fileNames: readonly string[]
 }
 
+/** The inline validation-error / picked-filename region below the control. */
 function FileUploadFeedback({
   error,
   fileNames,
@@ -110,6 +125,17 @@ function FileUploadFeedback({
   return undefined
 }
 
+/**
+ * File-upload island — adds client-side file selection + size validation on
+ * top of the SSR placeholder rendered by `renderFileUpload`. When the user
+ * picks a file (via the browse button or drag-and-drop into the dropzone),
+ * we validate each file against `maxFileSize`/`maxFiles` and surface a human
+ * readable error message inline (matching the spec phrases "too large",
+ * "exceeds", "size limit"). When the schema wires an `uploadAction`, picking a
+ * file additionally POSTs it as `multipart/form-data` and runs the configured
+ * `onSuccess` effects (persistent `role="status"` badge + sibling `refetch`) /
+ * `onError` toast via the shipped action-effects mechanism.
+ */
 export default function FileUploadIsland({
   accept,
   maxFiles,
@@ -133,8 +159,14 @@ export default function FileUploadIsland({
   const allowMultiple = typeof maxFiles === 'number' ? maxFiles > 1 : false
   const inputId = id ? `${id}-input` : undefined
   const buttonText = label ?? 'Upload file'
+  // Disable the control while a multipart upload is in flight (minimal progress
+  // affordance) — re-enabled when the request settles.
   const controlsDisabled = disabled || submitting
 
+  // NOTE: We deliberately do NOT re-emit `id` / `className` / `data-testid` on
+  // this inner wrapper. The island's host element (the SSR placeholder div in
+  // `renderFileUploadIsland`) already carries those — re-emitting them on a
+  // child causes duplicate-`id` strict-mode violations on `page.locator('#x')`.
   return (
     <div
       className="flex flex-col gap-2"

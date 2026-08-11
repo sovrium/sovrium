@@ -11,6 +11,9 @@ import type { UserSession } from '@/application/ports/models/user-session'
 import type { DatabaseError } from '@/domain/errors'
 import type { Effect } from 'effect'
 
+/**
+ * Activity history entry with user metadata
+ */
 export interface ActivityHistoryEntry {
   readonly action: string
   readonly createdAt: Date
@@ -18,6 +21,9 @@ export interface ActivityHistoryEntry {
   readonly user: UserMetadataWithImage | undefined
 }
 
+/**
+ * Activity Repository Port
+ */
 export class ActivityRepository extends Context.Tag('ActivityRepository')<
   ActivityRepository,
   {

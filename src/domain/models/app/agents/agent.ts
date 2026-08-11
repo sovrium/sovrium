@@ -16,23 +16,40 @@ import { AgentPermissionsSchema } from './permissions'
 import { AgentScheduleSchema } from './schedule'
 import { AgentCapabilitiesSchema } from './tools'
 
+/**
+ * AgentSchema composes all agent sub-schemas into a single configuration.
+ *
+ * The definition properties (name, role, model, systemPrompt, etc.) are
+ * inlined directly at the top level. Optional sub-configs (approval, tools,
+ * limits, permissions, schedule) are nested under their respective keys.
+ *
+ * Requires `auth` to be configured in the app schema and `AI_PROVIDER` env var to be set.
+ */
 export const AgentSchema = Schema.Struct({
   ...AgentDefinitionSchema.fields,
 
+  /** Human-in-the-loop approval workflow configuration */
   approval: Schema.optional(AgentApprovalSchema),
 
+  /** Tool allowlist defining which tables and actions the agent can access */
   tools: Schema.optional(AgentCapabilitiesSchema),
 
+  /** Rate limits, token budgets, and concurrency caps */
   limits: Schema.optional(AgentLimitsSchema),
 
+  /** Memory configuration (conversation history, knowledge retrieval, learned facts) */
   memory: Schema.optional(AgentMemorySchema),
 
+  /** RBAC integration model (agent-as-user storage) */
   permissions: Schema.optional(AgentPermissionsSchema),
 
+  /** Periodic execution configuration using cron expressions */
   schedule: Schema.optional(AgentScheduleSchema),
 
+  /** Knowledge data sources to embed for RAG-based retrieval */
   knowledge: Schema.optional(AgentKnowledgeSchema),
 
+  /** MCP client configuration for external tool servers */
   mcp: Schema.optional(AgentMcpSchema),
 }).pipe(
   Schema.annotations({
@@ -45,6 +62,11 @@ export const AgentSchema = Schema.Struct({
 
 export type Agent = Schema.Schema.Type<typeof AgentSchema>
 
+/**
+ * AgentsSchema is an array of agent configurations.
+ *
+ * Used as the type for the `agents` property on AppSchema.
+ */
 export const AgentsSchema = Schema.Array(AgentSchema).pipe(
   Schema.minItems(1),
   Schema.annotations({
@@ -55,4 +77,5 @@ export const AgentsSchema = Schema.Array(AgentSchema).pipe(
   })
 )
 
+/** @public */
 export type Agents = Schema.Schema.Type<typeof AgentsSchema>

@@ -42,6 +42,12 @@ export interface KpiFetchResult {
   readonly records: readonly TableRecord[]
 }
 
+/**
+ * Fetches records for the KPI component in a single page (limit 100).
+ *
+ * Mirrors `useChartRecords` — KPI aggregation runs client-side over the
+ * default records-API page envelope.
+ */
 export function useKpiRecords(dataSource: KpiRecordsDataSource | undefined) {
   const filterParam = buildFilterParam(dataSource?.filter)
 
@@ -64,12 +70,19 @@ export function useKpiRecords(dataSource: KpiRecordsDataSource | undefined) {
         query,
       })
 
+      // GAP-I1: a KPI on a PUBLIC page may be loaded by an anonymous visitor on
+      // an app where `app.auth` IS configured. Record reads require a session,
+      // so the fetch 401s (or 403s) for anonymous visitors. Rather than surface
+      // a raw error region that replaces the whole card (and drops the label),
+      // degrade gracefully: treat an auth-gated denial as "no records", so the
+      // island still renders its server-known label with a neutral value.
       if (res.status === 401 || res.status === 403) {
         return { records: [] }
       }
 
       if (!res.ok) {
         const body = await res.text()
+        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
         throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`)
       }
 

@@ -8,6 +8,7 @@
 import { CodeRunTypescriptActionSchema } from './run-typescript'
 
 export const CodeActionSchema = CodeRunTypescriptActionSchema
+/** @public */
 export type CodeAction = typeof CodeActionSchema.Type
 
 export * from './run-typescript'

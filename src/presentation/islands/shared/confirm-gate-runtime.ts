@@ -5,6 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Vanilla-DOM OBJECT-form confirm gate (GDPR-conversion foundation).
+ *
+ * The non-React counterpart of the shared React `ObjectConfirmDialog`
+ * (`inline-confirm-dialog.tsx`): the richer destructive-confirm the RGPD erasure
+ * needs, rendered for a STANDALONE fetch button by the always-loaded client
+ * runtime (`presentation/client.ts`). A `role` surface (`dialog`/`alertdialog`)
+ * whose accessible NAME is the SEPARATE `title` (distinct from the body
+ * `message`), an optional type-to-confirm `input` whose confirm affordance stays
+ * disabled until the value equals the resolved `matchValue` (a `$session.email`
+ * token resolves to the caller's OWN session value), and `confirmLabel` /
+ * `cancelLabel` overrides. Non-modal — a plain `<div>` that never inerts the page.
+ *
+ * Extracted from `client.ts` so that always-loaded entry stays under its
+ * size-limit cap; lives in `islands/shared/` so the imperative DOM construction
+ * is written functionally (no `let`, no property assignment — `setAttribute` /
+ * `append`) the way the rest of `islands/shared/` is.
+ */
 
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
@@ -20,6 +38,12 @@ const CONFIRM_BTN_CLASS =
 const CANCEL_BTN_CLASS =
   'border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-3 py-1 text-sm transition-colors'
 
+/**
+ * Parse the `data-confirm-config` blob into the OBJECT-form confirm descriptor.
+ * The button schema-fallback overlay serializes an object `confirm` (separate
+ * title / dialog role / type-to-confirm input / label overrides) here, distinct
+ * from the string `data-confirm`.
+ */
 export function parseConfirmObjectConfig(raw: string | null): ConfirmObject | undefined {
   if (!raw) return undefined
   try {
@@ -37,6 +61,7 @@ export function parseConfirmObjectConfig(raw: string | null): ConfirmObject | un
   }
 }
 
+/** Build a styled gate button (confirm / cancel affordance) without property mutation. */
 function createGateButton(opts: {
   readonly label: string
   readonly className: string
@@ -52,6 +77,7 @@ function createGateButton(opts: {
   return btn
 }
 
+/** Build the type-to-confirm textbox (labelled by `input.label`). */
 function createConfirmInput(label: string): HTMLInputElement {
   const inputEl = document.createElement('input')
   inputEl.setAttribute('type', 'text')
@@ -60,6 +86,14 @@ function createConfirmInput(label: string): HTMLInputElement {
   return inputEl
 }
 
+/**
+ * Arm the type-to-confirm gate: the confirm affordance stays DISABLED until the
+ * input value equals the resolved `matchValue`. A `$session.<field>` token (e.g.
+ * `$session.email`) resolves CLIENT-SIDE from the caller's own session, so the
+ * gate clears only when the caller retypes their OWN value. The input listener
+ * is attached only ONCE the matchValue is known (no mutable state), and an
+ * immediate evaluation handles a value typed before the session resolved.
+ */
 function wireTypeToConfirmGate(
   inputEl: HTMLInputElement,
   confirmBtn: HTMLButtonElement,
@@ -81,6 +115,7 @@ function wireTypeToConfirmGate(
   }
 }
 
+/** The dialog shell: role surface + separate title + body message. */
 function buildObjectConfirmShell(config: ConfirmObject, title: string): HTMLDivElement {
   const dialog = document.createElement('div')
   dialog.setAttribute('role', config.role ?? 'alertdialog')
@@ -99,6 +134,7 @@ function buildObjectConfirmShell(config: ConfirmObject, title: string): HTMLDivE
   return dialog
 }
 
+/** Append the optional type-to-confirm input, arming the gate when a matchValue is set. */
 function appendObjectConfirmInput(
   dialog: HTMLDivElement,
   input: NonNullable<ConfirmObject['input']>,
@@ -109,6 +145,7 @@ function appendObjectConfirmInput(
   if (input.matchValue !== undefined) wireTypeToConfirmGate(inputEl, confirmBtn, input.matchValue)
 }
 
+/** Append the confirm + cancel button row. */
 function appendObjectConfirmButtons(
   dialog: HTMLDivElement,
   confirmBtn: HTMLButtonElement,
@@ -128,6 +165,11 @@ function appendObjectConfirmButtons(
   dialog.append(row)
 }
 
+/**
+ * Render the OBJECT-form confirm gate after a standalone fetch button. The
+ * trigger stays in the DOM (sibling) so the gate can be re-opened after a cancel;
+ * a guard prevents stacking a second gate.
+ */
 export function openFetchConfirmObjectGate(
   trigger: HTMLButtonElement,
   config: ConfirmObject,

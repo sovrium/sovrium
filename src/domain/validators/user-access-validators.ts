@@ -5,6 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Pure validation helpers for the multi-tenant `user_access` junction (Z-2).
+ *
+ * The schema-level `UserAccessRowSchema` (in `src/domain/models/app/tables/permissions.ts`)
+ * defines the canonical "ideal-state" shape (UUID-typed `user_id` / `record_ids`).
+ * The HTTP insert path however accepts the looser TEXT-based representation
+ * already used by the database (DDL in `user-access-table.ts`) and by Z-1's
+ * `fetchUserAssignments` query, so applications and tests can use arbitrary
+ * string IDs ('c1', 'p1') alongside Better Auth nanoids and UUIDs.
+ *
+ * These helpers only enforce the cross-config rules:
+ *
+ * 1. `table_slug` must be listed in `auth.scopeTables` (case-sensitive, exact)
+ * 2. `role` must be a name in `auth.roles[].name`
+ *    (NOT including built-in roles 'admin'/'member'/'viewer' — the spec is
+ *    explicit that user_access roles are independent of Better Auth roles)
+ * 3. `record_ids` must be a non-empty array of non-empty strings
+ *
+ * Validation runs at insert time, not at schema-decode time, because the
+ * schema does not have access to the active app config.
+ */
 
 export interface UserAccessInput {
   readonly user_id?: unknown
@@ -106,6 +127,13 @@ const validateRole = (
   return undefined
 }
 
+/**
+ * Validate a `user_access` row insert against the active auth config.
+ *
+ * Returns `undefined` on success, or a structured error describing the first
+ * rule violated. Callers (HTTP handlers) translate the error into a 400
+ * response while preserving `field` and `message` for spec assertions.
+ */
 export const validateUserAccessInput = (
   input: UserAccessInput,
   context: UserAccessValidationContext

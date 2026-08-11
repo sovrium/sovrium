@@ -8,6 +8,10 @@
 import { Schema } from 'effect'
 import { ComponentPropsSchema } from '../../props'
 
+/**
+ * Core fields available to almost all components.
+ * Contains only `props` (key-value styling/config).
+ */
 export const coreFields = {
   props: Schema.optional(ComponentPropsSchema),
 } as const

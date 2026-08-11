@@ -7,6 +7,9 @@
 
 import type { Page } from '@/domain/models/app/pages'
 
+/**
+ * External script configuration
+ */
 export type ExternalScript = {
   readonly src: string
   readonly position?: 'head' | 'body-start' | 'body-end'
@@ -17,12 +20,18 @@ export type ExternalScript = {
   readonly crossorigin?: 'anonymous' | 'use-credentials'
 }
 
+/**
+ * Inline script configuration
+ */
 export type InlineScript = {
   readonly code: string
   readonly position?: 'head' | 'body-start' | 'body-end'
   readonly async?: boolean
 }
 
+/**
+ * Grouped scripts by position
+ */
 export type GroupedScripts = {
   readonly external: {
     readonly head: ReadonlyArray<ExternalScript>
@@ -36,12 +45,23 @@ export type GroupedScripts = {
   }
 }
 
+/**
+ * Groups external and inline scripts by their position in the document
+ *
+ * Scripts can be positioned in 'head', 'body-start', or 'body-end'.
+ * Scripts without a position default to 'body-end'.
+ *
+ * @param page - Page configuration containing scripts
+ * @returns Scripts grouped by position
+ */
 export function groupScriptsByPosition(page: Page): Readonly<GroupedScripts> {
+  // Merge both externalScripts and external arrays (both are independent script arrays)
   const externalScripts = [
     ...(page.scripts?.externalScripts ?? []),
     ...(page.scripts?.external ?? []),
   ]
 
+  // Extract inline scripts
   const inlineScripts = page.scripts?.inlineScripts || []
 
   return {

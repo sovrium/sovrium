@@ -12,6 +12,9 @@ import {
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 
+/**
+ * Find first translation key in children
+ */
 export function findFirstTranslationKey(
   children: readonly (Component | string)[] | undefined
 ): string | undefined {
@@ -20,14 +23,21 @@ export function findFirstTranslationKey(
       (child: Component | string): child is string =>
         typeof child === 'string' && child.startsWith('$t:')
     )
-    ?.slice(3)
+    ?.slice(3) // Remove '$t:' prefix
 }
 
+/**
+ * Extract translation key from content string
+ * Returns the key portion after $t: prefix if content is a translation token
+ */
 export function extractTranslationKeyFromContent(content: string | undefined): string | undefined {
   if (!content || typeof content !== 'string') return undefined
   return content.startsWith('$t:') ? content.slice(3) : undefined
 }
 
+/**
+ * Get current language with fallback
+ */
 export function getCurrentLanguage(
   currentLang: string | undefined,
   languages: Languages | undefined
@@ -35,6 +45,9 @@ export function getCurrentLanguage(
   return currentLang || languages?.default || 'en-US'
 }
 
+/**
+ * Resolve translation pattern for a child element
+ */
 export function resolveChildTranslation(
   child: string,
   currentLang: string | undefined,
@@ -44,6 +57,9 @@ export function resolveChildTranslation(
   return resolveTranslationPattern(child, lang, languages)
 }
 
+/**
+ * Collect translation data for a key
+ */
 export function getTranslationData(
   translationKey: string | undefined,
   languages: Languages | undefined
@@ -51,6 +67,34 @@ export function getTranslationData(
   return translationKey ? collectTranslationsForKey(translationKey, languages) : undefined
 }
 
+/**
+ * Substitutes translation tokens in props recursively
+ *
+ * Walks through props object and replaces all $t:key patterns with actual translations.
+ * Handles nested objects (e.g., style props) recursively.
+ *
+ * @param props - Component props that may contain translation tokens
+ * @param currentLang - Current language code
+ * @param languages - Languages configuration
+ * @returns Props with translation tokens replaced
+ *
+ * @example
+ * ```typescript
+ * const languages = {
+ *   default: 'en',
+ *   translations: { 'en': { 'close.label': 'Close dialog' } }
+ * }
+ * const props = {
+ *   'aria-label': '$t:close.label',
+ *   title: 'Static text'
+ * }
+ * substitutePropsTranslationTokens(props, 'en-US', languages)
+ * // {
+ * //   'aria-label': 'Close dialog',
+ * //   title: 'Static text'
+ * // }
+ * ```
+ */
 export function substitutePropsTranslationTokens(
   props: Record<string, unknown> | undefined,
   currentLang: string | undefined,
@@ -62,10 +106,12 @@ export function substitutePropsTranslationTokens(
 
   const lang = getCurrentLanguage(currentLang, languages)
 
+  // Use functional Object.entries + reduce for immutable transformation
   return Object.entries(props).reduce<Record<string, unknown>>((acc, [key, value]) => {
     if (typeof value === 'string') {
       return { ...acc, [key]: resolveTranslationPattern(value, lang, languages) }
     } else if (Array.isArray(value)) {
+      // Recursively handle arrays (like navigation links, footer columns)
       return {
         ...acc,
         [key]: value.map((item) =>
@@ -81,6 +127,7 @@ export function substitutePropsTranslationTokens(
         ),
       }
     } else if (value && typeof value === 'object') {
+      // Recursively handle nested objects (like style props)
       return {
         ...acc,
         [key]: substitutePropsTranslationTokens(

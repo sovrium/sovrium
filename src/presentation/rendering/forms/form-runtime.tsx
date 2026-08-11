@@ -5,7 +5,71 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-refresh/only-export-components -- This module pairs
+   the SSR-only `FormRuntimeMount` React component with the constants and
+   helper that build its payload (`FORM_RUNTIME_SCRIPT`,
+   `buildFormRuntimeConfig`, `FormRuntimeConfig`). The component is server-
+   rendered only and never participates in client-side HMR, so the same
+   pattern as `form-renderer.tsx` and `form-field-elements.tsx` applies. */
 
+/**
+ * Form Runtime — inline JavaScript that powers post-submit behavior on
+ * standalone `/forms/:name` pages, plus the SSR React mount that emits it.
+ *
+ * Responsibilities (all client-side):
+ *
+ *   1. Intercept the native `<form>` submit and POST as JSON so we get a
+ *      structured response (`{ submissionId, linkedRecordId }`) instead of
+ *      a 303 redirect to the Referer.
+ *   2. Run lightweight inline validation (HTML5 Constraint Validation API)
+ *      to surface "name required" / "valid email" inline errors before the
+ *      network round-trip — and to render the configured `onError` UI when
+ *      validation fails.
+ *   3. Branch on `onSuccess.type`:
+ *        - `successPage` — replace the `<form>` with a success screen and
+ *          render any configured `actions[]` (`reset` / `navigate`).
+ *        - `redirect` — interpolate `$submission.id` and `$record.id` into
+ *          `url`, then `window.location.assign` after `delaySeconds`.
+ *        - `reset` — clear inputs except `preserveFields`. On multi-step
+ *          forms, return to step 1.
+ *        - `toast` — render a transient toast and leave the form populated.
+ *        - `message` — render an inline message and leave the form
+ *          populated.
+ *   4. On HTTP error, render the configured `onError` UI plus the inline
+ *      field errors echoed back by the server when available.
+ *   5. Drive multi-step navigation (Next button → advance active step)
+ *      well enough for the foundation specs. Richer multi-step features
+ *      (validation gating, jumpTo, goToWhen) are owned by the dedicated
+ *      `multi-step.spec.ts` flow.
+ *
+ * The script is delivered as a string that the form renderer drops into
+ * a `<script>` element on the standalone form page. It reads its
+ * configuration from a sibling `<script type="application/json"
+ * data-form-config>` block so the runtime stays declarative — no template
+ * literals interpolating arbitrary user content into JS source.
+ *
+ * ## Architectural choice: inline IIFE, not a React island
+ *
+ * The siblings `auth-form-island.tsx` / `crud-form-island/` use React, so
+ * this file reasonably begs the question "why not another island?". The
+ * standalone `/forms/:name` route renders ONLY a form — no tabs, no
+ * accordion, no select — which means it never crosses the
+ * `ISLAND_COMPONENT_TYPES` threshold that gates `<script src="islands.js">`
+ * emission. Switching to an island would force every form page to download
+ * the ~50 KB React + TanStack Query bundle to drive a script that does
+ * declarative DOM mutation with no state, no hooks, and no virtual-DOM
+ * benefit. The inline IIFE gzips to ~1.5 KB and ships as part of the SSR
+ * HTML response — measurable wins on first-contentful-paint, RGESN 4.1
+ * (transferred bytes) and 7.1 (wasted CPU). Auth/CRUD forms stay on the
+ * island path because they are embedded inside dynamic pages that already
+ * load `islands.js` for sibling components — the marginal cost there is
+ * zero.
+ *
+ * Layer notes: this file is presentation-layer only. It produces a
+ * string of source code; it does not import a DOM or React. The
+ * companion `form-renderer.tsx` mounts both the JSON config block and
+ * the runtime script.
+ */
 
 import { FORM_RUNTIME_FILE_HANDLERS_SCRIPT } from './form-runtime-file-handlers'
 import { resolveOnErrorText, resolveOnSuccessText } from './form-runtime-i18n'
@@ -14,15 +78,30 @@ import { FORM_RUNTIME_ONE_QUESTION_SCRIPT } from './form-runtime-one-question'
 import type { Form, FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 
+/**
+ * Public-shape configuration consumed by the inline runtime. Mirrors a
+ * subset of the form schema — everything the client needs to mutate the
+ * DOM after a submit, with no server-only state leaking through.
+ */
 export interface FormRuntimeConfig {
   readonly formName: string
   readonly onSuccess?: FormOnSuccess
   readonly onError?: FormOnError
   readonly multiStep: boolean
   readonly stepIds: ReadonlyArray<string>
+  /** [internal ref]..051: enable Typeform-style one-question runtime. */
   readonly oneQuestion: boolean
 }
 
+/**
+ * Build the runtime config for a form. Defaults track the platform-level
+ * behavior described in `[internal ref]`:
+ *   - When `onSuccess` is omitted, the runtime falls back to a success
+ *     toast so the submitter still gets feedback.
+ *   - When `onError` is omitted, the runtime falls back to an error toast.
+ * The defaults are encoded inside the inline runtime so the JSON config
+ * stays minimal (only fields actually configured by the user).
+ */
 export function buildFormRuntimeConfig(
   form: Readonly<Form>,
   languages?: Languages,
@@ -47,6 +126,15 @@ export function buildFormRuntimeConfig(
   }
 }
 
+/**
+ * Inline runtime. Wrapped in an IIFE so it neither leaks identifiers nor
+ * collides with any host-page globals when the form is embedded. Uses
+ * only ECMAScript features supported by every evergreen browser.
+ *
+ * The string is intentionally compact — it ships verbatim on every form
+ * page, gzipped to ~1.5 KB. Code style matches the project's no-semi
+ * Prettier config so future edits don't introduce noise.
+ */
 export const FORM_RUNTIME_SCRIPT = `(function () {
   var configEl = document.querySelector('script[data-form-config]')
   if (!configEl) return
@@ -392,6 +480,20 @@ ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
   })
 })()`
 
+/**
+ * SSR mount for the form runtime. Emits two `<script>` blocks:
+ *   1. `<script type="application/json" data-form-config>` — declarative
+ *      config payload (`onSuccess` / `onError` / multi-step state) that
+ *      the runtime reads on load. Stored as JSON so the runtime stays
+ *      pure and so no untrusted user content is interpolated into JS
+ *      source text.
+ *   2. `<script>` — the runtime IIFE itself, identical for every form.
+ *
+ * Both scripts use `dangerouslySetInnerHTML` so React does not HTML-escape
+ * characters inside the payloads. The payloads are server-authored
+ * (config from a validated schema, runtime from a constant string) so
+ * there is no XSS surface to defend against.
+ */
 export function FormRuntimeMount({
   form,
   languages,
@@ -407,9 +509,11 @@ export function FormRuntimeMount({
       <script
         type="application/json"
         data-form-config="true"
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR config emission
         dangerouslySetInnerHTML={{ __html: configJson }}
       />
       <script
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
         dangerouslySetInnerHTML={{ __html: FORM_RUNTIME_SCRIPT }}
       />
     </>

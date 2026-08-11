@@ -8,6 +8,30 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Deleted At Field
+ *
+ * Captures the timestamp when a record is soft-deleted.
+ * When NULL, the record is considered active (not deleted).
+ * When set, the record is considered soft-deleted and should be
+ * excluded from normal queries.
+ *
+ * This field enables soft delete functionality, allowing records
+ * to be "deleted" without permanent removal, supporting:
+ * - Record restoration
+ * - Audit trails
+ * - Data recovery
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'deleted_at',
+ *   type: 'deleted-at',
+ *   indexed: true
+ * }
+ * ```
+ */
 export const DeletedAtFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -29,4 +53,5 @@ export const DeletedAtFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type DeletedAtField = Schema.Schema.Type<typeof DeletedAtFieldSchema>

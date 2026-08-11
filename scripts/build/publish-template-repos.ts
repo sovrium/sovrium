@@ -5,6 +5,36 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Publish each `templates/<slug>/` directory to its standalone GitHub template
+ * repository `github.com/sovrium/<slug>-template` — the auto-published mirrors
+ * behind the website /apps gallery ("Use this template" + "Deploy on Scalingo").
+ * The `-template` suffix is applied ONLY to the GitHub repo name; the local
+ * `templates/<slug>` dir, the catalog key, and the `sovrium.com/apps/<slug>`
+ * website route all stay on the bare slug.
+ *
+ * Model: MIRROR, not move. The monorepo stays the source of truth (validated
+ * every commit, embedded in the binary for offline `sovrium init`); this
+ * script runs from `.github/workflows/release.yml` AFTER `publish-release`,
+ * so a mirror only ever reflects a *published* release whose configs CI
+ * validated against that exact binary. The stamped `.sovrium-version` pins
+ * the Scalingo buildpack to the same release — a mirror can never be newer
+ * than the binary it deploys.
+ *
+ * Per slug (driven by `templates/catalog.json`):
+ *   1. ensure the repo exists (creation requires --create) and reconcile
+ *      metadata: is_template, description, homepage, topics (idempotent).
+ *   2. build the publish tree: `templates/<slug>/.` verbatim (including the
+ * template's own `CLAUDE.md` and `[internal ref]`) plus a
+ *      stamped `.sovrium-version`.
+ *   3. push as ONE incremental commit on main (`sovrium <version>`) + tag
+ *      `v<version>` — diffable release-to-release, idempotent no-op when the
+ *      tree is unchanged, never force-pushed.
+ *
+ * Flags: --version <x.y.z> (required) · --dry-run · --only <slug> · --create
+ * Env:   GH_TOKEN (fine-grained PAT; Contents write + Metadata, plus
+ *        Administration only for --create bootstrap runs)
+ */
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -13,6 +43,11 @@ const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const TEMPLATES_ROOT = join(PROJECT_ROOT, 'templates')
 const ORG = 'sovrium'
 
+/**
+ * Local slug → standalone GitHub repo name. The `-template` suffix lives ONLY
+ * here (and its callers below); the bare slug is retained for the local dir,
+ * the catalog key, and the `sovrium.com/apps/<slug>` homepage.
+ */
 export const repoName = (slug: string): string => `${slug}-template`
 
 interface CatalogEntry {
@@ -50,6 +85,9 @@ export function readCatalog(root: string = TEMPLATES_ROOT): Readonly<Record<stri
     CatalogEntry
   >
   for (const [slug, entry] of Object.entries(raw)) {
+    // Every published mirror must carry the full Claude Code bundle. Checked
+    // here rather than at copy time so an incomplete template fails the run
+    // before any repo is touched.
     for (const required of ['app.yaml', 'CLAUDE.md', '.claude/agents/app-editor.md']) {
       if (!existsSync(join(root, slug, required))) {
         throw new Error(`catalog.json lists "${slug}" but templates/${slug}/${required} is missing`)
@@ -60,8 +98,18 @@ export function readCatalog(root: string = TEMPLATES_ROOT): Readonly<Record<stri
   return raw
 }
 
+/** Files never published to mirrors (runtime/dev residue). */
 const STRIP = new Set(['.DS_Store', '.env', '.sovrium'])
 
+/**
+ * Build the publish tree for one slug into `destDir`: the template directory
+ * verbatim, minus runtime residue, plus the release pin.
+ *
+ * The recursive copy carries the template's checked-in `CLAUDE.md` and
+ * `[internal ref]` along with everything else — `STRIP` filters
+ * on basename and never matches `.claude`, so the bundle reaches the mirror
+ * without a special case.
+ */
 export function buildPublishTree(
   slug: string,
   version: string,
@@ -93,6 +141,7 @@ const tryRun = (cmd: readonly string[], cwd?: string): { ok: boolean; out: strin
   return { ok: proc.exitCode === 0, out: proc.stdout.toString().trim() }
 }
 
+/** Ensure the repo exists and its metadata matches the catalog (idempotent). */
 const ensureRepo = (slug: string, entry: CatalogEntry, opts: CliOptions): void => {
   const exists = tryRun(['gh', 'api', `repos/${ORG}/${repoName(slug)}`, '--jq', '.name']).ok
   if (!exists) {
@@ -114,6 +163,10 @@ const ensureRepo = (slug: string, entry: CatalogEntry, opts: CliOptions): void =
       `https://sovrium.com/apps/${slug}`,
     ])
   }
+  // Metadata reconcile is BEST-EFFORT: fine-grained PATs need Administration
+  // write for repo PATCH/topics, and the token may be narrowed to
+  // Contents-only after the bootstrap. Publishing content must never be
+  // blocked by a metadata 403 — warn and continue instead.
   const patched = tryRun([
     'gh',
     'api',
@@ -143,12 +196,14 @@ const ensureRepo = (slug: string, entry: CatalogEntry, opts: CliOptions): void =
   }
 }
 
+/** Clone main, replace the tree, commit + tag + push (no force, idempotent). */
 const pushTree = (slug: string, treeDir: string, version: string): 'pushed' | 'unchanged' => {
   const token = process.env['GH_TOKEN'] ?? ''
   const remote = `https://x-access-token:${token}@github.com/${ORG}/${repoName(slug)}.git`
   const cloneDir = join(treeDir, '..', `${slug}-clone`)
   const cloned = tryRun(['git', 'clone', '--depth', '1', remote, cloneDir]).ok
   if (!cloned) {
+    // Empty repo (first publish): init a fresh clone directory instead.
     mkdirSync(cloneDir, { recursive: true })
     run(['git', 'init', '-b', 'main'], cloneDir)
     run(['git', 'remote', 'add', 'origin', remote], cloneDir)
@@ -198,6 +253,10 @@ const main = (): void => {
 
   const workRoot = join(PROJECT_ROOT, '.template-publish')
   rmSync(workRoot, { recursive: true, force: true })
+  // Resilient loop: one failing repo must NOT skip the rest (fail-fast would
+  // leave later mirrors stale and — under continue-on-error — invisibly green).
+  // Each slug is isolated; failures are collected and re-raised as a non-zero
+  // exit AFTER every slug has been attempted, so the run turns red loudly.
   const results: string[] = []
   const failures: string[] = []
   for (const slug of slugs) {

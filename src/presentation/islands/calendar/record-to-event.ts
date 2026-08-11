@@ -5,8 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveRecordColor } from '@/domain/utils/record-color'
 import type { TableRecord } from '../shared/types'
 
+/**
+ * FullCalendar event shape consumed by the calendar component's `events` prop.
+ *
+ * We hand-roll the type rather than import `EventInput` from `@fullcalendar/core`
+ * to keep this module free of FullCalendar runtime imports — the calendar
+ * island lazy-loads the FullCalendar bundle, but this mapper runs eagerly
+ * during prop preparation.
+ */
 export interface CalendarEvent {
   readonly id: string
   readonly title: string
@@ -15,33 +24,66 @@ export interface CalendarEvent {
   readonly allDay?: boolean
   readonly backgroundColor?: string
   readonly borderColor?: string
+  /** Label tone, derived to meet WCAG AA against `backgroundColor`. */
+  readonly textColor?: string
+  /**
+   * FullCalendar's per-event render mode.
+   *
+   * Forced to `'block'` for a coloured event because month view renders a
+   * TIMED event as a dot by default: the harness stays transparent and the hue
+   * only tints a 6px dot, so an author's declared `colorField` colour was
+   * effectively invisible on the default surface. Left absent otherwise, so an
+   * uncoloured calendar keeps FullCalendar's own `'auto'` behaviour.
+   */
+  readonly display?: string
+  /**
+   * Full record snapshot exposed via FullCalendar's `extendedProps`. Lets
+   * `eventClick` handlers resolve `$record.X` tokens in navigate paths
+   * without round-tripping back to the server for the underlying record.
+   */
   readonly extendedProps?: TableRecord
 }
 
+/**
+ * Fallback palette for a `colorField` whose options declare no colour.
+ *
+ * A distinct value gets a distinct hue so users can visually group events by
+ * category/status. The value is HASHED onto it (see `resolveRecordColor`), so
+ * the mapping is stable across renders and independent of which other records
+ * happen to be in view.
+ */
 const COLOR_PALETTE: readonly string[] = [
-  '#3b82f6',
-  '#ef4444',
-  '#10b981',
-  '#f59e0b',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
+  '#3b82f6', // blue
+  '#ef4444', // red
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#f97316', // orange
 ] as const
 
-function hashStringToIndex(value: string, modulo: number): number {
-  const initialHash = 2_166_136_261
-  const hash = Array.from(value).reduce(
-    (acc, ch) => Math.imul(acc ^ ch.charCodeAt(0), 16_777_619),
-    initialHash
-  )
-  return Math.abs(hash) % modulo
-}
-
-function colorForValue(value: string): string {
-  const palette = COLOR_PALETTE
-  const index = hashStringToIndex(value, palette.length)
-  return palette[index] ?? palette[0] ?? '#3b82f6'
+/**
+ * The colour overlay for one record's `colorField` value: the author's declared
+ * option colour when the field declares one, otherwise the hashed fallback.
+ *
+ * `textColor` is DERIVED against the fill rather than assumed ([internal ref] A7
+ * ruling 3) — an author may declare a fill anywhere in sRGB, and FullCalendar's
+ * built-in white event text is unreadable over a pale one.
+ */
+function colorOverlayFor(
+  value: string | undefined,
+  optionColors: Readonly<Record<string, string>> | undefined
+): Partial<CalendarEvent> {
+  if (!value) return {}
+  const colors = resolveRecordColor(value, optionColors, COLOR_PALETTE)
+  if (!colors) return {}
+  return {
+    backgroundColor: colors.fill,
+    borderColor: colors.border,
+    textColor: colors.foreground,
+    display: 'block',
+  }
 }
 
 function readString(record: TableRecord, field: string | undefined): string | undefined {
@@ -53,6 +95,17 @@ function readString(record: TableRecord, field: string | undefined): string | un
   return String(value)
 }
 
+/**
+ * Maps a list of table records into FullCalendar-compatible event objects.
+ *
+ * Records without a value at `dateField` are dropped — they have no calendar
+ * position. The optional `endDateField` enables multi-day events; when only a
+ * start date is provided, FullCalendar treats the event as a single-day event.
+ *
+ * The optional `labelField` overrides the default title source (the `title`
+ * column or first record field). The optional `idField` defaults to `'id'`
+ * which matches Sovrium's auto-generated primary key column.
+ */
 export function recordsToCalendarEvents(
   records: readonly TableRecord[],
   options: {
@@ -60,9 +113,11 @@ export function recordsToCalendarEvents(
     readonly endDateField?: string | undefined
     readonly labelField?: string | undefined
     readonly colorField?: string | undefined
+    /** `optionValue → #RRGGBB` declared on `colorField`; absent when it declares none. */
+    readonly colorFieldColors?: Readonly<Record<string, string>> | undefined
   }
 ): readonly CalendarEvent[] {
-  const { dateField, endDateField, labelField, colorField } = options
+  const { dateField, endDateField, labelField, colorField, colorFieldColors } = options
   if (!dateField) return []
 
   return records
@@ -80,10 +135,7 @@ export function recordsToCalendarEvents(
           ? String(idValue)
           : `${start}-${title}`.replace(/\s+/g, '-')
 
-      const colorValue = readString(record, colorField)
-      const colorOverride = colorValue
-        ? { backgroundColor: colorForValue(colorValue), borderColor: colorForValue(colorValue) }
-        : {}
+      const colorOverride = colorOverlayFor(readString(record, colorField), colorFieldColors)
 
       const base = end ? { id, title, start, end } : { id, title, start }
       return { ...base, ...colorOverride, extendedProps: record }

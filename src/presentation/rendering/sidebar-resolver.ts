@@ -10,16 +10,36 @@ import {
   validateActiveAssignment,
 } from '@/domain/services/active-assignment-cookie'
 import { resolveSidebarEntries, type ResolvedSidebarEntry } from '@/domain/services/sidebar-filter'
-import { resolveFilters, hasCurrentUserRef } from './current-user-resolver'
+import { resolveFilters, hasCurrentUserRef, scopeTablesOf } from './current-user-resolver'
 import type { App } from '@/domain/models/app'
 import type { SidebarItem } from '@/domain/models/app/pages/layout'
 import type { SessionInfo } from '@/domain/types/session-info'
 import type { DataSourceDb } from '@/presentation/rendering/data-source-resolver'
 
+/**
+ * Resolved per-section sidebar output — what `DynamicPage` renders inside
+ * the page `<aside>`. One entry per matching record, with archived
+ * records dropped and the active assignment (if any) marked.
+ */
 export interface ResolvedSidebarSection {
   readonly entries: readonly ResolvedSidebarEntry[]
 }
 
+/**
+ * Resolves a single sidebar item:
+ *   1. Substitute `$currentUser.*` filter values (assignment-scoped reads,
+ *      unrestricted bypass for global admins).
+ *   2. Fetch records from the database.
+ *   3. If `activeIndicator: '$currentUser.activeAssignment'` is set,
+ *      resolve the active assignment for the table's scope.
+ *   4. Hand the records + active id off to the pure
+ *      `resolveSidebarEntries` resolver.
+ *
+ * Returns `undefined` when the user is unauthenticated and the filter
+ * contains a `$currentUser` reference — the caller decides whether to
+ * 401, swallow, or skip the section. (Sidebar lives behind an
+ * `authenticated` page guard, so this branch is mostly defense-in-depth.)
+ */
 export const resolveSidebarSection = async (
   item: SidebarItem,
   app: App,
@@ -32,12 +52,13 @@ export const resolveSidebarSection = async (
   const { dataSource, template, activeIndicator } = item
   const filters = dataSource.filter ?? []
 
+  // Resolve $currentUser.* references in filters (Z-1 / P-6).
   const resolvedFilters = hasCurrentUserRef(filters)
     ? await resolveFilters(filters, {
         session: ctx.session,
         cookies: ctx.cookies,
         fetchAssignments: ctx.db.fetchUserAssignments,
-        ...(app.auth?.scopeTables !== undefined ? { scopeTables: app.auth.scopeTables } : {}),
+        scopeTables: scopeTablesOf(app),
       })
     : { kind: 'ok' as const, filter: filters }
 
@@ -48,6 +69,9 @@ export const resolveSidebarSection = async (
     sort: dataSource.sort,
   })
 
+  // Resolve the active assignment for this section's scope-table if the
+  // sidebar opted in. Only `$currentUser.activeAssignment` is supported
+  // today — the schema literal makes that explicit.
   const activeRecordId =
     activeIndicator === '$currentUser.activeAssignment' && ctx.session !== undefined
       ? await resolveActiveForScope(ctx, dataSource.table)
@@ -60,6 +84,23 @@ export const resolveSidebarSection = async (
   return { entries }
 }
 
+/**
+ * Resolve the active-assignment recordId for a single scope. Reuses the
+ * canonical cookie-name builder + validation predicate from
+ * `domain/services/active-assignment-cookie.ts` so this and the SSR
+ * `$currentUser.activeAssignment` resolver cannot drift.
+ *
+ * Unlike the `$currentUser` resolver, the sidebar variant does NOT
+ * fall back to the first accessible record on tamper/absence — the
+ * sidebar only marks an `<a>` with `data-active="true"`, and "no active
+ * mark" is the correct UI for an absent or tampered cookie. The
+ * `$currentUser` resolver needs the fallback because filter equality
+ * against `''` would render zero rows; here we are not filtering.
+ *
+ * The cookie value is never trusted on its own: `fetchUserAssignments`
+ * is a mandatory part of the adapter, so every cookie is checked against
+ * `user_access` before it can mark an entry active.
+ */
 const resolveActiveForScope = async (
   ctx: {
     readonly session: SessionInfo | undefined
@@ -73,12 +114,17 @@ const resolveActiveForScope = async (
   const cookieValue = cookies?.[cookieNameForScope(tableSlug)]
   if (!cookieValue) return undefined
 
-  if (!db.fetchUserAssignments) return cookieValue
-
+  // Validate against user_access — discard tampered cookies.
   const accessible = await db.fetchUserAssignments(session.userId, tableSlug)
   return validateActiveAssignment(cookieValue, accessible)
 }
 
+/**
+ * Resolve every sidebar item declared on a page's `layout.sidebar`.
+ * Sections that fail to resolve (unauthorized) are dropped. Returns
+ * `undefined` when the page declares no sidebar — keeps the render path
+ * a no-op for pages that don't opt in.
+ */
 export const resolvePageSidebar = async (
   sidebar: readonly SidebarItem[] | undefined,
   app: App,

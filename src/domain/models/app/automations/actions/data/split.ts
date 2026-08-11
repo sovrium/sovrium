@@ -9,15 +9,23 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Data Split Action (type: data, operator: split)
+ *
+ * Divide an array into chunks of the specified size. The final chunk may be
+ * smaller than `size` when the array length is not an exact multiple.
+ */
 export const DataSplitActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('data'),
   operator: Schema.Literal('split'),
   props: Schema.Struct({
+    /** Template reference to the array to chunk */
     input: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Template reference to the array to chunk' })
     ),
 
+    /** Maximum size of each chunk (positive integer) */
     size: Schema.Number.pipe(
       Schema.int(),
       Schema.positive(),
@@ -32,4 +40,5 @@ export const DataSplitActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type DataSplitAction = Schema.Schema.Type<typeof DataSplitActionSchema>

@@ -14,6 +14,11 @@ import {
 } from '@/domain/models/api/tables/tables'
 import { type ResourceGroupSpec, type RouteSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * View routes — resource-scoped to `app.tables`. Each configured table expands
+ * into a concrete copy of every route below, tagged `Table: <name>`. The table
+ * id is baked into the concrete path, so `request.params` omits it.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
@@ -58,6 +63,7 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/** View route group — resource-scoped to the configured tables. */
 export const viewGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Table',
   genericTag: 'views',

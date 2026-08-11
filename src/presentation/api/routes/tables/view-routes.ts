@@ -24,22 +24,28 @@ import type { Hono } from 'hono'
 export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return honoApp
     .get('/api/tables/:tableId/views', async (c) => {
+      // Session, tableId, and userRole are guaranteed by middleware chain
       const { tableId, userRole } = getTableContext(c)
 
       const program = Effect.gen(function* () {
         const result = yield* listViewsProgram(tableId, resolveApp(), userRole)
+        // Return the views array directly (unwrapped) to match test expectations
+        // No schema validation - test expects minimal view objects without timestamps
         return result
       })
 
       return runEffect(c, program)
     })
-    .get('/api/tables/:tableId/views/:viewId', async (c) =>
-      runEffect(
+    .get('/api/tables/:tableId/views/:viewId', async (c) => {
+      // Session, tableId, and userRole are guaranteed by middleware chain
+      const { tableId, userRole } = getTableContext(c)
+
+      return runEffect(
         c,
-        getViewProgram(c.req.param('tableId'), c.req.param('viewId'), resolveApp()),
+        getViewProgram(tableId, c.req.param('viewId'), resolveApp(), userRole),
         getViewResponseSchema
       )
-    )
+    })
     .get('/api/tables/:tableId/views/:viewId/records', async (c) => {
       const { session, tableId, userRole } = getTableContext(c)
       const viewId = c.req.param('viewId')

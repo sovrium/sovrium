@@ -5,10 +5,43 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * AI service-layer seam instrumentation.
+ *
+ * `traceAiRequest` is the ONE wrapper the shared `AiService.chat` port applies
+ * to its provider-call Effect (`AiLive` — the seam every AI surface funnels
+ * through: the chat route, agent actions, AI-compute field refinement). It emits
+ * BOTH signals for a single provider request, from the point where the resolved
+ * provider + model + operation are known (never prompt text / message content /
+ * user ids / keys — those never become labels or attributes):
+ *
+ *   1. an `ai.request` CHILD span carrying `{ provider, model, operation }`
+ *      attributes. Being an `Effect.withSpan`, it chains under whatever span is
+ *      current on the running fiber — so when the request runs through
+ *      `runRequestEffect` (the request-edge root `http.server` span), the AI span
+ *      chains under the request root, giving free request↔AI-request correlation.
+ *      Off-request AI calls (no active OTLP tracer) make `withSpan` a no-op, so
+ *      this stays zero-cost.
+ *   2. `ai.request.duration` (histogram) + `ai.request.count` (sum) observations
+ *      labeled `{ provider, model, operation }` (see `recordAiRequest` in
+ *      `metrics.ts`), timed over the provider request itself and composed into
+ *      the Effect so the observation writes the process-global `Metric` registry
+ *      the OtlpMetrics poller snapshots — independent of whether tracing is armed.
+ *
+ * The duration + count are observed on the SUCCESS path (a completed request); a
+ * failed request still produces the `ai.request` span (marked errored by
+ * `withSpan`) but no metric datapoint.
+ */
 
 import { Duration, Effect } from 'effect'
 import { recordAiRequest } from './metrics'
 
+/**
+ * Wrap an AI provider-call Effect with the AI service-layer seam: an
+ * `ai.request` child span + `ai.request.duration`/`ai.request.count`
+ * observations, all labeled `{ provider, model, operation }`. Preserves the
+ * request's success/error/requirement types.
+ */
 export const traceAiRequest = <A, E, R>(
   provider: string,
   model: string,

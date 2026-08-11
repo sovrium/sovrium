@@ -1,0 +1,72 @@
+# Sample leads for the automation demo.
+#
+# `key` is file-local — it exists so other seed files can name a row before it
+# has a database id, and it is never written to a column. Nothing links to leads
+# here, but the key is still what every refusal message quotes, so it is worth
+# making it readable.
+#
+# `source` is spread across all four options and `status` across all four on
+# purpose: both columns are declared `filterable` on /activity, and a filter
+# control over a column where every row holds the same value demonstrates
+# nothing about filtering.
+#
+# There are no dates in this file. `created_at` is a `created-at` field — the
+# engine stamps it on insert and a seeded value would be discarded — so every
+# row's "Captured" column reads as the moment the seed ran. That is the honest
+# behaviour, not an omission.
+records:
+  - key: nadia-okonkwo
+    fields:
+      name: Nadia Okonkwo
+      email: nadia.okonkwo@brightpath.example
+      source: Webhook
+      status: Qualified
+
+  - key: liam-carver
+    fields:
+      name: Liam Carver
+      email: liam.carver@northgate-supply.example
+      source: Webhook
+      status: Contacted
+
+  - key: sofia-ricci
+    fields:
+      name: Sofia Ricci
+      email: sofia.ricci@atelier-ricci.example
+      source: Website
+      status: New
+
+  - key: dev-patel
+    fields:
+      name: Dev Patel
+      email: dev.patel@meridian-labs.example
+      source: Referral
+      status: Qualified
+
+  - key: hannah-bloom
+    fields:
+      name: Hannah Bloom
+      email: hannah.bloom@bloomfield.example
+      source: Website
+      status: New
+
+  - key: yusuf-demir
+    fields:
+      name: Yusuf Demir
+      email: yusuf.demir@karadeniz-freight.example
+      source: Import
+      status: Contacted
+
+  - key: elena-varga
+    fields:
+      name: Elena Varga
+      email: elena.varga@varga-consulting.example
+      source: Import
+      status: Dropped
+
+  - key: theo-mercier
+    fields:
+      name: Théo Mercier
+      email: theo.mercier@mercier-atelier.example
+      source: Referral
+      status: New

@@ -7,6 +7,15 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Valid View ID String Pattern
+ *
+ * String view IDs must follow snake_case or kebab-case pattern:
+ * - Only lowercase letters (a-z)
+ * - Numbers (0-9)
+ * - Underscores (_) and hyphens (-)
+ * - No spaces, no uppercase letters
+ */
 const ViewIdStringSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z0-9_-]+$/, {
     message: () => 'must be one of the allowed values',
@@ -16,6 +25,19 @@ const ViewIdStringSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * View ID Schema
+ *
+ * Unique identifier for a view. Can be either a numeric ID or a string identifier.
+ * String IDs must follow snake_case or kebab-case pattern (lowercase, numbers, underscores, hyphens only).
+ *
+ * @example
+ * ```typescript
+ * 1
+ * 'default_view'
+ * 'kanban-view'
+ * ```
+ */
 export const ViewIdSchema = Schema.Union(Schema.Number, ViewIdStringSchema).pipe(
   Schema.annotations({
     title: 'View ID',
@@ -25,4 +47,5 @@ export const ViewIdSchema = Schema.Union(Schema.Number, ViewIdStringSchema).pipe
   })
 )
 
+/** @public */
 export type ViewId = Schema.Schema.Type<typeof ViewIdSchema>

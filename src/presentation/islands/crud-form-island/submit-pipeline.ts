@@ -26,8 +26,23 @@ export function findMissingRequiredFields(
     .map((f) => f.name)
 }
 
-const RICH_TEXT_EMPTY_DOC_LENGTH = '<p></p>'.length
+/**
+ * Length of the empty Tiptap document HTML (`<p></p>`). Subtracted from the
+ * raw HTML length so the visible character counter matches what the user
+ * typed. Must stay in sync with `RICH_TEXT_EMPTY_DOC_LENGTH` in
+ * `rich-text-editor-field.tsx`.
+ */
+const RICH_TEXT_EMPTY_DOC_LENGTH = '<p></p>'.length // 7
 
+/**
+ * Detect rich-text fields whose current value exceeds the configured
+ * `maxLength` (asserted by [internal ref]). Returns the first
+ * over-limit field, or `undefined` when all fields are within their limit.
+ *
+ * The character count is the raw HTML length minus the empty-document
+ * baseline (`<p></p>` = 7 chars) — same heuristic as the editor's
+ * counter, so the visible counter and the submit gate stay aligned.
+ */
 function findOverLimitField(
   fields: readonly FieldDef[],
   values: Record<string, string>
@@ -57,6 +72,7 @@ function resolveFormInputData(
 
 async function submitAutomationForm(ctx: SubmitContext): Promise<void> {
   const name = ctx.automationName
+  // eslint-disable-next-line functional/no-throw-statements -- caller (submitCrudForm) expects thrown errors
   if (!name) throw new Error('Automation name is required')
   const resolvedInput = resolveFormInputData(ctx.inputData ?? {}, ctx.values)
   const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
@@ -66,19 +82,35 @@ async function submitAutomationForm(ctx: SubmitContext): Promise<void> {
   })
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { message?: string }
+    // eslint-disable-next-line functional/no-throw-statements -- caller (submitCrudForm) expects thrown errors
     throw new Error(body.message ?? 'Automation failed')
   }
 }
 
+/**
+ * Result of a successful create/update mutation. Carries the created /
+ * updated record so `onSuccess.redirect` can interpolate `$record.id` etc.
+ */
 type MutationResult = { readonly record?: Record<string, unknown> }
 
 async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
+  // Exclude values for fields that are conditionally hidden (visibleWhen not met).
+  // Always include hidden-input fields (field.hidden) — they are submitted unconditionally.
   const visibleValues = Object.fromEntries(
     Object.entries(ctx.values).filter(([key, value]) => {
       const field = ctx.fields.find((f) => f.name === key)
       if (!field) return true
       if (field.hidden) return true
       if (!isFieldVisible(field, ctx.values)) return false
+      // Omit untouched fields whose column cannot hold an empty string: '' is
+      // the browser's "nothing entered" sentinel, never a legal value for a
+      // choice / numeric / temporal / relational / attachment column. Omitting
+      // lets the column stay NULL or take its DB default, instead of failing
+      // the whole write on a CHECK / type / foreign-key violation.
+      //
+      // The decision is TOTAL over the field-type union (see
+      // `@/presentation/utils/field-type-behavior`), so a newly added field
+      // type has to declare its answer rather than defaulting into the bug.
       if (omitsEmptyValue(field.type) && value.trim() === '') return false
       return true
     })
@@ -107,34 +139,69 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
   }
 }
 
+/**
+ * Resolve the canonical record fields from a create/update mutation result.
+ * The create response carries field aliases at the root (`record.id`,
+ * `record.<field>`); the update response nests them under `record.record`.
+ */
 function resolveRecordFields(result: MutationResult): Record<string, unknown> {
   const record = result.record ?? {}
   const nested = (record as { record?: Record<string, unknown> }).record
   return nested ?? record
 }
 
+/**
+ * Handle `onSuccess.type: 'successPage'`: replace the form with the success
+ * page (snapshotting the submitted values for an optional summary) and, when
+ * `redirect` is set, navigate to the resolved URL after a short delay. Any
+ * `$record.<field>` placeholders in `redirect` are substituted against the
+ * created/updated record via the shared `substituteRecordVars` helper.
+ */
 function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
   ctx.setState({ isPending: false, successPageShown: { values: { ...ctx.values } } })
   const redirect = ctx.successPage?.redirect
   if (redirect?.startsWith('/')) {
     const resolved = substituteRecordVars(redirect, resolveRecordFields(result))
+    // Delay redirect so the success page is visible and DB writes propagate.
     setTimeout(() => globalThis.location.assign(resolved), 800)
   }
 }
 
+/**
+ * Default post-submit handling for `navigate` / `reset` / `message` (or no
+ * explicit) onSuccess responses. The `successPage` response is handled
+ * separately by `handleSuccessPage`.
+ */
 function handleDefaultSuccess(ctx: SubmitContext): void {
   ctx.setState(
     ctx.operation === 'delete' ? { isPending: false, deleted: true } : { isPending: false }
   )
+  // onSuccess.type: 'reset' — clear the form for rapid repeat entry. Retains
+  // any fields listed in preserveFields. Skipped for delete operations.
   if (ctx.resetOnSuccess && ctx.operation !== 'delete') {
     ctx.resetValues()
     ctx.afterReset?.()
   }
   if (ctx.redirectUrl?.startsWith('/')) {
+    // Delay redirect to allow DB writes to propagate before external queries
     setTimeout(() => globalThis.location.assign(ctx.redirectUrl!), 500)
   }
 }
 
+/**
+ * PG-04: dispatch a `sovrium:crud-success`
+ * CustomEvent on `document` after a successful create / update / delete so:
+ *
+ *   1. Sibling data-table islands bound to the same `table` invalidate their
+ *      TanStack Query cache and refetch (see use-island-setup.ts).
+ *   2. Open drawer islands close themselves when the mutation originated
+ *      inside them (see drawer-island.tsx).
+ *
+ * `automation` operations are excluded — those have no record-table context.
+ * The event runs BEFORE `handleSuccessPage` / `handleDefaultSuccess` so the
+ * data-table refetch overlaps with the (delayed) redirect that may follow,
+ * and so the drawer closes before any redirect fires.
+ */
 function dispatchCrudSuccess(ctx: SubmitContext, result: MutationResult): void {
   if (typeof ctx.tableName !== 'string') return
   if (ctx.operation === 'automation') return
@@ -154,6 +221,8 @@ function handleMutationSuccess(ctx: SubmitContext, result: MutationResult): void
     showSuccessToast(ctx.successToast)
   }
   dispatchCrudSuccess(ctx, result)
+  // onSuccess.type: 'successPage' — replace the form with a success page.
+  // Skipped for delete operations (no form to replace).
   if (ctx.successPage && ctx.operation !== 'delete') {
     handleSuccessPage(ctx, result)
     return

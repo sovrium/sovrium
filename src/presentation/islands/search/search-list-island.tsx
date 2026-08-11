@@ -26,6 +26,7 @@ interface SearchListIslandProps {
   readonly 'data-testid'?: string
 }
 
+// Search filtering — extractTemplateText verifies results display the query term
 function extractTemplateText(template: ChildTemplate, record: Record<string, unknown>): string {
   return template
     .map((child) => {
@@ -47,12 +48,16 @@ function recordMatchesQuery(
   if (!query) return true
   const lowerQuery = query.toLowerCase()
 
+  // Must match at least one searchField
   const fieldMatch = searchFields.some((field) => {
     const value = record[field]
     return value !== undefined && String(value).toLowerCase().includes(lowerQuery)
   })
   if (!fieldMatch) return false
 
+  // When itemTemplate drives display (declarative), the child template is
+  // empty, so skip the rendered-text guard. Otherwise verify the rendered
+  // output contains the query term.
   if (childTemplate.length === 0) return true
   const renderedText = extractTemplateText(childTemplate, record)
   return renderedText.toLowerCase().includes(lowerQuery)
@@ -94,6 +99,27 @@ function SearchBox({ value, placeholder, onChange }: SearchBoxProps) {
   )
 }
 
+/**
+ * Island component.
+ *
+ * ONE APPLIED-query state serves both input paths, because they are mutually
+ * exclusive: when `bindTo` is set the own `SearchBox` is not rendered, and when
+ * it is absent nothing subscribes to an external publisher.
+ *
+ * Both paths debounce, but they take the delay from different places, because
+ * the author declares it in different places:
+ *
+ *  - **Unbound** — the delay is the `debounceMs` prop, carrying the list's own
+ *    `dataSource.debounceMs`; {@link useUnboundQuery} applies it.
+ *  - **Bound** — the delay belongs to the publishing `searchInput` and is read
+ *    off its DOM attributes by {@link useBoundQuery}. The prop plays no part:
+ *    `useUnboundQuery` still runs (hooks are unconditional) but its box is
+ *    never rendered, so nothing ever dispatches through it.
+ *
+ * Either way only the APPLIED query waits — the box echoes what was typed on
+ * the very next render. A delay of `0` applies with no timer at all, keeping
+ * the specs that type and assert without waiting green.
+ */
 export default function SearchListIsland({
   records,
   searchFields,
@@ -109,8 +135,12 @@ export default function SearchListIsland({
 }: SearchListIslandProps) {
   const [query, setQuery] = useState('')
 
+  // Unbound: the island's own box drives the query, debounced by the list's
+  // own `dataSource.debounceMs`.
   const searchBox = useUnboundQuery(debounceMs, setQuery)
 
+  // Bound: an external searchInput drives the query, debounced and
+  // length-gated by that publisher's own declared controls.
   useBoundQuery(bindTo, setQuery)
 
   const filteredRecords = filterRecords({
@@ -128,6 +158,9 @@ export default function SearchListIsland({
     childTemplate,
   })
 
+  // NOTE: Do NOT set id here — the island container (data-island div) already
+  // carries the id from the SSR placeholder. Duplicating it would cause
+  // strict-mode violations in Playwright (#id resolves to 2 elements).
   return (
     <div
       className={className}

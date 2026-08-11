@@ -14,6 +14,12 @@ interface KpiSparklineProps {
 const VIEWBOX_WIDTH = 100
 const VIEWBOX_HEIGHT = 28
 
+/**
+ * Builds the SVG polyline points for a sparkline series.
+ *
+ * The series is normalized into the fixed viewBox so the mini-chart scales
+ * regardless of the underlying value magnitude.
+ */
 function buildPoints(series: readonly number[]): string {
   if (series.length === 0) return ''
   if (series.length === 1) {
@@ -29,12 +35,19 @@ function buildPoints(series: readonly number[]): string {
   return series
     .map((value, index) => {
       const x = index * step
+      // Invert Y so larger values sit higher in the chart.
       const y = VIEWBOX_HEIGHT - ((value - min) / span) * VIEWBOX_HEIGHT
       return `${String(Math.round(x * 100) / 100)},${String(Math.round(y * 100) / 100)}`
     })
     .join(' ')
 }
 
+/**
+ * Renders the KPI sparkline as an inline SVG mini line chart.
+ *
+ * Carries `data-role="sparkline"` so spec assertions resolve, and emits a
+ * single `<polyline>` for the trend line.
+ */
 export function KpiSparkline({ series }: KpiSparklineProps): ReactElement {
   const points = buildPoints(series)
 

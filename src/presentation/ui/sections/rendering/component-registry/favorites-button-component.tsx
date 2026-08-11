@@ -8,6 +8,22 @@
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
+/**
+ * Favorites toggle runtime for synthesized `favorites-button` components.
+ *
+ * Server-authored constant string (no untrusted interpolation — the entity
+ * type/id/table values travel in `data-*` attributes on the button, never
+ * inside this script) dropped into an inline `<script>` so the star toggle
+ * works without shipping the React island bundle. Mirrors the
+ * `reorderable-list` inline-runtime pattern.
+ *
+ * Behaviour:
+ *  - On load, every `[data-favorites-toggle]` button probes `GET /api/favorites`
+ *    and renders the filled "unfavorite" label when the entity is already
+ *    favorited, or the outline "favorite" label otherwise.
+ *  - Clicking POSTs (favorite) or DELETEs (unfavorite) `/api/favorites` and
+ *    flips the label once the request resolves.
+ */
 const FAVORITES_BUTTON_RUNTIME = `(function () {
   function labelFor(favorited) {
     return favorited ? 'Remove from favorites' : 'Add to favorites';
@@ -106,12 +122,21 @@ const FAVORITES_BUTTON_RUNTIME = `(function () {
   }
 })();`
 
+/** Shape of the render-time-synthesized `favorites-button` component. */
 interface FavoritesButtonComponent {
   readonly entityType?: string
   readonly entityId?: string
   readonly tableName?: string
 }
 
+/**
+ * Renderer for the render-time-synthesized `favorites-button` component.
+ *
+ * This component type is never schema-authored — it is injected into a
+ * single-record-bound container by `data-source-resolver` so that any record
+ * detail page automatically gets a star toggle. The renderer emits an
+ * accessible `<button>` plus the inline toggle runtime above.
+ */
 export const favoritesButtonComponent: ComponentRenderer = ({ component }): ReactElement => {
   const synthesized = (component ?? {}) as FavoritesButtonComponent
   const { tableName } = synthesized
@@ -129,11 +154,13 @@ export const favoritesButtonComponent: ComponentRenderer = ({ component }): Reac
         data-favorited="false"
         aria-pressed="false"
         aria-label="Add to favorites"
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR render, no client re-render
         style={{ cursor: 'pointer', background: 'none', border: 'none', fontSize: '1.25rem' }}
       >
         {'☆'}
       </button>
       <script
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
         dangerouslySetInnerHTML={{ __html: FAVORITES_BUTTON_RUNTIME }}
       />
     </>

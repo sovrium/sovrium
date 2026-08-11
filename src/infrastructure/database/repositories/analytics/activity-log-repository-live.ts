@@ -23,11 +23,23 @@ import { dateIntervalAgo } from '@/infrastructure/database/sql/dialect-sql-helpe
 
 const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
+/** Wrap a DB promise, adapting failures to ActivityLogDatabaseError. */
 const wrap = makeDbWrap((error) => new ActivityLogDatabaseError({ cause: error }))
 
+/**
+ * Activity Log Repository Implementation
+ *
+ * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
+ */
 export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
+  /**
+   * List all activity logs with user metadata
+   */
   listAll: () =>
     wrap(async () => {
+      // Resolve the dialect-correct auth users table per call — the user
+      // table lives at `auth.user` on Postgres and `auth_user` on SQLite.
+      // Capturing it locally keeps the leftJoin + projection columns aligned.
       const users = authUsersTable()
       const rows = await db
         .select({
@@ -65,11 +77,14 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
         user:
           row.userId && row.userName && row.userEmail
             ? { id: row.userId, name: row.userName, email: row.userEmail }
-            :
+            : // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
               null,
       }))
     }),
 
+  /**
+   * Create activity log entry
+   */
   create: (log) =>
     wrap(async () => {
       const result = await db

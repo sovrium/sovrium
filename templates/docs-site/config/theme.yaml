@@ -1,50 +1,115 @@
+# Documentation site theming — deep teal.
+#
+# The palette moved off violet deliberately. Three pilot templates now ship a
+# real identity, and violet sat close enough to the CRM's indigo that a gallery
+# visitor would read them as two skins of one product rather than two products.
+# Teal is unambiguously separate from both, and it reads calm at the long
+# line-lengths a documentation body text runs to.
+#
+# WHY THE KEY NAMES CHANGED
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens every prestyled island consumes. Everything else
+#   emits `--color-*` and does nothing until something cites it — and this
+#   template cites none of them, because unlike the landing page it carries no
+#   inline styles at all. So `text`, `text-secondary`, `text-muted` and
+#   `background-alt` were painting nothing. They are now `foreground`,
+#   `foreground-muted`, `foreground-subtle` and `background-subtle`: same
+#   intent, but reaching the page.
+#
+#   The admonition keys below (`note`, `tip`, and the `-bg` pairs) are KEPT as
+#   plain `--color-*` entries even though nothing in this repo was found to read
+#   them. Not being able to find a consumer is not proof there is none, and this
+#   codebase has already recorded three "obviously inert" properties that turned
+#   out to be live. Removing them buys nothing; leaving them costs a few bytes.
+#   `warning` is a role key and does repaint.
+#
+# WHY THE TYPEFACE CHANGED
+#   `family: Inter` emitted `font-family: Inter, system-ui, …` with no matching
+#   `@font-face`: verified in the browser, `document.fonts` carries only IBM Plex
+#   Sans Variable and JetBrains Mono Variable, and no external stylesheet is
+#   requested. So this was never a CDN privacy leak — it was quieter. Naming an
+#   unserved font and omitting the served one pushed the page onto the operating
+#   system's default face and locked the shipped self-hosted typeface out of its
+#   own stack. `mono` had the same defect one step removed: `JetBrains Mono`
+#   without `Variable` misses the face that actually ships.
 colors:
-  primary: '#6d28d9'
-  primary-hover: '#5b21b6'
-  primary-light: '#ede9fe'
+  primary: '#0f766e'
+  primary-hover: '#115e59'
+  primary-subtle: '#ccfbf1'
+  ring: '#14b8a6'
   background: '#ffffff'
-  background-alt: '#faf9fc'
-  text: '#1e1b2e'
-  text-secondary: '#4b4563'
-  text-muted: '#7c768f'
-  border: '#e7e3ef'
-  code-bg: '#1e1b2e'
-  code-text: '#e7e3ef'
-  note: '#3b82f6'
-  note-bg: '#eff6ff'
-  warning: '#d97706'
+  background-subtle: '#f5faf9'
+  foreground: '#10201e'
+  foreground-muted: '#41605c'
+  foreground-subtle: '#6d8b87'
+  border: '#dcece9'
+  warning: '#b45309'
+  success: '#047857'
+  error: '#be123c'
+  # Admonition accents — see the note above on why these stay.
+  code-bg: '#10201e'
+  code-text: '#dcece9'
+  note: '#0369a1'
+  note-bg: '#f0f9ff'
   warning-bg: '#fffbeb'
-  tip: '#059669'
+  tip: '#047857'
   tip-bg: '#ecfdf5'
+
+darkColors:
+  primary: '#5eead4'
+  primary-hover: '#99f6e4'
+  primary-subtle: '#042f2e'
+  ring: '#2dd4bf'
+  background: '#0a1615'
+  background-subtle: '#101f1d'
+  foreground: '#e6f2f0'
+  foreground-muted: '#a7c4c0'
+  foreground-subtle: '#7c9995'
+  border: '#1c302d'
+  warning: '#fbbf24'
+  success: '#34d399'
+  error: '#fb7185'
+  code-bg: '#04100f'
+  code-text: '#c9e0dc'
+  note: '#38bdf8'
+  note-bg: '#082f49'
+  warning-bg: '#2a1c05'
+  tip: '#34d399'
+  tip-bg: '#052e21'
+
 # Single Shiki theme token applied to every fenced code block in the markdown
 # pages. Shiki highlights server-side and emits class/CSS-variable output, so it
 # survives the HTML sanitizer. Swap for any named Shiki theme (e.g. github-light).
 codeBlock:
   theme: github-dark
+
 fonts:
   sans:
-    family: Inter
-    fallback: system-ui, -apple-system, sans-serif
+    family: IBM Plex Sans Variable
+    fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
     weights: [400, 500, 600, 700]
     size: 16px
     lineHeight: '1.7'
   heading:
-    family: Inter
-    fallback: system-ui, -apple-system, sans-serif
+    family: IBM Plex Sans Variable
+    fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
     weights: [600, 700, 800]
     size: 40px
     lineHeight: '1.2'
     letterSpacing: '-0.02em'
   mono:
-    family: 'JetBrains Mono'
-    fallback: ui-monospace, SFMono-Regular, Menlo, monospace
+    family: JetBrains Mono Variable
+    fallback: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
     weights: [400, 500]
     size: 14px
+
 borderRadius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
   full: 9999px
+
 shadows:
   sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)
   md: 0 4px 6px -1px rgb(0 0 0 / 0.1)

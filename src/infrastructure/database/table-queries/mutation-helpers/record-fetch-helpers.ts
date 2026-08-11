@@ -11,6 +11,12 @@ import { DatabaseError } from '@/domain/errors'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
+/**
+ * Fetch a single record by ID (Promise-based for transaction use)
+ *
+ * Used before mutations (update/delete) for activity logging.
+ * Throws DatabaseError on database failure.
+ */
 export async function fetchRecordById(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -23,10 +29,16 @@ export async function fetchRecordById(
     )
     return result[0]
   } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to fetch record ${recordId}`, error)
   }
 }
 
+/**
+ * Fetch a single record by ID (Effect-based for batch operations)
+ *
+ * Returns undefined on error — non-critical for batch activity logging.
+ */
 export function fetchRecordByIdEffect(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -44,6 +56,11 @@ export function fetchRecordByIdEffect(
   }).pipe(Effect.orElseSucceed(() => undefined))
 }
 
+/**
+ * Fetch multiple records by IDs (Effect-based for batch operations)
+ *
+ * Fails with DatabaseError on database failure.
+ */
 export function fetchRecordsByIds(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,

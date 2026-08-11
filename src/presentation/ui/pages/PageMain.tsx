@@ -24,8 +24,14 @@ import type { SessionInfo } from '@/domain/types/session-info'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 import type { ResolvedMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
 
+/** Stable identity for `<main>` minimum height to satisfy react-perf. */
 const MAIN_STYLE = { minHeight: '1px' } as const
 
+/**
+ * The page's main landmark. `id="main-content"` + `tabIndex={-1}` make it the
+ * skip-link target — activating the chrome skip link
+ * moves focus here. Shared by both the component-only and markdown branches.
+ */
 function MainShell({
   page,
   children,
@@ -57,12 +63,32 @@ type PageMainProps = {
   readonly currentLang: string
   readonly tables?: Tables
   readonly buckets?: Buckets
+  /** App-level `auth.landingPath`. */
   readonly landingPath?: string
   readonly routeParams?: RouteParams
   readonly session?: SessionInfo
+  /**
+   * Resolved markdown payload for pages declaring `page.markdown`. When set, the article is rendered alongside
+   * the regular component tree so the page composes both sources.
+   */
   readonly markdownPayload?: ResolvedMarkdownPage
 }
 
+/**
+ * Renders the main content area with page components.
+ *
+ * Composition: when a page declares both
+ * `markdown` AND a `components:` array (the docs-site pattern), the markdown
+ * article must sit BETWEEN the header chrome and the footer chrome — otherwise
+ * a sticky navbar declared first in `components` would render after the
+ * article (lands at the page bottom). To achieve `header → article → footer`
+ * generically without per-app heuristics, we render the FIRST page component
+ * (the header/navbar by convention) first, then the markdown article in the
+ * main content slot, then the remaining components (overlays + footer). Pages
+ * with no `components` array fall back to article-then-(empty) and
+ * component-only pages (no markdown) render every component in order, so the
+ * landing page and all non-markdown pages are unaffected.
+ */
 export function PageMain({
   page,
   pageComponents,
@@ -95,10 +121,14 @@ export function PageMain({
     />
   )
 
+  // No markdown: render every component in declared order (landing + all
+  // component-only pages — unchanged behaviour).
   if (!markdownPayload) {
     return <MainShell page={page}>{renderSections(pageComponents)}</MainShell>
   }
 
+  // Markdown page: render header chrome (the first component, by convention the
+  // navbar), then the article, then the trailing components (overlays/footer).
   const headerSections = pageComponents.slice(0, 1)
   const trailingSections = pageComponents.slice(1)
   return (

@@ -1,0 +1,69 @@
+# Shared quick links, shown on /portal.
+#
+# All four categories are represented and unevenly weighted, because that is
+# what a real link list looks like: a handful of tools everyone opens daily, a
+# smaller set of policies nobody opens until they need to, and a long tail.
+#
+# URLs point at `example.com` paths on purpose. A template published to a public
+# repository must not carry a real internal hostname, and a link that 404s in a
+# demo is better than one that leaks where somebody's intranet actually lives.
+records:
+  - key: handbook
+    fields:
+      title: Company handbook
+      url: https://intranet.example.com/handbook
+      category: Guides
+
+  - key: onboarding-checklist
+    fields:
+      title: New starter onboarding checklist
+      url: https://intranet.example.com/handbook/onboarding
+      category: Guides
+
+  - key: expense-policy
+    fields:
+      title: Expense policy (current version)
+      url: https://intranet.example.com/policies/expenses
+      category: Policies
+
+  - key: security-policy
+    fields:
+      title: Information security policy
+      url: https://intranet.example.com/policies/security
+      category: Policies
+
+  - key: time-off-policy
+    fields:
+      title: Time off and public holidays
+      url: https://intranet.example.com/policies/time-off
+      category: Policies
+
+  - key: it-helpdesk
+    fields:
+      title: IT helpdesk
+      url: https://helpdesk.example.com
+      category: Tools
+
+  - key: expense-tool
+    fields:
+      title: Submit an expense claim
+      url: https://expenses.example.com
+      category: Tools
+
+  - key: room-booking
+    fields:
+      title: Book a meeting room
+      url: https://rooms.example.com
+      category: Tools
+
+  - key: status-page
+    fields:
+      title: Internal systems status
+      url: https://status.example.com
+      category: Links
+
+  - key: org-chart
+    fields:
+      title: Org chart
+      url: https://intranet.example.com/people/org-chart
+      category: Links

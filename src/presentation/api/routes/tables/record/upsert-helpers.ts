@@ -6,24 +6,32 @@
  */
 
 import { Effect } from 'effect'
-import {
-  hasCreatePermission,
-  hasUpdatePermission,
-} from '@/application/use-cases/tables/permissions/permissions'
 import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
+import { hasCreatePermission, hasUpdatePermission } from '@/domain/validators/permission-evaluators'
+import { findMissingRequiredFieldNames } from '@/domain/validators/required-fields'
 import { checkForExistingRecords } from '@/infrastructure/layers/table-layer'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { forbiddenCreateResponse } from '../response-helpers'
-import { validateRequiredFieldsForRecord } from './create-record-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/**
+ * Validate required fields for upsert records
+ * Records come from schema in nested format: { fields: {...} }
+ *
+ * The rule is the shared one (`domain/validators/required-fields`), NOT a local
+ * copy: this route used to carry its own, which never received the `default`
+ * exemption `POST /records` has. A field declared `required: true,
+ * default: 'draft'` therefore created fine through one route and was rejected
+ * with `Required field is missing` through this one.
+ */
 export async function validateUpsertRequiredFields(
   table: NonNullable<App['tables']>[number] | undefined,
   records: readonly { fields: Record<string, unknown> }[]
 ): Promise<Array<{ record: number; field: string; error: string }>> {
   return records.flatMap((record, index) => {
-    const missingFields = validateRequiredFieldsForRecord(table, record.fields)
+    // Extract fields from nested format
+    const missingFields = findMissingRequiredFieldNames(table, record.fields)
     return missingFields.map((field: string) => ({
       record: index,
       field,
@@ -32,6 +40,11 @@ export async function validateUpsertRequiredFields(
   })
 }
 
+/**
+ * Check upsert permissions including update permission check
+ * This function determines if records will be created or updated, then checks appropriate permissions
+ * Note: Field-level permissions should be checked separately before calling this function
+ */
 
 export async function checkUpsertPermissionsWithUpdateCheck(config: {
   readonly app: App
@@ -44,8 +57,10 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   const { app, tableName, userRole, records, fieldsToMergeOn, c } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
+  // Check if any records will be updated
   const hasExistingRecords = await checkForExistingRecords(tableName, records, fieldsToMergeOn)
 
+  // If records will be updated, check update permission
   if (hasExistingRecords && !hasUpdatePermission(table, userRole, app.tables)) {
     return {
       allowed: false,
@@ -60,6 +75,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
     }
   }
 
+  // Check table-level create permission (for new records)
   if (!hasCreatePermission(table, userRole, app.tables)) {
     return {
       allowed: false,
@@ -70,11 +86,18 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   return { allowed: true }
 }
 
+/**
+ * Check if a field type is readonly (cannot be set by users)
+ */
 export function isReadonlyFieldType(fieldType: string): boolean {
   const readonlyTypes = new Set(['created-at', 'updated-at', 'auto-number'])
   return readonlyTypes.has(fieldType)
 }
 
+/**
+ * Validate that no readonly fields are being set
+ * Returns error response if readonly fields detected, undefined otherwise
+ */
 export function validateReadonlyFields(
   table:
     | {
@@ -87,6 +110,7 @@ export function validateReadonlyFields(
   records: readonly { fields: Record<string, unknown> }[],
   c: Context
 ) {
+  // Check for 'id' field (always readonly)
   const recordWithId = records.find((record) => 'id' in record.fields)
   if (recordWithId) {
     return c.json(
@@ -99,6 +123,7 @@ export function validateReadonlyFields(
     )
   }
 
+  // Check for readonly field types (created-at, updated-at, auto-number)
   if (table) {
     const readonlyFieldNames = new Set(
       table.fields.filter((field) => isReadonlyFieldType(field.type)).map((field) => field.name)
@@ -123,6 +148,10 @@ export function validateReadonlyFields(
   return undefined
 }
 
+/**
+ * Strip protected fields that user cannot write from records
+ * This prevents 403 errors for fields user doesn't have write access to
+ */
 export function stripUnwritableFields<T extends { fields: Record<string, unknown> }>(
   app: App,
   tableName: string,
@@ -135,6 +164,7 @@ export function stripUnwritableFields<T extends { fields: Record<string, unknown
       return record
     }
 
+    // Remove forbidden fields from the record
     const filteredFields = Object.keys(record.fields).reduce<Record<string, unknown>>(
       (acc, key) => {
         if (!forbiddenFields.includes(key)) {
@@ -155,6 +185,9 @@ type UpsertResponse = {
   readonly records?: ReadonlyArray<{ readonly fields: Record<string, unknown> }>
 }
 
+/**
+ * Apply field-level read filtering to upsert response
+ */
 export function applyReadFiltering<E, R>(config: {
   readonly program: Effect.Effect<UpsertResponse, E, R>
   readonly app: App
@@ -189,6 +222,11 @@ export function applyReadFiltering<E, R>(config: {
   )
 }
 
+/**
+ * Create 404 response for protected field write attempt (S1 anti-enumeration —
+ * field-permission boundary is not discoverable; field name is dropped). The
+ * `_forbiddenField` parameter is retained for call-site readability.
+ */
 function createForbiddenFieldResponse(c: Context, _forbiddenField: string): Response {
   return c.json(
     {
@@ -200,6 +238,10 @@ function createForbiddenFieldResponse(c: Context, _forbiddenField: string): Resp
   )
 }
 
+/**
+ * Check if single-record upsert contains protected fields
+ * Single-record upserts reject if ANY protected fields present
+ */
 function checkSingleRecordProtectedFields(config: {
   readonly c: Context
   readonly app: App
@@ -229,6 +271,9 @@ function checkSingleRecordProtectedFields(config: {
   return { success: true }
 }
 
+/**
+ * Check if all fields were stripped from records (user tried to write only protected fields)
+ */
 function checkAllFieldsStripped(config: {
   readonly c: Context
   readonly app: App
@@ -244,6 +289,7 @@ function checkAllFieldsStripped(config: {
     return { success: true }
   }
 
+  // All fields were stripped
   const allForbiddenFields = records
     .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
     .filter((fields) => fields.length > 0)
@@ -256,6 +302,9 @@ function checkAllFieldsStripped(config: {
   }
 }
 
+/**
+ * Check required field validation
+ */
 async function checkRequiredFields(
   table: NonNullable<App['tables']>[number] | undefined,
   strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>,
@@ -280,6 +329,14 @@ async function checkRequiredFields(
   }
 }
 
+/**
+ * Validate upsert request (permissions and required fields)
+ *
+ * Upsert behavior for protected fields:
+ * - Single-record upserts: Reject with 403 if ANY protected fields present
+ * - Multi-record upserts (batch): Strip protected fields, succeed if any writable fields remain
+ * - Filter protected fields from response
+ */
 export async function validateUpsertRequest(config: {
   readonly c: Context
   readonly app: App
@@ -291,6 +348,7 @@ export async function validateUpsertRequest(config: {
   const { c, app, tableName, userRole, records, fieldsToMergeOn } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
+  // Single-record upsert: reject if ANY protected fields present
   const singleRecordCheck = checkSingleRecordProtectedFields({
     c,
     app,
@@ -302,8 +360,10 @@ export async function validateUpsertRequest(config: {
     return singleRecordCheck
   }
 
+  // For multi-record upserts, strip unwritable fields
   const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
 
+  // Check if all fields were stripped
   const stripCheck = checkAllFieldsStripped({
     c,
     app,
@@ -316,6 +376,7 @@ export async function validateUpsertRequest(config: {
     return stripCheck
   }
 
+  // Check table-level permissions (create/update)
   const permissionCheck = await checkUpsertPermissionsWithUpdateCheck({
     app,
     tableName,
@@ -328,6 +389,7 @@ export async function validateUpsertRequest(config: {
     return { success: false as const, response: permissionCheck.response }
   }
 
+  // Validate required fields
   const requiredCheck = await checkRequiredFields(table, strippedRecords, c)
   if (!requiredCheck.success) {
     return { success: false as const, response: requiredCheck.response }

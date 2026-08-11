@@ -7,6 +7,9 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Legend position options.
+ */
 export const LegendPositionSchema = Schema.Literal(
   'top',
   'bottom',
@@ -18,8 +21,13 @@ export const LegendPositionSchema = Schema.Literal(
   description: 'Position of the chart legend',
 })
 
+/**
+ * Chart legend configuration.
+ */
 export const ChartLegendSchema = Schema.Struct({
+  /** Legend position relative to the chart */
   position: Schema.optional(LegendPositionSchema),
+  /** Whether the legend is visible */
   visible: Schema.optional(
     Schema.Boolean.annotations({ description: 'Show or hide the legend (default: true)' })
   ),
@@ -28,5 +36,7 @@ export const ChartLegendSchema = Schema.Struct({
   description: 'Legend display configuration',
 })
 
+/** @public */
 export type LegendPosition = Schema.Schema.Type<typeof LegendPositionSchema>
+/** @public */
 export type ChartLegend = Schema.Schema.Type<typeof ChartLegendSchema>

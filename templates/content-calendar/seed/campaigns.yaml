@@ -1,0 +1,44 @@
+# Sample campaigns.
+#
+# `key` is file-local — it exists so content.yaml can name a campaign before
+# either row has a database id. It is never written to a column.
+#
+# Three of the four campaigns are live right now (their window straddles
+# `{{today}}`) and one has already closed, so the grid shows both a running
+# programme and an archive rather than one uniform state.
+records:
+  - key: q-launch
+    fields:
+      name: Platform launch
+      start_date: '{{today-21d}}'
+      end_date: '{{today+35d}}'
+      goal: >-
+        Get the new workspace in front of teams already running the beta.
+        Success is fifty self-serve installs, not impressions.
+
+  - key: always-on
+    fields:
+      name: Always-on education
+      start_date: '{{today-90d}}'
+      end_date: '{{today+180d}}'
+      goal: >-
+        One useful thing a week, forever. No campaign end date because there
+        isn't one — consistency is the whole strategy.
+
+  - key: conference-push
+    fields:
+      name: Conference push
+      start_date: '{{today-7d}}'
+      end_date: '{{today+48d}}'
+      goal: >-
+        Fill the annual conference. Everything published in this window ends
+        with the same registration link.
+
+  - key: winter-retro
+    fields:
+      name: Winter retrospective
+      start_date: '{{today-120d}}'
+      end_date: '{{today-30d}}'
+      goal: >-
+        Closed. Kept for the numbers — the year-in-review post outperformed
+        everything else we shipped and nobody can agree on why.

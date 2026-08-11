@@ -1,0 +1,75 @@
+# Sample pipeline. Stages are spread across the kanban board on purpose — a
+# demo where every card sits in one column shows nothing about the board.
+#
+# Close dates are relative, so the pipeline always straddles "this month" and
+# the calendar view is never empty.
+records:
+  - key: northwind-renewal
+    fields:
+      name: Northwind — annual renewal
+      company: '@companies.northwind'
+      stage: Negotiation
+      value: 84000
+      probability: 75
+      close_date: '{{today+12d}}'
+      priority: 3
+
+  - key: northwind-warehouse
+    fields:
+      name: Northwind — multi-warehouse rollout
+      company: '@companies.northwind'
+      stage: Qualified
+      value: 156000
+      probability: 40
+      close_date: '{{today+68d}}'
+      priority: 3
+
+  - key: helios-clinical
+    fields:
+      name: Helios — clinical systems pilot
+      company: '@companies.helios'
+      stage: Proposal
+      value: 240000
+      probability: 55
+      close_date: '{{today+34d}}'
+      priority: 3
+
+  - key: lumen-migration
+    fields:
+      name: Lumen — spreadsheet migration
+      company: '@companies.lumen'
+      stage: Won
+      value: 29000
+      probability: 100
+      close_date: '{{today-9d}}'
+      priority: 2
+
+  - key: lumen-expansion
+    fields:
+      name: Lumen — team expansion
+      company: '@companies.lumen'
+      stage: Prospect
+      value: 18000
+      probability: 20
+      close_date: '{{today+90d}}'
+      priority: 1
+
+  - key: cardinal-security
+    fields:
+      name: Cardinal — security review blocker
+      company: '@companies.cardinal'
+      stage: Qualified
+      value: 112000
+      probability: 35
+      close_date: '{{today+45d}}'
+      priority: 2
+
+  - key: pinewood-winback
+    fields:
+      name: Pinewood — win-back
+      company: '@companies.pinewood'
+      stage: Lost
+      value: 9500
+      probability: 0
+      close_date: '{{today-52d}}'
+      priority: 1

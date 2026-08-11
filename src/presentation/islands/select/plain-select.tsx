@@ -18,6 +18,18 @@ import { ChevronDown } from './select-icons'
 import { SelectOption } from './select-option-renderers'
 import type { SelectIslandProps } from './select-island-types'
 
+/**
+ * Non-searchable select rendered with Base UI Select primitives.
+ *
+ * Passing `items` to Select.Root lets `<Select.Value>` render the selected
+ * option's label automatically when only the value is known.
+ *
+ * Identity props (`id`, `data-testid`) are intentionally NOT applied to this
+ * inner wrapper. The SSR island marker rendered by `island-form-components.tsx`
+ * already carries them on the outer `<div data-island="select">`, which
+ * survives hydration as the React mount root. Re-emitting them here would
+ * produce duplicate DOM attributes and break Playwright strict-mode locators.
+ */
 export function PlainSelect({
   options,
   placeholder,
@@ -55,7 +67,13 @@ export function PlainSelect({
 
         <Select.Portal>
           <Select.Positioner sideOffset={4}>
-            {}
+            {/*
+              Base UI assigns `role="listbox"` to `Select.List` when present and
+              demotes `Select.Popup` to `role="presentation"`. The styled overlay
+              surface therefore lives on `Select.List` so the element carrying the
+              listbox role is the real, non-transparent themed paint. The Popup is
+              the bare positioning wrapper.
+            */}
             <Select.Popup>
               <Select.List className={computeSelectListClasses()}>
                 {options?.map((option) => (

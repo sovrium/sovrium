@@ -5,10 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Inline-SVG glyph set for the Native Admin Dashboard sidebar
+ *. Lucide-derived, 16px, stroke 1.5 — the design
+ * system forbids emoji / unicode-as-icon, so every family row carries a real
+ * inline SVG (no icon font, no raster). One `<path d>` per family icon keeps
+ * the bundle a single small lookup; the SVG inherits `currentColor`.
+ */
 
 import { type ReactElement } from 'react'
 import type { FamilyIcon } from './admin-sidebar-families'
 
+/** Path data per family glyph (24×24 viewBox, Lucide geometry). */
 const ICON_PATHS: Readonly<Record<FamilyIcon, string>> = {
   table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18',
   page: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h6',
@@ -36,6 +44,7 @@ const ICON_PATHS: Readonly<Record<FamilyIcon, string>> = {
   ai: 'M8 10h.01M12 10h.01M16 10h.01M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
 }
 
+/** A 16px family glyph that inherits `currentColor` (decorative — `aria-hidden`). */
 export function FamilyGlyph({ icon }: { readonly icon: FamilyIcon }): ReactElement {
   return (
     <svg

@@ -5,6 +5,29 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Provider-aware resolution of the agent-chat backend (`{ baseUrl, apiKey }`)
+ * from the environment — the SINGLE source of truth shared by BOTH chat
+ * handlers (`POST /api/agents/:name/chat` in `ai-mcp-status.ts` and the
+ * agent-bound `/api/ai/chat` turn in `agents/agent-chat.ts`), so the two never
+ * drift on how they read provider config.
+ *
+ * The key behaviour ([internal ref] — Ollama out-of-the-box): a local Ollama needs NO
+ * API key and serves the OpenAI-compatible chat API under `/v1`, so:
+ *
+ *  - `AI_PROVIDER` unset ⇒ default to `ollama` (frugal/local-first, matching the
+ *    boot-time provider precedence).
+ *  - An API key is required ONLY for key-based providers
+ *    ({@link providerRequiresApiKey}); for `ollama` an absent `AI_API_KEY` is no
+ *    longer an error.
+ *  - The base URL resolves via {@link resolveBaseUrl} (honours the generic
+ *    `AI_BASE_URL` AND the `OLLAMA_BASE_URL` alias), falling back to the local
+ *    Ollama daemon's OpenAI-compatible endpoint for `ollama`.
+ *
+ * Returns a friendly `{ error }` only when a genuinely-required value is absent
+ * (an unrecognised provider, an unresolvable base URL, or a missing key for a
+ * key-based provider).
+ */
 
 import {
   providerDisplayName,
@@ -15,12 +38,21 @@ import {
   type SupportedAiProvider,
 } from '@/domain/models/env/ai/ai-providers'
 
+/**
+ * The default Ollama endpoint used when no base URL is configured. The `/v1`
+ * suffix is load-bearing: the provider call appends `/chat/completions`, and
+ * Ollama serves the OpenAI-compatible chat API under `/v1` (a bare
+ * `:11434/chat/completions` 404s). An operator pointing `OLLAMA_BASE_URL` at a
+ * remote daemon must likewise include the `/v1` segment.
+ */
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434/v1'
 
+/** The resolved chat backend, or a friendly operator-facing error string. */
 export type AgentChatBackend =
   | { readonly baseUrl: string; readonly apiKey: string; readonly provider: SupportedAiProvider }
   | { readonly error: string }
 
+/** Resolve the canonical provider, defaulting to `ollama` when unset. */
 const resolveProvider = (
   rawProvider: string | undefined
 ): SupportedAiProvider | { error: string } => {
@@ -34,6 +66,10 @@ const resolveProvider = (
   return provider
 }
 
+/**
+ * Resolve the agent-chat backend from `env`. See the module doc for the
+ * provider-aware rules. Pure: reads only the passed env snapshot.
+ */
 export const resolveAgentChatBackend = (env: NodeJS.ProcessEnv): AgentChatBackend => {
   const provider = resolveProvider(env.AI_PROVIDER?.trim())
   if (typeof provider === 'object') return provider
@@ -46,6 +82,8 @@ export const resolveAgentChatBackend = (env: NodeJS.ProcessEnv): AgentChatBacken
     }
   }
 
+  // Ollama needs no API key; key-based providers do. An empty string for keyless
+  // providers sends `Authorization: Bearer ` which a local daemon ignores.
   const apiKey = providerRequiresApiKey(provider) ? resolveApiKey(provider, env) : ''
   if (apiKey === undefined) {
     return {

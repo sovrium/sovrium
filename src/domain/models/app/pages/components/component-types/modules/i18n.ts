@@ -8,6 +8,9 @@
 import { Schema } from 'effect'
 import { ComponentI18nSchema } from '../../i18n'
 
+/**
+ * i18n fields for components with user-facing translatable text.
+ */
 export const i18nFields = {
   i18n: Schema.optional(ComponentI18nSchema),
 } as const

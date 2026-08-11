@@ -5,6 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Barrel — Personal Saved Views use-case programs.
+ *
+ * Phase 9 Cycle 5 — each program returns an
+ * `Effect.Effect<Result, TaggedError, UserViewRepository>` that the
+ * presentation layer consumes through `Effect.runPromise` with the
+ * `UserViewRepositoryLive` Layer provided at the composition boundary.
+ *
+ * The wire-response type + tagged errors are re-exported from the
+ * `UserViewRepository` port so the route layer's existing imports stay
+ * stable; `UserViewForbiddenError` is an application-orchestration concern
+ * and lives with `getSharedView`.
+ */
 
 export { createUserView } from './create-view'
 export { deleteUserView, type DeleteUserViewInput } from './delete-view'

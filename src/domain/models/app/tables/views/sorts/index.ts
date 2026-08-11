@@ -7,6 +7,17 @@
 
 import { Schema } from 'effect'
 
+/**
+ * View Sort Schema
+ *
+ * Sort configuration for a single field.
+ *
+ * @example
+ * ```typescript
+ * { field: 'createdAt', direction: 'desc' }
+ * { field: 'name', direction: 'asc' }
+ * ```
+ */
 export const ViewSortSchema = Schema.Struct({
   field: Schema.String,
   direction: Schema.Literal('asc', 'desc'),
@@ -17,4 +28,5 @@ export const ViewSortSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type ViewSort = Schema.Schema.Type<typeof ViewSortSchema>

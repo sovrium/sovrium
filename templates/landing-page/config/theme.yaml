@@ -1,48 +1,88 @@
+# Landing page theming — a warm amber/terracotta identity, deliberately unlike
+# the CRM's indigo and the docs site's violet, so the demo gallery shows three
+# recognisably different products rather than three tints of the same one.
+#
+# TWO THINGS THIS FILE USED TO GET WRONG
+#
+# 1. Most of the palette was inert. `theme.colors` accepts any kebab-case key,
+#    but only the keys in `COLOR_TO_SV_TOKEN`
+#    (src/infrastructure/css/theme/theme-generators.ts) emit the `--sv-*`
+#    platform tokens that every prestyled island already consumes. Everything
+#    else emits `--color-*` only and does nothing until something cites it — and
+#    of the twenty-four colours declared here, exactly two were ever cited.
+#    `gray-100` through `gray-900`, `primary-light`, `secondary-light`,
+#    `text-secondary` and `text-muted` painted nothing at all.
+#
+#    So the semantic ones now use their role-key names: `text` → `foreground`,
+#    `text-secondary` → `foreground-muted`, `text-muted` → `foreground-subtle`,
+#    `background-alt` → `background-subtle`. Same intent, except now it renders.
+#
+# 2. It asked for a typeface that does not ship. `family: Inter` emitted
+#    `font-family: Inter, system-ui, …` with no matching `@font-face` anywhere —
+#    verified in the browser: `document.fonts` carries only IBM Plex Sans
+#    Variable and JetBrains Mono Variable. No CDN request was made, so this was
+#    never the privacy leak it looked like; it was worse in a quieter way. By
+#    naming Inter first and omitting IBM Plex entirely, the declaration pushed
+#    the page onto the operating system's default face and locked the shipped,
+#    self-hosted typeface out of its own stack. The metrics below are real design
+#    decisions and are kept; only the family is corrected.
 colors:
-  primary: '#3b82f6'
-  primary-hover: '#2563eb'
-  primary-light: '#dbeafe'
+  primary: '#c2410c'
+  primary-hover: '#9a3412'
+  primary-subtle: '#ffedd5'
+  ring: '#ea580c'
+  background: '#fffbf7'
+  background-subtle: '#fef3e8'
+  foreground: '#1c1310'
+  foreground-muted: '#57433c'
+  foreground-subtle: '#8a7268'
+  border: '#f0ddd0'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+  # Cited directly by the home page, so it stays a plain `--color-*` key.
   secondary: '#7c3aed'
-  secondary-light: '#ede9fe'
-  background: '#ffffff'
-  background-alt: '#f8fafc'
-  text: '#0f172a'
-  text-secondary: '#475569'
-  text-muted: '#64748b'
-  border: '#e2e8f0'
-  gray-50: '#f8fafc'
-  gray-100: '#f1f5f9'
-  gray-200: '#e2e8f0'
-  gray-300: '#cbd5e1'
-  gray-400: '#94a3b8'
-  gray-500: '#64748b'
-  gray-600: '#475569'
-  gray-700: '#334155'
-  gray-800: '#1e293b'
-  gray-900: '#111827'
-  success: '#10b981'
-  warning: '#f59e0b'
-  error: '#ef4444'
+  gray-50: '#faf7f5'
+
+darkColors:
+  primary: '#fb923c'
+  primary-hover: '#fdba74'
+  primary-subtle: '#431407'
+  ring: '#fb923c'
+  background: '#140f0c'
+  background-subtle: '#1f1713'
+  foreground: '#f5ede8'
+  foreground-muted: '#c9b5aa'
+  foreground-subtle: '#9a8377'
+  border: '#31241d'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
+  secondary: '#a78bfa'
+  gray-50: '#1f1713'
+
 fonts:
   sans:
-    family: Inter
-    fallback: system-ui, -apple-system, sans-serif
+    family: IBM Plex Sans Variable
+    fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
     weights: [400, 500, 600, 700]
     size: 16px
     lineHeight: '1.6'
   heading:
-    family: Inter
-    fallback: system-ui, -apple-system, sans-serif
+    family: IBM Plex Sans Variable
+    fallback: "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
     weights: [600, 700, 800]
     size: 48px
     lineHeight: '1.1'
     letterSpacing: '-0.02em'
+
 borderRadius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
   xl: 1rem
   full: 9999px
+
 shadows:
   sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)
   md: 0 4px 6px -1px rgb(0 0 0 / 0.1)

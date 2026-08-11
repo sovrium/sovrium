@@ -7,6 +7,18 @@
 
 import { Schema } from 'effect'
 
+/**
+ * View Group By Schema
+ *
+ * Grouping configuration for the view. Specifies which field to group records by.
+ *
+ * @example
+ * ```typescript
+ * { field: 'status' }
+ * { field: 'category', direction: 'asc' }
+ * { field: 'priority', direction: 'desc' }
+ * ```
+ */
 export const ViewGroupBySchema = Schema.Struct({
   field: Schema.String,
   direction: Schema.optional(Schema.Literal('asc', 'desc')),
@@ -17,4 +29,5 @@ export const ViewGroupBySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type ViewGroupBy = Schema.Schema.Type<typeof ViewGroupBySchema>

@@ -7,6 +7,14 @@
 
 import { useEffect, type RefObject } from 'react'
 
+/**
+ * Mirror `min` / `max` onto explicit `aria-valuemin` / `aria-valuemax`
+ * attributes on the underlying `<input type="range">` (which is the
+ * `role="slider"` host). Base UI relies on native min/max for the semantic
+ * value range but does NOT echo them as the ARIA attribute literals —
+ * Playwright specs that check `toHaveAttribute('aria-valuemin', ...)`
+ * need the explicit attribute.
+ */
 export function useSliderAriaSync(
   inputRef: RefObject<HTMLInputElement | null>,
   min: number,

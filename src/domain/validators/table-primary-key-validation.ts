@@ -8,6 +8,13 @@
 import { findDuplicate } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 import { SPECIAL_FIELDS } from './table-formula-validation'
 
+/**
+ * Validate primary key configuration (field references, duplicates).
+ *
+ * @param primaryKey - Primary key configuration to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 export const validatePrimaryKey = (
   primaryKey: { readonly type: string; readonly fields?: ReadonlyArray<string> } | undefined,
   fieldNames: ReadonlySet<string>
@@ -16,6 +23,7 @@ export const validatePrimaryKey = (
     return undefined
   }
 
+  // Check for duplicate field references
   const duplicateField = findDuplicate(primaryKey.fields)
 
   if (duplicateField) {
@@ -25,6 +33,7 @@ export const validatePrimaryKey = (
     }
   }
 
+  // Check for non-existent field references (allow special fields)
   const invalidField = primaryKey.fields.find(
     (field) => !fieldNames.has(field) && !SPECIAL_FIELDS.has(field)
   )

@@ -20,6 +20,11 @@ interface BuildRecordsResult {
   readonly errorRows: readonly { line: string; reason: string }[]
 }
 
+/**
+ * Apply the column mappings to each data line in the CSV body, partitioning
+ * the result into rows that satisfy the required-field constraints
+ * (`validRecords`) and rows that don't (`errorRows`).
+ */
 export function buildRecordsFromCsv(params: BuildRecordsFromCsvParams): BuildRecordsResult {
   const { rawContent, editableMappings, fieldMeta } = params
 
@@ -61,6 +66,7 @@ export function buildRecordsFromCsv(params: BuildRecordsFromCsvParams): BuildRec
   )
 }
 
+/** Build the CSV blob URL for an error report (one row per failed line). */
 export function buildErrorReportUrl(
   errorRows: readonly { line: string; reason: string }[]
 ): string | undefined {
@@ -74,6 +80,12 @@ export function buildErrorReportUrl(
   return URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
 }
 
+/**
+ * Issue the upsert call for the overwrite strategy.
+ *
+ * Returns `{ created, updated }` from the response, or zeros if no records
+ * needed to be sent or the call failed.
+ */
 async function upsertRecords(
   tableName: string,
   validRecords: readonly ValidImportRecord[],
@@ -89,6 +101,7 @@ async function upsertRecords(
   return (await upsertRes.json()) as { created: number; updated: number }
 }
 
+/** Issue the batch-create call for the create/skip strategies. */
 async function batchCreateRecords(
   tableName: string,
   recordsToCreate: readonly ValidImportRecord[]
@@ -110,6 +123,14 @@ interface RunImportParams {
   readonly uniqueField: string | undefined
 }
 
+/**
+ * Execute the configured duplicate strategy against the records API and
+ * return the combined `ImportResult` (created/updated/skipped/failed +
+ * optional error-report URL).
+ *
+ * `overwrite` uses the upsert API; `skip` partitions client-side then POSTs
+ * the surviving rows; `create` always POSTs everything.
+ */
 export async function runImport(params: RunImportParams): Promise<ImportResult> {
   const { tableName, validRecords, errorRows, duplicateStrategy, uniqueField } = params
 
@@ -120,6 +141,11 @@ export async function runImport(params: RunImportParams): Promise<ImportResult> 
     return { created, updated, skipped: 0, failed: errorRows.length, errorReportUrl }
   }
 
+  // Skip-duplicates is implemented client-side: fetch existing records once,
+  // filter the CSV against the chosen unique field, then only POST the new
+  // rows. v1 design — fine for the table sizes Sovrium currently supports.
+  // A server-side variant should land before this hits production-scale
+  // imports, since one fetch of all records won't scale.
   const { keep: recordsToCreate, skipped } =
     duplicateStrategy === 'skip' && uniqueField !== undefined
       ? await partitionDuplicatesForSkip({ tableName, uniqueField, validRecords })

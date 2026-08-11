@@ -8,10 +8,19 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Error for search operations
+ */
 export class SearchError extends Data.TaggedError('SearchError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Search Service Port
+ *
+ * Provides full-text search, indexing, and reindexing capabilities.
+ * Implementation lives in infrastructure layer.
+ */
 export class SearchService extends Context.Tag('SearchService')<
   SearchService,
   {

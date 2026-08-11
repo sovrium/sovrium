@@ -10,11 +10,18 @@ import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 import { DestinationPropSchema } from './shared'
 
+/**
+ * File Compress Action (type: file, operator: compress)
+ *
+ * Create a ZIP archive from one or more storage files.
+ * The archive is available as the step output for subsequent actions.
+ */
 export const FileCompressActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('compress'),
   props: Schema.Struct({
+    /** Array of storage keys to compress into the archive */
     keys: Schema.optional(
       Schema.Array(TemplateStringSchema).pipe(
         Schema.annotations({
@@ -23,6 +30,7 @@ export const FileCompressActionSchema = Schema.Struct({
       )
     ),
 
+    /** Template resolving to array of storage keys to compress (alias of `keys`) */
     files: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -31,6 +39,7 @@ export const FileCompressActionSchema = Schema.Struct({
       )
     ),
 
+    /** Output archive filename */
     filename: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -39,6 +48,7 @@ export const FileCompressActionSchema = Schema.Struct({
       )
     ),
 
+    /** Storage destination for the archive */
     destination: DestinationPropSchema,
   }).pipe(
     Schema.filter((props) => (props.keys ?? props.files) !== undefined, {
@@ -53,4 +63,5 @@ export const FileCompressActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileCompressAction = Schema.Schema.Type<typeof FileCompressActionSchema>

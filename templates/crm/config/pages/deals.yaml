@@ -141,13 +141,18 @@ components:
           - field: value
             function: sum
             label: Pipeline Value
+        # No `viewSwitcher` here, deliberately: this page already leads with a
+        # standalone `kanban` grouped by `stage`, so a switcher kanban would put
+        # two pipeline boards on one page. `viewSwitcher: true` without a `views`
+        # list renders a one-button "Grid" switcher that does nothing, so the
+        # honest choice on this page is to omit it. The saved-views menu
+        # (`views: true`) is a different feature and stays.
         toolbar:
           search: true
           filters: true
           sort: true
           groupBy: true
           views: true
-          viewSwitcher: true
         pagination:
           pageSize: 25
         emptyMessage: No deals yet.

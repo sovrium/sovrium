@@ -39,12 +39,26 @@ const automationDefinitions = resolveDialectSchema(
 const automationRuns = resolveDialectSchema(automationRunsPg, automationRunsSqlite)
 const automationRunSteps = resolveDialectSchema(automationRunStepsPg, automationRunStepsSqlite)
 
+/** Wrap a DB promise, adapting failures to AutomationRunDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationRunDatabaseError({ cause }))
 
+/**
+ * Convert nullable Date to ISO 8601 string (or null) for the API contract.
+ *
+ * The `PersistedRun.startedAt` (and related) fields are intentionally
+ * `string | null` because the public Run schema (Zod runSchema) uses
+ * `.nullable()` for these timestamps — they are never `undefined`, only
+ * present-or-null.
+ */
 const toIso = (
   value: Readonly<Date> | null | undefined
+  // eslint-disable-next-line unicorn/no-null -- API contract uses null for missing timestamps
 ): string | null => (value instanceof Date ? value.toISOString() : null)
 
+/**
+ * Map a raw Drizzle row to the public `PersistedRun` shape, joining the
+ * definition name. Pre-joined inputs avoid N+1 lookups.
+ */
 const toRun = (
   runRow: Readonly<typeof automationRuns.$inferSelect>,
   definitionName: string
@@ -74,6 +88,11 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
   error: row.error,
 })
 
+/**
+ * Build the optional-column overlay for a run insert. Pulled out so the
+ * `create` callback stays under the complexity threshold — every conditional
+ * spread on the literal counted toward `create`'s cyclomatic complexity.
+ */
 const runInsertOptionals = (input: Readonly<CreateRunInput>) => ({
   ...(input.triggerData !== undefined ? { triggerData: input.triggerData as object } : {}),
   ...(input.triggeredByUserId !== undefined ? { triggeredByUserId: input.triggeredByUserId } : {}),
@@ -97,6 +116,10 @@ const stepValues = (runId: string, steps: readonly CreateStepInput[]) =>
     ...(step.error !== undefined ? { error: step.error } : {}),
   }))
 
+/**
+ * Build the SQL filter list for {@link listAllRuns}. Spreads optional
+ * conditions immutably so the result is a frozen ReadonlyArray<SQL>.
+ */
 const buildListFilters = (options: ListRunsOptions): ReadonlyArray<SQL> => {
   const nameFilter: ReadonlyArray<SQL> =
     options.automationName !== undefined
@@ -107,6 +130,10 @@ const buildListFilters = (options: ListRunsOptions): ReadonlyArray<SQL> => {
   return [...nameFilter, ...statusFilter]
 }
 
+/**
+ * Resolve `(page, pageSize)` defaults from raw options. Returns `pageSize`
+ * undefined when the caller didn't ask to paginate.
+ */
 const resolvePaging = (
   options: ListRunsOptions
 ): { readonly page: number; readonly pageSize: number | undefined } => {
@@ -116,12 +143,17 @@ const resolvePaging = (
   return { page, pageSize }
 }
 
+/**
+ * Drizzle implementation for {@link AutomationRunRepository.listAll}. Pulled
+ * out of the `wrap()` callback so the latter stays under the complexity cap.
+ */
 const listAllRuns = async (
   options: ListRunsOptions
 ): Promise<{ readonly runs: ReadonlyArray<PersistedRun>; readonly total: number }> => {
   const filters = buildListFilters(options)
   const whereClause = filters.length === 0 ? undefined : and(...filters)
 
+  // Count first (matching the filters), then page.
   const countQuery = db
     .select({ value: castToInt(sql`COUNT(*)`) })
     .from(automationRuns)
@@ -150,6 +182,15 @@ const listAllRuns = async (
   }
 }
 
+/**
+ * Automation Run Repository Implementation (Drizzle).
+ *
+ * Backs `system.automation_runs` and `system.automation_run_steps` — the
+ * execution-history tables read by the Runs API. The engine calls
+ * `create()` after a run completes; readers (`listByAutomationName`,
+ * `findById`, `findStepsByRunId`) JOIN definitions by `automation_id` so
+ * callers can filter by user-facing name.
+ */
 export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository, {
   findById: (id) =>
     wrap(async () => {
@@ -203,14 +244,18 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         })
         .returning()
       if (!runRow) {
+        // eslint-disable-next-line functional/no-throw-statements -- the wrap() catch adapter requires a throw to map to AutomationRunDatabaseError
         throw new Error('Failed to insert automation_run row')
       }
 
       const steps = input.steps ?? []
       if (steps.length > 0) {
+        // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationRunSteps).values(stepValues(runRow.id, steps))
       }
 
+      // Look up the definition name so the returned shape includes it.
+      // The same query path the readers use, no caching needed at this layer.
       const defRows = await db
         .select({ name: automationDefinitions.name })
         .from(automationDefinitions)
@@ -223,6 +268,9 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
 
   updateStatus: (input) =>
     wrap(async () => {
+      // Plain UPDATE; no CHECK constraint on the status column (status
+      // is `text`) so 'cancelled' is accepted alongside the engine-set
+      // values ('completed', 'failed', 'timed-out', etc.).
       const [updated] = await db
         .update(automationRuns)
         .set({ status: input.status })
@@ -239,6 +287,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
 
   finaliseRun: (input) =>
     wrap(async () => {
+      // Update terminal status + timings on the existing run row.
       const updateSet: Record<string, unknown> = {
         status: input.status,
         ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
@@ -252,8 +301,12 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         .returning()
       if (!updated) return undefined
 
+      // Append step rows (if any). The scheduler-driven path inserts steps
+      // only at finalisation time so the per-step durations / outputs land
+      // atomically with the terminal status.
       const steps = input.steps ?? []
       if (steps.length > 0) {
+        // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationRunSteps).values(stepValues(updated.id, steps))
       }
 

@@ -9,6 +9,9 @@ import { applyResponsiveOverrides, buildResponsiveClasses } from './responsive-r
 import type { Responsive, VariantOverrides } from '@/domain/models/app/pages/components/responsive'
 import type { Breakpoint } from '@/presentation/hooks/use-breakpoint'
 
+/**
+ * Result of merging responsive props
+ */
 export interface MergedResponsiveProps {
   readonly mergedProps: Record<string, unknown> | undefined
   readonly mergedChildren: ReadonlyArray<unknown> | undefined
@@ -16,6 +19,9 @@ export interface MergedResponsiveProps {
   readonly visibilityClasses: string | undefined
 }
 
+/**
+ * Configuration for merging responsive props
+ */
 export interface MergeResponsivePropsConfig {
   readonly responsive: Responsive | undefined
   readonly componentProps: Record<string, unknown> | undefined
@@ -24,6 +30,9 @@ export interface MergeResponsivePropsConfig {
   readonly currentBreakpoint: Breakpoint
 }
 
+/**
+ * Remove className from props object
+ */
 function removeClassNameFromProps(
   props: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
@@ -34,6 +43,9 @@ function removeClassNameFromProps(
     .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
 }
 
+/**
+ * Check if responsive config has content overrides
+ */
 function hasContentOverrides(responsive: Responsive | undefined): boolean {
   return responsive
     ? Object.values(responsive).some(
@@ -42,6 +54,9 @@ function hasContentOverrides(responsive: Responsive | undefined): boolean {
     : false
 }
 
+/**
+ * Check if responsive config has children overrides
+ */
 function hasChildrenOverrides(responsive: Responsive | undefined): boolean {
   return responsive
     ? Object.values(responsive).some(
@@ -50,6 +65,9 @@ function hasChildrenOverrides(responsive: Responsive | undefined): boolean {
     : false
 }
 
+/**
+ * Build visibility classes from responsive configuration
+ */
 function buildVisibilityClasses(responsive: Responsive | undefined): string | undefined {
   if (!responsive) return undefined
 
@@ -59,14 +77,17 @@ function buildVisibilityClasses(responsive: Responsive | undefined): string | un
       return { ...acc, [bp]: overrides.visible! }
     }, {})
 
+  // For mobile:false + lg:true pattern, use max-lg:hidden
   if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
     return 'max-lg:hidden'
   }
 
+  // For mobile:true + lg:false pattern, use lg:hidden
   if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
     return 'lg:hidden'
   }
 
+  // Default fallback: build individual responsive classes
   return Object.entries(visibilityConfig)
     .map(([bp, isVisible]) => {
       if (bp === 'mobile') {
@@ -78,8 +99,14 @@ function buildVisibilityClasses(responsive: Responsive | undefined): string | un
     .join(' ')
 }
 
+/**
+ * Merges responsive overrides with component props (config object signature)
+ */
 export function mergeResponsiveProps(config: MergeResponsivePropsConfig): MergedResponsiveProps
 
+/**
+ * Merges responsive overrides with component props (individual parameters signature)
+ */
 export function mergeResponsiveProps(
   responsive: Responsive | undefined,
   componentProps: Record<string, unknown> | undefined,
@@ -88,6 +115,9 @@ export function mergeResponsiveProps(
   currentBreakpoint: Breakpoint
 ): MergedResponsiveProps
 
+/**
+ * Implementation
+ */
 export function mergeResponsiveProps(
   configOrResponsive: MergeResponsivePropsConfig | Responsive | undefined,
   componentProps?: Record<string, unknown>,
@@ -95,6 +125,7 @@ export function mergeResponsiveProps(
   content?: string | Record<string, unknown>,
   currentBreakpoint?: Breakpoint
 ): MergedResponsiveProps {
+  // Support both config object and individual parameters
   const config: MergeResponsivePropsConfig =
     configOrResponsive &&
     typeof configOrResponsive === 'object' &&
@@ -116,11 +147,15 @@ export function mergeResponsiveProps(
     currentBreakpoint: breakpoint,
   } = config
 
+  // Apply responsive overrides for current breakpoint (used for SSR initial render)
   const responsiveOverrides = applyResponsiveOverrides(responsive, breakpoint)
 
+  // Build CSS-based responsive classes (works without JavaScript via Tailwind media queries)
   const baseClassName = props?.className as string | undefined
   const responsiveClassName = buildResponsiveClasses(responsive, baseClassName)
 
+  // Merge responsive overrides with base component values
+  // For className, use CSS-based responsive classes instead of JS-based overrides
   const mergedPropsWithoutClassName = removeClassNameFromProps(
     responsiveOverrides?.props ? { ...props, ...responsiveOverrides.props } : props
   )
@@ -132,6 +167,9 @@ export function mergeResponsiveProps(
   const mergedChildren = responsiveOverrides?.children ?? childrenProp
   const mergedContent = responsiveOverrides?.content ?? contentProp
 
+  // Build CSS classes for responsive visibility using Tailwind breakpoint utilities
+  // This works without JavaScript by using CSS media queries
+  // Skip visibility classes when content/children overrides exist (handled by variant builders)
   const shouldBuildVisibility =
     responsive && !hasContentOverrides(responsive) && !hasChildrenOverrides(responsive)
 

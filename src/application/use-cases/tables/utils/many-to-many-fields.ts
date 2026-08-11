@@ -7,6 +7,14 @@
 
 import type { App } from '@/domain/models/app'
 
+/**
+ * [internal ref]: pure derivation of a table's native `many-to-many` relationship
+ * fields from the app schema. A many-to-many field has no base column — its
+ * value lives in an auto-generated junction table — so the record-create
+ * pipeline must split it from the base INSERT and the read pipeline must
+ * resolve it from the junction. This helper is the schema-level source of that
+ * information, kept pure so both the create and read programs share it.
+ */
 
 type SchemaField = {
   readonly name?: unknown
@@ -15,9 +23,15 @@ type SchemaField = {
   readonly relatedTable?: unknown
 }
 
+/** A many-to-many field on the source table, plus junction metadata. */
 export interface ManyToManyFieldSpec {
   readonly fieldName: string
   readonly relatedTable: string
+  /**
+   * Whether the related table declares a reciprocal many-to-many field back to
+   * the source table (so the mirror junction `<relatedTable>_<sourceTable>`
+   * exists and must also be written / can be read).
+   */
   readonly hasReciprocal: boolean
 }
 
@@ -34,6 +48,7 @@ const isManyToManyField = (
   typeof field.relatedTable === 'string' &&
   typeof field.name === 'string'
 
+/** Does `relatedTable` declare a many-to-many field pointing back at `sourceTable`? */
 const relatedTablePointsBack = (
   tables: App['tables'],
   relatedTable: string,
@@ -46,6 +61,9 @@ const relatedTablePointsBack = (
   )
 }
 
+/**
+ * The many-to-many field specs for a table (empty when the table has none).
+ */
 export const getManyToManyFieldSpecs = (
   tables: App['tables'],
   tableName: string

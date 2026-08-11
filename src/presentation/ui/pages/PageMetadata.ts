@@ -10,9 +10,10 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Metadata derived from page configuration
+ */
 export type PageMetadata = {
-  readonly lang: string
-  readonly direction: 'ltr' | 'rtl'
   readonly title: string
   readonly description: string
   readonly keywords?: string
@@ -29,6 +30,9 @@ export type PageMetadata = {
     | undefined
 }
 
+/**
+ * Build font-family string with fallback
+ */
 function buildFontFamily(family?: string, fallback?: string): string | undefined {
   if (!family) {
     return undefined
@@ -36,6 +40,9 @@ function buildFontFamily(family?: string, fallback?: string): string | undefined
   return fallback ? `${family}, ${fallback}` : family
 }
 
+/**
+ * Build body style object from theme fonts configuration
+ */
 function buildBodyStyle(theme: Theme | undefined): PageMetadata['bodyStyle'] {
   if (!theme?.fonts?.body) {
     return undefined
@@ -56,19 +63,16 @@ function buildBodyStyle(theme: Theme | undefined): PageMetadata['bodyStyle'] {
   }
 }
 
-function determineLanguage(
-  page: Page,
-  languages: Languages | undefined,
-  detectedLanguage: string | undefined
-): string {
-  return page.meta?.lang || detectedLanguage || languages?.default || 'en-US'
-}
-
-function determineDirection(languages: Languages | undefined, lang: string): 'ltr' | 'rtl' {
-  const langConfig = languages?.supported.find((l) => l.code === lang)
-  return langConfig?.direction || 'ltr'
-}
-
+/**
+ * Resolve a `$frontmatter.<key>` reference against the rendered markdown's
+ * frontmatter (a flat Record). When the value is not a `$frontmatter.*`
+ * reference, or the page has no markdown frontmatter, the input passes through
+ * unchanged so `$t:`/literal handling downstream is unaffected. A missing key
+ * resolves to an empty string (the reference is consumed, not leaked).
+ *
+ * Runs BEFORE `$t:` resolution so a frontmatter value that itself contains a
+ * `$t:` token still localises.
+ */
 function resolveFrontmatterPattern(
   value: string,
   frontmatter: Readonly<Record<string, string>> | undefined
@@ -79,16 +83,22 @@ function resolveFrontmatterPattern(
   return frontmatter?.[key] ?? ''
 }
 
+/**
+ * Determine page title with frontmatter + translation resolution
+ * Priority: meta.i18n[lang].title > meta.title ($frontmatter.* then $t:) > page.name > page.path
+ */
 function determineTitle(
   page: Page,
   lang: string,
   languages: Languages | undefined,
   frontmatter: Readonly<Record<string, string>> | undefined
 ): string {
+  // Check if page has i18n translations for this language
   if (page.meta?.i18n?.[lang]?.title) {
     return page.meta.i18n[lang].title
   }
 
+  // Fall back to base title with $frontmatter.* then $t: pattern resolution
   const rawTitle = resolveFrontmatterPattern(
     page.meta?.title || page.name || page.path,
     frontmatter
@@ -96,20 +106,30 @@ function determineTitle(
   return resolveTranslationPattern(rawTitle, lang, languages)
 }
 
+/**
+ * Determine page description with frontmatter + translation resolution
+ * Priority: meta.i18n[lang].description > meta.description ($frontmatter.* then $t:)
+ */
 function determineDescription(
   page: Page,
   lang: string,
   languages: Languages | undefined,
   frontmatter: Readonly<Record<string, string>> | undefined
 ): string {
+  // Check if page has i18n translations for this language
   if (page.meta?.i18n?.[lang]?.description) {
     return page.meta.i18n[lang].description
   }
 
+  // Fall back to base description with $frontmatter.* then $t: pattern resolution
   const rawDescription = resolveFrontmatterPattern(page.meta?.description || '', frontmatter)
   return resolveTranslationPattern(rawDescription, lang, languages)
 }
 
+/**
+ * Determine page keywords with frontmatter + translation resolution
+ * Resolves $frontmatter.* then $t: patterns in keywords
+ */
 function determineKeywords(
   page: Page,
   lang: string,
@@ -124,18 +144,31 @@ function determineKeywords(
   return resolveTranslationPattern(rawKeywords, lang, languages)
 }
 
+/**
+ * Extracts and computes metadata from page configuration.
+ *
+ * The active `lang` is supplied by the caller rather than re-derived here. This
+ * file used to carry its OWN copy of the locale precedence chain, independent of
+ * `resolvePageLanguage` — so a fix to one left the other stale and shipped a
+ * French page with an English `<title>`. There is now a
+ * single source of truth: `resolvePageLanguage`.
+ *
+ * @param page - Page configuration
+ * @param theme - Optional theme configuration
+ * @param languages - Optional languages configuration
+ * @param options - Active language + rendered-markdown frontmatter (`$frontmatter.*`)
+ * @returns Computed page metadata
+ */
 export function extractPageMetadata(
   page: Page,
   theme: Theme | undefined,
   languages: Languages | undefined,
-  options?: {
-    readonly detectedLanguage?: string
+  options: {
+    readonly lang: string
     readonly frontmatter?: Readonly<Record<string, string>>
   }
 ): Readonly<PageMetadata> {
-  const { detectedLanguage, frontmatter } = options ?? {}
-  const lang = determineLanguage(page, languages, detectedLanguage)
-  const direction = determineDirection(languages, lang)
+  const { lang, frontmatter } = options
   const title = determineTitle(page, lang, languages, frontmatter)
   const description = determineDescription(page, lang, languages, frontmatter)
   const keywords = determineKeywords(page, lang, languages, frontmatter)
@@ -143,8 +176,6 @@ export function extractPageMetadata(
   const bodyStyle = buildBodyStyle(theme)
 
   return {
-    lang,
-    direction,
     title,
     description,
     keywords,

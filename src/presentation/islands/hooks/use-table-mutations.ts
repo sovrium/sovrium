@@ -9,15 +9,24 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createRecordsClient } from '@/presentation/api/client'
 import type { CreateRecordRequest, UpdateRecordRequest } from '@/domain/models/api/tables/records'
 
+// ---------------------------------------------------------------------------
+// API client (singleton, matches use-data-table-query.ts pattern)
+// ---------------------------------------------------------------------------
 
 const apiClient = createRecordsClient(typeof window !== 'undefined' ? window.location.origin : '')
 
+// ---------------------------------------------------------------------------
+// Shared invalidation helper
+// ---------------------------------------------------------------------------
 
 function useInvalidateTableRecords(tableId: string) {
   const queryClient = useQueryClient()
   return () => queryClient.invalidateQueries({ queryKey: ['table-records', tableId] })
 }
 
+// ---------------------------------------------------------------------------
+// Create record mutation
+// ---------------------------------------------------------------------------
 
 export function useCreateRecord(tableId: string) {
   const invalidate = useInvalidateTableRecords(tableId)
@@ -32,6 +41,7 @@ export function useCreateRecord(tableId: string) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({ message: 'Failed to create record' }))
         const error = body as { message?: string; code?: string; field?: string }
+        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
         throw Object.assign(new Error(error.message ?? 'Failed to create record'), {
           code: error.code,
           field: error.field,
@@ -44,6 +54,9 @@ export function useCreateRecord(tableId: string) {
   })
 }
 
+// ---------------------------------------------------------------------------
+// Update record mutation
+// ---------------------------------------------------------------------------
 
 export function useUpdateRecord(tableId: string) {
   const invalidate = useInvalidateTableRecords(tableId)
@@ -61,6 +74,7 @@ export function useUpdateRecord(tableId: string) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({ message: 'Failed to update record' }))
         const error = body as { message?: string; code?: string; field?: string }
+        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
         throw Object.assign(new Error(error.message ?? 'Failed to update record'), {
           code: error.code,
           field: error.field,
@@ -73,6 +87,9 @@ export function useUpdateRecord(tableId: string) {
   })
 }
 
+// ---------------------------------------------------------------------------
+// Delete record mutation
+// ---------------------------------------------------------------------------
 
 export function useDeleteRecord(tableId: string) {
   const invalidate = useInvalidateTableRecords(tableId)
@@ -86,9 +103,11 @@ export function useDeleteRecord(tableId: string) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({ message: 'Failed to delete record' }))
         const error = body as { message?: string }
+        // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
         throw new Error(error.message ?? 'Failed to delete record')
       }
 
+      // DELETE returns 204 No Content — don't parse body
       return { success: true }
     },
     onSuccess: invalidate,

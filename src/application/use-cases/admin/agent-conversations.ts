@@ -5,6 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Use cases for the **Agents Conversations** admin read endpoint family
+ * (`GET /api/admin/agents/:name/conversations` + `.../:id`).
+ *
+ * The application layer owns ALL pure logic:
+ *   - the opaque cursor encode/decode pair (base64 of `{ value, id }`, where
+ *     `value` is the last row's `updatedAt` ISO — the `(updatedAt, id)` tuple the
+ *     newest-first scan + cursor seek on),
+ *   - conversation list-item + transcript-message building (dialect-native
+ *     `updatedAt` / `createdAt` → ISO 8601 coercion),
+ *   - deriving `hasMore` / `nextCursor` from the `limit + 1` fetch,
+ *   - the agent-ownership 404 (the detail use case maps a `getConversation`
+ *     miss to `NotFound`),
+ *   - assembling + response-schema-validating both bodies.
+ *
+ * Only the raw `ai_conversations` / `ai_messages` reads live in the
+ * infrastructure repository, accessed via {@link AdminAgentConversationsRepository}.
+ * The audit emits (`agent.conversation.{list|detail}.queried`) stay in the route
+ * after a successful read.
+ */
 
 import { Effect, Layer } from 'effect'
 import {
@@ -22,14 +42,23 @@ import {
 } from '@/domain/models/api/admin/agents/conversations'
 import { AdminAgentConversationsRepositoryLive } from '@/infrastructure/database/repositories/agents/admin-agent-conversations-repository-live'
 
+/* eslint-disable unicorn/no-null -- API envelope canonically uses `null` for an absent `nextCursor` and for nullable transcript fields (model/tokenCount/toolCalls/title/sessionId), matching the Zod response contract */
 
+// ─── Pure coercion helpers ───────────────────────────────────────────────────
 
+/** Coerce a dialect-native timestamp to an ISO 8601 string. */
 function toIso(raw: Readonly<Date> | string): string {
   return raw instanceof Date ? raw.toISOString() : new Date(raw).toISOString()
 }
 
+/**
+ * Build a canonical conversation list item from a raw row. Pure — the row is
+ * supplied by the caller (sourced via the repository). Omits `userId`,
+ * `agentId`, and `metadata` by construction (the row never carried them — S4).
+ */
 function buildConversationItem(
   row: AdminAgentConversationRow
+  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
 ): AgentConversationListItem {
   return {
     id: row.id,
@@ -41,8 +70,13 @@ function buildConversationItem(
   }
 }
 
+/**
+ * Build the conversation header echoed in the detail response — a subset of the
+ * list item (no `messageCount`).
+ */
 function buildConversationHeader(
   row: AdminAgentConversationRow
+  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable)
 ): AgentConversationHeader {
   return {
     id: row.id,
@@ -53,8 +87,15 @@ function buildConversationHeader(
   }
 }
 
+/**
+ * Build a canonical transcript message from a raw row. The role + status come
+ * from the store verbatim (validated by the response schema's closed enums);
+ * `model` / `tokenCount` / `toolCalls` are nullable. Omits `conversationId` by
+ * construction (it is the request path segment — never a response field).
+ */
 function buildMessage(
   row: AdminAgentMessageRow
+  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable)
 ): AgentConversationMessage {
   return {
     id: row.id,
@@ -68,11 +109,21 @@ function buildMessage(
   }
 }
 
+// ─── Conversation-list cursor (opaque base64 of `{ value, id }`) ─────────────
 
+/**
+ * Encode a conversation-list cursor — opaque base64 of `{ value, id }`. `value`
+ * is the last row's `updatedAt` ISO (the `lastActivityAt` the scan orders on);
+ * `id` is the row id tie-breaker.
+ */
 export function encodeConversationsCursor(value: string, id: string): string {
   return Buffer.from(JSON.stringify({ value, id }), 'utf8').toString('base64')
 }
 
+/**
+ * Decode a conversation-list cursor. Returns `null` (the use case maps that to
+ * "ignore the cursor", restarting from the head) when the payload is malformed.
+ */
 export function decodeConversationsCursor(
   cursor: string
 ): { readonly value: string; readonly id: string } | null {
@@ -88,7 +139,13 @@ export function decodeConversationsCursor(
   }
 }
 
+// ─── List use case ────────────────────────────────────────────────────────────
 
+/**
+ * Validated conversation-list inputs, parsed by the route from the canonical
+ * query schema. The cursor stays opaque here — the use case decodes it (so the
+ * encode/decode pair stays co-located with the rest of the pure logic).
+ */
 export interface AgentConversationsListInput {
   readonly agentName: string
   readonly from?: string | undefined
@@ -97,6 +154,11 @@ export interface AgentConversationsListInput {
   readonly limit: number
 }
 
+/**
+ * Outcome of the conversation-list build. `Ok` carries the response-schema-
+ * validated body; `ValidationFailed` signals the assembled body failed the
+ * response gate (the route maps this to a 500 + logs the Zod error).
+ */
 export type AgentConversationsListOutcome =
   | {
       readonly _tag: 'Ok'
@@ -107,6 +169,13 @@ export type AgentConversationsListOutcome =
     }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
+/**
+ * Build the cursor-paginated conversation-list body.
+ *
+ * Pagination semantics: fetch `limit + 1` rows ordered by the `(updatedAt, id)`
+ * tuple descending (newest-first); the page is the first `limit` rows;
+ * `nextCursor` is non-null only when a `limit + 1`-th row existed.
+ */
 export const BuildAgentConversations = (
   input: AgentConversationsListInput
 ): Effect.Effect<
@@ -146,7 +215,14 @@ export const BuildAgentConversations = (
     }
   })
 
+// ─── Detail use case ──────────────────────────────────────────────────────────
 
+/**
+ * Outcome of the conversation-detail build. `Ok` carries the response-schema-
+ * validated body; `NotFound` signals the conversation does not belong to the
+ * agent (the route maps this to the anti-enum 404); `ValidationFailed` signals
+ * the assembled body failed the response gate (route → 500).
+ */
 export type AgentConversationDetailOutcome =
   | {
       readonly _tag: 'Ok'
@@ -158,6 +234,12 @@ export type AgentConversationDetailOutcome =
   | { readonly _tag: 'NotFound' }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
+/**
+ * Build the conversation-detail body for a single `(agentName, conversationId)`
+ * pair. The header is fetched agent-scoped — a miss (conversation belongs to a
+ * different agent, or does not exist) resolves to `NotFound`. On a hit, every
+ * message is loaded chronologically and shaped into the canonical transcript.
+ */
 export const BuildAgentConversationDetail = (
   agentName: string,
   conversationId: string
@@ -190,5 +272,9 @@ export const BuildAgentConversationDetail = (
     }
   })
 
+/* eslint-enable unicorn/no-null */
 
+/**
+ * Application layer for the admin agent-conversations use cases.
+ */
 export const AdminAgentConversationsLayer = Layer.mergeAll(AdminAgentConversationsRepositoryLive)

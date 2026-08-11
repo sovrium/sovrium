@@ -9,7 +9,18 @@ import { text, integer, index } from 'drizzle-orm/sqlite-core'
 import { automationDefinitions } from './automation'
 import { systemTable } from './table-helpers'
 
+/**
+ * Automation digest tables — sqlite-core mirror of `schema/automation-digest.ts`.
+ */
 
+/**
+ * Automation Digest Buckets Table
+ *
+ * Digest buckets accumulate items over time before releasing them as a batch.
+ * Used by digest:collect and digest:release automation actions.
+ *
+ * Status lifecycle: collecting → released
+ */
 export const automationDigestBuckets = systemTable(
   'automation_digest_buckets',
   {
@@ -32,6 +43,12 @@ export const automationDigestBuckets = systemTable(
   ]
 )
 
+/**
+ * Automation Digest Items Table
+ *
+ * Individual items collected into a digest bucket. Items are stored as JSON
+ * for flexible payload storage. Optional dedupeKey prevents duplicate items.
+ */
 export const automationDigestItems = systemTable(
   'automation_digest_items',
   {
@@ -53,6 +70,7 @@ export const automationDigestItems = systemTable(
   ]
 )
 
+// Type inference
 export type AutomationDigestBucket = typeof automationDigestBuckets.$inferSelect
 export type NewAutomationDigestBucket = typeof automationDigestBuckets.$inferInsert
 export type AutomationDigestItem = typeof automationDigestItems.$inferSelect

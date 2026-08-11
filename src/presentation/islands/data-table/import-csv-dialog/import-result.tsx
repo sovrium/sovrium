@@ -11,6 +11,15 @@ interface ImportResultProps {
   readonly result: ImportResultData
 }
 
+/**
+ * Render the "X records created" line.
+ *
+ * For the create-only path with no skip/update bookkeeping, keep the
+ * historical "X records imported successfully" wording so existing import
+ * specs (import-csv-records, import-error-handling) continue to read
+ * naturally. The breakdown form is only shown when skip/overwrite strategies
+ * actually partition the result.
+ */
 function CreatedLine({ result }: ImportResultProps) {
   if (result.created === 0) return undefined
   const isCreateOnly = result.skipped === 0 && result.updated === 0

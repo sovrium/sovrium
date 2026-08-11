@@ -12,6 +12,19 @@ import { createDefaultHomePageConfig } from '@/presentation/ui/pages/DefaultPage
 import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
 import type { App } from '@/domain/models/app'
 
+/**
+ * DefaultHomePage component - Default home page displaying application information
+ *
+ * This is the fallback home page shown when no custom page configuration is provided.
+ * Displays the app name, optional version badge, and optional description in a centered layout.
+ *
+ * Uses DynamicPage pattern with theme-generated styles for consistency across the application.
+ *
+ * @param props - Component props
+ * @param props.app - Validated application data from AppSchema
+ * @param props.builtInAnalyticsEnabled - Whether built-in analytics should be enabled
+ * @returns React element with app information
+ */
 export function DefaultHomePage({
   app,
   builtInAnalyticsEnabled,
@@ -22,6 +35,10 @@ export function DefaultHomePage({
   readonly builtInAnalyticsSessionTimeout?: number
 }): Readonly<ReactElement> {
   const pageConfig = createDefaultHomePageConfig(app)
+  // `demoNoticeEnabled` mirrors the operator-console carve-out that
+  // `renderPageHtml` applies. This fallback is reachable for a console surface
+  // when a `/` page matched but then bailed (unresolvable collection / unknown
+  // content-dir slug), so without it the demo notice would render on `/_admin`.
   return (
     <DynamicPage
       page={pageConfig}

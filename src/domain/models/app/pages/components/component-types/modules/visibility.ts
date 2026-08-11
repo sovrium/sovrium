@@ -8,6 +8,9 @@
 import { Schema } from 'effect'
 import { VisibilitySchema } from '../../visibility'
 
+/**
+ * Visibility fields for components that support auth-based/role-based/condition-based show/hide.
+ */
 export const visibilityFields = {
   visibility: Schema.optional(VisibilitySchema),
 } as const

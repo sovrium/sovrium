@@ -1,0 +1,54 @@
+# Sample companies for the CRM demo.
+#
+# `key` is file-local — it exists so contacts and deals can name a company
+# before either row has a database id. It is never written to a column.
+records:
+  - key: northwind
+    fields:
+      name: Northwind Trading
+      industry: Retail
+      size: '201-1000'
+      website: https://northwind.example
+      annual_revenue: 48000000
+      is_active: true
+      notes: <p>Renewal owner is Priya. Wants the multi-warehouse rollout scoped before Q4.</p>
+
+  - key: helios
+    fields:
+      name: Helios Health
+      industry: Healthcare
+      size: '1000+'
+      website: https://helios-health.example
+      annual_revenue: 210000000
+      is_active: true
+      notes: <p>Procurement is slow but the clinical team is a strong champion.</p>
+
+  - key: lumen
+    fields:
+      name: Lumen Analytics
+      industry: Technology
+      size: '51-200'
+      website: https://lumen-analytics.example
+      annual_revenue: 12500000
+      is_active: true
+      notes: <p>Migrating off a spreadsheet stack. Fast mover, small budget.</p>
+
+  - key: cardinal
+    fields:
+      name: Cardinal Freight
+      industry: Manufacturing
+      size: '201-1000'
+      website: https://cardinalfreight.example
+      annual_revenue: 76000000
+      is_active: true
+      notes: <p>Expansion blocked on a security review. Revisit after the audit.</p>
+
+  - key: pinewood
+    fields:
+      name: Pinewood Academy
+      industry: Education
+      size: '11-50'
+      website: https://pinewood.example
+      annual_revenue: 3200000
+      is_active: false
+      notes: <p>Churned last year on price. Worth a look once the tiering lands.</p>

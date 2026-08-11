@@ -1,0 +1,82 @@
+# The people directory, shown in the manager-tools panel on /portal.
+#
+# Eight members across five locations, because the Location column is the one
+# that makes the directory look like a real company rather than a fixture — a
+# roster where everyone sits in the same city has nothing to sort by.
+#
+# `joined_at` is a `created-at` field, so the database stamps it at insert time
+# and a seed value would be ignored. The Joined column therefore reads as
+# "everyone joined the day you seeded", which is honest about what a
+# `created-at` field is rather than pretending otherwise.
+records:
+  - key: priya
+    fields:
+      name: Priya Raghunathan
+      email: priya.raghunathan@example.com
+      location: London
+      bio: >-
+        Head of operations. Owns the policy set, the supplier list, and most of
+        the questions that begin "who do I ask about".
+
+  - key: mateo
+    fields:
+      name: Mateo Ferrer
+      email: mateo.ferrer@example.com
+      location: Barcelona
+      bio: >-
+        Engineering lead on the platform team. Currently rebuilding the parts of
+        the deployment pipeline everyone is afraid of.
+
+  - key: hannah
+    fields:
+      name: Hannah Okonkwo
+      email: hannah.okonkwo@example.com
+      location: London
+      bio: >-
+        People and hiring. Runs onboarding, which is why the checklist in the
+        resources list is actually maintained.
+
+  - key: jules
+    fields:
+      name: Jules Marchand
+      email: jules.marchand@example.com
+      location: Lyon
+      bio: >-
+        Support lead. Reads every ticket that comes in before nine, which is a
+        habit nobody has managed to talk him out of.
+
+  - key: sofia
+    fields:
+      name: Sofia Lindqvist
+      email: sofia.lindqvist@example.com
+      location: Stockholm
+      bio: >-
+        Product design. Interested in the seam between what a screen shows and
+        what support then has to explain.
+
+  - key: dan
+    fields:
+      name: Dan Whitfield
+      email: dan.whitfield@example.com
+      location: Manchester
+      bio: >-
+        Finance. Approves the expenses, chases the receipts, and wrote the
+        expense policy that keeps getting linked in this intranet.
+
+  - key: keiko
+    fields:
+      name: Keiko Tanaka
+      email: keiko.tanaka@example.com
+      location: Berlin
+      bio: >-
+        Data and reporting. Builds the dashboards everyone quotes in meetings
+        without knowing where the numbers come from.
+
+  - key: omar
+    fields:
+      name: Omar Haddad
+      email: omar.haddad@example.com
+      location: Lyon
+      bio: >-
+        IT and internal systems. If your laptop is doing something strange, this
+        is the person who has seen it before.

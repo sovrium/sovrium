@@ -20,6 +20,9 @@ import {
   type FieldErrors,
 } from './auth-form-validation'
 
+/**
+ * Inputs needed to drive an auth form's validation + submission lifecycle.
+ */
 export interface AuthFormStateInput {
   readonly method: AuthMethod
   readonly fields: readonly AuthFormField[]
@@ -28,6 +31,15 @@ export interface AuthFormStateInput {
   readonly errorToast?: ToastConfig
 }
 
+/**
+ * The reactive slice of an auth form, returned by {@link useAuthFormState}.
+ *
+ * `fieldErrors` drives the inline per-field error text + `aria-invalid` and
+ * updates on blur. `summaryErrors` drives the top-of-form summary banner and
+ * updates ONLY on submit — keeping the summary decoupled from blur prevents a
+ * layout shift (banner collapsing as fields are corrected) from moving the
+ * submit button mid-click during a fast fill→submit interaction.
+ */
 export interface AuthFormStateResult {
   readonly fieldErrors: FieldErrors
   readonly summaryErrors: FieldErrors
@@ -36,6 +48,13 @@ export interface AuthFormStateResult {
   readonly handleSubmit: (e: FormEvent<HTMLFormElement>) => void
 }
 
+/**
+ * Manages an auth form's validation + submission state.
+ *
+ * Validation runs per-field on blur and for all fields on submit. On a valid
+ * submit, the auth action is dispatched via {@link submitAuthForm}; invalid
+ * submits populate the inline and summary error maps without dispatching.
+ */
 export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult {
   const { method, fields, redirectUrl, successToast, errorToast } = input
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
@@ -51,6 +70,8 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault()
+    // The inputs are uncontrolled, so the form's `FormData` is always the
+    // authoritative source of the current values — no stale-state race.
     const formData = new FormData(e.currentTarget)
     const current = Object.fromEntries(
       fields.map((f) => [f.name, String(formData.get(f.name) ?? '')])

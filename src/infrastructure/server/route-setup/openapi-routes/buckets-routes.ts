@@ -9,6 +9,11 @@ import { z } from '@hono/zod-openapi'
 import { errorResponseSchema } from '@/domain/models/api/_shared/error'
 import { type ResourceGroupSpec, type RouteSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * File-storage bucket routes — resource-scoped to `app.buckets`. Each
+ * configured bucket expands into a concrete copy of every route below, tagged
+ * `Bucket: <name>`. The `{filename}` segment is a storage key, not a resource.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 const filenameParam = z.object({ filename: z.string().describe('Storage object key') })
@@ -83,6 +88,7 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/** Bucket route group — resource-scoped to the configured buckets. */
 export const bucketGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Bucket',
   genericTag: 'buckets',

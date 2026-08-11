@@ -5,6 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Remote template scaffolding for `sovrium init --template <owner>/<repo>`.
+ *
+ * Bare template names (`crm`, `blog`) keep resolving against the embedded
+ * `TEMPLATE_MAP` — offline, deterministic, no network ever. A template ref
+ * routes here only when it is remote-SHAPED: `owner/repo`, `gh:owner/repo`,
+ * or a full `https://github.com/owner/repo` URL, each with an optional
+ * `#ref` (branch / tag / sha). Only github.com is supported.
+ *
+ * The tree is fetched as a codeload tarball (no git dependency — the same
+ * fetch → temp file → `tar xzf` pattern as `update.ts`), then copied with
+ * init's additive rules: an existing file is never clobbered (`--force`
+ * clobbers `app.yaml` only) and `.git/` never lands. The published
+ * `sovrium/<slug>-template` mirrors ship their own `CLAUDE.md`,
+ * `[internal ref]`, README, and deploy manifests, so nothing is
+ * overwritten here — CLAUDE.md is generated only when the template ships none.
+ *
+ * There is no checksum for codeload tarballs; TLS to github.com is the
+ * integrity boundary (documented trade-off, same as `gh repo clone`).
+ * `SOVRIUM_TEMPLATE_HOST` overrides the origin for tests only.
+ */
 
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -26,14 +47,17 @@ export interface RemoteTemplateRef {
   readonly ref: string | undefined
 }
 
+/** A ref is remote-shaped when it can't be a bare embedded-template name. */
 export const isRemoteTemplateRef = (input: string): boolean =>
   input.includes('/') || input.startsWith('gh:')
 
 const fail = (message: string): never => {
   Effect.runSync(Console.error(`Error: ${message}`))
+  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
+/** Strip the accepted locator prefixes; reject non-GitHub URLs. */
 const stripLocatorPrefix = (locator: string): string => {
   if (locator.startsWith('gh:')) return locator.slice('gh:'.length)
   if (locator.startsWith('https://github.com/')) {
@@ -52,6 +76,7 @@ const isValidRepo = (repo: string): boolean => REPO_RE.test(repo) && repo !== '.
 const isValidRef = (ref: string | undefined): boolean =>
   ref === undefined || (REF_RE.test(ref) && !ref.includes('..'))
 
+/** Validate the split segments + optional ref, exiting 1 on anything hostile. */
 const validateRefSegments = (
   input: string,
   segments: readonly string[],
@@ -69,6 +94,11 @@ const validateRefSegments = (
   return { owner, repo, ref }
 }
 
+/**
+ * Parse a remote-shaped template ref into `{ owner, repo, ref }`, exiting 1
+ * with an actionable message on anything malformed (path traversal, shell
+ * metacharacters, non-GitHub hosts).
+ */
 export const parseRemoteTemplateRef = (input: string): RemoteTemplateRef => {
   const hashIndex = input.indexOf('#')
   const locator = hashIndex === -1 ? input : input.slice(0, hashIndex)
@@ -80,6 +110,7 @@ export const parseRemoteTemplateRef = (input: string): RemoteTemplateRef => {
   return validateRefSegments(input, segments, ref)
 }
 
+/** Tarball origin — overridable ONLY for tests (`SOVRIUM_TEMPLATE_HOST`). */
 const tarballOrigin = (): string =>
   process.env['SOVRIUM_TEMPLATE_HOST'] ?? 'https://codeload.github.com'
 
@@ -106,6 +137,7 @@ const downloadTarball = async (refSpec: RemoteTemplateRef, tempDir: string): Pro
   }
 
   const archivePath = join(tempDir, 'template.tar.gz')
+  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(archivePath, Buffer.from(await response.arrayBuffer()))
   const tar = Bun.spawnSync(['tar', 'xzf', archivePath, '-C', tempDir])
   if (tar.exitCode !== 0) return fail('failed to extract the template archive')
@@ -116,6 +148,7 @@ const downloadTarball = async (refSpec: RemoteTemplateRef, tempDir: string): Pro
   return join(tempDir, rootDir.name)
 }
 
+/** Recursively list files under `dir`, skipping any `.git/` tree. */
 const listTreeFiles = async (dir: string): Promise<readonly string[]> => {
   const entries = await readdir(dir, { withFileTypes: true })
   const nested = await Promise.all(
@@ -130,17 +163,25 @@ const listTreeFiles = async (dir: string): Promise<readonly string[]> => {
   return nested.flat()
 }
 
+/** Additive copy (never clobber; `--force` clobbers `app.yaml` only). */
 const copyOneFile = async (
   srcPath: string,
   destPath: string,
   clobber: boolean
 ): Promise<boolean> => {
   if (!clobber && (await Bun.file(destPath).exists())) return false
+  // eslint-disable-next-line functional/no-expression-statements
   await mkdir(dirname(destPath), { recursive: true })
+  // eslint-disable-next-line functional/no-expression-statements
   await Bun.write(destPath, Bun.file(srcPath))
   return true
 }
 
+/**
+ * Scaffold `targetDir` from a remote GitHub template repository. The caller
+ * (`handleInitCommand`) has already ensured the target has no conflicting
+ * `app.yaml` and runs the additive support-file scaffolding afterwards.
+ */
 export const scaffoldFromRemoteTemplate = async (
   templateRef: string,
   targetDir: string,
@@ -177,7 +218,10 @@ export const scaffoldFromRemoteTemplate = async (
       )
     }
 
+    // The mirrors ship a project CLAUDE.md of their own; generate one only
+    // when the remote template carries none (additive, like everything else).
     if (!(await Bun.file(join(targetDir, 'CLAUDE.md')).exists())) {
+      // eslint-disable-next-line functional/no-expression-statements
       await writeFile(join(targetDir, 'CLAUDE.md'), `# ${refSpec.repo}\n\n${CLAUDE_MD_BODY}`)
     }
 
@@ -187,6 +231,7 @@ export const scaffoldFromRemoteTemplate = async (
       )
     )
   } finally {
+    // eslint-disable-next-line functional/no-expression-statements
     await rm(tempDir, { recursive: true, force: true })
   }
 }

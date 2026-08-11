@@ -8,6 +8,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { createTableClient } from '@/presentation/api/client'
 
+// ---------------------------------------------------------------------------
+// API client (singleton)
+// ---------------------------------------------------------------------------
 
 const tableApiClient = createTableClient(
   typeof window !== 'undefined' ? window.location.origin : ''
@@ -48,6 +51,7 @@ async function probeAuthSession(): Promise<SessionProbeResult> {
     const body = (await res.json()) as { readonly user?: unknown } | null
     return { authEnabled: true, signedIn: Boolean(body?.user) }
   } catch {
+    // Network or parse failure — treat as no auth so we don't lock the UI.
     return { authEnabled: false, signedIn: false }
   }
 }
@@ -57,6 +61,20 @@ function isFieldWritable(perms: PermissionsResult, groupByField: string | undefi
   return perms.fields[groupByField]?.write !== false
 }
 
+/**
+ * Resolve permission state from probe + permissions results. Pure function
+ * extracted from the hook so the chain of early returns can be tested in
+ * isolation and the hook stays under the complexity threshold.
+ *
+ * Order matters here — gates short-circuit in this order:
+ *   1. drag config disabled → resolved=true, canDrag=false
+ *   2. auth probe still pending → unresolved
+ *   3. auth not configured → guest mode, canDrag=true
+ *   4. table permissions still pending → unresolved
+ *   5. permissions returned undefined / no table.update → canDrag=false
+ *   6. groupBy field's write=false → canDrag=false
+ *   7. all gates passed → canDrag=true
+ */
 function resolveDragPermission(input: ResolveDragPermissionInput): DragPermissionState {
   if (!input.enabled) return { canDrag: false, resolved: true }
   if (input.sessionPending) return { canDrag: false, resolved: false }
@@ -68,6 +86,21 @@ function resolveDragPermission(input: ResolveDragPermissionInput): DragPermissio
   return { canDrag: true, resolved: true }
 }
 
+/**
+ * Determine whether the current user is allowed to drag cards.
+ *
+ * The drag gate combines two signals:
+ *   1. Whether auth is enabled (probed via `/api/auth/get-session`). When auth
+ *      is not configured, that endpoint returns 404 and we treat the user as a
+ *      guest with full drag access — matching the no-auth behaviour of the
+ *      records API (`hasUpdatePermission` allows guests by default).
+ *   2. When auth IS configured, we honour the table-level `update` permission
+ *      and the per-field `write` permission for the groupBy field returned by
+ *      `/api/tables/:tableId/permissions`.
+ *
+ * The hook returns `resolved: false` while either probe is pending so the
+ * island can avoid rendering `draggable="true"` in a flickering state.
+ */
 export function useDragPermission(
   tableName: string | undefined,
   groupByField: string | undefined,

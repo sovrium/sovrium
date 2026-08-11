@@ -7,5 +7,8 @@
 
 import { createTaggedError } from '@/domain/errors/create-tagged-error'
 
+/**
+ * Error class for server creation failures
+ */
 export const ServerCreationError = createTaggedError('ServerCreationError')
 export type ServerCreationError = InstanceType<typeof ServerCreationError>

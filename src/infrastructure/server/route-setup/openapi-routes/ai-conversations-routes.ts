@@ -18,6 +18,7 @@ const sessionIdParam = z.object({
   sessionId: z.string().describe('Conversation session identifier'),
 })
 
+/** AI conversation history route group. */
 export const aiConversationGroup: StaticGroupSpec = {
   tag: 'ai',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',

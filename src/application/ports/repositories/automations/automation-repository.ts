@@ -8,10 +8,19 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Database error for automation operations
+ */
 export class AutomationDatabaseError extends Data.TaggedError('AutomationDatabaseError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Automation Repository Port
+ *
+ * Provides type-safe database operations for automation definitions.
+ * Implementation lives in infrastructure layer.
+ */
 export class AutomationRepository extends Context.Tag('AutomationRepository')<
   AutomationRepository,
   {

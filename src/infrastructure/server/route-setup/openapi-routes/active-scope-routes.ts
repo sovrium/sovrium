@@ -14,10 +14,16 @@ import {
 } from '@/domain/models/api/session/active-scope'
 import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * Active-scope session routes — get, set, and clear the user active record for
+ * a scope table. The `{tableSlug}` segment is a scope-table name (documented as
+ * a literal path parameter).
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 const tableSlugParam = z.object({ tableSlug: z.string().describe('Scope table name') })
 
+/** Active-scope session route group. */
 export const activeScopeGroup: StaticGroupSpec = {
   tag: 'session',
   tagDescription: 'Active-scope session endpoints',

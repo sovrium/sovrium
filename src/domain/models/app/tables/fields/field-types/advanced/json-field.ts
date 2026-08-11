@@ -22,4 +22,5 @@ export const JsonFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type JsonField = Schema.Schema.Type<typeof JsonFieldSchema>

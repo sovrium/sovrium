@@ -8,6 +8,10 @@
 import { filterMenuItemsByToolbar, SLASH_MENU_ITEMS, TOOLBAR_ACTIONS } from './actions'
 import type { Editor } from '@tiptap/react'
 
+/**
+ * Apply the toolbar action matching a slash-command token, when that token is
+ * enabled in the field's toolbar. Returns true when an action ran.
+ */
 export function applySlashCommand(
   editor: Editor,
   query: string,

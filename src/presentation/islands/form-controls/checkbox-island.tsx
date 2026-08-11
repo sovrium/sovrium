@@ -58,6 +58,12 @@ function CheckIcon(): ReactElement {
   )
 }
 
+/**
+ * Checkbox island — wraps Base UI Checkbox for custom-styled checkboxes.
+ *
+ * Supports checked, unchecked, and indeterminate states with
+ * keyboard interaction and ARIA attributes built-in.
+ */
 export default function CheckboxIsland({
   checked,
   indeterminate = false,

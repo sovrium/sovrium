@@ -17,10 +17,38 @@ import {
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+/**
+ * AI Sentiment field shape (narrowed from Fields union).
+ */
 type AiSentimentField = Extract<Fields[number], { readonly type: 'ai-sentiment' }>
 
+/**
+ * NOTIFY payload kind for ai-sentiment fields. The `AiComputeListener`
+ * discriminates on this value to choose the sentiment prompt path.
+ */
 const SENTIMENT_PAYLOAD_KIND = 'sentiment'
 
+/**
+ * Deterministic synchronous placeholder for an ai-sentiment column: a
+ * `jsonb_build_object('label', ..., 'score', ..., 'explanation', ...)` where
+ * the label/score are picked by a coarse keyword heuristic against the
+ * concatenated source content. PostgreSQL triggers cannot make outbound HTTP
+ * calls, so the column holds this stub object (non-NULL, schema-shaped) inside
+ * the INSERT transaction; the NOTIFY tells the `AiComputeListener` to invoke
+ * the AI provider for the canonical sentiment analysis (observational — the
+ * trigger value is authoritative for the synchronous SELECT immediately after
+ * INSERT, like the summary / translate / extract patterns).
+ *
+ * Heuristic (deterministic, server-side PL/pgSQL):
+ * - both positive & negative vocabulary present → `mixed`, score 0.5
+ * - only positive vocabulary present            → `positive`, score 0.9
+ * - only negative vocabulary present            → `negative`, score 0.9
+ * - neither                                     → `neutral`, score 0.5
+ *
+ * `label` is always one of `positive` / `negative` / `neutral` / `mixed` and
+ * `score` is always a float in `[0.0, 1.0]`, matching the field's documented
+ * output contract.
+ */
 const SENTIMENT_PLACEHOLDER_SQL = `  -- Deterministic keyword heuristic for the synchronous placeholder.
   has_positive := lower(source_content) ~ '(love|great|amazing|wonderful|excellent|awesome|outstanding|fantastic|good|happy|perfect|best|delight)';
   has_negative := lower(source_content) ~ '(terrible|awful|bad|horrible|worst|hate|disappoint|broken|slow|lost|urgent|angry|frustrat|poor|fail)';
@@ -38,6 +66,20 @@ const SENTIMENT_PLACEHOLDER_SQL = `  -- Deterministic keyword heuristic for the 
     sentiment_score := 0.5;
   END IF;`
 
+/**
+ * Guard block for the sentiment function.
+ *
+ * Sentiment semantics mirror translate/extract: a changed source must
+ * re-analyse, so the guard does not blanket-preserve an existing non-NULL
+ * value on UPDATE.
+ *
+ * - INSERT: honour an explicit non-NULL user value (treated as override).
+ * - UPDATE: if no configured source field changed, leave the row untouched
+ *   (no recompute, no AI NOTIFY). If the user changed the sentiment column
+ *   directly in this same statement, honour that override.
+ * - Either op: NULL out the column when the concatenated source content is
+ *   empty (matches "return NULL when all source fields are empty or NULL").
+ */
 const buildSentimentGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-NULL user value.
   IF TG_OP = 'INSERT' THEN
@@ -61,6 +103,13 @@ const buildSentimentGuardSql = (fieldName: string, sourceFields: readonly string
     RETURN NEW;
   END IF;`
 
+/**
+ * Placeholder + NOTIFY block for sentiment fields. The synchronous placeholder
+ * is the heuristic-derived `{ label, score, explanation }` object; the NOTIFY
+ * payload carries `kind: 'sentiment'`, the source text, and per-field overrides
+ * so the `AiComputeListener` invokes the sentiment prompt path against the
+ * configured AI provider.
+ */
 const buildSentimentNotifySql = (
   field: AiSentimentField,
   sanitized: string,
@@ -102,6 +151,13 @@ const buildSentimentNotifySql = (
   RETURN NEW;`
 }
 
+/**
+ * Build the full set of SQL statements (function + drop + create trigger) for a
+ * single ai-sentiment field via the shared
+ * {@link buildAiComputeTriggerStatements} scaffold. The sentiment function
+ * declares the `sentiment_label`/`sentiment_score`/`has_positive`/`has_negative`
+ * heuristic locals on top of the common ones, forwarded via `extraDeclarations`.
+ */
 const buildSentimentTriggerSql = (
   field: AiSentimentField,
   sanitized: string
@@ -127,6 +183,14 @@ ${buildSentimentNotifySql(field, sanitized, fieldName)}`
   })
 }
 
+/**
+ * Generate a BEFORE INSERT/UPDATE trigger that produces a deterministic
+ * `{ label, score, explanation }` JSONB placeholder and emits a NOTIFY so the
+ * application-layer `AiComputeListener` can invoke the real AI provider for
+ * the canonical sentiment analysis.
+ *
+ * Returns NULL when all configured source fields are empty / NULL (no NOTIFY).
+ */
 export const generateAiSentimentTriggers = (table: Table): readonly string[] => {
   const aiSentimentFields = table.fields.filter(
     (field): field is AiSentimentField => field.type === 'ai-sentiment'

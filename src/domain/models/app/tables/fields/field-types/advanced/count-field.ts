@@ -52,4 +52,5 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type CountField = Schema.Schema.Type<typeof CountFieldSchema>

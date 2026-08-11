@@ -9,6 +9,14 @@ import { useCallback, useState } from 'react'
 import { type ParsedTsv } from './parse-tsv'
 import { buildInitialMappings } from './paste-records'
 
+/**
+ * Owns the paste-preview dialog's *input* state: the parsed clipboard payload
+ * and the per-column field mappings, plus the handlers that mutate them.
+ *
+ * Split out from {@link usePasteState} so the orchestrating hook stays within
+ * the island line-count budget. Lives in a `.ts` module (no JSX) so
+ * `useCallback` here is exempt from the island JSX lint rules.
+ */
 export function usePasteInputState(tableFields: readonly string[]) {
   const [parsed, setParsed] = useState<ParsedTsv | undefined>(undefined)
   const [mappings, setMappings] = useState<readonly string[]>([])

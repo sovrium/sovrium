@@ -15,6 +15,9 @@ detectBrowser: true
 persistSelection: true
 translations:
   en:
+    meta.title: Sovrium - Build Your Next App
+    meta.description: A modern, configuration-driven platform for rapid application development
+
     nav.home: Home
     nav.features: Features
     nav.pricing: Pricing
@@ -74,6 +77,9 @@ translations:
     footer.inFrance: in France
 
   fr:
+    meta.title: Sovrium - Créez votre prochaine application
+    meta.description: Une plateforme moderne pilotée par configuration pour le développement d'applications rapide
+
     nav.home: Accueil
     nav.features: Fonctionnalités
     nav.pricing: Tarifs

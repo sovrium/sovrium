@@ -9,17 +9,25 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * File List Action (type: file, operator: list)
+ *
+ * List files in storage by key prefix.
+ * The list of file metadata is available as the step output for subsequent actions.
+ */
 export const FileListActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('list'),
   props: Schema.Struct({
+    /** Storage key prefix to list files under */
     prefix: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Storage key prefix to list files under',
       })
     ),
 
+    /** Maximum number of files to return */
     limit: Schema.optional(
       Schema.Number.pipe(
         Schema.positive(),
@@ -38,4 +46,5 @@ export const FileListActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileListAction = Schema.Schema.Type<typeof FileListActionSchema>

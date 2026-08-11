@@ -20,6 +20,7 @@ export const WebhookActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type WebhookAction = Schema.Schema.Type<typeof WebhookActionSchema>
 
 export * from './response'

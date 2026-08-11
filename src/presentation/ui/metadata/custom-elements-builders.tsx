@@ -8,6 +8,9 @@
 import { type ReactElement } from 'react'
 import type { CustomElements } from '@/domain/models/app/pages/meta'
 
+/**
+ * Build meta element
+ */
 export function buildMetaElement(element: CustomElements[number], key: string): ReactElement {
   return (
     <meta
@@ -17,6 +20,9 @@ export function buildMetaElement(element: CustomElements[number], key: string): 
   )
 }
 
+/**
+ * Build link element
+ */
 export function buildLinkElement(element: CustomElements[number], key: string): ReactElement {
   return (
     <link
@@ -26,6 +32,10 @@ export function buildLinkElement(element: CustomElements[number], key: string): 
   )
 }
 
+/**
+ * Process boolean HTML attributes for script elements
+ * Converts string 'true'/'false' to boolean/undefined
+ */
 function processBooleanAttributes(
   attrs: Record<string, unknown> | undefined
 ): Record<string, unknown> {
@@ -33,6 +43,7 @@ function processBooleanAttributes(
 
   const booleanAttrs = ['async', 'defer', 'noModule'] as const
 
+  // First, copy all non-boolean attributes
   const result = Object.entries(attrs).reduce<Record<string, unknown>>((acc, [key, value]) => {
     if (!booleanAttrs.includes(key as (typeof booleanAttrs)[number])) {
       return { ...acc, [key]: value }
@@ -40,6 +51,7 @@ function processBooleanAttributes(
     return acc
   }, {})
 
+  // Then process boolean attributes
   return booleanAttrs.reduce<Record<string, unknown>>((acc, attr) => {
     if (!(attr in attrs)) return acc
 
@@ -47,10 +59,24 @@ function processBooleanAttributes(
     if (value === 'true') {
       return { ...acc, [attr]: true }
     }
+    // Remove false/empty values (omit from result)
     return acc
   }, result)
 }
 
+/**
+ * Build script element
+ * Handles boolean attributes (async, defer) - converts string 'true'/'false' to boolean
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Custom script code from page configuration
+ * - Source: Validated CustomElements schema (page.meta.customElements[].content)
+ * - Risk: Low - content is from server configuration, not user input
+ * - Validation: Schema validation ensures string type
+ * - Purpose: Render custom inline scripts for analytics, tracking, etc.
+ * - CSP: Inline script - consider using nonce for stricter CSP
+ * - Best Practice: Prefer external scripts with SRI when possible
+ */
 export function buildScriptElement(element: CustomElements[number], key: string): ReactElement {
   const processedAttrs = processBooleanAttributes(element.attrs)
 
@@ -59,6 +85,7 @@ export function buildScriptElement(element: CustomElements[number], key: string)
       <script
         key={key}
         {...processedAttrs}
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element; never re-renders client-side
         dangerouslySetInnerHTML={{ __html: element.content }}
       />
     )
@@ -71,16 +98,32 @@ export function buildScriptElement(element: CustomElements[number], key: string)
   )
 }
 
+/**
+ * Build style element
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Custom CSS code from page configuration
+ * - Source: Validated CustomElements schema (page.meta.customElements[].content)
+ * - Risk: Low - CSS cannot execute JavaScript
+ * - Validation: Schema validation ensures string type
+ * - Purpose: Render custom inline styles for page-specific styling
+ * - XSS Protection: CSS syntax prevents script execution
+ * - CSP: style-src 'unsafe-inline' required (consider nonce for stricter CSP)
+ */
 export function buildStyleElement(element: CustomElements[number], key: string): ReactElement {
   return (
     <style
       key={key}
       {...element.attrs}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <style> element; never re-renders client-side
       dangerouslySetInnerHTML={{ __html: element.content || '' }}
     />
   )
 }
 
+/**
+ * Build base element
+ */
 export function buildBaseElement(element: CustomElements[number], key: string): ReactElement {
   return (
     <base
@@ -90,6 +133,9 @@ export function buildBaseElement(element: CustomElements[number], key: string): 
   )
 }
 
+/**
+ * Build custom element based on type
+ */
 export function buildCustomElement(
   element: CustomElements[number],
   index: number

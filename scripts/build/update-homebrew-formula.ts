@@ -5,6 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Update Homebrew Formula - Generates a Homebrew formula from template + release checksums
+ *
+ * Fetches SHA256 checksums from a GitHub Release and produces a ready-to-commit
+ * Formula/sovrium.rb file for the sovrium/homebrew-tap repository.
+ *
+ * Usage:
+ *   bun run scripts/build/update-homebrew-formula.ts --version 0.3.0
+ *   bun run scripts/build/update-homebrew-formula.ts --version 0.3.0 --output Formula/sovrium.rb
+ *   bun run scripts/build/update-homebrew-formula.ts --version 0.3.0 --dry-run
+ */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -43,6 +54,7 @@ async function main(): Promise<void> {
 
   console.log(`Updating Homebrew formula for v${version}`)
 
+  // Fetch checksums for all platforms
   const [darwinX64, darwinArm64, linuxX64, linuxArm64] = await Promise.all([
     fetchChecksum(version, 'darwin-x64'),
     fetchChecksum(version, 'darwin-arm64'),
@@ -56,6 +68,7 @@ async function main(): Promise<void> {
   console.log(`  linux-x64:    ${linuxX64}`)
   console.log(`  linux-arm64:  ${linuxArm64}`)
 
+  // Read template and substitute
   const template = readFileSync(TEMPLATE_PATH, 'utf-8')
   const formula = template
     .replaceAll('{{VERSION}}', version)
@@ -64,6 +77,7 @@ async function main(): Promise<void> {
     .replaceAll('{{SHA256_LINUX_X64}}', linuxX64)
     .replaceAll('{{SHA256_LINUX_ARM64}}', linuxArm64)
 
+  // Never print, write, or commit a formula pinning an unresolved checksum.
   assertNoUnresolvedChecksums(formula, `Homebrew formula v${version}`)
 
   if (dryRun) {

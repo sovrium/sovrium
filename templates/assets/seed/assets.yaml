@@ -1,0 +1,164 @@
+# Sample asset register.
+#
+# Fourteen rows, weighted the way a real register is: mostly laptops and
+# monitors, a long tail of everything else, and a handful of things that are
+# broken, lost to the storeroom, or already written off. Spreading `status`
+# across all four options is what makes `/board` worth opening — a kanban whose
+# cards all sit in one column demonstrates nothing.
+#
+# `barcode` is a `format: EAN-13` field, so these are real thirteen-digit codes
+# with correct check digits rather than plausible-looking digits. A scanner app
+# pointed at the demo will accept them, and a barcode that fails validation in a
+# demo is worse than no barcode at all.
+#
+# `purchase_date` is relative, so the register ages with the clock — the oldest
+# kit is always genuinely old, and `value` reads as a plausible book value for
+# something bought that long ago rather than as a list price.
+#
+# `photo` (an attachment) and `assigned_to` (a `user` field) are left unseeded
+# on purpose: the first needs binary files this repository does not ship, and
+# the second needs a real account id that does not exist until someone signs up.
+records:
+  # ── In use ──────────────────────────────────────────────────────────
+  - key: mbp-nadia
+    fields:
+      name: MacBook Pro 14" — Nadia B.
+      barcode: '3601240000194'
+      category: Laptop
+      status: In use
+      purchase_date: '{{today-410d}}'
+      value: 1650
+      location: '@locations.paris-hq'
+
+  - key: mbp-tomas
+    fields:
+      name: MacBook Pro 14" — Tomás F.
+      barcode: '3601240000262'
+      category: Laptop
+      status: In use
+      purchase_date: '{{today-208d}}'
+      value: 1890
+      location: '@locations.paris-hq'
+
+  - key: thinkpad-marc
+    fields:
+      name: ThinkPad T14 — Marc D.
+      barcode: '3601240000330'
+      category: Laptop
+      status: In use
+      purchase_date: '{{today-95d}}'
+      value: 1240
+      location: '@locations.remote'
+
+  - key: dell-u2723-a
+    fields:
+      name: Dell U2723QE 27" (desk 4)
+      barcode: '3601240000408'
+      category: Monitor
+      status: In use
+      purchase_date: '{{today-330d}}'
+      value: 520
+      location: '@locations.paris-hq'
+
+  - key: dell-u2723-b
+    fields:
+      name: Dell U2723QE 27" (desk 9)
+      barcode: '3601240000576'
+      category: Monitor
+      status: In use
+      purchase_date: '{{today-330d}}'
+      value: 520
+      location: '@locations.lyon-office'
+
+  - key: iphone-support
+    fields:
+      name: iPhone 15 — support rota handset
+      barcode: '3601240000644'
+      category: Phone
+      status: In use
+      purchase_date: '{{today-160d}}'
+      value: 780
+      location: '@locations.paris-hq'
+
+  - key: kangoo-van
+    fields:
+      name: Renault Kangoo — delivery van
+      barcode: '3601240000712'
+      category: Vehicle
+      status: In use
+      purchase_date: '{{today-1290d}}'
+      value: 9400
+      location: '@locations.paris-hq'
+
+  - key: standing-desks-lyon
+    fields:
+      name: Standing desks ×6 (Lyon, bay 2)
+      barcode: '3601240000880'
+      category: Furniture
+      status: In use
+      purchase_date: '{{today-540d}}'
+      value: 2760
+      location: '@locations.lyon-office'
+
+  # ── In storage ──────────────────────────────────────────────────────
+  - key: mba-spare
+    fields:
+      name: MacBook Air M2 — spare / new starters
+      barcode: '3601240000958'
+      category: Laptop
+      status: In storage
+      purchase_date: '{{today-72d}}'
+      value: 1140
+      location: '@locations.storeroom'
+
+  - key: monitors-boxed
+    fields:
+      name: Dell P2419H 24" ×3 (boxed)
+      barcode: '3601240001016'
+      category: Monitor
+      status: In storage
+      purchase_date: '{{today-880d}}'
+      value: 330
+      location: '@locations.storeroom'
+
+  - key: projector
+    fields:
+      name: Epson EB-2250U projector
+      barcode: '3601240001184'
+      category: Other
+      status: In storage
+      purchase_date: '{{today-1120d}}'
+      value: 410
+      location: '@locations.storeroom'
+
+  # ── In repair ───────────────────────────────────────────────────────
+  - key: thinkpad-cracked
+    fields:
+      name: ThinkPad X1 — cracked hinge
+      barcode: '3601240001252'
+      category: Laptop
+      status: In repair
+      purchase_date: '{{today-620d}}'
+      value: 890
+      location: '@locations.repair-vendor'
+
+  - key: iphone-battery
+    fields:
+      name: iPhone 13 — battery swap booked
+      barcode: '3601240001320'
+      category: Phone
+      status: In repair
+      purchase_date: '{{today-970d}}'
+      value: 240
+      location: '@locations.repair-vendor'
+
+  # ── Retired ─────────────────────────────────────────────────────────
+  - key: mbp-2018-retired
+    fields:
+      name: MacBook Pro 15" (2018) — written off
+      barcode: '3601240001498'
+      category: Laptop
+      status: Retired
+      purchase_date: '{{today-2190d}}'
+      value: 0
+      location: '@locations.storeroom'

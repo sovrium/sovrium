@@ -5,10 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Better Auth Drizzle table definitions — sqlite-core mirror.
+//
+// Faithful mirror of `infrastructure/auth/better-auth/schema-tables.ts`. SQLite
+// has no schemas, so the `pgSchema('auth')` namespace becomes an `auth_` table
+// name prefix via the `authTable()` helper. Same exported symbol names, same
+// column names, so a future barrel swap is transparent.
 
 import { index, integer, text } from 'drizzle-orm/sqlite-core'
 import { authTable } from './table-helpers'
 
+// Better Auth Tables (using native table names in the logical "auth" namespace)
+// The `auth_` prefix prevents conflicts with user-defined application tables.
 export const users = authTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -22,11 +30,18 @@ export const users = authTable('user', {
     .notNull()
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date()),
+  // Admin plugin fields
   role: text('role'),
   banned: integer('banned', { mode: 'boolean' }).default(false),
   banReason: text('ban_reason'),
   banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
+  // Two-factor plugin fields
   twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).default(false),
+  // GDPR account-erasure scheduling (Art. 17). When set, the account is
+  // scheduled for a hard delete at this timestamp; the purge scheduler
+  // physically removes the account once `scheduledErasureAt <= NOW()`.
+  // NULL means no erasure is pending. Column is intentionally camelCase-
+  // quoted to match the Better Auth naming convention used by callers.
   scheduledErasureAt: integer('scheduledErasureAt', { mode: 'timestamp_ms' }),
 })
 
@@ -48,7 +63,9 @@ export const sessions = authTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    // Admin plugin fields
     impersonatedBy: text('impersonated_by'),
+    // Organization plugin fields
     activeOrganizationId: text('active_organization_id'),
   },
   (table) => [index('session_userId_idx').on(table.userId)]
@@ -99,6 +116,7 @@ export const verifications = authTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)]
 )
 
+// Two-factor plugin table
 export const twoFactors = authTable(
   'two_factor',
   {
@@ -109,6 +127,10 @@ export const twoFactors = authTable(
     secret: text('secret').notNull(),
     backupCodes: text('backup_codes').notNull(),
     verified: integer('verified', { mode: 'boolean' }).default(true),
+    // Better Auth 1.6.x TOTP verification-rate-limiting fields: the failed
+    // attempt counter and the lockout expiry the plugin reads/writes on
+    // /two-factor/verify-totp. Absent columns make the Drizzle adapter throw
+    // "field does not exist" and 500 the enable/verify endpoints.
     failedVerificationCount: integer('failed_verification_count').default(0),
     lockedUntil: integer('locked_until', { mode: 'timestamp_ms' }),
   },
@@ -118,6 +140,8 @@ export const twoFactors = authTable(
   ]
 )
 
+// Organization plugin tables
+// Every Sovrium app IS one organization (1:1, non-configurable)
 export const organizations = authTable('organization', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -174,6 +198,7 @@ export const invitations = authTable(
   ]
 )
 
+// Teams (optional — enabled via auth.teams.enabled in app schema)
 export const teams = authTable(
   'team',
   {
@@ -211,6 +236,8 @@ export const teamMembers = authTable(
   ]
 )
 
+// JWT plugin table (peer requirement of @better-auth/oauth-provider)
+// See: https://better-auth.com/docs/plugins/jwt#schema
 export const jwks = authTable('jwks', {
   id: text('id').primaryKey(),
   publicKey: text('public_key').notNull(),
@@ -221,6 +248,8 @@ export const jwks = authTable('jwks', {
   expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
 })
 
+// OAuth Provider plugin tables
+// See: https://better-auth.com/docs/plugins/oauth-provider#schema
 export const oauthClients = authTable(
   'oauth_client',
   {
@@ -231,6 +260,7 @@ export const oauthClients = authTable(
     skipConsent: integer('skip_consent', { mode: 'boolean' }),
     enableEndSession: integer('enable_end_session', { mode: 'boolean' }),
     subjectType: text('subject_type'),
+    // pg `text[]` → SQLite JSON-encoded array
     scopes: text('scopes', { mode: 'json' }),
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
     referenceId: text('reference_id'),

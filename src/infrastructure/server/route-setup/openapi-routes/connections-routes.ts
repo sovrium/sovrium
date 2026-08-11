@@ -10,6 +10,11 @@ import { errorResponseSchema } from '@/domain/models/api/_shared/error'
 import { connectionUsersResponseSchema } from '@/domain/models/api/connections'
 import { type ResourceGroupSpec, type RouteSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * Connection routes — resource-scoped to `app.connections`. Each configured
+ * connection expands into a concrete copy of every route below, tagged
+ * `Connection: <name>`.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
@@ -108,6 +113,7 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/** Connection route group — resource-scoped to the configured connections. */
 export const connectionGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Connection',
   genericTag: 'connections',

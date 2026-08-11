@@ -5,6 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Authentication Infrastructure Module
+ *
+ * Provides authentication services and utilities.
+ * Currently uses Better Auth for authentication.
+ *
+ * @example
+ * ```typescript
+ * import { Auth, createAuthLayer } from '@/infrastructure/auth'
+ *
+ * const program = Effect.gen(function* () {
+ *   const auth = yield* Auth
+ *   const session = yield* auth.requireSession(headers)
+ *   return session.user
+ * }).pipe(Effect.provide(createAuthLayer(authConfig)))
+ * ```
+ */
 
-export { auth } from './better-auth/auth'
 export { Auth, createAuthLayer, AuthError } from './better-auth/layer'

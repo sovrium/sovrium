@@ -7,9 +7,19 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Manual Trigger (type: manual)
+ *
+ * Allows admin-initiated workflow execution via button click in the
+ * admin interface or direct API call to the automation endpoint.
+ *
+ * Optionally requires specific input data (defined via inputSchema)
+ * and can be restricted to specific auth roles.
+ */
 export const ManualTriggerSchema = Schema.Struct({
   type: Schema.Literal('manual'),
 
+  /** Button label for admin interface */
   label: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({
@@ -18,6 +28,7 @@ export const ManualTriggerSchema = Schema.Struct({
     )
   ),
 
+  /** JSON Schema describing required input fields */
   inputSchema: Schema.optional(
     Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
       Schema.annotations({
@@ -26,6 +37,7 @@ export const ManualTriggerSchema = Schema.Struct({
     )
   ),
 
+  /** Role required to trigger this automation */
   requiredRole: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({
@@ -41,4 +53,5 @@ export const ManualTriggerSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type ManualTrigger = Schema.Schema.Type<typeof ManualTriggerSchema>

@@ -22,6 +22,9 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
+/**
+ * Build where condition for activity log queries (with 1-year retention policy)
+ */
 function buildActivityWhereCondition(tableName: string, recordId: string) {
   const now = new Date()
   const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
@@ -32,6 +35,9 @@ function buildActivityWhereCondition(tableName: string, recordId: string) {
   )
 }
 
+/**
+ * Transform an activity log row into an ActivityHistoryEntry
+ */
 function transformActivityRow(row: {
   readonly action: string
   readonly createdAt: Date
@@ -49,6 +55,9 @@ function transformActivityRow(row: {
   }
 }
 
+/**
+ * Fetch activity history for a specific record with optional pagination
+ */
 export function getRecordHistory(config: {
   readonly session: Readonly<Session>
   readonly tableName: string

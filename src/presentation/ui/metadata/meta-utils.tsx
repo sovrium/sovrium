@@ -7,6 +7,15 @@
 
 import { type ReactElement } from 'react'
 
+/**
+ * Shared helper to render meta tags with configurable attribute type
+ * Eliminates duplication between OpenGraph and Twitter Card rendering
+ *
+ * @param fields - Array of key-value pairs to render as meta tags
+ * @param prefix - Prefix for meta tag name/property (e.g., 'og', 'twitter')
+ * @param attributeType - HTML attribute to use ('property' for OG, 'name' for Twitter)
+ * @returns React fragment with meta tags
+ */
 export function renderMetaTags({
   fields,
   prefix,

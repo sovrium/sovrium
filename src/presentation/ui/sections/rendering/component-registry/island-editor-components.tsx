@@ -5,19 +5,38 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { ComponentRenderer } from '../component-dispatch-config'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentRenderer, DispatchableComponentType } from '../component-dispatch-config'
 import type { ReactNode } from 'react'
 
 type ElemProps = Record<string, unknown>
 type EditorIsland =
   'schema-json-editor' | 'schema-yaml-editor' | 'schema-form-editor' | 'schema-ai-agent'
 
+/**
+ * SSR placeholders for the schema config-editor islands (platform B10).
+ *
+ * Each editor type defines its fields at the component top level (siblings of
+ * `props`), so the renderer reads them from `component` directly. Each emits a
+ * `<div data-island="schema-{json,yaml,form,ai-agent}-editor" data-island-props="...">`
+ * marker; the island client discovers the marker and mounts the interactive
+ * editor (CodeMirror, the structured form builder, or the AI chat surface).
+ *
+ * The placeholders ship the same interactive controls the hydrated island will
+ * own (Submit button / Send button + textbox) so the markup is stable across
+ * hydration and Playwright role queries resolve immediately.
+ */
 
 function pick(component: Record<string, unknown>, key: string): unknown {
   return component[key]
 }
 
+/**
+ * Read the render-time-only `_submitContext` map stamped by
+ * `editor-context-resolver.ts` (GAP-I2). It holds the resolved `inlinePrefill`
+ * `$record.<field>` tokens as literal column → value pairs; the editor island
+ * merges it into the records POST body so the editor's submit carries the page
+ * record FK. Defensive: only a non-null object is forwarded.
+ */
 function pickSubmitContext(
   component: Record<string, unknown>
 ): Record<string, unknown> | undefined {
@@ -101,6 +120,7 @@ function renderEditorPlaceholder(
     ])
   }
 
+  // json / yaml / form share a code/form skeleton + a disabled Submit button.
   return renderMarker(island, elementProps, props, [
     <div
       key="skeleton"
@@ -110,29 +130,31 @@ function renderEditorPlaceholder(
   ])
 }
 
-export const islandEditorComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
-  'schema-json-editor': ({ component, elementProps }) =>
-    renderEditorPlaceholder(
-      'schema-json-editor',
-      (component ?? {}) as Record<string, unknown>,
-      elementProps
-    ),
-  'schema-yaml-editor': ({ component, elementProps }) =>
-    renderEditorPlaceholder(
-      'schema-yaml-editor',
-      (component ?? {}) as Record<string, unknown>,
-      elementProps
-    ),
-  'schema-form-editor': ({ component, elementProps }) =>
-    renderEditorPlaceholder(
-      'schema-form-editor',
-      (component ?? {}) as Record<string, unknown>,
-      elementProps
-    ),
-  'schema-ai-agent': ({ component, elementProps }) =>
-    renderEditorPlaceholder(
-      'schema-ai-agent',
-      (component ?? {}) as Record<string, unknown>,
-      elementProps
-    ),
-}
+/** Schema config-editor island components (JSON / YAML / form / AI-agent). */
+export const islandEditorComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> =
+  {
+    'schema-json-editor': ({ component, elementProps }) =>
+      renderEditorPlaceholder(
+        'schema-json-editor',
+        (component ?? {}) as Record<string, unknown>,
+        elementProps
+      ),
+    'schema-yaml-editor': ({ component, elementProps }) =>
+      renderEditorPlaceholder(
+        'schema-yaml-editor',
+        (component ?? {}) as Record<string, unknown>,
+        elementProps
+      ),
+    'schema-form-editor': ({ component, elementProps }) =>
+      renderEditorPlaceholder(
+        'schema-form-editor',
+        (component ?? {}) as Record<string, unknown>,
+        elementProps
+      ),
+    'schema-ai-agent': ({ component, elementProps }) =>
+      renderEditorPlaceholder(
+        'schema-ai-agent',
+        (component ?? {}) as Record<string, unknown>,
+        elementProps
+      ),
+  }

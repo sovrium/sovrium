@@ -9,6 +9,17 @@ import { text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { automationDefinitions } from './automation'
 import { systemTable } from './table-helpers'
 
+/**
+ * Automation State Table — sqlite-core mirror of `schema/automation-state.ts`.
+ *
+ * Persistent key-value store for automation actions (state:set, state:get, state:delete,
+ * state:increment, state:list). Each automation can store arbitrary state keyed by string.
+ *
+ * Features:
+ * - Unique constraint on (automationId, key) for upsert semantics
+ * - Optional TTL for automatic expiration
+ * - JSON values for flexible data storage
+ */
 export const automationState = systemTable(
   'automation_state',
   {
@@ -35,5 +46,6 @@ export const automationState = systemTable(
   ]
 )
 
+// Type inference
 export type AutomationState = typeof automationState.$inferSelect
 export type NewAutomationState = typeof automationState.$inferInsert

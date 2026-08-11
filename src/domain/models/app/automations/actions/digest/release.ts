@@ -9,25 +9,36 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Digest Release Action (type: digest, operator: release)
+ *
+ * Release all collected items from a digest bucket. Returns the
+ * accumulated items as the step output and empties the bucket.
+ * Supports sorting and limiting the released items.
+ */
 export const DigestReleaseActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('digest'),
   operator: Schema.Literal('release'),
   props: Schema.Struct({
+    /** Digest bucket identifier to release */
     digestKey: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Digest bucket identifier to release (supports template variables)',
       })
     ),
 
+    /** Sort configuration for released items */
     sort: Schema.optional(
       Schema.Struct({
+        /** Field to sort by */
         field: TemplateStringSchema.pipe(
           Schema.annotations({
             description: 'Field name to sort by (supports template variables)',
           })
         ),
 
+        /** Sort direction */
         direction: Schema.optional(
           Schema.Literal('asc', 'desc').pipe(
             Schema.annotations({
@@ -42,6 +53,7 @@ export const DigestReleaseActionSchema = Schema.Struct({
       )
     ),
 
+    /** Maximum number of items to release */
     limit: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -60,4 +72,5 @@ export const DigestReleaseActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type DigestReleaseAction = Schema.Schema.Type<typeof DigestReleaseActionSchema>

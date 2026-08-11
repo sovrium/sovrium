@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Re-export all batch operations from modular files
 export { BatchValidationError } from './batch-helpers'
 export { batchCreateRecords } from './batch-create'
 export { upsertRecords } from './batch-upsert'

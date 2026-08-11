@@ -5,10 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines -- tables/programs.ts is the single records-CRUD orchestration surface (list / get / create / update / delete / restore / batch / get-with-display). B-01 threaded the attachment URL enricher through 5 of those programs, adding +18 lines. Splitting per-program would lose the shared validation+transform composition. */
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { buildAiComputeProjection } from '@/application/use-cases/ai-compute/status-projection'
+import {
+  buildAiComputeProjection,
+  buildAiComputeProjections,
+} from '@/application/use-cases/ai-compute/status-projection'
 import { NotFoundError, ValidationError } from '@/domain/errors'
 import {
   buildCreateAuthorshipOverrides,
@@ -16,7 +20,7 @@ import {
 } from '@/domain/services/authorship-fields'
 import { isGuestSession } from '@/domain/services/guest-session'
 import {
-  computeGroupedAggregations,
+  computeGroupPartitions,
   reshapeShortcutAggregations,
   type AggregateConfig,
 } from './utils/aggregation-helpers'
@@ -30,6 +34,11 @@ import { processRecords, applyPagination } from './utils/list-helpers'
 import { getManyToManyFieldSpecs, type ManyToManyFieldSpec } from './utils/many-to-many-fields'
 import { preserveIdType } from './utils/preserve-id-type'
 import { transformRecord } from './utils/record-transformer'
+import {
+  buildRecordDisplayLabels,
+  collectReferencedKeys,
+  getRelationshipDisplaySpecs,
+} from './utils/relationship-display-fields'
 import type { TransformedRecord } from './utils/record-transformer'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
@@ -41,6 +50,7 @@ import type {
 } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
+// Re-export from table-operations
 export {
   TableNotFoundError,
   createListTablesProgram,
@@ -51,6 +61,7 @@ export {
   getViewRecordsProgram,
 } from './table-operations'
 
+// Re-export from batch-operations
 export {
   batchCreateProgram,
   batchUpdateProgram,
@@ -74,32 +85,29 @@ interface ListRecordsConfig {
   readonly offset?: number
   readonly aggregate?: AggregateConfig
   readonly groupBy?: string
+  /**
+   * Absolute origin (e.g. `http://127.0.0.1:3000`) of the incoming request.
+   * Threaded through so `'attachment'` field values can be decorated with
+   * absolute signed-download URLs that round-trip against the same server
+   * (B-01). Empty string falls back to root-relative URLs.
+   */
   readonly origin?: string
 }
 
-function toGroupName(record: Readonly<Record<string, unknown>>, groupBy: string): string {
-  const raw = record[groupBy]
-  return raw === null || raw === undefined ? '' : String(raw)
-}
-
-function computeGroupCounts(
-  records: readonly Readonly<Record<string, unknown>>[],
-  groupBy: string
-): ReadonlyMap<string, number> {
-  return records.reduce<ReadonlyMap<string, number>>((acc, r) => {
-    const name = toGroupName(r, groupBy)
-    return new Map([...acc, [name, (acc.get(name) ?? 0) + 1]])
-  }, new Map<string, number>())
-}
-
-function computeSimpleGroups(
-  records: readonly Readonly<Record<string, unknown>>[],
-  groupBy: string
-): readonly { readonly name: string; readonly count: number }[] {
-  return Array.from(computeGroupCounts(records, groupBy).entries()).map(([name, count]) => ({
-    name,
-    count,
-  }))
+/**
+ * The grouping levels a `?groupBy=` names, outermost first.
+ *
+ * One field is the whole parameter as it has always been; a comma-separated list
+ * names the nested levels beneath it (`region,stage,owner`). Blank entries are
+ * dropped so a trailing comma degrades to the levels that were actually named
+ * rather than partitioning on a field called `''`.
+ */
+function parseGroupByLevels(groupBy: string | undefined): readonly string[] {
+  if (!groupBy) return []
+  return groupBy
+    .split(',')
+    .map((field) => field.trim())
+    .filter((field) => field.length > 0)
 }
 
 function computeListRecordsAggregationBlock(params: {
@@ -114,16 +122,6 @@ function computeListRecordsAggregationBlock(params: {
 }) {
   return Effect.gen(function* () {
     const { repo, session, tableName, records, filter, includeDeleted, aggregate, groupBy } = params
-    if (groupBy) {
-      const aggregated = computeGroupedAggregations(records, groupBy, aggregate)
-      const counts = computeGroupCounts(records, groupBy)
-      const withCount = aggregated.map((g) => ({
-        name: g.name,
-        count: counts.get(g.name) ?? 0,
-        aggregations: g.aggregations,
-      }))
-      return { groups: withCount }
-    }
     const raw = yield* repo.computeAggregations({
       session,
       tableName,
@@ -132,10 +130,20 @@ function computeListRecordsAggregationBlock(params: {
       aggregate,
     })
     const aggregations = aggregate.shortcut ? reshapeShortcutAggregations(raw, aggregate) : raw
+    // Grouping and aggregating are two questions about the same view, not two
+    // modes: a grid that both groups its rows AND summarises a column asks both
+    // in one request (five shipped templates do). Answering only the grouped one
+    // would have blanked those summary footers the moment the grid started
+    // sending `?groupBy=`, so both blocks are returned.
+    const levels = parseGroupByLevels(groupBy)
+    if (levels.length > 0) {
+      return { groups: computeGroupPartitions(records, levels, aggregate), aggregations }
+    }
     return { aggregations }
   })
 }
 
+// ── [internal ref]: many-to-many field split (create) + read enrichment ──────────────
 
 type ManyToManyWriteLink = {
   readonly relatedTable: string
@@ -143,8 +151,14 @@ type ManyToManyWriteLink = {
   readonly hasReciprocal: boolean
 }
 
+/** The junction map `recordId -> fieldName -> relatedIds` (records with no links absent). */
 type ManyToManyLinkMap = Record<string, Record<string, readonly (string | number)[]>>
 
+/**
+ * Split a create payload into base-column fields and many-to-many write links.
+ * A many-to-many field has no base column, so it must be removed from the
+ * INSERT and its ids written to the junction table instead.
+ */
 const splitManyToManyFields = (
   fields: Readonly<Record<string, unknown>>,
   specs: readonly ManyToManyFieldSpec[]
@@ -169,6 +183,10 @@ const splitManyToManyFields = (
   return { baseFields, links }
 }
 
+/**
+ * Resolve many-to-many field values from junction tables for a set of records.
+ * No-op (empty map) when the table declares no many-to-many fields.
+ */
 const readManyToManyLinks = (
   app: App | undefined,
   tableName: string,
@@ -185,6 +203,13 @@ const readManyToManyLinks = (
     })
   })
 
+/**
+ * Merge a record's resolved many-to-many arrays into its `fields` (no-op when
+ * absent). Generic in the field value type `V` so the merge preserves the
+ * caller's value typing instead of collapsing to `unknown`; the injected
+ * many-to-many values are `readonly (string | number)[]` (a subtype of the
+ * response field-value union), so the result stays assignable to it.
+ */
 const mergeManyToManyFields = <V>(
   fields: Readonly<Record<string, V>>,
   recordId: string | number,
@@ -194,6 +219,7 @@ const mergeManyToManyFields = <V>(
   return links ? { ...fields, ...links } : { ...fields }
 }
 
+/** Write a create's many-to-many junction rows (no-op when there are none). */
 const writeManyToManyLinks = (
   repo: TableRepository['Type'],
   tableName: string,
@@ -204,6 +230,7 @@ const writeManyToManyLinks = (
     ? Effect.void
     : repo.linkManyToMany({ sourceTable: tableName, sourceId, links })
 
+/** Enrich a page of records with their many-to-many field values from junctions. */
 const enrichRecordsWithManyToMany = (
   app: App | undefined,
   tableName: string,
@@ -224,6 +251,41 @@ const enrichRecordsWithManyToMany = (
     )
   })
 
+/**
+ * Attach the `_display` label block to a page of records.
+ *
+ * Runs AFTER the many-to-many enrich, because a many-to-many column has no base
+ * column — its keys only exist on the record once the junction has been read,
+ * and a to-many relationship is exactly the case a read surface most needs
+ * labelled.
+ *
+ * The stored keys are untouched: `_display` sits beside `fields`, so a caller
+ * that wants the identifier still finds it where it always was.
+ */
+const enrichRecordsWithRelatedLabels = (
+  app: App | undefined,
+  tableName: string,
+  records: readonly TransformedRecord[]
+): Effect.Effect<readonly TransformedRecord[], DatabaseError, TableRepository> =>
+  Effect.gen(function* () {
+    const specs = getRelationshipDisplaySpecs(app?.tables, tableName)
+    if (specs.length === 0 || records.length === 0) return records
+    const requests = collectReferencedKeys(specs, records)
+    if (requests.length === 0) return records
+    const repo = yield* TableRepository
+    const labels = yield* repo.readRelatedLabels(requests)
+    return records.map((record) => {
+      const display = buildRecordDisplayLabels(specs, record.fields, labels)
+      return (display ? { ...record, _display: display } : record) as TransformedRecord
+    })
+  })
+
+/**
+ * Build the response page of records: `processRecords` → attachment-url enrich
+ * (B-01) → paginate → many-to-many enrich → relationship labels.
+ * Extracted so `createListRecordsProgram` stays under the per-function line
+ * budget.
+ */
 const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<string, unknown>[]) =>
   Effect.gen(function* () {
     const processed = processRecords({
@@ -235,6 +297,8 @@ const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<str
       timezone: config.timezone,
       fields: config.fields,
     })
+    // B-01: decorate `'attachment'` JSONB field values with signedUrl /
+    // signedUrlExpiresAt (private buckets) or a direct `url` (public buckets).
     const enriched = enrichRecordsWithAttachmentUrls(processed, {
       app: config.app,
       tableName: config.tableName,
@@ -251,7 +315,26 @@ const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<str
       config.tableName,
       paginatedRecords
     )
-    return { records: withM2m, pagination }
+    // Labels for every relationship column that declared one. Enriched after
+    // pagination and after the junction read, so the lookup covers ONE page of
+    // keys and can see the many-to-many values it needs to label.
+    const withLabels = yield* enrichRecordsWithRelatedLabels(config.app, config.tableName, withM2m)
+    // [internal ref] Phase 2: the same gated `_aiCompute` block the single-record read
+    // carries. Enriched AFTER pagination, so the status read covers ONE page of
+    // ids rather than the whole result set — and gated on the table declaring an
+    // AI-compute field at all, so a table with none never touches the status
+    // table and pays nothing for this.
+    const aiComputeByRecord = yield* buildAiComputeProjections(
+      config.app,
+      config.tableName,
+      withLabels.map((record) => record.id)
+    )
+    if (aiComputeByRecord.size === 0) return { records: withLabels, pagination }
+    const withAiCompute = withLabels.map((record) => {
+      const aiCompute = aiComputeByRecord.get(String(record.id))
+      return (aiCompute ? { ...record, _aiCompute: aiCompute } : record) as TransformedRecord
+    })
+    return { records: withAiCompute, pagination }
   })
 
 export function createListRecordsProgram(
@@ -283,8 +366,11 @@ export function createListRecordsProgram(
         })
       : {}
 
+    // When groupBy is specified without aggregate, compute name/count groups only
     const simpleGroupsBlock =
-      groupBy && !aggregate ? { groups: computeSimpleGroups(records, groupBy) } : {}
+      groupBy && !aggregate
+        ? { groups: computeGroupPartitions(records, parseGroupByLevels(groupBy)) }
+        : {}
 
     return {
       records: [...pageRecords] as TransformedRecord[],
@@ -306,6 +392,11 @@ interface ListTrashConfig {
   readonly offset?: number
 }
 
+/**
+ * Extract deletedBy user ID from a raw trash record.
+ * The listTrash query joins auth.user and returns deleted_by_user object.
+ * We extract only the user ID string to match the flat authorship format.
+ */
 function extractDeletedByUserId(rawRecord: Readonly<Record<string, unknown>>): string | undefined {
   const deletedByUser = rawRecord['deleted_by_user']
   if (!deletedByUser || typeof deletedByUser !== 'object') return undefined
@@ -321,8 +412,10 @@ export function createListTrashProgram(
     const repo = yield* TableRepository
     const { session, tableName, app, userRole, filter, sort, limit, offset } = config
 
+    // Query soft-deleted records with session context (RLS policies apply automatically)
     const records = yield* repo.listTrash({ session, tableName, filter, sort })
 
+    // Process records (field-level filtering, transformations)
     const processedRecords = processRecords({
       records,
       app,
@@ -330,11 +423,14 @@ export function createListTrashProgram(
       userRole,
     })
 
+    // Preserve numeric IDs and attach deletedBy user object from joined query results
     const recordsWithPreservedIds = processedRecords.map((record) => {
+      // Try to parse ID as number if it's a numeric string, otherwise keep as-is
       const rawRecord = records.find((r) => String(r.id) === String(record.id))
       const originalId = rawRecord?.id
       const id = typeof originalId === 'number' ? originalId : record.id
 
+      // Extract deletedBy user ID from the raw record's join result
       const deletedBy = rawRecord ? extractDeletedByUserId(rawRecord) : undefined
 
       return {
@@ -344,6 +440,7 @@ export function createListTrashProgram(
       }
     })
 
+    // Apply pagination
     const { paginatedRecords, pagination } = applyPagination(
       recordsWithPreservedIds,
       records.length,
@@ -366,6 +463,7 @@ interface GetRecordConfig {
   readonly userRole: string
   readonly includeDeleted?: boolean
   readonly format?: 'display'
+  /** See {@link ListRecordsConfig.origin}. */
   readonly origin?: string
 }
 
@@ -385,6 +483,7 @@ export function createGetRecordProgram(
       tableName,
       format: config.format,
     })
+    // B-01: same attachment-URL enrichment as the list path.
     const transformed = enrichRecordWithAttachmentUrls(transformedRaw, {
       app,
       tableName,
@@ -404,13 +503,24 @@ export function createGetRecordProgram(
           )
         : transformed.fields
 
+    // Preserve TEXT primary keys (e.g. scope tables in `auth.scopeTables`)
+    // as strings; only coerce when the value *looks* numeric. Avoids NaN
+    // for opaque string ids.
     const id = preserveIdType(record.id)
 
+    // [internal ref]: resolve many-to-many relationship fields from their junction
+    // tables (they have no base column, so `SELECT *` never returns them). A
+    // record with no links leaves the field absent — no empty-array injection.
     const m2mLinks = yield* readManyToManyLinks(app, tableName, [id])
     const enrichedFields = mergeManyToManyFields(fields, id, m2mLinks)
 
+    // [internal ref] Phase 2: surface the AI-compute refinement signal as a gated
+    // top-level `_aiCompute` block. `undefined` (omitted) for non-AI tables
+    // and for records with no status rows yet — non-AI tables skip the read.
     const aiCompute = yield* buildAiComputeProjection(app, tableName, id)
 
+    // Spread fields at root level as flat aliases (same pattern as createRecordProgram).
+    // Lets callers access record.fieldName in addition to record.fields.fieldName.
     return {
       ...enrichedFields,
       id,
@@ -431,9 +541,27 @@ interface CreateRecordConfig {
   readonly fields: Readonly<Record<string, unknown>>
   readonly app?: App
   readonly userRole?: string
+  /** See {@link ListRecordsConfig.origin}. */
   readonly origin?: string
 }
 
+/**
+ * GAP-16: stamp every `created-by`/`updated-by`-typed column BY NAME with the
+ * authenticated actor. The infra authorship injection only fills the LITERAL
+ * `created_by`/`updated_by` columns (discovered via DB introspection); a
+ * custom-named field (e.g. `author`, generated TEXT NOT NULL under auth) would
+ * otherwise be left NULL and 500 the INSERT. Resolving by FIELD TYPE here (the
+ * application layer, where the table schema is available) mirrors
+ * `writeBoundTableRecord` in submit-form.ts.
+ *
+ * `phase: 'create'` stamps both created-by AND updated-by fields (a fresh row
+ * is created-and-last-modified by the same actor); `phase: 'update'` re-stamps
+ * only updated-by fields. Guest sessions are skipped — no real actor exists to
+ * stamp a custom-named field, and the infra normalizes the literal columns to
+ * NULL. On create, the literal `created_by` is still re-overridden downstream
+ * by the infra, so the AUTHORSHIP-013 contract (user-supplied value ignored)
+ * is preserved.
+ */
 const applyAuthorshipOverrides = (input: {
   readonly phase: 'create' | 'update'
   readonly fields: Readonly<Record<string, unknown>>
@@ -455,6 +583,7 @@ export function createRecordProgram(config: CreateRecordConfig) {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
 
+    // GAP-16: see applyAuthorshipOverrides.
     const fieldsWithAuthorship = applyAuthorshipOverrides({
       phase: 'create',
       fields,
@@ -463,19 +592,27 @@ export function createRecordProgram(config: CreateRecordConfig) {
       userId: session.userId,
     })
 
+    // [internal ref]: a many-to-many relationship field has no base column — split it
+    // out of the base INSERT (it would try to write a phantom column → 500) and
+    // write the junction rows after the base row (real id) is created.
     const { baseFields, links } = splitManyToManyFields(
       fieldsWithAuthorship,
       getManyToManyFieldSpecs(app?.tables, tableName)
     )
 
+    // Create record with session context
     const record = yield* repo.createRecord(session, tableName, baseFields)
     yield* writeManyToManyLinks(repo, tableName, record.id as string | number, links)
 
+    // B-01: enrich attachment fields with signedUrl / url on the create-record
+    // response so callers see the same shape they get back on GET / LIST.
     const enrich = (rec: TransformedRecord): TransformedRecord =>
       enrichRecordWithAttachmentUrls(rec, { app, tableName, origin: origin ?? '' })
 
     const transformed = enrich(transformRecord(record, app ? { app, tableName } : undefined))
 
+    // Apply field-level read permissions filtering
+    // If app and userRole are provided, filter fields based on permissions
     const filteredFields =
       app && userRole
         ? (() => {
@@ -486,11 +623,15 @@ export function createRecordProgram(config: CreateRecordConfig) {
               record,
             })
 
+            // Transform filtered record to get only user fields (exclude system fields)
             const transformedFiltered = enrich(transformRecord(filteredRecord, { app, tableName }))
             return transformedFiltered.fields
           })()
         : transformed.fields
 
+    // Return in format expected by tests: system fields at root, user fields
+    // both nested (canonical) and at the root (flat alias). The flat alias
+    // supports specs that read `record.file` instead of `record.fields.file`.
     return {
       ...filteredFields,
       id: transformed.id,
@@ -504,6 +645,19 @@ export function createRecordProgram(config: CreateRecordConfig) {
   })
 }
 
+/**
+ * [internal ref] (update): resolve the base row for an update while handling the
+ * many-to-many split. A `many-to-many` relationship field has no base column, so
+ * it is split OUT of the SET clause and its ids written to the junction table —
+ * mirroring the create path. Without the split the field name reaches the base
+ * UPDATE (no such column), the update matches nothing, and the route 404s.
+ *
+ * Updates the base columns when there is at least one to write; a pure m2m PATCH
+ * (only relationship arrays) fetches the existing row instead so the junction
+ * write targets a real record and the response reflects it. Returns `{}` when a
+ * pure m2m PATCH targets a missing row (the caller surfaces that as a 404).
+ * No-op split for tables/patches with no m2m field.
+ */
 const resolveUpdatedBaseRecord = (
   session: Readonly<UserSession>,
   tableName: string,
@@ -519,6 +673,8 @@ const resolveUpdatedBaseRecord = (
     const m2mSpecs = getManyToManyFieldSpecs(params.app?.tables, tableName)
     const { baseFields, links } = splitManyToManyFields(params.fields, m2mSpecs)
 
+    // GAP-16: re-stamp every `updated-by`-typed column BY NAME with the updating
+    // actor (created-by fields are never touched on update).
     const baseWithAuthorship = applyAuthorshipOverrides({
       phase: 'update',
       fields: baseFields,
@@ -537,6 +693,7 @@ const resolveUpdatedBaseRecord = (
 
     if (Object.keys(record).length === 0) return {}
 
+    // Write the m2m junction rows (idempotent add semantics).
     yield* writeManyToManyLinks(repo, tableName, record.id as string | number, links)
     return record
   })
@@ -552,12 +709,18 @@ export function updateRecordProgram(
   }
 ) {
   return Effect.gen(function* () {
+    // [internal ref] (update): resolve the base row, handling the many-to-many split +
+    // junction write. Extracted so this generator stays under the complexity cap.
     const record = yield* resolveUpdatedBaseRecord(session, tableName, recordId, params)
 
+    // Pure m2m PATCH against a missing row: surface empty so the route 404s.
     if (Object.keys(record).length === 0) return {}
 
+    // Transform with app context to include table-specific fields like created_at/updated_at
     const transformed = transformRecord(record, { app: params.app, tableName })
 
+    // Apply field-level read permissions filtering
+    // If app and userRole are provided, filter fields based on permissions
     const filteredFields =
       params.app && params.userRole
         ? (() => {
@@ -568,6 +731,7 @@ export function updateRecordProgram(
               record,
             })
 
+            // Transform filtered record to get only user fields (exclude system fields)
             const transformedFiltered = transformRecord(filteredRecord, {
               app: params.app,
               tableName,
@@ -576,6 +740,10 @@ export function updateRecordProgram(
           })()
         : transformed.fields
 
+    // Return in format expected by tests: system fields at root, user fields
+    // both nested (canonical) and at the root (flat alias). Mirrors the
+    // create-record response so PATCH and POST share the same envelope.
+    // Preserve original ID type (number if it was number in database).
     const originalId = record.id
     return {
       ...filteredFields,
@@ -602,6 +770,7 @@ export function restoreRecordProgram(
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const record = yield* repo.restoreRecord(session, tableName, recordId)
+    // Special error marker for non-deleted records (vs. missing rows).
     if (record && '_error' in record && record._error === 'not_deleted')
       return yield* Effect.fail(new ValidationError('Record is not deleted'))
     if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
@@ -609,6 +778,7 @@ export function restoreRecordProgram(
   })
 }
 
+/** Raw record retrieval (no permission filtering) — used for internal checks. */
 export function rawGetRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
@@ -620,6 +790,7 @@ export function rawGetRecordProgram(
   })
 }
 
+/** Soft-delete a record. Wraps Infrastructure for layer architecture. */
 export function deleteRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
@@ -636,6 +807,7 @@ export function deleteRecordProgram(
   })
 }
 
+/** Permanently delete a record. Wraps Infrastructure for layer architecture. */
 export function permanentlyDeleteRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,

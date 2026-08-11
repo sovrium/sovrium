@@ -22,6 +22,9 @@ import type { Theme } from '@/domain/models/app/theme'
 import type { SessionInfo } from '@/domain/types/session-info'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
+/**
+ * Props for the SectionRenderer component
+ */
 export interface SectionRendererProps {
   readonly sections: ReadonlyArray<Component | SimpleComponentReference | ComponentReference>
   readonly pageVars?: Record<string, string | number | boolean>
@@ -31,11 +34,19 @@ export interface SectionRendererProps {
   readonly currentLang: string
   readonly tables?: Tables
   readonly buckets?: Buckets
+  /** App-level `auth.landingPath`. */
   readonly landingPath?: string
   readonly routeParams?: RouteParams
   readonly session?: SessionInfo
 }
 
+/**
+ * Render sections with theme spacing
+ * Handles section wrapping, container spacing, and component resolution
+ *
+ * @param props - Component props
+ * @returns React element with sections
+ */
 export function SectionRenderer({
   sections,
   pageVars,

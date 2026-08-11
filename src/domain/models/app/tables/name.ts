@@ -8,6 +8,16 @@
 import { Schema } from 'effect'
 import { createDatabaseIdentifierSchema } from '@/domain/validators/database-identifier'
 
+/**
+ * Table Name
+ *
+ * Name of the database table
+ *
+ * @example
+ * ```typescript
+ * "users"
+ * ```
+ */
 export const NameSchema = createDatabaseIdentifierSchema('table').pipe(
   Schema.annotations({
     title: 'Name',
@@ -24,4 +34,5 @@ export const NameSchema = createDatabaseIdentifierSchema('table').pipe(
   })
 )
 
+/** @public */
 export type Name = Schema.Schema.Type<typeof NameSchema>

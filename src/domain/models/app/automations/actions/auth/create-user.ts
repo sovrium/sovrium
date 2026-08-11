@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Auth Create User Action (type: auth, operator: createUser)
+ *
+ * Create a new user account with email, name, and optional role/password.
+ */
 export const AuthCreateUserActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('auth'),
@@ -35,4 +40,5 @@ export const AuthCreateUserActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AuthCreateUserAction = Schema.Schema.Type<typeof AuthCreateUserActionSchema>

@@ -12,6 +12,7 @@ import {
   type CollisionDetection,
 } from '@dnd-kit/core'
 
+/** Column droppable id prefix to disambiguate from card IDs in onDragEnd. */
 export const COLUMN_DROP_PREFIX = 'kanban-column:'
 
 export function isColumnDropId(id: string | number): boolean {
@@ -26,6 +27,18 @@ export function decodeColumnDropId(id: string): string {
   return id.slice(COLUMN_DROP_PREFIX.length)
 }
 
+/**
+ * Custom collision detection — columns only.
+ *
+ * `useSortable` registers each card as a droppable, but if cards are in
+ * the candidate set @dnd-kit's pointer-down on a clickable card can
+ * register an over-target during the synchronous click sequence, which
+ * suppresses the card's `onClick` navigation contract
+ *. Restricting candidates to column droppables
+ * keeps `over.id` as a column ID in every case; within-column reorder
+ * computes the target index from `event.delta.y`
+ * in the drag-end handler instead of relying on a card-level over target.
+ */
 export const kanbanCollisionDetection: CollisionDetection = (args) => {
   const { active, droppableContainers } = args
   const columnsOnly = droppableContainers.filter((c) => c.id !== active.id && isColumnDropId(c.id))

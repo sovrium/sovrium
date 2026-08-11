@@ -1,7 +1,130 @@
+# Intranet theming — cyan.
+#
+# The cyan identity is not new: `#0891b2` was already here, and the sign-in CTA
+# on the home page already painted itself that colour by hand. What was new was
+# that the theme barely reached the page.
+#
+# WHAT WAS BROKEN
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens every prestyled island consumes. Everything
+#   else emits `--color-*` and does nothing until something cites it. Of the six
+#   colours declared before, `text` and `text-secondary` were off the map
+#   entirely — they painted nothing, anywhere. The pages compensated by
+#   hard-coding the same two hexes inline forty-one times, which is why the
+#   template LOOKED themed while its theme was half inert.
+#
+#   So `text` → `foreground` and `text-secondary` → `foreground-muted`: same
+#   intent, now reaching the page. `foreground-muted` maps to `fg-muted`, which
+#   the baseline registers as `--color-muted-foreground`, so the
+#   `text-muted-foreground` utility resolves from it too.
+#
+#   The mapping is not identity elsewhere either — `background-raised` →
+#   `bg-raised`, `background-overlay` → `bg-overlay`, `ring` → `focus-ring`,
+#   `success` → `success-solid`.
+#
+# WHY THERE IS NO `muted` KEY
+#   Because `muted` and `background-subtle` BOTH map to `--sv-bg-subtle`, and
+#   the compiler emits one `--sv-*` line per authored key in declaration order,
+#   so the later of the two silently wins. Declaring both gave the page two
+#   different subtle backgrounds: the prestyled islands took `muted`'s value
+#   from `--sv-bg-subtle`, while the migrated inline styles below took
+#   `background-subtle`'s from its own `--color-background-subtle` — a mismatch
+#   that is invisible in the config and obvious on screen.
+#
+#   Only `background-subtle` is declared, and nothing is lost: the baseline
+#   registers `--color-muted: var(--sv-bg-subtle)`, so the `bg-muted` utility
+#   still resolves — now to the same colour everything else uses.
+#
+#
+# WHY `background-raised` / `background-overlay` AND NOT `card` / `popover`
+#   The two pairs map to the SAME role tokens (`--sv-bg-raised`,
+#   `--sv-bg-overlay`), so this is not a behaviour change — but `card`, `popover`
+#   and `muted` are listed in `COLORS_NEEDING_FOREGROUND`, which auto-derives a
+#   `<key>-foreground: #ffffff` companion whenever the base key is declared
+#   without one. On a white card that companion is white text on white. Worse,
+#   the derivation runs over the LIGHT block only and is never mirrored into
+#   `darkColors`, so it is a light-surface guess that silently persists into
+#   dark mode. The `background-*` spellings carry no such companion.
+#
+# WHY `primary-foreground` IS SPELLED OUT IN BOTH BLOCKS
+#   `primary` IS in `COLORS_NEEDING_FOREGROUND`, so omitting it derives
+#   `#ffffff` — correct here in light mode, and wrong in dark, where `primary`
+#   lightens and white-on-light is unreadable. The derived companion is not
+#   mirrored into `darkColors`, so the only way to get a legible on-primary ink
+#   in both schemes is to name it twice, which is what happens below.
+# THE NEW KEYS EXIST BECAUSE THE PAGES NOW CITE THEM
+#   `background-subtle`, `background-raised`, `warning-subtle` and the rest
+#   were added together with the inline-hex migration in `config/pages/`: each inline
+#   `style:` literal became a `var(--color-*)` reference, so the page banding,
+#   the card chrome and the manager-tools callout now all derive from this one
+#   file. Change a value here and three pages follow.
+#
+#   `warning-subtle`, `warning-border` and `warning-strong` are off the `--sv-*`
+#   map on purpose: they exist ONLY to be cited by the manager-tools callout,
+#   which needs a soft amber wash, a matching rule and a legible amber text
+#   colour — a three-part treatment the single `warning` role token cannot
+#   supply. Being cited is what makes a non-role key worth declaring.
+#
+# NO `fonts` BLOCK
+#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
+#   Naming any other family emits `font-family: X, …` with no matching
+#   `@font-face`, dropping the page onto the OS default and locking the shipped
+#   face out of its own stack.
+baseline: extend
+
 colors:
   primary: '#0891b2'
+  primary-hover: '#0e7490'
+  primary-foreground: '#ffffff'
+  primary-subtle: '#cffafe'
+  ring: '#06b6d4'
   background: '#ffffff'
-  text: '#0f172a'
-  text-secondary: '#475569'
-  border: '#e2e8f0'
-  muted: '#f1f5f9'
+  background-subtle: '#f4fbfc'
+  foreground: '#0c1e24'
+  foreground-muted: '#456a73'
+  foreground-subtle: '#74979f'
+  background-raised: '#ffffff'
+  background-overlay: '#ffffff'
+  border: '#d6ebef'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+  # Cited by the manager-tools callout in config/pages/portal.yaml, and by
+  # nothing else. See the note above on why these three are off the role map.
+  warning-subtle: '#fefce8'
+  warning-border: '#fde047'
+  warning-strong: '#713f12'
+
+# Rendered only when the app declares `theme.colorScheme` or ships a
+# `theme-toggle`; the stylesheet carries it either way, under
+# `html:is(.dark, [data-theme='dark'])`. The inline `var(--color-*)` references
+# in `config/pages/` resolve through this block automatically, so the migrated
+# pages get a dark mode the hard-coded hexes could never have had.
+darkColors:
+  primary: '#22d3ee'
+  primary-hover: '#67e8f9'
+  primary-foreground: '#07161a'
+  primary-subtle: '#083344'
+  ring: '#06b6d4'
+  background: '#07161a'
+  background-subtle: '#0d2027'
+  foreground: '#e2f3f6'
+  foreground-muted: '#a0c5cd'
+  foreground-subtle: '#769aa3'
+  background-raised: '#0d2027'
+  background-overlay: '#0d2027'
+  border: '#1a343d'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
+  warning-subtle: '#2a2205'
+  warning-border: '#5c4708'
+  warning-strong: '#fde68a'
+
+borderRadius:
+  sm: 0.25rem
+  md: 0.5rem
+  lg: 0.75rem
+  xl: 1rem
+  full: 9999px

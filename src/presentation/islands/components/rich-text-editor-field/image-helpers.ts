@@ -7,6 +7,13 @@
 
 import type { Editor } from '@tiptap/react'
 
+/**
+ * Upload a `File` to the configured rich-text image bucket and return the
+ * served-asset URL. Falls back to `default` when no bucket is bound.
+ *
+ * The endpoint mirrors the contract asserted by [internal ref] /
+ * -005 (multipart POST `/api/buckets/<name>/files`).
+ */
 export async function uploadImageToBucket(file: File, bucket: string): Promise<string | undefined> {
   const formData = new FormData()
   formData.append('file', file)
@@ -24,6 +31,14 @@ export async function uploadImageToBucket(file: File, bucket: string): Promise<s
   return `/api/buckets/${encodeURIComponent(bucket)}/files/${encodeURIComponent(result.key)}`
 }
 
+/**
+ * Extract the first image File from a clipboard or drop DataTransfer.
+ *
+ * The test constructs a `ClipboardEvent` whose
+ * `clipboardData` carries a `File`. ProseMirror's default paste handler doesn't
+ * upload arbitrary files, so this helper is what wires the user-paste flow to
+ * the bucket upload.
+ */
 export function extractImageFile(dataTransfer: DataTransfer | null): File | undefined {
   if (!dataTransfer) return undefined
   const fromItems = Array.from(dataTransfer.items ?? [])
@@ -34,6 +49,9 @@ export function extractImageFile(dataTransfer: DataTransfer | null): File | unde
   return Array.from(dataTransfer.files ?? []).find((file) => file.type.startsWith('image/'))
 }
 
+/**
+ * Insert an `<img>` referencing the uploaded file URL into the editor.
+ */
 export function insertImageAtCursor(editor: Editor, src: string): void {
   editor.chain().focus().setImage({ src }).run()
 }

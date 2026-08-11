@@ -5,6 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Action-attribute builders for the button renderer.
+ *
+ * Each `buildXxxDataAttributes` turns a typed action config into the flat
+ * `data-*` map that the always-loaded client runtime (`presentation/client.ts`)
+ * reads to dispatch the interaction. Split out of `button-renderer.tsx` so the
+ * dispatcher + core render stay under the React-component line cap; this file
+ * carries the action type definitions, type guards, and the `$record.*`
+ * resolution helpers.
+ */
 
 import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
 import { substituteRecordInInputData } from '@/presentation/rendering/record-template-substitution'
@@ -12,6 +22,9 @@ import type { CrudFormAction } from './crud-form/crud-form-renderer'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
+/**
+ * Build data attributes for click interactions
+ */
 export function buildClickDataAttributes(clickInteraction: {
   animation?: string
   navigate?: string
@@ -48,10 +61,24 @@ export type AutomationAction = {
   onSuccess?: { toast?: { message?: string; variant?: string } }
 }
 
+/**
+ * Returns true if the given action is an automation action
+ */
 export function isAutomationAction(action: unknown): action is AutomationAction {
   return (action as { type?: string })?.type === 'automation'
 }
 
+/**
+ * Build the `$record.*` substitution context for an automation button.
+ *
+ * Mirrors `renderCrudDeleteButton`'s `record['id'] ?? routeParams?.['id']`
+ * precedence: a record-detail page exposes the bound record's fields, but a
+ * button on a `/<table>/:id` route always has the record id available as the
+ * route param even when the page-level single-record dataSource hasn't injected
+ * a `_record`. The route params fill in missing keys (notably `id`); a bound
+ * `_record` field always wins. Returns `undefined` when neither source exists,
+ * so callers leave the template strings untouched.
+ */
 export function buildRecordContext(
   record: Readonly<Record<string, unknown>> | undefined,
   routeParams: RouteParams | undefined
@@ -62,6 +89,20 @@ export function buildRecordContext(
   return { ...(routeParams ?? {}), ...(record ?? {}) }
 }
 
+/**
+ * Resolve `$record.*` references inside an automation action's `inputData`.
+ *
+ * Each string value containing `$record.<field>` is substituted against the
+ * record context so the substituted value reaches the automation via the
+ * form-action endpoint (`{{trigger.data.body.<key>}}`). Non-string values pass
+ * through unchanged. When no context is available, the template strings flow
+ * through untouched (they resolve to '' if the field is missing — same coercion
+ * as the rest of the platform).
+ *
+ * Shares the per-string-value loop with `substituteRecordInProps` /
+ * `substituteRecordInAction` (via `substituteRecordInInputData`); the `domain`
+ * `substituteRecordVars` variant (null → `''`) is injected here.
+ */
 export function resolveInputDataRecordVars(
   inputData: Record<string, unknown>,
   record: Readonly<Record<string, unknown>> | undefined
@@ -70,6 +111,11 @@ export function resolveInputDataRecordVars(
   return substituteRecordInInputData(inputData, record, substituteRecordVars)
 }
 
+/**
+ * Build data attributes for automation actions. `data-action-input` carries
+ * the JSON-serialized `inputData` (with `$record.*` already substituted) so
+ * the client runtime can POST it to the form-action endpoint.
+ */
 export function buildAutomationDataAttributes(
   action: AutomationAction,
   resolvedInputData: Record<string, unknown> | undefined
@@ -96,10 +142,18 @@ export type AuthButtonAction = {
   onSuccess?: { navigate?: string }
 }
 
+/**
+ * Returns true if the given action is an auth action (e.g. a logout button).
+ */
 export function isAuthAction(action: unknown): action is AuthButtonAction {
   return (action as { type?: string })?.type === 'auth'
 }
 
+/**
+ * Build data attributes for an auth-action button (today: logout). The client
+ * runtime reads `data-auth-method` to dispatch the Better Auth call and
+ * `data-auth-navigate` for the post-action redirect.
+ */
 export function buildAuthDataAttributes(action: AuthButtonAction): Record<string, string> {
   return {
     'data-action-type': 'auth',
@@ -108,6 +162,9 @@ export function buildAuthDataAttributes(action: AuthButtonAction): Record<string
   }
 }
 
+/**
+ * Returns true if the given action is a CRUD delete action
+ */
 export function isCrudDeleteAction(action: unknown): action is CrudFormAction {
   return (
     (action as CrudFormAction)?.type === 'crud' &&
@@ -115,12 +172,31 @@ export function isCrudDeleteAction(action: unknown): action is CrudFormAction {
   )
 }
 
+/**
+ * The canonical fetch action shape is the domain `FetchActionSchema` type — it
+ * carries the full CAP-3 operate vocabulary (`mode`, `confirm`, `confirmMessage`,
+ * `filename`, `responseEnvelope`, `redirectKey`, `callbackPath`) the standalone
+ * button now serializes wholesale, NOT the prior narrow url/method/headers/body
+ * duplicate. Re-exported so `button-renderer.tsx` keeps importing it from here.
+ */
 export type { FetchAction }
 
+/**
+ * Returns true if the given action is a fetch action
+ */
 export function isFetchAction(action: unknown): action is FetchAction {
   return (action as { type?: string })?.type === 'fetch'
 }
 
+/**
+ * Build the confirm-gate data attribute(s) overlaid onto a button's element
+ * props from the schema's top-level `confirm` field. A STRING confirm rides on
+ * `data-confirm` (the prompt); the rich OBJECT form (separate title / dialog role
+ * / type-to-confirm input / label overrides) is serialized to `data-confirm-config`
+ * so the always-loaded client runtime renders the richer gate. Author-supplied
+ * `data-confirm` / `data-confirm-config` props win. Returns an empty object when
+ * `confirm` is absent or already present in props.
+ */
 export function buildConfirmAttributes(
   rawConfirm: unknown,
   elementProps: Record<string, unknown>
@@ -136,6 +212,18 @@ export function buildConfirmAttributes(
   return {}
 }
 
+/**
+ * Build data attributes for a fetch action. Serializes the WHOLE action object
+ * as a single `data-action-config` JSON blob so the always-loaded client runtime
+ * (`presentation/client.ts`) can hand it verbatim to the shared `executeFetchAction`
+ * — which already implements every dispatch `mode` (fetch / navigate / download /
+ * oauth) + the `$record.*` resolution. The prior flat-attribute encoding dropped
+ * `mode` / `confirm` / `filename`, so a `mode: download` standalone button fired a
+ * background GET with no native download; emitting the full config closes that gap.
+ * The top-level button `confirm` rides separately on `data-confirm` (overlaid onto
+ * the element props by the schema-fallback layer) since it is a button-level gate,
+ * not part of the action.
+ */
 export function buildFetchDataAttributes(action: FetchAction): Record<string, string> {
   return {
     'data-action-type': 'fetch',

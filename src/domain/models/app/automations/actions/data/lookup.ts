@@ -9,19 +9,28 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Data Lookup Action (type: data, operator: lookup)
+ *
+ * Find the first record in an array whose `key` field equals `value`.
+ * Returns `null` when no record matches.
+ */
 export const DataLookupActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('data'),
   operator: Schema.Literal('lookup'),
   props: Schema.Struct({
+    /** Template reference to the array of records to search */
     input: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Template reference to the array of records to search' })
     ),
 
+    /** Field name to match against */
     key: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Field name to match against' })
     ),
 
+    /** Value the `key` field must equal (supports template variables) */
     value: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Value the key field must equal (supports templates)' })
     ),
@@ -34,4 +43,5 @@ export const DataLookupActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type DataLookupAction = Schema.Schema.Type<typeof DataLookupActionSchema>

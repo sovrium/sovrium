@@ -1,0 +1,36 @@
+# When a product's stock drops to zero, email the buyer. The filter step gates on
+# the new value, so grid edits and API writes both qualify.
+# Change `to` to your purchasing inbox (any address your SMTP config can deliver to).
+name: flag-low-stock
+label: Out of stock — notify purchasing
+description: Email the purchasing inbox when a product's stock on hand reaches zero.
+enabled: true
+trigger:
+  type: record
+  table: products
+  events:
+    - update
+  watchFields:
+    - stock_on_hand
+actions:
+  - name: onlyWhenEmpty
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.stock_on_hand}}'
+            operator: equals
+            value: 0
+      onFalse: stop
+  - name: emailPurchasing
+    type: email
+    operator: send
+    props:
+      to: purchasing@example.com
+      subject: 'Out of stock: {{trigger.data.record.name}}'
+      body: |
+        <p><strong>{{trigger.data.record.name}}</strong> ({{trigger.data.record.sku}}) is out of stock.</p>
+        <p>Reorder point: {{trigger.data.record.reorder_point}}</p>
+        <p>Open Products to raise a purchase order.</p>

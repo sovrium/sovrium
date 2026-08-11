@@ -23,6 +23,9 @@ export interface CampaignsResult {
   readonly total: number
 }
 
+/**
+ * Query UTM campaign breakdown.
+ */
 export const queryCampaigns = (
   input: QueryCampaignsInput
 ): Effect.Effect<CampaignsResult, AnalyticsDatabaseError, AnalyticsRepository> =>

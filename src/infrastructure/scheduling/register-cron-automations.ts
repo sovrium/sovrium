@@ -13,6 +13,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import { CronSchedulerLive, disposeCronScheduler } from './cron-scheduler-live'
 import type { App } from '@/domain/models/app'
 
+// Re-export so server.ts can import everything cron-related from one place.
 export { disposeCronScheduler }
 
 type Automation = NonNullable<App['automations']>[number]
@@ -23,6 +24,13 @@ type CronTriggerLike = {
 }
 type CronScheduleService = Effect.Effect.Success<typeof CronScheduler>
 
+/**
+ * Build the per-automation cron callback. Each invocation runs the shared
+ * `runCronAutomation` Effect program through the production runtime layer
+ * (DB-backed repositories) and absorbs all errors after logging — a
+ * misbehaving automation must NOT stop the scheduler from re-arming for
+ * the next tick.
+ */
 const buildCronCallback =
   (automation: Automation, app: App, processEnv: Readonly<Record<string, string | undefined>>) =>
   (): Effect.Effect<void, unknown> =>
@@ -32,10 +40,16 @@ const buildCronCallback =
           logError('[cron-scheduler] automation run failed', err, { name: automation.name })
         })
       ),
+      // Tagged-error union is wide; narrow to `void` for the scheduler
+      // callback signature so the timer keeps firing on the next tick.
       Effect.catchAll(() => Effect.void),
       Effect.asVoid
     )
 
+/**
+ * Schedule a single cron-triggered automation. Logged-and-recovered on
+ * failure so one bad expression cannot block subsequent registrations.
+ */
 const scheduleOne = (
   scheduler: CronScheduleService,
   automation: Automation,
@@ -55,12 +69,30 @@ const scheduleOne = (
           logError('[cron-scheduler] failed to schedule automation', err, {
             name: automation.name,
           })
-          return automation.name
+          return automation.name // best-effort: return the intended id
         })
       )
     )
 }
 
+/**
+ * Walk `app.automations`, filter cron-triggered entries, and arm them on
+ * the live scheduler. Each scheduled callback runs the corresponding
+ * automation through the shared `runCronAutomation` Effect program — same
+ * persistence + run-history contract as the webhook/manual entry points.
+ *
+ * Called from `createServer` AFTER the database has been initialised but
+ * BEFORE `Bun.serve` accepts requests, so by the time the test fixture's
+ * `startServerWithSchema` resolves, cron jobs are already armed and the
+ * first fire will appear in `system.automation_runs` within one schedule
+ * period.
+ *
+ * Disabled automations are skipped silently. Schema validation already
+ * guaranteed every cron expression parses, but `Cron.parse` is invoked
+ * again inside `CronScheduler.schedule`; if it ever fails (Effect API
+ * drift), the scheduler error is logged and the registration moves on so
+ * one bad job cannot block the rest.
+ */
 export const registerCronAutomations = (
   app: App,
   processEnv: Readonly<Record<string, string | undefined>>

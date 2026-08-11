@@ -18,6 +18,9 @@ export interface QueryDevicesInput {
   readonly to: Date
 }
 
+/**
+ * Query device, browser, and OS breakdown.
+ */
 export const queryDevices = (
   input: QueryDevicesInput
 ): Effect.Effect<DeviceBreakdown, AnalyticsDatabaseError, AnalyticsRepository> =>

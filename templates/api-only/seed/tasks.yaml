@@ -1,0 +1,113 @@
+# Sample tasks, linked to projects by their file-local key.
+#
+# `@projects.<key>` resolves to the id the projects file's row was written with.
+# Cross-file keys only resolve within a single `sovrium seed` run — the token is
+# not stored, so seeding one table in isolation with `--table tasks` against an
+# empty database has nothing to point at.
+#
+# `due_date` uses relative-date tokens rather than fixed dates, so the data set
+# never ages into a wall of overdue work. Every token in one run renders against
+# the same instant, so a set seeded either side of midnight stays internally
+# consistent. Dates straddle today deliberately: a client filtering
+# `?due_date[lte]=…` needs overdue, due-now and upcoming rows to filter between.
+#
+# `assigned_to` is absent throughout, and left that way deliberately. It is a
+# `user` field holding an auth user id, and seed files have no vocabulary for
+# auth users — `@users.someone` resolves nothing, because the seeder addresses
+# app tables and the auth schema is not one of them. An invented id would not
+# fail loudly either: it renders as an empty cell, which a reader interprets as a
+# broken template rather than as absent data. Assign through
+# `PATCH /api/tables/tasks/records/:id` once real accounts exist.
+#
+# All four `priority` options and both `done` states appear, for the same reason
+# the projects file covers its whole enum.
+records:
+  - key: atlas-sandbox-creds
+    fields:
+      title: Chase the vendor for sandbox credentials
+      description: Third request. Escalate to the account manager if nothing lands this week — Atlas cannot be integration-tested without it.
+      project: '@projects.atlas'
+      priority: Critical
+      done: false
+      due_date: '{{today-3d}}'
+
+  - key: atlas-ledger-migration
+    fields:
+      title: Write the stock-ledger migration
+      description: Backfill six years of movements into the new schema. Needs a dry run against a production copy before it goes anywhere near the real database.
+      project: '@projects.atlas'
+      priority: High
+      done: false
+      due_date: '{{today+11d}}'
+
+  - key: atlas-cutover-plan
+    fields:
+      title: Draft the cutover plan
+      description: Freeze window, rollback trigger, who is on call. One page, agreed by both teams.
+      project: '@projects.atlas'
+      priority: Medium
+      done: false
+      due_date: '{{today+25d}}'
+
+  - key: beacon-invoice-endpoint
+    fields:
+      title: Specify the invoice endpoint
+      description: Shape of the response, pagination, and what a customer is allowed to see about their own account. Blocks the front-end estimate.
+      project: '@projects.beacon'
+      priority: High
+      done: false
+      due_date: '{{today+4d}}'
+
+  - key: beacon-design-signoff
+    fields:
+      title: Collect design sign-off
+      description: Portal screens approved by support and by legal.
+      project: '@projects.beacon'
+      priority: Medium
+      done: true
+      due_date: '{{today-16d}}'
+
+  - key: relay-rate-card-parser
+    fields:
+      title: Parse the third carrier's rate card
+      description: They publish a fixed-width text file with a header that changes shape by region. Ask whether an API exists before writing a parser for it.
+      project: '@projects.relay'
+      priority: High
+      done: false
+      due_date: '{{today+2d}}'
+
+  - key: relay-retry-policy
+    fields:
+      title: Agree a retry policy for carrier timeouts
+      description: Two carriers time out under load and we currently retry forever. Cap it and surface the failure.
+      project: '@projects.relay'
+      priority: Medium
+      done: false
+      due_date: '{{today+18d}}'
+
+  - key: relay-webhook-signing
+    fields:
+      title: Verify inbound webhook signatures
+      description: Shipped for carriers one and two.
+      project: '@projects.relay'
+      priority: Critical
+      done: true
+      due_date: '{{today-9d}}'
+
+  - key: harbour-variance-report
+    fields:
+      title: Publish the variance report
+      description: Signed and circulated. Archived with the audit pack.
+      project: '@projects.harbour'
+      priority: Low
+      done: true
+      due_date: '{{today-48d}}'
+
+  - key: kestrel-hardware-writeoff
+    fields:
+      title: Write off the pilot handhelds
+      description: Eleven units, supplier discontinued the model. Finance needs the asset numbers before quarter end.
+      project: '@projects.kestrel'
+      priority: Low
+      done: false
+      due_date: '{{today+37d}}'

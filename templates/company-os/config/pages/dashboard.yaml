@@ -45,6 +45,16 @@ components:
               field: value
             kpiFormat:
               type: currency
+              # `options.currency` is REQUIRED here, not decoration.
+              # `kpiFormat.type: currency` does not inherit the currency the
+              # summed field declares — `deals.value` is `currency: EUR`, but
+              # the KPI island falls back to a hard-coded `'USD'` when no option
+              # is given (kpi-compute.ts). Without this line the tile reads
+              # `$343,000.00` directly above a table of euro amounts, which is
+              # not a formatting nit: it silently misstates the pipeline in a
+              # different currency. Keep this in step with the field.
+              options:
+                currency: EUR
           - type: kpi
             label: Active projects
             dataSource:

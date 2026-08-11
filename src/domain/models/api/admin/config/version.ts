@@ -5,15 +5,69 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * API contract for `GET /api/admin/config/version`.
+ *
+ * Phase-0 admin read endpoint exercising the audit-log keystone primitives
+ * (RBAC middleware, audit emit, anti-enumeration)
+ * with the smallest plausible response body.
+ *
+ * Source story: [internal ref]
+ *
+ * @see plan-design §10 (locked 2026-05-09) — first endpoint to author
+ * @see keystone plan §12 Q1 — two-tier RBAC (admin / operator)
+ */
 
 import { z } from '@hono/zod-openapi'
 
+/**
+ * Sovrium runtime mode literal.
+ *
+ * Distinguishes the two database runtimes Sovrium supports:
+ * - `postgres`   — full Postgres backend with audit-log archive replay,
+ *                   pgvector RAG, real-time subscriptions, etc.
+ * - `sqlite-aio` — All-In-One Docker image with SQLite + local storage;
+ *                   some Postgres-only endpoints return 501 with
+ *                   `error: 'requires-postgres'`.
+ *
+ * Operators read this field to distinguish parity issues at-a-glance:
+ * a bug filed against AIO that tries to hit a Postgres-only feature is
+ * resolved without needing shell access to confirm the runtime mode.
+ */
 export const sovriumRuntimeSchema = z
   .enum(['postgres', 'sqlite-aio'])
   .describe('Active database runtime backing this Sovrium process')
 
+/** @public */
 export type SovriumRuntime = z.infer<typeof sovriumRuntimeSchema>
 
+/**
+ * Response shape of `GET /api/admin/config/version`.
+ *
+ * All five fields are operator-grade reflection — no domain data, no
+ * per-table information, no PII. The endpoint is callable by every admin
+ * tier (admin / operator) per design §2.6.
+ *
+ * Field-by-field rationale:
+ * - `version`     — answers "what build am I running?"; gated by semver regex
+ *                   so OpenAPI consumers can rely on the format
+ * - `commit`      — answers "which commit produced this binary?"; falls back
+ *                   to literal `'unknown'` when `SOVRIUM_COMMIT_SHA` env var
+ *                   is unset (binary built without commit injection)
+ * - `runtime`     — answers "which database backend is wired up?"; critical
+ *                   for AIO/Postgres parity debugging
+ * - `nodeVersion` — answers "what runtime version executes this code?";
+ *                   semantically the Bun version, named `nodeVersion` for
+ *                   OpenAPI tooling familiarity (Postman / Insomnia / spec
+ *                   viewers expect this name)
+ * - `startedAt`   — answers "when did this process boot?"; captured once at
+ *                   module import and frozen for the process lifetime; lets
+ *                   operators correlate audit-log entries to a specific
+ *                   process instance across restarts
+ *
+ * The shape is exposed under the OpenAPI name `ConfigVersionResponse` so
+ * downstream tooling generates a stable type name.
+ */
 export const configVersionResponseSchema = z
   .object({
     version: z
@@ -43,4 +97,5 @@ export const configVersionResponseSchema = z
   })
   .openapi('ConfigVersionResponse')
 
+/** @public */
 export type ConfigVersionResponse = z.infer<typeof configVersionResponseSchema>

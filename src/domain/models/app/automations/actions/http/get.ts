@@ -9,6 +9,12 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * HTTP GET Action (type: http, operator: get)
+ *
+ * Convenience operator for GET requests. No body field — GET requests
+ * should not include a request body per HTTP semantics.
+ */
 export const HttpGetActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('http'),
@@ -42,6 +48,10 @@ export const HttpGetActionSchema = Schema.Struct({
         })
       )
     ),
+    // GET requests should never carry a body (HTTP semantics + spec
+    // [internal ref]). `Schema.Never` makes any
+    // non-undefined `body` value fail decode, so the YAML decoder
+    // rejects the misuse at startup rather than silently dropping it.
     body: Schema.optional(Schema.Never),
   }),
 }).pipe(
@@ -52,4 +62,5 @@ export const HttpGetActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type HttpGetAction = Schema.Schema.Type<typeof HttpGetActionSchema>

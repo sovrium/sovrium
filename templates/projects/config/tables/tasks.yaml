@@ -10,6 +10,15 @@ fields:
     type: relationship
     relatedTable: projects
     relationType: many-to-one
+    # Names the column a human should see instead of the foreign key. Measured
+    # against the running app: this reaches the data-table's inline record
+    # PICKER (`record-picker-editor.tsx` searches and labels on it) but NOT the
+    # read-only cell, and not the "Add a task" form, which renders `project` as
+    # a plain text input expecting an id. It is declared here anyway because it
+    # is the correct place to say what identifies a project, and the two render
+    # paths that ignore it are platform gaps rather than a reason to leave the
+    # intent unstated.
+    displayField: name
   - id: 3
     name: status
     type: status

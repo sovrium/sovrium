@@ -13,15 +13,28 @@ import type { ActionHandler, ActionOutcome } from './shared'
 
 type Storage = Effect.Effect.Success<typeof StorageService>
 
+/**
+ * Storage-operation `file:*` action handlers — list / getMetadata / move /
+ * copy / delete / signUrl. These complement `file.ts` (upload / download /
+ * CSV codecs); kept in a sibling module so neither file outgrows the
+ * per-file line cap. Every handler resolves the {@link StorageService} port
+ * and never touches a concrete backend (S3 / local / bytea).
+ *
+ * `move`/`copy` are composed from `download` + `upload` (+ `delete` for move)
+ * rather than a backend-native rename so the contract holds uniformly across
+ * providers — the bytes survive, the catalog row follows.
+ */
 
 const props = (action: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> =>
   (action['props'] as Record<string, unknown> | undefined) ?? {}
 
+/** A failure that callers may swallow via `output.error` (status stays success). */
 const softError = (message: string): ActionOutcome => ({
   status: 'success',
   output: { error: message },
 })
 
+/** Optional positive integer prop — `undefined` when absent or non-numeric. */
 const optionalNumber = (p: Readonly<Record<string, unknown>>, key: string): number | undefined => {
   const raw = p[key]
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw
@@ -32,6 +45,9 @@ const optionalNumber = (p: Readonly<Record<string, unknown>>, key: string): numb
   return undefined
 }
 
+// ---------------------------------------------------------------------------
+// list
+// ---------------------------------------------------------------------------
 
 export const handleFileList: ActionHandler = (action) =>
   Effect.gen(function* () {
@@ -50,6 +66,9 @@ export const handleFileList: ActionHandler = (action) =>
     } as const
   })
 
+// ---------------------------------------------------------------------------
+// getMetadata
+// ---------------------------------------------------------------------------
 
 export const handleFileGetMetadata: ActionHandler = (action) =>
   Effect.gen(function* () {
@@ -63,7 +82,15 @@ export const handleFileGetMetadata: ActionHandler = (action) =>
     return { status: 'success', output: { ...meta.right } } as const
   })
 
+// ---------------------------------------------------------------------------
+// copy / move (download + upload [+ delete])
+// ---------------------------------------------------------------------------
 
+/**
+ * Copy `sourceKey`'s bytes to `destinationKey` via the storage port. Returns
+ * the byte count on success, or a {@link softError} `ActionOutcome` on the
+ * first failed step (so `move`/`copy` only have to inspect one branch).
+ */
 const copyBytes = (
   storage: Storage,
   sourceKey: string,
@@ -97,6 +124,7 @@ const copyOrMove = (
     if (typeof copied !== 'number') return copied
 
     if (deleteSource) {
+      // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
       const removed = yield* Effect.either(storage.delete(sourceKey))
       if (removed._tag === 'Left') return softError(`failed to remove source ${sourceKey}`)
     }
@@ -112,6 +140,9 @@ export const handleFileCopy: ActionHandler = (action) => copyOrMove(action, fals
 
 export const handleFileMove: ActionHandler = (action) => copyOrMove(action, true)
 
+// ---------------------------------------------------------------------------
+// delete
+// ---------------------------------------------------------------------------
 
 export const handleFileDelete: ActionHandler = (action) =>
   Effect.gen(function* () {
@@ -119,6 +150,7 @@ export const handleFileDelete: ActionHandler = (action) =>
     if (!key) return { status: 'failure', error: 'file.delete requires a key' } as const
 
     const storage = yield* StorageService
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
     const removed = yield* Effect.either(storage.delete(key))
     if (removed._tag === 'Left') {
       return { status: 'failure', error: `file not found: ${key}` } as const
@@ -126,6 +158,9 @@ export const handleFileDelete: ActionHandler = (action) =>
     return { status: 'success', output: { deleted: true, key } } as const
   })
 
+// ---------------------------------------------------------------------------
+// signUrl
+// ---------------------------------------------------------------------------
 
 export const handleFileSignUrl: ActionHandler = (action) =>
   Effect.gen(function* () {

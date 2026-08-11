@@ -14,6 +14,13 @@ import type {
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Render a container div with spacing
+ *
+ * @param testId - Data testid for the container
+ * @param value - Spacing value (Tailwind class or CSS value)
+ * @returns Container div element
+ */
 function renderContainer(testId: string, value: string): ReactElement {
   return (
     <div
@@ -23,6 +30,13 @@ function renderContainer(testId: string, value: string): ReactElement {
   )
 }
 
+/**
+ * Render optional container elements based on theme spacing
+ *
+ * @param theme - Theme configuration
+ * @param sections - Sections to check for existing containers
+ * @returns Container elements or undefined
+ */
 function renderContainerElements(
   theme: Theme,
   sections: ReadonlyArray<Component | SimpleComponentReference | ComponentReference>
@@ -60,6 +74,14 @@ function renderContainerElements(
   )
 }
 
+/**
+ * Wrap sections in a section element if needed
+ *
+ * @param sections - Sections to check
+ * @param theme - Theme configuration
+ * @param children - Content to wrap
+ * @returns Section-wrapped content or fragment with children
+ */
 export function wrapWithSectionIfNeeded(
   sections: ReadonlyArray<Component | SimpleComponentReference | ComponentReference>,
   theme: Theme | undefined,
@@ -74,6 +96,7 @@ export function wrapWithSectionIfNeeded(
   const shouldWrap = !hasSection && sectionSpacing
 
   if (!shouldWrap || !sectionSpacing) {
+    // eslint-disable-next-line react/jsx-no-useless-fragment -- Required to return ReactElement
     return <>{children}</>
   }
 
@@ -90,12 +113,22 @@ export function wrapWithSectionIfNeeded(
   )
 }
 
+/**
+ * Render complete section with spacing wrappers
+ *
+ * @param theme - Theme configuration
+ * @param sections - Sections to render
+ * @param children - Pre-rendered section content
+ * @returns Section with spacing applied
+ */
 export function renderSectionWithSpacing(
   theme: Theme | undefined,
   sections: ReadonlyArray<Component | SimpleComponentReference | ComponentReference>,
   children: ReactNode
 ): ReactElement {
+  // No theme spacing - render directly
   if (!theme?.spacing?.section && !theme?.spacing?.container) {
+    // eslint-disable-next-line react/jsx-no-useless-fragment -- Required to return ReactElement
     return <>{children}</>
   }
 

@@ -1,18 +1,91 @@
-# Default Sovrium theming.
+# Automation Recipes theming — lime, the colour of a run that finished.
 #
-# `baseline: extend` inherits Sovrium's built-in design system — the achromatic
-# OKLCH neutral ramp (`--sv-*`) plus the self-hosted IBM Plex Sans / JetBrains
-# Mono type that IS the Sovrium visual identity. Colour is reserved for
-# consequence (see ADR-024), so a template that needs an accent declares its own
-# colour key rather than borrowing one from the engine.
+# The palette is deliberately unlike the three templates that already ship an
+# identity (the CRM's indigo, the landing page's amber, the docs site's teal), so
+# the demo gallery reads as four products rather than four skins of one.
 #
-# No `fonts` block: the workhorse and mono families ship self-hosted with the
-# platform. This template previously pulled Inter from the Google Fonts CDN,
-# which contradicted the no-CDN-ever rule in
-# `docs/architecture/patterns/fonts.md` — every such request leaks the
-# operator's IP and Referer to a third party, which an internal tool cannot
-# accept. Author a `fonts` block here only for a genuinely self-hosted family.
+# `baseline: extend` keeps Sovrium's built-in design system — the OKLCH neutral
+# ramp and the self-hosted IBM Plex Sans / JetBrains Mono type that ships with
+# the platform. There is deliberately no `fonts` block: the workhorse and mono
+# families are already self-hosted, and naming any other family emits a
+# `font-family` with no matching `@font-face`, which pushes the page onto the
+# operating system's default face AND locks the shipped face out of its own
+# stack. Distinctiveness here comes from COLOUR, not from type.
+#
+# WHY THESE KEYS AND NOT OTHERS
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
+#   prestyled island already consumes, so declaring them repaints the two
+#   `data-table` islands on /activity — their headers, row borders, filter chips
+#   and pagination — with no class changes anywhere in this config. A non-role
+#   key such as `brand-accent` emits `--color-*` only and does nothing until
+#   something references it, which is how a template can declare a whole palette
+#   and still render achromatic.
+#
+# WHY `background-subtle` AND NOT `muted`
+#   Both map to the SAME role token (`--sv-bg-subtle`), as do `card` /
+#   `background-raised` and `popover` / `background-overlay`. Declaring both
+#   members of a pair is a silent collision — object order decides, and nothing
+#   warns. The `background-*` spellings are used here for a second reason:
+#   `muted`, `card` and `popover` are in `COLORS_NEEDING_FOREGROUND`, so
+#   declaring one auto-derives a `#ffffff` companion (`--color-muted-foreground`
+#   and friends). White is the right guess for a filled PRIMARY and the wrong one
+#   for a pale surface, so a light-mode `text-muted-foreground` would come out
+#   invisible. The `background-*` keys derive nothing and carry no such trap.
+#
+# WHY THE SEMANTIC TRIO IS CLAIMED
+#   This template is about automation runs, one of which (recipe 4) exists purely
+#   to alert on failure. Succeeded / retrying / failed is the information, not
+#   decoration, so colour is spent on it.
+#
+#   `success` stays emerald rather than moving toward the lime brand on purpose.
+#   A green that sits next to the accent makes "this is the product" and "this
+#   worked" indistinguishable at a glance, which is the one thing a run log must
+#   never do.
 baseline: extend
+
+colors:
+  primary: '#3f6212'
+  primary-hover: '#365314'
+  primary-subtle: '#ecfccb'
+  ring: '#65a30d'
+  background: '#ffffff'
+  background-subtle: '#f7faf0'
+  background-raised: '#ffffff'
+  foreground: '#14200a'
+  foreground-muted: '#4a5a3a'
+  foreground-subtle: '#7a8b68'
+  border: '#e0e9cf'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+
+# Rendered only when the app declares `theme.colorScheme` or ships a
+# `theme-toggle`; the stylesheet carries it either way.
+#
+# `primary-foreground` is declared HERE and not left to derive. The `#ffffff`
+# companion `generateThemeColors` derives for `primary` is a LIGHT-surface guess
+# and is deliberately not mirrored into the dark block — so a bright dark-scheme
+# lime would keep white text on top of it and fail contrast outright. Naming the
+# pair explicitly is what lets the accent get brighter in the dark without the
+# label following it into illegibility.
+darkColors:
+  primary: '#a3e635'
+  primary-foreground: '#18230a'
+  primary-hover: '#bef264'
+  primary-subtle: '#1f2e0a'
+  ring: '#84cc16'
+  background: '#0c1206'
+  background-subtle: '#141c0b'
+  background-raised: '#141c0b'
+  foreground: '#e8f2da'
+  foreground-muted: '#b0c09b'
+  foreground-subtle: '#849470'
+  border: '#26301a'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
 
 borderRadius:
   sm: 0.25rem

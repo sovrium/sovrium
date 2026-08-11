@@ -7,6 +7,9 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Font weight (100-900 in increments of 100)
+ */
 export const FontWeightSchema = Schema.Literal(100, 200, 300, 400, 500, 600, 700, 800, 900).pipe(
   Schema.annotations({
     title: 'Font Weight',
@@ -14,6 +17,9 @@ export const FontWeightSchema = Schema.Literal(100, 200, 300, 400, 500, 600, 700
   })
 )
 
+/**
+ * Font style (normal, italic, oblique)
+ */
 export const FontStyleSchema = Schema.Literal('normal', 'italic', 'oblique').pipe(
   Schema.annotations({
     title: 'Font Style',
@@ -21,6 +27,9 @@ export const FontStyleSchema = Schema.Literal('normal', 'italic', 'oblique').pip
   })
 )
 
+/**
+ * Text transformation (none, uppercase, lowercase, capitalize)
+ */
 export const FontTransformSchema = Schema.Literal(
   'none',
   'uppercase',
@@ -33,6 +42,9 @@ export const FontTransformSchema = Schema.Literal(
   })
 )
 
+/**
+ * Font category name (alphabetic characters only: title, body, mono, etc.)
+ */
 export const FontCategoryKeySchema = Schema.String.pipe(
   Schema.pattern(/^[a-zA-Z]+$/, {
     message: () => 'Font category key must contain only alphabetic characters (a-zA-Z)',
@@ -44,6 +56,11 @@ export const FontCategoryKeySchema = Schema.String.pipe(
   })
 )
 
+/**
+ * Individual font configuration (family, fallback, weights, style, size, lineHeight, letterSpacing, transform, url)
+ *
+ * @see [internal ref]#/patternProperties/...
+ */
 export const FontConfigItemSchema = Schema.Struct({
   family: Schema.String.pipe(
     Schema.annotations({
@@ -123,6 +140,10 @@ export const FontConfigItemSchema = Schema.Struct({
   })
 )
 
+/**
+ * Font configuration (map of semantic font categories to font configurations)
+ *
+ */
 export const FontsConfigSchema = Schema.Record({
   key: FontCategoryKeySchema,
   value: FontConfigItemSchema,
@@ -133,9 +154,15 @@ export const FontsConfigSchema = Schema.Record({
   })
 )
 
+// Type exports
+/** @public */
 export type FontWeight = Schema.Schema.Type<typeof FontWeightSchema>
+/** @public */
 export type FontStyle = Schema.Schema.Type<typeof FontStyleSchema>
+/** @public */
 export type FontTransform = Schema.Schema.Type<typeof FontTransformSchema>
+/** @public */
 export type FontCategoryKey = Schema.Schema.Type<typeof FontCategoryKeySchema>
+/** @public */
 export type FontConfigItem = Schema.Schema.Type<typeof FontConfigItemSchema>
 export type FontsConfig = Schema.Schema.Type<typeof FontsConfigSchema>

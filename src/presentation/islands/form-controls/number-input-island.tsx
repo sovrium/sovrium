@@ -45,6 +45,23 @@ function StepperButton({ direction, onClick, disabled }: StepperButtonProps): Re
   )
 }
 
+/**
+ * Number-input island — composes a native `<input type="number">` (which
+ * gives us `role="spinbutton"` and keyboard arrow handling for free) with
+ * explicit `+` / `−` stepper buttons and on-blur value clamping to `min` /
+ * `max`. The buttons increment / decrement by `step` (default `1`).
+ *
+ * Default styling lives in `numeric-default-classes.ts` (prestyled-by-default
+ *): the outer wrapper carries the border + focus-within ring,
+ * the inner `<input>` is transparent so the wrapper surface shows through,
+ * and the stepper buttons share dividers with the field for a single
+ * cohesive control. The schema author writes `{ type: 'number-input' }` and
+ * gets the full bordered-with-flanking-steppers recipe.
+ *
+ * Mounted as an eager island so the React change-handler is wired before
+ * Playwright (or the user) interacts with the input — same reasoning as the
+ * file-upload island.
+ */
 export default function NumberInputIsland({
   id,
   label,

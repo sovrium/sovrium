@@ -1,0 +1,70 @@
+# People at the customer accounts. Nine contacts across six companies, with two
+# accounts carrying more than one — a one-contact-per-company set makes the
+# relationship look like a rename rather than a link, and hides the fact that
+# the Company column groups.
+#
+# Every ticket in `tickets.yaml` points at one of these, so the support side of
+# the template only works because this file exists.
+records:
+  - key: dana-whitmore
+    fields:
+      name: Dana Whitmore
+      email: dana.whitmore@northwind.example.com
+      phone: '+44 20 7946 0102'
+      company: '@companies.northwind'
+
+  - key: paul-eriksen
+    fields:
+      name: Paul Eriksen
+      email: paul.eriksen@northwind.example.com
+      phone: '+44 20 7946 0117'
+      company: '@companies.northwind'
+
+  - key: yasmin-okoro
+    fields:
+      name: Yasmin Okoro
+      email: yasmin.okoro@helios-health.example.com
+      phone: '+44 161 496 0233'
+      company: '@companies.helios'
+
+  - key: rob-castellan
+    fields:
+      name: Rob Castellan
+      email: rob.castellan@helios-health.example.com
+      phone: '+44 161 496 0240'
+      company: '@companies.helios'
+
+  - key: ines-moreau
+    fields:
+      name: Inès Moreau
+      email: ines.moreau@lumen.example.com
+      phone: '+33 1 70 18 44 05'
+      company: '@companies.lumen'
+
+  - key: tobias-krause
+    fields:
+      name: Tobias Krause
+      email: tobias.krause@cardinal-mutual.example.com
+      phone: '+49 30 5557 8812'
+      company: '@companies.cardinal'
+
+  - key: gwen-fairlie
+    fields:
+      name: Gwen Fairlie
+      email: gwen.fairlie@fernbank.example.org
+      phone: '+44 117 496 0088'
+      company: '@companies.fernbank'
+
+  - key: samir-bhatt
+    fields:
+      name: Samir Bhatt
+      email: samir.bhatt@atlasfreight.example.com
+      phone: '+44 151 496 0311'
+      company: '@companies.atlas'
+
+  - key: lena-vasquez
+    fields:
+      name: Lena Vásquez
+      email: lena.vasquez@atlasfreight.example.com
+      phone: '+44 151 496 0318'
+      company: '@companies.atlas'

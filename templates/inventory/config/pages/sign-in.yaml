@@ -1,0 +1,34 @@
+name: sign-in
+path: /sign-in
+meta:
+  title: Sign in
+  description: Sign in to the inventory workspace
+components:
+  - type: container
+    element: section
+    props:
+      className: py-12 px-6
+    children:
+      - type: container
+        props:
+          className: max-w-md mx-auto
+        children:
+          - type: text
+            element: h1
+            props:
+              className: text-2xl font-bold mb-2 text-center
+            content: Sign in
+          - type: text
+            element: p
+            props:
+              className: text-sm mb-6 text-center
+            content: The first account to register becomes the admin.
+          - type: form
+            props:
+              id: sign-in-form
+            action:
+              type: auth
+              method: login
+              strategy: email
+              onSuccess:
+                navigate: /

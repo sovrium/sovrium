@@ -12,6 +12,19 @@ import {
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
+/**
+ * Keyboard reorder runtime for `reorderable-list` components.
+ *
+ * Server-authored constant string (no untrusted interpolation) dropped into
+ * an inline `<script>` so the list supports keyboard reordering without
+ * shipping the React island bundle. Mirrors the form-runtime inline-script
+ * pattern.
+ *
+ * Interaction model:
+ *  - Focus a `[data-drag-handle]` element, press Space to "pick up" the row.
+ *  - ArrowUp / ArrowDown move the picked-up row within its list.
+ *  - Space again drops the row (and re-focuses the handle).
+ */
 const REORDERABLE_LIST_RUNTIME = `(function () {
   function showToast(message, variant) {
     if (!message) return
@@ -116,6 +129,7 @@ const REORDERABLE_LIST_RUNTIME = `(function () {
   }
 })();`
 
+/** A `<span>` drag-handle prepended to every reorderable list item. */
 function dragHandle(key: string): ReactElement {
   return (
     <span
@@ -132,18 +146,37 @@ function dragHandle(key: string): ReactElement {
   )
 }
 
+/** Shape of a raw list-item child read off the component definition. */
 interface RawListChild {
   readonly type?: string
   readonly content?: string
   readonly props?: { readonly id?: string }
 }
 
+/** Shape of the optional `onReorder` action read off the component definition. */
 interface RawReorderAction {
   readonly type?: string
   readonly message?: string
   readonly variant?: string
 }
 
+/**
+ * Renderer for the `reorderable-list` component type.
+ *
+ * Renders a `<ul>` of `<li>` rows built directly from the component's raw
+ * `children` definitions. Each row carries a `[data-drag-handle]` element
+ * and the list ships an inline keyboard-reorder runtime so reordering works
+ * without the React island bundle.
+ *
+ * Building `<li>` rows directly (rather than reusing the pre-rendered
+ * `list-item` children) avoids invalid nested `<li>` markup — the `list-item`
+ * renderer would otherwise emit its own `<li>` inside this list's `<li>`.
+ *
+ * When the component declares `onReorder: { type: 'toast', message, variant? }`,
+ * the toast message and variant are surfaced as `data-on-reorder-toast-*`
+ * attributes on the `<ul>` so the inline runtime can show the toast every
+ * time the user reorders a row via keyboard.
+ */
 export const reorderableListComponent: ComponentRenderer = ({ elementProps, component }) => {
   const rawChildren = ((component as { readonly children?: ReadonlyArray<unknown> } | undefined)
     ?.children ?? []) as ReadonlyArray<RawListChild>
@@ -184,6 +217,7 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
         {items}
       </ul>
       <script
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
         dangerouslySetInnerHTML={{ __html: REORDERABLE_LIST_RUNTIME }}
       />
     </>

@@ -8,6 +8,35 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Phone Number Field
+ *
+ * Text field designed for storing phone numbers with optional format validation.
+ * Stores phone numbers as plain text strings, supporting international formats
+ * and various notation styles. Can be marked as required, unique (for preventing
+ * duplicate registrations), or indexed for fast lookups. No automatic formatting
+ * is applied - numbers are stored exactly as entered.
+ *
+ * Business Rules:
+ * - Phone numbers stored as text strings to preserve original formatting (spaces, dashes, parentheses)
+ * - No automatic validation applied - allows flexibility for international formats
+ * - Unique constraint useful for preventing duplicate user registrations
+ * - Indexing recommended for user lookup and search operations
+ * - Constant value 'phone-number' ensures type safety and enables discriminated unions
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'mobile_phone',
+ *   type: 'phone-number',
+ *   required: true,
+ *   unique: true,
+ *   indexed: true,
+ *   default: '+1 (555) 000-0000'
+ * }
+ * ```
+ */
 export const PhoneNumberFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -50,4 +79,5 @@ export const PhoneNumberFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type PhoneNumberField = Schema.Schema.Type<typeof PhoneNumberFieldSchema>

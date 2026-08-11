@@ -5,7 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Better Auth schema barrel.
+//
+// The actual table and relation definitions live in sibling files to keep
+// each module under the project-wide ESLint max-lines limit:
+//   - `schema-tables.ts`    — pgSchema + table definitions (consumed by Drizzle)
+//   - `schema-relations.ts` — Drizzle relations for the relational query builder
+//
+// All existing imports of `@/infrastructure/auth/better-auth/schema` keep
+// working unchanged (tables, relations, and inferred types are re-exported).
 
+// Inferred types (kept here so they live alongside the public surface)
 import type {
   accounts,
   invitations,

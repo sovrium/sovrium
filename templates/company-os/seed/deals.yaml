@@ -1,0 +1,92 @@
+# The sales pipeline on /sales.
+#
+# All five stages carry at least one deal, on purpose. `stage` is a `status`
+# field with per-option colours, which is what the board draws — and a board
+# where every card sits in one column demonstrates nothing about either the
+# field or the view.
+#
+# `value` is `currency` with `precision: 0`, so these are whole euros, written
+# as bare numbers. Quoting them would hand the column a string.
+#
+# `close_date` is a `date`, so `{{today±Nd}}` (date only) rather than
+# `{{now±Nd}}` (full ISO). Dates straddle today so the pipeline always shows
+# both recently-closed and still-open work no matter when the demo is reset —
+# and one deal sits deliberately in the past and still open, because a pipeline
+# without an overdue deal in it is not a pipeline anybody recognises.
+records:
+  - key: northwind-renewal
+    fields:
+      name: Northwind — annual platform renewal
+      company: '@companies.northwind'
+      # Proposal, not "Negotiation": this table declares five stages and that is
+      # not one of them. The CRM template uses a six-stage vocabulary including
+      # Negotiation, and borrowing it here fails a CHECK constraint at insert.
+      stage: Proposal
+      value: 84000
+      close_date: '{{today+12d}}'
+
+  - key: northwind-depots
+    fields:
+      name: Northwind — multi-depot rollout
+      company: '@companies.northwind'
+      stage: Qualified
+      value: 156000
+      close_date: '{{today+68d}}'
+
+  - key: helios-clinical
+    fields:
+      name: Helios — clinical systems pilot
+      company: '@companies.helios'
+      stage: Proposal
+      value: 240000
+      close_date: '{{today+34d}}'
+
+  - key: helios-training
+    fields:
+      name: Helios — staff training package
+      company: '@companies.helios'
+      stage: Won
+      value: 31500
+      close_date: '{{today-16d}}'
+
+  - key: lumen-migration
+    fields:
+      name: Lumen — spreadsheet migration
+      company: '@companies.lumen'
+      stage: Won
+      value: 29000
+      close_date: '{{today-9d}}'
+
+  - key: cardinal-security
+    fields:
+      name: Cardinal — security review
+      company: '@companies.cardinal'
+      stage: Lost
+      value: 96000
+      close_date: '{{today-27d}}'
+
+  - key: fernbank-portal
+    fields:
+      name: Fernbank — parent portal
+      company: '@companies.fernbank'
+      stage: Prospect
+      value: 22000
+      close_date: '{{today+90d}}'
+
+  - key: atlas-tracking
+    fields:
+      name: Atlas — shipment tracking rebuild
+      company: '@companies.atlas'
+      stage: Proposal
+      value: 118000
+      # Deliberately overdue: still open, close date already passed. This is the
+      # row that makes a date filter worth having.
+      close_date: '{{today-5d}}'
+
+  - key: atlas-support
+    fields:
+      name: Atlas — extended support contract
+      company: '@companies.atlas'
+      stage: Qualified
+      value: 47000
+      close_date: '{{today+45d}}'

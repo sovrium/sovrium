@@ -10,18 +10,41 @@ import type { UserSession } from '@/application/ports/models/user-session'
 import type { NotFoundError, DatabaseError, ValidationError } from '@/domain/errors'
 import type { Effect } from 'effect'
 
+/**
+ * Batch validation error interface
+ *
+ * Structurally compatible with infrastructure's BatchValidationError
+ * (Data.TaggedError). Defined here so application layer doesn't need
+ * to import from infrastructure.
+ */
 export interface BatchValidationError extends Error {
   readonly _tag: 'BatchValidationError'
   readonly message: string
   readonly details?: readonly string[]
 }
 
+/**
+ * Upsert operation result
+ */
 export interface UpsertResult {
   readonly records: readonly Record<string, unknown>[]
   readonly created: number
   readonly updated: number
 }
 
+/**
+ * Batch Repository port for batch operations
+ *
+ * Defines the contract for bulk create, update, delete, restore, and upsert.
+ *
+ * @example
+ * ```typescript
+ * const program = Effect.gen(function* () {
+ *   const batch = yield* BatchRepository
+ *   const result = yield* batch.batchCreate(session, 'users', records)
+ * })
+ * ```
+ */
 export class BatchRepository extends Context.Tag('BatchRepository')<
   BatchRepository,
   {

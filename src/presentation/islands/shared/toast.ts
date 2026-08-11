@@ -5,7 +5,46 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * The one toast renderer every island shares.
+ *
+ * Previously this existed three times over — once under `data-table/island/`,
+ * once under `components/crud-form/`, and once as an injected option on
+ * `action-executor` — with byte-identical container and element construction in
+ * the first two. It lives in `shared/` because a toast belongs to no single
+ * feature: the data-table row/bulk actions, the CRUD form, the auth form, the
+ * kanban drop, the file upload, and the record button all raise one. The two
+ * former homes now re-export from here, so existing import sites are unchanged.
+ *
+ * The DOM contract is fixed and asserted by specs on every surface:
+ * `<div data-sonner-toaster role=status aria-live=polite><div data-toast
+ * data-variant>message</div></div>`. Two selector families depend on it —
+ * `[data-sonner-toaster]` with an inner `[data-toast][data-variant]`, and the
+ * looser `[data-toast-container], [role="status"], [aria-live="polite"]` — so
+ * the container's role, live-region attributes, and `display:flex` stacking are
+ * all load-bearing, not decoration.
+ *
+ * A page whose config declares `page.toasts` already renders this container
+ * server-side (`DynamicPage`'s `PageToastContainer`, which additionally carries
+ * `data-position`). `ensureToasterContainer` therefore looks before it builds:
+ * the SSR container is adopted when present, so a configured position is never
+ * clobbered by a client-side duplicate.
+ *
+ * NOT unified here, deliberately:
+ *  - `client.ts#showToast` — a RICHER toast (wraps the message in a `<span>`,
+ *    renders an `actionLabel`/`actionUrl` button, and honours `duration` with
+ *    auto-dismiss). It is the reason `action-executor`'s renderer is injected
+ *    rather than imported; see the note there.
+ *  - `form-runtime.tsx`'s `renderToast` — a self-contained string-literal IIFE
+ *    with its own `data-form-toast` shape and a documented byte-budget rationale.
+ *  - `data-table/island/conflict-toast.tsx` — a React `role="alert"` banner
+ *    rendered inline in the table, not an imperative DOM toast at all.
+ */
 
+/**
+ * Find the shared toaster container, creating it only if the page did not
+ * render one server-side.
+ */
 function ensureToasterContainer(): Element {
   const existing = document.querySelector('[data-sonner-toaster]')
   if (existing) return existing
@@ -13,6 +52,7 @@ function ensureToasterContainer(): Element {
   container.setAttribute('data-sonner-toaster', '')
   container.setAttribute('role', 'status')
   container.setAttribute('aria-live', 'polite')
+  /* eslint-disable functional/immutable-data -- DOM style mutation required for runtime toast injection */
   const el = container as HTMLElement
   el.style.position = 'fixed'
   el.style.bottom = '16px'
@@ -21,26 +61,56 @@ function ensureToasterContainer(): Element {
   el.style.display = 'flex'
   el.style.flexDirection = 'column'
   el.style.gap = '8px'
+  /* eslint-enable functional/immutable-data */
   document.body.appendChild(container)
   return container
 }
 
+/**
+ * Append a toast to the shared toaster container.
+ *
+ * A no-op outside a browser (SSR / tests without a `document`), so callers can
+ * invoke it unconditionally from a mutation success handler.
+ *
+ * Toasts persist: nothing here dismisses them on a timer, and the container
+ * stacks them vertically. That is the long-standing behaviour on every surface
+ * and specs read the accumulated text, so adding auto-dismiss would be a
+ * behaviour change, not a fix.
+ */
 export function renderToast(message: string, variant?: string): void {
   if (typeof document === 'undefined') return
   const container = ensureToasterContainer()
   const toast = document.createElement('div')
   toast.setAttribute('data-toast', '')
   if (variant) toast.setAttribute('data-variant', variant)
+  /* eslint-disable-next-line functional/immutable-data -- textContent mutation required to render toast text */
   toast.textContent = message
   container.appendChild(toast)
 }
 
+/**
+ * Toast configuration emitted by a form/kanban action on success or failure.
+ *
+ * The object-shaped counterpart to `renderToast`'s positional arguments, kept
+ * because it mirrors the config schema's `onSuccess.toast` slot and is carried
+ * as a prop type through the crud-form island.
+ */
 export interface SuccessToast {
   readonly message: string
   readonly variant?: string
+  /**
+   * Auto-dismiss delay in milliseconds, per the schema's `toast.duration`.
+   *
+   * INERT on this renderer — declared because the config schema documents it
+   * and `crud-form-renderer` passes the schema slot through verbatim, but never
+   * read: island toasts do not self-dismiss. Only `client.ts#showToast` honours
+   * it. Left in place rather than dropped so the gap stays visible and the
+   * schema type still assigns; closing it is a behaviour change owed a spec.
+   */
   readonly duration?: number
 }
 
+/** Render a configured toast object through the shared renderer. */
 export function showSuccessToast(toast: SuccessToast): void {
   renderToast(toast.message, toast.variant)
 }

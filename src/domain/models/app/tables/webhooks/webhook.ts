@@ -10,8 +10,29 @@ import { WebhookAuthSchema } from './auth'
 import { WebhookPayloadSchema } from './payload'
 import { WebhookRetrySchema } from './retry'
 
+// ─── Webhook Schema ─────────────────────────────────────────────────────────
 
+/**
+ * Table webhook configuration — fires outgoing HTTP requests on record CRUD events.
+ *
+ * Table webhooks are syntactic sugar over automations. Sovrium expands each
+ * webhook into an equivalent automation with a record trigger and webhook.send action.
+ *
+ * @example
+ * ```typescript
+ * {
+ *   name: 'notify-fulfillment',
+ *   url: 'https://fulfillment.example.com/webhooks/orders',
+ *   events: ['create', 'update'],
+ *   enabled: true,
+ *   auth: { type: 'hmac', secret: '$env.PARTNER_SECRET', algorithm: 'sha256' },
+ *   retry: { maxAttempts: 5, backoff: 'exponential' },
+ *   payload: { includeFields: ['customer', 'status'], includePreviousValues: true },
+ * }
+ * ```
+ */
 export const WebhookSchema = Schema.Struct({
+  /** Unique webhook name within the table. */
   name: Schema.String.pipe(
     Schema.minLength(1),
     Schema.annotations({
@@ -20,9 +41,13 @@ export const WebhookSchema = Schema.Struct({
     })
   ),
 
+  /** Destination URL for the outgoing HTTP POST request. */
   url: Schema.String.pipe(
     Schema.filter(
       (value) => {
+        // Reject malformed URLs at schema-decode time. The webhook dispatcher
+        // only ever issues http(s) POST requests, so anything that does not
+        // parse as an absolute http/https URL is a configuration error.
         try {
           const parsed = new URL(value)
           return parsed.protocol === 'http:' || parsed.protocol === 'https:'
@@ -38,6 +63,7 @@ export const WebhookSchema = Schema.Struct({
     })
   ),
 
+  /** Record events that trigger this webhook. At least one required. */
   events: Schema.Array(Schema.Literal('create', 'update', 'delete')).pipe(
     Schema.minItems(1),
     Schema.annotations({
@@ -46,16 +72,20 @@ export const WebhookSchema = Schema.Struct({
     })
   ),
 
+  /** Whether this webhook is active (default: true). */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotations({ description: 'Whether this webhook is active (default: true)' })
     )
   ),
 
+  /** Authentication for outgoing requests (optional). */
   auth: Schema.optional(WebhookAuthSchema),
 
+  /** Retry policy for failed deliveries (optional, defaults: 3 attempts, exponential backoff). */
   retry: Schema.optional(WebhookRetrySchema),
 
+  /** Payload field selection and metadata options (optional). */
   payload: Schema.optional(WebhookPayloadSchema),
 }).pipe(
   Schema.annotations({
@@ -80,5 +110,7 @@ export const WebhookSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type Webhook = Schema.Schema.Type<typeof WebhookSchema>
+/** @public */
 export type WebhookEncoded = Schema.Schema.Encoded<typeof WebhookSchema>

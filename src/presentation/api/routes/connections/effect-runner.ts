@@ -10,6 +10,16 @@ import { OAuthStateStoreLive } from '@/infrastructure/connections/oauth-state-st
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 
+/**
+ * Provide the connection-route runtime layers.
+ *
+ * Provides:
+ * - `ConnectionRepository` (find-or-create the system.connections row
+ *   for a given connection name on first authorize)
+ * - `ConnectionTokenRepository` (encrypted per-user token storage)
+ * - `OAuthStateStore` (in-memory state-token store for the
+ *   authorize→callback hop)
+ */
 const ConnectionRuntimeLayer = Layer.mergeAll(
   ConnectionRepositoryLive,
   ConnectionTokenRepositoryLive,

@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * List the caller's saved views for a given table.
+ *
+ * Phase 9 Cycle 5 — thin orchestrator over the `UserViewRepository` port.
+ * The Drizzle query + row-codec live in the repository's live
+ * implementation; this program only forwards the per-user-scoped input.
+ */
 
 import { Effect } from 'effect'
 import {

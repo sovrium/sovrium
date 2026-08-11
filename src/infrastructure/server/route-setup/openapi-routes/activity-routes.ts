@@ -15,6 +15,7 @@ import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
+/** Activity log route group. */
 export const activityGroup: StaticGroupSpec = {
   tag: 'activity',
   tagDescription: 'Activity log and audit trail endpoints',

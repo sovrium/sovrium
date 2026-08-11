@@ -8,6 +8,7 @@
 import { AnalyticsTrackActionSchema } from './track'
 
 export const AnalyticsActionSchema = AnalyticsTrackActionSchema
+/** @public */
 export type AnalyticsAction = typeof AnalyticsActionSchema.Type
 
 export * from './track'

@@ -7,6 +7,13 @@
 
 import { Schema } from 'effect'
 
+/**
+ * A path `from` which a retired URL redirects.
+ *
+ * Must be a root-relative path (leading `/`). Query strings and fragments are
+ * NOT part of the match key — the incoming query string is preserved and
+ * carried onto the target, so encoding one here would be silently ignored.
+ */
 const RedirectFromSchema = Schema.String.pipe(
   Schema.pattern(/^\/[^\s?#]*$/, {
     message: () =>
@@ -18,6 +25,16 @@ const RedirectFromSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * The `to` target of a redirect: either a root-relative path or an absolute
+ * `http(s)` URL (for a hand-off to a different origin).
+ *
+ * A PROTOCOL-RELATIVE target (`//evil.example.com`) is rejected: a browser
+ * resolves it as an absolute cross-origin URL, so accepting it would turn a
+ * redirect table into an open-redirect primitive. Cross-origin hand-offs must
+ * be written with an explicit `https://` scheme so the intent is visible in the
+ * config being reviewed.
+ */
 const RedirectToSchema = Schema.String.pipe(
   Schema.pattern(/^(?:\/(?!\/)[^\s#]*|https?:\/\/[^\s]+)$/, {
     message: () =>
@@ -29,6 +46,27 @@ const RedirectToSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * Whether a path `to` inherits the language prefix matched by `from`.
+ *
+ * Defaults to `true` — a French visitor to `/fr/products/platform` must land on
+ * `/fr/`, not on the English `/`. But that inheritance is unconditional, and
+ * some targets have no locale to inherit: an admin console (`/_admin/*`), a
+ * webhook receiver, a health endpoint, an asset path. Prefixing those
+ * manufactures a 404 under a language segment the target never had — a 301 into
+ * a 404, which is strictly worse than a clean 404 because it burns the redirect,
+ * still fails, and walks a crawler into a dead end.
+ *
+ * `localizeTarget: false` is the opt-out, and it governs the TARGET only: `from`
+ * keeps matching every locale variant, or the French visitor would get no
+ * redirect at all — the very failure the opt-out exists to avoid. The field
+ * names the side it governs for exactly that reason; a bare `localize` would
+ * read as "turn i18n off for this rule".
+ *
+ * MEANINGLESS ON AN ABSOLUTE TARGET — an absolute `http(s)` `to` already leaves
+ * the app and is emitted verbatim, so the flag cannot change anything there.
+ * That combination is rejected at decode time rather than silently ignored.
+ */
 const RedirectLocalizeTargetSchema = Schema.Boolean.pipe(
   Schema.annotations({
     description:
@@ -36,16 +74,31 @@ const RedirectLocalizeTargetSchema = Schema.Boolean.pipe(
   })
 )
 
+/**
+ * The HTTP status a redirect responds with.
+ *
+ * - `301` Moved Permanently (default) — the retired-URL case; transfers link equity.
+ * - `302` Found — temporary, method-rewriting.
+ * - `307` Temporary Redirect — temporary, method-preserving.
+ * - `308` Permanent Redirect — permanent, method-preserving.
+ */
 const RedirectStatusSchema = Schema.Literal(301, 302, 307, 308).pipe(
   Schema.annotations({
     description: 'HTTP redirect status code. Defaults to 301 (Moved Permanently) when omitted.',
   })
 )
 
+/**
+ * A single redirect rule.
+ */
 export const RedirectSchema = Schema.Struct({
+  /** Root-relative path to redirect FROM. */
   from: RedirectFromSchema,
+  /** Redirect target — a root-relative path or an absolute http(s) URL. */
   to: RedirectToSchema,
+  /** HTTP status code (default: 301). */
   status: Schema.optional(RedirectStatusSchema),
+  /** Whether a path target inherits the matched language prefix (default: true). */
   localizeTarget: Schema.optional(RedirectLocalizeTargetSchema),
 }).pipe(
   Schema.annotations({
@@ -57,6 +110,15 @@ export const RedirectSchema = Schema.Struct({
   })
 )
 
+/**
+ * Strip a leading language segment from a path when it matches one of the
+ * supplied language codes. Returns the path unchanged when it carries no
+ * language prefix.
+ *
+ * Exported for the runtime redirect resolver and its unit tests — the same
+ * normalization must be applied on both the config side (collision detection)
+ * and the request side (matching), or the two would disagree.
+ */
 export const stripLanguagePrefix = (
   path: string,
   languageCodes: ReadonlyArray<string>
@@ -70,9 +132,24 @@ export const stripLanguagePrefix = (
   return { language: first, path: remainder === '' ? '/' : remainder }
 }
 
+/**
+ * Whether a `to` target is an absolute `http(s)` URL, which leaves the app
+ * entirely and is therefore always emitted verbatim — no language prefix
+ * applies to it, and `localizeTarget` is inert on it.
+ *
+ * Exported for the runtime redirect resolver, for the same reason as
+ * `stripLanguagePrefix`: the config-side rejection of an inert `localizeTarget`
+ * and the request-side decision to skip the prefix must agree on what "absolute"
+ * means, or a rule could pass `sovrium validate` and then behave differently.
+ */
 export const isAbsoluteRedirectTarget = (to: string): boolean =>
   to.startsWith('http://') || to.startsWith('https://')
 
+/**
+ * Normalize a `to` target down to the comparable path used for loop and cycle
+ * detection. Absolute URLs are never part of a cycle (they leave the app), so
+ * they normalize to `undefined`.
+ */
 const toComparablePath = (to: string): string | undefined => {
   if (!to.startsWith('/')) return undefined
   const withoutHash = to.split('#')[0] ?? ''
@@ -80,11 +157,29 @@ const toComparablePath = (to: string): string | undefined => {
   return withoutQuery === '' ? '/' : withoutQuery
 }
 
+/**
+ * Detect a redirect cycle (A → B → A, or any longer ring).
+ *
+ * Load-bearing, NOT defensive: the runtime resolves exactly ONE hop, so the
+ * server can never loop — but the BROWSER can. With `A → B` and `B → A` a
+ * visitor to `/A` is sent to `/B`, whose own rule sends them back to `/A`,
+ * forever. A cycle is therefore a configuration error that must fail
+ * `sovrium validate` rather than ship.
+ *
+ * Returns the offending `from` path, or `undefined` when the rule set is acyclic.
+ */
 const findCycleEntry = (
   rules: ReadonlyArray<{ readonly from: string; readonly to: string }>
 ): string | undefined => {
   const targets = new Map(rules.map((rule) => [rule.from, toComparablePath(rule.to)]))
 
+  /**
+   * Follow the chain from `start`, at most `rules.length` hops, and report
+   * whether it returns to `start`. Every member of a ring detects its own ring,
+   * so testing each rule as a start point finds any cycle — while a path that
+   * merely LEADS INTO a ring without being part of it never returns to its own
+   * start, and is correctly reported by the ring member instead.
+   */
   const leadsBackToStart = (start: string): boolean => {
     const step = (current: string | undefined, remainingHops: number): boolean => {
       if (current === undefined) return false
@@ -98,10 +193,57 @@ const findCycleEntry = (
   return rules.find((rule) => leadsBackToStart(rule.from))?.from
 }
 
+/**
+ * RedirectsSchema declares the app's retired URLs and where each one now lives.
+ *
+ * WHY THIS EXISTS — restructuring a site retires URLs, and without this the
+ * only possible answer at a retired path is a 404: `access.redirectTo` covers
+ * auth denial, `forms.onSuccess` covers post-submit, and the `contentDir.index`
+ * 301 is engine-emitted for one specific collection shape. None of them retire
+ * a URL. Every indexed link, bookmark and backlink to the old path would break.
+ *
+ * LOCALE — `from` is matched the way `pages[].path` is authored. A locale-
+ * agnostic `from: '/products/platform'` matches the bare path AND every
+ * language-prefixed variant the page router serves (`/en/products/platform`,
+ * `/fr/products/platform`), and a path `to` inherits the request's language
+ * prefix — so a French visitor lands on the French replacement, never the
+ * English one. A `from` that already begins with a configured language segment
+ * (e.g. `/fr/produits`) is matched literally, exactly like an explicitly
+ * per-locale page path.
+ *
+ * NON-LOCALIZED TARGETS — that inheritance is wrong when the target has no
+ * locale to inherit: an admin console, a webhook receiver, a health endpoint, an
+ * asset path. `localizeTarget: false` emits the authored `to` verbatim while
+ * `from` keeps matching every locale variant. Without it, `{ from: '/login', to:
+ * '/_admin/login' }` emits `/en/_admin/login` and `/fr/_admin/login`, both 404 —
+ * a 301 into a 404, worse than never redirecting at all.
+ *
+ * ONE HOP — a matched request emits exactly one redirect; the target is never
+ * re-matched against the table. `Location` is always literally what was
+ * authored. Chains are rejected as cycles at decode time when they ring.
+ *
+ * PRECEDENCE — redirects are evaluated AFTER static assets and BEFORE pages. A
+ * real file in the public directory always wins (a redirect rule can never
+ * hijack `/install`), while a redirect always beats page resolution and the
+ * 404 catch-all.
+ *
+ * @example
+ * ```typescript
+ * redirects: [
+ *   { from: '/products/platform', to: '/' },
+ *   { from: '/products/partner', to: '/partner' },
+ *   { from: '/login', to: '/_admin/login', localizeTarget: false },
+ * ]
+ * ```
+ */
 export const RedirectsSchema = Schema.Array(RedirectSchema).pipe(
   Schema.minItems(1, {
     message: () => 'redirects must declare at least one redirect rule when present',
   }),
+  // Annotations sit BEFORE the cross-rule filters (mirroring
+  // `SystemSourceCatalogSchema`): a trailing `Schema.annotations` after a
+  // refinement chain loses its `title`/`description` in the generated JSON
+  // Schema, leaving `minItems`' auto-description in their place.
   Schema.annotations({
     identifier: 'Redirects',
     title: 'URL Redirects',
@@ -129,6 +271,16 @@ export const RedirectsSchema = Schema.Array(RedirectSchema).pipe(
       : `Redirect '${selfRedirect.from}' points at itself — a self-redirect loops forever`
   }),
   Schema.filter((rules) => {
+    // `localizeTarget` governs whether a ROOT-RELATIVE target inherits the
+    // matched language prefix. An absolute `http(s)` target already leaves the
+    // app and is emitted verbatim, so the flag cannot change anything there —
+    // its presence can only be a misunderstanding of what it does. Rejected
+    // rather than ignored, so the author learns at `sovrium validate` instead of
+    // shipping a config carrying a flag that does nothing.
+    //
+    // Both values are rejected, not just `false`: `localizeTarget: true` on an
+    // absolute target is equally inert, and accepting it would teach that the
+    // flag means something here.
     const inertFlag = rules.find(
       (rule) => rule.localizeTarget !== undefined && isAbsoluteRedirectTarget(rule.to)
     )
@@ -144,8 +296,20 @@ export const RedirectsSchema = Schema.Array(RedirectSchema).pipe(
   })
 )
 
+/**
+ * TypeScript type inferred from RedirectSchema (a single rule).
+ * @public
+ */
 export type Redirect = Schema.Schema.Type<typeof RedirectSchema>
 
+/**
+ * TypeScript type inferred from RedirectsSchema.
+ * @public
+ */
 export type Redirects = Schema.Schema.Type<typeof RedirectsSchema>
 
+/**
+ * Encoded type of RedirectsSchema (what goes in).
+ * @public
+ */
 export type RedirectsEncoded = Schema.Schema.Encoded<typeof RedirectsSchema>

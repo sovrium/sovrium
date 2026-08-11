@@ -10,10 +10,16 @@ import { PREVIEW_ROW_LIMIT } from './skip-value'
 import type { ParsedTsv } from './parse-tsv'
 
 interface PreviewRowsProps {
+  /** Parsed clipboard data; only the first {@link PREVIEW_ROW_LIMIT} rows render. */
   readonly parsed: ParsedTsv
+  /**
+   * Row-aligned matrix flagging cells whose value mismatches the mapped field
+   * type. Index-aligned with `parsed.rows` then `parsed.headers`.
+   */
   readonly mismatchMatrix: readonly (readonly boolean[])[]
 }
 
+/** Renders a single preview cell, mismatched or normal. */
 function PreviewCell({ value, mismatch }: { readonly value: string; readonly mismatch: boolean }) {
   if (!mismatch) {
     return <td className="text-foreground px-3 py-2">{value}</td>
@@ -34,6 +40,14 @@ function PreviewCell({ value, mismatch }: { readonly value: string; readonly mis
   )
 }
 
+/**
+ * The `<tbody>` of the paste-preview table — the first
+ * {@link PREVIEW_ROW_LIMIT} pasted data rows, aligned to the header columns.
+ *
+ * Cells whose value is incompatible with the mapped field type are flagged
+ * with `data-mismatch="true"`, a red background, and a hover tooltip so the
+ * user sees the problem before confirming the import.
+ */
 export function PreviewRows({ parsed, mismatchMatrix }: PreviewRowsProps) {
   const previewRows = parsed.rows.slice(0, PREVIEW_ROW_LIMIT)
   return (

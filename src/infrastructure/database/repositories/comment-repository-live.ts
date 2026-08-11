@@ -33,6 +33,11 @@ import {
   getUserById,
 } from '@/infrastructure/database/table-queries/query-helpers/record-validation-queries'
 
+/**
+ * Live implementation of CommentRepository using comment-queries infrastructure
+ *
+ * Maps port method names to infrastructure function names.
+ */
 export const CommentRepositoryLive = Layer.succeed(CommentRepository, {
   create: createComment,
   getWithUser: getCommentWithUser,

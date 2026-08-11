@@ -8,12 +8,18 @@
 import { type ReactElement } from 'react'
 import { buildAccessibilityRole, buildScrollAttributes } from '../html-element-helpers'
 
+/**
+ * Common props for all rendered elements
+ */
 export interface ElementProps {
   readonly [key: string]: unknown
   readonly className?: string
   readonly 'data-component'?: string
 }
 
+/**
+ * Configuration for renderHTMLElement
+ */
 export type HTMLElementConfig = {
   readonly type:
     'div' | 'span' | 'section' | 'header' | 'footer' | 'main' | 'article' | 'aside' | 'nav'
@@ -23,18 +29,47 @@ export type HTMLElementConfig = {
   readonly interactions?: unknown
 }
 
+/**
+ * Renders HTML structural elements (div, span, section, and HTML5 semantic elements)
+ *
+ * If content starts with '<', it's treated as HTML and rendered via dangerouslySetInnerHTML.
+ * Otherwise, content is rendered as plain text.
+ *
+ * SECURITY NOTE - Trusted Schema Content:
+ * HTML content is rendered without sanitization since it comes from trusted
+ * schema configuration. For user-generated content, use renderCustomHTML instead.
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Schema-defined HTML from page configuration
+ * - Source: Validated Page schema (section.content property)
+ * - Risk: Low - content is from server configuration, not user input
+ * - Validation: Content validated at build/runtime via schema
+ * - Purpose: Render rich HTML content in structural elements
+ * - XSS Protection: Use renderCustomHTML (which applies `sanitizeRichTextHTML`)
+ *   for user-generated content
+ * - Condition: Only used when content starts with '<' character
+ *
+ * For section elements, automatically adds role="region" for accessibility best practices,
+ * ensuring sections are properly identified in the accessibility tree.
+ *
+ * Supports scroll interactions via data attributes for IntersectionObserver.
+ */
 export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
   const { type, props, content, children, interactions } = config
   const Element = type
 
+  // Build element props immutably
   const accessibilityRole = buildAccessibilityRole(type, children.length > 0, !!content, props.role)
   const scrollAttributes = buildScrollAttributes(interactions)
   const elementProps = { ...props, ...accessibilityRole, ...scrollAttributes }
 
+  // If content looks like HTML (starts with '<'), render as HTML
+  // This is safe for schema-defined content but should NOT be used for user input
   if (content?.trim().startsWith('<')) {
     return (
       <Element
         {...elementProps}
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR HTML element renderer; one-shot during server render
         dangerouslySetInnerHTML={{ __html: content }}
       />
     )
@@ -43,12 +78,27 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
   return <Element {...elementProps}>{content || children}</Element>
 }
 
+/**
+ * Configuration for renderStatusBadge — the badge variant that renders a
+ * colored dot followed by a status label.
+ */
 export type StatusBadgeConfig = {
   readonly props: ElementProps
   readonly dotClassName: string
   readonly label: string | undefined
 }
 
+/**
+ * Render the status-indicator variant of the `badge` component. Emits a
+ * wrapper `<span>` (inheriting `props.id`, `props.className`, etc. exactly
+ * like the default badge) containing a `<span data-status-dot>` for the dot
+ * and a sibling `<span>` for the label text. The dot's color and pulse
+ * animation are encoded as Tailwind utility classes on the dot's className.
+ *
+ * The wrapper is rendered with `inline-flex items-center gap-1.5` when no
+ * author className is present so the dot and label line up; an author can
+ * override by supplying their own `className` via `props.className`.
+ */
 export function renderStatusBadge(config: StatusBadgeConfig): ReactElement {
   const { props, dotClassName, label } = config
   const authorClassName = props.className
@@ -68,6 +118,9 @@ export function renderStatusBadge(config: StatusBadgeConfig): ReactElement {
   )
 }
 
+/**
+ * Renders heading elements (h1-h6)
+ */
 export function renderHeading(
   level: 1 | 2 | 3 | 4 | 5 | 6,
   props: ElementProps,
@@ -78,6 +131,15 @@ export function renderHeading(
   return <HeadingTag {...props}>{content || children}</HeadingTag>
 }
 
+/**
+ * Renders text element with dynamic level
+ *
+ * The text element supports a 'level' prop to determine the HTML tag.
+ * If level is h1-h6, renders as heading.
+ * If level is p, renders as paragraph.
+ * If level is label, renders as label.
+ * Otherwise renders as span to ensure proper ARIA generic role.
+ */
 const TEXT_ELEMENT_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'label'] as const
 
 export function renderTextElement(
@@ -90,5 +152,7 @@ export function renderTextElement(
     ? (level as keyof React.JSX.IntrinsicElements)
     : 'span'
 
+  // Default to span for inline text to ensure proper ARIA generic role
+  // span elements with text content maintain generic role in ARIA tree
   return <Tag {...props}>{content || children}</Tag>
 }

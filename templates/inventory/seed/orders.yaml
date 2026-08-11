@@ -1,0 +1,154 @@
+# Sample orders.
+#
+# `key` is file-local — it exists so order_lines.yaml can name an order before
+# either row has a database id. It is never written to a column.
+#
+# Eight orders, spread across all five statuses and all four channels, because
+# the orders grid's whole point is grouping and filtering: a status column where
+# every row says Confirmed groups into one bucket and demonstrates nothing.
+#
+# `placed_at` uses `{{now-Nd}}` rather than `{{today-Nd}}` — it is a `datetime`
+# field, and `now` renders a full ISO instant where `today` renders a bare date.
+# `pickup_time` is a separate `time` field in 24-hour form; only the four orders
+# that are actually being collected carry one.
+#
+# Not seeded here: `line_count` and `units_ordered` are a count and a rollup
+# over the lines in order_lines.yaml — they compute themselves once those rows
+# exist.
+#
+# `order_number` IS seeded, and it should not have to be. It is an `autonumber`,
+# which the domain lists in READONLY_COMPUTED_FIELD_TYPES with the note
+# "system-managed: DB-assigned" — so a value here is, on paper, an error. Two
+# platform defects make it necessary anyway, and both are worth knowing before
+# anyone "cleans this up":
+#
+#   1. On SQLite (the zero-config default this preview and the demo fleet run),
+#      a NON-PRIMARY-KEY autonumber column is emitted as a plain
+#      `INTEGER NOT NULL` with no DEFAULT and no sequence — SQLite can only
+#      auto-increment a rowid. Nothing on the create path fills it in.
+#   2. `orders` is view-backed (it carries lookup/rollup/count fields), and the
+#      INSTEAD OF INSERT trigger treats `autonumber` as an ordinary base column,
+#      so it writes an explicit NULL. That one bites POSTGRES too.
+#
+#   Net effect: omitting the field fails the NOT NULL constraint, and supplying
+#   it through the records API is rejected as a readonly write. The seed path
+#   does not enforce that readonly rule, which is the only reason this file can
+#   exist at all.
+#
+#   Numbers start at 1001 deliberately. On Postgres the column is a SERIAL whose
+#   sequence still sits at 1, and seeding low values would collide with the very
+#   first order created through the UI; starting high leaves a thousand-row
+#   runway. Delete this block and these eight lines once the engine assigns the
+#   value itself.
+records:
+  - key: ord-northwind-fitout
+    fields:
+      order_number: 1001
+      customer_name: Northwind Trading
+      customer_email: procurement@northwind.example
+      status: Shipped
+      channel: Wholesale
+      fulfilment_flags: [signature required]
+      placed_at: '{{now-63d}}'
+      warehouse: '@warehouses.paris-central'
+      shipping_cost: 240.00
+      notes: >-
+        Full warehouse fit-out. Delivered on a curtain-sider; the driver waited
+        two hours for a forklift, so quote a longer slot next time.
+
+  - key: ord-helios-scanners
+    fields:
+      order_number: 1002
+      customer_name: Helios Health
+      customer_email: it-procurement@helios-health.example
+      status: Shipped
+      channel: Online
+      fulfilment_flags: [express, signature required]
+      placed_at: '{{now-29d}}'
+      warehouse: '@warehouses.paris-central'
+      shipping_cost: 68.50
+      notes: Phase one of the clinical rollout. Phase two expected next quarter.
+
+  - key: ord-lumen-consumables
+    fields:
+      order_number: 1003
+      customer_name: Lumen Analytics
+      customer_email: ops@lumen-analytics.example
+      status: Shipped
+      channel: Online
+      fulfilment_flags: []
+      placed_at: '{{now-45d}}'
+      warehouse: '@warehouses.paris-central'
+      shipping_cost: 22.00
+
+  - key: ord-cardinal-packaging
+    fields:
+      order_number: 1004
+      customer_name: Cardinal Freight
+      customer_email: stores@cardinal-freight.example
+      status: Picking
+      channel: Phone
+      fulfilment_flags: [partial ship]
+      placed_at: '{{now-4d}}'
+      pickup_time: '07:30'
+      warehouse: '@warehouses.lyon-south'
+      shipping_cost: 0
+      notes: >-
+        Collecting themselves at 07:30. Wrap is out of stock, so this ships
+        partial — the customer knows and agreed.
+
+  - key: ord-pinewood-labels
+    fields:
+      order_number: 1005
+      customer_name: Pinewood Academy
+      customer_email: facilities@pinewood.example
+      status: Confirmed
+      channel: In store
+      fulfilment_flags: []
+      placed_at: '{{now-2d}}'
+      pickup_time: '16:00'
+      warehouse: '@warehouses.paris-central'
+      shipping_cost: 0
+
+  - key: ord-atlas-scanners
+    fields:
+      order_number: 1006
+      customer_name: Atlas Integrations
+      customer_email: hello@atlas-integrations.example
+      status: Confirmed
+      channel: Wholesale
+      fulfilment_flags: [express]
+      placed_at: '{{now-1d}}'
+      warehouse: '@warehouses.paris-central'
+      shipping_cost: 94.00
+      notes: Reseller order. Needs the trade price sheet attached to the invoice.
+
+  - key: ord-walkin-racking
+    fields:
+      order_number: 1007
+      customer_name: Ateliers Rémi
+      customer_email: contact@ateliers-remi.example
+      status: Draft
+      channel: In store
+      fulfilment_flags: []
+      placed_at: '{{now-6h}}'
+      pickup_time: '11:15'
+      warehouse: '@warehouses.paris-central'
+      shipping_cost: 0
+      notes: Quoted at the counter, not yet confirmed. Customer is comparing prices.
+
+  - key: ord-regional-cancelled
+    fields:
+      order_number: 1008
+      customer_name: Groupe Vauban
+      customer_email: achats@groupe-vauban.example
+      status: Cancelled
+      channel: Phone
+      fulfilment_flags: [gift wrap, express]
+      placed_at: '{{now-11d}}'
+      pickup_time: '14:45'
+      warehouse: '@warehouses.lille-overflow'
+      shipping_cost: 0
+      notes: >-
+        Cancelled by the customer after we deactivated the Lille site and could
+        not commit to a collection date.

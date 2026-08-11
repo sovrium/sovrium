@@ -11,6 +11,9 @@ import { AiClassifyActionSchema } from './classify'
 import { AiExtractActionSchema } from './extract'
 import { AiGenerateActionSchema } from './generate'
 
+/**
+ * AI Action — union of all AI/LLM operators
+ */
 export const AiActionSchema = Schema.Union(
   AiGenerateActionSchema,
   AiClassifyActionSchema,
@@ -25,6 +28,7 @@ export const AiActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type AiAction = Schema.Schema.Type<typeof AiActionSchema>
 
 export * from './agent'

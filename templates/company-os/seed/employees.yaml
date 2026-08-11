@@ -1,0 +1,83 @@
+# The internal roster on /people. Admin-only to write, which is why the seed
+# exists at all: a member signing in to look at the demo cannot populate this
+# table themselves.
+#
+# All four departments are used, weighted the way a services business actually
+# staffs — engineering largest, operations smallest.
+#
+# `start_date` is a `date`, and these run from three years back to next month.
+# The future one matters: `time_off_requests.yaml` has nothing for that person,
+# which is what a not-yet-started employee should look like.
+records:
+  - key: priya
+    fields:
+      name: Priya Raghunathan
+      email: priya.raghunathan@example.com
+      job_title: Head of Operations
+      department: Operations
+      start_date: '{{today-1140d}}'
+
+  - key: mateo
+    fields:
+      name: Mateo Ferrer
+      email: mateo.ferrer@example.com
+      job_title: Engineering Lead
+      department: Engineering
+      start_date: '{{today-980d}}'
+
+  - key: hannah
+    fields:
+      name: Hannah Okonkwo
+      email: hannah.okonkwo@example.com
+      job_title: Account Executive
+      department: Sales
+      start_date: '{{today-745d}}'
+
+  - key: jules
+    fields:
+      name: Jules Marchand
+      email: jules.marchand@example.com
+      job_title: Support Lead
+      department: Support
+      start_date: '{{today-612d}}'
+
+  - key: sofia
+    fields:
+      name: Sofia Lindqvist
+      email: sofia.lindqvist@example.com
+      job_title: Senior Engineer
+      department: Engineering
+      start_date: '{{today-430d}}'
+
+  - key: omar
+    fields:
+      name: Omar Haddad
+      email: omar.haddad@example.com
+      job_title: Support Engineer
+      department: Support
+      start_date: '{{today-288d}}'
+
+  - key: keiko
+    fields:
+      name: Keiko Tanaka
+      email: keiko.tanaka@example.com
+      job_title: Engineer
+      department: Engineering
+      start_date: '{{today-134d}}'
+
+  - key: dan
+    fields:
+      name: Dan Whitfield
+      email: dan.whitfield@example.com
+      job_title: Account Executive
+      department: Sales
+      start_date: '{{today-61d}}'
+
+  - key: noor
+    fields:
+      name: Noor Haddadi
+      email: noor.haddadi@example.com
+      job_title: Engineer
+      department: Engineering
+      # Accepted, not started. Has no time-off rows, which is correct.
+      start_date: '{{today+24d}}'

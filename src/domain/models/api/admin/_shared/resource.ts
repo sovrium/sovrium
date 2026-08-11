@@ -7,6 +7,19 @@
 
 import { z } from '@hono/zod-openapi'
 
+/**
+ * Canonical resource block embedded in every audit-log entry.
+ *
+ * The resource is the **target** of the action: the row that was modified, the
+ * file that was uploaded, the session that was revoked. `type` is intentionally
+ * an open string (not a closed enum) because the action namespace catalog is
+ * extensible — new resource types are added as new domains land (webhooks,
+ * embeddings, MCP tools, etc.). Validation against the known catalog happens
+ * at write-time in the application layer, not in the response schema.
+ *
+ * @see plan §6.2 resource shape (canonical)
+ * @see action-catalog.ts for the authoritative resource-type list
+ */
 export const resourceSchema = z
   .object({
     type: z
@@ -28,4 +41,5 @@ export const resourceSchema = z
   })
   .openapi('AuditResource')
 
+/** @public */
 export type Resource = z.infer<typeof resourceSchema>

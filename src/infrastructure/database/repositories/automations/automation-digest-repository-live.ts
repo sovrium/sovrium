@@ -34,8 +34,32 @@ const automationDigestItems = resolveDialectSchema(
   automationDigestItemsSqlite
 )
 
+/** Wrap a DB promise, adapting failures to AutomationDigestDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationDigestDatabaseError({ cause }))
 
+/**
+ * Automation Digest Repository Implementation (Drizzle).
+ *
+ * Active bucket = the one row in `automation_digest_buckets` with
+ * `status = 'collecting'` for a given `digest_key`. Buckets are scoped by
+ * `digest_key` alone — NOT by `(automation_id, digest_key)` — because the
+ * digest lifecycle is intentionally cross-automation: one automation may
+ * `collect` items under a key while a separate automation `release`s them
+ *. `automation_id` is still
+ * recorded on each bucket (it is a non-null FK) using the automation that
+ * created the bucket, but it is not a lookup discriminator.
+ *
+ * The schema doesn't enforce uniqueness on `digest_key`+`status` (only an
+ * index), so this layer takes the first `collecting` row when one exists
+ * and creates a new row otherwise. After `release`, the row's status flips
+ * to `released` and subsequent `findOrCreateActiveBucket` calls produce a
+ * fresh bucket.
+ *
+ * Sort over JSONB items uses `item ->> '$field'` to extract a text value;
+ * the natural sort gives lexicographic order which lines up with ISO 8601
+ * for timestamp-shaped strings. Numeric fields would need an explicit
+ * cast; out of scope until a spec demands it.
+ */
 export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepository, {
   findOrCreateActiveBucket: ({ automationId, digestKey }) =>
     wrap(async () => {
@@ -60,6 +84,16 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
 
   addItem: ({ bucketId, item, dedupeKey }) =>
     wrap(async () => {
+      // The `item` JSONB value is inlined via `jsonbLiteral` (`'…'::jsonb`)
+      // rather than passed as a typed bind. drizzle-orm + bun-sql binds a
+      // JS object to a `jsonb` column by `JSON.stringify`-ing it, and the
+      // bun-sql driver then JSON-encodes that string AGAIN — the cell ends
+      // up holding a JSON *string scalar* (`"{…}"`) instead of a JSON
+      // object. That double-encoding makes `item ->> 'field'` return NULL,
+      // which silently broke `digest:release`'s sort. See `jsonbLiteral`'s
+      // doc and drizzle-orm issue #4385.
+      // Dedupe: if a row with the same dedupe_key already exists in this
+      // bucket, skip the insert and return the current size.
       if (dedupeKey !== undefined) {
         const existing = await db
           .select({ id: automationDigestItems.id })
@@ -72,11 +106,13 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
           )
           .limit(1)
         if (existing[0] === undefined) {
+          // eslint-disable-next-line functional/no-expression-statements
           await db
             .insert(automationDigestItems)
             .values({ bucketId, item: jsonbLiteral(item), dedupeKey })
         }
       } else {
+        // eslint-disable-next-line functional/no-expression-statements
         await db.insert(automationDigestItems).values({ bucketId, item: jsonbLiteral(item) })
       }
 
@@ -102,6 +138,13 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
       const bucketId = buckets[0]?.id
       if (bucketId === undefined) return []
 
+      // Build the ORDER BY clause. For a JSONB-field sort the direction
+      // keyword must live INSIDE the `sql` fragment — wrapping a `sql`
+      // expression with Drizzle's `desc()`/`asc()` helper does not emit
+      // the keyword reliably for a `jsonb ->> key` expression, so the
+      // rows come back in physical (insertion) order. The field name is
+      // inlined as a single-quoted SQL literal (it is a JSONB key, not a
+      // table column) with embedded quotes escaped to prevent injection.
       const orderClause =
         sort === undefined
           ? asc(automationDigestItems.collectedAt)
@@ -114,6 +157,7 @@ export const AutomationDigestRepositoryLive = Layer.succeed(AutomationDigestRepo
         .orderBy(orderClause)
       const items = limit !== undefined ? await itemsQuery.limit(limit) : await itemsQuery
 
+      // eslint-disable-next-line functional/no-expression-statements
       await db
         .update(automationDigestBuckets)
         .set({ status: 'released', releasedAt: new Date() })

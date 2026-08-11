@@ -8,10 +8,24 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Database error for connection-token operations.
+ */
 export class ConnectionTokenDatabaseError extends Data.TaggedError('ConnectionTokenDatabaseError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Defense-in-depth: raised by `upsertForUser` when running in
+ * production and asked to persist a sentinel-shaped access token (one that
+ * matches `isSentinelAccessToken` — see `infrastructure/connections/
+ * sentinel-tokens.ts`). Sentinels exist only to satisfy the encryption-
+ * at-rest test specs; the seeder no-ops on `NODE_ENV === 'production'`,
+ * but that gate is fail-open if `NODE_ENV` is unset. This
+ * repository-side rejection is the second line of defense.
+ *
+ * Callers should let this propagate — there is no recoverable state.
+ */
 export class SentinelTokenInProductionError extends Data.TaggedError(
   'SentinelTokenInProductionError'
 )<{
@@ -19,6 +33,15 @@ export class SentinelTokenInProductionError extends Data.TaggedError(
   readonly userId: string
 }> {}
 
+/**
+ * Plaintext token shape returned by reads. The repository decrypts
+ * stored ciphertext at the boundary so callers above never see the
+ * encrypted envelope — this keeps the encryption concern contained to
+ * one layer.
+ *
+ * `expiresAt` is null for tokens that don't expire (long-lived API
+ * keys); spec'd OAuth flows always set it.
+ */
 export interface ConnectionTokenPlaintext {
   readonly id: string
   readonly connectionId: string
@@ -30,6 +53,12 @@ export interface ConnectionTokenPlaintext {
   readonly updatedAt: Date
 }
 
+/**
+ * Token-row metadata for admin listing. Exposes per-user state without
+ * the access/refresh-token plaintext — admins seeing which users have
+ * connected MUST NOT receive the token values, per
+ * [internal ref].
+ */
 export interface ConnectionUserSummary {
   readonly userId: string
   readonly expiresAt: Date | undefined
@@ -37,6 +66,22 @@ export interface ConnectionUserSummary {
   readonly updatedAt: Date
 }
 
+/**
+ * Connection Token Repository Port.
+ *
+ * Backs `system.connection_tokens` — per-user OAuth tokens. The live
+ * impl encrypts on write and decrypts on read using
+ * `infrastructure/crypto/token-encrypt.ts`. Per-user isolation is
+ * enforced at the (connection_id, user_id) tuple — the OAuth flow
+ * upserts on this pair so a user re-authorizing the same connection
+ * replaces their existing token row.
+ *
+ * Spec contract: spec `[internal ref]` asserts that the
+ * raw access_token column is encrypted at rest. Tests can use
+ * `decryptToken` from `[internal ref]` to round-trip
+ * back to plaintext for content assertions, OR assert that the raw
+ * column does not contain the plaintext substring.
+ */
 export class ConnectionTokenRepository extends Context.Tag('ConnectionTokenRepository')<
   ConnectionTokenRepository,
   {
@@ -58,12 +103,28 @@ export class ConnectionTokenRepository extends Context.Tag('ConnectionTokenRepos
       readonly connectionId: string
       readonly userId: string
     }) => Effect.Effect<boolean, ConnectionTokenDatabaseError>
+    /**
+     * Delete EVERY token row keyed to `connectionId` (across all users).
+     *
+     * Used by the admin disconnect action on an `app`-scoped
+     * (engineer-managed, shared) connection: disconnecting must return the
+     * connection to the unconnected state (`tokenCount === 0`), which means
+     * clearing every operator's token row, not just the caller's. Returns the
+     * number of rows deleted.
+     */
     readonly deleteForConnection: (
       connectionId: string
     ) => Effect.Effect<number, ConnectionTokenDatabaseError>
     readonly countForConnection: (
       connectionId: string
     ) => Effect.Effect<number, ConnectionTokenDatabaseError>
+    /**
+     * Return per-user metadata (no token plaintext) for every row keyed
+     * to `connectionId`. The access-token plaintext is decrypted only
+     * to evaluate the test-seeder sentinel filter (callers are expected
+     * to drop sentinel rows so admins don't see "fake" connected users)
+     * — the decrypted value never leaves this method.
+     */
     readonly listUsersForConnection: (input: {
       readonly connectionId: string
     }) => Effect.Effect<readonly ConnectionUserSummary[], ConnectionTokenDatabaseError>

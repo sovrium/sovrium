@@ -5,21 +5,43 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Table permission cross-validation.
+ *
+ * Table `permissions` arrays — both table-level operations (`read`, `create`,
+ * `update`, `delete`, etc.) and field-level entries (`fields[].read` /
+ * `fields[].write`) — may reference Sovrium groups with the `group:<name>`
+ * prefix (e.g. `create: ['admin', 'group:marketing']`). Every referenced
+ * group must be declared in `app.auth.groups` — an undefined group reference
+ * is a configuration error.
+ *
+ * Extracted into a standalone module (mirroring `validateAllPageAccessGroups`)
+ * so the `AppSchema` `Schema.filter` chain stays a thin one-liner — inlining
+ * a multi-statement validator pushes TypeScript's inference depth over the
+ * limit and collapses the derived `App` type to `never`.
+ */
 
 import { extractGroupNames } from './auth/groups/group-reference'
 
+/** Table-level permission operations whose arrays may reference groups. */
 const PERMISSION_OPS = ['read', 'comment', 'create', 'update', 'delete'] as const
 
+/** Minimal shape needed to validate table permission group references. */
 interface AppForTablePermissionValidation {
   readonly auth?: { readonly groups?: ReadonlyArray<{ readonly name: string }> }
   readonly tables?: ReadonlyArray<{ readonly name: string; readonly permissions?: unknown }>
 }
 
+/** A permission value referenced under a labelled location (for error text). */
 interface PermissionRef {
   readonly location: string
   readonly value: unknown
 }
 
+/**
+ * Collect every (location, value) permission array on a table — table-level
+ * operations plus field-level read/write entries.
+ */
 function collectPermissionRefs(tableName: string, permissions: unknown): readonly PermissionRef[] {
   if (!permissions || typeof permissions !== 'object') return []
   const perms = permissions as Readonly<Record<string, unknown>>
@@ -50,6 +72,14 @@ function collectPermissionRefs(tableName: string, permissions: unknown): readonl
   return [...tableLevel, ...fields]
 }
 
+/**
+ * Validate that every `group:<name>` reference in a table `permissions` array
+ * (table-level or field-level) points to a group declared in
+ * `app.auth.groups`.
+ *
+ * Returns `true` when all references are valid, or an error message string
+ * naming the first offending location and group.
+ */
 export const validateAllTablePermissionGroups = (
   app: AppForTablePermissionValidation
 ): string | true => {

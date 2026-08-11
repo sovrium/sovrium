@@ -8,6 +8,31 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * AI Translate Field
+ *
+ * Automatically translates content from a source field into a target language
+ * using AI. Ideal for maintaining multilingual records without manual translation.
+ *
+ * Business Rules:
+ * - `targetLanguage` is required and must be an ISO 639-1 language code
+ * - `sourceFields` must contain exactly one field (translate operates on a single source)
+ * - Output is PostgreSQL TEXT
+ * - Returns NULL when the source field is empty or NULL
+ * - Supports custom prompt to control translation tone, formality, and style
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 2,
+ *   name: 'description_fr',
+ *   type: 'ai-translate',
+ *   sourceFields: ['description_en'],
+ *   targetLanguage: 'fr',
+ *   computeOn: 'both',
+ * }
+ * ```
+ */
 export const AiTranslateFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -118,4 +143,5 @@ export const AiTranslateFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AiTranslateField = Schema.Schema.Type<typeof AiTranslateFieldSchema>

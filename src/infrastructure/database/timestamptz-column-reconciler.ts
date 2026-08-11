@@ -5,6 +5,59 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Boot-time reconciliation of declared timestamp columns onto `TIMESTAMPTZ`.
+ *
+ * ── What drifts ───────────────────────────────────────────────────────────
+ * `created_at` / `updated_at` / `deleted_at` are emitted from three places: the
+ * intrinsic column generator, the ALTER-TABLE backfill, and the declared-field
+ * type map. The first two have always emitted `TIMESTAMPTZ`; the third emitted
+ * `TIMESTAMP` without zone, so writing the field out explicitly — arguably the
+ * more deliberate act — produced the worse type. New columns are unified now,
+ * but every column an existing deployment already created is still naive.
+ *
+ * ── Why this is NOT part of the ordinary migration path ───────────────────
+ * TWO independent reasons, and each alone would be sufficient.
+ *
+ * 1. It must not fire automatically. `ALTER TABLE … ALTER COLUMN … TYPE
+ *    TIMESTAMPTZ` is not metadata-only: PostgreSQL rewrites the entire table and
+ *    holds an `ACCESS EXCLUSIVE` lock throughout. Emitted from the migration
+ *    path it would run on every running deployment's next deploy, as a side
+ *    effect of any unrelated config edit — a boot-time outage taken while the
+ *    operator is watching a deploy rather than a maintenance window, and
+ *    completely invisible on a fresh install.
+ * 2. THE TRAP the migration path cannot escape: it sits behind a checksum fast
+ *    path whose only input is `app.tables`. An operator who upgrades the binary
+ *    WITHOUT editing their config matches the checksum and never reaches it —
+ *    which is precisely the install carrying the drifted columns. The drift is a
+ *    property of the LIVE column, not of the config, so it must be probed
+ *    unconditionally on every boot. (Same reasoning, same placement, as the
+ *    attachment-URL repair that shares this startup phase.)
+ *
+ * ── Why the conversion carries no `USING` clause ──────────────────────────
+ * PostgreSQL's default `timestamp → timestamptz` cast interprets the naive value
+ * in the session `TimeZone` — the exact inverse of the write that produced it,
+ * since `CURRENT_TIMESTAMP` is a `timestamptz` implicitly cast DOWN through that
+ * same GUC. The instant is therefore preserved on ANY server whose `TimeZone`
+ * has been constant for the life of the data, UTC or not.
+ *
+ * `USING <col> AT TIME ZONE 'UTC'` is strictly dominated and is never used: it
+ * ASSERTS the naive values were UTC, which is a no-op on a UTC server and shifts
+ * every row by the server's offset on any other.
+ *
+ * ── Why a non-UTC server needs a second acknowledgement ───────────────────
+ * On a non-UTC server two violations of the constancy assumption become
+ * reachable, and neither is observable from the column: a mid-life `TimeZone`
+ * change (rows on either side are wall-clock in different zones, and which zone
+ * applied to which row was discarded by the write-time cast), and DST fall-back
+ * ambiguity (a repeated local hour maps to two instants; PostgreSQL picks one).
+ * The preflight aborts boot rather than silently converting.
+ *
+ * ── SQLite ────────────────────────────────────────────────────────────────
+ * Nothing to do and nothing at risk: every timestamp type maps to `TEXT`, the
+ * `SQLITE_ISO_NOW` write is UTC-by-construction with an explicit `Z`, and SQLite
+ * has no `ALTER COLUMN` at all. This module self-skips.
+ */
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
@@ -25,17 +78,22 @@ import { executeRaw } from './sql/dialect-execute'
 import { isSqliteRuntime } from './unsupported-in-sqlite'
 import type { App, Table } from '@/domain/models/app'
 
+/** Field types whose column records an instant and therefore wants a zone. */
 const DECLARED_TIMESTAMP_FIELD_TYPES: ReadonlySet<string> = new Set([
   'created-at',
   'updated-at',
   'deleted-at',
 ])
 
+/** How `information_schema` spells the zone-naive type, and the target. */
 const NAIVE_DATA_TYPE = 'timestamp without time zone'
 const TARGET_DATA_TYPE = 'timestamptz'
 
+/** One declared timestamp column of one physical relation. */
 export interface TimestamptzCandidate {
+  /** The PHYSICAL relation — the `_base` table when the table is view-backed. */
   readonly relation: string
+  /** `field.name` IS the column name; there is no mapper. */
   readonly column: string
 }
 
@@ -47,6 +105,12 @@ const collectTableCandidates = (table: Readonly<Table>): readonly TimestamptzCan
     .map((field) => ({ relation, column: field.name }))
 }
 
+/**
+ * Every DECLARED `created-at` / `updated-at` / `deleted-at` column in the app.
+ *
+ * Intrinsic timestamp columns are deliberately out of scope: they are absent
+ * from `table.fields` by definition, and they have always been `TIMESTAMPTZ`.
+ */
 export const collectTimestamptzCandidates = (app: Readonly<App>): readonly TimestamptzCandidate[] =>
   (app.tables ?? []).flatMap((table) => collectTableCandidates(table))
 
@@ -56,6 +120,13 @@ const asSchemaError = (operation: string) => (cause: unknown) =>
     cause,
   })
 
+/**
+ * Which of `candidates` are still zone-naive in the live catalog.
+ *
+ * Reads every naive timestamp column of every public BASE TABLE in one query and
+ * intersects in TypeScript. Restricting to base tables excludes generated views,
+ * whose columns mirror the base table's type but cannot be ALTERed.
+ */
 const probeDriftedColumns = (
   candidates: readonly TimestamptzCandidate[]
 ): Effect.Effect<readonly TimestamptzCandidate[], SchemaInitializationError> =>
@@ -83,6 +154,14 @@ const probeDriftedColumns = (
     })
   )
 
+/**
+ * Log one actionable WARN per drifted column and emit no DDL.
+ *
+ * The table, column, current type, target type and opt-in variable all ride the
+ * MESSAGE rather than the structured attributes, deliberately: attributes travel
+ * only on the exported OTLP record, and an operator reading a boot log on a
+ * self-hosted box must be able to act without a telemetry backend.
+ */
 const warnAboutDrift = (drifted: readonly TimestamptzCandidate[]): Effect.Effect<void, never> =>
   Effect.forEach(
     drifted,
@@ -99,6 +178,13 @@ const warnAboutDrift = (drifted: readonly TimestamptzCandidate[]): Effect.Effect
     { discard: true }
   )
 
+/**
+ * Refuse to convert on a server whose `TimeZone` is not UTC unless the operator
+ * has acknowledged the two unobservable violation modes.
+ *
+ * The reading comes from `current_setting('TimeZone')` on the SAME pool that
+ * will run the ALTER, so it reports the zone that will actually govern the cast.
+ */
 const preflightSessionTimeZone = (): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
     const rows = yield* Effect.tryPromise({
@@ -122,6 +208,10 @@ const preflightSessionTimeZone = (): Effect.Effect<void, SchemaInitializationErr
     })
   })
 
+/**
+ * Convert each drifted column with the DEFAULT cast — no `USING` clause. The
+ * absence is the whole point; see the module docstring before adding one.
+ */
 const convertDriftedColumns = (
   drifted: readonly TimestamptzCandidate[]
 ): Effect.Effect<void, SchemaInitializationError> =>
@@ -146,6 +236,14 @@ const convertDriftedColumns = (
     )
   )
 
+/**
+ * Post-schema startup step: unify declared timestamp columns on `TIMESTAMPTZ`,
+ * behind the operator gate.
+ *
+ * Fails the boot ONLY when the operator opted in and the preflight refuses —
+ * that abort is the point. With the gate off this step never emits DDL, so every
+ * existing deployment boots exactly as it did before.
+ */
 export const reconcileTimestamptzColumns = (
   app: Readonly<App>
 ): Effect.Effect<void, SchemaInitializationError> =>

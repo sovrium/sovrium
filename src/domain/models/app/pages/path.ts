@@ -7,6 +7,15 @@
 
 import { PathSchema as CommonPathSchema } from '@/domain/types/definitions'
 
+/**
+ * URL Path (where the page is accessible)
+ *
+ * Re-exports the common Path schema from definitions.
+ * See PathSchema in common/definitions for full documentation.
+ *
+ * @see [internal ref]#/definitions/path
+ */
 export const PagePathSchema = CommonPathSchema
 
+/** @public */
 export type PagePath = typeof PagePathSchema.Type

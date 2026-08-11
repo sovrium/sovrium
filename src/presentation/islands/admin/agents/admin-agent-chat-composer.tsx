@@ -5,6 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * The shared agent-chat composer — the conversation `log` + the message input
+ * row, driven by {@link useAgentChat}. Mounted by the Conversations page's
+ * "New conversation" flow (`admin-agent-conversations` island, [internal ref]
+ * item M), which mounts the composer in its thread column when an operator
+ * starts a fresh conversation.
+ *
+ * The surface carries the conversation `log` ("Conversation") — assistant
+ * replies render as `article` landmarks ("Agent reply") — plus the
+ * message input (`textbox` "Message the agent") + the "Send" button.
+ */
 
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import {
@@ -17,13 +28,14 @@ import {
 } from '../../recipes/specialty-islands-default-classes'
 import { useAgentChat, type AgentChatTurn } from './admin-agent-chat-data'
 
+/** A single conversation turn — assistant replies are `article` landmarks. */
 function ChatTurn({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
   const isAssistant = turn.role === 'assistant'
   const bubble = computeAiChatMessageBubbleClasses({ role: isAssistant ? 'assistant' : 'user' })
   if (isAssistant) {
     return (
       <article
-        aria-label="Réponse de l'agent"
+        aria-label="Agent reply"
         className={bubble}
       >
         {turn.content}
@@ -33,6 +45,7 @@ function ChatTurn({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
   return <div className={bubble}>{turn.content}</div>
 }
 
+/** The conversation thread — a `log` landmark named "Conversation". */
 function Conversation({ turns }: { readonly turns: ReadonlyArray<AgentChatTurn> }): ReactElement {
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -57,6 +70,7 @@ function Conversation({ turns }: { readonly turns: ReadonlyArray<AgentChatTurn> 
   )
 }
 
+/** The message input row — the `textbox` "Message the agent" + the "Send" button. */
 function InputRow({
   isSending,
   onSend,
@@ -85,11 +99,11 @@ function InputRow({
     >
       <input
         type="text"
-        aria-label="Écrivez à l'agent"
+        aria-label="Message the agent"
         value={draft}
         onChange={handleChange}
         disabled={isSending}
-        placeholder="Écrivez à l'agent…"
+        placeholder="Message the agent…"
         className={computeAiChatInputClasses()}
       />
       <button
@@ -97,12 +111,18 @@ function InputRow({
         disabled={draft.trim().length === 0 || isSending}
         className={computeAiChatSendButtonClasses()}
       >
-        Envoyer
+        Send
       </button>
     </form>
   )
 }
 
+/**
+ * The agent-chat composer: the conversation `log` + the message input row, wired
+ * to {@link useAgentChat} for the given agent slug. Each mount is its own
+ * conversation (the hook mints a fresh sessionId), so callers remount it (via a
+ * `key`) to begin a new conversation.
+ */
 export function ChatComposer({ agentSlug }: { readonly agentSlug: string }): ReactElement {
   const { turns, status, send } = useAgentChat(agentSlug)
   return (

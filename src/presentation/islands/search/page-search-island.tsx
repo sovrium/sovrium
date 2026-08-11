@@ -11,6 +11,19 @@ import { usePageSearch } from '../page-search/use-page-search'
 import type { SearchResult } from '../page-search/matcher'
 import type { MouseEvent, ReactElement } from 'react'
 
+/**
+ * `page-search-island` — hydrates the SSR `<input type="search">` rendered
+ * by `renderPageSearch` into a live results panel sourced from the build-time
+ * `/sovrium-search/index.json`. Matching logic lives in
+ * {@link ./page-search/matcher}; the state machine lives in
+ * {@link ./page-search/use-page-search}. This file is the render layer only.
+ *
+ * Behaviour (drives `[internal ref]-*`): debounced (150ms) search
+ * on every keystroke; `Escape` clears + collapses; `Enter` navigates to the
+ * first result; outside-click collapses (preserving the query). Each option
+ * shows the page `title` (bold) followed by the body `excerpt`, both rendered
+ * as plain-text React children — never `dangerouslySetInnerHTML`.
+ */
 interface PageSearchIslandProps {
   readonly placeholder?: string
   readonly maxResults?: number
@@ -28,6 +41,14 @@ interface PanelInlineStyles {
   readonly optionExcerpt: React.CSSProperties
 }
 
+// Inline styles (not Tailwind) so the island renders correctly even on host
+// pages that don't ship Sovrium's compiled CSS. Colors reference the DS theme
+// CSS variables with literal fallbacks — `var(--color-X, <fallback>)` — so the
+// surface is theme-aware when Sovrium's CSS is present (a `theme.colors`
+// override recolors it) yet still paints a sensible default on a bare host
+// page. Same SSR-safe pattern the chart island uses for its SVG strokes.
+// Operators can further override via plain CSS targeting
+// `[data-island="page-search"]` selectors.
 const STYLES: PanelInlineStyles = {
   container: { position: 'relative', width: '100%' },
   input: {
@@ -76,6 +97,7 @@ const STYLES: PanelInlineStyles = {
   },
 }
 
+// ── Results panel + option subcomponents ─────────────────────────────────────
 
 interface PageSearchResultsPanelProps {
   readonly results: ReadonlyArray<SearchResult>
@@ -135,6 +157,7 @@ function PageSearchResultOption({ result, onNavigate }: PageSearchResultOptionPr
   )
 }
 
+// ── Top-level component ──────────────────────────────────────────────────────
 
 export default function PageSearchIsland({
   placeholder,

@@ -2,6 +2,58 @@ name: my-app
 version: 1.0.0
 description: My Sovrium application
 
+# The whole app is this one file — no `config/` tree, no `$ref`s. That is the
+# point of this template, so the theme is inline too.
+#
+# NINE COLOUR KEYS, AND NOT ONE MORE
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens the prestyled components consume; everything
+#   else emits `--color-*` and does nothing until something cites it. The nine
+#   below are all role keys, and every one of them is cited by the page — see
+#   the `var(--color-*)` references in the styles further down. A starter that
+#   declared a colour nothing used would be teaching the wrong first lesson.
+#
+#   Graphite, with one accent. No `success` / `warning` / `error`: this page has
+#   no state to signal, and colour with nothing to mean is decoration.
+#
+# NO `fonts` BLOCK
+#   IBM Plex Sans and JetBrains Mono ship self-hosted with the platform and
+#   already apply. Naming any other family emits a `font-family` with no
+#   matching `@font-face`, which drops the page onto the operating system's
+#   default face AND pushes the shipped face out of its own stack.
+theme:
+  colors:
+    primary: '#1e3a5f'
+    primary-hover: '#15293f'
+    ring: '#3b6ea5'
+    background: '#ffffff'
+    background-subtle: '#f6f7f9'
+    foreground: '#15181c'
+    foreground-muted: '#4f555d'
+    foreground-subtle: '#7c838c'
+    border: '#e3e5e9'
+
+  # Carried in the stylesheet always; rendered once the app declares
+  # `theme.colorScheme` or ships a `theme-toggle`.
+  #
+  # The accent stays mid-tone rather than getting brighter, because the button
+  # below carries a literal `#ffffff` label. `generateThemeColors` derives that
+  # white companion for `primary` on the LIGHT surface only and deliberately
+  # does not mirror it here, so a pale dark-scheme accent would keep white text
+  # sitting on it. `#3b6ea5` holds 5.3:1 against white — the constraint decided
+  # the value, which is worth knowing before anyone brightens it.
+  darkColors:
+    primary: '#3b6ea5'
+    primary-hover: '#4b82bd'
+    ring: '#5b93cf'
+    background: '#101215'
+    background-subtle: '#181b1f'
+    foreground: '#e9ebee'
+    foreground-muted: '#a3a9b1'
+    foreground-subtle: '#767c85'
+    border: '#282c32'
+
 pages:
   - name: home
     path: /
@@ -13,7 +65,7 @@ pages:
         props:
           className: min-h-screen flex items-center justify-center
           style:
-            background: linear-gradient(to bottom, #f8fafc, #ffffff)
+            background: linear-gradient(to bottom, var(--color-background-subtle), var(--color-background))
         children:
           - type: container
             props:
@@ -24,19 +76,22 @@ pages:
                 props:
                   className: text-5xl font-bold mb-6
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: Hello, World!
               - type: text
                 element: p
                 props:
                   className: text-xl mb-8
                   style:
-                    color: '#475569'
+                    color: var(--color-foreground-muted)
                 content: Built with Sovrium
               - type: button
                 props:
                   className: px-6 py-3 rounded-lg font-semibold transition-colors
                   style:
-                    backgroundColor: '#3b82f6'
+                    backgroundColor: var(--color-primary)
+                    # Stays a literal: this is text ON a filled button, not a
+                    # surface following the background. See the note on
+                    # `darkColors.primary` above for what that constrains.
                     color: '#ffffff'
                 content: Get Started

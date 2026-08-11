@@ -11,6 +11,11 @@ import { parseDuration } from '@/domain/utils/parse-duration'
 import { numberProp, stringProp } from './shared'
 import type { ActionHandler } from './shared'
 
+/**
+ * `state/set` — upsert a key/value pair scoped to the running automation.
+ * Optional `props.ttl` is parsed via `parseDuration` (e.g., `"5s"`, `"10m"`)
+ * and translated to an absolute expiration timestamp at write time.
+ */
 export const handleStateSet: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -41,6 +46,10 @@ export const handleStateSet: ActionHandler = (action, _app, automation) =>
     return { status: 'success' } as const
   })
 
+/**
+ * `state/get` — read the value stored under `key`. Returns `null` (visible
+ * via `body.actions.<name>.value`) when the key is missing or expired.
+ */
 export const handleStateGet: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -55,6 +64,11 @@ export const handleStateGet: ActionHandler = (action, _app, automation) =>
     return { status: 'success', output: { value: result.right } } as const
   })
 
+/**
+ * `state/list` — return all keys matching `props.prefix`, scoped to the
+ * running automation. The output shape mirrors the spec assertion
+ * (`body.actions.<name>.keys`).
+ */
 export const handleStateList: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -75,6 +89,9 @@ export const handleStateList: ActionHandler = (action, _app, automation) =>
     } as const
   })
 
+/**
+ * `state/delete` — remove a key. Idempotent: missing keys do not fail.
+ */
 export const handleStateDelete: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -82,6 +99,7 @@ export const handleStateDelete: ActionHandler = (action, _app, automation) =>
     if (!key) return { status: 'failure', error: 'state.delete requires a key' } as const
 
     const repo = yield* AutomationStateRepository
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- false positive: this is a port method, not a Drizzle call; the repo's delete impl uses a where clause internally.
     const result = yield* Effect.either(repo.delete({ automationId: automation.id, key }))
     if (result._tag === 'Left') {
       return { status: 'failure', error: String(result.left.cause) } as const
@@ -89,6 +107,11 @@ export const handleStateDelete: ActionHandler = (action, _app, automation) =>
     return { status: 'success' } as const
   })
 
+/**
+ * `state/increment` — atomic numeric increment via JSONB-numeric cast in
+ * the repository. Default amount is 1. Output carries the post-increment
+ * value (the spec asserts `body.actions.<name>.value`).
+ */
 export const handleStateIncrement: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}

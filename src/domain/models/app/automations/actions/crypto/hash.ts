@@ -9,23 +9,32 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Crypto Hash Action (type: crypto, operator: hash)
+ *
+ * Compute a cryptographic hash of the input string.
+ * Supports MD5, SHA-256, and SHA-512 algorithms with hex or base64 encoding.
+ */
 export const CryptoHashActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('crypto'),
   operator: Schema.Literal('hash'),
   props: Schema.Struct({
+    /** Input string to hash */
     input: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Input string to hash (supports template variables)',
       })
     ),
 
+    /** Hash algorithm */
     algorithm: Schema.Literal('md5', 'sha256', 'sha512').pipe(
       Schema.annotations({
         description: 'Hash algorithm: md5, sha256, or sha512',
       })
     ),
 
+    /** Output encoding */
     encoding: Schema.optional(
       Schema.Literal('hex', 'base64').pipe(
         Schema.annotations({
@@ -42,4 +51,5 @@ export const CryptoHashActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type CryptoHashAction = Schema.Schema.Type<typeof CryptoHashActionSchema>

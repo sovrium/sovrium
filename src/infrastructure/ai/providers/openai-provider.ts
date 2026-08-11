@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types */
 import OpenAI from 'openai'
 import type { AiEnvConfig } from '@/domain/models/env/ai/ai'
 
+/** @public */
 export const createOpenAIClient = (config: AiEnvConfig): OpenAI =>
   new OpenAI({
     apiKey: config.apiKey,

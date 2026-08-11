@@ -8,6 +8,15 @@
 import { Effect } from 'effect'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 
+/**
+ * Provide AnalyticsRepositoryLive layer to an Effect program
+ *
+ * Isolates the infrastructure import so analytics route handlers
+ * only depend on the application layer.
+ *
+ * @param program - The Effect program requiring AnalyticsRepository
+ * @returns Effect program with AnalyticsRepositoryLive provided
+ */
 export function provideAnalyticsLive<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {

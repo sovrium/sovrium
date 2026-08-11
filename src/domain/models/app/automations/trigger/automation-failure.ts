@@ -7,6 +7,29 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Automation Failure Trigger
+ *
+ * Fires when an automation fails after exhausting all retries.
+ * Enables composable failure handling: users build failure-response
+ * automations using existing actions (email, webhook, automation/call, etc.)
+ *
+ * Without automations filter: fires on ANY automation failure (global error handler).
+ * With automations filter: fires only for the listed automations.
+ *
+ * IMPORTANT: Automations with this trigger type are excluded from triggering
+ * other automation-failure triggers to prevent infinite failure cascades.
+ *
+ * Trigger data context:
+ * - {{trigger.data.automationName}} — name of the failed automation
+ * - {{trigger.data.runId}} — run ID from the Runs API
+ * - {{trigger.data.error}} — error message
+ * - {{trigger.data.attempt}} — which attempt failed
+ * - {{trigger.data.maxAttempts}} — max attempts configured
+ * - {{trigger.data.startedAt}} — ISO timestamp of the run start
+ * - {{trigger.data.failedAt}} — ISO timestamp of the failure
+ * - {{trigger.data.triggerType}} — what triggered the failed automation
+ */
 export const AutomationFailureTriggerSchema = Schema.Struct({
   type: Schema.Literal('automation-failure'),
   automations: Schema.optional(
@@ -34,4 +57,5 @@ export const AutomationFailureTriggerSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AutomationFailureTrigger = Schema.Schema.Type<typeof AutomationFailureTriggerSchema>

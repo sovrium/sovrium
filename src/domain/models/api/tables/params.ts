@@ -7,42 +7,78 @@
 
 import { z } from 'zod'
 
+// ============================================================================
+// OpenAPI Path Parameter Schemas
+// ============================================================================
 
+/**
+ * Table ID path parameter
+ */
 export const tableIdParamSchema = z.object({
   tableId: z.string().describe('Table identifier'),
 })
 
+/**
+ * Record ID path parameters (includes tableId)
+ */
 export const recordIdParamSchema = z.object({
   tableId: z.string().describe('Table identifier'),
   recordId: z.string().describe('Record identifier'),
 })
 
+/**
+ * Comment ID path parameters (includes tableId and recordId)
+ */
 export const commentIdParamSchema = z.object({
   tableId: z.string().describe('Table identifier'),
   recordId: z.string().describe('Record identifier'),
   commentId: z.string().describe('Comment identifier'),
 })
 
+/**
+ * View ID path parameters (includes tableId)
+ */
 export const viewIdParamSchema = z.object({
   tableId: z.string().describe('Table identifier'),
   viewId: z.string().describe('View identifier'),
 })
 
+// ============================================================================
+// Config-Driven (Expanded) Path Parameter Schemas
+// ============================================================================
+// Used by config-driven OpenAPI routes where the table is baked into the
+// concrete path (e.g. /api/tables/contacts/records/{recordId}), so `tableId`
+// is NOT a variable path parameter and must be omitted from the params schema.
 
+/**
+ * Record ID path parameter (tableId is concrete in the expanded path)
+ */
 export const recordOnlyParamSchema = z.object({
   recordId: z.string().describe('Record identifier'),
 })
 
+/**
+ * Comment ID path parameters (tableId is concrete in the expanded path)
+ */
 export const commentOnlyParamSchema = z.object({
   recordId: z.string().describe('Record identifier'),
   commentId: z.string().describe('Comment identifier'),
 })
 
+/**
+ * View ID path parameter (tableId is concrete in the expanded path)
+ */
 export const viewOnlyParamSchema = z.object({
   viewId: z.string().describe('View identifier'),
 })
 
+// ============================================================================
+// OpenAPI Query Parameter Schemas
+// ============================================================================
 
+/**
+ * List records query parameters
+ */
 export const listRecordsQuerySchema = z.object({
   page: z.string().optional().describe('Page number (1-indexed)'),
   limit: z.string().optional().describe('Items per page'),
@@ -59,10 +95,21 @@ export const listRecordsQuerySchema = z.object({
     .describe('Set to "true" to list only soft-deleted records (trash view)'),
   filter: z.string().optional().describe('Filter expression'),
   aggregate: z.string().optional().describe('JSON aggregate parameters'),
-  groupBy: z.string().optional().describe('Field name to group records by'),
+  groupBy: z
+    .string()
+    .optional()
+    .describe(
+      'Field name to group records by, or a comma-separated list of fields for nested levels (outermost first). Each named field is permission-checked'
+    ),
 })
 
+// ============================================================================
+// Request Body Schemas
+// ============================================================================
 
+/**
+ * Create/update comment request body
+ */
 export const commentBodySchema = z.object({
   content: z.string().min(1).max(10_000).describe('Comment text'),
 })

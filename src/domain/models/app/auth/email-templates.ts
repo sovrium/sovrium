@@ -7,10 +7,34 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Auth Email Template Schema
+ *
+ * Configuration for a single authentication email template.
+ * Templates support variable substitution using $variable syntax.
+ *
+ * Available variables depend on the email type:
+ * - $url: Link URL (verification, password reset, magic link, invitation accept link)
+ * - $name: User's name (recipient — the invited person, the verified user, etc.)
+ * - $email: User's email address (recipient)
+ * - $code: OTP code (for email-otp)
+ * - $organizationName: Organization name (for invitations)
+ * - $inviterName: Name of the admin who sent the invitation (admin invitations only)
+ *
+ * @example
+ * ```typescript
+ * {
+ *   subject: 'Reset your password',
+ *   text: 'Click the link to reset your password: $url'
+ * }
+ * ```
+ */
 export const AuthEmailTemplateSchema = Schema.Struct({
+  /** Email subject line (can include $variables) */
   subject: Schema.String.pipe(
     Schema.annotations({ description: 'Email subject line with optional $variable substitution' })
   ),
+  /** Plain text email body (can include $variables) */
   text: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({
@@ -18,6 +42,7 @@ export const AuthEmailTemplateSchema = Schema.Struct({
       })
     )
   ),
+  /** HTML email body (can include $variables) */
   html: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({ description: 'HTML email body with optional $variable substitution' })
@@ -40,14 +65,50 @@ export const AuthEmailTemplateSchema = Schema.Struct({
 
 export type AuthEmailTemplate = Schema.Schema.Type<typeof AuthEmailTemplateSchema>
 
+/**
+ * Auth Email Templates Schema
+ *
+ * All available email templates for authentication flows.
+ * Each template is optional - Better Auth provides sensible defaults.
+ *
+ * @example
+ * ```typescript
+ * {
+ *   verification: {
+ *     subject: 'Verify your email for MyApp',
+ *     text: 'Hi $name, click here to verify your email: $url'
+ *   },
+ *   resetPassword: {
+ *     subject: 'Reset your password',
+ *     text: 'Click the link to reset your password: $url'
+ *   }
+ * }
+ * ```
+ */
 export const AuthEmailTemplatesSchema = Schema.Struct({
+  /** Email verification after signup */
   verification: Schema.optional(AuthEmailTemplateSchema),
+  /** Password reset email */
   resetPassword: Schema.optional(AuthEmailTemplateSchema),
+  /** Magic link login email */
   magicLink: Schema.optional(AuthEmailTemplateSchema),
+  /** Email OTP code email */
   emailOtp: Schema.optional(AuthEmailTemplateSchema),
+  /** Two-factor authentication backup codes email */
   twoFactorBackupCodes: Schema.optional(AuthEmailTemplateSchema),
+  /** Welcome email after verification */
   welcome: Schema.optional(AuthEmailTemplateSchema),
+  /** Account deletion confirmation email */
   accountDeletion: Schema.optional(AuthEmailTemplateSchema),
+  /**
+   * Admin-issued invitation email (passwordless onboarding)
+   *
+   * Sent by `POST /api/auth/admin/invite-user`. Supports $name (invitee),
+   * $email (invitee), $url (accept-invitation URL with single-use token),
+   * and $inviterName (the admin who issued the invitation).
+   *
+   * If omitted, Sovrium falls back to a sensible default template.
+   */
   invitation: Schema.optional(AuthEmailTemplateSchema),
 }).pipe(
   Schema.annotations({
@@ -62,4 +123,5 @@ export const AuthEmailTemplatesSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AuthEmailTemplates = Schema.Schema.Type<typeof AuthEmailTemplatesSchema>

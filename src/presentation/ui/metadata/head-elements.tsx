@@ -9,6 +9,13 @@ import { type ReactElement } from 'react'
 import { buildCustomElement } from './custom-elements-builders'
 import type { CustomElements, FaviconSet, Preload } from '@/domain/models/app/pages/meta'
 
+/**
+ * Render DNS prefetch link tags
+ * Generates <link rel="dns-prefetch" href="..."> tags for external domains
+ *
+ * @param dnsPrefetch - DNS prefetch configuration from page.meta
+ * @returns React fragment with DNS prefetch link tags
+ */
 export function DnsPrefetchLinks({
   dnsPrefetch,
 }: {
@@ -31,6 +38,13 @@ export function DnsPrefetchLinks({
   )
 }
 
+/**
+ * Render custom head elements
+ * Generates arbitrary HTML elements (meta, link, script, style, base) in <head>
+ *
+ * @param customElements - Custom elements configuration from page.meta
+ * @returns React fragment with custom head elements
+ */
 export function CustomElementsHead({
   customElements,
 }: {
@@ -43,6 +57,13 @@ export function CustomElementsHead({
   return <>{customElements.map(buildCustomElement)}</>
 }
 
+/**
+ * Render single favicon link tag
+ * Generates simple <link rel="icon" href="..."> tag for default favicon
+ *
+ * @param favicon - Favicon path from page.meta.favicon
+ * @returns React element with favicon link tag or undefined
+ */
 export function FaviconLink({
   favicon,
 }: {
@@ -60,6 +81,19 @@ export function FaviconLink({
   )
 }
 
+/**
+ * Render favicon set link tags
+ * Generates <link rel="..."> tags for multi-device favicon support
+ *
+ * Supports:
+ * - icon: Standard browser favicon (16x16, 32x32)
+ * - apple-touch-icon: iOS home screen icon (180x180)
+ * - manifest: PWA manifest file reference
+ * - mask-icon: Safari pinned tab icon (monochrome SVG with color)
+ *
+ * @param favicons - Favicon set configuration from page.meta
+ * @returns React fragment with favicon link tags
+ */
 export function FaviconSetLinks({
   favicons,
 }: {
@@ -72,6 +106,8 @@ export function FaviconSetLinks({
   return (
     <>
       {favicons.map((favicon, index) => {
+        // Convert relative path (./favicon.png) to absolute path (/favicon.png)
+        // Remove the leading ./ to make it an absolute path from the root
         const href = favicon.href.replace(/^\.\//, '/')
 
         return (
@@ -89,6 +125,13 @@ export function FaviconSetLinks({
   )
 }
 
+/**
+ * Render preload link tags
+ * Generates <link rel="preload" ...> tags for critical resources
+ *
+ * @param preload - Preload configuration from page.meta
+ * @returns React fragment with preload link tags
+ */
 export function PreloadLinks({
   preload,
 }: {

@@ -5,6 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Webhook request body / query JSON-Schema-subset validator.
+ *
+ * Only the leaf-level features needed by the public webhook spec are
+ * supported (`type: object` + `properties` + `required` + per-field
+ * `string|integer|number|boolean` with `minLength` / `format=email` /
+ * `minimum` / `maximum`). A full JSON Schema engine is intentionally out
+ * of scope — a webhook trigger that needs richer validation should put
+ * the rule in a `code` action where the host language is more expressive.
+ *
+ * Extracted from `webhook-handler.ts` to keep the dispatch file under
+ * the `max-lines` cap.
+ */
 
 interface JsonSchemaLike {
   readonly type?: string
@@ -46,6 +59,10 @@ const validateField = (value: unknown, schema: JsonSchemaLike): string | undefin
   return undefined
 }
 
+/**
+ * Validate a value against a tiny JSON Schema subset. Returns an array of
+ * `field: message` strings — empty on success.
+ */
 export const validateAgainstSchema = (
   value: unknown,
   schema: Readonly<Record<string, unknown>>
@@ -65,6 +82,13 @@ export const validateAgainstSchema = (
   return [...missing, ...fieldErrors]
 }
 
+/**
+ * Coerce string-typed query params (everything from `c.req.queries()` is a
+ * string) into the type their schema expects. Only handles integer / number;
+ * strings pass through unchanged. Other types stay strings — the validator
+ * will produce a "must be a string" / "must be an integer" message which is
+ * the right signal for a malformed query.
+ */
 export const coerceQueryForSchema = (
   query: Readonly<Record<string, string>>,
   schema: Readonly<Record<string, unknown>>

@@ -5,11 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Helpers for `social-components.tsx` (the SSR renderers for `comments` and
+ * `commentCount` page components). Extracted to keep the main file under the
+ * `max-lines: 300` cap imposed by `[internal ref]`.
+ */
 
+import { isOpenToEveryone, toPermissionValue } from '@/domain/models/shared/permission-evaluation'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 import type { SessionInfo } from '@/domain/types/session-info'
 
+/**
+ * Pick a string field from the component definition first, then from raw
+ * props, falling back to a default when both are absent or wrong-typed.
+ */
 export function pickString(
   c: Record<string, unknown>,
   props: Record<string, unknown>,
@@ -33,6 +43,7 @@ export function pickString(
   return fallback
 }
 
+/** Pick a number field with the same component-then-props precedence. */
 export function pickNumber(
   c: Record<string, unknown>,
   props: Record<string, unknown>,
@@ -74,10 +85,14 @@ export function resolveCommentsFields(
   }
 }
 
+/**
+ * Resolve table-level comments config (PG-01/PG-02).
+ */
 export interface ResolvedCommentsConfig {
   readonly guestComments: boolean
   readonly guestEmailRequired: boolean
   readonly threading: boolean
+  /** Whether the table's `comment` permission opens to unauthenticated visitors. */
   readonly commentPermissionAllowsAll: boolean
 }
 
@@ -112,7 +127,7 @@ export function resolveTableCommentsConfig(
     guestComments: cfg.guestComments === true,
     guestEmailRequired: cfg.guestEmailRequired !== false,
     threading: cfg.threading === true,
-    commentPermissionAllowsAll: tablePerm?.comment === 'all',
+    commentPermissionAllowsAll: isOpenToEveryone(toPermissionValue(tablePerm?.comment)),
   }
 }
 
@@ -143,6 +158,12 @@ export function resolveCommentCountFields(
   }
 }
 
+/**
+ * Resolve the user-facing label for the comment-count component.
+ *
+ * - When `count === 0`, prefer `emptyText`.
+ * - Otherwise substitute `{count}` in `format` with the numeric value.
+ */
 export function resolveCountLabel(
   count: number,
   format: string,
@@ -154,10 +175,39 @@ export function resolveCountLabel(
   return format.replace('{count}', String(count))
 }
 
+/**
+ * Build the JSON-serialized props payload consumed by the comment-thread
+ * hydration island (`src/presentation/islands/comment-thread-island.tsx`).
+ *
+ * `paginationStyle` is normalized: schema authors use `'numbered'`
+ * interchangeably with the internal variant; `'loadMore'` is the documented
+ * default.
+ *
+ * When a `session` is forwarded by the SSR pipeline, `currentUserId` and `currentUserIsAdmin` are
+ * surfaced so the hydrated island can render the authenticated comment form,
+ * per-comment edit/delete affordances for the author, and the admin
+ * delete-any override. Anonymous requests omit both — the island then
+ * renders the "Sign in to comment" prompt and read-only comment list.
+ */
+/**
+ * Read a `data-testid` string from raw element props, or `undefined` when
+ * it is absent / non-string. Shared by the thread + count island builders.
+ */
 function readTestId(elementProps: Record<string, unknown>): string | undefined {
   return typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
 }
 
+/**
+ * `true` when the session carries the unrestricted flag — that grants the
+ * delete-any override on the hydrated comment island.
+ *
+ * `isUnrestricted` is the canonical admin-equivalence flag, stamped at
+ * session-establish time by `buildGetSession` via `isAdminEquivalent` (WI-5).
+ * It already accounts for custom highest-`level` roles (cloud `operator`,
+ * partner `engineer`) as well as built-in `admin`, so a literal `role ===
+ * 'admin'` fallback here would be both redundant and a hardcode that misses
+ * those custom superuser roles.
+ */
 function sessionIsAdmin(session: SessionInfo | undefined): boolean {
   return session?.isUnrestricted === true
 }
@@ -187,6 +237,12 @@ export function buildCommentThreadIslandProps(input: {
   }
 }
 
+/**
+ * Build the JSON-serialized props payload consumed by the comment-count
+ * hydration island. Returns `undefined` when `tableName` / `recordId` is
+ * missing — the island can't fetch a count without both, so we keep the
+ * SSR fallback label visible without mounting React.
+ */
 export function buildCommentCountIslandProps(input: {
   readonly fields: CommentCountFields
   readonly elementProps: Record<string, unknown>

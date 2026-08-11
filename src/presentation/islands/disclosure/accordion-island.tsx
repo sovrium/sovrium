@@ -31,6 +31,12 @@ interface AccordionIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Accordion island — wraps Base UI Accordion for collapsible panels.
+ *
+ * Supports single (one panel at a time) or multiple open panels,
+ * keyboard navigation, and animated expand/collapse.
+ */
 export default function AccordionIsland({
   items = [],
   accordionType = 'single',

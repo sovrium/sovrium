@@ -10,6 +10,12 @@ import { passwordResetEmail, emailVerificationEmail } from '../../email/template
 import { logError } from '../../logging'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
+/**
+ * Substitute variables in a template string
+ *
+ * Replaces $variable patterns with actual values from the context.
+ * Supported variables: $name, $url, $email, $organizationName, $inviterName
+ */
 const substituteVariables = (
   template: string,
   context: Readonly<{
@@ -32,9 +38,15 @@ const substituteVariables = (
     .replace(/\$inviterName/g, context.inviterName ?? 'Someone')
 }
 
+/**
+ * Email handler configuration for the factory
+ */
 type EmailHandlerConfig = Readonly<{
+  /** Email type for logging (e.g., 'password reset', 'verification') */
   emailType: string
+  /** Function to build the action URL from base URL and token */
   buildUrl: (url: string, token: string) => string
+  /** Function to generate the default template when no custom template is provided */
   getDefaultTemplate: (params: Readonly<{ userName?: string; actionUrl: string }>) => Readonly<{
     subject: string
     html: string
@@ -42,6 +54,15 @@ type EmailHandlerConfig = Readonly<{
   }>
 }>
 
+/**
+ * Generic email handler factory - eliminates duplication between email types
+ *
+ * Creates a Better Auth email callback that:
+ * 1. Builds the action URL using the provided strategy
+ * 2. Sends custom template if provided (with variable substitution)
+ * 3. Falls back to default template otherwise
+ * 4. Handles errors silently to prevent user enumeration
+ */
 const createEmailHandler = (config: EmailHandlerConfig, customTemplate?: AuthEmailTemplate) => {
   return async ({
     user,
@@ -56,7 +77,9 @@ const createEmailHandler = (config: EmailHandlerConfig, customTemplate?: AuthEma
     const context = { name: user.name, url: actionUrl, email: user.email }
 
     try {
+      // Custom template takes precedence - use it entirely (don't mix with defaults)
       if (customTemplate?.subject) {
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
         await sendEmail({
           to: user.email,
           subject: substituteVariables(customTemplate.subject, context),
@@ -64,11 +87,13 @@ const createEmailHandler = (config: EmailHandlerConfig, customTemplate?: AuthEma
           text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
         })
       } else {
+        // Use default template
         const defaultTemplate = config.getDefaultTemplate({
           userName: user.name,
           actionUrl,
         })
 
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
         await sendEmail({
           to: user.email,
           subject: defaultTemplate.subject,
@@ -77,11 +102,15 @@ const createEmailHandler = (config: EmailHandlerConfig, customTemplate?: AuthEma
         })
       }
     } catch (error) {
+      // Don't throw - silent failure prevents user enumeration attacks
       logError(`[EMAIL] Failed to send ${config.emailType} email to ${user.email}`, error)
     }
   }
 }
 
+/**
+ * Create password reset email handler with optional custom templates
+ */
 const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) =>
   createEmailHandler(
     {
@@ -93,10 +122,14 @@ const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) =>
     customTemplate
   )
 
+/**
+ * Create email verification handler with optional custom templates
+ */
 const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
   createEmailHandler(
     {
       emailType: 'verification',
+      // Better Auth sometimes includes token in URL already
       buildUrl: (url, token) => (url.includes('token=') ? url : `${url}?token=${token}`),
       getDefaultTemplate: ({ userName, actionUrl }) =>
         emailVerificationEmail({ userName, verifyUrl: actionUrl, expiresIn: '24 hours' }),
@@ -104,6 +137,9 @@ const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
     customTemplate
   )
 
+/**
+ * Create magic link email handler with optional custom templates
+ */
 const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate) =>
   createEmailHandler(
     {
@@ -118,12 +154,20 @@ const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate) =>
     customTemplate
   )
 
+/**
+ * Create welcome email handler with optional custom template
+ *
+ * Sends a welcome email after user creation via databaseHooks.
+ * Unlike other handlers, this doesn't require a URL/token — it fires
+ * after the user record is created in the database.
+ */
 const createWelcomeEmailHandler = (customTemplate?: AuthEmailTemplate) => {
   return async (user: Readonly<{ email: string; name: string }>) => {
     const context = { name: user.name, email: user.email }
 
     try {
       if (customTemplate?.subject) {
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
         await sendEmail({
           to: user.email,
           subject: substituteVariables(customTemplate.subject, context),
@@ -131,12 +175,20 @@ const createWelcomeEmailHandler = (customTemplate?: AuthEmailTemplate) => {
           text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
         })
       }
+      // No default welcome email — only sent when explicitly configured
     } catch (error) {
       logError(`[EMAIL] Failed to send welcome email to ${user.email}`, error)
     }
   }
 }
 
+/**
+ * Create email OTP handler with optional custom template
+ *
+ * Unlike URL-based handlers, OTP handlers receive the OTP code directly
+ * from Better Auth's emailOTP plugin. The handler substitutes $otp in
+ * the custom template with the actual code.
+ */
 const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate) => {
   return async ({
     email,
@@ -149,6 +201,7 @@ const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate) => {
     try {
       if (customTemplate?.subject) {
         const context = { email, otp }
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
         await sendEmail({
           to: email,
           subject: substituteVariables(customTemplate.subject, context),
@@ -157,6 +210,8 @@ const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate) => {
         })
         return
       }
+      // Default OTP email
+      // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
       await sendEmail({
         to: email,
         subject: 'Your verification code',
@@ -169,6 +224,13 @@ const createEmailOtpHandler = (customTemplate?: AuthEmailTemplate) => {
   }
 }
 
+/**
+ * Create two-factor backup codes email handler with optional custom template
+ *
+ * Sends backup codes to the user after enabling two-factor authentication.
+ * The handler substitutes $codes in the custom template with the actual codes.
+ * Called from the after hook when /two-factor/enable succeeds.
+ */
 const createTwoFactorBackupCodesHandler = (customTemplate?: AuthEmailTemplate) => {
   return async ({
     email,
@@ -184,6 +246,7 @@ const createTwoFactorBackupCodesHandler = (customTemplate?: AuthEmailTemplate) =
 
       if (customTemplate?.subject) {
         const context = { email, name, codes: formattedCodes }
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
         await sendEmail({
           to: email,
           subject: substituteVariables(customTemplate.subject, context),
@@ -192,6 +255,8 @@ const createTwoFactorBackupCodesHandler = (customTemplate?: AuthEmailTemplate) =
         })
         return
       }
+      // Default backup codes email
+      // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
       await sendEmail({
         to: email,
         subject: 'Your backup codes',
@@ -204,12 +269,20 @@ const createTwoFactorBackupCodesHandler = (customTemplate?: AuthEmailTemplate) =
   }
 }
 
+/**
+ * Create account deletion email handler with optional custom template
+ *
+ * Sends a confirmation email after account deletion.
+ * Unlike URL-based handlers, this fires after the user record is deleted
+ * from the database, using session data captured before deletion.
+ */
 const createAccountDeletionHandler = (customTemplate?: AuthEmailTemplate) => {
   return async (user: Readonly<{ email: string; name?: string }>) => {
     const context = { name: user.name, email: user.email }
 
     try {
       if (customTemplate?.subject) {
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
         await sendEmail({
           to: user.email,
           subject: substituteVariables(customTemplate.subject, context),
@@ -217,12 +290,30 @@ const createAccountDeletionHandler = (customTemplate?: AuthEmailTemplate) => {
           text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
         })
       }
+      // No default account deletion email — only sent when explicitly configured
     } catch (error) {
       logError(`[EMAIL] Failed to send account deletion email to ${user.email}`, error)
     }
   }
 }
 
+/**
+ * Create admin invitation email handler with optional custom template.
+ *
+ * Unlike the URL-based handlers above, the invitation handler is invoked
+ * directly by the Sovrium engine from the
+ * `POST /api/auth/admin/invite-user` use-case (it is NOT a Better Auth
+ * plugin endpoint), so the signature is bespoke.
+ *
+ * Supported substitutions: $name (invitee), $email (invitee), $url (the
+ * absolute /accept-invitation?token=... link), $inviterName (the admin who
+ * issued the invitation).
+ *
+ * Errors are swallowed and logged: failing to deliver an invitation email
+ * must NOT leak through the API response (preserves admin UX) and must NOT
+ * roll back the verification token row (the admin can still surface the
+ * link manually if SMTP is misconfigured).
+ */
 const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
   return async ({
     email,
@@ -239,6 +330,7 @@ const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
 
     try {
       if (customTemplate?.subject) {
+        // eslint-disable-next-line functional/no-expression-statements -- email send is a side effect
         await sendEmail({
           to: email,
           subject: substituteVariables(customTemplate.subject, context),
@@ -248,10 +340,12 @@ const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
         return
       }
 
+      // Default invitation template
       const subject = 'You are invited to join'
       const text = `Hi ${name},\n\n${inviterName} invited you to join. Click the link below to set your password and accept the invitation:\n\n${url}\n\nThis link is single-use.`
       const html = `<p>Hi ${name},</p><p>${inviterName} invited you to join. Click <a href="${url}">here</a> to set your password and accept the invitation.</p><p>This link is single-use.</p>`
 
+      // eslint-disable-next-line functional/no-expression-statements -- email send is a side effect
       await sendEmail({ to: email, subject, html, text })
     } catch (error) {
       logError(`[EMAIL] Failed to send invitation email to ${email}`, error)
@@ -259,6 +353,9 @@ const createInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
   }
 }
 
+/**
+ * Create email handlers from auth configuration
+ */
 export const createEmailHandlers = (authConfig?: Auth) => {
   const templates = authConfig?.emailTemplates
 

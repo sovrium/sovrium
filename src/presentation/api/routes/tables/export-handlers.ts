@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
 import { createListRecordsProgram } from '@/application/use-cases/tables/programs'
+import { hasReadPermission } from '@/domain/validators/permission-evaluators'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
@@ -25,6 +25,7 @@ function escapeCsvValue(value: unknown): string {
   return str
 }
 
+// Extract raw value from formattedFieldValue (may be plain value or { value, displayValue })
 function getRawValue(fv: unknown): unknown {
   if (fv !== null && typeof fv === 'object' && 'value' in (fv as object)) {
     return (fv as { value: unknown }).value
@@ -32,18 +33,33 @@ function getRawValue(fv: unknown): unknown {
   return fv
 }
 
+/**
+ * Attachment columns whose read-path value is enriched: the records
+ * program promotes a bare storage key into `{ key, signedUrl, ... }` and a key
+ * list into an array of those.
+ */
 const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
   'attachment',
   'single-attachment',
   'multiple-attachments',
 ])
 
+/** Names of the table's attachment columns, used to scope {@link unwrapAttachment}. */
 function attachmentFieldNames(table: ReturnType<NonNullable<App['tables']>['find']>): Set<string> {
   return new Set(
     (table?.fields ?? []).filter((f) => ATTACHMENT_FIELD_TYPES.has(f.type)).map((f) => f.name)
   )
 }
 
+/**
+ * Collapse an enriched attachment value back to the storage key(s) it wraps.
+ *
+ * An export is a flat data dump, not an API response: the transient signed-URL
+ * capability minted on the read path has no business in a CSV cell (where the
+ * object would stringify to `[object Object]`) nor in a downloaded JSON file
+ * that outlives the token. Scoped to attachment columns so an unrelated `json`
+ * column that happens to carry a `key` property is left alone.
+ */
 function unwrapAttachment(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(unwrapAttachment)
   if (value !== null && typeof value === 'object') {
@@ -53,6 +69,7 @@ function unwrapAttachment(value: unknown): unknown {
   return value
 }
 
+/** Read one exportable cell: unwrap the display envelope, then any enrichment. */
 function exportValue(
   fields: Record<string, unknown>,
   fieldName: string,
@@ -62,6 +79,16 @@ function exportValue(
   return attachments.has(fieldName) ? unwrapAttachment(raw) : raw
 }
 
+/**
+ * Build an AND-filter from `?filterField=&filterValue=` (single equals) and/or
+ * `?recordIds=` (id IN (...)) query params. Returns `undefined` when no filter
+ * inputs are provided. Shape matches `ListRecordsConfig['filter']`.
+ *
+ * `recordIds` powers "Export selected" — the data-table island sends a
+ * comma-separated id list when the user checks specific rows and clicks
+ * Export selected. When both filter inputs are present they are AND-merged
+ * (e.g. an active toolbar filter intersected with the user's selection).
+ */
 type ExportFilterClause = {
   readonly field: string
   readonly operator: string
@@ -88,6 +115,10 @@ function buildExportFilter(
   return conditions.length > 0 ? { and: conditions } : undefined
 }
 
+/**
+ * Render a list of records to a CSV `Response` with table-config-ordered columns.
+ * When `visibleFields` is provided, only those fields are included in the output.
+ */
 function buildCsvResponse(
   records: readonly { fields: Record<string, unknown> }[],
   tableFieldNames: readonly string[],
@@ -100,6 +131,7 @@ function buildCsvResponse(
   const { attachments, visibleFields } = opts
   const firstRecordFields = records[0]?.fields ?? {}
   const allFieldKeys = Object.keys(firstRecordFields)
+  // Determine ordered field names: table config order first, then any extras
   const allOrderedFields =
     tableFieldNames.length > 0
       ? [
@@ -107,6 +139,7 @@ function buildCsvResponse(
           ...allFieldKeys.filter((f) => !tableFieldNames.includes(f)),
         ]
       : allFieldKeys
+  // Filter to only visible fields when specified
   const orderedFields =
     visibleFields && visibleFields.length > 0
       ? allOrderedFields.filter((f) => visibleFields.includes(f))
@@ -129,6 +162,12 @@ function buildCsvResponse(
   })
 }
 
+/**
+ * Build the empty CSV response for callers whose row-level read predicate
+ * resolves to "match nothing" (e.g. user has no assignments). The header
+ * row is still emitted so downstream tools that auto-detect column shape
+ * don't break.
+ */
 function buildEmptyCsvResponse(tableFieldNames: readonly string[], tableName: string): Response {
   const header = tableFieldNames.join(',')
   const date = new Date().toISOString().slice(0, 10)
@@ -172,6 +211,13 @@ interface ExportReadGateInput {
   readonly guard: ReturnType<typeof resolveGuardForTable> extends Promise<infer T> ? T : never
 }
 
+/**
+ * Z-3 read role gate for CSV export. Mirrors the list-records contract:
+ *   - row-level-enforced tables → role-gate against the overlay roles
+ *   - non-row-level tables → canonical hasReadPermission
+ * Returns 403 (FORBIDDEN) on failure — list-mode uses 403 because the
+ * user explicitly requested an action they don't have authority for.
+ */
 function checkExportReadGate(input: ExportReadGateInput): Response | undefined {
   const { c, app, table, userRole, guard } = input
   if (guard) {
@@ -189,6 +235,11 @@ function checkExportReadGate(input: ExportReadGateInput): Response | undefined {
   )
 }
 
+/**
+ * Parse the export query string into the inputs the handler actually needs.
+ * Pulled out to drop a handful of statements and one branch from the main
+ * handler so its size/complexity stays under the size-limit thresholds.
+ */
 function parseExportQuery(c: Context): {
   readonly filter: ReturnType<typeof buildExportFilter>
   readonly format: string
@@ -212,6 +263,7 @@ function parseExportQuery(c: Context): {
   return { filter, format, visibleFields }
 }
 
+/** Build the empty-set response in the requested format. */
 function buildEmptyExportResponse(format: string, tableName: string, tableFieldNames: string[]) {
   if (format === 'json') return buildJsonResponse([], tableName, new Set())
   return buildEmptyCsvResponse(tableFieldNames, tableName)
@@ -228,6 +280,9 @@ export async function handleExportTableCsv(c: Context, app: App) {
   const { filter, format, visibleFields } = parseExportQuery(c)
   const tableFieldNames = table?.fields?.map((f) => f.name) ?? []
 
+  // Z-3 read predicate: AND-merge the row-level read clause onto the
+  // request-supplied filter. Sentinels short-circuit to an empty response
+  // when the predicate resolves to "match nothing" or fails projection.
   const finalFilter: FilterStructure | 'empty' | 'reject' = buildListFilter(
     table,
     guard,

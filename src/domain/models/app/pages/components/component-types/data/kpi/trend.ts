@@ -40,7 +40,11 @@ export const KPITrendSchema = Schema.Struct({
   description: 'Trend comparison showing change direction and percentage from a previous period',
 })
 
+/** @public */
 export type KPIComparisonPeriod = Schema.Schema.Type<typeof KPIComparisonPeriodSchema>
+/** @public */
 export type KPITrendDirection = Schema.Schema.Type<typeof KPITrendDirectionSchema>
+/** @public */
 export type KPITrendColor = Schema.Schema.Type<typeof KPITrendColorSchema>
+/** @public */
 export type KPITrend = Schema.Schema.Type<typeof KPITrendSchema>

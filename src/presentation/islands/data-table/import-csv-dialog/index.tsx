@@ -26,6 +26,10 @@ interface ImportCsvDialogProps {
   readonly fieldMeta?: FieldMetaMap
 }
 
+/**
+ * Compute the per-column mapping bag from a fresh CSV preview, attempting to
+ * auto-resolve each header to the closest table field via token overlap.
+ */
 function buildInitialMappings(
   headers: readonly string[],
   tableFields: readonly string[] | undefined
@@ -36,6 +40,10 @@ function buildInitialMappings(
   }))
 }
 
+/**
+ * Compute the list of required fields that the user has not yet mapped to a
+ * CSV column. The mapping step displays a warning row per entry.
+ */
 function getUnmappedRequiredFields(
   step: string,
   fieldMeta: FieldMetaMap | undefined,

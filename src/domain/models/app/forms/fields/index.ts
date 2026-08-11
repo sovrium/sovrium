@@ -12,6 +12,16 @@ import { SignatureFieldSchema } from './signature'
 import { StandaloneFieldSchema } from './standalone'
 import { TableBoundFieldSchema } from './table-bound'
 
+/**
+ * Form Field — discriminated union of all field kinds.
+ *
+ * Each kind lives in its own file:
+ * - `kind: 'table-field'`   → `./table-bound.ts`
+ * - `kind: 'standalone'`    → `./standalone.ts`
+ * - `kind: 'calculation'`   → `./calculation.ts`
+ * - `kind: 'section'`       → `./section.ts`
+ * - `kind: 'signature'`     → `./signature.ts`
+ */
 export const FormFieldSchema = Schema.Union(
   TableBoundFieldSchema,
   StandaloneFieldSchema,

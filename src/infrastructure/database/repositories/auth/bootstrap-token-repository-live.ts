@@ -28,8 +28,22 @@ const sovriumBootstrapTokens = resolveDialectSchema(
   sovriumBootstrapTokensSqlite
 )
 
+/** Wrap a DB promise, adapting failures to BootstrapTokenDatabaseError. */
 const wrap = makeDbWrap((cause) => new BootstrapTokenDatabaseError({ cause }))
 
+/**
+ * Bootstrap Token Repository Implementation (Drizzle).
+ *
+ * `claim` is a 3-step atomic flow:
+ *
+ *   1. Lookup row by `tokenHash`.
+ *   2. Validate expiry + unused state.
+ *   3. UPDATE ... SET used_at = now() WHERE token_hash = ? AND used_at IS NULL
+ *      AND expires_at > now()  — a single conditional UPDATE so two
+ *      concurrent claim requests for the same token cannot both win.
+ *      If the UPDATE returns 0 rows, the second caller re-reads the row
+ *      to decide whether to fail with `Expired` or `AlreadyUsed`.
+ */
 const decodeRow = (row: Record<string, unknown>): BootstrapToken => {
   const { usedAt } = row
   return {
@@ -54,6 +68,8 @@ export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenReposito
     Effect.gen(function* () {
       const now = new Date()
 
+      // Step 1: optimistic conditional update — succeeds atomically when
+      // (token exists) AND (unused) AND (not expired).
       const updated = yield* wrap(() =>
         db
           .update(sovriumBootstrapTokens)
@@ -72,6 +88,7 @@ export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenReposito
         return decodeRow(updated[0] as Record<string, unknown>)
       }
 
+      // Step 2: claim failed — figure out *why* by reading the row.
       const rows = yield* wrap(() =>
         db
           .select()
@@ -89,6 +106,7 @@ export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenReposito
       if (row.usedAt !== undefined) {
         return yield* new BootstrapTokenAlreadyUsedError({ usedAt: row.usedAt })
       }
+      // The conditional UPDATE missed but the row is unused — must be expired.
       return yield* new BootstrapTokenExpiredError({ expiresAt: row.expiresAt })
     }),
 
@@ -101,10 +119,13 @@ export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenReposito
         .where(
           and(
             isNull(sovriumBootstrapTokens.usedAt),
+            // Only touch rows that haven't already expired, to keep the
+            // operation idempotent and the audit clean.
             gt(sovriumBootstrapTokens.expiresAt, now)
           )
         )
     }).pipe(Effect.asVoid),
 
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- intentional: purgeAll deletes EVERY row by design (bootstrap window closed)
   purgeAll: () => wrap(() => db.delete(sovriumBootstrapTokens)).pipe(Effect.asVoid),
 })

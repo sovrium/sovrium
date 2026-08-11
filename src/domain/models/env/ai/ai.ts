@@ -7,6 +7,12 @@
 
 import { Schema } from 'effect'
 
+/**
+ * AI environment configuration.
+ *
+ * Env vars: AI_PROVIDER, AI_API_KEY, AI_BASE_URL, AI_MODEL, AI_TEMPERATURE,
+ *           AI_MAX_TOKENS, AI_EMBEDDING_MODEL, AI_EMBEDDING_DIMENSIONS
+ */
 export const AiEnvSchema = Schema.Struct({
   provider: Schema.optional(
     Schema.String.pipe(
@@ -84,12 +90,22 @@ export const AiEnvSchema = Schema.Struct({
 
 export type AiEnvConfig = Schema.Schema.Type<typeof AiEnvSchema>
 
+/**
+ * Normalize an env-var value: an empty or whitespace-only string is treated as
+ * "unset" (`undefined`). Operators who blank out `AI_PROVIDER` (or any AI_*
+ * var) intend to disable that setting, not supply an invalid value — this
+ * mirrors the "treats an empty AI_PROVIDER the same as unset" contract already
+ * enforced by `validate-ai-configuration.ts` and keeps `parseAiEnvConfig`
+ * total instead of throwing a `ParseError` at server boot
+ *.
+ */
 const blankToUndefined = (value: string | undefined): string | undefined => {
   if (value === undefined) return undefined
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+/** @public */
 export const parseAiEnvConfig = (): AiEnvConfig =>
   Schema.decodeUnknownSync(AiEnvSchema)({
     provider: blankToUndefined(process.env.AI_PROVIDER),

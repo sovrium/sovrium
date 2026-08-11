@@ -7,6 +7,11 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Page Source Schema
+ *
+ * Alternative to inline components — loads page content from a file.
+ */
 export const PageSourceSchema = Schema.Struct({
   file: Schema.String.pipe(
     Schema.minLength(1),
@@ -20,4 +25,5 @@ export const PageSourceSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type PageSource = typeof PageSourceSchema.Type

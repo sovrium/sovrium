@@ -15,6 +15,20 @@ import {
 } from '@/application/use-cases/server/static-content-generators'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Resolve the public base URL for the live SEO routes.
+ *
+ * Precedence:
+ *  1. `BASE_URL` env var — the canonical production origin, set by the operator.
+ *     Wins over any request-derived value so generated `<loc>` entries point at
+ *     the public origin even when the server sits behind a proxy.
+ *  2. Request `X-Forwarded-Host` (proxy-set, preferred) or `Host` header, paired
+ *     with `X-Forwarded-Proto` — derives the externally visible origin from the
+ *     incoming request, defaulting the scheme to `http`.
+ *  3. The request URL origin — final fallback when no `Host` header is present.
+ *
+ * The trailing slash (if any) is trimmed so callers can append `${path}` safely.
+ */
 const resolveBaseUrl = (requestUrl: string, host?: string, forwardedProto?: string): string => {
   const fromEnv = Bun.env.BASE_URL
   if (fromEnv) return fromEnv.replace(/\/$/, '')
@@ -27,6 +41,14 @@ const resolveBaseUrl = (requestUrl: string, host?: string, forwardedProto?: stri
   return new URL(requestUrl).origin
 }
 
+/**
+ * Build the multilingual hreflang config from the app's language settings.
+ *
+ * Returns `{ languages, hreflangConfig }` when the app declares languages, or
+ * `undefined` for single-language apps (the sitemap then emits plain `<loc>`
+ * entries at `${baseUrl}${page.path}`). Mirrors `buildHreflangConfig` in
+ * `generate-static-helpers.ts` so the live route and the build path agree.
+ */
 const buildLanguageOptions = (
   app: App
 ):
@@ -46,6 +68,21 @@ const buildLanguageOptions = (
   }
 }
 
+/**
+ * Resolve the base-URL PREFIX for `/llms.txt` page links.
+ *
+ * Unlike sitemap `<loc>` entries (which are always absolute), the llmstxt.org
+ * page bullets default to RELATIVE paths (`/docs/getting-started`) so a docs
+ * site served at an unknown origin links cleanly. An absolute prefix is emitted
+ * only when the operator declares a canonical origin:
+ *  1. `BASE_URL` env var — the canonical production origin.
+ *  2. `X-Forwarded-Host` + `X-Forwarded-Proto` — a reverse-proxy-declared
+ *     public origin.
+ *
+ * A bare `Host` header (e.g. `localhost:PORT` from a direct request) does NOT
+ * promote links to absolute — it returns `''` (relative). The trailing slash is
+ * trimmed so callers can append `${path}` safely.
+ */
 const resolveLlmsBaseUrl = (forwardedHost?: string, forwardedProto?: string): string => {
   const fromEnv = Bun.env.BASE_URL
   if (fromEnv) return fromEnv.replace(/\/$/, '')
@@ -58,12 +95,37 @@ const resolveLlmsBaseUrl = (forwardedHost?: string, forwardedProto?: string): st
   return ''
 }
 
+/**
+ * Whether the `/llms.txt` routes should be served. Auto-derived (default-on)
+ * when the app declares at least one content-directory page; disabled when
+ * `app.llms.enabled` is explicitly `false`.
+ */
 const isLlmsEnabled = (app: App): boolean => {
   if (app.llms?.enabled === false) return false
   const pages = app.pages ?? []
   return pages.some((page) => page.contentDir !== undefined)
 }
 
+/**
+ * Setup live SEO routes (`/sitemap.xml`, `/robots.txt`, `/llms.txt`,
+ * `/llms-full.txt`) for server mode.
+ *
+ * These mirror the files `sovrium build` emits but are generated on every
+ * request from the live `app.pages`. They reuse the pure generators in
+ * `static-content-generators.ts` (no duplicated XML/policy/llms logic).
+ *
+ * Mounted BEFORE the public-directory catch-all so a generated route always
+ * wins over a same-named static file in the public directory.
+ *
+ * The `/llms.txt` routes are conditionally mounted: only when content-directory
+ * pages exist and `app.llms.enabled` is not `false`. When disabled, the routes
+ * are never registered, so a request falls through to the public catch-all (a
+ * 404 when no same-named static file exists).
+ *
+ * @param honoApp - Hono application instance
+ * @param app - Application configuration
+ * @returns Hono app with the SEO routes configured
+ */
 export function setupSeoRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
   const pages = app.pages ?? []
 

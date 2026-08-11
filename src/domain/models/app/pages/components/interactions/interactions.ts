@@ -11,6 +11,45 @@ import { EntranceAnimationSchema } from './entrance'
 import { HoverInteractionSchema } from './hover'
 import { ScrollInteractionSchema } from './scroll'
 
+/**
+ * Interactive behaviors triggered by user actions or page events
+ *
+ * Orchestrates four types of interactions (all optional):
+ * - hover: Visual changes on mouse hover
+ * - click: Actions triggered on click
+ * - scroll: Animations when entering viewport
+ * - entrance: Animations on page load
+ *
+ * Multiple interaction types can be combined on the same component.
+ * Each interaction type works independently and doesn't interfere with others.
+ *
+ * @example
+ * ```typescript
+ * const interactions = {
+ *   hover: {
+ *     transform: 'scale(1.05)',
+ *     duration: '200ms',
+ *     easing: 'ease-out'
+ *   },
+ *   click: {
+ *     animation: 'pulse',
+ *     navigate: '/contact'
+ *   },
+ *   entrance: {
+ *     animation: 'fadeInUp',
+ *     delay: '100ms'
+ *   }
+ * }
+ *
+ * const hoverOnly = {
+ *   hover: {
+ *     backgroundColor: '#007bff',
+ *     color: '#ffffff'
+ *   }
+ * }
+ * ```
+ *
+ */
 export const InteractionsSchema = Schema.Struct({
   hover: Schema.optional(HoverInteractionSchema),
   click: Schema.optional(ClickInteractionSchema),

@@ -5,6 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * `ai/agent` action handler — dispatches an automation task to a named AI
+ * agent declared in `app.agents[]`.
+ *
+ * Unlike `ai/generate` (a single one-shot completion), an agent action runs
+ * an autonomous multi-step loop: it advertises the agent's allowlisted tools
+ * to the LLM, executes any tool calls the model requests, feeds the results
+ * back, and re-queries — bounded by the action's `maxSteps`.
+ *
+ * The handler reuses the shared `AiService` port (the same provider plumbing
+ * as `ai/generate`), so the agent's LLM round-trips are observed by the AI
+ * mock server in E2E specs.
+ *
+ * Wave: [internal ref].
+ */
 
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
@@ -23,12 +38,24 @@ import type {
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 
+/** Default per-action step cap when `props.maxSteps` is omitted. */
 const DEFAULT_MAX_STEPS = 10
 
+/** Default retrieval limit when `agent.memory.knowledge.retrievalLimit` is omitted. */
 const DEFAULT_KNOWLEDGE_RETRIEVAL_LIMIT = 5
 
+/** Default similarity threshold when `agent.memory.knowledge.similarityThreshold` is omitted. */
 const DEFAULT_KNOWLEDGE_SIMILARITY_THRESHOLD = 0.7
 
+/**
+ * Search the agent's knowledge base for chunks semantically relevant to the
+ * task. Returns
+ * the matched chunks, scoped to the agent's declared `sources` (each source
+ * names a path-prefix under `AI_KNOWLEDGE_DIR`).
+ *
+ * A provider/DB failure resolves to an empty list — knowledge retrieval is a
+ * best-effort augmentation that must never break the agent invocation.
+ */
 const retrieveKnowledgeChunks = (input: {
   readonly task: string
   readonly agent: Agent
@@ -52,6 +79,9 @@ const retrieveKnowledgeChunks = (input: {
       const repo = yield* AiEmbeddingRepository
       return yield* repo.search({
         embedding: embedResult.right.embedding,
+        // Document knowledge is stored with `agent_name = null` (global). The
+        // agent's `sources` allowlist is applied as a sourceRef-prefix filter
+        // post-search rather than at the SQL layer.
         agentName: undefined,
         minSimilarity: threshold,
         maxResults: limit,
@@ -62,16 +92,28 @@ const retrieveKnowledgeChunks = (input: {
     )
     const results = yield* searchProgram
 
+    // Honour `agent.memory.knowledge.sources` by keeping only chunks whose
+    // sourceRef path falls under one of the named sources. An empty `sources`
+    // array (or omitted) means no filtering — every retrieved chunk counts.
     const filtered =
       sources.length === 0
         ? results
         : results.filter((row) => {
             const ref = row.sourceRef ?? ''
+            // Document refs are shaped `document:<path>:<chunkIndex>` where
+            // `<path>` is relative to AI_KNOWLEDGE_DIR (e.g. `product-docs/password.md`).
             return sources.some((source) => ref.startsWith(`document:${source}/`))
           })
     return filtered.map((row) => ({ content: row.content, sourceRef: row.sourceRef }))
   })
 
+/**
+ * Build the agent's effective system prompt: its base `systemPrompt` plus a
+ * capability context block enumerating the allowlisted tables + actions, so
+ * the LLM is aware of the exact constraints it operates within. Mirrors the
+ * agent-execute path's `buildSystemPrompt` (kept inline so the application
+ * layer does not reach into the presentation layer).
+ */
 const buildAgentSystemPrompt = (agent: Agent): string => {
   const { tools } = agent
   const capabilityLines =
@@ -86,6 +128,13 @@ const buildAgentSystemPrompt = (agent: Agent): string => {
   return [agent.systemPrompt, ...capabilityLines].join('\n')
 }
 
+/**
+ * Build the OpenAI-compatible `tools[]` array advertised to the LLM — one
+ * function per allowlisted agent action, scoped to the agent's tables. A
+ * tool is named exactly after the agent action (`record.read`) so the
+ * model (and the captured request) reflects the allowlist verbatim: an
+ * action outside the allowlist simply has no tool.
+ */
 const buildAgentTools = (agent: Agent): ReadonlyArray<ChatToolDefinition> => {
   const { tools } = agent
   if (tools === undefined) return []
@@ -108,6 +157,13 @@ const buildAgentTools = (agent: Agent): ReadonlyArray<ChatToolDefinition> => {
   }))
 }
 
+/**
+ * Synthesise a `role: 'tool'` result message for one tool call. The agent
+ * action runtime does not execute side effects against tables in this v1
+ * surface — it acknowledges the call so the loop can continue and the model
+ * can produce a final answer. Tool calls outside the agent's allowlist are
+ * rejected with an error result (never silently honoured).
+ */
 const buildToolResult = (
   toolCall: ChatToolCall,
   allowedActions: ReadonlySet<string>
@@ -119,9 +175,11 @@ const buildToolResult = (
     : `Tool "${toolCall.name}" is not in the agent's allowlist and was rejected.`,
 })
 
+/** Resolve the effective request model: `agent.model` → `AI_MODEL` → mock. */
 const resolveModel = (agent: Agent): string =>
   agent.model ?? process.env['AI_MODEL'] ?? 'mock-model'
 
+/** Immutable inputs threaded through every step of the agent loop. */
 interface AgentLoopInput {
   readonly agent: Agent
   readonly model: string
@@ -131,6 +189,14 @@ interface AgentLoopInput {
   readonly maxSteps: number
 }
 
+/**
+ * Validate one model-requested tool call against the agent's allowlist. A
+ * call is rejected when its action is outside the allowlist, or when it
+ * references a `table` argument that is not one of the agent's allowlisted
+ * tables. Returns a structured {@link ActionOutcome} on rejection (so the
+ * caller surfaces `output.error.code` per the AI runtime-error contract),
+ * or `undefined` when the call is honourable.
+ */
 const validateToolCall = (
   toolCall: ChatToolCall,
   input: AgentLoopInput
@@ -153,6 +219,7 @@ const validateToolCall = (
   return undefined
 }
 
+/** Mutable-by-replacement state advanced one step at a time. */
 interface AgentLoopState {
   readonly messages: ReadonlyArray<ChatMessage>
   readonly stepsExecuted: number
@@ -160,6 +227,7 @@ interface AgentLoopState {
   readonly lastReply: ChatReply | undefined
 }
 
+/** Assemble the `AiService.chat` request body for one agent step. */
 const buildStepChatInput = (state: AgentLoopState, input: AgentLoopInput): ChatInput => ({
   messages: state.messages,
   model: input.model,
@@ -168,6 +236,11 @@ const buildStepChatInput = (state: AgentLoopState, input: AgentLoopInput): ChatI
   ...(input.tools.length > 0 ? { tools: input.tools } : {}),
 })
 
+/**
+ * Fold a model reply into the next loop state: when the reply carries tool
+ * calls, append the assistant turn + each tool result and record the
+ * allowlisted tool names; otherwise the state's message list is unchanged.
+ */
 const advanceState = (
   state: AgentLoopState,
   reply: ChatReply,
@@ -190,6 +263,12 @@ const advanceState = (
   }
 }
 
+/**
+ * Drive the agent loop recursively: a single `AiService.chat` round-trip per
+ * recursion, stopping when the model returns no tool calls or `maxSteps` is
+ * reached — whichever comes first. A provider failure mid-loop surfaces as a
+ * graceful `ActionOutcome` (`status: 'success'` with `output.error`).
+ */
 const runAgentLoop = (
   state: AgentLoopState,
   input: AgentLoopInput
@@ -205,6 +284,10 @@ const runAgentLoop = (
         retryable: true,
       })
     }
+    // Validate every tool call the model requested against the agent's
+    // allowlist BEFORE acting on it. An unknown action or an out-of-allowlist
+    // table aborts the loop with a structured `agent_error`-class outcome
+    // rather than being silently acknowledged.
     const toolCalls = result.right.toolCalls ?? []
     const rejection = toolCalls
       .map((call) => validateToolCall(call, input))
@@ -215,6 +298,7 @@ const runAgentLoop = (
     return stopped ? next : yield* runAgentLoop(next, input)
   })
 
+/** Read `props.maxSteps` defensively, defaulting to {@link DEFAULT_MAX_STEPS}. */
 const resolveMaxSteps = (props: Readonly<Record<string, unknown>>): number => {
   const raw = props['maxSteps']
   return typeof raw === 'number' && Number.isFinite(raw) && raw >= 1
@@ -222,6 +306,12 @@ const resolveMaxSteps = (props: Readonly<Record<string, unknown>>): number => {
     : DEFAULT_MAX_STEPS
 }
 
+/**
+ * Resolve the `ai/agent` action's `props` into either a ready-to-run
+ * `{ agent, task }` pair or a graceful failure `ActionOutcome`. Presence-
+ * guards `agent`/`task` and re-checks the agent exists (defence-in-depth —
+ * the AppSchema cross-validator already rejects unknown agents at decode).
+ */
 const resolveAgentTask = (
   props: Readonly<Record<string, unknown>>,
   app: App
@@ -241,6 +331,11 @@ const resolveAgentTask = (
   return { agent, task }
 }
 
+/**
+ * Compose the final system prompt: agent persona + (optional) retrieved
+ * knowledge context. Extracted from the handler to keep its cyclomatic
+ * complexity within the project budget (max 10).
+ */
 const composeSystemPrompt = (
   agent: Readonly<Agent>,
   knowledgeChunks: readonly { readonly content: string }[]
@@ -258,6 +353,16 @@ const composeSystemPrompt = (
     .join('\n\n')
 }
 
+/**
+ * `ai/agent` handler — dispatches the resolved `task` to the named agent in
+ * `app.agents[]`, runs the bounded autonomous loop, and surfaces the result
+ * as `output: { result, toolsUsed, stepsExecuted, knowledgeUsed }`.
+ *
+ * `props.task` and `props.agent` are already template-resolved by the run
+ * loop. The referenced agent is guaranteed to exist (the AppSchema
+ * cross-validator rejects `ai:agent` actions naming an unknown agent at
+ * decode time), but the handler still presence-guards defensively.
+ */
 export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -265,6 +370,11 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
     if ('status' in resolved) return resolved
     const { agent, task } = resolved
 
+    // Knowledge retrieval (RAG): if the agent declares `memory.knowledge.enabled`,
+    // embed the task and pull matching chunks from `system.ai_embeddings`. The
+    // retrieved chunks are surfaced as `output.knowledgeUsed` (count) and
+    // prepended to the system prompt so the model can ground its answer in
+    // ingested knowledge.
     const knowledgeChunks = yield* retrieveKnowledgeChunks({ task, agent })
     const systemPrompt = composeSystemPrompt(agent, knowledgeChunks)
 
@@ -293,6 +403,9 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
         result: outcome.lastReply?.content ?? '',
         toolsUsed: outcome.toolsUsed,
         stepsExecuted: outcome.stepsExecuted,
+        // Knowledge retrieval count — non-zero only when the agent declares
+        // `memory.knowledge.enabled` AND a knowledge source returned at least
+        // one chunk above the configured similarity threshold.
         knowledgeUsed: knowledgeChunks.length,
       },
     } as const

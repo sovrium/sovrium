@@ -9,15 +9,24 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Batch Update Action (type: record, operator: batchUpdate)
+ *
+ * Update multiple records in a single operation.
+ * The `items` prop references a template variable resolving to an array
+ * of objects containing filter criteria and update data.
+ */
 export const RecordBatchUpdateActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
   operator: Schema.Literal('batchUpdate'),
   props: Schema.Struct({
+    /** Target table name */
     table: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Table to update records in' })
     ),
 
+    /** Template variable referencing an array of { filter, data } objects */
     items: TemplateStringSchema.pipe(
       Schema.annotations({
         description:
@@ -25,7 +34,9 @@ export const RecordBatchUpdateActionSchema = Schema.Struct({
       })
     ),
 
+    /** Maximum records per batch operation */
 
+    /** Continue updating remaining records if one fails */
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotations({
@@ -42,4 +53,5 @@ export const RecordBatchUpdateActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordBatchUpdateAction = Schema.Schema.Type<typeof RecordBatchUpdateActionSchema>

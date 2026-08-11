@@ -9,6 +9,12 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Webhook Response Action (type: webhook, operator: response)
+ *
+ * Construct a custom response for synchronous webhook triggers.
+ * Only valid in automations with webhook trigger + respondImmediately: false.
+ */
 export const WebhookResponseActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('webhook'),

@@ -9,6 +9,27 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Webhook Send Action (type: webhook, operator: send)
+ *
+ * Send outgoing webhooks. Two shapes are supported:
+ *
+ *   1. Envelope mode — provide `event` (and optional `data`); the runtime
+ *      builds a `{ event, data }` payload and POSTs it to `url`.
+ *   2. Pass-through mode — provide `method`, optional `headers`, and `body`;
+ *      the runtime sends those verbatim. Used when the destination already
+ *      expects a specific shape (e.g. Slack incoming webhook, GitHub-style
+ *      hook receivers).
+ *
+ * Both modes support `secret` (HMAC-SHA256 signature header) and `connection`
+ * (auth-header injection from `app.connections[]`).
+ *
+ * Cross-validation: a config that provides ONLY `url` (neither
+ * `event` nor any of `method`/`body`/`headers`) has no semantic — the runtime
+ * would dispatch a no-body POST against the destination. The schema rejects
+ * that empty-mode shape at decode time so misconfiguration surfaces during
+ * `bun run sovrium validate` rather than at automation-trigger time.
+ */
 export const WebhookSendActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('webhook'),
@@ -62,6 +83,12 @@ export const WebhookSendActionSchema = Schema.Struct({
   }),
 }).pipe(
   Schema.filter((action) => {
+    // [internal ref]: enforce envelope-XOR-pass-through. A `url`-only config has no
+    // semantic — the runtime would POST an empty body to the destination,
+    // which is almost certainly a misconfiguration. We require at least one
+    // of `event` (envelope mode) or `method`/`body`/`headers` (pass-through
+    // mode) so the misconfiguration surfaces at validate time rather than
+    // at automation-trigger time.
     const { props } = action
     const hasEnvelopeSignal = props.event !== undefined
     const hasPassThroughSignal =

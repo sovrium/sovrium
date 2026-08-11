@@ -1,0 +1,114 @@
+# Task-level detail under the projects. Fourteen rows across five of the six
+# projects, weighted towards the two Active ones — an even spread would suggest
+# a dormant project has as much live work as a running one.
+#
+# Task status tracks project status honestly: everything under Fernbank (Done)
+# is Done, the On hold project's remaining work sits in To do, and the two
+# Active projects carry a genuine mix. A seed set where a finished project still
+# has open tasks is the kind of small inconsistency that makes a demo feel fake.
+#
+# `assignee` is a `user` field, left unset for the same reason as `owner` in
+# `projects.yaml`: no user account exists at seed time.
+#
+# `due_date` straddles today, so the delivery view shows overdue, imminent and
+# upcoming work rather than one flat cluster.
+records:
+  - key: lumen-field-mapping
+    fields:
+      title: Map legacy spreadsheet columns to table fields
+      project: '@projects.lumen-migration'
+      status: Done
+      due_date: '{{today-3d}}'
+
+  - key: lumen-import-dry-run
+    fields:
+      title: Dry-run the import against a copy of production
+      project: '@projects.lumen-migration'
+      status: In progress
+      due_date: '{{today+2d}}'
+
+  - key: lumen-cutover-plan
+    fields:
+      title: Agree the cutover window with Inès
+      project: '@projects.lumen-migration'
+      status: To do
+      due_date: '{{today+9d}}'
+
+  - key: lumen-handover-docs
+    fields:
+      title: Write the handover notes for the Lumen team
+      project: '@projects.lumen-migration'
+      status: To do
+      due_date: '{{today+28d}}'
+
+  - key: helios-curriculum
+    fields:
+      title: Finalise the training curriculum
+      project: '@projects.helios-training'
+      status: Done
+      due_date: '{{today-10d}}'
+
+  - key: helios-session-one
+    fields:
+      title: Run session one — clinical staff
+      project: '@projects.helios-training'
+      status: Done
+      due_date: '{{today-4d}}'
+
+  - key: helios-session-two
+    fields:
+      title: Run session two — administrative staff
+      project: '@projects.helios-training'
+      status: In progress
+      due_date: '{{today+3d}}'
+
+  - key: helios-feedback
+    fields:
+      title: Collect and summarise attendee feedback
+      project: '@projects.helios-training'
+      status: To do
+      due_date: '{{today+18d}}'
+
+  - key: northwind-scope
+    fields:
+      title: Scope the depot pilot with Dana and Paul
+      project: '@projects.northwind-depot-pilot'
+      status: To do
+      due_date: '{{today+24d}}'
+
+  - key: northwind-hardware
+    fields:
+      title: Confirm scanner hardware availability
+      project: '@projects.northwind-depot-pilot'
+      status: To do
+      due_date: '{{today+38d}}'
+
+  - key: atlas-interviews
+    fields:
+      title: Stakeholder interviews — operations floor
+      project: '@projects.atlas-discovery'
+      status: Done
+      due_date: '{{today-30d}}'
+
+  - key: atlas-findings
+    fields:
+      title: Write up discovery findings
+      project: '@projects.atlas-discovery'
+      # Overdue and still open — the project is on hold, which is exactly how
+      # work goes stale in a real delivery board.
+      status: To do
+      due_date: '{{today-11d}}'
+
+  - key: fernbank-audit-report
+    fields:
+      title: Deliver the accessibility audit report
+      project: '@projects.fernbank-audit'
+      status: Done
+      due_date: '{{today-40d}}'
+
+  - key: fernbank-remediation-list
+    fields:
+      title: Hand over the prioritised remediation list
+      project: '@projects.fernbank-audit'
+      status: Done
+      due_date: '{{today-38d}}'

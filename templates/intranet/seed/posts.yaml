@@ -1,0 +1,124 @@
+# The announcement feed on /portal.
+#
+# Statuses are spread across all three options — six published, two drafts, one
+# archived — because the Status column is sortable and a column with one value
+# in it teaches a visitor nothing. The archived one also shows what the feed
+# looks like when a post is deliberately kept out of circulation without being
+# deleted.
+#
+# THE FILE ORDER IS OLDEST-FIRST, WHICH LOOKS BACKWARDS AND IS NOT
+#   `created_at` is a `created-at` field: the database stamps it at insert time,
+#   so a seed run gives every row a timestamp milliseconds apart in FILE order,
+#   and a seed value for it would simply be ignored. /portal then sorts
+#   `created_at desc` — newest first — so whatever sits LAST in this file
+#   appears at the TOP of the feed.
+#
+#   Written the natural way, newest-first, the feed opened with a retired
+#   parking notice and buried the office move nine rows down. So the file runs
+#   oldest-first: the archived notice and the two drafts are at the top of the
+#   file and at the bottom of the page, which is where they belong.
+records:
+  - key: old-parking
+    fields:
+      title: Temporary parking arrangements during the building works
+      status: archived
+      author: '@members.omar'
+      body: >-
+        The works finished, so this no longer applies. Kept for the record
+        rather than deleted: the overflow arrangement with the car park next
+        door is the one we would reuse if the same situation comes round again,
+        and the contact details are in the last paragraph.
+  - key: intranet-feedback-draft
+    fields:
+      title: What do you actually want from this intranet?
+      status: draft
+      author: '@members.sofia'
+      body: >-
+        Drafting a short survey before we add anything else here. The honest
+        starting question is whether people read announcements at all, or
+        whether this page's only real job is being the place the resource links
+        live. Please do not circulate yet.
+
+  - key: summer-hours-draft
+    fields:
+      title: Proposal — summer hours pilot for July and August
+      status: draft
+      author: '@members.priya'
+      body: >-
+        Draft for discussion, not yet agreed. The proposal is a four-and-a-half
+        day week across July and August, with Friday afternoons kept clear of
+        meetings rather than formally off. Open questions: how support cover
+        works, and whether the trial should run across all locations at once or
+        start with one.
+
+  - key: incident-review
+    fields:
+      title: "Friday's outage: what happened and what changes"
+      status: published
+      author: '@members.mateo'
+      body: >-
+        Roughly forty minutes of degraded search on Friday afternoon, caused by
+        a migration that held a lock longer than expected under real data
+        volume. No data was lost. Two changes follow: migrations that touch
+        indexed columns now run against a production-sized copy first, and the
+        deploy window moves off Friday afternoons, which several people have
+        been asking for since well before this.
+
+  - key: expense-policy-update
+    fields:
+      title: 'Expense policy: two changes, one of them overdue'
+      status: published
+      author: '@members.dan'
+      body: >-
+        The receipt threshold rises from twenty to fifty, which removes most of
+        the small-claim paperwork. Travel booked more than three weeks ahead no
+        longer needs a second approval. Everything else is unchanged. The
+        current version is always the one linked in shared resources — please
+        stop working from the PDF that went round in March.
+
+  - key: new-starters
+    fields:
+      title: Three new starters joining the support and data teams
+      status: published
+      author: '@members.hannah'
+      body: >-
+        Keiko joins data and reporting, and two support engineers start on the
+        same Monday. Their first week is deliberately light on process and heavy
+        on shadowing, so if someone asks to sit in on your calls that is the
+        reason. Buddy assignments are in the onboarding checklist.
+
+  - key: q3-results
+    fields:
+      title: Q3 numbers and what they change
+      status: published
+      author: '@members.dan'
+      body: >-
+        Revenue landed slightly ahead of plan and support volume grew faster
+        than headcount, which is the number worth paying attention to. The full
+        deck is in the shared resources list. Two practical consequences: the
+        support rota gains a fourth slot from next month, and the hiring freeze
+        on the platform team is lifted.
+
+  - key: security-training
+    fields:
+      title: Annual security training is open until the end of the month
+      status: published
+      author: '@members.omar'
+      body: >-
+        Forty minutes, entirely online, and it does count towards your
+        compliance record. The phishing module has been rewritten since last
+        year and is genuinely better. If you completed the training after
+        joining in the last three months you are already covered — check the
+        completion list before spending the time.
+
+  - key: office-move
+    fields:
+      title: London office moves to the third floor on the 14th
+      status: published
+      author: '@members.priya'
+      body: >-
+        The move happens over a single weekend. Pack your desk by Friday
+        evening — crates are by the kitchen from Wednesday. Meeting rooms keep
+        their names, but the two small rooms swap: Ash is now the one by the
+        window. Anything left unpacked on Friday will be moved for you, and
+        nobody has ever been pleased with how that went.

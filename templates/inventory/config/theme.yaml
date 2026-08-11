@@ -1,0 +1,95 @@
+# Inventory workspace theming — bronze.
+#
+# The gallery ships nineteen demos side by side, so each one gets a hue nobody
+# else has. Bronze is the deliberate choice here: this is a warehouse tool, and
+# the palette that reads right for one is metal and kraft card, not a SaaS
+# accent. It also has to survive being seen next to the landing page's burnt
+# amber — so this is pushed browner and several steps darker rather than merely
+# a different tint of the same warmth.
+#
+# WHY THESE KEY NAMES AND NOT PRETTIER ONES
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
+#   prestyled island already reads, so declaring them repaints the six grids, the
+#   forms and the buttons with no class changes anywhere in this config. A
+#   non-role key such as `bronze-500` would emit `--color-*` only and paint
+#   nothing until something cited it — and this template cites no colour by name
+#   at all, because it carries no inline styles.
+#
+#   The mapping is NOT identity, which is the part that bites: `ring` →
+#   `focus-ring` and `success` → `success-solid`. `foreground-muted` and
+#   `foreground-subtle` are role keys; `text-secondary` and `text-muted` are not.
+#
+#   TWO KEYS FOR ONE ROLE. `muted` and `background-subtle` both map to
+#   `--sv-bg-subtle`; so do `card`/`background-raised` (→ `--sv-bg-raised`) and
+#   `popover`/`background-overlay` (→ `--sv-bg-overlay`). Declaring both names of
+#   a pair is a silent collision resolved by key order, so this file uses the
+#   `background-*` spelling throughout and never the aliases. That also dodges a
+#   trap: `muted`, `card` and `popover` sit in COLORS_NEEDING_FOREGROUND, which
+#   auto-derives a `#ffffff` companion — invisible on the pale surface it is
+#   meant to sit on, and NOT mirrored into `darkColors`, since it is a guess
+#   made for the light surface only. Name `primary-foreground` explicitly if a
+#   companion is ever genuinely needed.
+#
+#   Sovrium's own apps under `apps/` may not touch these keys without a BRAND.md
+#   permit, because repainting the role tokens there would reinstate the coloured
+#   ramp ADR-024 deleted from the Sovrium identity. That lock is repo-local and
+#   deliberately does not reach here: a template exists to look like the product
+#   a customer is building, not like sovrium.com.
+#
+# NO `fonts` BLOCK, ON PURPOSE
+#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
+#   Naming any other family emits `font-family: X, …` with no matching
+#   `@font-face`, which drops the page onto the OS default AND locks the shipped
+#   face out of its own stack. Distinctiveness here comes from COLOUR, not type.
+#
+#   The status/select `color:` hexes in config/tables/*.yaml are left alone:
+#   those are record data, not chrome, and ADR-024 A7 keeps that channel
+#   coloured on purpose — a Cancelled order reading red is the information.
+baseline: extend
+
+colors:
+  primary: '#7b5223'
+  primary-hover: '#5f3f1a'
+  primary-subtle: '#f2e5d1'
+  ring: '#a06f31'
+  background: '#fdfaf5'
+  background-subtle: '#f6efe4'
+  foreground: '#1f1810'
+  foreground-muted: '#5c4a37'
+  foreground-subtle: '#8b7660'
+  background-raised: '#ffffff'
+  border: '#e6d8c4'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+
+# Emitted into the stylesheet unconditionally under
+# `html:is(.dark, [data-theme='dark'])`; it renders once the app declares
+# `theme.colorScheme` or ships a `theme-toggle`, neither of which this template
+# does yet. `primary-foreground` is deliberately NOT declared in either block:
+# the light path derives `#ffffff` for text on the fill, and the dark path
+# inherits the platform's dark companion, which is the dark neutral a pale
+# bronze fill needs. Declaring white here would put white on `#d6a860`.
+darkColors:
+  primary: '#d6a860'
+  primary-hover: '#e6c48f'
+  primary-subtle: '#33240f'
+  ring: '#c9954a'
+  background: '#141009'
+  background-subtle: '#1e1810'
+  foreground: '#f2e9dc'
+  foreground-muted: '#c4b39c'
+  foreground-subtle: '#96856f'
+  background-raised: '#1c1610'
+  border: '#2e2517'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
+
+borderRadius:
+  sm: 0.25rem
+  md: 0.5rem
+  lg: 0.75rem
+  full: 9999px

@@ -5,6 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Server-mode 301 redirect for `contentDir.index` slugged URLs
+ *.
+ *
+ * When a collection declares `index: '<slug>'`, the index article is the single
+ * canonical URL at the collection BASE PATH (`/docs/:slug` → `/docs`). This
+ * route permanently redirects the article's SLUGGED URL (`/docs/introduction`)
+ * to that base path so old links keep working while search engines see one URL.
+ *
+ * SERVER MODE ONLY (by construction — this is a live Hono route): the static
+ * build (`sovrium build`) instead emits the index article HTML AT the base path
+ * and omits the slugged HTML, because a static host cannot emit a 301.
+ *
+ * Registered AFTER the per-page `.md` export route and BEFORE the language +
+ * dynamic-page catch-all: the `.md`/`Accept: text/markdown` twins of the index
+ * article keep serving raw markdown (200) — only the HTML slugged URL 301s.
+ * Skipped entirely (no handler mounted) when no page declares `contentDir.index`.
+ */
 
 import { deriveContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-base-path'
 import { resolvePagePath } from '@/domain/utils/content-dir/content-dir-seo-meta'
@@ -14,6 +32,11 @@ import type { HonoAppConfig } from './page-routes'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
+/**
+ * Resolve the base-path redirect target for a request that hits an index
+ * article's slugged URL. Returns `undefined` for any other path so the caller
+ * falls through.
+ */
 const resolveContentDirIndexRedirect = (app: App, path: string): string | undefined => {
   const pages = app.pages ?? []
   const match = findMatchingRoute(
@@ -32,6 +55,9 @@ const resolveContentDirIndexRedirect = (app: App, path: string): string | undefi
   return resolvePagePath(basePathPattern, match.params)
 }
 
+/**
+ * Setup the server-mode `contentDir.index` slug → base-path 301 redirect route.
+ */
 export function setupContentDirIndexRedirectRoutes(
   honoApp: Readonly<Hono>,
   config: HonoAppConfig

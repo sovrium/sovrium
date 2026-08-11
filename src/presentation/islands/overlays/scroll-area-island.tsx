@@ -22,6 +22,12 @@ interface ScrollAreaIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Scroll area island — wraps Base UI ScrollArea for custom scrollbars.
+ *
+ * Provides custom-styled scrollbars that appear on hover, replacing
+ * the browser's native scrollbar. Supports vertical, horizontal, or both.
+ */
 export default function ScrollAreaIsland({
   scrollAreaHeight = '400px',
   scrollOrientation = 'vertical',
@@ -31,6 +37,12 @@ export default function ScrollAreaIsland({
   'data-testid': testId,
 }: ScrollAreaIslandProps): ReactElement {
   const rootStyle = useMemo(() => ({ maxHeight: scrollAreaHeight }), [scrollAreaHeight])
+  // The Viewport itself carries the height constraint so Base UI can measure
+  // overflow. `h-full` alone resolves against the Root's `max-height` (not a
+  // concrete `height`), so the viewport would grow to the content size and Base
+  // UI would never detect an overflow — leaving the scrollbar unmounted. Pinning
+  // `maxHeight` directly on the scrollable viewport restores reliable overflow
+  // detection on the CI runner.
   const viewportStyle = useMemo(() => ({ maxHeight: scrollAreaHeight }), [scrollAreaHeight])
   return (
     <ScrollArea.Root
@@ -45,6 +57,7 @@ export default function ScrollAreaIsland({
       >
         <ScrollArea.Content>
           {childrenHtml && (
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves SSR skeleton HTML on initial paint
             <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
           )}
         </ScrollArea.Content>

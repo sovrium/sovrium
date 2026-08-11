@@ -5,13 +5,34 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * API contract for `GET /api/admin/eco/overview`.
+ *
+ * Operator-grade environmental footprint dashboard (RGESN-aligned). Surfaces
+ * the resolved `ECO_*` posture, the AI provider mix by carbon class, the
+ * top-3 storage consumers, the RGESN 78-criterion self-evaluation, and the
+ * `X-Eco-Index` header telemetry — all computed locally (no third-party
+ * SaaS).
+ *
+ * Source story: [internal ref]
+ * Pattern: [internal ref]
+ * Decision: [internal ref]
+ */
 
 import { z } from '@hono/zod-openapi'
 
+/** Carbon class A–G (lowest → highest impact, EU energy-label polarity). */
 export const carbonClassSchema = z.enum(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
 
+/** EcoIndex letter grade A–G (per EcoIndex methodology). */
 export const ecoIndexGradeSchema = z.enum(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
 
+/**
+ * `ecoIndexHeader` panel — telemetry harvested by the `X-Eco-Index`
+ * middleware. `enabled` reflects `ECO_INDEX_HEADER`; `currentGrade` is the
+ * most recent response's grade; `graded` is the cumulative count since boot;
+ * `since` is the boot timestamp used as the counter epoch.
+ */
 export const ecoIndexHeaderPanelSchema = z.object({
   enabled: z
     .boolean()
@@ -32,6 +53,12 @@ export const ecoIndexHeaderPanelSchema = z.object({
     .describe('ISO 8601 boot timestamp — the counter epoch for `graded`.'),
 })
 
+/**
+ * `aiProviderMix` panel — declared precedence list, per-class request counts,
+ * and the operator-imposed `ECO_AI_MAX_CARBON_CLASS` cap. Every grade A–G is
+ * always keyed (with `0` when no requests routed to that class) so dashboard
+ * renderers do not have to defensive-default.
+ */
 export const aiProviderMixPanelSchema = z.object({
   precedence: z
     .array(z.string())
@@ -56,6 +83,11 @@ export const aiProviderMixPanelSchema = z.object({
   ),
 })
 
+/**
+ * One row of the top-3 storage consumers table. `bytes` is non-negative;
+ * `retentionDays` is `null` when no horizon is set (manual retention) and a
+ * positive integer otherwise.
+ */
 export const topStorageConsumerSchema = z.object({
   type: z.enum(['table', 'bucket']),
   name: z.string().min(1),
@@ -63,6 +95,12 @@ export const topStorageConsumerSchema = z.object({
   retentionDays: z.number().int().positive().nullable(),
 })
 
+/**
+ * `rgesn` panel — 78-criterion self-evaluation with frugality / transparency
+ * / durability axis breakdown. The invariants `passing ≤ total` and
+ * `sum(byAxis) === passing` are asserted by the spec; the use case must
+ * preserve them when computing per-axis counts.
+ */
 export const rgesnPanelSchema = z.object({
   passing: z
     .number()
@@ -79,6 +117,11 @@ export const rgesnPanelSchema = z.object({
   }),
 })
 
+/**
+ * Top-level response shape of `GET /api/admin/eco/overview`. Carries the six
+ * operator-grade panels plus a `telemetrySource` discriminator the spec
+ * uses to enforce the "no third-party SaaS" platform property.
+ */
 export const ecoOverviewResponseSchema = z
   .object({
     ecoMode: z
@@ -104,4 +147,5 @@ export const ecoOverviewResponseSchema = z
   })
   .openapi('EcoOverviewResponse')
 
+/** @public */
 export type EcoOverviewResponse = z.infer<typeof ecoOverviewResponseSchema>

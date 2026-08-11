@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// eslint-disable-next-line no-restricted-syntax -- The command palette search is a cross-cutting concern, not phase-specific
 import { Effect, Layer } from 'effect'
 import {
   CommandSearchRepository,
@@ -16,20 +17,58 @@ import { CommandSearchRepositoryLive } from '@/infrastructure/database/repositor
 import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Use case for the global command-palette search API (`GET /api/command-search`).
+ *
+ * The application layer owns all pure logic:
+ *   - building the `tableName -> detail page path` map (single-mode dataSources),
+ *   - resolving the per-record navigation URL,
+ *   - searching static pages by title/name,
+ *   - ranking favorited records above non-favorited and merging pages ahead of
+ *     records into the final palette response.
+ *
+ * Only the two raw queries (favorites load, per-table text search) live in the
+ * infrastructure repository, accessed via {@link CommandSearchRepository}.
+ */
 
+/** Field types whose physical columns are searchable as text. */
 const TEXT_FIELD_TYPES = new Set(['single-line-text', 'long-text', 'rich-text', 'email', 'url'])
 
+/** Shape of a single palette search result (record or page). */
 export interface CommandSearchResult {
   readonly entityType: 'record' | 'page'
   readonly entityId: string
+  /**
+   * Table the record belongs to (record results) or omitted for page results.
+   * Record results are grouped by this value in the palette.
+   */
   readonly tableName?: string
   readonly label: string
   readonly favorited: boolean
+  /**
+   * Resolved navigation target. For records this is the detail-page URL with
+   * the record id substituted; for pages it is the page path itself. Omitted
+   * when no navigation target can be resolved.
+   */
   readonly detailPath?: string
+  /**
+   * A short plain-text snippet of the page body around the query match (content
+   * pages only). Present only when the query matched the body text; omitted for
+   * title-only matches and for record results.
+   */
   readonly excerpt?: string
+  /**
+   * The `[start, end)` index of the matched span WITHIN {@link excerpt}, so the
+   * client can wrap that slice in `<mark>` without re-running the match. Present
+   * only when `excerpt` is present and the query occurs in the body.
+   */
   readonly matchRange?: readonly [number, number]
 }
 
+/**
+ * Recursively collect every `dataSource` declared on a component subtree
+ * (component-level bindings plus their descendants).
+ */
 const collectComponentDataSources = (
   component: unknown
 ): readonly NonNullable<App['pages']>[number]['dataSource'][] => {
@@ -43,6 +82,14 @@ const collectComponentDataSources = (
   return [...own, ...children.flatMap((child) => collectComponentDataSources(child))]
 }
 
+/**
+ * Build a map of `tableName -> detail page path` by scanning every page for a
+ * `single`-mode `dataSource` (page-level or component-level) bound to a table.
+ *
+ * The returned path is the raw page path (with its `:param` segment intact);
+ * the per-record URL is produced by substituting the record id at request
+ * time.
+ */
 const buildDetailPathMap = (app: App): ReadonlyMap<string, string> => {
   const entries = (app.pages ?? []).flatMap((page) => {
     const componentSources = (page.components ?? []).flatMap((component) =>
@@ -50,6 +97,9 @@ const buildDetailPathMap = (app: App): ReadonlyMap<string, string> => {
     )
     const allSources = [page.dataSource, ...componentSources]
     return allSources.flatMap((source) =>
+      // A system detail-endpoint binding (`{ system }`) carries its own endpoint
+      // and is NOT a table→detail-path mapping, so only DB-table sources (those
+      // with a `table` key) populate the detail-path map.
       source && 'table' in source && source.mode === 'single' && typeof page.path === 'string'
         ? ([[source.table, page.path]] as const)
         : []
@@ -58,6 +108,11 @@ const buildDetailPathMap = (app: App): ReadonlyMap<string, string> => {
   return new Map(entries)
 }
 
+/**
+ * Resolve the per-record navigation URL by substituting `recordId` into the
+ * detail page path's first `:param` segment. Returns `undefined` when no
+ * detail page is bound to the table or the path has no dynamic segment.
+ */
 const resolveDetailPath = (
   detailPathMap: ReadonlyMap<string, string>,
   tableName: string,
@@ -69,6 +124,15 @@ const resolveDetailPath = (
   return resolved === template ? undefined : resolved
 }
 
+/**
+ * Match the query (case-insensitive substring) against every static page's
+ * title and name. Pages with a dynamic (`:param`) segment are skipped — they
+ * are record-detail templates, not navigable destinations on their own.
+ *
+ * `contentDir` pages are also skipped here: although their declared path is a
+ * `:slug` template, the concrete markdown routes they generate are indexed
+ * separately by {@link searchContentDirPages}.
+ */
 const searchPages = (app: App, query: string): readonly CommandSearchResult[] => {
   const needle = query.toLowerCase()
   return (app.pages ?? []).flatMap((page) => {
@@ -91,11 +155,27 @@ const searchPages = (app: App, query: string): readonly CommandSearchResult[] =>
   })
 }
 
+/**
+ * Index the concrete markdown routes generated by every `contentDir` page and
+ * match the query against each file's frontmatter title/slug AND its full
+ * markdown body. Title/slug matches surface the page with no excerpt; body
+ * matches additionally carry a short highlighted snippet of the body around the
+ * match (see {@link extractMatchExcerpt}). Each result's `detailPath` is the
+ * resolved `/prefix/slug` URL — never the un-navigable `:slug` template.
+ */
 const searchContentDirPages = async (
   app: App,
   query: string
 ): Promise<readonly CommandSearchResult[]> => {
   const needle = query.toLowerCase()
+  // FAN-OUT WIDTH: unbounded, and safe for a reason that does NOT generalise to
+  // this file's sibling fan-outs — every branch here is FILESYSTEM work
+  // (`readContentDirBodies` reads markdown off disk), so it takes no slot in the
+  // shared database connection pool that the 2026-07-25 incident exhausted. Width
+  // is config-bounded by the `contentDir` pages in `app.pages`, and the per-page
+  // cost is a directory read, not a query. If this ever grows a database read,
+  // it needs a stated ceiling like every other fan-out in the layer.
+  // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- filesystem fan-out, no pooled connection; see the FAN-OUT WIDTH note above.
   const perPage = await Promise.all(
     (app.pages ?? [])
       .filter((page) => page.contentDir !== undefined && typeof page.path === 'string')
@@ -114,6 +194,8 @@ const searchContentDirPages = async (
             favorited: false,
             detailPath: entry.path,
           }
+          // A body match contributes a highlighted excerpt; a title-only match
+          // surfaces the page without one.
           if (bodyMatch) {
             const { excerpt, matchStart, matchEnd } = extractMatchExcerpt(plain, query)
             return [
@@ -131,11 +213,22 @@ const searchContentDirPages = async (
   return perPage.flat()
 }
 
+/** The text column names of a table that are searchable as text. */
 const searchableColumns = (table: NonNullable<App['tables']>[number]): readonly string[] =>
   (table.fields ?? [])
     .filter((field) => TEXT_FIELD_TYPES.has(field.type))
     .map((field) => field.name)
 
+/**
+ * Run the command-palette search for `query` on behalf of `userId` (or no user,
+ * when `userId` is undefined — favorites are then skipped and every record is
+ * `favorited: false`).
+ *
+ * Returns the merged palette response: page matches first (navigable
+ * destinations surface ahead of records), then records ranked with the caller's
+ * favorites boosted above non-favorited ones. Both groups preserve declaration
+ * order; the record group is capped at 25.
+ */
 export const SearchCommandPalette = (
   app: App,
   query: string,
@@ -175,16 +268,24 @@ export const SearchCommandPalette = (
       { concurrency: 'unbounded' }
     )
 
+    // Favorited records rank above non-favorited ones; ordering within each
+    // group is otherwise stable (table declaration order, then row order).
     const flat = perTable.flat()
     const rankedRecords = [
       ...flat.filter((result) => result.favorited),
       ...flat.filter((result) => !result.favorited),
     ].slice(0, 25)
 
+    // Page matches rank ahead of record matches in the palette so navigable
+    // destinations surface first. Static pages are joined by the concrete
+    // markdown routes contentDir pages generate.
     const pages = searchPages(app, query)
     const contentDirPages = yield* Effect.promise(() => searchContentDirPages(app, query))
 
     return [...pages, ...contentDirPages, ...rankedRecords]
   })
 
+/**
+ * Application layer for the command-palette search use case.
+ */
 export const CommandSearchLayer = Layer.mergeAll(CommandSearchRepositoryLive)

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines-per-function, react-perf/jsx-no-new-function-as-prop -- per-comment state machine renders 4 distinct modes (view/edit/confirming-delete/replying); per-handler arrow props are conventional React pattern. */
 
 import { useState, type ReactElement, type ReactNode } from 'react'
 import {
@@ -14,6 +15,23 @@ import {
 import { CommentThreadForm } from './comment-thread-form'
 import { isEdited, resolveCommentAuthorName, type CommentRecord } from './comment-thread-types'
 
+/**
+ * Renders a single comment with author + content + timestamp + (when allowed)
+ * edit/delete/reply affordances. Each affordance opens an inline panel:
+ *
+ * - edit-mode swaps the content for a controlled textarea + Save/Cancel
+ * - delete-mode emits a confirmation panel before the destructive call
+ * - reply-mode opens an inline reply form below the comment body
+ *
+ * `canEdit` and `canDelete` are computed by the parent thread island (author
+ * owns edit + delete; admin owns delete on every comment). `canReply`
+ * additionally requires top-level depth + threading enabled + a signed-in
+ * user — replies themselves never expose a Reply affordance (single-level
+ * threading).
+ *
+ * `children` slot receives the rendered <li> list of nested replies (used by
+ * the parent island when grouping comments by `parentCommentId`).
+ */
 interface CommentThreadItemProps {
   readonly comment: CommentRecord
   readonly canEdit: boolean
@@ -30,6 +48,10 @@ interface CommentThreadItemProps {
 }
 
 function CommentMeta({ comment }: { readonly comment: CommentRecord }): ReactElement {
+  // Author attribution precedence: guest name,
+  // then authenticated user's name, then the "Anonymous" floor (see
+  // resolveCommentAuthorName). The `.comments-author` class is the public hook
+  // the public-comments specs scope their assertions to.
   const authorName = resolveCommentAuthorName(comment, 'Anonymous')
   const created = new Date(comment.createdAt)
   return (
@@ -123,6 +145,11 @@ function DeleteConfirm({
 
 type ItemMode = 'view' | 'editing' | 'confirming-delete' | 'replying'
 
+/**
+ * The view-mode action bar (Edit / Delete / Reply). Returns `undefined`
+ * when no affordance is permitted so the parent renders nothing. Extracted
+ * from `CommentThreadItem` to keep that component's complexity in budget.
+ */
 function CommentActions({
   canEdit,
   canDelete,
@@ -168,6 +195,10 @@ function CommentActions({
   )
 }
 
+/**
+ * The reply count footer (top-level comments only). Returns `undefined`
+ * when the comment is a reply itself or has no replies.
+ */
 function ReplyCount({
   isReplyItem,
   replyCount,
@@ -186,6 +217,7 @@ function ReplyCount({
   )
 }
 
+/** The editing-mode rendering of a comment item. */
 function EditModeItem({
   comment,
   liClassName,
@@ -221,6 +253,7 @@ function EditModeItem({
   )
 }
 
+/** The delete-confirmation rendering of a comment item. */
 function DeleteModeItem({
   comment,
   liClassName,
@@ -249,6 +282,8 @@ function DeleteModeItem({
         isDeleting={isDeleting}
         onConfirm={async () => {
           await onConfirmDelete(comment.id)
+          // After confirmation the parent removes the row; setMode is moot
+          // but defensive in case the deletion fails and the row stays.
           onSetMode('view')
         }}
         onCancel={() => onSetMode('view')}

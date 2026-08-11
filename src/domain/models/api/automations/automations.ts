@@ -7,6 +7,7 @@
 
 import { z } from 'zod'
 
+// ─── Run Status ──────────────────────────────────────────────────────────────
 
 export const runStatusSchema = z
   .enum([
@@ -25,6 +26,7 @@ export const runStatusSchema = z
 
 export type RunStatus = z.infer<typeof runStatusSchema>
 
+// ─── Step Result ─────────────────────────────────────────────────────────────
 
 export const stepResultSchema = z.object({
   name: z.string().describe('Action step name'),
@@ -41,6 +43,7 @@ export const stepResultSchema = z.object({
 
 export type StepResult = z.infer<typeof stepResultSchema>
 
+// ─── Run Schema ──────────────────────────────────────────────────────────────
 
 export const runSchema = z.object({
   id: z.string().uuid().describe('Unique run identifier'),
@@ -57,6 +60,7 @@ export const runSchema = z.object({
 
 export type Run = z.infer<typeof runSchema>
 
+// ─── Run Detail Schema ───────────────────────────────────────────────────────
 
 export const runDetailSchema = runSchema.extend({
   steps: z.array(stepResultSchema).describe('Step-by-step execution results'),
@@ -64,7 +68,23 @@ export const runDetailSchema = runSchema.extend({
 
 export type RunDetail = z.infer<typeof runDetailSchema>
 
+// ─── List Runs Response ──────────────────────────────────────────────────────
 
+/**
+ * Forward-looking shape for `GET /api/automations/runs` — declares the
+ * paginated response we WILL ship once the runs listing supports paging.
+ *
+ * Drift note ([internal ref] audit, Wave-2 2026-05-01): the live route handler
+ * (`routes/automations/index.ts:handleListRuns`) currently emits
+ * `{ runs: [...] }` without a `pagination` envelope. Pagination wiring is
+ * tracked separately and will land alongside the `?page` / `?pageSize`
+ * query params already declared in `listRunsQuerySchema` below.
+ *
+ * Until that lands, callers should treat `pagination` as forward-compatible
+ * documentation and not rely on it at runtime. Once pagination ships, the
+ * route will start emitting the `pagination` envelope and this schema will
+ * become consumable for OpenAPI validation.
+ */
 export const listRunsResponseSchema = z.object({
   runs: z.array(runSchema).describe('List of automation runs'),
   pagination: z
@@ -82,6 +102,7 @@ export const listRunsResponseSchema = z.object({
 
 export type ListRunsResponse = z.infer<typeof listRunsResponseSchema>
 
+// ─── List Runs Query Params ──────────────────────────────────────────────────
 
 export const listRunsQuerySchema = z.object({
   automationName: z.string().optional().describe('Filter by automation name'),
@@ -98,10 +119,13 @@ export const listRunsQuerySchema = z.object({
 
 export type ListRunsQuery = z.infer<typeof listRunsQuerySchema>
 
+// ─── Replay Run Request ──────────────────────────────────────────────────────
 
 export const replayRunRequestSchema = z.object({
+  /** Override trigger data for replay (optional — uses original if omitted) */
   triggerData: z.unknown().optional().describe('Override trigger data for replay'),
 
+  /** Step name to re-run from (optional — skips already-succeeded steps before this point) */
   fromStep: z
     .string()
     .optional()
@@ -112,7 +136,28 @@ export const replayRunRequestSchema = z.object({
 
 export type ReplayRunRequest = z.infer<typeof replayRunRequestSchema>
 
+// ─── Trigger Response ────────────────────────────────────────────────────────
 
+/**
+ * Public response body for `POST /api/automations/:name/webhook` AND
+ * `POST /api/automations/:name/trigger` (manual trigger).
+ *
+ * Both routes share the same shape because they both run the same use case
+ * (`runWebhookAutomation` / `runManualAutomation` returning `RunAutomationResult`)
+ * and are mapped through `triggerResultBody` in `routes/automations/index.ts`.
+ *
+ * [internal ref] (Wave-3, 2026-05-04): the trigger response surfaces only the
+ * **last action's output** as `output`, mirroring n8n's "When Last Node
+ * Finishes" mode. Per-action visibility moved to the runs detail endpoint
+ * (`GET /api/automations/runs/:id` → `runDetailSchema.steps[]`). This
+ * supersedes the Wave-2 alignment which exposed a per-action
+ * map at `actions.<name>` — that contract leaked internal action names
+ * into every webhook response and coupled API consumers to action naming.
+ *
+ * Currently exported for documentation / future OpenAPI wiring only — the
+ * route handler does not validate against this schema. Callers may import
+ * `TriggerResponse` for type-safe response handling.
+ */
 export const triggerResponseSchema = z.object({
   success: z.literal(true).describe('Run was dispatched (downstream failures still produce true)'),
 
@@ -128,7 +173,7 @@ export const triggerResponseSchema = z.object({
     .record(z.string(), z.unknown())
     .optional()
     .describe(
-      'Output of the last action that produced non-empty output (n8n parity, DEC-021). Walks the executed-step list from the tail and returns the first `outcome.output` it finds — actions emitting nothing (filter, stop, state:set without return) are skipped over. Omitted when no action produced output. Overridden entirely by an explicit `webhook.response` action when the automation defines one. For per-action breakdown, call `GET /api/automations/runs/:id`.'
+      'Output of the last action that produced non-empty output (n8n parity). Walks the executed-step list from the tail and returns the first `outcome.output` it finds — actions emitting nothing (filter, stop, state:set without return) are skipped over. Omitted when no action produced output. Overridden entirely by an explicit `webhook.response` action when the automation defines one. For per-action breakdown, call `GET /api/automations/runs/:id`.'
     ),
 
   error: z
@@ -141,6 +186,7 @@ export const triggerResponseSchema = z.object({
 
 export type TriggerResponse = z.infer<typeof triggerResponseSchema>
 
+// ─── Cancel Run Response ─────────────────────────────────────────────────────
 
 export const cancelRunResponseSchema = z.object({
   id: z.string().uuid().describe('Run ID'),

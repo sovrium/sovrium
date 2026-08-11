@@ -9,7 +9,19 @@ import { text, integer, blob, index } from 'drizzle-orm/sqlite-core'
 import { users } from './auth-tables'
 import { systemTable } from './table-helpers'
 
+/**
+ * Storage tables — sqlite-core mirror of `schema/storage.ts`.
+ *
+ * The pg-core `bytea` custom column type (used for `file_storage_bytea.content`)
+ * maps to a SQLite `blob({ mode: 'buffer' })` column — both surface a `Buffer`
+ * to the application layer.
+ */
 
+/**
+ * File Storage Metadata Table
+ *
+ * Metadata for files across all storage backends (S3, local, bytea/blob).
+ */
 export const fileStorageMetadata = systemTable(
   'file_storage_metadata',
   {
@@ -37,6 +49,13 @@ export const fileStorageMetadata = systemTable(
   ]
 )
 
+/**
+ * File Storage Blob Table
+ *
+ * SQLite blob content storage (fallback when S3/local not configured) —
+ * mirror of the pg-core `bytea` content column. References
+ * file_storage_metadata for metadata.
+ */
 export const fileStorageBytea = systemTable('file_storage_bytea', {
   id: text('id')
     .primaryKey()
@@ -48,6 +67,7 @@ export const fileStorageBytea = systemTable('file_storage_bytea', {
   content: blob('content', { mode: 'buffer' }).notNull(),
 })
 
+// Type inference
 export type FileStorageMetadataRow = typeof fileStorageMetadata.$inferSelect
 export type NewFileStorageMetadata = typeof fileStorageMetadata.$inferInsert
 export type FileStorageByteaRow = typeof fileStorageBytea.$inferSelect

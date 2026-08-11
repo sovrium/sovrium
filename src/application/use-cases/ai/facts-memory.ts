@@ -12,7 +12,20 @@ import {
   type AiFactsDatabaseError,
 } from '@/application/ports/repositories/ai/ai-facts-repository'
 
+/**
+ * Application use-cases for persistent learned-facts memory
+ *.
+ *
+ * Each function is an `Effect.gen` program orchestrating the
+ * `AiFactsRepository` port — the presentation layer consumes them via
+ * `Effect.runPromise`, the infrastructure layer supplies the live Drizzle
+ * implementation. No direct database access happens here.
+ */
 
+/**
+ * Persist an atomic fact learned from a conversation turn, enforcing the
+ * agent's per-namespace `maxFacts` cap (oldest evicted FIFO).
+ */
 export const extractAndStoreFact = (input: {
   readonly namespace: string
   readonly agentName: string
@@ -25,6 +38,11 @@ export const extractAndStoreFact = (input: {
     yield* repo.storeFact(input)
   })
 
+/**
+ * Recall the facts stored for a `(namespace, userId)` pair, oldest first.
+ * Per-user scoped so user X never recalls user Y's facts even within a
+ * shared namespace.
+ */
 export const recallAgentFacts = (input: {
   readonly namespace: string
   readonly userId: string

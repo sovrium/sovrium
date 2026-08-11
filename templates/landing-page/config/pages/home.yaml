@@ -2,8 +2,8 @@ path: /
 name: home
 meta:
   lang: en
-  title: Sovrium - Build Your Next App
-  description: A modern, configuration-driven platform for rapid application development
+  title: $t:meta.title
+  description: $t:meta.description
 components:
   # Navigation
   - type: container
@@ -13,7 +13,7 @@ components:
       style:
         backgroundColor: rgba(255, 255, 255, 0.95)
         backdropFilter: blur(8px)
-        borderBottom: 1px solid #e2e8f0
+        borderBottom: 1px solid var(--color-border)
     children:
       - type: container
         props:
@@ -24,7 +24,7 @@ components:
             props:
               className: text-xl font-bold
               style:
-                color: '#3b82f6'
+                color: var(--color-primary)
             content: Sovrium
           - type: container
             props:
@@ -35,28 +35,28 @@ components:
                   href: '#home'
                   className: font-medium hover:text-primary transition-colors
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: '$t:nav.home'
               - type: link
                 props:
                   href: '#features'
                   className: font-medium hover:text-primary transition-colors
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: '$t:nav.features'
               - type: link
                 props:
                   href: '#pricing'
                   className: font-medium hover:text-primary transition-colors
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: '$t:nav.pricing'
               - type: link
                 props:
                   href: '#contact'
                   className: font-medium hover:text-primary transition-colors
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: '$t:nav.contact'
               - component: language-switcher
 
@@ -67,7 +67,7 @@ components:
       id: home
       className: pt-32 pb-20 px-6
       style:
-        background: linear-gradient(to bottom, #f8fafc, #ffffff)
+        background: linear-gradient(to bottom, var(--color-background-subtle), var(--color-background))
     children:
       - type: container
         props:
@@ -83,22 +83,22 @@ components:
                 props:
                   className: inline-block px-4 py-1.5 rounded-full text-sm font-medium mb-6
                   style:
-                    backgroundColor: '#dbeafe'
-                    color: '#3b82f6'
+                    backgroundColor: var(--color-primary-subtle)
+                    color: var(--color-primary)
                 content: '$t:hero.badge'
               - type: text
                 element: h1
                 props:
                   className: text-5xl font-bold mb-6
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: '$t:hero.title'
               - type: text
                 element: p
                 props:
                   className: text-xl mb-10 max-w-2xl mx-auto
                   style:
-                    color: '#475569'
+                    color: var(--color-foreground-muted)
                 content: '$t:hero.subtitle'
               - type: container
                 props:
@@ -108,11 +108,11 @@ components:
                     props:
                       className: px-6 py-3 rounded-lg transition-colors font-semibold shadow-lg
                       style:
-                        backgroundColor: '#3b82f6'
+                        backgroundColor: var(--color-primary)
                         color: '#ffffff'
                     interactions:
                       hover:
-                        backgroundColor: '#2563eb'
+                        backgroundColor: var(--color-primary-hover)
                     content: '$t:hero.cta.primary'
                   - type: button
                     props:
@@ -120,15 +120,15 @@ components:
                       style:
                         borderWidth: 2px
                         borderStyle: solid
-                        borderColor: '#3b82f6'
-                        color: '#3b82f6'
+                        borderColor: var(--color-primary)
+                        color: var(--color-primary)
                         backgroundColor: transparent
                     content: '$t:hero.cta.secondary'
               - type: container
                 props:
                   className: flex justify-center gap-12 pt-8
                   style:
-                    borderTop: 1px solid #e2e8f0
+                    borderTop: 1px solid var(--color-border)
                 children:
                   - type: container
                     props:
@@ -138,13 +138,13 @@ components:
                         props:
                           className: text-3xl font-bold
                           style:
-                            color: '#0f172a'
+                            color: var(--color-foreground)
                         content: '2,500+'
                       - type: container
                         props:
                           className: text-sm
                           style:
-                            color: '#64748b'
+                            color: var(--color-foreground-subtle)
                         content: '$t:hero.stats.apps'
                   - type: container
                     props:
@@ -154,13 +154,13 @@ components:
                         props:
                           className: text-3xl font-bold
                           style:
-                            color: '#0f172a'
+                            color: var(--color-foreground)
                         content: '10,000+'
                       - type: container
                         props:
                           className: text-sm
                           style:
-                            color: '#64748b'
+                            color: var(--color-foreground-subtle)
                         content: '$t:hero.stats.developers'
                   - type: container
                     props:
@@ -170,13 +170,13 @@ components:
                         props:
                           className: text-3xl font-bold
                           style:
-                            color: '#0f172a'
+                            color: var(--color-foreground)
                         content: '99.9%'
                       - type: container
                         props:
                           className: text-sm
                           style:
-                            color: '#64748b'
+                            color: var(--color-foreground-subtle)
                         content: '$t:hero.stats.uptime'
 
   # Features Section
@@ -202,21 +202,21 @@ components:
                   className: inline-block px-4 py-1.5 rounded-full text-sm font-medium mb-4
                   style:
                     backgroundColor: '#ede9fe'
-                    color: '#7c3aed'
+                    color: var(--color-secondary)
                 content: Features
               - type: text
                 element: h2
                 props:
                   className: text-4xl font-bold mb-4
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: '$t:features.title'
               - type: text
                 element: p
                 props:
                   className: text-xl max-w-2xl mx-auto
                   style:
-                    color: '#475569'
+                    color: var(--color-foreground-muted)
                 content: '$t:features.subtitle'
           - type: container
             props:
@@ -249,7 +249,7 @@ components:
       id: how-it-works
       className: py-24 px-6
       style:
-        backgroundColor: '#f8fafc'
+        backgroundColor: var(--color-background-subtle)
     children:
       - type: container
         props:
@@ -272,14 +272,14 @@ components:
                 props:
                   className: text-4xl font-bold mb-4
                   style:
-                    color: '#0f172a'
+                    color: var(--color-foreground)
                 content: '$t:howItWorks.title'
               - type: text
                 element: p
                 props:
                   className: text-xl
                   style:
-                    color: '#475569'
+                    color: var(--color-foreground-muted)
                 content: '$t:howItWorks.subtitle'
           - type: container
             props:
@@ -311,7 +311,7 @@ components:
       id: cta
       className: py-24 px-6
       style:
-        backgroundColor: '#3b82f6'
+        backgroundColor: var(--color-primary)
         color: '#ffffff'
     children:
       - type: container
@@ -391,7 +391,7 @@ components:
                     props:
                       className: text-sm
                       style:
-                        color: '#9ca3af'
+                        color: var(--color-foreground-subtle)
                     content: Build apps faster with configuration-driven development.
 
               # Product column
@@ -412,7 +412,7 @@ components:
                             props:
                               href: /features
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: Features
                       - type: container
                         children:
@@ -420,7 +420,7 @@ components:
                             props:
                               href: /pricing
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: Pricing
                       - type: container
                         children:
@@ -428,7 +428,7 @@ components:
                             props:
                               href: '#'
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: Changelog
 
               # Resources column
@@ -449,7 +449,7 @@ components:
                             props:
                               href: '#'
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: Documentation
                       - type: container
                         children:
@@ -457,7 +457,7 @@ components:
                             props:
                               href: '#'
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: Guides
                       - type: container
                         children:
@@ -465,7 +465,7 @@ components:
                             props:
                               href: '#'
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: API Reference
 
               # Company column
@@ -486,7 +486,7 @@ components:
                             props:
                               href: '#'
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: About
                       - type: container
                         children:
@@ -494,7 +494,7 @@ components:
                             props:
                               href: '#'
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: Blog
                       - type: container
                         children:
@@ -502,7 +502,7 @@ components:
                             props:
                               href: /contact
                               style:
-                                color: '#9ca3af'
+                                color: var(--color-foreground-subtle)
                             content: Contact
 
           # Copyright row
@@ -520,11 +520,11 @@ components:
                 element: p
                 props:
                   style:
-                    color: '#9ca3af'
+                    color: var(--color-foreground-subtle)
                 content: '$t:footer.copyright'
               - type: text
                 element: p
                 props:
                   style:
-                    color: '#9ca3af'
+                    color: var(--color-foreground-subtle)
                 content: '$t:footer.rights'

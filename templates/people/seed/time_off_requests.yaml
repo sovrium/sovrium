@@ -1,0 +1,115 @@
+# Sample time-off requests, linked to employees by their file-local key.
+#
+# Dates straddle `{{today}}` deliberately: the calendar on /time-off keys off
+# `start_date`, so a data set that sits entirely in the future renders an empty
+# month for anyone who opens the page today. Several requests overlap, which is
+# the situation the calendar exists to make visible.
+#
+# All three statuses appear, and Pending outnumbers the rest — the approval
+# automation pauses waiting on an admin, so a queue with nothing pending has
+# nothing to demonstrate.
+records:
+  - key: priya-summer
+    fields:
+      employee: '@employees.priya'
+      type: Vacation
+      start_date: '{{today+26d}}'
+      end_date: '{{today+40d}}'
+      status: Pending
+      notes: Two weeks away. Tomás covers on-call.
+
+  - key: tomas-remote-lisbon
+    fields:
+      employee: '@employees.tomas'
+      type: Remote work
+      start_date: '{{today+5d}}'
+      end_date: '{{today+19d}}'
+      status: Pending
+      notes: Working from Lisbon, same hours.
+
+  - key: hannah-conference
+    fields:
+      employee: '@employees.hannah'
+      type: Other
+      start_date: '{{today+12d}}'
+      end_date: '{{today+14d}}'
+      status: Pending
+      notes: Industry conference — three days, expenses filed separately.
+
+  - key: samuel-moving
+    fields:
+      employee: '@employees.samuel'
+      type: Other
+      start_date: '{{today+3d}}'
+      end_date: '{{today+3d}}'
+      status: Pending
+      notes: Moving flat, single day.
+
+  - key: ines-easter
+    fields:
+      employee: '@employees.ines'
+      type: Vacation
+      start_date: '{{today-2d}}'
+      end_date: '{{today+4d}}'
+      status: Approved
+      notes: Booked in January.
+
+  - key: fatima-remote
+    fields:
+      employee: '@employees.fatima'
+      type: Remote work
+      start_date: '{{today-9d}}'
+      end_date: '{{today+2d}}'
+      status: Approved
+
+  - key: liam-flu
+    fields:
+      employee: '@employees.liam'
+      type: Sick leave
+      start_date: '{{today-6d}}'
+      end_date: '{{today-4d}}'
+      status: Approved
+      notes: Doctor's note on file.
+
+  - key: aiko-parental
+    fields:
+      employee: '@employees.aiko'
+      type: Other
+      start_date: '{{today-31d}}'
+      end_date: '{{today+59d}}'
+      status: Approved
+      notes: Parental leave. Marcus covers the content calendar.
+
+  - key: sofia-yearend
+    fields:
+      employee: '@employees.sofia'
+      type: Vacation
+      start_date: '{{today-54d}}'
+      end_date: '{{today-47d}}'
+      status: Approved
+
+  - key: dmitri-quarter-close
+    fields:
+      employee: '@employees.dmitri'
+      type: Vacation
+      start_date: '{{today+7d}}'
+      end_date: '{{today+21d}}'
+      status: Rejected
+      notes: Overlaps quarter close. Asked to rebook after the 30th.
+
+  - key: marcus-launch-week
+    fields:
+      employee: '@employees.marcus'
+      type: Vacation
+      start_date: '{{today-17d}}'
+      end_date: '{{today-12d}}'
+      status: Rejected
+      notes: Clashed with the campaign launch.
+
+  - key: noor-remote-friday
+    fields:
+      employee: '@employees.noor'
+      type: Remote work
+      start_date: '{{today+1d}}'
+      end_date: '{{today+1d}}'
+      status: Approved

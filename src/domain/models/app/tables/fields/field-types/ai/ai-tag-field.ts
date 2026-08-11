@@ -8,6 +8,34 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * AI Tag Field
+ *
+ * Automatically assigns multiple labels from a predefined set using AI analysis.
+ * Output is a PostgreSQL text array (VARCHAR[]) containing zero or more tags from
+ * the allowed list. Ideal for auto-tagging records for filtering and organization.
+ *
+ * Business Rules:
+ * - Output values are always from the `tags` list (never free-form)
+ * - Minimum 2 tags required in the definition; duplicates are rejected
+ * - Respects `maxTags` constraint; returns at most N tags
+ * - Defaults to no tag limit when `maxTags` is omitted
+ * - Filters out any AI-returned values not in the `tags` list (silent discard)
+ * - Returns empty array when all source fields are empty or NULL
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 3,
+ *   name: 'topics',
+ *   type: 'ai-tag',
+ *   sourceFields: ['title', 'body'],
+ *   tags: ['technology', 'business', 'science', 'health'],
+ *   maxTags: 3,
+ *   computeOn: 'both',
+ * }
+ * ```
+ */
 export const AiTagFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -135,4 +163,5 @@ export const AiTagFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AiTagField = Schema.Schema.Type<typeof AiTagFieldSchema>

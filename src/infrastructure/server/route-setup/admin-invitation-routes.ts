@@ -10,6 +10,7 @@ import {
   inviteUser as inviteUserUseCase,
 } from '@/application/use-cases/auth/admin-invitation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
 import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
@@ -26,6 +27,19 @@ interface SessionLike {
   readonly session: { readonly userId: string }
 }
 
+/**
+ * Compute the absolute base URL for the current request.
+ *
+ * Priority order:
+ *   1. The configured `BASE_URL` environment variable (production / when set).
+ *   2. The request origin from the `Origin` / `Referer` header.
+ *   3. A best-effort reconstruction from `Host` + `X-Forwarded-Proto`.
+ *
+ * Tests run on `http://localhost:<random-port>` and the request's `Origin`
+ * header carries that port, so the returned URL stays in-host with the
+ * test server.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
 const resolveBaseURL = (c: Context): string => {
   const envUrl = process.env['BASE_URL']
   if (envUrl) return envUrl.replace(/\/$/, '')
@@ -39,6 +53,7 @@ const resolveBaseURL = (c: Context): string => {
       const u = new URL(referer)
       return `${u.protocol}//${u.host}`
     } catch {
+      // fall through
     }
   }
 
@@ -47,8 +62,16 @@ const resolveBaseURL = (c: Context): string => {
   return `${proto}://${host}`
 }
 
+/**
+ * Resolve the admin caller's session and verify their role is `admin`.
+ *
+ * Returns the JSON Response when authorization fails (401/403). Returns the
+ * authenticated session when successful so the handler has access to the
+ * inviter's display name.
+ */
 const requireAdminCaller = async (
   authInstance: AuthInstance,
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   c: Context
 ): Promise<{ readonly session: SessionLike } | Response> => {
   const callerSession = (await authInstance.api.getSession({
@@ -60,14 +83,23 @@ const requireAdminCaller = async (
   }
 
   const role = await getUserRole(callerSession.session.userId)
-  if (role !== 'admin') {
+  if (!isAdminRole(role)) {
     return c.json({ success: false, message: 'Admin access required', code: 'FORBIDDEN' }, 403)
   }
 
   return { session: callerSession }
 }
 
+/**
+ * Map a non-success invite-user result onto an HTTP response.
+ *
+ * Pre-condition: caller has confirmed `result.status !== 'invited'`. The
+ * status discriminator drives the HTTP code: `invalid-input` → 400,
+ * `already-onboarded` → 422 (email already maps to a fully-onboarded user),
+ * everything else → 500.
+ */
 const respondToInviteFailure = (
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   c: Context,
   result: { readonly status: string; readonly message: string }
 ): Response => {
@@ -83,8 +115,26 @@ const respondToInviteFailure = (
   return c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
 }
 
+/**
+ * POST /api/auth/admin/invite-user
+ *
+ * Admin-issued passwordless invitation. Accepts `{ email, name, role }`,
+ * generates a single-use token, persists it in `auth.verification` (with
+ * identifier prefix `invitation:`), and emails the invitee a link to
+ * `/accept-invitation?token=...`.
+ *
+ * - 401 when caller has no session
+ * - 403 when caller is not an admin
+ * - 422 when the email maps to a fully-onboarded user
+ * - 200 with `{ user, invitationSent: true }` on success
+ *
+ * NOT a Better Auth plugin endpoint — implemented in the Sovrium engine.
+ * `allowSignUp:false` does NOT block this endpoint (admin-driven invitation
+ * remains the only onboarding path when self-signup is disabled).
+ */
 const createInviteUserHandler =
   (authInstance: AuthInstance, authConfig: Auth | undefined, emailHandlers: EmailHandlers) =>
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   async (c: Context) => {
     try {
       const authorized = await requireAdminCaller(authInstance, c)
@@ -132,7 +182,16 @@ interface AcceptedInvitationUser {
   readonly name: string
 }
 
+/**
+ * Map a non-success accept-invitation result onto an HTTP response.
+ *
+ * Pre-condition: caller has confirmed `result.status !== 'accepted'`. The
+ * result is narrowed to the failure union so each branch knows it has a
+ * `message`. 410 is reserved for token expiry; everything else is 4xx
+ * (client error) or 5xx (internal error).
+ */
 const respondToAcceptFailure = (
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   c: Context,
   result: { readonly status: string; readonly message: string }
 ): Response => {
@@ -148,6 +207,14 @@ const respondToAcceptFailure = (
   return c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
 }
 
+/**
+ * Forward `Set-Cookie` headers from the Better Auth sign-in response onto a
+ * fresh response carrying our own JSON body.
+ *
+ * Better Auth's `asResponse: true` mode returns a `Response` whose body we
+ * don't want (it is the standard sign-in payload), but whose cookies we
+ * absolutely DO want — they carry the customer's freshly-minted session.
+ */
 const buildResponseWithForwardedCookies = (
   signInResponse: Readonly<Response>,
   user: AcceptedInvitationUser
@@ -165,6 +232,13 @@ const buildResponseWithForwardedCookies = (
   return new Response(JSON.stringify(responseBody), { status: 200, headers })
 }
 
+/**
+ * Sign the freshly-onboarded customer in by delegating to Better Auth.
+ *
+ * If Better Auth surfaces an error (rare — the password was just set), we
+ * soft-fail to a 200 with `sessionEstablished: false` so the customer can
+ * proceed via the regular sign-in form rather than seeing a 500.
+ */
 const buildPostAcceptResponse = async (
   authInstance: AuthInstance,
   user: AcceptedInvitationUser,
@@ -189,8 +263,21 @@ const buildPostAcceptResponse = async (
   }
 }
 
+/**
+ * POST /api/auth/admin/accept-invitation
+ *
+ * Public endpoint — the customer is unauthenticated. Validates the token,
+ * sets the customer's password (links a credential account row), marks
+ * email verified, consumes the token, and signs the customer in by
+ * delegating to Better Auth's `/sign-in/email` endpoint so the response
+ * carries a valid Set-Cookie session header.
+ *
+ * - 400 / 410 when the token is invalid, already used, or expired
+ * - 200 with the customer's user record on success (cookie set on response)
+ */
 const createAcceptInvitationHandler =
   (authInstance: AuthInstance, authConfig: Auth | undefined) =>
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   async (c: Context) => {
     try {
       const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
@@ -211,6 +298,13 @@ const createAcceptInvitationHandler =
     }
   }
 
+/**
+ * Escape an arbitrary string for safe interpolation into HTML attributes.
+ *
+ * The token alphabet is `[A-Za-z0-9_-]+` so this should be a no-op in
+ * practice, but defensive escaping keeps us safe if the alphabet ever
+ * widens or a malformed query string sneaks through.
+ */
 const escapeHtmlAttribute = (value: string): string =>
   value.replace(/[<>"'&]/g, (ch) => {
     if (ch === '<') return '&lt;'
@@ -230,6 +324,15 @@ const ACCEPT_INVITATION_STYLE = `
   .error { margin-top: 1rem; color: #b91c1c; }
 `
 
+/**
+ * Build the inline client-side script for the accept-invitation page.
+ *
+ * The minimum password length is interpolated as a server-rendered
+ * constant so the gate matches the configured `auth.strategies` policy
+ * (single source of truth: `resolvePasswordPolicy`). The server still
+ * re-validates on POST, so a tampered client value cannot bypass the
+ * policy — this gate exists for UX (instant feedback) only.
+ */
 const buildAcceptInvitationScript = (minPasswordLength: number): string => `
   (function () {
     var MIN_PASSWORD_LENGTH = ${minPasswordLength};
@@ -274,6 +377,14 @@ const buildAcceptInvitationScript = (minPasswordLength: number): string => `
   })();
 `
 
+/**
+ * Render the SSR HTML for the accept-invitation page.
+ *
+ * The form is intentionally minimal — it relies on plain HTML + a tiny
+ * inline script so the page works even if the Sovrium UI bundle is not
+ * configured for this app. The form labels (`Password`, `Confirm
+ * password`) match the spec assertions verbatim.
+ */
 const renderAcceptInvitationPage = (token: string, minPasswordLength: number): string => {
   const escapedToken = escapeHtmlAttribute(token)
   const script = buildAcceptInvitationScript(minPasswordLength)
@@ -304,21 +415,49 @@ const renderAcceptInvitationPage = (token: string, minPasswordLength: number): s
 </html>`
 }
 
+/**
+ * GET /accept-invitation
+ *
+ * Server-rendered HTML form so the customer can set their password.
+ * Submits to POST /api/auth/admin/accept-invitation via fetch, then
+ * redirects to "/" (the standard authenticated entry point) on success.
+ */
 const createAcceptInvitationPageHandler =
   (authConfig: Auth | undefined) =>
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   async (c: Context) => {
     const token = c.req.query('token') ?? ''
     const { minLength } = resolvePasswordPolicy(authConfig)
+    // The page is always served — even if `token` is empty — so the customer
+    // gets a clear error instead of a 404 when they click a malformed link.
     const html = renderAcceptInvitationPage(token, minLength)
     return c.html(html, 200)
   }
 
+/**
+ * Mount the admin invitation routes onto a Hono app.
+ *
+ * Order of registration matters — these routes must be added BEFORE the
+ * Better Auth catch-all `/api/auth/*` handler so the specific paths win.
+ * The built-in HTML page (/accept-invitation) is also registered here so the
+ * auth route module owns the full flow and the customer never bounces through
+ * the dynamic-page renderer.
+ *
+ * EXCEPTION: when the app config defines its OWN page at `/accept-invitation`,
+ * the built-in fallback page is NOT registered — the user-defined page wins.
+ * The POST API handler is always registered (it backs both the built-in and
+ * any custom page's submit). This lets apps (e.g. apps/partner) brand the
+ * activation page while still relying on the engine's invitation flow.
+ */
 export const chainAdminInvitationRoutes = (
   honoApp: Readonly<Hono>,
   authInstance: AuthInstance,
   emailHandlers: EmailHandlers,
   app?: Readonly<App>
 ): Readonly<Hono> => {
+  // `app.auth` is the single source of the invitation flow's auth config; the
+  // factories below take it directly, so derive it once instead of threading a
+  // redundant `authConfig` parameter alongside `app`.
   const authConfig = app?.auth
   const inviteHandler = createInviteUserHandler(authInstance, authConfig, emailHandlers)
   const acceptApiHandler = createAcceptInvitationHandler(authInstance, authConfig)
@@ -326,6 +465,8 @@ export const chainAdminInvitationRoutes = (
     .post('/api/auth/admin/invite-user', inviteHandler)
     .post('/api/auth/admin/accept-invitation', acceptApiHandler)
 
+  // Skip the built-in HTML page when the app supplies a custom page at the
+  // same path — the user-defined page (with its own branding) takes priority.
   const hasCustomAcceptPage =
     app?.pages?.some((page) => page.path === '/accept-invitation') ?? false
   if (hasCustomAcceptPage) {

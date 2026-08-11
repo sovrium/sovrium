@@ -8,12 +8,31 @@
 import { Schema } from 'effect'
 import { ActionSchema } from '../../../action'
 
+/**
+ * Bulk action that operates on selected rows.
+ *
+ * @example
+ * ```yaml
+ * bulkActions:
+ *   - label: Mark Shipped
+ *     icon: truck
+ *     action:
+ *       type: crud
+ *       operation: update
+ *       table: orders
+ *     confirm: "Mark {count} orders as shipped?"
+ * ```
+ */
 export const DataTableBulkActionSchema = Schema.Struct({
+  /** Button label */
   label: Schema.String.annotations({ description: 'Bulk action button label' }),
+  /** Optional icon name */
   icon: Schema.optional(
     Schema.String.annotations({ description: 'Icon name (e.g., truck, trash)' })
   ),
+  /** Action to execute on selected rows */
   action: ActionSchema,
+  /** Confirmation prompt. Supports {count} placeholder. */
   confirm: Schema.optional(
     Schema.String.annotations({
       description: 'Confirmation dialog. Supports {count} for number of selected rows.',

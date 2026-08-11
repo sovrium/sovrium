@@ -1,0 +1,169 @@
+# Sample order lines — the join between orders and products.
+#
+# These rows are what give the rest of the workspace its computed columns:
+# `orders.line_count` counts them, `orders.units_ordered` rolls up their
+# `quantity`, `order_lines.product_sku` looks through to the product, and
+# `order_lines.line_total` is a formula over quantity × unit_price. Seed none of
+# these and four columns across two tables render empty on every row.
+#
+# Line counts vary deliberately — one order has a single line, one has four —
+# so `line_count` is a column with a range in it rather than a constant.
+#
+# `unit_price` is repeated onto the line rather than looked up, which is not
+# redundancy: it is the price AT THE TIME OF SALE. Two of the lines below are
+# priced under the current catalog price for exactly that reason (the Northwind
+# contract rate, and the clearance on the legacy scanner), and a demo that
+# copied today's list price everywhere would hide the one thing an order line
+# exists to record.
+records:
+  # ── Northwind fit-out (4 lines) ─────────────────────────────────────
+  - key: line-nw-1
+    fields:
+      label: Rack shelf 1200mm × 40
+      sales_order: '@orders.ord-northwind-fitout'
+      product: '@products.rack-shelf-1200'
+      quantity: 40
+      unit_price: 139.00
+
+  - key: line-nw-2
+    fields:
+      label: Rack upright 2400mm × 24
+      sales_order: '@orders.ord-northwind-fitout'
+      product: '@products.rack-upright-2400'
+      quantity: 24
+      unit_price: 89.50
+
+  - key: line-nw-3
+    fields:
+      label: Double-wall carton × 60
+      sales_order: '@orders.ord-northwind-fitout'
+      product: '@products.carton-400'
+      quantity: 60
+      unit_price: 42.00
+
+  - key: line-nw-4
+    fields:
+      label: Thermal label roll × 120
+      sales_order: '@orders.ord-northwind-fitout'
+      product: '@products.label-roll-100x150'
+      quantity: 120
+      unit_price: 11.20
+
+  # ── Helios scanners (2 lines) ───────────────────────────────────────
+  - key: line-he-1
+    fields:
+      label: 2D barcode scanner × 42
+      sales_order: '@orders.ord-helios-scanners'
+      product: '@products.barcode-scanner-2d'
+      quantity: 42
+      unit_price: 189.90
+
+  - key: line-he-2
+    fields:
+      label: Thermal label roll × 60
+      sales_order: '@orders.ord-helios-scanners'
+      product: '@products.label-roll-100x150'
+      quantity: 60
+      unit_price: 11.20
+
+  # ── Lumen consumables (3 lines) ─────────────────────────────────────
+  - key: line-lu-1
+    fields:
+      label: Thermal label roll × 200
+      sales_order: '@orders.ord-lumen-consumables'
+      product: '@products.label-roll-100x150'
+      quantity: 200
+      unit_price: 11.20
+
+  - key: line-lu-2
+    fields:
+      label: Pallet wrap × 96
+      sales_order: '@orders.ord-lumen-consumables'
+      product: '@products.pallet-wrap-500'
+      quantity: 96
+      unit_price: 34.90
+
+  - key: line-lu-3
+    fields:
+      label: Void-fill kraft paper × 12
+      sales_order: '@orders.ord-lumen-consumables'
+      product: '@products.void-fill-paper'
+      quantity: 12
+      unit_price: 58.75
+
+  # ── Cardinal packaging (2 lines, one unfillable) ────────────────────
+  - key: line-ca-1
+    fields:
+      label: Double-wall carton × 130
+      sales_order: '@orders.ord-cardinal-packaging'
+      product: '@products.carton-400'
+      quantity: 130
+      unit_price: 42.00
+
+  - key: line-ca-2
+    fields:
+      label: Pallet wrap × 24 (backordered)
+      sales_order: '@orders.ord-cardinal-packaging'
+      product: '@products.pallet-wrap-500'
+      quantity: 24
+      unit_price: 34.90
+
+  # ── Pinewood labels (1 line) ────────────────────────────────────────
+  - key: line-pi-1
+    fields:
+      label: Thermal label roll × 20
+      sales_order: '@orders.ord-pinewood-labels'
+      product: '@products.label-roll-100x150'
+      quantity: 20
+      unit_price: 11.20
+
+  # ── Atlas reseller (3 lines) ────────────────────────────────────────
+  - key: line-at-1
+    fields:
+      label: 2D barcode scanner × 15
+      sales_order: '@orders.ord-atlas-scanners'
+      product: '@products.barcode-scanner-2d'
+      quantity: 15
+      unit_price: 189.90
+
+  - key: line-at-2
+    fields:
+      label: 1D scanner × 4 (clearance)
+      sales_order: '@orders.ord-atlas-scanners'
+      product: '@products.scanner-1d-legacy'
+      quantity: 4
+      unit_price: 51.80
+
+  - key: line-at-3
+    fields:
+      label: Printhead 203dpi × 2
+      sales_order: '@orders.ord-atlas-scanners'
+      product: '@products.printhead-203dpi'
+      quantity: 2
+      unit_price: 214.00
+
+  # ── Counter quote, still a draft (2 lines) ──────────────────────────
+  - key: line-wi-1
+    fields:
+      label: Rack shelf 1200mm × 6
+      sales_order: '@orders.ord-walkin-racking'
+      product: '@products.rack-shelf-1200'
+      quantity: 6
+      unit_price: 148.50
+
+  - key: line-wi-2
+    fields:
+      label: Rack upright 2400mm × 4
+      sales_order: '@orders.ord-walkin-racking'
+      product: '@products.rack-upright-2400'
+      quantity: 4
+      unit_price: 96.00
+
+  # ── Cancelled order (1 line, kept for the record) ───────────────────
+  - key: line-rc-1
+    fields:
+      label: Cotton tote × 300
+      sales_order: '@orders.ord-regional-cancelled'
+      product: '@products.cotton-tote-natural'
+      quantity: 300
+      unit_price: 6.40

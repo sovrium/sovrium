@@ -7,6 +7,13 @@
 
 import { Data } from 'effect'
 
+/**
+ * Error when user fields are used without auth configuration
+ *
+ * User fields (user, created-by, updated-by) require Better Auth's users table.
+ * This error is thrown when tables with these field types are defined but
+ * no auth configuration is present in the app schema.
+ */
 export class AuthConfigRequiredForUserFields extends Data.TaggedError(
   'AuthConfigRequiredForUserFields'
 )<{

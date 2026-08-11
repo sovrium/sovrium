@@ -9,7 +9,7 @@ components:
     props:
       className: py-20 px-6
       style:
-        backgroundColor: '#f8fafc'
+        backgroundColor: var(--color-background-subtle)
     children:
       - type: container
         props:
@@ -20,14 +20,14 @@ components:
             props:
               className: text-5xl font-bold mb-6
               style:
-                color: '#0f172a'
+                color: var(--color-foreground)
             content: One place for the whole company
           - type: text
             element: p
             props:
               className: text-xl mb-8
               style:
-                color: '#475569'
+                color: var(--color-foreground-muted)
             content: A public welcome page for everyone. A private hub where the team finds announcements, colleagues, and shared resources.
           - type: container
             props:
@@ -38,7 +38,14 @@ components:
                   href: /sign-in
                   className: inline-block px-6 py-3 rounded-lg font-medium
                   style:
-                    backgroundColor: '#0891b2'
+                    backgroundColor: var(--color-primary)
+                    # Stays a literal: this is text ON a filled primary button,
+                    # so it must contrast with `primary` and not with the page
+                    # background. `foreground-inverse` would be the token for it,
+                    # but it is a neutral role that flips with the colour scheme
+                    # — and this fill does not flip, so the neutral would go dark
+                    # on cyan in dark mode. The only remaining hex in this
+                    # template, and it earns its place.
                     color: '#ffffff'
                 content: Sign in to the intranet
               - type: link
@@ -46,8 +53,8 @@ components:
                   href: '#features'
                   className: inline-block px-6 py-3 rounded-lg font-medium border
                   style:
-                    color: '#0f172a'
-                    borderColor: '#e2e8f0'
+                    color: var(--color-foreground)
+                    borderColor: var(--color-border)
                 content: Learn more
 
   - type: container
@@ -65,7 +72,7 @@ components:
             props:
               className: text-3xl font-bold mb-10 text-center
               style:
-                color: '#0f172a'
+                color: var(--color-foreground)
             content: What's inside
           - type: container
             props:
@@ -78,8 +85,8 @@ components:
                 props:
                   className: p-6 rounded-xl border
                   style:
-                    backgroundColor: '#ffffff'
-                    borderColor: '#e2e8f0'
+                    backgroundColor: var(--color-card)
+                    borderColor: var(--color-border)
                 children:
                   - type: text
                     element: h3
@@ -90,14 +97,14 @@ components:
                     element: p
                     props:
                       style:
-                        color: '#475569'
+                        color: var(--color-foreground-muted)
                     content: Find colleagues across teams and see what they are working on.
               - type: container
                 props:
                   className: p-6 rounded-xl border
                   style:
-                    backgroundColor: '#ffffff'
-                    borderColor: '#e2e8f0'
+                    backgroundColor: var(--color-card)
+                    borderColor: var(--color-border)
                 children:
                   - type: text
                     element: h3
@@ -108,14 +115,14 @@ components:
                     element: p
                     props:
                       style:
-                        color: '#475569'
+                        color: var(--color-foreground-muted)
                     content: Company news in one feed — read the latest and publish your own once you sign in.
               - type: container
                 props:
                   className: p-6 rounded-xl border
                   style:
-                    backgroundColor: '#ffffff'
-                    borderColor: '#e2e8f0'
+                    backgroundColor: var(--color-card)
+                    borderColor: var(--color-border)
                 children:
                   - type: text
                     element: h3
@@ -126,5 +133,5 @@ components:
                     element: p
                     props:
                       style:
-                        color: '#475569'
+                        color: var(--color-foreground-muted)
                     content: Managers get extra tools to publish announcements and keep the directory current.

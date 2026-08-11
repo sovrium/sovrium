@@ -12,6 +12,25 @@ import {
 import { computeInputDefaultClasses } from '@/presentation/utils/design/input-default-classes'
 import { type AuthFormField, type FieldErrors } from './auth-form-validation'
 
+/**
+ * Renders a single auth-form field row: a `<div data-field>` wrapper containing
+ * a `<label>`-associated input and an inline-error region.
+ *
+ * The input is **uncontrolled** (`defaultValue` + native DOM value): the
+ * `aria-invalid` flag and the inline-error `<div id="<name>-error">` are the
+ * only React-driven parts. Keeping the input uncontrolled avoids a
+ * controlled-input reconciliation race where a blur-triggered re-render could
+ * reset the DOM value before the matching `onChange` state update flushes —
+ * which would silently drop user input during a fast fill→submit sequence.
+ *
+ * The inline-error region is always rendered with a reserved `min-height` so
+ * an error message appearing or clearing never changes the row height — this
+ * keeps the submit button from shifting under the pointer mid-click. The
+ * `data-error-empty` attribute marks the no-error state for styling/testing.
+ *
+ * Inline errors deliberately omit `role="alert"` so a `[role="alert"]`
+ * selector resolves only to the form-level summary banner.
+ */
 const INLINE_ERROR_STYLE: React.CSSProperties = { minHeight: '1.25rem' }
 export function AuthFieldRow({
   field,
@@ -41,8 +60,14 @@ export function AuthFieldRow({
           defaultValue={defaultValue}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={`${field.name}-error`}
+          // Wire the auth island into the canonical, theme-aware input recipe
+          // so it renders full-width + bordered + focus ring, matching
+          // the design-system auth-layout scene. `error` maps to the 'error'
+          // state (error-token border + ring-1), keeping the invalid-field look
+          // identical to CRUD forms.
           className={computeInputDefaultClasses({ state: error ? 'error' : 'default' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- closure over field.name; blur fires once per field interaction
           onBlur={(e) => onBlur(field.name, e.target.value)}
         />
       </label>
@@ -57,6 +82,13 @@ export function AuthFieldRow({
   )
 }
 
+/**
+ * Renders the form-level summary error banner listing every invalid field.
+ *
+ * The banner carries `data-testid="error-summary"` + `role="alert"` and is the
+ * only `role="alert"` element in the form. Each invalid field produces a
+ * `<li data-error-item>` entry, in field-declaration order.
+ */
 export function AuthErrorSummary({
   fields,
   errors,

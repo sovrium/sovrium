@@ -7,7 +7,16 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Environment Variable Schema
+ *
+ * Defines an environment variable available to automations.
+ * Values are NEVER logged in run history — only the key name appears.
+ *
+ * Referenced in action params as: $env.API_KEY
+ */
 export const EnvVarSchema = Schema.Struct({
+  /** Environment variable key (uppercase snake_case) */
   key: Schema.String.pipe(
     Schema.pattern(/^[A-Z][A-Z0-9_]*$/),
     Schema.annotations({
@@ -15,18 +24,21 @@ export const EnvVarSchema = Schema.Struct({
     })
   ),
 
+  /** Human-readable description */
   description: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({ description: 'Description of what this env var is used for' })
     )
   ),
 
+  /** Whether this env var is required for automation execution */
   required: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotations({ description: 'Whether this variable must be set (default: true)' })
     )
   ),
 
+  /** Default value if the env var is not set at runtime */
   default: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({
@@ -49,6 +61,9 @@ export const EnvVarSchema = Schema.Struct({
 
 export type EnvVar = Schema.Schema.Type<typeof EnvVarSchema>
 
+/**
+ * Environment Variables Array
+ */
 export const EnvVarsSchema = Schema.Array(EnvVarSchema).pipe(
   Schema.annotations({
     identifier: 'EnvVars',
@@ -62,4 +77,5 @@ export const EnvVarsSchema = Schema.Array(EnvVarSchema).pipe(
   })
 )
 
+/** @public */
 export type EnvVars = Schema.Schema.Type<typeof EnvVarsSchema>

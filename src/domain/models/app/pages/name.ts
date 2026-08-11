@@ -7,6 +7,23 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Page Name (human-readable display name for the page)
+ *
+ * Unlike the common NameSchema (database identifier with snake_case), page names
+ * are human-readable labels used in admin interfaces, logs, and internal references.
+ * They can contain spaces, capital letters, and other readable characters.
+ *
+ * Must be non-empty with max 63 characters to match database constraints for
+ * internal identifiers, but doesn't enforce snake_case pattern since this is
+ * a display name, not a database column name.
+ *
+ * @example "Home"
+ * @example "About Us"
+ * @example "Home Page"
+ * @example "Pricing Plans"
+ *
+ */
 export const PageNameSchema = Schema.String.pipe(
   Schema.minLength(1),
   Schema.maxLength(63),
@@ -17,4 +34,5 @@ export const PageNameSchema = Schema.String.pipe(
   })
 )
 
+/** @public */
 export type PageName = Schema.Schema.Type<typeof PageNameSchema>

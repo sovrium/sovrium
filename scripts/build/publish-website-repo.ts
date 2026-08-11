@@ -5,9 +5,31 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Publish `apps/website/` to the public GitHub repo `github.com/sovrium/website`
+ * — a READ-ONLY, source-available reference showing a real production Sovrium
+ * configuration end to end. Not a template: no `is_template`, no "Use this
+ * template" button, no one-click deploy.
+ *
+ * Model: MIRROR, not move. The monorepo stays the source of truth. Because the
+ * repo accepts no pull requests, the publish is a destructive overlay (clone →
+ * wipe → copy → commit) exactly like publish-template-repos.ts — safe precisely
+ * because nothing is ever authored on the GitHub side. If that policy is ever
+ * reversed, this script MUST be rewritten to pull before it pushes; a merged PR
+ * would otherwise be silently erased by the next sync.
+ *
+ * History: the mirror starts from a fresh `Initial import` commit and never
+ * carries monorepo history — commit messages there reference internal specs,
+ * decision records, and workstreams that are not public.
+ *
+ * Flags: --version <x.y.z> (required) · --dry-run · --create
+ * Env:   GH_TOKEN (fine-grained PAT scoped to sovrium/website: Contents write +
+ *        Metadata read; Administration only for a --create bootstrap run)
+ */
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { syncInstallScript } from './sync-install-script'
 import { copyWebsitePayload } from './website-payload'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
@@ -31,6 +53,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   return { version, dryRun: argv.includes('--dry-run'), create: argv.includes('--create') }
 }
 
+/** Meta files overlaid onto the payload. Source name → published name. */
 const META_FILES: ReadonlyArray<readonly [string, string]> = [
   ['README.md', 'README.md'],
   ['gitignore', '.gitignore'],
@@ -38,6 +61,7 @@ const META_FILES: ReadonlyArray<readonly [string, string]> = [
   ['tsconfig.json.tmpl', 'tsconfig.json'],
 ]
 
+/** Must exist in every published tree, or the mirror is broken. */
 export const REQUIRED_FILES = [
   'app.ts',
   'config/languages.ts',
@@ -48,8 +72,18 @@ export const REQUIRED_FILES = [
   'package.json',
   'tsconfig.json',
   '.gitignore',
+  // Generated from install.sh, not tracked. Required here because it is the
+  // target of `curl -fsSL https://sovrium.com/install | sh` — publishing a
+  // website without it silently breaks the primary distribution path, and this
+  // walk reads the FILESYSTEM, so an unsynced tree would simply omit it.
+  'public/install',
 ] as const
 
+/**
+ * Paths that must NEVER reach the mirror. Fail-closed canaries: if a future
+ * change to the payload builder lets one through, the publish aborts loudly
+ * instead of leaking.
+ */
 export const FORBIDDEN_PATHS = [
   /(^|\/)\.env($|\.)/,
   /(^|\/)\.sovrium/,
@@ -64,6 +98,32 @@ export const FORBIDDEN_PATHS = [
   /^public\/schema\/app\.json$/,
 ] as const
 
+/**
+ * Strings that must not appear in any published text file.
+ *
+ * Each term catches a genuine infra or secret leak. Some infra-adjacent words are
+ * deliberately ABSENT, because each is legitimate public content that would
+ * deadlock the pipeline as a false positive:
+ *   - `scalingo`  — the docs ship a public "Deploy on Scalingo" button
+ * - `[internal ref]` — listed as a supported deployment target
+ *   - `tailscale` — cited in a comment as a visual design reference
+ * - `[internal ref]` — "[internal ref] Object Storage" is a documented S3-compatible
+ *                   storage provider in the user docs; the infra host stays
+ *                   covered by the specific terms below and never reaches the payload
+ * - `[internal ref]` — documents each template's checked-in Claude Code bundle
+ * - `[internal ref]` — prose explaining the binary reads embedded assets
+ *   - `CLAUDE.md` — `sovrium init` WRITES a per-template CLAUDE.md into the
+ *                   user's project, so the CLI and template docs must name the
+ *                   file to describe the product truthfully. A bare filename
+ *                   match cannot tell that artifact from this monorepo's own
+ *                   CLAUDE.md, and blocked the v0.20.0 release on four accurate
+ *                   doc lines. The FILE still can never ship — FORBIDDEN_PATHS
+ *                   covers it — and the two fingerprints below keep prose
+ *                   coverage aimed at what only the internal file can be.
+ * Note `[internal ref]` was dropped for this same reason, which had
+ * left the guard permitting `[internal ref]`
+ *                   while forbidding the sibling CLAUDE.md the same scaffold writes.
+ */
 export const FORBIDDEN_CONTENT = [
   'git.sovrium.com',
   'forgejo',
@@ -72,6 +132,8 @@ export const FORBIDDEN_CONTENT = [
   'TDD_BOT',
   'SPEC-PROGRESS',
   'apps/website/',
+  // Fingerprints of THIS repo's CLAUDE.md: its H1, and the `@docs/` on-demand
+  // import convention it uses 52 times. Neither occurs in legitimate public prose.
   'CLAUDE.md - Sovrium',
   '@docs/',
   'runs-on:',
@@ -83,17 +145,59 @@ export const FORBIDDEN_CONTENT = [
   '163.172.175.246',
 ] as const
 
+/**
+ * Rewrites applied to the licence's "Additional Resources" block — metadata,
+ * NOT licence terms, which are copied verbatim. Both targets are unresolvable
+ * for a public reader: the canonical repository is self-hosted, and TRADEMARK.md
+ * is not part of this mirror.
+ */
 export const LICENSE_SUBSTITUTIONS: ReadonlyArray<readonly [string, string]> = [
   ['https://git.sovrium.com/sovrium/sovrium', 'https://github.com/sovrium/sovrium'],
   ['See `TRADEMARK.md` for Sovrium trademark usage', 'See https://sovrium.com/docs/trademark'],
 ]
 
+/** Extensions worth scanning for leaked strings (text formats only). */
 const TEXT_EXT = /\.(ts|tsx|md|json|txt|svg|webmanifest|ya?ml|html|css|js)$/i
 
 const MIN_DOC_FILES = 200
 const MIN_TOTAL_FILES = 250
-const MAX_DELETE_RATIO = 0.1
 
+/**
+ * Ceilings on how much of ONE published area a single overlay may delete.
+ *
+ * Keyed on the top-level payload entry, because that is the unit a botched build
+ * actually loses: `copyWebsitePayload` iterates WEBSITE_PAYLOAD_ENTRIES, so a
+ * dropped entry or a `shouldIncludePath` regression takes out an area, not a
+ * uniform slice of the tree.
+ *
+ * A single tree-wide ratio cannot express that. Measured against the real
+ * v0.18.1 → v0.21.0 mirror diff — 38 deletions, every one of them an intentional
+ * removal — the areas churn at wildly different rates:
+ *
+ *     content/    2/266    0.8%   the substance of the mirror, ~70% of the tree
+ *     config/    14/43    32.6%   small and volatile: retired pages, forms, tables
+ *     public/    22/63    34.9%   small and volatile: retired OG images, screenshots
+ *
+ * so one number is simultaneously too tight and too loose. Too tight: that
+ * ordinary churn totals 10.02%, which tripped the old flat 10% ceiling by four
+ * hundredths of a percent and blocked the v0.21.0 publish. Too loose: losing ALL
+ * of `config/` is only 11% of the tree, and that share keeps shrinking as the
+ * docs grow — a tree-wide ratio gets blinder the bigger the mirror gets, which
+ * is backwards.
+ *
+ * The denominator is the last SUCCESSFULLY PUBLISHED tree, and this workflow
+ * publishes on a `deploy:` marker rather than on a release, so these ratios must
+ * absorb several releases' worth of churn, not one. Headroom is deliberate:
+ * roughly 2x the worst observed rate for the volatile areas, ~30x for content,
+ * whose near-zero churn is what makes a tight ceiling there both safe and worth
+ * having.
+ */
+const MAX_DELETE_RATIO: Readonly<Record<string, number>> = { content: 0.25 }
+
+/** Ceiling for any area without an explicit entry above. */
+const DEFAULT_MAX_DELETE_RATIO = 0.6
+
+/** List every file in `dir`, as paths relative to it. */
 export function listFiles(dir: string): string[] {
   const walk = (current: string): string[] =>
     readdirSync(current, { withFileTypes: true }).flatMap((e) => {
@@ -103,6 +207,10 @@ export function listFiles(dir: string): string[] {
   return walk(dir).sort()
 }
 
+/**
+ * The four fail-closed guards, adapted from scripts/filtered-mirror.sh. Pure over
+ * an injected file list + reader so the whole guard surface is unit-testable.
+ */
 export function assertMirrorSafety(
   files: readonly string[],
   readText: (relPath: string) => string
@@ -137,22 +245,50 @@ export function assertMirrorSafety(
   }
 }
 
+/**
+ * Refuse an overlay that would gut an area of what is already published — the
+ * signature of a botched payload build, which the count guards alone would miss
+ * whenever the surviving areas and the meta files pad the total back over the
+ * floor.
+ *
+ * Measured per area rather than tree-wide; see MAX_DELETE_RATIO for why. Real
+ * removals are scattered and bounded within an area, so they stay under the
+ * ceilings; a lost payload entry takes its whole area to 100% and trips
+ * regardless of how small that area is relative to the tree.
+ */
+const areaOf = (file: string): string => (file.includes('/') ? file.split('/')[0]! : '<root>')
+
 export function assertNotMassDeletion(
   published: readonly string[],
   next: readonly string[]
 ): void {
   if (published.length === 0) return
   const incoming = new Set(next)
-  const deleted = published.filter((f) => !incoming.has(f) && !f.startsWith('.git/'))
-  const ratio = deleted.length / published.length
-  if (ratio > MAX_DELETE_RATIO) {
-    throw new Error(
-      `refusing to delete ${deleted.length}/${published.length} published files ` +
-        `(${Math.round(ratio * 100)}% > ${MAX_DELETE_RATIO * 100}%) — likely a botched build`
-    )
+
+  const tally = new Map<string, { published: number; deleted: number }>()
+  for (const file of published) {
+    if (file.startsWith('.git/')) continue
+    const area = areaOf(file)
+    const seen = tally.get(area) ?? { published: 0, deleted: 0 }
+    tally.set(area, {
+      published: seen.published + 1,
+      deleted: seen.deleted + (incoming.has(file) ? 0 : 1),
+    })
+  }
+
+  for (const [area, { published: total, deleted }] of tally) {
+    const ceiling = MAX_DELETE_RATIO[area] ?? DEFAULT_MAX_DELETE_RATIO
+    const ratio = deleted / total
+    if (ratio > ceiling) {
+      throw new Error(
+        `refusing to delete ${deleted}/${total} published files in ${area} ` +
+          `(${Math.round(ratio * 100)}% > ${Math.round(ceiling * 100)}%) — likely a botched build`
+      )
+    }
   }
 }
 
+/** Build the full publish tree: stripped payload + meta overlay + licence. */
 export function buildMirrorTree(
   version: string,
   destDir: string,
@@ -162,6 +298,10 @@ export function buildMirrorTree(
     project: PROJECT_ROOT,
   }
 ): void {
+  // The served installer is generated, not tracked. Produce it before the walk:
+  // this copier reads the filesystem, and REQUIRED_FILES makes its absence fail
+  // the publish closed rather than shipping a site without an install one-liner.
+  syncInstallScript()
   copyWebsitePayload(roots.website, destDir, { stripPublicAssets: true })
 
   for (const [from, to] of META_FILES) {
@@ -170,6 +310,9 @@ export function buildMirrorTree(
     Bun.write(join(destDir, to), readFileSync(source, 'utf-8').replaceAll('{{VERSION}}', version))
   }
 
+  // The mirror's licence is the monorepo's BSL text verbatim plus a
+  // reserved-rights clause for trademarks and brand assets. Composed rather than
+  // duplicated so the BSL terms can never drift between the two copies.
   const license = LICENSE_SUBSTITUTIONS.reduce(
     (text, [from, to]) => text.replaceAll(from, to),
     readFileSync(join(roots.project, 'LICENSE.md'), 'utf-8')
@@ -191,6 +334,17 @@ const tryRun = (cmd: readonly string[], cwd?: string): { ok: boolean; out: strin
   return { ok: proc.exitCode === 0, out: proc.stdout.toString().trim() }
 }
 
+/**
+ * Ensure the repo exists. Unlike the template mirrors, CI never creates it: the
+ * one-time bootstrap is a supervised manual run, so the CI token needs no
+ * Administration scope.
+ *
+ * The existence probe is curl, not `gh`, deliberately — the CI path must depend
+ * only on git and curl, both already present on the default-deny runner.
+ * Installing the GitHub CLI there just to read one status code would be a second
+ * thing to keep working. `gh` is used only on the --create bootstrap path, which
+ * runs from a maintainer's machine.
+ */
 const ensureRepo = (opts: CliOptions): void => {
   const token = process.env['GH_TOKEN'] ?? ''
   const probe = tryRun([
@@ -227,12 +381,14 @@ const ensureRepo = (opts: CliOptions): void => {
   ])
 }
 
+/** Clone main, replace the tree, commit + tag + push (never forced, idempotent). */
 const pushTree = (treeDir: string, version: string): 'pushed' | 'unchanged' => {
   const token = process.env['GH_TOKEN'] ?? ''
   const remote = `https://x-access-token:${token}@github.com/${ORG}/${REPO}.git`
   const cloneDir = join(treeDir, '..', `${REPO}-clone`)
   const cloned = tryRun(['git', 'clone', '--depth', '1', remote, cloneDir]).ok
   if (!cloned) {
+    // Empty repo (first publish): init a fresh clone directory instead.
     mkdirSync(cloneDir, { recursive: true })
     run(['git', 'init', '-b', 'main'], cloneDir)
     run(['git', 'remote', 'add', 'origin', remote], cloneDir)

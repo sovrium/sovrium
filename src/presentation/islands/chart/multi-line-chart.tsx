@@ -31,9 +31,11 @@ interface MultiLineChartProps {
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
   readonly tooltipFormat?: string
+  /** Operator-set `<svg role="img">` name; falls back to the "Line chart" default. */
   readonly accessibleName?: string
 }
 
+/** A single plotted vertex for one series. */
 interface PlottedPoint {
   readonly key: string
   readonly x: number
@@ -44,6 +46,7 @@ interface PlottedPoint {
 const accessX = (p: PlottedPoint): number => p.x
 const accessY = (p: PlottedPoint): number => p.y
 
+/** Builds the plotted points for one series across the shared X keys. */
 function plotSeries(args: {
   readonly records: readonly TableRecord[]
   readonly keys: readonly string[]
@@ -60,6 +63,7 @@ function plotSeries(args: {
   })
 }
 
+/** A single hoverable data-point vertex. */
 function HoverPoint({
   point,
   label,
@@ -91,6 +95,7 @@ function HoverPoint({
   )
 }
 
+/** Renders the vertex markers for one series. */
 function SeriesPoints({
   points,
   field,
@@ -122,6 +127,12 @@ function SeriesPoints({
   )
 }
 
+/**
+ * Renders the visible 2px line plus a wide transparent hit-path. The visible
+ * line is too thin to receive a reliable pointer-center hover, so the fat
+ * invisible stroke sits over it as the interaction surface (standard
+ * charting pattern).
+ */
 function SeriesPaths({
   points,
   color,
@@ -158,6 +169,7 @@ function SeriesPaths({
   )
 }
 
+/** One series rendered as a hoverable LinePath plus its vertex circles. */
 function SeriesLine({
   config,
   index,
@@ -276,6 +288,16 @@ function MultiLineSvg({
   )
 }
 
+/**
+ * Multi-series line chart with an interactive legend and hover tooltip.
+ *
+ * Each `series` entry renders its own `<LinePath>`; the legend lists every
+ * series label and clicking a legend item toggles that series' visibility.
+ * Hovering a data-point vertex surfaces a `{label}: {value}` tooltip.
+ *
+ * Tooltip state lives here (not in `ChartShell`) because the line chart is
+ * the only multi-series variant with a hover tooltip.
+ */
 export function MultiLineChart({
   records,
   xField,

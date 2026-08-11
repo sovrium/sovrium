@@ -20,8 +20,17 @@ import type { AiFact } from '@/application/ports/repositories/ai/ai-facts-reposi
 
 const aiFacts = resolveDialectSchema(aiFactsPg, aiFactsSqlite)
 
+/** Wrap a DB promise, adapting failures to AiFactsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AiFactsDatabaseError({ cause }))
 
+/**
+ * Evict the oldest facts in a namespace until at most `maxFacts` rows remain.
+ *
+ * Eviction is FIFO by `created_at`: the rows
+ * are listed newest-first, the most recent `maxFacts` are kept, and any
+ * surplus older rows are deleted. The cap is enforced per `namespace` so two
+ * agents sharing a namespace share the budget.
+ */
 const enforceMaxFacts = (namespace: string, maxFacts: number): Promise<void> =>
   db
     .select({ id: aiFacts.id })
@@ -38,6 +47,12 @@ const enforceMaxFacts = (namespace: string, maxFacts: number): Promise<void> =>
             .then(() => undefined)
     })
 
+/**
+ * AI Facts Repository Implementation (Drizzle).
+ *
+ * Persists learned facts to `system.ai_facts`, scoped by namespace, agent,
+ * and user so facts never leak across namespaces or users.
+ */
 export const AiFactsRepositoryLive = Layer.succeed(AiFactsRepository, {
   storeFact: ({ namespace, agentName, userId, fact, maxFacts }) =>
     wrap((): Promise<void> =>

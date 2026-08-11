@@ -16,6 +16,18 @@ import { stringProp } from './shared'
 import type { ActionHandler, ActionRunContext } from './shared'
 import type { DigestReleaseSort } from '@/application/ports/repositories/automations/automation-digest-repository'
 
+/**
+ * Resolve `props.<key>` against the run context, returning the actual
+ * value (objects/arrays survive). When no `runContext` is supplied —
+ * e.g. a unit test invoking the handler directly — falls back to the
+ * already-substituted `props` passed by the run loop.
+ *
+ * Why this exists: the run loop's `resolveTriggerInValue` stringifies
+ * non-scalar leaves (`String({…})` → `"[object Object]"`). A digest item
+ * sourced from `{{trigger.data.record}}` is a structured object, so
+ * the handler must re-resolve from the raw, pre-substitution action to
+ * preserve its shape — `deduplicateBy` needs to read a field off it.
+ */
 const resolvedProp = (
   fallbackProps: Readonly<Record<string, unknown>>,
   runContext: ActionRunContext | undefined,
@@ -26,6 +38,11 @@ const resolvedProp = (
   return resolveRunContextValue(raw[key], buildRunContextView(runContext))
 }
 
+/**
+ * Extract the dedupe key from an item per the action's `deduplicateBy`
+ * field. Returns undefined when `deduplicateBy` is absent or the field is
+ * missing on the item; the caller falls back to non-deduped insert.
+ */
 const extractDedupeKey = (item: unknown, deduplicateBy: string | undefined): string | undefined => {
   if (deduplicateBy === undefined || deduplicateBy === '') return undefined
   if (typeof item !== 'object' || item === null) return undefined
@@ -41,6 +58,12 @@ const releaseSortFromProps = (raw: unknown): DigestReleaseSort | undefined => {
   return field !== undefined ? { field, direction } : undefined
 }
 
+/**
+ * `digest/collect` — accumulate `props.item` into the active bucket for
+ * `props.digestKey` (creating the bucket if needed). When
+ * `props.deduplicateBy` is set, items whose extracted key already exists
+ * in the bucket are skipped silently. Output: `{ collected, digestSize }`.
+ */
 export const handleDigestCollect: ActionHandler = (action, _app, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -48,6 +71,9 @@ export const handleDigestCollect: ActionHandler = (action, _app, automation, run
     if (!digestKey) {
       return { status: 'failure', error: 'digest.collect requires a digestKey' } as const
     }
+    // Re-resolve `item` from the raw action so structured payloads
+    // (`{{trigger.data.record}}` → an object) survive — the run
+    // loop's substitution would have stringified them to "[object Object]".
     const item = resolvedProp(props, runContext, 'item')
     const deduplicateBy =
       typeof props['deduplicateBy'] === 'string' ? props['deduplicateBy'] : undefined
@@ -76,6 +102,11 @@ export const handleDigestCollect: ActionHandler = (action, _app, automation, run
     } as const
   })
 
+/**
+ * `digest/release` — flush the active bucket for `props.digestKey`,
+ * marking it `released`, and return its items (optionally sorted/limited
+ * via `props.sort` and `props.limit`). Output: `{ items: [...] }`.
+ */
 export const handleDigestRelease: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}

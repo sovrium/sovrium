@@ -1,0 +1,190 @@
+# Sample support queue.
+#
+# All five statuses carry tickets, so the triage kanban on /triage reads as a
+# working queue rather than one loaded column, and all four priorities appear so
+# the "Urgent" KPI tile is a real number instead of a permanent zero.
+#
+# `resolved_at` is set only on Resolved and Closed rows — a resolution date on
+# an open ticket is the kind of quietly-wrong demo data that teaches a reader
+# the wrong thing about the model.
+#
+# `assignee` is deliberately unseeded. It is a `user` field storing an auth user
+# id (TEXT); `sovrium seed` resolves `@table.key` references but has no
+# vocabulary for auth users, and inventing an id would render as a blank cell
+# that looks like a bug rather than an absence. Assign tickets in the UI.
+#
+# Requester addresses use `.example`, a reserved TLD that can never resolve, so
+# a demo reset can never mail a real person.
+records:
+  - key: export-timeout
+    fields:
+      subject: CSV export times out on large tables
+      description: >-
+        Exporting our orders table (about 40k rows) spins for two minutes and
+        then returns an empty file. Smaller tables export fine.
+      status: New
+      priority: Urgent
+      category: Bug report
+      requester_name: Dana Whitfield
+      requester_email: dana.whitfield@northgate.example
+
+  - key: sso-google
+    fields:
+      subject: Can we sign in with Google Workspace?
+      description: >-
+        We already manage accounts in Workspace and would rather not maintain a
+        second set of passwords.
+      status: New
+      priority: Normal
+      category: Feature request
+      requester_name: Idris Bello
+      requester_email: idris.bello@vantage.example
+
+  - key: invoice-vat
+    fields:
+      subject: VAT number missing from January invoice
+      description: >-
+        Our finance team cannot process the invoice without our VAT number on
+        it. Can you reissue it?
+      status: Open
+      priority: High
+      category: Billing
+      requester_name: Margit Halvorsen
+      requester_email: margit.halvorsen@fjordline.example
+
+  - key: attachment-limit
+    fields:
+      subject: Upload fails silently above 10 MB
+      description: >-
+        Dragging a larger PDF into a record shows the progress bar, then
+        nothing happens and no error appears.
+      status: Open
+      priority: High
+      category: Bug report
+      requester_name: Tomás Reyes
+      requester_email: tomas.reyes@altamar.example
+
+  - key: timezone-dates
+    fields:
+      subject: Dates shift by a day for our Sydney team
+      description: >-
+        A record created on the 3rd in Sydney shows as the 2nd for colleagues in
+        London. Which timezone are dates stored in?
+      status: Open
+      priority: Normal
+      category: Question
+      requester_name: Priya Anand
+      requester_email: priya.anand@waverley.example
+
+  - key: webhook-retries
+    fields:
+      subject: Do webhooks retry after a 500?
+      description: >-
+        Our endpoint was down for twenty minutes during a deploy and we are
+        trying to work out whether we lost events.
+      status: Open
+      priority: Normal
+      category: Question
+      requester_name: Kwame Osei
+      requester_email: kwame.osei@brightpath.example
+
+  - key: seat-count
+    fields:
+      subject: Adding five seats mid-cycle
+      description: >-
+        We want five more seats now. Will we be billed pro rata or at the next
+        renewal?
+      status: Waiting on customer
+      priority: Normal
+      category: Billing
+      requester_name: Elena Rossi
+      requester_email: elena.rossi@corvina.example
+
+  - key: import-mapping
+    fields:
+      subject: Column mapping resets between import steps
+      description: >-
+        Going back one step in the importer loses the mapping. Sending a screen
+        recording once IT approves the tool.
+      status: Waiting on customer
+      priority: High
+      category: Bug report
+      requester_name: Jonas Meier
+      requester_email: jonas.meier@steinbruck.example
+
+  - key: api-rate-limit
+    fields:
+      subject: What is the API rate limit per token?
+      description: >-
+        Planning a nightly sync and want to size the batches correctly. Waiting
+        on their integration lead to confirm the expected volume.
+      status: Waiting on customer
+      priority: Low
+      category: Question
+      requester_name: Sofia Lindqvist
+      requester_email: sofia.lindqvist@nordkap.example
+
+  - key: password-reset-loop
+    fields:
+      subject: Password reset email never arrives
+      description: >-
+        Resolved — their mail gateway was quarantining our sender. Added to
+        their allowlist and confirmed delivery.
+      status: Resolved
+      priority: Urgent
+      category: Bug report
+      requester_name: Aoife Byrne
+      requester_email: aoife.byrne@clonmara.example
+      resolved_at: '{{today-3d}}'
+
+  - key: dark-mode
+    fields:
+      subject: Is there a dark mode?
+      description: >-
+        Pointed them at the theme toggle in the workspace header. They had not
+        scrolled far enough to see it.
+      status: Resolved
+      priority: Low
+      category: Question
+      requester_name: Hugo Delacroix
+      requester_email: hugo.delacroix@marchand.example
+      resolved_at: '{{today-6d}}'
+
+  - key: duplicate-charge
+    fields:
+      subject: Charged twice in November
+      description: >-
+        Confirmed a duplicate charge from a retried payment. Refunded in full,
+        four working days to land.
+      status: Resolved
+      priority: Urgent
+      category: Billing
+      requester_name: Beatriz Almeida
+      requester_email: beatriz.almeida@saltrio.example
+      resolved_at: '{{today-1d}}'
+
+  - key: mobile-layout
+    fields:
+      subject: Table columns overflow on a phone
+      description: >-
+        Fixed in the release two weeks ago — tables now scroll horizontally
+        inside their own container.
+      status: Closed
+      priority: Normal
+      category: Bug report
+      requester_name: Nadia Haddad
+      requester_email: nadia.haddad@zephyr.example
+      resolved_at: '{{today-21d}}'
+
+  - key: trial-extension
+    fields:
+      subject: Trial extension while we finish procurement
+      description: >-
+        Extended by three weeks. Procurement completed and the account is now on
+        an annual plan.
+      status: Closed
+      priority: Normal
+      category: Billing
+      requester_name: Ravi Chandran
+      requester_email: ravi.chandran@keelson.example
+      resolved_at: '{{today-34d}}'

@@ -10,6 +10,28 @@ import type { ComponentDispatchConfig, ComponentRenderer } from '../component-di
 import type { TocHeading } from '@/presentation/rendering/toc-resolver'
 import type { ReactElement } from 'react'
 
+/**
+ * Renderer for `{ type: 'toc' }` — auto-generated table of contents.
+ *
+ * The schema author writes ONLY `{ type: 'toc' }` (optionally `props.sticky: true`
+ * for a sidebar-style sticky TOC). The page-level `resolvePageToc` pass
+ * (see {@link "../../../../rendering/toc-resolver"}) walks the full component
+ * tree, assigns deterministic anchor ids to every heading component, and
+ * attaches the collected `TocHeading[]` to this component as a render-time
+ * `tocHeadings` field (sibling of `props`). This renderer reads that field and
+ * emits a `<nav>` of `<a href="#id">` links — one per heading, in document
+ * order — so native browser anchor scrolling drives navigation without any
+ * client-side JavaScript.
+ *
+ * Sticky variant — when `props.sticky === true`, the wrapping `<nav>` gets
+ * `sticky top-0` Tailwind classes; combined with the spec's typical
+ * `<aside class="w-64 shrink-0">` parent in a `flex` container, the TOC
+ * stays in view while the long article scrolls.
+ *
+ * No headings → no nav. We emit an empty `<nav role="navigation">` so the
+ * page locator still resolves (matching how empty sections render) without
+ * a visible empty box.
+ */
 export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig): ReactElement => {
   const component = config.component as
     | { readonly tocHeadings?: readonly TocHeading[]; readonly props?: Record<string, unknown> }
@@ -27,6 +49,7 @@ export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig)
   const baseClasses = 'text-sm'
   const className = [baseClasses, stickyClasses, userClassName].filter(Boolean).join(' ')
 
+  // Strip className from rest so we don't double-set it.
   const { className: _cn, ...nonClassProps } = restProps
 
   return (
@@ -38,6 +61,10 @@ export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig)
     >
       <ul className="m-0 list-none space-y-1 p-0">
         {headings.map((heading) => {
+          // Indent by level so h2 sits flush, h3 is indented once, etc.
+          // h1 is treated the same as h2 visually (TOC root level) because
+          // documentation pages typically have one h1 (the page title) and
+          // the TOC navigates the h2+ structure.
           const indent = heading.level <= 2 ? 0 : heading.level - 2
           const indentClass = indent === 0 ? '' : `pl-${indent * 4}`
           return (

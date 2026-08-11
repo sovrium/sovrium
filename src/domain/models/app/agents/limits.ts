@@ -7,7 +7,19 @@
 
 import { Schema } from 'effect'
 
+/**
+ * AgentLimitsSchema defines operational limits to prevent runaway agents
+ * from exhausting API quotas or overwhelming the system.
+ *
+ * All fields are optional and fall back to system defaults:
+ * - maxActionsPerMinute: 30
+ * - maxTokensPerDay: 200,000
+ * - maxConcurrentTasks: 5
+ *
+ * Token usage is tracked per agent per day and resets at midnight UTC.
+ */
 export const AgentLimitsSchema = Schema.Struct({
+  /** Maximum DB/email actions per minute (defaults to 30) */
   maxActionsPerMinute: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -18,6 +30,7 @@ export const AgentLimitsSchema = Schema.Struct({
     )
   ),
 
+  /** Maximum LLM tokens consumed per 24h period (defaults to 200000) */
   maxTokensPerDay: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -28,6 +41,7 @@ export const AgentLimitsSchema = Schema.Struct({
     )
   ),
 
+  /** Maximum simultaneous task executions (defaults to 5) */
   maxConcurrentTasks: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -46,4 +60,5 @@ export const AgentLimitsSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AgentLimits = Schema.Schema.Type<typeof AgentLimitsSchema>

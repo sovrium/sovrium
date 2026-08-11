@@ -18,6 +18,28 @@
 
 set -eu
 
+# ─── Terminal language ────────────────────────────────────────
+#
+# The six renderers that make this script obey the same standard as the
+# TypeScript CLI. See docs/architecture/patterns/terminal-language.md §11.
+# `printf`, never `echo` — echo mangles backslashes and leading `-` under dash.
+
+say()  { printf '  %s\n' "$1"; }              # banner prose / guidance
+ok()   { printf '  \xe2\x9c\x93 %s\n' "$1"; }        # banner phase
+warn() { printf '  \xe2\x9a\xa0 %s\n' "$1"; }        # banner degradation
+step() { printf '%s\xe2\x80\xa6\n' "$1" >&2; }       # stream narration -> stderr
+die()  {
+  printf 'Error: %s\n' "$1" >&2
+  [ -n "${2:-}" ] && printf '\n%s\n' "$2" >&2
+  exit 1
+}
+
+# Degradations discovered mid-stream are collected, not printed where they
+# happen, so a warning cannot scroll away above 500 lines of tar output. The
+# closing banner renders them.
+CHECKSUM_WARNING=""
+PATH_UPDATED=""
+
 # ─── Configuration ────────────────────────────────────────────
 
 GITHUB_REPO="sovrium/sovrium"
@@ -38,21 +60,21 @@ while [ $# -gt 0 ]; do
       ;;
     --version=*) VERSION="${1#--version=}" ;;
     --help|-h)
-      echo "Sovrium Install Script"
-      echo ""
-      echo "Usage: curl -fsSL https://sovrium.com/install | sh"
-      echo ""
-      echo "Options:"
-      echo "  --no-modify-path    Don't modify shell rc files"
-      echo "  --version X.Y.Z    Install specific version"
-      echo ""
-      echo "Environment variables:"
-      echo "  SOVRIUM_INSTALL_DIR  Custom install directory (default: ~/.sovrium)"
+      printf '%s\n' "Usage: curl -fsSL https://sovrium.com/install | sh"
+      printf '\n%s\n' "Install the Sovrium binary and add it to your PATH."
+      printf '\n%s\n' "Options:"
+      printf '%s\n' "  --no-modify-path              Leave your shell rc files alone"
+      printf '%s\n' "  --version X.Y.Z               Install a specific version (default: latest)"
+      printf '%s\n' "  --help, -h                    Show this help message"
+      printf '\n%s\n' "Environment variables:"
+      printf '%s\n' "  SOVRIUM_INSTALL_DIR           Install prefix (default: ~/.sovrium)"
+      printf '\n%s\n' "Examples:"
+      printf '%s\n' "  curl -fsSL https://sovrium.com/install | sh"
+      printf '%s\n' "  curl -fsSL https://sovrium.com/install | sh -s -- --version 0.21.0"
       exit 0
       ;;
     *)
-      echo "Unknown option: $1"
-      exit 1
+      die "Unknown option \"$1\"." "Run with --help to list the accepted options."
       ;;
   esac
   shift
@@ -67,8 +89,7 @@ download() {
   elif command -v wget >/dev/null 2>&1; then
     wget -q "$1" -O "$2" && return 0
   else
-    echo "Error: curl or wget is required" >&2
-    exit 1
+    die "Neither curl nor wget is available." "Install one of them, then re-run this script." 
   fi
   return 1
 }
@@ -83,18 +104,18 @@ detect_platform() {
     Darwin) OS="darwin" ;;
     Linux) OS="linux" ;;
     MINGW*|MSYS*|CYGWIN*)
-      echo "Error: Windows is not supported by this install script."
-      echo "Install via Scoop instead:"
-      echo "  scoop bucket add sovrium https://github.com/sovrium/scoop-bucket"
-      echo "  scoop install sovrium"
-      echo ""
-      echo "Or download the Windows binary from:"
-      echo "  https://github.com/$GITHUB_REPO/releases/latest"
-      exit 1
+      die "This script does not support Windows." \
+"Install with Scoop:
+  scoop bucket add sovrium https://github.com/sovrium/scoop-bucket
+  scoop install sovrium
+
+Or download the Windows binary from
+  https://github.com/$GITHUB_REPO/releases/latest"
       ;;
     *)
-      echo "Error: Unsupported operating system: $OS"
-      exit 1
+      die "Unsupported operating system: $OS" \
+"Sovrium ships binaries for macOS and Linux. See
+  https://github.com/$GITHUB_REPO/releases"
       ;;
   esac
 
@@ -102,8 +123,9 @@ detect_platform() {
     x86_64|amd64) ARCH="x64" ;;
     aarch64|arm64) ARCH="arm64" ;;
     *)
-      echo "Error: Unsupported architecture: $ARCH"
-      exit 1
+      die "Unsupported architecture: $ARCH" \
+"Sovrium ships x86_64 and arm64 builds. See
+  https://github.com/$GITHUB_REPO/releases"
       ;;
   esac
 
@@ -117,21 +139,20 @@ fetch_latest_version() {
     return
   fi
 
-  echo "Fetching latest version..."
+  step "Fetching the latest version"
 
   if command -v curl >/dev/null 2>&1; then
     VERSION=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
   elif command -v wget >/dev/null 2>&1; then
     VERSION=$(wget -qO- "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
   else
-    echo "Error: curl or wget is required"
-    exit 1
+    die "Neither curl nor wget is available." "Install one of them, then re-run this script."
   fi
 
   if [ -z "$VERSION" ]; then
-    echo "Error: Could not determine latest version"
-    echo "Check https://github.com/$GITHUB_REPO/releases"
-    exit 1
+    die "Could not resolve the latest version from the GitHub API." \
+"Pass one explicitly with --version X.Y.Z. Released versions:
+  https://github.com/$GITHUB_REPO/releases"
   fi
 }
 
@@ -146,40 +167,43 @@ download_and_install() {
   TEMP_DIR=$(mktemp -d)
   trap 'rm -rf "$TEMP_DIR"' EXIT
 
-  echo "Downloading sovrium v${VERSION} for ${TARGET}..."
+  step "Downloading sovrium v${VERSION} for ${TARGET}"
 
   if ! download "$URL" "$TEMP_DIR/$ARCHIVE"; then
-    echo "Error: failed to download ${ARCHIVE}" >&2
-    echo "  URL: ${URL}" >&2
-    echo "  This usually means version ${VERSION} has no ${TARGET} build yet." >&2
-    echo "  See https://github.com/$GITHUB_REPO/releases" >&2
-    exit 1
+    die "Could not download ${ARCHIVE}. Nothing was installed." \
+"Version ${VERSION} may have no ${TARGET} build yet.
+  ${URL}
+  https://github.com/$GITHUB_REPO/releases"
   fi
   # Checksum file is best-effort — verification is skipped if absent.
   download "$CHECKSUM_URL" "$TEMP_DIR/$CHECKSUM_FILE" 2>/dev/null || true
 
   # Verify checksum if available
   if [ -f "$TEMP_DIR/$CHECKSUM_FILE" ] && [ -s "$TEMP_DIR/$CHECKSUM_FILE" ]; then
-    echo "Verifying checksum..."
+    step "Verifying the checksum"
     cd "$TEMP_DIR"
     if command -v sha256sum >/dev/null 2>&1; then
       sha256sum -c "$CHECKSUM_FILE" --quiet 2>/dev/null || {
-        echo "Error: Checksum verification failed!"
-        exit 1
+        die "Checksum does not match the published sha256. Nothing was installed." \
+"The download may be corrupt or tampered with. Re-run this script; if it fails
+again, report it at https://github.com/$GITHUB_REPO/issues"
       }
     elif command -v shasum >/dev/null 2>&1; then
       shasum -a 256 -c "$CHECKSUM_FILE" --quiet 2>/dev/null || {
-        echo "Error: Checksum verification failed!"
-        exit 1
+        die "Checksum does not match the published sha256. Nothing was installed." \
+"The download may be corrupt or tampered with. Re-run this script; if it fails
+again, report it at https://github.com/$GITHUB_REPO/issues"
       }
     else
-      echo "Warning: No sha256sum or shasum available, skipping checksum verification"
+      CHECKSUM_WARNING="Checksum not verified \xe2\x80\x94 no sha256sum or shasum on this system"
     fi
     cd - >/dev/null
+  else
+    CHECKSUM_WARNING="Checksum not published for this build \xe2\x80\x94 installed without verification"
   fi
 
   # Extract
-  echo "Extracting..."
+  step "Extracting"
   tar xzf "$TEMP_DIR/$ARCHIVE" -C "$TEMP_DIR"
 
   # Resolve the binary defensively: current releases ship the bare `sovrium`,
@@ -189,8 +213,9 @@ download_and_install() {
   elif [ -f "$TEMP_DIR/sovrium-${TARGET}" ]; then
     BINARY="$TEMP_DIR/sovrium-${TARGET}"
   else
-    echo "Error: Binary not found in archive"
-    exit 1
+    die "The archive for v${VERSION}/${TARGET} contains no sovrium binary." \
+"This is a packaging fault, not a configuration error. Report it at
+  https://github.com/$GITHUB_REPO/issues" 
   fi
 
   # Install
@@ -203,7 +228,6 @@ download_and_install() {
     xattr -d com.apple.quarantine "$BIN_DIR/sovrium" 2>/dev/null || true
   fi
 
-  echo "Installed sovrium v${VERSION} to $BIN_DIR/sovrium"
 }
 
 # ─── Update PATH ─────────────────────────────────────────────
@@ -253,43 +277,42 @@ update_path() {
     echo "$EXPORT_LINE"
   } >> "$RC_FILE"
 
-  echo "Added $BIN_DIR to PATH in $RC_FILE"
+  PATH_UPDATED="$RC_FILE"
 }
 
 # ─── Main ─────────────────────────────────────────────────────
 
 main() {
-  echo ""
-  echo "  Sovrium Installer"
-  echo "  ─────────────────"
-  echo ""
-
+  # Nothing opens the script. A user who just typed the curl one-liner has it on
+  # screen; "Sovrium Installer" over a rule restates it and then makes them wait.
+  # The first real line reports work starting, sooner and with information.
   detect_platform
   fetch_latest_version
   download_and_install
   update_path
 
-  echo ""
-  echo "  ✓ Sovrium v${VERSION} installed successfully!"
-  echo ""
-  echo "  To get started:"
-  echo "    sovrium --help"
-  echo ""
-  echo "  To create a new project:"
-  echo "    sovrium init --template hello-world"
-  echo ""
+  # The closing banner is the same block `sovrium start` and `sovrium build`
+  # render: version header, grouped degradations, grouped phases, guidance. The
+  # version lives here because this is the first point the script knows it.
+  printf '\n'
+  say "Sovrium v${VERSION}"
 
-  # Remind to restart shell if PATH was modified
-  if [ "$MODIFY_PATH" -eq 1 ]; then
-    case ":$PATH:" in
-      *":$BIN_DIR:"*) ;;
-      *)
-        echo "  Restart your shell or run:"
-        echo "    export PATH=\"$BIN_DIR:\$PATH\""
-        echo ""
-        ;;
-    esac
+  if [ -n "$CHECKSUM_WARNING" ]; then
+    printf '\n'
+    warn "$(printf '%b' "$CHECKSUM_WARNING")"
   fi
+
+  printf '\n'
+  ok "Installed to $BIN_DIR/sovrium"
+  [ -n "$PATH_UPDATED" ] && ok "PATH updated in $PATH_UPDATED"
+
+  printf '\n'
+  if [ "$MODIFY_PATH" -eq 1 ] && [ -n "$PATH_UPDATED" ]; then
+    say "Restart your shell, then run 'sovrium init --template hello-world'."
+  else
+    say "Run 'sovrium init --template hello-world' to create your first app."
+  fi
+  printf '\n'
 }
 
 main

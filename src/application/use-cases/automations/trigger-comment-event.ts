@@ -13,6 +13,7 @@ import {
   loadCurrentUserContext,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { createdByFieldNames } from '@/domain/services/authorship-fields'
 import { evaluateRecordAgainstPredicate } from '@/domain/validators/row-level-evaluator'
 import { logError } from '@/infrastructure/logging/logger'
@@ -24,6 +25,22 @@ import type { DataSourceRepository } from '@/application/ports/repositories/tabl
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables/table'
 
+/**
+ * Inputs to the comment-posted trigger (Y-6).
+ *
+ * `comment` is the freshly-created row, surfaced to actions via
+ * `{{trigger.comment.X}}` (top-level — NOT under `trigger.data`). The
+ * `author` block carries the user metadata that the spec asserts
+ * (`{{trigger.comment.author.email}}`); we accept it from the caller
+ * rather than re-querying so the route does one fetch.
+ *
+ * `mentions` is an already-resolved list of user IDs. The engine does NOT
+ * re-parse the body for `@<name>` markup — the spec passes the IDs
+ * explicitly in the request body, so we trust the caller's list.
+ *
+ * `processEnv` mirrors `triggerRecordEventAutomations` so action handlers
+ * can resolve `$env.VAR_NAME` and so secrets get redacted from history.
+ */
 export interface TriggerCommentEventInput {
   readonly app: App
   readonly tableName: string
@@ -36,6 +53,15 @@ export interface TriggerCommentEventInput {
     readonly body: string
     readonly parentCommentId: string | null
     readonly createdAt: Date
+    /**
+     * Moderation status of the freshly-created comment row. Defaults to
+     * `'approved'` in the create-handler (matching the DB column default
+     * when no moderation pipeline has flipped it), so a comment is
+     * effectively-approved at insert-time. PG-02 locked the trigger semantics
+     * such that `when: 'approved'` automations fire only for approved
+     * comments — when the moderation pipeline lands and starts emitting
+     * `'pending'` rows, this gate already excludes them.
+     */
     readonly status: 'pending' | 'approved' | 'rejected'
   }
   readonly author: {
@@ -47,6 +73,21 @@ export interface TriggerCommentEventInput {
   readonly processEnv: Readonly<Record<string, string | undefined>>
 }
 
+/**
+ * Match a `comment`-typed automation against the just-posted comment.
+ *
+ * `when` lifecycle gate semantics (PG-02 lock):
+ * - `undefined` / `'created'` (default): fires on any new comment insert.
+ * - `'approved'`: fires only when the comment row's status is `'approved'`.
+ *   The DB column defaults to `'approved'`, so today every new comment
+ *   passes this gate. When the moderation pipeline lands and starts
+ *   emitting `'pending'` / `'rejected'` rows, this gate already excludes
+ *   them without further matcher changes.
+ * - `'any'`: fires on any new comment regardless of status.
+ *
+ * `filter.mentionsOnly` short-circuits when the caller's mentions list is
+ * empty (the trigger envelope's `{{trigger.mentions}}` would be empty too).
+ */
 const matchesCommentTrigger = (
   automation: NonNullable<App['automations']>[number],
   tableName: string,
@@ -58,10 +99,19 @@ const matchesCommentTrigger = (
   if (trigger.type !== 'comment') return false
   if (trigger.table !== tableName) return false
   if (trigger.filter?.mentionsOnly === true && mentions.length === 0) return false
+  // PG-02 lock: `when: 'approved'` fires only for approved comments. Other
+  // values (`'created'`, `'any'`, undefined) fire on any insert.
   if (trigger.when === 'approved' && status !== 'approved') return false
   return true
 }
 
+/**
+ * Read the first non-empty owner user id from `record`, searching the table's
+ * declared `created-by` field name(s) FIRST (GAP-21: the owner column may be
+ * custom-named, e.g. `author`), then the literal `created_by` / `createdBy`
+ * fallthrough (back-compat — keeps [internal ref] green
+ * for tables whose created-by field IS literally named `created_by`).
+ */
 const readOwnerId = (
   record: Readonly<Record<string, unknown>>,
   createdByNames: readonly string[]
@@ -73,6 +123,20 @@ const readOwnerId = (
   return owner
 }
 
+/**
+ * Resolve the record OWNER's email for the GAP-13 first-comment fallback.
+ *
+ * The record envelope surfaces the owner's user id in the table's declared
+ * `created-by` field — which may be CUSTOM-NAMED (GAP-21, e.g. `author`) — or
+ * the literal snake_case `created_by` (the transformed envelope's camelCase
+ * `createdBy` is also accepted defensively in case the upstream shape changes).
+ * When a record has no prior comment authors (the very first comment),
+ * `threadParticipants` would otherwise be empty and a "notify the thread"
+ * automation would fail with "requires a `to` address". We fall back to the
+ * record owner's email so notifications still deliver. Returns an empty array
+ * when the owner cannot be resolved (no owner field, owner is the new author,
+ * or the user row is missing).
+ */
 const resolveOwnerFallbackEmails = (
   session: Readonly<UserSession>,
   record: Readonly<Record<string, unknown>>,
@@ -91,6 +155,16 @@ const resolveOwnerFallbackEmails = (
     return [emailResult.right]
   })
 
+/**
+ * Resolve `threadParticipants` for the just-posted comment (GAP-13).
+ *
+ * Distinct EMAIL ADDRESSES of all (non-soft-deleted) comment authors on the
+ * same record, minus the new author — usable directly as an `email.send`
+ * `to`. When the resolved list is empty (a first comment), falls back to the
+ * record OWNER's email so a notify-thread automation still has a recipient.
+ * Returns `readonly string[]` so the trigger envelope can surface it directly
+ * at `{{trigger.threadParticipants}}`.
+ */
 const resolveThreadParticipants = (params: {
   readonly session: Readonly<UserSession>
   readonly record: Readonly<Record<string, unknown>>
@@ -114,17 +188,35 @@ const resolveThreadParticipants = (params: {
     return yield* resolveOwnerFallbackEmails(session, record, newAuthorId, createdByNames)
   })
 
+/**
+ * Build the trigger-data envelope for a comment-posted dispatch. `record`
+ * is the record the comment was posted on (looked up once per dispatch);
+ * `comment.author` is rebuilt from the caller-provided user metadata so
+ * `{{trigger.comment.author.email}}` resolves without an extra DB hop.
+ */
 const buildCommentTriggerData = (
   input: TriggerCommentEventInput,
   record: Readonly<Record<string, unknown>>,
   threadParticipants: readonly string[]
 ): TriggerData => {
+  // Bridge from the create handler's `status` field to the auth-event-style
+  // `event` discriminator surfaced at `{{trigger.data.event}}`. A
+  // moderation-pipeline insert that arrives `'approved'` upfront fires the
+  // `'created'` lifecycle (PG-02 lock — auto-mode comments are
+  // approved-on-insert). Once `'pending'` flips to `'approved'` later, the
+  // moderation pipeline will dispatch a separate `'approved'` event; that
+  // hook lives outside this use case.
   const event = input.comment.status === 'approved' ? 'approved' : 'created'
   const envelope = {
     record,
     comment: {
       id: input.comment.id,
       body: input.comment.body,
+      // Echo the wire-format key the create-comment handler surfaces in its
+      // 201 response (`comment.content`) so templates can use either path —
+      // `{{trigger.comment.body}}` or `{{trigger.comment.content}}` — and
+      // resolve to the same string. Avoids action-template churn when an
+      // operator copies a YAML snippet authored against the API response.
       content: input.comment.body,
       parentCommentId: input.comment.parentCommentId,
       createdAt: input.comment.createdAt.toISOString(),
@@ -138,6 +230,17 @@ const buildCommentTriggerData = (
   return envelope as unknown as TriggerData
 }
 
+/**
+ * Apply Z-3 read-permission check for `respectReadPermissions: true`.
+ *
+ * Returns true when the trigger should fire (admin, no row-level rules,
+ * or the comment author passes the `read.when` predicate against the
+ * record fields). Returns false when the trigger MUST be suppressed
+ * because the author cannot read the record they just commented on —
+ * matches the customer-facing privacy contract that an automation must
+ * never reveal a record's existence to a user who could not have seen
+ * it themselves.
+ */
 const passesReadPermissionGate = (input: {
   readonly table: Table | undefined
   readonly record: Readonly<Record<string, unknown>>
@@ -149,17 +252,22 @@ const passesReadPermissionGate = (input: {
     if (input.respectReadPermissions !== true) return true
     const predicate = input.table?.rowLevelPermissions?.read?.when
     if (!predicate) return true
-    if (input.userRole === 'admin') return true
+    if (isAdminRole(input.userRole)) return true
 
     const projection = toSessionProjection(input.session, {
       role: input.userRole,
-      isUnrestricted: input.userRole === 'admin',
+      isUnrestricted: isAdminRole(input.userRole),
     })
     const scopeTables = collectAssignmentScopeTables(input.table?.rowLevelPermissions)
     const ctx = yield* loadCurrentUserContext(projection, scopeTables)
     return evaluateRecordAgainstPredicate(input.record, predicate, ctx)
   })
 
+/**
+ * Fetch the parent record by id. Returns `undefined` when the row vanished
+ * between comment-create and trigger-dispatch (extremely unlikely in
+ * practice but graceful — the caller short-circuits the dispatch).
+ */
 const fetchParentRecord = (
   session: Readonly<UserSession>,
   tableName: string,
@@ -172,6 +280,12 @@ const fetchParentRecord = (
     return result.right ?? undefined
   })
 
+/**
+ * Per-automation guard: short-circuits when `respectReadPermissions: true`
+ * and the comment author does not pass the table's `read.when` predicate.
+ * Returns the dispatch effect (or `void`) — extracted so the top-level
+ * iterator stays under the 50-line/function limit.
+ */
 const dispatchSingleCommentAutomation = (params: {
   readonly automation: NonNullable<App['automations']>[number]
   readonly input: TriggerCommentEventInput
@@ -200,6 +314,15 @@ const dispatchSingleCommentAutomation = (params: {
     })
   })
 
+/**
+ * Fire all comment-posted automations matching the just-created comment.
+ *
+ * Errors are absorbed at the boundary — a comment-create endpoint returns
+ * 201 regardless of automation outcome. The mismatch between "comment
+ * succeeded" and "automation failed" is captured in `system.automation_runs`,
+ * mirroring the convention established by record-event and form-submission
+ * triggers.
+ */
 export const triggerCommentEventAutomations = (
   input: TriggerCommentEventInput
 ): Effect.Effect<
@@ -216,6 +339,9 @@ export const triggerCommentEventAutomations = (
     const record = yield* fetchParentRecord(input.session, input.tableName, input.recordId)
     if (!record) return
 
+    // GAP-21: resolve the table's declared `created-by` field name(s) so the
+    // first-comment owner fallback reads the owner from a CUSTOM-named column
+    // (e.g. `author`), not just the literal `created_by`.
     const createdByNames = createdByFieldNames(input.app.tables, input.tableName)
     const threadParticipants = yield* resolveThreadParticipants({
       session: input.session,

@@ -31,6 +31,7 @@ import { PaletteSchema } from './palette'
 import { RedirectsSchema } from './redirects'
 import { validateAllRedirectRules } from './redirects-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
+import { validateAllSelectOptionSources } from './select-option-source-validation'
 import { validateAllSystemSourceReferences } from './system-source-validation'
 import { SystemSourceCatalogSchema } from './systemSources'
 import { validateAllTablePermissionGroups } from './table-permission-validation'
@@ -38,49 +39,249 @@ import { TablesSchema } from './tables'
 import { ThemeSchema } from './theme'
 import { VersionSchema } from './version'
 
+/**
+ * AppSchema defines the structure of an application configuration.
+ *
+ * This schema represents the core metadata for any application built
+ * with Sovrium, including its name, optional version, and optional description.
+ *
+ * @example
+ * ```typescript
+ * const myApp = {
+ *   name: 'todo-app',
+ *   version: '1.0.0',
+ *   description: 'A simple todo list application',
+ * }
+ *
+ * const validated = Schema.decodeUnknownSync(AppSchema)(myApp)
+ * ```
+ */
 export const AppSchema = Schema.Struct({
+  /**
+   * The name of the application.
+   *
+   * Must follow npm package naming conventions:
+   * - Lowercase only
+   * - Maximum 214 characters (including scope for scoped packages)
+   * - Cannot start with a dot or underscore
+   * - Cannot contain leading/trailing spaces
+   * - Cannot contain non-URL-safe characters
+   * - Scoped packages: @scope/package-name format allowed
+   * - Can include hyphens and underscores (but not at the start)
+   */
   name: NameSchema,
 
+  /**
+   * The version of the application (optional).
+   *
+   * Must follow Semantic Versioning (SemVer) 2.0.0 specification:
+   * - Format: MAJOR.MINOR.PATCH (e.g., 1.0.0)
+   * - No leading zeros in version components
+   * - Optional pre-release identifiers (e.g., 1.0.0-alpha)
+   * - Optional build metadata (e.g., 1.0.0+build.123)
+   */
   version: Schema.optional(VersionSchema),
 
+  /**
+   * A description of the application (optional).
+   *
+   * Must be a single-line string:
+   * - No line breaks allowed (\n, \r, or \r\n)
+   * - No maximum length restriction
+   * - Can contain any characters except line breaks
+   * - Unicode characters and emojis are supported
+   */
   description: Schema.optional(DescriptionSchema),
 
+  /**
+   * "Built with Sovrium" badge (optional).
+   *
+   * Controls the small badge pill rendered bottom-right by default on all
+   * pages (positive polarity: omitted or `true` = shown, `false` = hidden).
+   * Removal is free forever — one config line, never license-gated. The badge
+   * is a static SSR link with zero telemetry; its label follows the page's
+   * active locale (en/fr, English fallback) and is hard-coded OFF on the
+   * `/_admin` operator console.
+   */
   badge: Schema.optional(BadgeSchema),
 
+  /**
+   * Data tables that define the data structure (optional).
+   *
+   * Collection of database tables that define the data structure of your application.
+   * Each table represents an entity (e.g., users, products, orders) with fields that
+   * define the schema. Tables support relationships, indexes, constraints, and various
+   * field types.
+   */
   tables: Schema.optional(TablesSchema),
 
+  /**
+   * Design system configuration (optional).
+   *
+   * Unified design tokens for colors, typography, spacing, animations, breakpoints,
+   * shadows, and border radius. Theme applies globally to all pages via className
+   * utilities and CSS variables.
+   */
   theme: Schema.optional(ThemeSchema),
 
+  /**
+   * Multi-language support configuration (optional).
+   *
+   * Defines supported languages, default language, translations, and i18n behavior
+   * (browser detection, persistence). Pages reference translations using $t: syntax.
+   */
   languages: Schema.optional(LanguagesSchema),
 
+  /**
+   * Authentication configuration (optional).
+   *
+   * Enables authentication features including email/password authentication,
+   * user management, and organization support. Configure authentication providers
+   * and optional plugins (admin, organization) based on application requirements.
+   */
   auth: Schema.optional(AuthSchema),
 
+  /**
+   * Built-in analytics configuration (optional).
+   *
+   * Enables first-party, privacy-friendly analytics tracking without cookies
+   * or external dependencies. Configure data retention, excluded paths,
+   * session timeout, and Do Not Track behavior.
+   */
   analytics: Schema.optional(BuiltInAnalyticsSchema),
 
+  /**
+   * Reusable UI components (optional).
+   *
+   * Array of reusable component templates with variable substitution. Components are
+   * defined once at app level and referenced across pages using $ref syntax with
+   * $vars for dynamic content.
+   */
   components: Schema.optional(ComponentsSchema),
 
+  /**
+   * Marketing and content pages (optional).
+   *
+   * Array of page configurations with server-side rendering support. Pages use a
+   * component-based system with comprehensive metadata, theming, and i18n support.
+   * Minimum of 1 page required when pages property is present.
+   */
   pages: Schema.optional(PagesSchema),
 
+  /**
+   * Retired URLs and their replacements (optional).
+   *
+   * Each rule answers a path with an HTTP redirect (default 301) so
+   * restructuring an app never breaks an indexed link, a bookmark or a backlink.
+   * Without this, a retired path can only 404 — `access.redirectTo` covers auth
+   * denial and `forms.onSuccess` covers post-submit, but neither retires a URL.
+   *
+   * A `from` authored without a language prefix matches the bare path AND every
+   * language-prefixed variant the page router serves, and a path `to` inherits
+   * the request's language prefix. Rules are evaluated AFTER static assets (a
+   * real public-directory file always wins) and BEFORE page resolution.
+   * When present, must declare at least one rule.
+   */
   redirects: Schema.optional(RedirectsSchema),
 
+  /**
+   * Standalone forms (optional).
+   *
+   * Top-level form definitions addressable by name. Forms can be rendered as
+   * public routes (`path`), embedded in pages via the `type: 'form'` component
+   * with `formRef`, or referenced by automation form triggers via `form: <name>`.
+   *
+   * Forms are independent of `pages` — an app can ship with ONLY forms and no
+   * pages. When present, must contain at least one form definition.
+   */
   forms: Schema.optional(FormsSchema),
 
+  /**
+   * External service connections (optional).
+   *
+   * Defines authenticated connections to external services for use in
+   * automation HTTP actions. Supports OAuth2, API key, basic auth, and
+   * bearer token. Referenced in actions as $connection.NAME.
+   */
   connections: Schema.optional(ConnectionsSchema),
 
+  /**
+   * Environment variables for automations (optional).
+   *
+   * Defines expected environment variables used by automation actions.
+   * Values are resolved at runtime and NEVER logged in execution history.
+   * Referenced in action params as $env.VAR_NAME.
+   */
   env: Schema.optional(EnvVarsSchema),
 
+  /**
+   * Reusable action templates (optional).
+   *
+   * Preconfigured action templates that can be referenced across automations
+   * using the $ref pattern with $vars for customization. Similar to how
+   * components work for pages.
+   */
   actions: Schema.optional(ActionTemplatesSchema),
 
+  /**
+   * Workflow automations (optional).
+   *
+   * Define event-driven workflows with triggers and sequential actions.
+   * Automations can reference table data, send HTTP requests, execute code,
+   * and more. Use template variables ({{stepName.property}}) for data flow.
+   */
   automations: Schema.optional(AutomationsSchema),
 
+  /**
+   * AI agent configurations (optional).
+   *
+   * Array of autonomous AI agents that can perform actions on behalf of users.
+   * Each agent operates under an auth role with configurable approval workflows,
+   * tool access, rate limits, and scheduling. Requires auth and AI_PROVIDER env var.
+   */
   agents: Schema.optional(AgentsSchema),
 
+  /**
+   * Named storage buckets (optional).
+   *
+   * Array of named storage containers with per-bucket permissions, file constraints,
+   * and public/private toggle. Infrastructure credentials (S3 keys, local path) are
+   * configured via env vars. Buckets define application-level file organization.
+   *
+   * When omitted, an implicit 'default' bucket is used at runtime.
+   */
   buckets: Schema.optional(BucketsSchema),
 
+  /**
+   * LLMs.txt configuration (optional).
+   *
+   * Controls the auto-generated `/llms.txt` and `/llms-full.txt` routes
+   * (llmstxt.org). When omitted, the routes are auto-derived from any
+   * content-directory pages. Use `enabled: false` to disable, or
+   * `title`/`description` to override the generated heading and blockquote.
+   */
   llms: Schema.optional(LlmsSchema),
 
+  /**
+   * Command-palette configuration (optional).
+   *
+   * Controls the platform-synthesized Cmd+K command palette that Sovrium
+   * appends to every page. Enabled by default. Use `palette: { enabled: false }`
+   * to opt out when the app ships its own Cmd+K search overlay (prevents two
+   * overlays opening on the same keystroke).
+   */
   palette: Schema.optional(PaletteSchema),
 
+  /**
+   * Named system-source catalog (optional).
+   *
+   * Declares reusable system read-endpoint sources ONCE, addressable by name.
+   * A data component then binds to one by reference with the
+   * `dataSource: { systemSource: <name> }` shorthand instead of inlining a raw
+   * `{ system: { endpoint } }` path — decoupling the config from REST paths and
+   * letting `sovrium validate` check (offline) that every reference resolves.
+   * When present, must declare at least one source with unique names.
+   */
   systemSources: Schema.optional(SystemSourceCatalogSchema),
 }).pipe(
   Schema.annotations({
@@ -131,12 +332,18 @@ export const AppSchema = Schema.Struct({
     return true
   }),
   Schema.filter((app) => {
+    // Only validate role references in permissions when auth is explicitly configured.
     if (!app.auth) return true
+    // Table permissions are validated as soon as auth exists (built-in + custom
+    // roles); bucket/trigger permissions stay format-only unless `auth.roles`
+    // is declared (handled inside validateAllRoleReferences).
     const tableError = validateTableRoleReferences(app)
     if (tableError !== true) return tableError
     return validateAllRoleReferences(app)
   }),
+  // Bucket reference cross-validation: attachment field bucket references must exist in app.buckets
   Schema.filter((app) => {
+    // Only validate when both buckets and tables are configured
     if (!app.buckets || !app.tables) return true
 
     const bucketNames = new Set(app.buckets.map((b) => b.name))
@@ -157,6 +364,7 @@ export const AppSchema = Schema.Struct({
 
     return errors.length > 0 ? errors[0] : true
   }),
+  // Automation cross-validation: record triggers/actions must reference existing tables
   Schema.filter((app) => {
     if (!app.automations || !app.tables) return true
 
@@ -206,6 +414,7 @@ export const AppSchema = Schema.Struct({
 
     return true
   }),
+  // Automation cross-validation: auth triggers/actions require auth config
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -222,6 +431,7 @@ export const AppSchema = Schema.Struct({
     }
     return true
   }),
+  // Automation cross-validation: analytics actions require analytics config
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -233,6 +443,7 @@ export const AppSchema = Schema.Struct({
     }
     return true
   }),
+  // Automation cross-validation: record trigger watchFields must reference existing fields
   Schema.filter((app) => {
     if (!app.automations || !app.tables) return true
 
@@ -263,6 +474,7 @@ export const AppSchema = Schema.Struct({
     }
     return true
   }),
+  // Automation cross-validation: $ref action templates must reference existing templates
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -306,6 +518,12 @@ export const AppSchema = Schema.Struct({
 
     return true
   }),
+  // NOTE: `automation:call` references are validated at RUNTIME (not at
+  // decode time) — a missing target surfaces as a failed run (HTTP 500) so
+  // operators can ship a caller before its callee lands, and so the failure
+  // is observable in run-history rather than blocking server startup.
+  // Automation cross-validation: action connection must reference existing connections
+  // Action-type-agnostic: checks ANY action with a `connection` prop (ai, http, webhook, etc.)
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -349,6 +567,7 @@ export const AppSchema = Schema.Struct({
 
     return true
   }),
+  // Automation cross-validation: approval actions require auth config
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -360,6 +579,7 @@ export const AppSchema = Schema.Struct({
     }
     return true
   }),
+  // AI Agent cross-validation: ai:agent actions require app.agents config
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -408,6 +628,7 @@ export const AppSchema = Schema.Struct({
 
     return true
   }),
+  // Form trigger cross-validation: referenced form must exist in app.forms[]
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -430,6 +651,7 @@ export const AppSchema = Schema.Struct({
     }
     return true
   }),
+  // Automation-failure trigger cross-validation: referenced automations must exist
   Schema.filter((app) => {
     if (!app.automations) return true
 
@@ -461,26 +683,78 @@ export const AppSchema = Schema.Struct({
     }
     return true
   }),
+  // Forms cross-validation (bundled): name uniqueness, id uniqueness,
+  // path uniqueness + page-path collision, submitTo.table existence,
+  // submitTo.automation existence, page form-component formRef existence
+  // AND mutual exclusion with inline dataSource/fields/fieldGroups.
   Schema.filter((app) => validateAllFormsReferences(app)),
+  // AI/MCP cross-validation (bundled): manual-trigger-only aiAccess,
+  // whitelist consistency, reserved 'auth_'/'system_' table prefixes.
+  // Bundled into a single helper to stay under TypeScript's deep-instantiation
+  // depth limit (same reason validateAllFormsReferences is bundled).
   Schema.filter((app) => validateAllAiAccessRules(app)),
+  // Agent-approval cross-validation (bundled): selective-mode requires a
+  // `required` list, `required` must be a subset of tools.actions,
+  // escalation.to must reference an auth role, escalation.after < timeout.
   Schema.filter((app) => validateAllAgentApprovalRules(app)),
+  // Agent table-knowledge cross-validation:
+  // every `knowledge.tables[]` entry must reference a declared table + real
+  // columns, and only text-like field types may be
+  // embedded as a knowledge source.
+  // Final bundled filter: agent table-knowledge references
+  // AND page-access group references
+  //. Two unrelated checks are bundled into one
+  // `Schema.filter` call because each additional filter in the chain pushes
+  // TypeScript's deep-instantiation depth over the limit and collapses the
+  // derived `App` type to `never`.
   Schema.filter((app) => {
     const knowledgeError = validateAllKnowledgeReferences(app)
     if (knowledgeError !== true) return knowledgeError
     const pageAccessError = validateAllPageAccessGroups(app)
     if (pageAccessError !== true) return pageAccessError
+    // System-source reference cross-validation (CAP-4): every
+    // `dataSource: { systemSource: <name> }` must resolve to a declared
+    // `app.systemSources[]` entry — the offline `sovrium validate` win.
     const systemSourceError = validateAllSystemSourceReferences(app)
     if (systemSourceError !== true) return systemSourceError
+    // Redirect cross-validation: no `redirects[].from` may shadow a declared
+    // static page path — the redirect is evaluated first, so the page would be
+    // silently unreachable. Bundled here (not a new `Schema.filter`) for the
+    // deep-instantiation reason documented above.
     const redirectError = validateAllRedirectRules(app)
     if (redirectError !== true) return redirectError
+    // Select dynamic-option-source cross-validation: `options` and `dataSource`
+    // are mutually exclusive, and `dataSource.{table,displayField,valueField}`
+    // must name a declared table and real fields on it. Bundled here (not a new
+    // `Schema.filter`) for the deep-instantiation reason documented above.
+    const selectOptionSourceError = validateAllSelectOptionSources(app)
+    if (selectOptionSourceError !== true) return selectOptionSourceError
     return validateAllTablePermissionGroups(app)
   })
 )
 
+/**
+ * TypeScript type inferred from AppSchema.
+ *
+ * Use this type for type-safe access to validated application data.
+ *
+ * @example
+ * ```typescript
+ * const app: App = {
+ *   name: 'my-app',
+ * }
+ * ```
+ */
 export type App = Schema.Schema.Type<typeof AppSchema>
 
+/**
+ * Encoded type of AppSchema (what goes in).
+ *
+ * In this case, it's the same as App since we don't use transformations.
+ */
 export type AppEncoded = Schema.Schema.Encoded<typeof AppSchema>
 
+// Re-export all domain model schemas and types for convenient imports
 export * from './actions'
 export * from './agents'
 export * from './analytics'

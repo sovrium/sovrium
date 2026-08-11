@@ -9,11 +9,18 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * File Extract Text Action (type: file, operator: extractText)
+ *
+ * Extract plain text content from PDF, DOCX, or HTML files.
+ * The extracted text is available as the step output for subsequent actions.
+ */
 export const FileExtractTextActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('extractText'),
   props: Schema.Struct({
+    /** Storage key of the file to extract text from */
     key: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -22,6 +29,7 @@ export const FileExtractTextActionSchema = Schema.Struct({
       )
     ),
 
+    /** Storage key of the file to extract text from (alias of `key`) */
     source: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -30,6 +38,7 @@ export const FileExtractTextActionSchema = Schema.Struct({
       )
     ),
 
+    /** Output text format */
     format: Schema.optional(
       Schema.Literal('plain', 'markdown').pipe(
         Schema.annotations({
@@ -50,4 +59,5 @@ export const FileExtractTextActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileExtractTextAction = Schema.Schema.Type<typeof FileExtractTextActionSchema>

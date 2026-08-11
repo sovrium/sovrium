@@ -7,5 +7,8 @@
 
 import { createTaggedError } from '@/domain/errors/create-tagged-error'
 
+/**
+ * Error class for app validation failures
+ */
 export const AppValidationError = createTaggedError('AppValidationError')
 export type AppValidationError = InstanceType<typeof AppValidationError>

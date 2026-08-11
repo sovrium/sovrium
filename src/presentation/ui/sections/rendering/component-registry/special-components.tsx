@@ -8,12 +8,13 @@
 import { Hero } from '@/presentation/ui/sections/hero'
 import * as Renderers from '../../renderers/element-renderers'
 import { parseHTMLContent } from '../component-registry-helpers'
-import type { ComponentRenderer } from '../component-dispatch-config'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentRenderer, DispatchableComponentType } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
+/** Stable identity for the search-list SSR placeholder input. */
 const SEARCH_INPUT_STYLE = { width: '100%', marginBottom: '0.5rem', padding: '0.5rem' } as const
 
+/** Stable identity for the list error fallback container. */
 const LIST_ERROR_STYLE = {
   color: 'red',
   padding: '1rem',
@@ -21,12 +22,16 @@ const LIST_ERROR_STYLE = {
   borderRadius: '4px',
 } as const
 
+/**
+ * Shared renderer for hero component type
+ */
 const renderHeroSection: ComponentRenderer = ({
   elementProps,
   theme,
   content,
   renderedChildren,
 }) => {
+  // If content is an HTML string, parse it as children
   const children =
     typeof content === 'string' && content.trim().startsWith('<')
       ? parseHTMLContent(content)
@@ -47,6 +52,9 @@ const renderHeroSection: ComponentRenderer = ({
   )
 }
 
+/**
+ * Renders a load more button
+ */
 function renderLoadMoreUI(): ReactElement {
   return (
     <div>
@@ -60,6 +68,9 @@ function renderLoadMoreUI(): ReactElement {
   )
 }
 
+/**
+ * Renders numbered page navigation
+ */
 function renderNumberedPaginationUI(totalPages: number): ReactElement {
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1)
   return (
@@ -77,6 +88,9 @@ function renderNumberedPaginationUI(totalPages: number): ReactElement {
   )
 }
 
+/**
+ * Renders pagination UI based on pagination style
+ */
 function renderPaginationUI(
   style: string | undefined,
   pageSize: number,
@@ -101,10 +115,12 @@ interface ListDisplayProps {
   readonly highlight?: boolean
 }
 
+/** Parses the serialized `_listDisplay` prop into its declarative config. */
 function parseListDisplay(raw: unknown): ListDisplayProps | undefined {
   return typeof raw === 'string' ? (JSON.parse(raw) as ListDisplayProps) : undefined
 }
 
+/** Builds the serialized island props from the resolved search element props. */
 function buildSearchIslandProps(
   elementProps: Record<string, unknown>,
   listDisplay: ListDisplayProps | undefined,
@@ -127,6 +143,13 @@ function buildSearchIslandProps(
   })
 }
 
+/**
+ * Renders the `list` island placeholder for a CLIENT-fetching data-bound list
+ * (CAP-1). The resolver stamped `_listIslandMode` + `_listDataSource` (the DB
+ * table OR system read endpoint) + `_listDisplay`; this host forwards them to
+ * the island, which fetches its rows and renders the `itemTemplate`. A system
+ * source is read-only — no write affordances are emitted.
+ */
 function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
   const listDisplay = parseListDisplay(elementProps['_listDisplay'])
   const dataSource = JSON.parse((elementProps['_listDataSource'] as string) ?? '{}') as unknown
@@ -143,7 +166,11 @@ function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
       data-component="list"
       data-island-props={islandProps}
     >
-      {}
+      {/* SSR skeleton: VISIBLE pulse rows before island hydration so the host
+          has a non-zero box (Playwright treats an empty/zero-height host as
+          hidden). Skeleton rows are `<div>` (not `<li>`) so `#id li` resolves to
+          the hydrated itemTemplate items only. The island replaces this host's
+          children on mount. */}
       <div
         role="status"
         aria-label="Loading list..."
@@ -160,12 +187,17 @@ function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
   )
 }
 
+/**
+ * Renders the search island placeholder for client-side interactive search
+ */
 function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement {
   const listDisplay = parseListDisplay(elementProps['_listDisplay'])
   const records = JSON.parse(
     (elementProps['_searchRecords'] as string) ?? '[]'
   ) as readonly unknown[]
   const emptyMessage = listDisplay?.emptyMessage
+  // When `bindTo` is set, an external searchInput component drives the query,
+  // so this list renders results only (no own input) to avoid duplicate inputs.
   const bindTo = elementProps['_searchBindTo'] as string | undefined
   const islandProps = buildSearchIslandProps(elementProps, listDisplay, records, bindTo)
   return (
@@ -175,10 +207,10 @@ function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement
       data-component="list"
       data-island-props={islandProps}
     >
-      {}
-      {}
-      {}
-      {}
+      {/* SSR placeholder: search input skeleton visible before island hydration. */}
+      {/* NOTE: No data-search-input attribute here — Playwright targets [data-search-input] */}
+      {/* which only exists after React hydration, ensuring tests wait for the island to mount. */}
+      {/* Omitted when bound to an external searchInput (bindTo) to avoid a duplicate input box. */}
       {bindTo ? undefined : (
         <input
           type="search"
@@ -188,14 +220,17 @@ function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement
           style={SEARCH_INPUT_STYLE}
         />
       )}
-      {}
-      {}
-      {}
+      {/* SSR empty-state: when no records match (initial load with empty table), */}
+      {/* the configured emptyMessage is rendered so search-first pages show it */}
+      {/* server-side, before the island hydrates. */}
       {records.length === 0 && emptyMessage ? <p>{emptyMessage}</p> : <ul />}
     </div>
   )
 }
 
+/**
+ * Extracts and strips internal _dataSource* and _pagination* props
+ */
 function extractListProps(elementProps: Record<string, unknown>): {
   readonly domProps: Record<string, unknown>
   readonly dataSourceBound: boolean | undefined
@@ -220,6 +255,9 @@ function extractListProps(elementProps: Record<string, unknown>): {
   }
 }
 
+/**
+ * Renders the list with optional pagination UI
+ */
 function renderListWithPagination(
   domProps: Record<string, unknown>,
   renderedChildren: readonly ReactElement[],
@@ -239,14 +277,23 @@ function renderListWithPagination(
   )
 }
 
-export const specialComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
+/**
+ * Special components (hero, card-*, speech-bubble, navigation, list, etc.)
+ *
+ * These components have complex rendering logic or use custom UI components.
+ */
+export const specialComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   hero: renderHeroSection,
 
   list: ({ elementProps, content, theme, renderedChildren }) => {
+    // CAP-1: a client-fetching data-bound list (DB table OR system read
+    // endpoint), stamped by the data-source resolver. Emit the `list` island
+    // host; the island fetches its rows and renders the itemTemplate items.
     if (elementProps['_listIslandMode']) {
       return renderListIsland(elementProps)
     }
 
+    // Show error if dataSource validation failed
     const dataSourceError = elementProps['_dataSourceError'] as string | undefined
     if (dataSourceError) {
       return (
@@ -260,6 +307,7 @@ export const specialComponents: Partial<Record<Component['type'], ComponentRende
       )
     }
 
+    // Search mode: render island placeholder for client-side interactive search
     const searchMode = elementProps['_searchMode'] as boolean | undefined
     if (searchMode) {
       return renderSearchIsland(elementProps)
@@ -267,13 +315,16 @@ export const specialComponents: Partial<Record<Component['type'], ComponentRende
 
     const { domProps, dataSourceBound, pagination } = extractListProps(elementProps)
 
+    // Render list with children (data-bound or static) when no HTML content string
     if (!content && renderedChildren.length > 0) {
       return renderListWithPagination(domProps, renderedChildren, pagination)
     }
+    // Ensure data-bound lists are visible even when empty (no records in table)
     if (dataSourceBound && !content) {
       return (
         <ul
           {...domProps}
+          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call style merge inside a stateless render function; memoization happens in the outer component
           style={{
             ...(domProps.style as object | undefined),
             display: 'block',
@@ -285,6 +336,12 @@ export const specialComponents: Partial<Record<Component['type'], ComponentRende
     return Renderers.renderList(domProps, content, theme)
   },
 
+  // `li` is the one registry key that is NOT a schema component type — no author
+  // can declare it. It is SYNTHESIZED at render time by `expandDataSourceChildren`
+  // (`data-source-resolver.ts`), which wraps each record of a data-bound list in
+  // an `li` before substituting record vars, so deleting it would drop every
+  // data-bound list row through to the `div` fallback. Admitted deliberately by
+  // `SynthesizedOnlyComponentType` in `component-dispatch-config.ts`.
   li: ({ elementProps, content, renderedChildren }) =>
     Renderers.renderListItem(elementProps, content, renderedChildren),
 

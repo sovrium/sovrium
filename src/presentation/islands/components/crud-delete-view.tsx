@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-perf/jsx-no-new-function-as-prop --
+ * This file's inline `onClick` handlers toggle a two-state confirmation flag.
+ * Re-render cost is dominated by the state transition itself, not by the
+ * handler identity, so memoization adds code without removing work.
+ */
 
 import { useState } from 'react'
 import { cn } from '@/presentation/utils/design/class-merge'
@@ -150,6 +155,7 @@ function DeleteContent({
       </>
     )
   }
+  // Form-based POST when redirect URL is configured (guarantees DB consistency)
   if (recordId && props.redirectUrl) {
     return (
       <DeleteFormButton
@@ -161,6 +167,7 @@ function DeleteContent({
       />
     )
   }
+  // Async mutation (stays on same page, shows deleted state)
   return (
     <ActionButton
       label={label}

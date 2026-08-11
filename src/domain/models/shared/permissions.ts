@@ -6,8 +6,39 @@
  */
 
 import { Schema } from 'effect'
+import {
+  DENY_WHEN_UNDECLARED,
+  evaluatePermission,
+  isAdminRole,
+  permits,
+  toPermissionValue,
+} from '@/domain/models/shared/permission-evaluation'
 
+export { isAdminRole }
 
+// ---------------------------------------------------------------------------
+// Permission Value (shared across all features)
+// ---------------------------------------------------------------------------
+
+/**
+ * Permission Value Schema
+ *
+ * Universal permission value used across all features (tables, buckets,
+ * automations, agents, pages). Accepts one of 3 formats:
+ *
+ * - `'all'` — Everyone (including unauthenticated users)
+ * - `'authenticated'` — Any logged-in user
+ * - `['admin', 'editor']` — Specific role names (array, at least one)
+ *
+ * @example
+ * ```yaml
+ * permissions:
+ *   read: all
+ *   upload: authenticated
+ *   delete: ['admin']
+ *   create: ['admin', 'editor']
+ * ```
+ */
 export const PermissionValueSchema = Schema.Union(
   Schema.Literal('all'),
   Schema.Literal('authenticated'),
@@ -28,21 +59,43 @@ export const PermissionValueSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type PermissionValue = Schema.Schema.Type<typeof PermissionValueSchema>
 
+// ---------------------------------------------------------------------------
+// Permission Evaluator (shared utility functions)
+// ---------------------------------------------------------------------------
 
+/**
+ * Check if user has permission based on permission configuration.
+ *
+ * Permission format (3-format system):
+ * - `'all'` — Everyone (including unauthenticated)
+ * - `'authenticated'` — Any logged-in user
+ * - `string[]` — Specific role names
+ *
+ * ONLY VALID FOR AN ALREADY-AUTHENTICATED CALLER. The signature carries a bare
+ * `userRole: string`, which cannot express "no session", so `'authenticated'`
+ * is unconditionally satisfied here. Anonymous access must be decided by
+ * `evaluatePermission`, whose caller is optional. This wrapper survives for the
+ * dozen sites that genuinely run behind an auth gate and want a boolean.
+ */
 export function hasPermission(permission: unknown, userRole: string): boolean {
-  if (!permission) return false
-  if (permission === 'all') return true
-  if (permission === 'authenticated') return true
-  if (Array.isArray(permission)) return permission.includes(userRole)
-  return false
+  return permits(
+    evaluatePermission(
+      toPermissionValue(permission),
+      { role: userRole },
+      {
+        whenUndeclared: DENY_WHEN_UNDECLARED,
+        adminOverride: 'no-admin-override',
+      }
+    )
+  )
 }
 
-export function isAdminRole(userRole: string): boolean {
-  return userRole === 'admin'
-}
-
+/**
+ * Check permission with admin override
+ */
 export function checkPermissionWithAdminOverride(
   isAdmin: boolean,
   permission: unknown,
@@ -51,9 +104,14 @@ export function checkPermissionWithAdminOverride(
   return isAdmin || hasPermission(permission, userRole)
 }
 
+/**
+ * Extract role names from a permission value.
+ * Returns empty array for 'all', 'authenticated', or missing values.
+ * Returns the role names array for string[] permissions.
+ */
 export function extractRolesFromPermission(permission: unknown): readonly string[] {
   if (!permission) return []
-  if (typeof permission === 'string') return []
+  if (typeof permission === 'string') return [] // 'all' or 'authenticated'
   if (Array.isArray(permission)) return permission as readonly string[]
   return []
 }

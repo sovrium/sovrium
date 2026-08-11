@@ -10,6 +10,7 @@ import { showSuccessToast } from '../components/crud-form/toast'
 import { authClient } from '../shared/auth-client'
 import { type AuthFormField } from './auth-form-validation'
 
+// Re-exported so existing importers of `auth-form-submit` keep working.
 export { type AuthMethod }
 
 export interface ToastConfig {
@@ -23,6 +24,11 @@ export interface AuthState {
   readonly isPending: boolean
 }
 
+/**
+ * Picks the email + password values from the form's field-value map. The first
+ * `email`-typed field is the email; the first `password`-typed field is the
+ * password — decoupling the auth API call from custom field names.
+ */
 function pickCredentials(
   fields: readonly AuthFormField[],
   values: Readonly<Record<string, string>>
@@ -54,8 +60,24 @@ async function handleLogout(): Promise<string | undefined> {
   return result.error ? (result.error.message ?? 'Sign out failed') : undefined
 }
 
+/**
+ * Where the emailed reset link lands.
+ *
+ * `redirectTo` IS the `callbackURL` that Better Auth appends the token to:
+ * the emailed link hits `GET /api/auth/reset-password/:token?callbackURL=…`,
+ * which redirects here with `?token=…`. So this path must be one the running
+ * app actually serves.
+ *
+ * It points at the Native Admin Dashboard because that console is auto-mounted
+ * at `/_admin` in EVERY booted app — so `/_admin/reset-password`
+ * always resolves, whatever the operator's config contains. The previous value,
+ * `/auth/reset-password`, resolved nowhere: no Sovrium app serves that path, so
+ * every password-reset email in the product pointed at a 404 and the (complete)
+ * Better Auth backend was unreachable.
+ */
 const RESET_PASSWORD_CALLBACK_PATH = '/_admin/reset-password'
 
+/** English fallback when the form declares no `onSuccess.toast.message`. */
 const RESET_PASSWORD_SENT_MESSAGE = 'Check your email — a reset link has been sent'
 
 async function handleResetPasswordRequest(email: string): Promise<string | undefined> {
@@ -72,10 +94,19 @@ async function handleSetNewPassword(password: string): Promise<string | undefine
   return result.error ? (result.error.message ?? 'Password reset failed') : undefined
 }
 
+/**
+ * Everything `executeAuthMethod` needs, as ONE object.
+ *
+ * Deliberately not positional: the reset-password branch needs the form's
+ * configured success copy, and a 4th positional parameter would sit exactly on
+ * the `max-params: 4` ceiling — one more
+ * dependency away from a lint failure.
+ */
 interface AuthMethodInput {
   readonly method: AuthMethod
   readonly email: string
   readonly password: string
+  /** The form's `onSuccess.toast` config, when it declares one. */
   readonly successToast: ToastConfig | undefined
 }
 
@@ -93,6 +124,12 @@ async function executeAuthMethod(
     case 'resetPassword': {
       const error = await handleResetPasswordRequest(email)
       if (error) return { error }
+      // A reset request resolves to a banner instead of navigating, so the
+      // form's configured `onSuccess.toast.message` is the copy the operator
+      // sees. Honouring it here is what lets a localized console (the French
+      // `/_admin` recovery form) speak its own language — and phrase the
+      // banner conditionally, matching Better Auth's always-200,
+      // anti-enumeration contract. The English string is only the fallback.
       return { success: input.successToast?.message ?? RESET_PASSWORD_SENT_MESSAGE }
     }
     case 'setNewPassword':
@@ -110,15 +147,23 @@ export interface SubmitContext {
   readonly setState: (s: AuthState) => void
 }
 
+/** Fires a toast for the given config when it carries a message. */
 function fireToast(toast: ToastConfig | undefined): void {
   if (toast?.message) {
     showSuccessToast({ message: toast.message, variant: toast.variant })
   }
 }
 
+/**
+ * Handles a successful auth result: fires the `onSuccess` toast and either
+ * navigates to a same-origin `redirectUrl` (after a short delay so the toast is
+ * observable) or clears the pending state.
+ */
 function handleAuthSuccess(ctx: SubmitContext): void {
   fireToast(ctx.successToast)
   if (ctx.redirectUrl?.startsWith('/')) {
+    // Delay the redirect so the success toast is observable before the page
+    // unloads — mirrors the crud-form submit-pipeline navigation pattern.
     const target = ctx.redirectUrl
     setTimeout(() => globalThis.location.assign(target), 500)
   } else {
@@ -126,6 +171,14 @@ function handleAuthSuccess(ctx: SubmitContext): void {
   }
 }
 
+/**
+ * Executes the auth action for the form's method.
+ *
+ * On a credentialed failure, fires the optional `onError` toast and surfaces the
+ * error message. On success, fires the optional `onSuccess` toast and navigates
+ * to `redirectUrl` (when it is a same-origin path). Reset-password requests
+ * resolve to a `success` message instead of navigating.
+ */
 export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
   ctx.setState({ isPending: true })
   try {

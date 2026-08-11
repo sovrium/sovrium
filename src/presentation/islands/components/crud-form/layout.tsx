@@ -28,6 +28,11 @@ interface RenderProps {
   readonly values: Record<string, string>
   readonly onChange: (name: string, value: string) => void
   readonly fieldError?: { readonly field: string; readonly message: string }
+  /**
+   * The record this form edits, when it edits one. Only a `button` field reads
+   * it — an automation button needs a row to run against, and a create form
+   * has none yet.
+   */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
 }
 
@@ -43,6 +48,11 @@ function renderHiddenField(field: FieldDef, values: Record<string, string>): Rea
   )
 }
 
+/**
+ * Recompute a field's disabled / required flags from its conditional rules,
+ * returning the original object when neither moved so the render stays
+ * referentially stable.
+ */
 function applyConditionalFlags(field: FieldDef, values: Record<string, string>): FieldDef {
   const isDisabled = !!(
     field.disabled ||
@@ -82,6 +92,10 @@ function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set
   )
 }
 
+/**
+ * Render a single field in a form (hidden, conditionally hidden, or visible).
+ * Returns `undefined` (not rendered) when the field is hidden by `visibleWhen`.
+ */
 function renderOneField(
   field: FieldDef | undefined,
   props: RenderProps,
@@ -175,6 +189,7 @@ interface FormBodyProps {
   readonly variant?: string
   readonly fieldGroups?: readonly FieldGroup[]
   readonly layout?: string
+  /** Forwarded to the fields so a `button` field can address its own record. */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
 }
 
@@ -183,6 +198,9 @@ function ErrorSummary(props: {
   readonly fieldError: { readonly field: string; readonly message: string }
 }) {
   const { fields, fieldError } = props
+  // Fallback for an error naming a field that is not in the rendered set: only
+  // `labelOf` reads it, so the type is a placeholder — `'text'` was not a real
+  // field type and is now rejected by the narrowed `FieldDef['type']`.
   const matchedField: FieldDef = fields.find((f) => f.name === fieldError.field) ?? {
     name: fieldError.field,
     type: 'single-line-text',

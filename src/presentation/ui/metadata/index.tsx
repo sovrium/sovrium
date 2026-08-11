@@ -5,6 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Metadata components barrel export
+ *
+ * This module exports all metadata rendering components:
+ * - OpenGraphMeta: Facebook/LinkedIn Open Graph tags
+ * - TwitterCardMeta: Twitter/X card tags
+ * - StructuredDataScript: Schema.org JSON-LD
+ * - AnalyticsHead: Analytics provider scripts
+ * - DnsPrefetchLinks: DNS prefetch link tags
+ * - CustomElementsHead: Custom head elements
+ * - FaviconLink: Simple favicon link
+ * - FaviconSetLinks: Multi-device favicon set
+ * - PreloadLinks: Resource preload hints
+ *
+ * @see Individual component files for detailed documentation
+ */
 
 export { OpenGraphMeta } from './open-graph-meta'
 export { TwitterCardMeta } from './twitter-card-meta'

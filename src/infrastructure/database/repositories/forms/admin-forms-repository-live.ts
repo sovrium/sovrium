@@ -19,8 +19,19 @@ import { db } from '@/infrastructure/database'
 import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
+/** Wrap a DB promise, adapting failures to AdminFormsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminFormsDatabaseError({ cause }))
 
+/**
+ * Build the WHERE-clause condition list for the submissions-list read. Spreads
+ * each optional filter immutably so the result is a frozen ReadonlyArray<SQL>;
+ * the caller wraps with `and(...)`.
+ *
+ * The cursor anchors on `submitted_at` — the list is sorted `submitted_at DESC`,
+ * so the cursor predicate selects rows strictly older than the cursor's
+ * `submittedAt`. UUID id ties are approximated away (Phase 0 — see the use
+ * case docstring); moved verbatim from the former route handler.
+ */
 const buildListConditions = (filters: AdminSubmissionsListFilters): ReadonlyArray<SQL> => {
   const submissions = formSubmissionsTable()
   const formFilter: ReadonlyArray<SQL> = [eq(submissions.formName, filters.formName)]
@@ -45,6 +56,11 @@ const buildListConditions = (filters: AdminSubmissionsListFilters): ReadonlyArra
   ]
 }
 
+/**
+ * Drizzle implementation for {@link AdminFormsRepository.listSubmissions}.
+ * Pulled out of the `wrap()` callback so the latter stays under the complexity
+ * cap. Fetches `limit + 1` rows so the use case can derive `hasMore`.
+ */
 const listSubmissionsImpl = async (
   filters: AdminSubmissionsListFilters
 ): Promise<ReadonlyArray<AdminFormSubmissionRow>> => {
@@ -64,6 +80,16 @@ const listSubmissionsImpl = async (
     .limit(filters.limit + 1)) as ReadonlyArray<AdminFormSubmissionRow>
 }
 
+/**
+ * Admin Forms Repository Implementation (Drizzle).
+ *
+ * Four dialect-aware reads over `system.form_submissions` backing the admin
+ * forms-catalog metadata + the three submissions endpoints. All projection /
+ * cursor / pagination logic lives in the `forms-overview` use case; this layer
+ * emits only raw queries. Dialect resolution is handled by the per-call
+ * `formSubmissionsTable()` selector (PG `system.form_submissions` vs SQLite
+ * flat `system_form_submissions`) — moved verbatim from the former route.
+ */
 export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
   aggregateForForm: (formName) =>
     wrap(async () => {
@@ -77,6 +103,7 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
         .where(
           and(eq(submissions.formName, formName), isNull(submissions.deletedAt))
         )) as ReadonlyArray<AdminFormAggregateRow>
+      // eslint-disable-next-line unicorn/no-null -- port type is `Date | string | null`; null is the canonical "no submissions yet" aggregate value
       return rows[0] ?? { submissionCount: 0, lastSubmissionAt: null }
     }),
 
@@ -103,6 +130,8 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
   findSubmissionsByIds: (formName, ids) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
+      // Soft-deleted rows drop silently (per D8: missing AND soft-deleted ids
+      // both vanish from the response).
       return (await db
         .select({
           id: submissions.id,

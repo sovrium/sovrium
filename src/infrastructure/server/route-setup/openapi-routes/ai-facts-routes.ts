@@ -14,10 +14,16 @@ import {
 } from '@/domain/models/api/ai/agents'
 import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * AI agent facts-memory routes — per-agent chat with fact persistence, and
+ * recall of stored facts. The `{name}` segment is the agent name (documented
+ * as a literal path parameter).
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 const agentNameParam = z.object({ name: z.string().describe('Agent name') })
 
+/** AI agent facts-memory route group. */
 export const aiFactsGroup: StaticGroupSpec = {
   tag: 'ai',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',

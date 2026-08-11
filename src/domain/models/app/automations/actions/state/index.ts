@@ -12,6 +12,9 @@ import { StateIncrementActionSchema } from './increment'
 import { StateListActionSchema } from './list'
 import { StateSetActionSchema } from './set'
 
+/**
+ * State Action — union of all key-value state operators
+ */
 export const StateActionSchema = Schema.Union(
   StateGetActionSchema,
   StateSetActionSchema,
@@ -26,6 +29,7 @@ export const StateActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type StateAction = Schema.Schema.Type<typeof StateActionSchema>
 
 export * from './delete'

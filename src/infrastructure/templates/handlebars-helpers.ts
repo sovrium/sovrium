@@ -5,13 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types -- Handlebars instance is
+   inherently mutable: registerHelper(name, fn) imperatively mutates the
+   internal helper map. Parameter types must accept the mutable instance. */
 
 import { createHash } from 'node:crypto'
 import { DateTime, Either, Option } from 'effect'
 import { stripHtmlToText } from '@/domain/utils/html-sanitization'
 import type Handlebars from 'handlebars'
 
+// ─── value coercion ──────────────────────────────────────────────────────
 
+/**
+ * Coerce a Handlebars helper argument to a number for arithmetic operations.
+ * Handlebars passes the last argument as the helper "options" object — that
+ * must never be treated as a numeric operand. Any non-finite result becomes
+ * NaN (which `String(NaN)` renders as "NaN" — matches user expectation that
+ * arithmetic on a non-numeric input is loudly wrong, not silently zero).
+ */
 const toNumber = (value: unknown): number => {
   if (typeof value === 'number') return value
   if (typeof value === 'string') {
@@ -22,16 +33,31 @@ const toNumber = (value: unknown): number => {
   return NaN
 }
 
+/**
+ * Coerce a Handlebars helper argument to a string. `null`/`undefined` map to
+ * the empty string so missing-trigger-data references render as "" rather
+ * than the literal "undefined" — matches the behaviour established by the
+ * legacy {{path}} resolver in `resolve-trigger-data.ts`.
+ */
 const toStr = (value: unknown): string => {
   if (value === undefined || value === null) return ''
   if (typeof value === 'string') return value
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  // Objects/arrays render via JSON so callers can use them as scalar leaves
+  // when needed (the spec doesn't currently exercise this but keeps the
+  // helper total).
   return JSON.stringify(value)
 }
 
 const padNumber = (value: number, width: number): string => String(value).padStart(width, '0')
 
+// ─── case + tokenisation ─────────────────────────────────────────────────
 
+/**
+ * Tokenise a free-form string into "words" suitable for case conversion.
+ * Splits on whitespace, underscores/hyphens, camelCase boundaries, and
+ * acronym-then-camel boundaries. Drops empty tokens.
+ */
 const tokenize = (input: string): readonly string[] =>
   input
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -81,7 +107,13 @@ const capitalizePreservingWords = (input: string): string =>
     )
     .join('')
 
+// ─── HTML helpers ────────────────────────────────────────────────────────
 
+/**
+ * Strip HTML tags from a string. The spec expects "<h1>Hello</h1><p>World</p>"
+ * to render as "HelloWorld" (no whitespace inserted between tag boundaries).
+ * Delegates to the canonical parser-based `stripHtmlToText` — no ad-hoc regex.
+ */
 const stripHtml = (input: string): string => stripHtmlToText(input)
 
 const escapeHtml = (input: string): string =>
@@ -92,7 +124,15 @@ const escapeHtml = (input: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 
+// ─── date helpers ────────────────────────────────────────────────────────
 
+/**
+ * Effect.DateTime-based date formatter. Supports the format tokens the spec
+ * exercises (`YYYY`, `MM`, `DD`, `HH`, `mm`, `ss`).
+ *
+ * `DateTime.make` returns `Option<DateTime>` — we treat parse failures as
+ * the empty string so a malformed input cannot crash an automation.
+ */
 const formatDateWithTokens = (iso: string, format: string): string => {
   const parsedOpt = DateTime.make(iso)
   if (Option.isNone(parsedOpt)) return ''
@@ -106,6 +146,12 @@ const formatDateWithTokens = (iso: string, format: string): string => {
     .replace(/ss/g, padNumber(parts.seconds, 2))
 }
 
+/**
+ * Add `days` calendar days to an ISO 8601 timestamp and return a new ISO
+ * string. The spec composes this with `formatDate` (`{{formatDate (addDays X
+ * 30) "YYYY-MM-DD"}}`) so the intermediate value must round-trip through the
+ * Handlebars helper boundary as a string.
+ */
 const addDays = (iso: string, days: number): string => {
   const parsedOpt = DateTime.make(iso)
   if (Option.isNone(parsedOpt)) return iso
@@ -113,6 +159,7 @@ const addDays = (iso: string, days: number): string => {
   return DateTime.toDateUtc(shifted).toISOString()
 }
 
+/** Current timestamp as an ISO 8601 string — shared by `now` / `today`. */
 const isoNow = (): string => new Date().toISOString()
 
 const computeDateDiffInDays = (a: string, b: string): number => {
@@ -123,6 +170,7 @@ const computeDateDiffInDays = (a: string, b: string): number => {
   return Math.round(ms / 86_400_000)
 }
 
+// ─── extraction patterns ─────────────────────────────────────────────────
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
 const URL_RE = /https?:\/\/[^\s<>"']+/
@@ -144,6 +192,7 @@ const safeUriDecode = (input: unknown): string => {
   return Either.isRight(result) ? result.right : ''
 }
 
+// ─── `if` helper (works in both inline and block form) ──────────────────
 
 const isTruthyValue = (cond: unknown): boolean =>
   cond !== false && cond !== null && cond !== undefined && cond !== '' && cond !== 0
@@ -151,6 +200,21 @@ const isTruthyValue = (cond: unknown): boolean =>
 const inlineIf = (cond: unknown, truthy: unknown, falsy: unknown): unknown =>
   isTruthyValue(cond) ? truthy : falsy
 
+/**
+ * `{{if}}` that supports BOTH calling conventions:
+ *
+ * - Inline: `{{if cond truthy falsy}}` (current spec — [internal ref])
+ *   - Block:   `{{#if cond}}A{{else}}B{{/if}}`    (documented in
+ * `[internal ref]` and used
+ *              freely in user-authored automations once the engine is exposed)
+ *
+ * Handlebars passes its `options` object as the LAST argument. In block form,
+ * `options.fn` is the truthy template renderer and `options.inverse` is the
+ * `{{else}}` branch. In inline form, the last argument is still an `options`
+ * object but lacks `fn`/`inverse` (it's a plain hash bag) — we discriminate
+ * on `typeof options.fn === 'function'`. This restores the convention the
+ * built-in block `if` provides while keeping the inline form the spec needs.
+ */
 const ifHelper = function (this: unknown, ...args: readonly unknown[]): unknown {
   const last = args[args.length - 1]
   const isBlockForm =
@@ -166,6 +230,7 @@ const ifHelper = function (this: unknown, ...args: readonly unknown[]): unknown 
   return inlineIf(args[0], args[1], args[2])
 }
 
+// ─── helper registration, by category ────────────────────────────────────
 
 type Hbs = typeof Handlebars
 
@@ -268,10 +333,18 @@ const registerDateHelpers = (hbs: Hbs): void => {
     computeDateDiffInDays(toStr(a), toStr(b))
   )
   hbs.registerHelper('now', isoNow)
-  hbs.registerHelper('currentDateTime', isoNow)
   hbs.registerHelper('today', () => isoNow().slice(0, 10))
 }
 
+/**
+ * `{{regex value pattern [flags]}}` — match `pattern` against `value` and
+ * return the FIRST capture group (group 1) when the pattern has one, or the
+ * whole match otherwise. No match (or an invalid pattern) renders the empty
+ * string — consistent with the extraction helpers' "unresolvable → ''"
+ * contract so a misconfigured pattern never crashes the automation engine.
+ *
+ * Example: `{{regex "INV-2025-0078" "INV-\\d{4}-(\\d+)"}}` → `"0078"`.
+ */
 const regexHelper = (value: unknown, pattern: unknown, flags?: unknown): string => {
   const source = toStr(value)
   const patternStr = typeof pattern === 'string' ? pattern : ''
@@ -360,6 +433,10 @@ const registerCollectionHelpers = (hbs: Hbs): void => {
 }
 
 const registerLogicHelpers = (hbs: Hbs): void => {
+  // `{{if}}` overrides Handlebars's built-in to support BOTH block form
+  // (`{{#if cond}}A{{/if}}`) AND inline form (`{{if cond truthy falsy}}`).
+  // See `ifHelper` above for the dispatch logic. `ifValue` is the explicit
+  // inline-only alias for callers who want unambiguous semantics.
   hbs.registerHelper('if', ifHelper)
   hbs.registerHelper('ifValue', inlineIf)
   hbs.registerHelper('default', (value: unknown, fallback: unknown) =>
@@ -400,6 +477,16 @@ const registerEncodingHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('urlDecode', safeUriDecode)
 }
 
+/**
+ * `null` / `undefined` inputs to a hash helper produce the empty string,
+ * not the well-known hash of "" (md5 → d41d8cd98f00b204e9800998ecf8427e,
+ * sha256 → e3b0c4...). Without this guard, `{{md5 missing.path}}` silently
+ * returns a deterministic hash that LOOKS like a valid digest, masking the
+ * fact that the input field never resolved — a real silent-corruption
+ * surface for callers using the hash as an idempotency key or signature.
+ * The empty-string fallback matches `formatDate`/`extractEmail` semantics
+ * (unresolvable input → empty string, observable in run-history).
+ */
 const hashOrEmpty = (algo: 'md5' | 'sha256', value: unknown): string => {
   if (value === undefined || value === null) return ''
   return createHash(algo).update(toStr(value)).digest('hex')
@@ -422,6 +509,12 @@ const registerCoercionHelpers = (hbs: Hbs): void => {
   })
 }
 
+/**
+ * Register the full helper catalogue on a Handlebars environment. Idempotent:
+ * called once per `createTemplateEngine` invocation. Each category is owned
+ * by its own register* function so the file stays under the project's
+ * lines-per-function lint budget.
+ */
 export const registerHelpers = (hbs: Hbs): void => {
   registerTextHelpers(hbs)
   registerCaseHelpers(hbs)

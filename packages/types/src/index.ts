@@ -77,7 +77,7 @@ export type { EnvVar as EnvConfig } from '@/domain/models/app/env'
  * accesses surface at server startup instead of failing silently at request
  * time.
  *
- * Five properties: `inputData`, `actions`, `env`, `log`, `packages`. The
+ * Five properties: `inputData`, `actions`, `env`, `log`, `run`. The
  * trigger payload and prior step outputs are NOT exposed directly — every
  * value the code needs must be declared explicitly via the action's
  * `inputData` prop using `{{trigger.data.X}}` / `{{steps.Y.Z}}` template
@@ -90,23 +90,16 @@ export type { EnvVar as EnvConfig } from '@/domain/models/app/env'
  * substituting its `$vars` with the caller-supplied `input` shallow-
  * merged on top of declared variable defaults.
  *
- * `inputData`, `packages`, and `actions` return type use `any` (not
- * `unknown`): they hold dynamic JSON / module / action-output shapes,
- * and `unknown` would force narrowing on every property access. `log`
- * is strictly typed so `context.log.debug()` (or any unknown method)
- * fails type-checking at startup.
+ * `inputData` and the `actions` return type use `any` (not `unknown`):
+ * they hold dynamic JSON / action-output shapes, and `unknown` would
+ * force narrowing on every property access. `log` is strictly typed so
+ * `context.log.debug()` (or any unknown method) fails type-checking at
+ * startup.
  */
 export interface CodeContext {
   /** Template-resolved key-value pairs declared in the action's inputData prop */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON shape, see interface JSDoc
   readonly inputData: Record<string, any>
-  /**
-   * Template-resolved key-value pairs declared in the action's `input`
-   * prop — an alias for `inputData` surfaced under a shorter name. Present
-   * only when the action declared an `input` field.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON shape, see interface JSDoc
-  readonly input?: Record<string, any>
   /**
    * Two-shape callable surface:
    * - `actions.ref('<templateName>', vars)` — invoke a template declared at app.actions[]
@@ -128,9 +121,15 @@ export interface CodeContext {
     readonly warn: (...args: ReadonlyArray<unknown>) => void
     readonly error: (...args: ReadonlyArray<unknown>) => void
   }
-  /** Declared npm packages, keyed by package name (e.g. packages.lodash) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic module shape, see interface JSDoc
-  readonly packages: Record<string, any>
+  /**
+   * Run-scoped metadata. `attempt` is the 1-indexed retry attempt number —
+   * 1 on the initial dispatch, 2 on the first retry, etc. Used by code
+   * actions that want to short-circuit retry on a recoverable transient:
+   * `if (context.run.attempt === 1) throw …`.
+   */
+  readonly run: {
+    readonly attempt: number
+  }
 }
 
 /**

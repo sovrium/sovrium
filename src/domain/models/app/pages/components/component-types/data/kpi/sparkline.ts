@@ -29,5 +29,7 @@ export const KPISparklineSchema = Schema.Struct({
   description: 'Mini line chart showing recent trend for the KPI metric',
 })
 
+/** @public */
 export type SparklineDateInterval = Schema.Schema.Type<typeof SparklineDateIntervalSchema>
+/** @public */
 export type KPISparkline = Schema.Schema.Type<typeof KPISparklineSchema>

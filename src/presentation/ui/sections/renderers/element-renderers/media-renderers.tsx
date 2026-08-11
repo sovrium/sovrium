@@ -8,6 +8,9 @@
 import { type ReactElement } from 'react'
 import type { ElementProps } from './html-element-renderer'
 
+/**
+ * Renders image element
+ */
 export function renderImage(props: ElementProps): ReactElement {
   return (
     <img
@@ -17,7 +20,12 @@ export function renderImage(props: ElementProps): ReactElement {
   )
 }
 
+/**
+ * Renders avatar image with circular border-radius
+ * Includes default dimensions to ensure visibility even when image fails to load
+ */
 export function renderAvatar(props: ElementProps): ReactElement {
+  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR avatar render helper; merges per-call style overrides with default min/max dimensions
   const style = {
     ...((props.style as Record<string, unknown> | undefined) || {}),
     minWidth: '48px',
@@ -36,6 +44,10 @@ export function renderAvatar(props: ElementProps): ReactElement {
   )
 }
 
+/**
+ * Renders thumbnail image with moderate border-radius
+ * Applies md radius (0.375rem) for soft corners while preserving aspect ratio
+ */
 export function renderThumbnail(props: ElementProps): ReactElement {
   return (
     <img
@@ -46,6 +58,10 @@ export function renderThumbnail(props: ElementProps): ReactElement {
   )
 }
 
+/**
+ * Renders hero image with top-only border-radius
+ * Applies lg radius to top corners only for integration with card layout
+ */
 export function renderHeroImage(props: ElementProps): ReactElement {
   return (
     <img
@@ -63,6 +79,11 @@ interface VideoTrack {
   readonly label?: string
 }
 
+/**
+ * Detects a YouTube/Vimeo URL and returns its embed URL, or undefined for a
+ * direct video file. YouTube `watch?v=` and `youtu.be/` and Vimeo `vimeo.com/`
+ * URLs auto-convert to an iframe embed.
+ */
 function toEmbedUrl(src: string | undefined): string | undefined {
   if (!src) return undefined
   const youtubeWatch = src.match(/youtube\.com\/watch\?v=([\w-]+)/)
@@ -74,6 +95,13 @@ function toEmbedUrl(src: string | undefined): string | undefined {
   return undefined
 }
 
+/**
+ * Renders video element.
+ *
+ * - YouTube/Vimeo URLs auto-convert to an iframe embed.
+ * - `autoplay` maps to React's `autoPlay`; `tracks[]` render as `<track>`
+ *   children; non-DOM props (`aspectRatio`, `tracks`, `sources`) are stripped.
+ */
 export function renderVideo(
   props: ElementProps,
   children: readonly React.ReactNode[]
@@ -129,6 +157,9 @@ export function renderVideo(
   )
 }
 
+/**
+ * Renders audio element
+ */
 export function renderAudio(
   props: ElementProps,
   children: readonly React.ReactNode[]
@@ -136,6 +167,9 @@ export function renderAudio(
   return <audio {...props}>{children}</audio>
 }
 
+/**
+ * Renders iframe element
+ */
 export function renderIframe(
   props: ElementProps,
   children: readonly React.ReactNode[]

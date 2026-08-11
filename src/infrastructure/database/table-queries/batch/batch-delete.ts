@@ -18,6 +18,18 @@ import { validateTableName } from '../shared/validation'
 import { BATCH_FANOUT_CONCURRENCY, runEffectInTx } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
+/**
+ * Validate records exist for batch delete.
+ *
+ * FAN-OUT WIDTH: `BATCH_FANOUT_CONCURRENCY` — one existence probe per
+ * `recordId`, so the width is input-size bounded (the caller's batch). Capped
+ * rather than left to a raw `Promise.all`; see that constant for why the
+ * transaction's single connection makes 2 the right ceiling.
+ *
+ * ORDER: `Effect.all` preserves array order exactly as `Promise.all` did, so
+ * the `recordId` reported below is still the first MISSING id by array
+ * position — not whichever probe happened to finish first.
+ */
 async function validateRecordsForDelete(
   tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
@@ -26,6 +38,18 @@ async function validateRecordsForDelete(
   const validationResults = await runEffectInTx(
     Effect.all(
       recordIds.map((recordId) =>
+        // The `catch` below is the IDENTITY mapper, deliberately leaving the
+        // error channel untyped. A genuine driver rejection must reach
+        // `validateRecordsForDeleteWithEffect` UNCHANGED, because that wrapper
+        // composes `Validation failed: ${error.message}` from the original
+        // message and stores the original as `cause`. Wrapping it in a typed
+        // error here would both double the prefix and add a level to the cause
+        // chain — and `presentation/api/routes/tables/utils.ts`
+        // (`isAuthorizationError`) reads `error.cause.message` to choose 404 vs
+        // 500, so the cause chain is observable, not merely diagnostic.
+        // A "not found" record is NOT a rejection — it is a returned marker,
+        // handled below.
+        // @effect-diagnostics effect/unknownInEffectCatch:off
         Effect.tryPromise({
           try: async () => {
             const checkResult = await executeRaw(
@@ -46,10 +70,14 @@ async function validateRecordsForDelete(
 
   const firstError = validationResults.find((result) => result.error !== undefined)
   if (firstError) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
     throw new Error(`Record ${firstError.recordId} not found`)
   }
 }
 
+/**
+ * Validate records exist for batch delete with Effect error handling
+ */
 function validateRecordsForDeleteWithEffect(
   tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
@@ -64,6 +92,9 @@ function validateRecordsForDeleteWithEffect(
   })
 }
 
+/**
+ * Check if table supports soft delete (has deleted_at column)
+ */
 function checkSoftDeleteSupport(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
@@ -74,6 +105,9 @@ function checkSoftDeleteSupport(
   })
 }
 
+/**
+ * Check if table has deleted_by column for authorship tracking
+ */
 function checkDeletedBySupport(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
@@ -84,6 +118,9 @@ function checkDeletedBySupport(
   })
 }
 
+/**
+ * Execute delete query (soft or hard delete based on parameters)
+ */
 function executeDeleteQuery(
   tx: Readonly<DrizzleTransaction>,
   params: {
@@ -103,6 +140,7 @@ function executeDeleteQuery(
         sql.raw(', ')
       )
 
+      // Determine query type: permanent delete, soft delete, or hard delete (no soft delete support)
       const query = params.permanent
         ? sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
         : params.hasSoftDelete
@@ -118,6 +156,9 @@ function executeDeleteQuery(
   })
 }
 
+/**
+ * Log delete activities for all deleted records
+ */
 function logDeleteActivities(
   session: Readonly<Session>,
   tableName: string,
@@ -134,6 +175,20 @@ function logDeleteActivities(
   ).pipe(Effect.asVoid)
 }
 
+/**
+ * Batch delete records
+ *
+ * Deletes multiple records (soft or hard delete based on parameters).
+ * Validates all records exist before deleting any.
+ * Rolls back if any record is not found.
+ * Permissions applied via application layer.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordIds - Array of record IDs to delete
+ * @param permanent - If true, performs hard delete; otherwise soft delete (if supported)
+ * @returns Effect resolving to number of deleted records
+ */
 export function batchDeleteRecords(
   session: Readonly<Session>,
   tableName: string,
@@ -147,6 +202,7 @@ export function batchDeleteRecords(
           validateTableName(tableName)
           const tableIdent = sql.identifier(tableName)
 
+          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
           await runEffectInTx(validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds))
 
           const before = await runEffectInTx(fetchRecordsByIds(tx, tableName, recordIds))

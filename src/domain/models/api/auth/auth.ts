@@ -8,7 +8,16 @@
 import { z } from '@hono/zod-openapi'
 import { timestampSchema } from '../_shared/common'
 
+// ============================================================================
+// User Schemas
+// ============================================================================
 
+/**
+ * User schema
+ *
+ * Represents a user in API responses.
+ * Based on Better Auth user model.
+ */
 export const userSchema = z
   .object({
     id: z.string().describe('Unique user identifier'),
@@ -19,6 +28,9 @@ export const userSchema = z
   })
   .extend(timestampSchema.shape)
 
+/**
+ * User with role schema (for admin endpoints)
+ */
 export const userWithRoleSchema = userSchema
   .extend({
     role: z.enum(['admin', 'member', 'viewer']).describe('User role'),
@@ -28,7 +40,15 @@ export const userWithRoleSchema = userSchema
   })
   .openapi('UserWithRole')
 
+// ============================================================================
+// Session Schemas
+// ============================================================================
 
+/**
+ * Session schema
+ *
+ * Represents an authentication session.
+ */
 export const sessionSchema = z
   .object({
     id: z.string().describe('Session identifier'),
@@ -40,6 +60,9 @@ export const sessionSchema = z
   })
   .extend(timestampSchema.shape)
 
+/**
+ * Session with user schema
+ */
 export const sessionWithUserSchema = z
   .object({
     session: sessionSchema,
@@ -47,56 +70,112 @@ export const sessionWithUserSchema = z
   })
   .openapi('SessionWithUser')
 
+// ============================================================================
+// Auth Response Schemas
+// ============================================================================
 
+/**
+ * Sign-in response schema
+ *
+ * Returned on successful email/password sign-in.
+ */
 export const signInResponseSchema = z.object({
   user: userSchema.describe('Authenticated user data'),
   session: sessionSchema.describe('New session data'),
   token: z.string().optional().describe('Bearer token for API calls'),
 })
 
+/**
+ * Sign-up response schema
+ *
+ * Returned on successful user registration.
+ */
 export const signUpResponseSchema = z.object({
   user: userSchema.describe('Newly created user data'),
   session: sessionSchema.optional().describe('Session if auto-login enabled'),
   token: z.string().optional().describe('Bearer token if auto-login enabled'),
 })
 
+/**
+ * Sign-out response schema
+ */
 export const signOutResponseSchema = z.object({
   success: z.literal(true).describe('Sign-out succeeded'),
 })
 
+/**
+ * Session response schema
+ *
+ * Returned when fetching current session.
+ * Wraps sessionWithUserSchema with a distinct OpenAPI name so Knip
+ * does not flag it as a duplicate export while OpenAPI emits a $ref.
+ */
 export const getSessionResponseSchema = sessionWithUserSchema.openapi('GetSessionResponse')
 
+/**
+ * List sessions response schema
+ */
 export const listSessionsResponseSchema = z.object({
   sessions: z.array(sessionSchema).describe('List of active sessions'),
 })
 
+/**
+ * Revoke session response schema
+ */
 export const revokeSessionResponseSchema = z.object({
   success: z.literal(true).describe('Session revoked successfully'),
 })
 
+// ============================================================================
+// Password Schemas
+// ============================================================================
 
+/**
+ * Password reset request response schema
+ */
 export const forgotPasswordResponseSchema = z.object({
   success: z.literal(true).describe('Password reset email sent'),
 })
 
+/**
+ * Password reset response schema
+ */
 export const resetPasswordResponseSchema = z.object({
   success: z.literal(true).describe('Password reset successful'),
 })
 
+/**
+ * Change password response schema
+ */
 export const changePasswordResponseSchema = z.object({
   success: z.literal(true).describe('Password changed successfully'),
 })
 
+// ============================================================================
+// Verification Schemas
+// ============================================================================
 
+/**
+ * Email verification response schema
+ */
 export const verifyEmailResponseSchema = z.object({
   user: userSchema.describe('User with verified email'),
 })
 
+/**
+ * Send verification email response schema
+ */
 export const sendVerificationEmailResponseSchema = z.object({
   success: z.literal(true).describe('Verification email sent'),
 })
 
+// ============================================================================
+// Admin Schemas
+// ============================================================================
 
+/**
+ * Admin list users response schema
+ */
 export const adminListUsersResponseSchema = z.object({
   users: z.array(userWithRoleSchema).describe('List of users'),
   total: z.number().describe('Total user count'),
@@ -104,26 +183,44 @@ export const adminListUsersResponseSchema = z.object({
   limit: z.number().describe('Items per page'),
 })
 
+/**
+ * Admin get user response schema
+ */
 export const adminGetUserResponseSchema = z.object({
   user: userWithRoleSchema.describe('User details'),
 })
 
+/**
+ * Admin update user response schema
+ */
 export const adminUpdateUserResponseSchema = z.object({
   user: userWithRoleSchema.describe('Updated user'),
 })
 
+/**
+ * Admin delete user response schema
+ */
 export const adminDeleteUserResponseSchema = z.object({
   success: z.literal(true).describe('User deleted'),
 })
 
+/**
+ * Admin ban user response schema
+ */
 export const adminBanUserResponseSchema = z.object({
   user: userWithRoleSchema.describe('Banned user'),
 })
 
+/**
+ * Admin unban user response schema
+ */
 export const adminUnbanUserResponseSchema = z.object({
   user: userWithRoleSchema.describe('Unbanned user'),
 })
 
+// ============================================================================
+// TypeScript Types
+// ============================================================================
 
 export type User = z.infer<typeof userSchema>
 export type UserWithRole = z.infer<typeof userWithRoleSchema>

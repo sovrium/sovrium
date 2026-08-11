@@ -23,6 +23,11 @@ import type { KpiSystemSource } from '@/domain/models/app/pages/components/compo
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 import type { ReactElement } from 'react'
 
+/**
+ * KPI data source — discriminated: a DB table (`{ table, view?, filter? }`,
+ * aggregated client-side) OR a system read endpoint (`{ system: {...} }`,
+ * pre-computed scalar value-path).
+ */
 type KpiTableSource = {
   readonly table: string
   readonly view?: string
@@ -30,6 +35,7 @@ type KpiTableSource = {
 }
 type KpiDataSourceProp = KpiTableSource | { readonly system: KpiSystemSource }
 
+/** Presentation config shared by both bindings. */
 interface KpiPresentationProps {
   readonly label?: string
   readonly kpiFormat?: KpiFormatConfig
@@ -44,12 +50,19 @@ interface KpiIslandProps extends KpiPresentationProps {
   readonly sparkline?: KpiSparklineConfig
 }
 
+/** Narrowing guard: is this data source the system read-endpoint variant? */
 function isSystemSource(
   dataSource: KpiDataSourceProp | undefined
 ): dataSource is { readonly system: KpiSystemSource } {
   return Boolean(dataSource && 'system' in dataSource && dataSource.system)
 }
 
+/**
+ * System read-endpoint binding — reads a pre-computed scalar at `valuePath`
+ * (formatted via `kpiFormat`) or interpolates a `valueTemplate`. While in flight,
+ * and on a failed fetch / missing path, it degrades CALMLY to the neutral em-dash
+ * value so the card keeps its server-known label (never a raw error region).
+ */
 function KpiSystemTile({
   system,
   label,
@@ -75,6 +88,10 @@ function KpiSystemTile({
   )
 }
 
+/**
+ * DB-table binding — fetch records, aggregate via `kpiAggregate`, format via
+ * `kpiFormat`. UNCHANGED from the original KPI island contract.
+ */
 function KpiTableTile({
   source,
   label,
@@ -120,6 +137,17 @@ function KpiTableTile({
   )
 }
 
+/**
+ * KPI island — client-side data-bound single-metric card.
+ *
+ * Dispatches on the discriminated `dataSource`:
+ * - `{ system: {...} }` → {@link KpiSystemTile} (pre-computed scalar value-path)
+ * - `{ table, ... }`    → {@link KpiTableTile} (records aggregated client-side)
+ * - neither            → {@link KpiMissingTable}
+ *
+ * Every branch emits `data-component="kpi"` so spec assertions on that canonical
+ * attribute resolve in every state.
+ */
 export default function KpiIsland({
   dataSource,
   label,

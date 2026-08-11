@@ -20,12 +20,12 @@ import {
   injectCreateAuthorship,
   injectUpdateAuthorship,
 } from '../mutation-helpers/authorship-helpers'
+import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import {
   buildInsertClauses,
   insertAndResolveRow,
   isForeignKeyViolation,
   isUniqueConstraintViolation,
-  lookupArrayColumnTypes,
 } from '../mutation-helpers/create-record-helpers'
 import {
   cascadeSoftDelete,
@@ -48,6 +48,12 @@ import { validateTableName } from '../shared/validation'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
+/**
+ * Run the per-INSERT body inside a database transaction. Extracted so the
+ * outer Effect program in `createRecord` stays under the
+ * `max-lines-per-function` budget (50 lines) and so the introspection /
+ * literal-encoding work stays close to the SQL it parameterises.
+ */
 async function executeCreateRecordTx(
   tx: Readonly<DrizzleTransaction>,
   session: Readonly<Session>,
@@ -56,17 +62,47 @@ async function executeCreateRecordTx(
 ): Promise<Readonly<Record<string, unknown>>> {
   validateTableName(tableName)
   if (Object.keys(fields).length === 0) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError('Cannot create record with no fields', undefined)
   }
   const fieldsWithAuthorship = await injectCreateAuthorship(fields, session.userId, tx, tableName)
-  const arrayColumnNames = Object.entries(fieldsWithAuthorship)
-    .filter(([, value]) => Array.isArray(value))
-    .map(([key]) => key)
-  const arrayColumnTypes = await lookupArrayColumnTypes(tx, tableName, arrayColumnNames)
+  // Introspect array-typed columns so multi-select (`text[]`) and JSONB
+  // columns receiving arrays (e.g. `multiple-attachments`) get the
+  // correct literal form. Only columns with array values need the
+  // lookup, so the round-trip is skipped on the common scalar-only path.
+  const arrayColumnTypes = await resolveArrayColumnTypes(tx, tableName, [fieldsWithAuthorship])
   const { columnsClause, valuesClause } = buildInsertClauses(fieldsWithAuthorship, arrayColumnTypes)
+  // Execute INSERT directly (avoid Effect.runPromise which wraps errors in FiberFailure).
+  // `RETURNING *` is supported by both PostgreSQL and SQLite (≥ 3.35). [internal ref](b):
+  // view-backed tables return a NULL id from the view — `insertAndResolveRow`
+  // resolves the real base id and re-reads the row so create is uniform.
   return await insertAndResolveRow(tx, tableName, columnsClause, valuesClause)
 }
 
+/**
+ * Best-effort extraction of the violating column name from a FK-violation
+ * error. Postgres surfaces the column name in three places (in order of
+ * usefulness):
+ *   1. `detail`: `Key (col)=(value) is not present in table "ref".`
+ *   2. `constraint`: `<table>_<col>_fkey` (drizzle / Sovrium convention).
+ *   3. `message`: same `Key (col)=...` phrase as the detail.
+ *
+ * SQLite's `FOREIGN KEY constraint failed` carries no column metadata, so
+ * the caller falls back to inspecting the inserted fields against the
+ * table's declared `foreignKeys[]` (or `user`-typed columns) for a single
+ * candidate column.
+ *
+ * Returns `undefined` when no column can be confidently identified — the
+ * application-layer wrapper (submit-form's `processCreateRecordError`) then
+ * uses a generic message.
+ *
+ * Bug 3 / [internal ref].
+ */
+/**
+ * Run a regex over a list of candidate strings and return the first match's
+ * first capture group. Replaces a `for…of` + early-return pattern so the
+ * `extractFkFieldName` caller stays under the complexity cap.
+ */
 function firstCapture(
   pattern: Readonly<RegExp>,
   sources: readonly (string | undefined)[]
@@ -92,6 +128,7 @@ function extractFkFieldName(error: unknown): string | undefined {
     | null
     | undefined
   if (err === null || err === undefined) return undefined
+  // Postgres: `Key (col_name)=(value) is not present in table "ref".`
   const fromDetail = firstCapture(/Key \(([^)]+)\)=/, [
     err.detail,
     err.message,
@@ -99,9 +136,18 @@ function extractFkFieldName(error: unknown): string | undefined {
     err.cause?.message,
   ])
   if (fromDetail !== undefined) return fromDetail
+  // Drizzle / Sovrium convention: `<table>_<column>_fkey` (or `_fk`).
   return firstCapture(/_([a-z][a-z0-9_]*)_fk(?:ey)?$/i, [err.constraint, err.cause?.constraint])
 }
 
+/**
+ * Create a new record
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param fields - Record fields
+ * @returns Effect resolving to created record
+ */
 export function createRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -120,6 +166,10 @@ export function createRecord(
           if (error instanceof DatabaseError) return error
           if (error instanceof UniqueConstraintViolationError) return error
           if (error instanceof ForeignKeyViolationError) return error
+          // Bug 3 / [internal ref]: detect FK violations BEFORE unique-constraint
+          // detection. Postgres FK violations also carry a `constraint` field
+          // (which the loose `isUniqueConstraintViolation` heuristic would
+          // otherwise match), so order matters here.
           if (isForeignKeyViolation(error)) {
             const fieldName = extractFkFieldName(error)
             const message = fieldName
@@ -135,6 +185,7 @@ export function createRecord(
       })
     )
 
+    // Log activity for record creation
     yield* logActivity({
       session,
       tableName,
@@ -147,6 +198,9 @@ export function createRecord(
   })
 }
 
+/**
+ * Log activity for record update
+ */
 function logRecordUpdateActivity(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
@@ -168,6 +222,15 @@ function logRecordUpdateActivity(config: {
   })
 }
 
+/**
+ * Update a record
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @param params - Update parameters
+ * @returns Effect resolving to updated record
+ */
 export function updateRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -187,6 +250,7 @@ export function updateRecord(
           db.transaction(async (tx) => {
             validateTableName(tableName)
 
+            // Inject updated_by from session
             const fieldsWithUpdatedBy = await injectUpdateAuthorship(
               fields,
               session.userId,
@@ -196,7 +260,13 @@ export function updateRecord(
 
             const entries = await validateFieldsNotEmpty(fieldsWithUpdatedBy)
             const before = await fetchRecordById(tx, tableName, recordId)
-            const setClause = buildUpdateSetClauseCRUD(entries)
+            // Same resolution the CREATE path above performs, and for the same
+            // reason: a `text[]` column needs a native array literal, a `jsonb`
+            // one needs JSON, and PostgreSQL rejects the wrong choice outright.
+            const setClause = buildUpdateSetClauseCRUD(
+              entries,
+              await resolveArrayColumnTypes(tx, tableName, [fieldsWithUpdatedBy])
+            )
             const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
             return { recordBefore: before, updatedRecord: updated }
           }),
@@ -219,6 +289,10 @@ export function updateRecord(
   })
 }
 
+/**
+ * App schema slice consumed by the delete pipeline. Only the fields needed
+ * for cascade / set-null / restrict checks are surfaced.
+ */
 type DeleteAppSchema = {
   readonly tables?: ReadonlyArray<{
     readonly name: string
@@ -231,6 +305,11 @@ type DeleteAppSchema = {
   }>
 }
 
+/**
+ * Outcome of the delete transaction. `recordBeforeData` is non-undefined only
+ * on the soft-delete success path; `restrictViolation` short-circuits before
+ * any rows are touched.
+ */
 type DeleteTransactionOutcome = {
   readonly success: boolean
   readonly recordBeforeData: Record<string, unknown> | undefined
@@ -238,6 +317,10 @@ type DeleteTransactionOutcome = {
   readonly restrictViolation: boolean
 }
 
+/**
+ * Single-arg config for the delete transaction so the helper stays under
+ * `max-params`. All fields are immutable inputs.
+ */
 type DeleteTransactionConfig = {
   readonly tx: DrizzleTransaction
   readonly session: Readonly<Session>
@@ -246,6 +329,15 @@ type DeleteTransactionConfig = {
   readonly app: DeleteAppSchema | undefined
 }
 
+/**
+ * Execute the delete pipeline within a single transaction:
+ * 1. Reject restrict-on-delete violations deterministically.
+ * 2. Pick soft-delete vs hard-delete based on the `deleted_at` column.
+ * 3. On soft-delete success, cascade to dependents and run set-null helpers.
+ *
+ * Extracted from `deleteRecord` so the inner generator stays small enough to
+ * satisfy `max-lines-per-function` without a lint disable.
+ */
 async function runDeleteTransaction(
   config: Readonly<DeleteTransactionConfig>
 ): Promise<DeleteTransactionOutcome> {
@@ -288,6 +380,7 @@ async function runDeleteTransaction(
   }
 
   if (app) {
+    // eslint-disable-next-line functional/no-expression-statements -- Required for cascade operation
     await cascadeSoftDelete(tx, tableName, recordId, app, session.userId)
   }
 
@@ -295,6 +388,22 @@ async function runDeleteTransaction(
   return { success: true, recordBeforeData, setNullPerformed, restrictViolation: false }
 }
 
+/**
+ * Delete a record (soft delete if deleted_at field exists)
+ *
+ * Implements soft delete pattern:
+ * - If table has deleted_at field: Sets deleted_at to NOW() (soft delete)
+ * - If no deleted_at field: Performs hard delete
+ * - Permissions applied via application layer
+ * - Cascade soft delete to related records if configured with onDelete: 'cascade'
+ * - Activity logging captures record state before deletion (non-blocking)
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @param app - App schema (optional, for cascade delete logic)
+ * @returns Effect resolving to success boolean
+ */
 export function deleteRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -333,6 +442,19 @@ export function deleteRecord(
   })
 }
 
+/**
+ * Permanently delete a record (hard delete)
+ *
+ * Permanently removes the record from the database, regardless of deleted_at field.
+ * This operation is irreversible and should only be allowed for admin roles.
+ * Permissions applied via application layer.
+ * Activity logging captures record state before deletion (non-blocking).
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @returns Effect resolving to success boolean
+ */
 export function permanentlyDeleteRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -347,8 +469,10 @@ export function permanentlyDeleteRecord(
           db.transaction(async (tx) => {
             validateTableName(tableName)
 
+            // Fetch record before deletion for activity logging
             const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
 
+            // Execute hard delete
             const success = await executeHardDelete(tx, tableName, recordId)
 
             return { success, recordBeforeData: success ? recordBeforeData : undefined }
@@ -357,6 +481,7 @@ export function permanentlyDeleteRecord(
       })
     )
 
+    // Log activity for permanent delete (outside transaction)
     if (result.success && result.recordBeforeData) {
       yield* logActivity({
         session,
@@ -371,6 +496,18 @@ export function permanentlyDeleteRecord(
   })
 }
 
+/**
+ * Restore a soft-deleted record
+ *
+ * Clears the deleted_at timestamp to restore a soft-deleted record.
+ * Returns error if record doesn't exist or is not soft-deleted.
+ * Permissions applied via application layer.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @returns Effect resolving to restored record or null
+ */
 export function restoreRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -386,23 +523,29 @@ export function restoreRecord(
             validateTableName(tableName)
             const tableIdent = sql.identifier(tableName)
 
+            // Check if record exists (including soft-deleted records)
             const checkResult = await typedExecute(
               tx,
               sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
             )
 
             if (checkResult.length === 0) {
-              return null
+              // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
+              return null // Record not found
             }
 
             const record = checkResult[0]
 
+            // Check if record is soft-deleted
             if (!record?.deleted_at) {
+              // Record exists but is not deleted - return error via special marker
               return { _error: 'not_deleted' } as Record<string, unknown>
             }
 
+            // Check if table has deleted_by column (dialect-aware introspection)
             const hasDeletedBy = await columnExists(tx, tableName, 'deleted_by')
 
+            // Restore record by clearing deleted_at and deleted_by (if column exists)
             const result = hasDeletedBy
               ? await typedExecute(
                   tx,
@@ -419,6 +562,7 @@ export function restoreRecord(
       })
     )
 
+    // Log activity for record restoration (outside transaction)
     if (restoredRecord && !('_error' in restoredRecord)) {
       yield* logActivity({
         session,

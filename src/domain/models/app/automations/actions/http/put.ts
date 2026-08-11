@@ -9,6 +9,13 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * HTTP PUT Action (type: http, operator: put)
+ *
+ * Convenience operator for PUT requests. Defaults Content-Type to
+ * application/json when a body is provided. PUT semantics signal
+ * full resource replacement.
+ */
 export const HttpPutActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('http'),
@@ -63,4 +70,5 @@ export const HttpPutActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type HttpPutAction = Schema.Schema.Type<typeof HttpPutActionSchema>

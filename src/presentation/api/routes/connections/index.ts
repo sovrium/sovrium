@@ -29,12 +29,44 @@ import { handleListUsers } from './users-handler'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
+/**
+ * Tagged failure type for connection-route Effect programs.
+ *
+ * Replaces the previous pattern of `Effect.mapError((err) => new Error(...))`,
+ * which collapsed all repository/store errors into the global `Error` type and
+ * lost discriminability in the failure channel (Effect diagnostic
+ * `globalErrorInEffectFailure`).
+ *
+ * `operation` identifies the call site for log/debug context; `cause` preserves
+ * the original error so root-cause information survives the boundary.
+ */
 class ConnectionRouteError extends Data.TaggedError('ConnectionRouteError')<{
   readonly operation: string
   readonly cause: unknown
 }> {}
 
+/**
+ * OAuth2 authorization-code flow + token CRUD for `app.connections[]`.
+ *
+ * Connection definitions live in the app config (clientId, scopes,
+ * URLs, PKCE method, etc.); per-user tokens live in
+ * `system.connection_tokens` (encrypted at rest via `crypto/token-encrypt.ts`).
+ *
+ * On first authorize for a given connection name, we lazily upsert the
+ * `system.connections` row so `connection_tokens.connection_id` has a
+ * valid FK target. This mirrors the lazy-seed pattern from the
+ * automations subsystem (plan 01a).
+ *
+ * Routes:
+ *   GET    /api/connections/:name/authorize    → 302 to provider's /authorize
+ *   GET    /api/connections/:name/callback     → exchange code, store token
+ *   GET    /api/connections/:name/status       → connection state for current user
+ *   DELETE /api/connections/:name/disconnect   → revoke + delete user's token row
+ */
 
+// OAuth2Props, OAuth2AuthCodeProps, and requireAuthCodeFields live in
+// `./oauth2-props.ts` to keep this file under the 400-line max-lines budget.
+// See REC-3 in that file for the schema/runtime drift rationale.
 
 interface ConnectionDef {
   readonly name: string
@@ -50,6 +82,22 @@ const findConnection = (app: App, name: string): ConnectionDef | undefined => {
 const isOAuth2 = (conn: ConnectionDef): conn is ConnectionDef & { props: OAuth2Props } =>
   conn.type === 'oauth2'
 
+/**
+ * Lazy upsert: ensure a `system.connections` row exists for this
+ * connection name. Returns the row's `id`.
+ *
+ * Atomic via `upsertByName` (INSERT ... ON CONFLICT DO UPDATE on the
+ * `connections_name_unique` index). Two concurrent first-authorize
+ * requests for the same connection name both succeed and resolve to
+ * the same row (audit H3).
+ *
+ * Audit H2: `credentials: {}` — the full OAuth props (incl.
+ * `clientSecret`) live in the in-memory `app.connections[]` config and
+ * are read at OAuth-callback time via `findConnection(app, name)`.
+ * Persisting them as plaintext JSONB would duplicate the secret to
+ * disk for no read-path benefit. The column stays populated with `{}`
+ * to honor NOT NULL; a future migration can drop the column entirely.
+ */
 const resolveConnectionId = (
   conn: ConnectionDef
 ): Effect.Effect<string, ConnectionRouteError, ConnectionRepository> =>
@@ -68,8 +116,29 @@ const resolveConnectionId = (
     return String(row['id'] ?? '')
   })
 
+/**
+ * Resolve the connection's effective scope. Default is 'app' (admin-only,
+ * single shared token). 'user' opts the connection into per-user tokens
+ * accessible to any authenticated user.
+ */
 const effectiveScope = (props: OAuth2Props): 'app' | 'user' => props.scope ?? 'app'
 
+/**
+ * Z-3 enumeration-prevention pattern: when an OAuth2 connection is `app`-scoped
+ * (admin-managed), non-admin callers receive 404 — same response as if the
+ * connection didn't exist. Returns `undefined` if the caller is permitted, or
+ * a 404 response if not.
+ *
+ * For non-OAuth2 connections (apiKey/bearer/basic) and `user`-scoped OAuth2,
+ * any signed-in user is permitted.
+ *
+ * The admin check goes through the canonical, custom-role-aware
+ * {@link isAdminTier} predicate (threading the live `app`) rather than a literal
+ * `role === 'admin'` check: a partner-style custom TOP role (e.g. `engineer`,
+ * level 80, which resolves to a dashboard tier) is admin-tier and is admitted,
+ * while a plain `member`/anon still 404s. Mirrors the
+ * `requireAdminTier`/`makeAdminGuard` posture on the `/api/admin/*` surface.
+ */
 const gateAdminForAppScope = async (
   c: Context,
   conn: ReturnType<typeof findConnection>,
@@ -83,6 +152,13 @@ const gateAdminForAppScope = async (
   return connectionError(c, 404, 'connection_not_found')
 }
 
+/**
+ * Lazy import to avoid bundler-time circular references between the
+ * connections route file and the auth use-case module. `getUserRole`
+ * itself lazy-loads `AuthRepositoryLive`, so this two-level lazy chain
+ * keeps `connection-routes` independent of the database adapter at
+ * import time. Mirrors the pattern in `requireAdminHandler`.
+ */
 const resolveUserRole = async (userId: string): Promise<string> => {
   const { getUserRole } = await import('@/application/use-cases/tables/user-role')
   return getUserRole(userId)
@@ -100,6 +176,12 @@ async function handleAuthorize(c: Context, app: App) {
   const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 
+  // REC-3: schema marks authorizationUrl/tokenUrl/redirectUri optional
+  // (clientCredentials grant only needs tokenUrl). This helper enforces
+  // them at the authorize entry point so we never call new URL(undefined).
+  // `resolveOAuth2PropsEnv` first resolves `$env.VAR` placeholders (clientId/
+  // urls/redirectUri/audience support env refs per the prop schema) so the
+  // authorize URL carries the real values, not the literal `$env.…` string.
   const fieldsCheck = requireAuthCodeFields(c, resolveOAuth2PropsEnv(conn.props, app))
   if ('response' in fieldsCheck) return fieldsCheck.response
   const { props } = fieldsCheck
@@ -154,6 +236,7 @@ const persistTokenProgram = (input: {
   readonly accessToken: string
 }) =>
   Effect.gen(function* () {
+    // resolveConnectionId already fails with ConnectionRouteError; no remap needed.
     const connectionId = yield* resolveConnectionId(input.conn)
     const tokenRepo = yield* ConnectionTokenRepository
     yield* tokenRepo
@@ -175,6 +258,11 @@ const persistTokenProgram = (input: {
   })
 
 interface ResolvedCallbackContext {
+  /**
+   * Connection with the auth-code-flow props verified — `requireAuthCodeFields`
+   * has confirmed `authorizationUrl`, `tokenUrl`, and `redirectUri` are all
+   * present non-empty strings.
+   */
   readonly conn: ConnectionDef & { props: OAuth2AuthCodeProps }
   readonly codeVerifier: string | undefined
   readonly code: string
@@ -205,6 +293,9 @@ const resolveCallbackContext = async (
   if (stateEntry === undefined || stateEntry.connectionName !== inputs.name) {
     return { response: connectionError(c, 400, 'invalid_state_or_mismatch') }
   }
+  // Bind state to the original session user (defense-in-depth against
+  // CSRF / session-fixation: a leaked state value cannot be redeemed by a
+  // different signed-in user). If session changed mid-flow, force restart.
   if (stateEntry.userId !== userId) {
     return { response: connectionError(c, 400, 'state_user_mismatch') }
   }
@@ -214,11 +305,21 @@ const resolveCallbackContext = async (
     return { response: connectionError(c, 404, 'connection_not_found') }
   }
 
+  // Resolve `$env.VAR` placeholders before the /token exchange so the
+  // clientId/clientSecret/tokenUrl/redirectUri sent to the provider are the
+  // real values, not literal `$env.…` strings.
   const resolvedProps = resolveOAuth2PropsEnv(conn.props, app)
 
+  // REC-3: schema marks the auth-code fields optional (clientCredentials
+  // grant only needs tokenUrl). Validate them at the callback boundary so
+  // exchangeCodeForToken can rely on them being defined.
   const fieldsCheck = requireAuthCodeFields(c, resolvedProps)
   if ('response' in fieldsCheck) return { response: fieldsCheck.response }
 
+  // The structural shape is correct (OAuth2AuthCodeProps strictly extends
+  // the runtime fields we read), but the explicit `Record<string, unknown>`
+  // index on ConnectionDef doesn't combine with a typed interface; assert
+  // through ConnectionDef to satisfy the typechecker without widening.
   const refinedConn = { ...conn, props: fieldsCheck.props } as ConnectionDef & {
     props: OAuth2AuthCodeProps
   }
@@ -263,6 +364,20 @@ async function handleCallback(c: Context, app: App) {
   return c.json({ success: true, connectionId: result.right }, 200)
 }
 
+/**
+ * Look up the (connection, token) state for the given user. Extracted
+ * from `handleStatus` so the handler stays under the line-count threshold
+ * and so the lookup can be reused by future routes (e.g. /info).
+ *
+ * Returns `connected: false` when the stored token is the test-mode
+ * seeder's sentinel (see `isSentinelAccessToken`) — without this gate,
+ * tests that create a user against a `scope: 'user'` connection would
+ * always observe 'connected' status because the seeder upserts a 1h-TTL
+ * sentinel row at user-create time. Specs [internal ref]
+ * and -077 specifically test the "user has NOT yet authorized" state
+ * and require the sentinel to be invisible to the status / injection
+ * paths.
+ */
 const statusLookupProgram = (input: { readonly name: string; readonly userId: string }) =>
   Effect.gen(function* () {
     const connRepo = yield* ConnectionRepository
@@ -289,6 +404,12 @@ const statusLookupProgram = (input: { readonly name: string; readonly userId: st
     }
   })
 
+/**
+ * Map (connected, expiresAt) into the textual status the spec asserts on.
+ * 'expired' is reported when a token row exists but its `expiresAt` is
+ * in the past — the automation runtime treats this as an opportunity to
+ * refresh (handled in C-2 token-refresh, not here).
+ */
 const deriveStatus = (
   connected: boolean,
   expiresAt: Date | undefined
@@ -324,6 +445,7 @@ async function handleStatus(c: Context, app: App) {
       type: conn.type,
       status,
       connected,
+      // eslint-disable-next-line unicorn/no-null -- contract field; null when no expiry recorded
       expiresAt: expiresAt?.toISOString() ?? null,
     },
     200
@@ -366,6 +488,7 @@ async function handleDisconnect(c: Context, app: App) {
   return c.json({ success: true, deleted: result.right }, 200)
 }
 
+/* eslint-disable drizzle/enforce-delete-with-where -- the `.delete()` below is a Hono route definition, not a Drizzle delete */
 export function chainConnectionRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
     .get('/api/connections/:name/authorize', (c) => handleAuthorize(c, app))
@@ -374,3 +497,4 @@ export function chainConnectionRoutes<T extends Hono>(honoApp: T, app: App): T {
     .get('/api/connections/:name/users', (c) => handleListUsers(c, app))
     .delete('/api/connections/:name/disconnect', (c) => handleDisconnect(c, app)) as T
 }
+/* eslint-enable drizzle/enforce-delete-with-where */

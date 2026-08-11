@@ -5,3 +5,5 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Barrel export for component rendering utilities
+// Files will be added during migration

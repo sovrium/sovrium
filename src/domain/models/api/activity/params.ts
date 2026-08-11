@@ -7,12 +7,24 @@
 
 import { z } from 'zod'
 
+// ============================================================================
+// OpenAPI Path Parameter Schemas
+// ============================================================================
 
+/**
+ * Activity ID path parameter
+ */
 export const activityIdParamSchema = z.object({
   activityId: z.string().describe('Activity log identifier'),
 })
 
+// ============================================================================
+// OpenAPI Query Parameter Schemas
+// ============================================================================
 
+/**
+ * Activity log query parameters
+ */
 export const activityQuerySchema = z.object({
   page: z.string().optional().describe('Page number'),
   pageSize: z.string().optional().describe('Items per page'),

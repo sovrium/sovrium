@@ -24,8 +24,14 @@ components:
           className: text-sm mb-6
         content: Every task with a due date, laid out on the month.
 
+      # `colorField: status` paints each deadline with the option colour declared
+      # on the task's `status` field, so an overdue Blocked task reads as red
+      # without opening it. There is deliberately no `endDateField`: a task has a
+      # deadline, not a span, and drawing it as a bar would imply work is
+      # scheduled across those days when nothing in the model says so.
       - type: calendar
         dataSource:
           table: tasks
         dateField: due_date
+        colorField: status
         defaultView: month

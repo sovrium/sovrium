@@ -9,15 +9,23 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Data Deduplicate Action (type: data, operator: deduplicate)
+ *
+ * Remove duplicate items from an array based on a specified key field; the
+ * first occurrence of each key is kept.
+ */
 export const DataDeduplicateActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('data'),
   operator: Schema.Literal('deduplicate'),
   props: Schema.Struct({
+    /** Template reference to the array of items */
     input: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Template reference to the array of items' })
     ),
 
+    /** Field whose value identifies duplicates */
     key: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Field whose value identifies duplicates' })
     ),
@@ -30,4 +38,5 @@ export const DataDeduplicateActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type DataDeduplicateAction = Schema.Schema.Type<typeof DataDeduplicateActionSchema>

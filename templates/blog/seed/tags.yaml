@@ -1,0 +1,33 @@
+# The taxonomy. Six tags, used unevenly on purpose — a demo where every tag has
+# exactly two posts looks generated, and hides the fact that the Tags column
+# renders a variable-length list.
+records:
+  - key: self-hosting
+    fields:
+      name: Self-hosting
+      slug: self-hosting
+
+  - key: engineering
+    fields:
+      name: Engineering
+      slug: engineering
+
+  - key: design
+    fields:
+      name: Design
+      slug: design
+
+  - key: operations
+    fields:
+      name: Operations
+      slug: operations
+
+  - key: open-source
+    fields:
+      name: Open source
+      slug: open-source
+
+  - key: notes
+    fields:
+      name: Notes
+      slug: notes

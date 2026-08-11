@@ -7,6 +7,11 @@
 
 import { z } from '@hono/zod-openapi'
 
+/**
+ * Pagination metadata schema
+ *
+ * Common pagination fields used across list endpoints.
+ */
 export const paginationSchema = z
   .object({
     page: z.number().int().min(1).describe('Current page number (1-indexed)'),
@@ -19,11 +24,21 @@ export const paginationSchema = z
   })
   .openapi('Pagination')
 
+/**
+ * Pagination query parameters schema
+ *
+ * Used for parsing pagination query parameters.
+ */
 export const paginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1).describe('Page number'),
   limit: z.coerce.number().int().min(1).max(100).default(20).describe('Items per page'),
 })
 
+/**
+ * Timestamp metadata schema
+ *
+ * Common timestamp fields for audit trails.
+ */
 export const timestampSchema = z
   .object({
     createdAt: z.iso.datetime().describe('ISO 8601 creation timestamp'),
@@ -31,12 +46,20 @@ export const timestampSchema = z
   })
   .openapi('Timestamps')
 
+/**
+ * Success response wrapper schema
+ *
+ * Standard wrapper for successful responses.
+ */
 export const successResponseSchema = z
   .object({
     success: z.literal(true).describe('Operation success indicator'),
   })
   .openapi('SuccessResponse')
 
+/**
+ * TypeScript types inferred from schemas
+ */
 export type Pagination = z.infer<typeof paginationSchema>
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>
 export type Timestamps = z.infer<typeof timestampSchema>

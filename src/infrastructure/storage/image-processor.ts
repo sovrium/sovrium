@@ -7,6 +7,16 @@
 
 import type { CropRegion } from '@/application/ports/services/image-transform-service'
 
+/**
+ * Lazily load the native `sharp` module.
+ *
+ * `sharp` ships a native addon that a `bun build --compile` standalone binary
+ * cannot load from its virtual filesystem. A static top-level `import sharp
+ * from 'sharp'` would crash the binary at module-load time — the same class of
+ * failure as the native CSS addon in issue #19. Deferring the import to call
+ * time lets the binary boot; an image-transform call then fails with sharp's
+ * own clear error only if that feature is actually exercised in the binary.
+ */
 const loadSharp = async () => (await import('sharp')).default
 
 export const resizeImage = async (

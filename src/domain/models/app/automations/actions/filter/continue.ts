@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { ConditionGroupSchema } from '../../conditions'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Filter Action (type: filter, operator: continue)
+ *
+ * Conditionally continue or stop automation based on conditions.
+ */
 export const FilterContinueActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('filter'),
@@ -32,4 +37,5 @@ export const FilterContinueActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FilterContinueAction = Schema.Schema.Type<typeof FilterContinueActionSchema>

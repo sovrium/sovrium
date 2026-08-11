@@ -1,0 +1,136 @@
+# Sample employee directory.
+#
+# `key` is file-local — it exists so `time_off_requests.yaml` can name an
+# employee before either row has a database id. It is never written to a column.
+#
+# All six departments are represented so the directory gallery does not look
+# like one team, and start dates span several years so "who is new here" is
+# answerable from the data.
+#
+# TWO FIELDS ARE DELIBERATELY UNSEEDED, both because `sovrium seed` refuses them
+# rather than guessing:
+#
+#   `manager` is a `relationship` back to `employees` — a self-reference.
+#   Resolving one needs a two-pass insert-then-patch that the seed command does
+#   not do, so `checkSelfReferences` refuses the file outright rather than
+#   writing half a hierarchy. Set reporting lines in the UI after seeding.
+#
+#   `photo` is a `single-attachment`. It could be seeded with an `@asset:` token
+#   pointing into `seed/assets/`, but shipping a dozen invented headshots in the
+#   template repository is a licensing and taste problem this demo does not need
+#   — the gallery card renders its initials placeholder without one.
+#
+# `salary` IS seeded, because the field-level permission on it is the single
+# most interesting thing this template demonstrates: sign in as a member and the
+# column is not merely hidden, it is never sent. A directory with every salary
+# null cannot show that.
+#
+# Addresses use `.example`, a reserved TLD that can never resolve.
+records:
+  - key: priya
+    fields:
+      name: Priya Raman
+      email: priya.raman@meridian.example
+      job_title: Head of Engineering
+      department: Engineering
+      start_date: '2019-03-04'
+      salary: 96000
+
+  - key: tomas
+    fields:
+      name: Tomás Ferreira
+      email: tomas.ferreira@meridian.example
+      job_title: Senior Backend Engineer
+      department: Engineering
+      start_date: '2021-09-13'
+      salary: 74000
+
+  - key: ines
+    fields:
+      name: Inès Lambert
+      email: ines.lambert@meridian.example
+      job_title: Frontend Engineer
+      department: Engineering
+      start_date: '{{today-214d}}'
+      salary: 61000
+
+  - key: samuel
+    fields:
+      name: Samuel Adeyemi
+      email: samuel.adeyemi@meridian.example
+      job_title: Platform Engineer
+      department: Engineering
+      start_date: '{{today-47d}}'
+      salary: 68000
+
+  - key: hannah
+    fields:
+      name: Hannah Vogt
+      email: hannah.vogt@meridian.example
+      job_title: Account Executive
+      department: Sales
+      start_date: '2020-06-22'
+      salary: 58000
+
+  - key: dmitri
+    fields:
+      name: Dmitri Sokolov
+      email: dmitri.sokolov@meridian.example
+      job_title: Sales Development Rep
+      department: Sales
+      start_date: '{{today-119d}}'
+      salary: 42000
+
+  - key: aiko
+    fields:
+      name: Aiko Tanaka
+      email: aiko.tanaka@meridian.example
+      job_title: Content Lead
+      department: Marketing
+      start_date: '2022-01-10'
+      salary: 55000
+
+  - key: marcus
+    fields:
+      name: Marcus Bell
+      email: marcus.bell@meridian.example
+      job_title: Growth Marketer
+      department: Marketing
+      start_date: '{{today-286d}}'
+      salary: 49000
+
+  - key: fatima
+    fields:
+      name: Fatima El Amrani
+      email: fatima.elamrani@meridian.example
+      job_title: Operations Manager
+      department: Operations
+      start_date: '2018-11-05'
+      salary: 63000
+
+  - key: liam
+    fields:
+      name: Liam O'Sullivan
+      email: liam.osullivan@meridian.example
+      job_title: Support Specialist
+      department: Operations
+      start_date: '2023-04-17'
+      salary: 41000
+
+  - key: sofia
+    fields:
+      name: Sofia Marchetti
+      email: sofia.marchetti@meridian.example
+      job_title: Financial Controller
+      department: Finance
+      start_date: '2020-02-03'
+      salary: 71000
+
+  - key: noor
+    fields:
+      name: Noor Haddad
+      email: noor.haddad@meridian.example
+      job_title: People Partner
+      department: People
+      start_date: '2021-05-31'
+      salary: 57000

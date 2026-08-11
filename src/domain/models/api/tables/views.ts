@@ -5,6 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * View API schemas
+ *
+ * Re-exports view-related schemas from the main tables module.
+ * This file exists so that the `views` route sub-resource
+ * (/api/tables/:tableId/views) has a matching schema file,
+ * following the API schema directory convention.
+ */
 export {
   viewSchema,
   listViewsResponseSchema,

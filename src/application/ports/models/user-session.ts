@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * User session interface for application layer
+ *
+ * Structurally compatible with Better Auth's Session type
+ * so infrastructure implementations can accept it without conversion.
+ * Application layer uses this instead of importing from infrastructure.
+ */
 export interface UserSession {
   readonly id: string
   readonly userId: string
@@ -17,5 +24,3 @@ export interface UserSession {
   readonly impersonatedBy: string | null
   readonly activeOrganizationId: string | null
 }
-
-export type Session = UserSession

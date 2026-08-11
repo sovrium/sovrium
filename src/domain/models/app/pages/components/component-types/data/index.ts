@@ -16,4 +16,5 @@ export { ListTypeLiteral, listFields } from './list'
 export { DataTimelineTypeLiteral, dataTimelineFields, TimelineZoomSchema } from './data-timeline'
 export type { TimelineZoom } from './data-timeline'
 
+// Re-export sub-schemas from data component types
 export * from './data-table/schema'

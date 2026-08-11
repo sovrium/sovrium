@@ -7,6 +7,19 @@
 
 import { z } from 'zod'
 
+/**
+ * Admin storage status response schema
+ *
+ * Returns the active storage configuration parsed from environment variables.
+ * Used by administrators to verify which storage provider is configured and
+ * which optional values (e.g. region) were applied via defaults.
+ *
+ * Provider-specific fields:
+ * - `s3`: region, bucket, endpoint, forcePathStyle
+ * - `local`: directory
+ * - `bytea`: (no extra fields)
+ * - `disabled`: returned when no storage provider is configured
+ */
 export const storageStatusResponseSchema = z.object({
   provider: z
     .enum(['s3', 'local', 'bytea', 'disabled'])
@@ -18,4 +31,7 @@ export const storageStatusResponseSchema = z.object({
   directory: z.string().optional().describe('Local filesystem storage directory (local only)'),
 })
 
+/**
+ * TypeScript type inferred from Zod schema.
+ */
 export type StorageStatusResponse = z.infer<typeof storageStatusResponseSchema>

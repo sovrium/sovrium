@@ -9,7 +9,7 @@ components:
     props:
       className: py-16 px-6 min-h-screen
       style:
-        backgroundColor: '#f8fafc'
+        backgroundColor: var(--color-background-subtle)
     children:
       - type: container
         props:
@@ -20,14 +20,14 @@ components:
             props:
               className: text-3xl font-bold mb-2 text-center
               style:
-                color: '#0f172a'
+                color: var(--color-foreground)
             content: Welcome back
           - type: text
             element: p
             props:
               className: text-center mb-8
               style:
-                color: '#475569'
+                color: var(--color-foreground-muted)
             content: Sign in to access the company intranet.
 
           # Magic-link form — passwordless, primary option
@@ -35,8 +35,8 @@ components:
             props:
               className: p-6 rounded-xl border mb-4
               style:
-                backgroundColor: '#ffffff'
-                borderColor: '#e2e8f0'
+                backgroundColor: var(--color-card)
+                borderColor: var(--color-border)
             children:
               - type: text
                 element: h2
@@ -48,7 +48,7 @@ components:
                 props:
                   className: text-sm mb-4
                   style:
-                    color: '#475569'
+                    color: var(--color-foreground-muted)
                 content: We'll email you a one-tap sign-in link. No password needed.
               - type: form
                 props:
@@ -65,8 +65,8 @@ components:
             props:
               className: p-6 rounded-xl border
               style:
-                backgroundColor: '#ffffff'
-                borderColor: '#e2e8f0'
+                backgroundColor: var(--color-card)
+                borderColor: var(--color-border)
             children:
               - type: text
                 element: h2

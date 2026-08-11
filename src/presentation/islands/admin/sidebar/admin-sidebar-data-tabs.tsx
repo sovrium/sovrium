@@ -5,6 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * The Native Admin Dashboard sidebar's **Data** page list
+ *.
+ *
+ * The dashboard is a pure operational DATA console (config code-only, [internal ref]):
+ * the sidebar is navigation-only over the Data pages — there is no longer a
+ * Config/Data segmented control. {@link DataNavList} is the whole sidebar
+ * body. The active row is DERIVED from the URL by the island (no separate client
+ * state), so it composes for free with the SPA content-swap and back/forward.
+ */
 
 import { type ReactElement } from 'react'
 import { DataNavGroup } from './admin-sidebar-data-groups'
@@ -22,6 +32,15 @@ import {
 } from './admin-sidebar-developer-nav'
 import { FamilyGlyph } from './admin-sidebar-icon'
 
+/**
+ * The "Dashboard" overview link. Sits at the
+ * TOP of the sidebar, ABOVE the `navigation "Data"` landmark — it points to
+ * the reclaimed dashboard root (`/_admin`, the cross-domain KPI overview), which
+ * is a distinct destination from the Data-page navigation below. Rendered outside
+ * the Data landmark so that landmark stays present + separate (the spec checks
+ * both). Active (`aria-current="page"`) when the URL-derived `activePath` is the
+ * root (`/`); a glyph + label styled like {@link ReadyDataRow}.
+ */
 export function OverviewNavLink({ activePath }: { readonly activePath: string }): ReactElement {
   const active = activePath === '/'
   return (
@@ -36,11 +55,12 @@ export function OverviewNavLink({ activePath }: { readonly activePath: string })
       }`}
     >
       <FamilyGlyph icon="component" />
-      <span className="flex-1 truncate">Tableau de bord</span>
+      <span className="flex-1 truncate">Dashboard</span>
     </a>
   )
 }
 
+/** A single backend-ready Data page row: a navigable glyph + label link. */
 function ReadyDataRow({
   item,
   active,
@@ -67,6 +87,11 @@ function ReadyDataRow({
   )
 }
 
+/**
+ * A backend-gap Data page row: a disabled, non-navigable row with a "Coming soon"
+ * pill so the workspace IA reads complete (Pass 2 ships the backend and promotes
+ * it to a {@link ReadyDataRow}).
+ */
 function SoonDataRow({ item }: { readonly item: DataNavItem }): ReactElement {
   return (
     <li>
@@ -78,18 +103,28 @@ function SoonDataRow({ item }: { readonly item: DataNavItem }): ReactElement {
         <FamilyGlyph icon={item.icon} />
         <span className="flex-1 truncate">{item.label}</span>
         <span className="border-border text-foreground-subtle rounded-full border px-1.5 py-0.5 text-[0.625rem] font-medium tracking-wide uppercase">
-          Bientôt
+          Coming soon
         </span>
       </span>
     </li>
   )
 }
 
+/**
+ * Whether a Data-page row is the active one for the current path. A row matches
+ * its own top-level `/{key}` page AND any object-scoped sub-path under it
+ * (`/{key}/{object}`) — so the "Records" row stays accented when an
+ * operator drills into a table's grid (`/tables/contacts`). The prefix test is
+ * anchored on `/{key}` followed by end-or-slash, so `/forms` never lights up the
+ * `/form` row of a hypothetical sibling. ([internal ref] retired the `/data` segment, so
+ * `activePath` is now the top-level `/_admin`-stripped path.)
+ */
 function isDataRowActive(activePath: string, key: string): boolean {
   const base = `/${key}`
   return activePath === base || activePath.startsWith(`${base}/`)
 }
 
+/** Render one destination row — a navigable link, or a disabled "Coming soon" row. */
 function DataRow({
   item,
   activePath,
@@ -107,6 +142,14 @@ function DataRow({
   )
 }
 
+/**
+ * One nav section: a quiet uppercase heading followed by its destination rows.
+ * The Application section renders Notion-style expandable {@link DataNavGroup}
+ * disclosures (each lazy-loads its object list — [internal ref]); the System
+ * section renders flat {@link DataRow} links (single nav items, no toggle). Both
+ * stay inside the single `navigation "Data"` landmark so the section is a
+ * visual grouping, not a second landmark.
+ */
 function DataNavSectionGroup({
   section,
   items,
@@ -118,7 +161,9 @@ function DataNavSectionGroup({
 }): ReactElement {
   return (
     <div className="flex flex-col gap-0.5">
-      {}
+      {/* A real heading (not a styled <p>) so screen-reader users can navigate
+          the sidebar by section, matching the Linear/Stripe operator-console
+          pattern. Visually it stays a quiet uppercase micro-label. */}
       <h2 className="text-foreground-subtle px-2 pt-1 pb-1 text-[0.6875rem] font-medium tracking-wide uppercase">
         {DATA_NAV_SECTION_LABELS[section]}
       </h2>
@@ -144,10 +189,19 @@ function DataNavSectionGroup({
   )
 }
 
+/**
+ * The Data-tab page list: a single `navigation "Data"` landmark whose rows
+ * are grouped into two labelled sections — the operator's own application data
+ * ("Application data": Records / Submissions / Files) and the
+ * platform-level system data ("System data": Runs / Conversations /
+ * Users / Connections / Analytics). `activePath` (the `/_admin`-stripped
+ * active path) drives the active-row highlight via each item's `/data/{key}`
+ * href, including object-scoped sub-paths (see {@link isDataRowActive}).
+ */
 export function DataNavList({ activePath }: { readonly activePath: string }): ReactElement {
   return (
     <nav
-      aria-label="Données"
+      aria-label="Data"
       className="flex flex-col gap-4"
     >
       {DATA_NAV_SECTION_ORDER.map((section) => (
@@ -162,6 +216,7 @@ export function DataNavList({ activePath }: { readonly activePath: string }): Re
   )
 }
 
+/** One Developers row: a navigable glyph + label link (same style as a Data row). */
 function DeveloperNavRow({
   item,
   active,
@@ -188,6 +243,15 @@ function DeveloperNavRow({
   )
 }
 
+/**
+ * The Developers nav list: a
+ * SECOND `navigation` landmark below the Data nav, grouping the auto-generated
+ * integration docs — the REST API reference (`/_admin/api`) and the MCP
+ * connection guide (`/_admin/mcp`). Kept as its own landmark (not a section of
+ * the Data nav) because these are management/docs surfaces, not data
+ * destinations. `activePath` (the `/_admin`-stripped active path) drives the
+ * active-row highlight, matching on `/{key}` exactly or any sub-path under it.
+ */
 export function DeveloperNavList({ activePath }: { readonly activePath: string }): ReactElement {
   return (
     <nav

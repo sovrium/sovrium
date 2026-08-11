@@ -5,7 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Result-list sub-components for the `admin-command-palette` island
+ *. Split out of the island body to keep both
+ * files under the per-island `max-lines` cap.
+ *
+ * The broadened palette renders the global-search matches GROUPED BY TYPE: one
+ * labelled `listbox` per present entity kind (the French type label is the
+ * listbox's accessible name AND the per-result badge), and one `option` per
+ * result (its accessible name is the result title, so
+ * `getByRole('option', { name: /Zaphod/ })` resolves). Plus the three calm
+ * states the operator sees: the empty prompt (no query), the loading hint, and
+ * the no-results status naming the searched term.
+ */
 
+/* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React event-handler pattern (per-row onClick); presentational result rows, not a hot path. */
 
 import { type ReactElement } from 'react'
 import {
@@ -14,6 +28,7 @@ import {
   type AdminSearchResult,
 } from './admin-command-palette-data'
 
+/** One result row: an `option` whose accessible name is the result title. */
 function ResultOption({
   result,
   badge,
@@ -39,6 +54,7 @@ function ResultOption({
   )
 }
 
+/** One per-type group: a labelled `listbox` of result `option`s. */
 function ResultGroup({
   group,
   onSelect,
@@ -70,6 +86,7 @@ function ResultGroup({
   )
 }
 
+/** The grouped global-search result list (one labelled listbox per kind). */
 export function GroupedResults({
   groups,
   onSelect,
@@ -90,14 +107,14 @@ export function GroupedResults({
   )
 }
 
+/** The calm prompt shown when no query is typed (invites a global search). */
 export function PaletteEmptyPrompt(): ReactElement {
   return (
-    <p className="text-foreground-subtle px-3 py-6 text-center text-sm">
-      Recherchez dans toutes vos données
-    </p>
+    <p className="text-foreground-subtle px-3 py-6 text-center text-sm">Search all your data</p>
   )
 }
 
+/** The loading hint shown while a query is in flight. */
 export function PaletteLoading(): ReactElement {
   return (
     <p
@@ -109,13 +126,14 @@ export function PaletteLoading(): ReactElement {
   )
 }
 
+/** The no-results status, naming the searched term. */
 export function PaletteNoResults({ query }: { readonly query: string }): ReactElement {
   return (
     <p
       role="status"
       className="text-foreground-subtle px-3 py-6 text-center text-sm"
     >
-      {`Aucun résultat pour « ${query} »`}
+      {`No results for “${query}”`}
     </p>
   )
 }

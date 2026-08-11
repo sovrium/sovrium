@@ -21,6 +21,16 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 const commentReadState = resolveDialectSchema(commentReadStatePg, commentReadStateSqlite)
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
+/**
+ * Mark every comment on a record read for the current user.
+ *
+ * Upserts the per-user high-watermark row for `(user_id, table_id, record_id)`
+ * to NOW(). Uses Drizzle's `onConflictDoUpdate` against the unique index the
+ * engine DDL created — the write is idempotent, so repeated mark-read calls
+ * simply advance the watermark. The timestamp is bound as a JS `Date` and
+ * written through Drizzle's typed `timestamp` / `timestamp_ms` column (NOT a
+ * raw `sql` bind), which sidesteps the bun:sqlite Date→NULL coercion gotcha.
+ */
 export function markRecordCommentsRead(config: {
   readonly session: Readonly<Session>
   readonly tableId: string
@@ -48,6 +58,22 @@ export function markRecordCommentsRead(config: {
   })
 }
 
+/**
+ * Count the comments on a record that are unread for the current user.
+ *
+ * A comment is unread when:
+ *   - it is a visible (approved, non-deleted) comment on the record, AND
+ *   - it was not authored by the viewer (own comments never count as unread —
+ *     guest comments with a NULL author DO count), AND
+ *   - the viewer has no read-state watermark for this record, OR the comment
+ *     was created strictly after that watermark.
+ *
+ * The LEFT JOIN keys on the same `(user_id, table_id, record_id)` unique tuple
+ * the mark-read upsert writes, so each comment matches at most one watermark
+ * row — `COUNT(*)` is exact. The `created_at > last_read_at` comparison is
+ * column-to-column and unit-consistent across dialects (both stored as
+ * TIMESTAMPTZ on pg / epoch-ms on SQLite).
+ */
 export function getUnreadCommentCount(config: {
   readonly session: Readonly<Session>
   readonly tableId: string

@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * CLI Schema Loader - Presentation Layer
+ *
+ * CLI-specific schema loading with user-facing error messages and process.exit.
+ * Orchestrates domain and infrastructure layers.
+ */
 
 import { Effect, Console } from 'effect'
 import {
@@ -22,6 +28,9 @@ import {
 } from '@/infrastructure/schema'
 import type { AppEncoded } from '@/domain/models/app'
 
+/**
+ * Load schema from file with CLI error handling (calls process.exit on error)
+ */
 export const loadSchemaFromFile = async (
   filePath: string,
   command: string
@@ -37,6 +46,7 @@ export const loadSchemaFromFile = async (
         yield* Console.error(`  sovrium ${command} <config.json>`)
       })
     )
+    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
@@ -50,12 +60,15 @@ export const loadSchemaFromFile = async (
         yield* Console.error('Supported formats: .json, .yaml, .yml, .ts')
       })
     )
+    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
   try {
     return await loadFromFile(filePath)
   } catch (error) {
+    // TypeScript configs are imported, not parsed — use the right verb and label per format.
+    // NOTE: the 'parse JSON/YAML file' wording is asserted by CLI specs; only the .ts branch differs.
     const formatLabel = format === 'json' ? 'JSON' : format === 'yaml' ? 'YAML' : 'TypeScript'
     const verb = format === 'typescript' ? 'load' : 'parse'
     Effect.runSync(
@@ -65,39 +78,57 @@ export const loadSchemaFromFile = async (
         yield* Console.error('Details:', error instanceof Error ? error.message : String(error))
       })
     )
+    // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 }
 
+/**
+ * Load schema from file for watch mode reloads (throws instead of process.exit)
+ */
 export const loadSchemaFromFileForReload = async (filePath: string): Promise<AppEncoded> =>
   loadFromFile(filePath)
 
+/**
+ * Parse schema from environment variable value
+ * Supports: inline JSON, inline YAML, remote URL
+ *
+ * @throws Error if parsing fails
+ */
 export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> => {
   const trimmedValue = envValue.trim()
 
+  // Detect if value is inline JSON
   if (isInlineJson(trimmedValue)) {
     try {
       return parseJsonContent(trimmedValue)
     } catch (error) {
+      // eslint-disable-next-line functional/no-throw-statements
       throw new Error(
         `Invalid JSON in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
       )
     }
   }
 
+  // Detect if value is a URL
   if (isUrl(trimmedValue)) {
     return fetchRemoteSchema(trimmedValue)
   }
 
+  // Otherwise, treat as YAML
   try {
     return parseYamlContent(trimmedValue)
   } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements
     throw new Error(
       `Invalid YAML in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 }
 
+/**
+ * Show error message when no configuration is provided
+ */
 const showNoConfigError = (command: string): never => {
   Effect.runSync(
     Effect.gen(function* () {
@@ -110,19 +141,30 @@ const showNoConfigError = (command: string): never => {
       yield* Console.error(`  APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
     })
   )
+  // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
 
+/**
+ * Parse and validate app schema from file path or environment variable
+ */
 export const parseAppSchema = async (command: string, filePath?: string): Promise<AppEncoded> => {
+  // If a file path is provided, load from file (takes precedence over env)
   if (filePath) {
     return loadSchemaFromFile(filePath, command)
   }
 
+  // APP_SCHEMA_FILE env var: used by E2E fixtures when the inline APP_SCHEMA
+  // JSON would exceed Linux ARG_MAX (~2 MiB) at child-process spawn — e.g.
+  // mounting the ~5600-line `designSystemReferenceApp`. Same file-loading
+  // semantics as the CLI `filePath` arg above; checked BEFORE APP_SCHEMA so
+  // fixtures can prefer the file path even when both are set.
   const appSchemaFileEnv = Bun.env.APP_SCHEMA_FILE
   if (appSchemaFileEnv) {
     return loadSchemaFromFile(appSchemaFileEnv, command)
   }
 
+  // Try APP_SCHEMA environment variable
   const appSchemaEnv = Bun.env.APP_SCHEMA
 
   if (appSchemaEnv) {
@@ -132,9 +174,11 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
       Effect.runSync(
         Console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
       )
+      // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
     }
   }
 
+  // No configuration provided
   return showNoConfigError(command)
 }

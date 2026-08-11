@@ -24,6 +24,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
         role="combobox"
         aria-expanded={open}
         aria-haspopup="listbox"
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one-statement state toggle; React Compiler will memoize once enabled in Bun.
         onClick={() => setOpen((prev) => !prev)}
         className="border-border flex items-center gap-1 rounded border px-2 py-1 text-sm"
       >
@@ -38,6 +39,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
           <li
             role="option"
             aria-selected={value === undefined}
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- two-statement select-skip handler; React Compiler will memoize once enabled in Bun.
             onClick={() => {
               onChange(undefined)
               setOpen(false)
@@ -51,6 +53,7 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
               key={field}
               role="option"
               aria-selected={value === field}
+              // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-option click handler closes over loop-variable `field`; useCallback inside.map has equivalent allocation cost. React Compiler will memoize this once enabled in Bun.
               onClick={() => {
                 onChange(field)
                 setOpen(false)

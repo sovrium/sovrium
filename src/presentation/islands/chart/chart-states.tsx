@@ -7,6 +7,11 @@
 
 import type { ReactElement } from 'react'
 
+/**
+ * Mirrors gallery-states pattern — every state still emits
+ * `data-component="chart"` so spec assertions on the canonical
+ * chart attribute resolve regardless of branch.
+ */
 
 export function ChartLoading(): ReactElement {
   return (
@@ -44,12 +49,24 @@ export function ChartError({ error }: { readonly error: unknown }): ReactElement
   )
 }
 
+/**
+ * Optional NAMED empty-state region config (chart schema `emptyState`). When
+ * present, the chart's zero-rows branch renders an accessible ARIA landmark
+ * `region` (role + accessible name + body title) instead of the unnamed default.
+ */
 export interface ChartEmptyStateConfig {
   readonly role: 'region'
   readonly name: string
   readonly title?: string
 }
 
+/**
+ * Zero-rows branch. When `emptyState` is set the empty placeholder becomes a
+ * NAMED `role="region"` landmark (accessible name from `emptyState.name`, body
+ * text from `emptyState.title`, falling back to `message` then a default) — a
+ * screen-reader user can navigate to the "no data" region. Absent `emptyState`
+ * keeps the plain unnamed `<div>` (purely additive, no regression).
+ */
 export function ChartEmpty({
   message,
   emptyState,

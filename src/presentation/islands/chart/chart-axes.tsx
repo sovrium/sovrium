@@ -5,10 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Shared SVG axis primitives for the multi-series chart family. The
+ * multi-line and multi-area canvases use a `scalePoint` X-axis; the
+ * multi-bar canvas uses a `scaleBand` X-axis that needs a half-bandwidth
+ * label offset. Both render the same baseline + tick-label structure.
+ */
 
 import type { scaleBand, scalePoint } from '@visx/scale'
 import type { ReactElement } from 'react'
 
+/** The two axis baselines (vertical Y line + horizontal X line). */
 function AxisBaselines({
   innerWidth,
   innerHeight,
@@ -36,6 +43,7 @@ function AxisBaselines({
   )
 }
 
+/** A single X-axis tick `<text>` label. */
 function XTickLabel({
   label,
   x,
@@ -58,6 +66,10 @@ function XTickLabel({
   )
 }
 
+/**
+ * Axis baselines + X-axis tick labels for a `scalePoint` X-axis (line and
+ * area charts). Each key is centred on its point-scale position.
+ */
 export function PointScaleAxes({
   keys,
   xScale,
@@ -87,6 +99,10 @@ export function PointScaleAxes({
   )
 }
 
+/**
+ * Axis baselines + X-axis tick labels for a `scaleBand` X-axis (bar chart).
+ * Each key is centred within its band by adding a half-bandwidth offset.
+ */
 export function BandScaleAxes({
   keys,
   xScale,

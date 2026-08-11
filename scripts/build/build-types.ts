@@ -5,6 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Build Types Script - Generates the @sovrium/types package
+ *
+ * Uses TypeScript's Compiler API to programmatically resolve Effect Schema types
+ * into plain TypeScript structural types. This produces a zero-dependency .d.ts
+ * file that consumers can use without installing 'effect'.
+ *
+ * Approach:
+ *   1. Use tsc to type-check the project and build the type graph
+ *   2. Extract the resolved structural types for exported type aliases
+ *   3. Emit them as standalone interfaces/types in a single .d.ts file
+ *   4. Build the minimal JS file (defineConfig identity function)
+ *
+ * Usage:
+ *   bun run scripts/build/build-types.ts
+ */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -14,6 +30,7 @@ const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const TYPES_PKG = join(PROJECT_ROOT, 'packages', 'types')
 const DIST_DIR = join(TYPES_PKG, 'dist')
 
+// Types to extract from src/index.ts
 const TYPE_EXPORTS = [
   { exported: 'AppConfig', source: 'AppConfig' },
   { exported: 'PageConfig', source: 'PageConfig' },
@@ -31,6 +48,9 @@ const TYPE_EXPORTS = [
   { exported: 'GenerateStaticOptions', source: 'GenerateStaticOptions' },
 ] as const
 
+// ---------------------------------------------------------------------------
+// Type Extraction via TypeScript Compiler API
+// ---------------------------------------------------------------------------
 
 function extractTypes(): string {
   console.log('\n▸ Extracting types via TypeScript Compiler API')
@@ -42,6 +62,7 @@ function extractTypes(): string {
   const program = ts.createProgram(parsedConfig.fileNames, parsedConfig.options)
   const checker = program.getTypeChecker()
 
+  // Find the main entry file
   const entryFile = program.getSourceFile(join(PROJECT_ROOT, 'src', 'index.ts'))
   if (!entryFile) {
     console.error('✗ Could not find src/index.ts')
@@ -73,6 +94,7 @@ function extractTypes(): string {
     const declaredType = checker.getDeclaredTypeOfSymbol(sym)
     let resolvedType = declaredType
 
+    // For type aliases, we need to get the aliased type
     if (sym.flags & ts.SymbolFlags.TypeAlias) {
       const aliasDecl = sym.declarations?.[0]
       if (aliasDecl && ts.isTypeAliasDeclaration(aliasDecl)) {
@@ -80,6 +102,7 @@ function extractTypes(): string {
       }
     }
 
+    // Use the checker to print the type as a fully-expanded string
     const typeString = checker.typeToString(
       resolvedType,
       entryFile,
@@ -95,6 +118,11 @@ function extractTypes(): string {
     console.log(`  ✓ ${exported} (${typeString.length} chars)`)
   }
 
+  // Add CodeContext interface (typed parameter for runTypescript code action
+  // bodies, validated at server startup). Five properties: inputData,
+  // actions, env, log, run. Trigger and step outputs flow in via
+  // inputData template references — not directly on context. `log` stays
+  // strict so `context.log.<unknown>()` fails type-checking.
   lines.push('/**')
   lines.push(' * CodeContext - typed context object passed to every runTypescript code action.')
   lines.push(' *')
@@ -129,12 +157,14 @@ function extractTypes(): string {
   lines.push('    readonly warn: (...args: ReadonlyArray<unknown>) => void')
   lines.push('    readonly error: (...args: ReadonlyArray<unknown>) => void')
   lines.push('  }')
-  lines.push('  /** Declared npm packages, keyed by package name (e.g. packages.lodash) */')
-  lines.push('  // eslint-disable-next-line @typescript-eslint/no-explicit-any')
-  lines.push('  readonly packages: Record<string, any>')
+  lines.push('  /** Run-scoped metadata — `attempt` is the 1-indexed retry attempt number */')
+  lines.push('  readonly run: {')
+  lines.push('    readonly attempt: number')
+  lines.push('  }')
   lines.push('}')
   lines.push('')
 
+  // Add defineConfig declaration
   lines.push('/**')
   lines.push(
     ' * Identity function that provides TypeScript autocompletion for Sovrium app configs.'
@@ -156,6 +186,9 @@ function extractTypes(): string {
   return lines.join('\n')
 }
 
+// ---------------------------------------------------------------------------
+// Build JS
+// ---------------------------------------------------------------------------
 
 function buildJS(): void {
   console.log('\n▸ Building minimal JS bundle')
@@ -177,15 +210,20 @@ function buildJS(): void {
   console.log('  Built dist/index.js')
 }
 
+// ---------------------------------------------------------------------------
+// Verify
+// ---------------------------------------------------------------------------
 
 function verify(dtsContent: string): void {
   console.log('\n▸ Verifying outputs')
 
+  // Verify no Effect imports
   if (dtsContent.includes('import') && dtsContent.includes('effect')) {
     console.error('✗ Generated .d.ts contains Effect references!')
     process.exit(1)
   }
 
+  // Verify key exports
   if (!dtsContent.includes('AppConfig')) {
     console.error('✗ Missing AppConfig export!')
     process.exit(1)
@@ -204,12 +242,16 @@ function verify(dtsContent: string): void {
   console.log(`  index.d.ts: ${(dtsSize / 1024).toFixed(1)} KB`)
   console.log(`  index.js:   ${(jsSize / 1024).toFixed(1)} KB`)
 
+  // Warn if suspiciously small (types should be at least a few KB)
   if (dtsSize < 500) {
     console.error('✗ Generated .d.ts suspiciously small — types may not have resolved correctly')
     process.exit(1)
   }
 }
 
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   console.log('Building @sovrium/types package...')

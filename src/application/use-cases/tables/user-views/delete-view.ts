@@ -5,6 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Delete a saved view the caller owns.
+ *
+ * Phase 9 Cycle 5 — thin orchestrator over the `UserViewRepository` port.
+ * Resolves to `void` on success; a non-deleting query (no row matched the
+ * `(viewId, userId, tableName)` tuple) surfaces as `UserViewNotFoundError`
+ * from the repository's live implementation.
+ */
 
 import { Effect } from 'effect'
 import {
@@ -24,5 +32,6 @@ export const deleteUserView = (
 ): Effect.Effect<void, UserViewDbError | UserViewNotFoundError, UserViewRepository> =>
   Effect.gen(function* () {
     const repo = yield* UserViewRepository
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- `repo.delete` is the port method; ownership scoping lives in the live impl's Drizzle `.where(...)`
     return yield* repo.delete(input)
   })

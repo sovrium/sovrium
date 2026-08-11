@@ -13,6 +13,9 @@ import { visibilityFields } from '../../modules/visibility'
 import { GalleryCardSchema } from './card'
 import { GalleryGridColumnsSchema } from './grid-columns'
 
+/**
+ * Gallery pagination style.
+ */
 export const GalleryPaginationStyleSchema = Schema.Literal(
   'loadMore',
   'numbered',
@@ -22,8 +25,12 @@ export const GalleryPaginationStyleSchema = Schema.Literal(
   description: 'Pagination interaction style for the gallery',
 })
 
+/** @public */
 export type GalleryPaginationStyle = Schema.Schema.Type<typeof GalleryPaginationStyleSchema>
 
+// ---------------------------------------------------------------------------
+// Component type definition
+// ---------------------------------------------------------------------------
 
 export const GalleryTypeLiteral = Schema.Literal('gallery')
 
@@ -47,6 +54,9 @@ export const galleryFields = {
   ),
 } as const
 
+// ---------------------------------------------------------------------------
+// Re-export all sub-schemas
+// ---------------------------------------------------------------------------
 
 export { GalleryGridColumnsSchema, type GalleryGridColumns } from './grid-columns'
 export { GalleryCardSchema, type GalleryCard } from './card'

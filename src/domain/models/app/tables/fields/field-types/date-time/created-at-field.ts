@@ -8,6 +8,23 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Created At Field
+ *
+ * Automatically captures the timestamp when a record is created.
+ * This field is system-managed and cannot be manually edited.
+ * Commonly used for audit trails and sorting by creation date.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'created_at',
+ *   type: 'created-at',
+ *   indexed: true
+ * }
+ * ```
+ */
 export const CreatedAtFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -29,4 +46,5 @@ export const CreatedAtFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type CreatedAtField = Schema.Schema.Type<typeof CreatedAtFieldSchema>

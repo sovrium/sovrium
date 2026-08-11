@@ -7,6 +7,13 @@
 
 import { Data } from 'effect'
 
+/**
+ * Failure raised when in-process `tsc` finds a type error in a
+ * `runTypescript` code action body. The `message` carries the raw tsc
+ * diagnostic; `automationId`, `actionIndex`, `file`, `line`, `column`
+ * pinpoint the exact source location so the operator can fix the
+ * offending action before the listener binds.
+ */
 export class TSValidationError extends Data.TaggedError('TSValidationError')<{
   readonly automationId: string
   readonly actionIndex: number

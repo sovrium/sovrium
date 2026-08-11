@@ -9,17 +9,25 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * File Sign URL Action (type: file, operator: signUrl)
+ *
+ * Generate a time-limited signed URL for file access.
+ * The signed URL is available as the step output for subsequent actions.
+ */
 export const FileSignUrlActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('signUrl'),
   props: Schema.Struct({
+    /** Storage key of the file */
     key: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Storage key of the file',
       })
     ),
 
+    /** URL expiration time in seconds */
     expiresIn: Schema.optional(
       Schema.Number.pipe(
         Schema.positive(),
@@ -29,6 +37,7 @@ export const FileSignUrlActionSchema = Schema.Struct({
       )
     ),
 
+    /** URL operation type */
     operation: Schema.optional(
       Schema.Literal('download', 'upload').pipe(
         Schema.annotations({
@@ -37,6 +46,7 @@ export const FileSignUrlActionSchema = Schema.Struct({
       )
     ),
 
+    /** Content type to bind to an upload URL (only used when operation is 'upload') */
     contentType: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -53,4 +63,5 @@ export const FileSignUrlActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileSignUrlAction = Schema.Schema.Type<typeof FileSignUrlActionSchema>

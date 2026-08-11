@@ -1,0 +1,122 @@
+# Sample knowledge base, linked to tags by their file-local key.
+#
+# WRITTEN FOR THE READER THAT WILL ACTUALLY READ IT
+#   These rows exist to be retrieved by an LLM through
+#   `mcp-server-example_documents_list` and `…_get`, not to be looked at in a
+#   grid. So the bodies are real prose that answers a real question. Lorem ipsum
+#   would make the tool call succeed and the answer useless, which is the failure
+#   mode this seed set exists to avoid — a demonstration of MCP retrieval is only
+#   a demonstration if there is something worth retrieving.
+#
+#   `documents` declares `fieldExposure: whitelist` over
+#   `[title, body, tag, status]`, which is exactly the set seeded here. Every
+#   field written below reaches the model; nothing written below is invisible to
+#   it.
+#
+# `created_by`, `created_at` and `updated_at` are absent. All three are
+# engine-stamped field types (`created-by`, `created-at`, `updated-at`) and a
+# seeded value would be discarded — the seeder runs as a system session with no
+# user behind it, so `createdBy` reads null on these rows and carries a real id
+# on anything an MCP client creates.
+#
+# All three `status` options appear, so a client filtering for published content
+# has something to filter away.
+records:
+  - key: rotate-database-credentials
+    fields:
+      title: Rotate the database credentials
+      tag: '@tags.runbooks'
+      status: published
+      body: |-
+        Run this quarterly, and immediately after anyone with production access leaves.
+
+        1. Issue the new credential in the provider console. Do not revoke the old one yet — both must be valid at the same time or the rotation is an outage.
+        2. Update the deployment's DATABASE_URL and restart. The app opens its pool at boot, so a running process keeps the old credential until it is restarted.
+        3. Confirm the app is serving on the new credential before going further. The provider's active-connections view is the check; application logs will not tell you which credential a healthy connection used.
+        4. Revoke the old credential. This is the step people postpone and then forget, which leaves a live credential belonging to someone who has left.
+
+        If step 3 fails, put the old value back and restart. There is nothing to roll forward from — the new credential either works or it does not.
+
+  - key: restore-from-backup
+    fields:
+      title: Restore from a backup
+      tag: '@tags.runbooks'
+      status: published
+      body: |-
+        A backup nobody has restored is not a backup. Rehearse this twice a year against a scratch database, not against production.
+
+        Restore into a NEW database first, never over the live one. Point a local instance at the restored copy and check the three things that actually matter: row counts on the largest tables, the newest timestamp in each table, and whether the app boots and serves a request. A restore that completes without error can still be a week stale, and the completion message will not say so.
+
+        Only after those three checks pass do you decide whether to cut over. Cutting over is a separate decision from restoring, and conflating them is how a rehearsal turns into an incident.
+
+  - key: why-sqlite-by-default
+    fields:
+      title: Why this app runs SQLite by default
+      tag: '@tags.decisions'
+      status: published
+      body: |-
+        The default is SQLite with no configuration. Setting DATABASE_URL switches to PostgreSQL and nothing else changes.
+
+        The reason is the first five minutes. A reader who has to provision a database before seeing the app run has been asked to do work before receiving anything, and most of them stop there. SQLite makes the first run a single command, and the file sits beside the config where it can be copied, inspected, or deleted.
+
+        This is a default, not a recommendation. Anything with concurrent writers, a second app instance, or an ephemeral filesystem — most managed hosts, including the one behind the deploy button — wants PostgreSQL. The switch is one environment variable and no code, which is the property that makes the default safe to offer.
+
+  - key: read-only-by-default-for-agents
+    fields:
+      title: Agents get read access by default, writes only on request
+      tag: '@tags.decisions'
+      status: published
+      body: |-
+        Every table starts read-only to MCP clients. A table opts into writes by naming them in `aiAccess.operations`; omitting `create`, `update` and `delete` leaves it readable and nothing else.
+
+        The asymmetry is deliberate. A model that reads the wrong row produces a wrong answer the user can see and correct. A model that writes the wrong row produces a change nobody is looking at, and the tool call that made it succeeded. Those two mistakes cost different amounts, so they should not be equally easy to configure.
+
+        In this app `documents` takes `create` and `tags` does not, because adding a document is additive and inventing a taxonomy is not.
+
+  - key: incident-2025-03-runaway-retries
+    fields:
+      title: Incident — runaway retries filled the disk
+      tag: '@tags.incidents'
+      status: published
+      body: |-
+        A downstream API started returning 503. The retry policy had no ceiling, so every failed call was retried forever and each attempt wrote a log line. The disk filled in about nine hours, which took the database down with it — an outage in a component that was never involved in the original failure.
+
+        What actually went wrong was not the missing ceiling. It was that "retry until it works" had never been written down as a decision, so nobody had reviewed it. The code did exactly what someone had once assumed was reasonable.
+
+        Two changes came out of it: retries are capped and back off, and a failure that exhausts its retries raises an alert instead of disappearing into a log. The second change is the one that would have caught this on the first hour rather than the ninth.
+
+  - key: first-week-checklist
+    fields:
+      title: First week — what to read and in what order
+      tag: '@tags.onboarding'
+      status: published
+      body: |-
+        Read the config before the code. This app is a configuration file interpreted by an engine, so `app.yaml` and the `config/` tree tell you what exists; the engine tells you how, and you rarely need to know.
+
+        Then read the two published runbooks, in this order: rotate the database credentials, then restore from a backup. Both are procedures you will be asked to run under time pressure, and the worst moment to read a runbook for the first time is while it is needed.
+
+        Ask for read access first and write access when you need it. Nobody has been slowed down by that order.
+
+  - key: mcp-transport-notes
+    fields:
+      title: Choosing an MCP transport
+      tag: '@tags.runbooks'
+      status: draft
+      body: |-
+        Draft — not reviewed, do not treat this as guidance yet.
+
+        `stdio` suits a client running on the same machine as the app: the client launches the process and speaks to it over a pipe, so there is no port, no TLS and no session to authenticate.
+
+        `streamable-http` is the one to use when the client is somewhere else. It needs a reachable URL and a real authentication strategy, which is what MCP_AUTH_STRATEGY=oauth selects: the client signs in as a Sovrium user and inherits that user's role, so table permissions apply to the model exactly as they apply to a person.
+
+        Still to work out: what a sensible token lifetime is, and whether a per-agent role is worth the extra configuration.
+
+  - key: quarterly-access-review
+    fields:
+      title: Quarterly access review
+      tag: '@tags.onboarding'
+      status: archived
+      body: |-
+        Superseded by the automated review; kept for the audit trail.
+
+        The manual procedure was to export the user list every quarter, walk it with each team lead, and revoke anything nobody claimed. It worked, and it was skipped twice in four quarters because it depended on someone remembering to start it.

@@ -20,23 +20,33 @@ import type { Tables } from '@/domain/models/app/tables'
 import type { FieldType } from '@/domain/models/app/tables/fields'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
+/**
+ * A success-page action button (`reset` or `navigate`). Mirrors the
+ * `SuccessPageAction` domain shape.
+ */
 export type SuccessPageActionConfig = {
   readonly label: string
   readonly action: 'reset' | 'navigate'
   readonly url?: string
 }
 
+/** Per-field label/placeholder override declared on a CRUD action. */
 export type CrudFieldOverride = {
   readonly name: string
   readonly label?: string
   readonly placeholder?: string
 }
 
+/**
+ * CRUD action shape for form rendering
+ */
 export type CrudFormAction = {
   readonly type: string
   readonly operation: string
   readonly table: string
+  /** Custom submit-button label (supports `$t:key`). Overrides the built-in. */
   readonly submitLabel?: string
+  /** Per-field label/placeholder overrides (each supports `$t:key`). */
   readonly fields?: readonly CrudFieldOverride[]
   readonly onSuccess?: {
     readonly type?: string
@@ -57,12 +67,27 @@ export type CrudFormAction = {
   readonly confirmMessage?: string
 }
 
+/**
+ * Resolved field definition combining table schema info with per-field user config.
+ *
+ * Includes a `displayLabel` (humanized or user-overridden) and per-field flags
+ * like `placeholder`, `readOnly`, `defaultValue`, and `hidden` from `fields[]`.
+ */
 export type ResolvedFieldDef = {
   readonly name: string
+  /** Narrowed to the domain field-type union so every dispatch over it is total. */
   readonly type: FieldType
   readonly required?: boolean
+  /** Choice-field option VALUES, already unwrapped from `status`'s `{ value, color }` objects. */
   readonly options?: readonly string[]
   readonly displayLabel: string
+  /**
+   * Author-written guidance rendered as persistent help text under the control
+   * and linked to it by `aria-describedby`. Resolved from the form entry's
+   * `description`, then the bound field's own; absent when neither declares one,
+   * so no empty help-text node is emitted.
+   */
+  readonly description?: string
   readonly placeholder?: string
   readonly readOnly?: boolean
   readonly disabled?: boolean
@@ -71,32 +96,73 @@ export type ResolvedFieldDef = {
   readonly visibleWhen?: VisibleWhenCondition
   readonly requiredWhen?: VisibleWhenCondition
   readonly disabledWhen?: VisibleWhenCondition
+  // ── rich-text / code editor pass-throughs ──────────────────────────────
+  /** Maximum character count (rich-text). Forwarded to the editor character-count plugin. */
   readonly maxLength?: number
+  /** Toolbar action tokens (rich-text). Drives which toolbar buttons render. */
   readonly toolbar?: readonly string[]
+  /** Storage bucket name used by the rich-text image button. Resolved from `app.buckets`. */
   readonly imageBucket?: string
+  /** Code-editor language (code field). */
   readonly language?: string
+  /** Code-editor lineNumbers toggle. */
   readonly lineNumbers?: boolean
+  /** Code-editor tab size. */
   readonly tabSize?: number
+  /** Code-editor minimum visible lines. */
   readonly minLines?: number
+  /** Code-editor maximum visible lines. */
   readonly maxLines?: number
+  // ── file upload pass-throughs ──────────────────────────────────────────
+  /** Accepted file MIME types / extensions (single-attachment, multiple-attachments). */
   readonly accept?: string
+  /** Render drag-and-drop zone for file upload fields. */
   readonly dropZone?: boolean
+  /** Maximum number of files (multiple-attachments). */
   readonly maxFiles?: number
+  /** Maximum file size in bytes (single-attachment, multiple-attachments). */
   readonly maxFileSize?: number
+  /** Allowed MIME types for file upload fields (single-attachment, multiple-attachments). */
   readonly allowedFileTypes?: readonly string[]
+  /**
+   * Storage bucket DECLARED on the bound attachment column. Uploads and
+   * previews target this bucket; omitted when the column declares none, in
+   * which case the field falls back to the implicit 'default'..
+   */
   readonly bucket?: string
 }
 
+/**
+ * Bundle of the active page language + app translations threaded from the
+ * section renderer so the CRUD renderer can resolve `$t:key` submit/field-label
+ * references server-side. Mirrors `AuthFormRenderContext`. Bundled into one
+ * object so the renderer signature stays under the ESLint `max-params` ceiling.
+ */
 export interface CrudFormRenderContext {
   readonly lang?: string
   readonly languages?: Languages
 }
 
+/**
+ * Localize a label/placeholder string through the page language + app
+ * translations. Resolves `$t:key` references server-side and passes plain
+ * strings through unchanged. Mirrors the auth-form `localize` helper.
+ */
 function localize(text: string, context: CrudFormRenderContext): string {
   const { lang, languages } = context
   return resolveTranslationPattern(text, lang ?? languages?.default ?? '', languages)
 }
 
+/**
+ * Apply action-level `fields[]` label/placeholder overrides onto the resolved
+ * field set, then localize every label + placeholder (and the override values,
+ * which may themselves be `$t:key` references) through the page language.
+ *
+ * Overrides target a field by `name` (the table column name); fields not listed
+ * keep their localized table-derived label. Mirrors the auth-form
+ * `applyFieldOverrides` helper. Always runs so a built-in label that is itself a
+ * `$t:key` (rare) is still localized.
+ */
 function applyCrudFieldOverrides(
   fields: readonly ResolvedFieldDef[],
   overrides: readonly CrudFieldOverride[] | undefined,
@@ -112,6 +178,9 @@ function applyCrudFieldOverrides(
   })
 }
 
+// ---------------------------------------------------------------------------
+// Island props builders
+// ---------------------------------------------------------------------------
 
 function buildCrudIslandProps(ctx: {
   readonly operation: string
@@ -163,12 +232,32 @@ function buildCrudIslandProps(ctx: {
   })
 }
 
+/**
+ * Reads the optional `autoSave` configuration from a form component's schema.
+ *
+ * `autoSave` is declared on data-bound components via `dataBoundFields`
+ * (sibling of `dataSource`/`action`), so it lives at the component's top
+ * level — not inside `props`. Returns `undefined` when the component does
+ * not opt into auto-save (preserving the default manual-save behavior).
+ */
 function readAutoSaveConfig(component?: Component): AutoSaveConfig | undefined {
   const componentRecord = (component ?? {}) as Record<string, unknown>
   return componentRecord['autoSave'] as AutoSaveConfig | undefined
 }
 
+// ---------------------------------------------------------------------------
+// Create form
+// ---------------------------------------------------------------------------
 
+/**
+ * Resolves the submit-button label + variant for a CRUD form.
+ *
+ * Precedence for the label: action-level `submitLabel` (localized, may be a
+ * `$t:key`) → form component's `props.label` (localized) → the built-in
+ * fallback (handled at the call site via `label ?? 'Create'`/`'Update'`).
+ * `variant` comes from the form component's `props` block. Mirrors the
+ * auth-form `submitLabel` precedence.
+ */
 function readSubmitButtonProps(
   action: CrudFormAction,
   context: CrudFormRenderContext,
@@ -219,7 +308,7 @@ export function renderCrudCreateForm(
       data-island="crud-form"
       data-island-props={islandProps}
     >
-      {}
+      {/* SSR skeleton — progressive enhancement fallback */}
       <form
         className={computeFormLayoutClasses()}
         aria-label={`Create ${action.table}`}
@@ -248,6 +337,9 @@ export function renderCrudCreateForm(
   )
 }
 
+// ---------------------------------------------------------------------------
+// Update form
+// ---------------------------------------------------------------------------
 
 function buildUpdateFormAction(tableName: string, recordId: string): string {
   return recordId
@@ -294,6 +386,12 @@ export function renderCrudUpdateForm(
     ...restProps
   } = props as Record<string, unknown>
   const isReadOnly = readOnlyFlag === true
+  // PG-04: when the page filter detects that the
+  // synthesized CRUD update would be denied by table-level update permissions,
+  // it stamps `_readOnly: true` on the component's props. Propagate that to
+  // every skeleton field as `disabled: true` (rendering the inputs disabled
+  // but still visible) and suppress the Save button so the form can't even
+  // attempt a submit.
   const fields = isReadOnly ? rawFields.map((f) => ({ ...f, disabled: true })) : rawFields
   const recordId = String(record['id'] ?? '')
   const { layout, fieldGroups } = readLayoutOptions(component)
@@ -346,6 +444,9 @@ export function renderCrudUpdateForm(
   )
 }
 
+// ---------------------------------------------------------------------------
+// Automation form
+// ---------------------------------------------------------------------------
 
 export type AutomationFormAction = {
   readonly type: string
@@ -399,6 +500,8 @@ export function renderAutomationForm(
   const dataSource = componentRecord['dataSource'] as { table?: string } | undefined
   const tableName = dataSource?.table ?? ''
   const fields = buildResolvedFieldDefs(tables, tableName, component, buckets)
+  // Automation actions have no action-level submit label; reuse the helper with
+  // an action carrying only the table identity so it falls back to props.label.
   const submitBtn = readSubmitButtonProps(
     { type: 'automation', operation: 'automation', table: tableName },
     {},
@@ -445,6 +548,9 @@ export function renderAutomationForm(
   )
 }
 
+// ---------------------------------------------------------------------------
+// Delete button
+// ---------------------------------------------------------------------------
 
 type DeleteButtonConfig = {
   readonly props: ElementProps

@@ -14,6 +14,13 @@ import { HttpPutActionSchema } from './put'
 import { HttpRequestActionSchema } from './request'
 import type { Action } from '..'
 
+/**
+ * Union of all HTTP action variants. The general-purpose `request` operator
+ * stays for callers that need explicit `method` control or non-standard
+ * verbs; the convenience operators (`get`, `post`, `put`, `patch`, `delete`)
+ * carry tighter prop schemas (e.g. GET rejects `body` per HTTP semantics) so
+ * config files surface misuse at decode time rather than at runtime.
+ */
 export const HttpActionSchema: Schema.Schema<Action & { readonly type: 'http' }, unknown> =
   Schema.Union(
     HttpGetActionSchema,
@@ -23,6 +30,7 @@ export const HttpActionSchema: Schema.Schema<Action & { readonly type: 'http' },
     HttpDeleteActionSchema,
     HttpRequestActionSchema
   ) as unknown as Schema.Schema<Action & { readonly type: 'http' }, unknown>
+/** @public */
 export type HttpAction = Schema.Schema.Type<typeof HttpActionSchema>
 
 export * from './delete'

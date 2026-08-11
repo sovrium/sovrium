@@ -34,6 +34,19 @@ Zero-config: embedded SQLite, local file storage, no env vars required to boot. 
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
 email, AI).
 
+Load the sample data — five projects and ten tasks linked to them, with due dates that
+straddle today so date filters have something to filter:
+
+```bash
+sovrium seed app.yaml
+```
+
+There are no pages, so the REST API is the only way to see it:
+
+```bash
+curl -s localhost:3000/api/tables/tasks/records
+```
+
 ## Deploy
 
 The **Deploy on Scalingo** button above provisions the app with a PostgreSQL addon

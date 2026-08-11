@@ -32,6 +32,12 @@ export function SelectOption({ option }: { readonly option: OptionItem }): React
   )
 }
 
+/**
+ * Combobox item renderer. Stable function reference suitable for passing
+ * directly to `<Combobox.List>` as its child function — eliminates the
+ * `react-perf/jsx-no-new-function-as-prop` warning that an inline arrow
+ * triggers.
+ */
 export function ComboboxItemRenderer(item: OptionItem): ReactElement {
   return (
     <Combobox.Item

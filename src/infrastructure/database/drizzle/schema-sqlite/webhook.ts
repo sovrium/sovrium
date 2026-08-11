@@ -8,7 +8,15 @@
 import { text, integer, index } from 'drizzle-orm/sqlite-core'
 import { systemTable } from './table-helpers'
 
+/**
+ * Webhook tables — sqlite-core mirror of `schema/webhook.ts`.
+ */
 
+/**
+ * Webhook Configs Table
+ *
+ * Outgoing webhook endpoint configurations (URL, secret, events, active status).
+ */
 export const webhookConfigs = systemTable(
   'webhook_configs',
   {
@@ -33,6 +41,11 @@ export const webhookConfigs = systemTable(
   (table) => [index('webhook_configs_tableName_idx').on(table.tableName)]
 )
 
+/**
+ * Webhook Deliveries Table
+ *
+ * Outgoing webhook delivery log (attempt tracking, status, response).
+ */
 export const webhookDeliveries = systemTable(
   'webhook_deliveries',
   {
@@ -62,6 +75,7 @@ export const webhookDeliveries = systemTable(
   ]
 )
 
+// Type inference
 export type WebhookConfig = typeof webhookConfigs.$inferSelect
 export type NewWebhookConfig = typeof webhookConfigs.$inferInsert
 export type WebhookDelivery = typeof webhookDeliveries.$inferSelect

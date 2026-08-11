@@ -10,7 +10,14 @@ import { AiAccessSchema } from '@/domain/models/shared/ai-access'
 import { ActionSchema } from './action'
 import { ActionTemplateVariablesSchema } from './variables'
 
+/**
+ * Reusable Action Template Schema
+ *
+ * A preconfigured action template that can be referenced in automations
+ * using the $ref pattern (similar to how components work for pages).
+ */
 export const ActionTemplateSchema = Schema.Struct({
+  /** Unique template name for $ref referencing */
   name: Schema.String.pipe(
     Schema.pattern(/^[a-z][a-z0-9-]*$/),
     Schema.minLength(1),
@@ -20,10 +27,43 @@ export const ActionTemplateSchema = Schema.Struct({
     })
   ),
 
+  /** The action configuration (any action type) */
   action: ActionSchema,
 
+  /** Variable declarations with defaults */
   variables: Schema.optional(ActionTemplateVariablesSchema),
 
+  /**
+   * AI/MCP exposure configuration.
+   *
+   * Declares this action template as a directly-invocable MCP tool. The tool's
+   * input parameter schema is derived from `variables` (each variable becomes
+   * a tool parameter). Tool name follows `{appName}_action_{name}`.
+   *
+   * Whether the operator actually mounts the MCP server is controlled
+   * separately via `MCP_ENABLED`. This flag is the schema author's
+   * declaration of intent; the operator decides activation.
+   *
+   * @example AI-callable archive-record action
+   * ```typescript
+   * {
+   *   name: 'archive-record',
+   *   variables: { table: '', id: '' },
+   *   action: {
+   *     type: 'record', operator: 'update',
+   *     props: { table: '$table',
+   *              filter: { conditions: [{ field: 'id', operator: 'equals', value: '$id' }] },
+   *              data: { archived_at: '{{now}}' } }
+   *   },
+   *   aiAccess: {
+   *     description: 'Archive a record by setting its archived_at timestamp.',
+   *     annotations: { readOnly: false, destructive: false, idempotent: true },
+   *   },
+   * }
+   * ```
+   *
+   * @see AiAccessSchema for full configuration options
+   */
   aiAccess: Schema.optional(AiAccessSchema),
 }).pipe(
   Schema.annotations({
@@ -35,8 +75,19 @@ export const ActionTemplateSchema = Schema.Struct({
 
 export type ActionTemplate = Schema.Schema.Type<typeof ActionTemplateSchema>
 
+/**
+ * Reserved template names — these collide with the runtime `context.actions`
+ * proxy's reserved methods exposed to code action bodies. A schema author
+ * naming a template `ref` would shadow `context.actions.ref('<name>', vars)`
+ * and break runtime template invocation; reject at schema-validation time
+ * so the failure surfaces with a clear domain-specific message instead of
+ * a confusing runtime error.
+ */
 const RESERVED_TEMPLATE_NAMES: ReadonlySet<string> = new Set(['ref'])
 
+/**
+ * Action Templates Array (top-level property on AppSchema)
+ */
 export const ActionTemplatesSchema = Schema.Array(ActionTemplateSchema).pipe(
   Schema.annotations({
     identifier: 'ActionTemplates',
@@ -56,4 +107,5 @@ export const ActionTemplatesSchema = Schema.Array(ActionTemplateSchema).pipe(
   })
 )
 
+/** @public */
 export type ActionTemplates = Schema.Schema.Type<typeof ActionTemplatesSchema>

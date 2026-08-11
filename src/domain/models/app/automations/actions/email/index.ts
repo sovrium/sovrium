@@ -8,6 +8,7 @@
 import { EmailSendActionSchema } from './send'
 
 export const EmailActionSchema = EmailSendActionSchema
+/** @public */
 export type EmailAction = typeof EmailActionSchema.Type
 
 export * from './send'

@@ -17,6 +17,13 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Interactions } from '@/domain/models/app/pages/components/interactions/interactions'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Extract CSS properties from props object
+ * Separates CSS properties (e.g., maxWidth, backgroundColor) from other props
+ *
+ * @param props - Props object that may contain CSS properties
+ * @returns Object with cssProps and remainingProps
+ */
 export function extractCssProperties(props: Record<string, unknown> | undefined): {
   readonly cssProps: Record<string, unknown>
   readonly remainingProps: Record<string, unknown>
@@ -25,6 +32,7 @@ export function extractCssProperties(props: Record<string, unknown> | undefined)
     return { cssProps: {}, remainingProps: {} }
   }
 
+  // Use reduce for immutable accumulation
   return Object.entries(props).reduce<{
     readonly cssProps: Record<string, unknown>
     readonly remainingProps: Record<string, unknown>
@@ -45,10 +53,15 @@ export function extractCssProperties(props: Record<string, unknown> | undefined)
   )
 }
 
+/**
+ * Parse and normalize style object
+ * Extracts CSS properties from the root of the props object and merges them with the style property
+ */
 export function parseComponentStyle(
   styleValue: unknown,
   props: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
+  // Parse the explicit style property
   const explicitStyle = styleValue
     ? normalizeStyleAnimations(
         typeof styleValue === 'string'
@@ -57,10 +70,13 @@ export function parseComponentStyle(
       )
     : undefined
 
+  // Extract CSS properties from props (excluding the style property itself)
   const { cssProps } = extractCssProperties(props)
 
+  // Remove the style property from cssProps if it exists (already handled above)
   const { style: _style, ...cssPropsWithoutStyle } = cssProps
 
+  // Merge CSS properties with explicit style
   const mergedStyle = {
     ...cssPropsWithoutStyle,
     ...explicitStyle,
@@ -69,6 +85,14 @@ export function parseComponentStyle(
   return Object.keys(mergedStyle).length > 0 ? mergedStyle : undefined
 }
 
+/**
+ * Maps component types to their corresponding CSS class names in @layer components.
+ * These classes are automatically added to the element when rendering.
+ *
+ * Most types map directly (e.g. 'card' -> 'card'), but 'button' maps to 'btn'
+ * because the CSS components layer uses `.btn` (not a `button` type selector)
+ * to avoid applying default button styles to all `<button>` elements globally.
+ */
 const COMPONENT_TYPE_CLASS_MAP: Partial<Record<string, string>> = {
   card: 'card',
   badge: 'badge',
@@ -76,12 +100,21 @@ const COMPONENT_TYPE_CLASS_MAP: Partial<Record<string, string>> = {
   button: 'btn',
 }
 
+/**
+ * Build entrance animation class from interactions
+ *
+ * @param interactions - Component interactions
+ * @returns Animation class or undefined
+ */
 function buildEntranceAnimationClass(interactions: Interactions | undefined): string | undefined {
   if (!interactions?.entrance?.animation) return undefined
 
   return `animate-${interactions.entrance.animation}`
 }
 
+/**
+ * Configuration for building final className
+ */
 type BuildClassNameConfig = {
   readonly type: Component['type']
   readonly className: unknown
@@ -92,6 +125,9 @@ type BuildClassNameConfig = {
   readonly badgeVariant?: string
 }
 
+/**
+ * Build button-specific modifier classes (variant and size)
+ */
 function buildButtonModifierClasses(
   type: Component['type'],
   variant: string | undefined,
@@ -104,6 +140,9 @@ function buildButtonModifierClasses(
   }
 }
 
+/**
+ * Build badge-specific modifier class from badgeVariant
+ */
 function buildBadgeModifierClass(
   type: Component['type'],
   badgeVariant: string | undefined
@@ -112,9 +151,13 @@ function buildBadgeModifierClass(
   return isBadge && badgeVariant && badgeVariant !== 'default' ? `badge-${badgeVariant}` : undefined
 }
 
+/**
+ * Build final className based on component type
+ */
 export function buildFinalClassName(config: BuildClassNameConfig): string | undefined {
   const { type, className, substitutedProps, interactions, variant, size, badgeVariant } = config
 
+  // Build classes array immutably
   const typeClass = COMPONENT_TYPE_CLASS_MAP[type]
   const { variantClass, sizeClass } = buildButtonModifierClasses(type, variant, size)
   const badgeVariantClass = buildBadgeModifierClass(type, badgeVariant)
@@ -122,6 +165,7 @@ export function buildFinalClassName(config: BuildClassNameConfig): string | unde
   const gridClass = type === 'grid' ? buildGridClasses(substitutedProps) : undefined
   const customClass = className as string | undefined
   const entranceClass = buildEntranceAnimationClass(interactions)
+  // Don't add scroll animation class to initial className - it will be added by scroll-animation.js
   const scrollClass = undefined
 
   const classes = [
@@ -140,6 +184,9 @@ export function buildFinalClassName(config: BuildClassNameConfig): string | unde
   return classes || undefined
 }
 
+/**
+ * Apply shadow to style based on component type
+ */
 export function applyComponentShadow(
   type: Component['type'],
   style: Record<string, unknown> | undefined,
@@ -149,6 +196,9 @@ export function applyComponentShadow(
   return componentShadow ? { ...style, ...componentShadow } : style
 }
 
+/**
+ * Process style with animations and shadows
+ */
 export function processComponentStyle(
   type: Component['type'],
   styleValue: unknown,

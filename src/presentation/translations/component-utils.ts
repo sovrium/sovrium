@@ -11,6 +11,17 @@ import type {
 } from '@/domain/models/app/components/reference'
 import type { Component } from '@/domain/models/app/pages/components'
 
+/**
+ * Get component information for a section
+ *
+ * Determines if a section is a component reference and calculates its instance index
+ * when multiple instances of the same component exist.
+ *
+ * @param section - Section to analyze (Component, SimpleComponentReference, or ComponentReference)
+ * @param index - Position of this section in the sections array
+ * @param sections - Complete array of sections for counting occurrences
+ * @returns Component info with name and optional instanceIndex, or undefined if not a component reference
+ */
 export function getComponentInfo(
   section: Component | SimpleComponentReference | ComponentReference,
   index: number,
@@ -22,15 +33,18 @@ export function getComponentInfo(
 
   const componentName = 'component' in section ? section.component : section.$ref
 
+  // Count total occurrences of this component name in all sections
   const totalOccurrences = sections.filter((s) => {
     const sName = 'component' in s ? s.component : '$ref' in s ? s.$ref : undefined
     return sName === componentName
   }).length
 
+  // Only set instanceIndex if there are multiple instances
   if (totalOccurrences <= 1) {
     return { name: componentName }
   }
 
+  // Count previous occurrences of the same component name
   const previousOccurrences = sections.slice(0, index).filter((s) => {
     const sName = 'component' in s ? s.component : '$ref' in s ? s.$ref : undefined
     return sName === componentName

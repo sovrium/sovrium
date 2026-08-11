@@ -8,6 +8,28 @@
 import { useCallback, useState } from 'react'
 import type { SortRow } from './use-ui-state'
 
+/**
+ * Runtime multi-sort panel (PG-03 / [internal ref]).
+ *
+ * Mirrors the {@link FilterOverlay} shape (a `<div role="dialog">` with three
+ * native form controls) so the visual + a11y story stays uniform across
+ * runtime-view builders. Already-committed sort rows render above as chips
+ * with a per-row remove button and a drag-handle (↑/↓ keyboard reorder) to
+ * change priority. The first row is the primary sort key, the second is the
+ * secondary, etc.
+ *
+ * The spec drives the controls via `selectOption()` against native
+ * `<select>` elements:
+ *
+ * | Element                     | role      | accessible name |
+ * | --------------------------- | --------- | --------------- |
+ * | `<select>` field            | combobox  | "Sort field"    |
+ * | `<select>` direction        | combobox  | "Direction"     |
+ * | `<button>` commit           | button    | "Add sort"      |
+ *
+ * NOTE: the panel is purely client-side. Saved views (Cycle 5) will
+ * serialise the `activeSorts` array verbatim (matches `FilterRow` shape).
+ */
 interface SortOverlayProps {
   readonly tableFields: readonly string[]
   readonly activeSorts: readonly SortRow[]
@@ -17,6 +39,9 @@ interface SortOverlayProps {
   readonly onReorderSort: (id: string, toIndex: number) => void
 }
 
+// ---------------------------------------------------------------------------
+// ActiveSortChip — a single committed sort row with reorder controls
+// ---------------------------------------------------------------------------
 
 interface ActiveSortChipProps {
   readonly row: SortRow
@@ -75,7 +100,11 @@ function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortCh
   )
 }
 
+// ---------------------------------------------------------------------------
+// SortOverlay — the panel itself
+// ---------------------------------------------------------------------------
 
+// eslint-disable-next-line max-lines-per-function -- single-screen panel with 3 native form controls + chip list; further extraction would just split a single visual unit across files (mirrors FilterOverlay)
 export function SortOverlay({
   tableFields,
   activeSorts,
@@ -84,6 +113,8 @@ export function SortOverlay({
   onClearAll,
   onReorderSort,
 }: SortOverlayProps) {
+  // Draft row state — what the user is currently authoring before clicking
+  // "Add sort". The committed state lives in the parent's `activeSorts`.
   const initialField = tableFields[0] ?? ''
   const [field, setField] = useState<string>(initialField)
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')

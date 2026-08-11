@@ -12,14 +12,36 @@ import { recordComments as recordCommentsSqlite } from '@/infrastructure/databas
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
+/** Active (non-deleted) comment by ID */
 export function activeCommentById(commentId: string) {
   return and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt))
 }
 
+/** Active (non-deleted) comments by record ID */
 export function activeCommentsByRecordId(recordId: string) {
   return and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt))
 }
 
+/**
+ * A prior APPROVED, non-deleted comment from the same guest on the same table
+ * — the precondition behind `autoApprove.previouslyApproved`
+ *.
+ *
+ * Keyed on `guest_email` + `table_id`. Per-table matches the granularity of the
+ * config that gates it (`comments.autoApprove` is declared per table), so an
+ * approval earned on a permissive table can never auto-approve the same address
+ * on a stricter one. Widening this to app-wide is a one-way door and is
+ * deliberately NOT done: it would let one lenient table's approval bypass every
+ * other table's queue.
+ *
+ * Guest identity is the email as submitted — it is never verified — so this is
+ * only ever consulted for tables that explicitly opted in (see the caller's
+ * guard in `comment-create-handler.ts`).
+ *
+ * Backed by `record_comments_guest_email_status_idx`
+ * (`table_id, guest_email, status`); without it this probe degrades to a
+ * sequential scan over every comment in the app.
+ */
 export function approvedGuestCommentByEmail(tableId: string, guestEmail: string) {
   return and(
     eq(recordComments.tableId, tableId),
@@ -29,6 +51,19 @@ export function approvedGuestCommentByEmail(tableId: string, guestEmail: string)
   )
 }
 
+/**
+ * Active comments by record ID, restricted to the moderation statuses the
+ * viewer is allowed to see.
+ *
+ * Non-admin viewers (guests, members, viewers — anyone who is not an admin)
+ * may only see `'approved'` comments; `'pending'`/`'rejected'` rows are
+ * hidden. Admins (`includeAllStatuses: true`) see every status.
+ *
+ * Fail-closed: callers that cannot establish admin-ness must pass
+ * `includeAllStatuses: false` so the safe default (approved-only) applies.
+ * The portable `eq(status, 'approved')` clause works on both Postgres and
+ * SQLite.
+ */
 export function visibleCommentsByRecordId(recordId: string, includeAllStatuses: boolean) {
   return includeAllStatuses
     ? activeCommentsByRecordId(recordId)

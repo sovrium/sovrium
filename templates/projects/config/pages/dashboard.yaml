@@ -59,8 +59,16 @@ components:
             kpiAggregate:
               function: sum
               field: budget
+            # `options.currency` is NOT optional in practice. `kpiFormat.type:
+            # currency` alone falls back to USD (kpi-compute.ts:71), so this tile
+            # read "$630,000.00" while every budget in the table below read
+            # "€58000" — the two disagreed on the same column. The KPI does not
+            # inherit the currency declared on the `budget` field, so it has to
+            # be restated here; if that field's currency changes, change both.
             kpiFormat:
               type: currency
+              options:
+                currency: EUR
 
       # Tasks by status — one bar per kanban column.
       - type: container

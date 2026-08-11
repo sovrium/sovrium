@@ -13,15 +13,24 @@ import {
 } from '../recipes/specialty-islands-default-classes'
 import type { ReactElement } from 'react'
 
+/**
+ * Message-input row for the `ai-chat` island.
+ *
+ * Owns the draft state, submits on Enter / Send click, disables the Send button
+ * when the draft is empty or while the AI is responding ([internal ref] /
+ * 028), and renders the optional file-attachment button.
+ */
 
 interface ChatInputRowProps {
   readonly placeholder: string
   readonly isSending: boolean
   readonly allowAttachments: boolean
+  /** Draft text captured from the SSR skeleton before hydration. */
   readonly initialDraft: string
   readonly onSend: (text: string) => void
 }
 
+/** Optional file-attachment button, shown only when `allowAttachments`. */
 const AttachButton = (): ReactElement => (
   <button
     type="button"
@@ -33,6 +42,7 @@ const AttachButton = (): ReactElement => (
   </button>
 )
 
+/** Draft state + change / submit handlers for the input row. */
 function useDraftState(isSending: boolean, initialDraft: string, onSend: (text: string) => void) {
   const [draft, setDraft] = useState(initialDraft)
 

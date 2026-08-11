@@ -8,7 +8,15 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../automations/template'
 
+/**
+ * Connection props are type-specific, defined per connection variant.
+ *
+ * This file extracts the individual prop schemas so they can be imported
+ * independently from the connection union. Each connection type has its
+ * own props shape.
+ */
 
+// ─── OAuth2 Props ───────────────────────────────────────────────────────────
 
 export const OAuth2PropsSchema = Schema.Struct({
   provider: Schema.optional(
@@ -102,9 +110,36 @@ export const OAuth2PropsSchema = Schema.Struct({
       })
     )
   ),
+  /**
+   * Internal test-mode escape hatch consumed by the user-create token
+   * seeder (`infrastructure/connections/test-token-seeder.ts`). The
+   * seeder's default behavior is to upsert a sentinel-shaped token with
+   * `expiresAt = now + 1h` so that encryption-at-rest specs have a row
+   * to assert against without driving a real OAuth round-trip. The
+   * deepened token-refresh specs ([internal ref]..083)
+   * need the OPPOSITE: a non-sentinel token with `expiresAt < now()`
+   * so the very next automation trigger sees an expired token and
+   * fires a refresh request. `_test.seedExpired: true` flips the
+   * seeder into that mode.
+   *
+   * Production safety: the seeder no-ops entirely when
+   * `NODE_ENV === 'production'` (see `runSeedTestConnectionTokens`).
+   * The leading underscore in the field name signals "internal test
+   * affordance, not a public schema feature" — exposed in the schema
+   * only because Effect Schema's default is to STRIP unknown keys
+   * during decoding, which would erase this flag before the seeder
+   * ever sees it. Keeping it visible is the price of preserving it.
+   */
   _test: Schema.optional(
     Schema.Struct({
       seedExpired: Schema.optional(Schema.Boolean),
+      /**
+       * Per-user variant: only seed an expired token for the listed
+       * email addresses; other users get the default (sentinel or
+       * authorized-loopback) seeder behavior. Used by the
+       * cross-user-isolation specs to
+       * fail Alice's refresh while leaving Bob's row untouched.
+       */
       seedExpiredFor: Schema.optional(Schema.Array(Schema.String)),
     }).pipe(
       Schema.annotations({
@@ -121,8 +156,10 @@ export const OAuth2PropsSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type OAuth2Props = Schema.Schema.Type<typeof OAuth2PropsSchema>
 
+// ─── API Key Props ──────────────────────────────────────────────────────────
 
 export const ApiKeyPropsSchema = Schema.Struct({
   key: TemplateStringSchema.pipe(
@@ -152,8 +189,10 @@ export const ApiKeyPropsSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type ApiKeyProps = Schema.Schema.Type<typeof ApiKeyPropsSchema>
 
+// ─── Basic Auth Props ───────────────────────────────────────────────────────
 
 export const BasicPropsSchema = Schema.Struct({
   username: TemplateStringSchema.pipe(
@@ -170,8 +209,10 @@ export const BasicPropsSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type BasicProps = Schema.Schema.Type<typeof BasicPropsSchema>
 
+// ─── Bearer Token Props ─────────────────────────────────────────────────────
 
 export const BearerPropsSchema = Schema.Struct({
   token: TemplateStringSchema.pipe(
@@ -187,4 +228,5 @@ export const BearerPropsSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type BearerProps = Schema.Schema.Type<typeof BearerPropsSchema>

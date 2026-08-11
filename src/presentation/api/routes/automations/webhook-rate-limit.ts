@@ -8,6 +8,17 @@
 import { createSlidingWindowLimiter } from '@/infrastructure/utils/sliding-window-limiter'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Webhook per-trigger + per-IP rate limiter (in-memory sliding window).
+ *
+ * Built on the shared `createSlidingWindowLimiter()` primitive (see
+ * `@/infrastructure/utils/sliding-window-limiter`) — a process-local Map of
+ * recent timestamps. The same caveats apply: this is suitable only for
+ * single-process deployments; horizontal scale-out requires a shared store
+ * (Redis, etc.). The webhook spec covers the local-process behaviour, so
+ * shipping the in-memory limiter unblocks T-1 without forcing a Redis
+ * dependency on every Sovrium deployment.
+ */
 
 type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
@@ -31,10 +42,13 @@ export const isRateLimited = (
   const key = rateLimitKey(automationName, ip)
   const recent = limiter.getRecent(key, windowMs)
   if (recent.length >= config.maxRequests) {
+    // Limited attempts are NOT recorded; `Math.max(1, …)` floors retry-after
+    // at 1s (the shared primitive's getRetryAfter floors at 0s).
     const oldest = Math.min(...recent)
     const retryAfter = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000))
     return { limited: true, retryAfter }
   }
+  // eslint-disable-next-line functional/no-expression-statements -- record the attempt in the shared limiter's mutable store
   limiter.record(key, { windowMs, maxRequests: config.maxRequests })
   return { limited: false, retryAfter: 0 }
 }

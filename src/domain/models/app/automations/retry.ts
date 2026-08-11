@@ -7,13 +7,23 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Retry Configuration Schema
+ *
+ * Configures automatic retry behavior for failed automations or individual actions.
+ * Supports fixed delay or exponential backoff strategies.
+ *
+ * Inspired by n8n per-node retry config and Make.com error directives.
+ */
 export const RetryConfigSchema = Schema.Struct({
+  /** Maximum number of retry attempts (1-10) */
   maxAttempts: Schema.Number.pipe(
     Schema.int(),
     Schema.between(1, 10),
     Schema.annotations({ description: 'Maximum retry attempts (1-10)' })
   ),
 
+  /** Delay between retries in milliseconds (100-60000) */
   delayMs: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -24,6 +34,7 @@ export const RetryConfigSchema = Schema.Struct({
     )
   ),
 
+  /** Retry strategy */
   strategy: Schema.optional(
     Schema.Literal('fixed', 'exponential').pipe(
       Schema.annotations({
@@ -44,4 +55,5 @@ export const RetryConfigSchema = Schema.Struct({
 )
 
 export type RetryConfig = Schema.Schema.Type<typeof RetryConfigSchema>
+/** @public */
 export type RetryConfigEncoded = Schema.Schema.Encoded<typeof RetryConfigSchema>

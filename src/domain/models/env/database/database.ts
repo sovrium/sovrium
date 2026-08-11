@@ -7,6 +7,16 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Database environment configuration.
+ *
+ * Env vars: DATABASE_URL
+ *
+ * NOTE: this schema models ONLY the PostgreSQL case. `DATABASE_URL` may also
+ * carry a `file:` / `sqlite:` / `:memory:` value for SQLite — full
+ * dialect resolution lives in `parseDatabaseDialectConfig`
+ * (`./database-dialect`), which is the single source of truth.
+ */
 export const DatabaseEnvSchema = Schema.Struct({
   databaseUrl: Schema.optional(
     Schema.String.pipe(

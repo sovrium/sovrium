@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Email template data types for Better Auth integration
+ */
 export interface PasswordResetEmailData {
   readonly userName?: string
   readonly resetUrl: string
@@ -17,6 +20,9 @@ export interface EmailVerificationData {
   readonly expiresIn?: string
 }
 
+/**
+ * Email CSS styles
+ */
 const EMAIL_STYLES = `
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -83,6 +89,11 @@ body {
 }
 `
 
+/**
+ * Base email layout wrapper
+ *
+ * Provides consistent styling for all email templates.
+ */
 function emailLayout(content: string): string {
   const year = new Date().getFullYear()
   return `<!DOCTYPE html>
@@ -106,6 +117,20 @@ function emailLayout(content: string): string {
 </html>`
 }
 
+/**
+ * Password reset email template
+ *
+ * Used by Better Auth's sendResetPassword callback.
+ *
+ * @example
+ * ```typescript
+ * const { subject, html, text } = passwordResetEmail({
+ *   userName: 'John',
+ * resetUrl: '[internal ref]',
+ *   expiresIn: '1 hour',
+ * })
+ * ```
+ */
 export function passwordResetEmail(data: PasswordResetEmailData): {
   readonly subject: string
   readonly html: string
@@ -155,6 +180,20 @@ If you didn't request a password reset, you can safely ignore this email.
   }
 }
 
+/**
+ * Email verification template
+ *
+ * Used by Better Auth's sendVerificationEmail callback.
+ *
+ * @example
+ * ```typescript
+ * const { subject, html, text } = emailVerificationEmail({
+ *   userName: 'John',
+ * verifyUrl: '[internal ref]',
+ *   expiresIn: '24 hours',
+ * })
+ * ```
+ */
 export function emailVerificationEmail(data: EmailVerificationData): {
   readonly subject: string
   readonly html: string

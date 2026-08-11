@@ -27,14 +27,24 @@ interface PopoverIslandProps {
   readonly 'data-testid'?: string
 }
 
+/** SSR HTML placeholder rendered once during hydration. Isolated so the inline
+ * `dangerouslySetInnerHTML` object lives in a tiny helper, not the island body. */
 function SSRSkeletonSpan({ html }: { readonly html: string }): ReactElement {
+  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only first-paint skeleton
   return <span dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 function SSRSkeletonDiv({ html }: { readonly html: string }): ReactElement {
+  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only first-paint skeleton
   return <div dangerouslySetInnerHTML={{ __html: html }} />
 }
 
+/**
+ * Popover island — wraps Base UI Popover for floating content panels.
+ *
+ * Shows rich content in a floating panel triggered by click.
+ * Supports positioning, close-on-outside-click, and focus management.
+ */
 export default function PopoverIsland({
   title,
   description,

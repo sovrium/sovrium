@@ -20,6 +20,10 @@ interface FileReadCallbacks {
   readonly onEmpty: () => void
 }
 
+/**
+ * Read a CSV file with the FileReader API and dispatch to the appropriate
+ * callback based on whether the parsed result has any data rows.
+ */
 function readCsvFile(file: File, callbacks: FileReadCallbacks): void {
   const reader = new FileReader()
   reader.addEventListener('load', (event: ProgressEvent<FileReader>) => {
@@ -35,6 +39,16 @@ function readCsvFile(file: File, callbacks: FileReadCallbacks): void {
   reader.readAsText(file)
 }
 
+/**
+ * Local state machine for the import wizard.
+ *
+ * Owns: file content + preview, current step, editable column mappings,
+ * import result, in-flight flag, duplicate strategy + unique-field choice,
+ * and the hovered-column index used to position the sample-values tooltip.
+ *
+ * Returned as a flat bag so the dialog can pass individual fields directly
+ * to the per-step components without prop drilling through a single context.
+ */
 export function useImportCsvDialogState() {
   const [preview, setPreview] = useState<CsvPreview | undefined>(undefined)
   const [rawContent, setRawContent] = useState<string | undefined>(undefined)

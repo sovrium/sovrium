@@ -5,6 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * DOM-builder fragment of the command-palette inline runtime.
+ *
+ * This is a **string fragment** spliced verbatim into the single runtime IIFE
+ * built in `command-palette-runtime.ts` — it is NOT a standalone IIFE. Every
+ * function declared here (`ensureOverlay`, `buildCreateDialog`, …) is hoisted
+ * into the runtime's shared closure and relies on its variables (`overlay`,
+ * `input`, `results`, `config`, `debounceHandle`) and functions (`refresh`,
+ * `closePalette`).
+ *
+ * It is split out purely to keep `command-palette-runtime.ts` under the
+ * `max-lines` cap — these are the verbose `document.createElement` overlay /
+ * record-creation-dialog builders that are constructed lazily so no
+ * command-palette DOM is pre-rendered server-side (which would otherwise
+ * pollute generic page selectors in unrelated specs).
+ */
 export const COMMAND_PALETTE_RUNTIME_DOM = `
   // Build the command-palette overlay (centered modal: search input + results
   // container) once and append it to <body>. Cached after first construction.

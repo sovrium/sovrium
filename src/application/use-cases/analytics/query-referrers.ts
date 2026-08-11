@@ -23,6 +23,9 @@ export interface TopReferrersResult {
   readonly total: number
 }
 
+/**
+ * Query top referrer domains ranked by page views.
+ */
 export const queryReferrers = (
   input: QueryReferrersInput
 ): Effect.Effect<TopReferrersResult, AnalyticsDatabaseError, AnalyticsRepository> =>

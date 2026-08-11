@@ -5,6 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * The message-THREAD column of the `admin-agent-conversations` island — the right
+ * column of the ChatGPT-style two-column viewer. Renders the selected
+ * conversation's header + its messages as a read-only transcript: user turns
+ * right-aligned, agent / tool / system turns left-aligned, each tagged with its
+ * role + time, with a model/token footnote on agent turns, a code block for a
+ * tool call, and an "interrompu" marker for a streamed turn that never finished.
+ * Its idle / loading / error states live here so the island stays a thin render
+ * under the per-island `max-lines` cap.
+ */
 
 import { type ReactElement } from 'react'
 import {
@@ -15,6 +25,7 @@ import {
   type ThreadState,
 } from './admin-agent-conversations-data'
 
+/** Format a tool-call payload (or a JSON tool message body) as readable text. */
 function formatToolPayload(message: ThreadMessage): string {
   if (message.toolCalls != undefined) {
     try {
@@ -26,6 +37,7 @@ function formatToolPayload(message: ThreadMessage): string {
   return message.content
 }
 
+/** A single message turn, aligned + styled by role. */
 function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactElement {
   const isUser = message.role === 'user'
   const isTool = message.role === 'tool'
@@ -57,6 +69,7 @@ function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactEle
   )
 }
 
+/** The per-message footnote: model + token count on agent turns, "interrompu" marker. */
 function MessageFootnote({
   message,
 }: {
@@ -73,13 +86,14 @@ function MessageFootnote({
       {parts.length > 0 ? <span className="font-mono">{parts.join(' · ')}</span> : undefined}
       {interrupted ? (
         <span className="text-foreground-muted inline-flex items-center gap-1 font-medium">
-          <span aria-hidden="true">•</span> réponse interrompue
+          <span aria-hidden="true">•</span> reply interrupted
         </span>
       ) : undefined}
     </div>
   )
 }
 
+/** The thread header: conversation title + session + created/last-activity. */
 function ThreadHeader({ header }: { readonly header: ConversationHeader }): ReactElement {
   return (
     <header className="border-border flex flex-col gap-1 border-b pb-3">
@@ -87,12 +101,13 @@ function ThreadHeader({ header }: { readonly header: ConversationHeader }): Reac
       <p className="text-foreground-subtle flex flex-wrap items-center gap-2 text-xs">
         <span className="font-mono">{header.sessionId}</span>
         <span aria-hidden="true">·</span>
-        <span>Dernière activité {formatDateTime(header.lastActivityAt)}</span>
+        <span>Last activity {formatDateTime(header.lastActivityAt)}</span>
       </p>
     </header>
   )
 }
 
+/** A centered state card for the thread column (idle / loading / error). */
 function ThreadStateCard({
   label,
   title,
@@ -116,10 +131,11 @@ function ThreadStateCard({
   )
 }
 
+/** The loading skeleton for the thread column. */
 function ThreadLoading(): ReactElement {
   return (
     <div
-      aria-label="Chargement de la conversation"
+      aria-label="Loading conversation"
       aria-busy="true"
       className="flex flex-col gap-3"
     >
@@ -136,6 +152,7 @@ function ThreadLoading(): ReactElement {
   )
 }
 
+/** The message-thread column: the selected conversation's transcript, with states. */
 export function ConversationThread({
   state,
   onRetry,
@@ -146,9 +163,9 @@ export function ConversationThread({
   if (state.phase === 'idle') {
     return (
       <ThreadStateCard
-        label="Choisir une conversation"
-        title="Choisissez une conversation"
-        body="Sélectionnez une conversation à gauche pour afficher son fil de messages."
+        label="No conversation selected"
+        title="Select a conversation"
+        body="Pick one from the list to read its messages."
       />
     )
   }
@@ -156,16 +173,16 @@ export function ConversationThread({
   if (state.phase === 'error') {
     return (
       <ThreadStateCard
-        label="Erreur de chargement"
-        title="Impossible de charger la conversation"
-        body="Le fil de messages n’a pas pu être récupéré. Réessayez."
+        label="Couldn’t load"
+        title="Couldn’t load the conversation"
+        body="The messages could not be loaded. Try again."
       >
         <button
           type="button"
           onClick={onRetry}
           className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-sm font-medium"
         >
-          Réessayer
+          Retry
         </button>
       </ThreadStateCard>
     )
@@ -174,7 +191,7 @@ export function ConversationThread({
     <div className="flex flex-col gap-4">
       {state.header ? <ThreadHeader header={state.header} /> : undefined}
       <div
-        aria-label="Fil de messages"
+        aria-label="Message thread"
         className="flex flex-col gap-4"
       >
         {state.messages.map((message) => (

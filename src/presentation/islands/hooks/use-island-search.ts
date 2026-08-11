@@ -7,6 +7,10 @@
 
 import { useEffect } from 'react'
 
+/**
+ * Listens for `island:search` custom events and forwards the search query
+ * to the provided callback, optionally filtering by a `sourceId`.
+ */
 export function useIslandSearch(callback: (query: string) => void, searchSourceId?: string): void {
   useEffect(() => {
     const handler = (e: Event) => {

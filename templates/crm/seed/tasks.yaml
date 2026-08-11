@@ -1,0 +1,56 @@
+# Sample tasks, linked to deals. Due dates straddle today so the task calendar
+# shows overdue, due-now and upcoming work rather than one flat cluster.
+records:
+  - key: send-renewal-quote
+    fields:
+      title: Send Northwind the revised renewal quote
+      deal: '@deals.northwind-renewal'
+      due_date: '{{today+2d}}'
+      status: Doing
+      done: false
+      priority: High
+
+  - key: warehouse-scoping-call
+    fields:
+      title: Scoping call — multi-warehouse rollout
+      deal: '@deals.northwind-warehouse'
+      due_date: '{{today+9d}}'
+      status: Todo
+      done: false
+      priority: Medium
+
+  - key: helios-security-pack
+    fields:
+      title: Assemble the Helios security questionnaire pack
+      deal: '@deals.helios-clinical'
+      due_date: '{{today-2d}}'
+      status: Doing
+      done: false
+      priority: High
+
+  - key: helios-clinical-demo
+    fields:
+      title: Clinical team demo — bring the reporting views
+      deal: '@deals.helios-clinical'
+      due_date: '{{today+5d}}'
+      status: Todo
+      done: false
+      priority: High
+
+  - key: lumen-handoff
+    fields:
+      title: Onboarding handoff for Lumen
+      deal: '@deals.lumen-migration'
+      due_date: '{{today-4d}}'
+      status: Done
+      done: true
+      priority: Medium
+
+  - key: cardinal-audit-followup
+    fields:
+      title: Chase Cardinal on the audit timeline
+      deal: '@deals.cardinal-security'
+      due_date: '{{today+16d}}'
+      status: Todo
+      done: false
+      priority: Low

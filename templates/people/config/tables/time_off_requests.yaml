@@ -7,6 +7,15 @@ fields:
     relatedTable: employees
     relationType: many-to-one
     required: true
+    # Names the column a human should see instead of the foreign key. Measured
+    # against the running app: this reaches the data-table's inline record
+    # PICKER (`record-picker-editor.tsx` searches and labels on it) but NOT the
+    # read-only cell, which still renders the raw integer, and not a `form`
+    # bound to this field, which renders a plain text input rather than a
+    # picker. It is declared here anyway because it is the correct place to say
+    # what identifies an employee, and the two render paths that ignore it are
+    # platform gaps rather than a reason to leave the intent unstated.
+    displayField: name
   - id: 2
     name: type
     type: single-select

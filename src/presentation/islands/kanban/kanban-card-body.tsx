@@ -12,6 +12,7 @@ import type { KanbanCard } from '@/domain/models/app/pages/components/component-
 import type { ReactElement } from 'react'
 
 export function KanbanCardDefault({ record }: { readonly record: TableRecord }): ReactElement {
+  // No template configured: render a minimal default with a title-ish field.
   const title =
     (record.title as string | undefined) ??
     (record.name as string | undefined) ??

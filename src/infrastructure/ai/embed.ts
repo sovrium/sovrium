@@ -5,14 +5,29 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types -- AiProviderError tagged class is mutable by Data.TaggedError design */
 
 import { Effect } from 'effect'
 import { AiProviderError } from '@/application/ports/services/ai-service'
 import type { AiError, EmbedInput, EmbedReply } from '@/application/ports/services/ai-service'
 
+/**
+ * Embedding generation helpers for the RAG pipeline ([internal ref]-*).
+ *
+ * Two wire formats are supported, mirroring the chat path:
+ *  - OpenAI-compatible cloud providers: `POST {baseUrl}/embeddings` with
+ *    `{ model, input }` → `{ data: [{ embedding }], model }`.
+ *  - Ollama: `POST {baseUrl}/api/embeddings` with `{ model, prompt }` →
+ *    `{ embedding }`.
+ *
+ * Provider selection is decided by the eco-precedence resolver (R3) — these
+ * helpers only carry out the request once the provider has been resolved.
+ */
 
+/** Default embedding model when `AI_EMBEDDING_MODEL` is unset (cloud). */
 export const DEFAULT_CLOUD_EMBEDDING_MODEL = 'text-embedding-3-small'
 
+/** Default embedding model when `AI_EMBEDDING_MODEL` is unset (Ollama). */
 export const DEFAULT_OLLAMA_EMBEDDING_MODEL = 'nomic-embed-text'
 
 interface OpenAiEmbeddingPayload {
@@ -24,6 +39,7 @@ interface OllamaEmbeddingPayload {
   readonly embedding?: ReadonlyArray<number>
 }
 
+/** Resolved embedding connection — base URL, credentials, and default model. */
 export interface EmbedConn {
   readonly baseUrl: string
   readonly apiKey: string | undefined
@@ -39,6 +55,9 @@ const mapEmbedError = (cause: unknown): AiError => {
   })
 }
 
+/**
+ * Generate an embedding via an OpenAI-compatible `/embeddings` endpoint.
+ */
 export const embedOpenAi = (
   conn: EmbedConn,
   input: EmbedInput
@@ -52,10 +71,12 @@ export const embedOpenAi = (
           'Content-Type': 'application/json',
           ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
         },
+        // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
         body: JSON.stringify({ model, input: input.text }),
       })
       if (!response.ok) {
         const body = await response.text().catch(() => '')
+        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
         throw new AiProviderError({
           statusCode: response.status,
           message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
@@ -64,6 +85,7 @@ export const embedOpenAi = (
       const payload = (await response.json()) as OpenAiEmbeddingPayload
       const embedding = payload.data?.[0]?.embedding
       if (embedding === undefined) {
+        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
         throw new AiProviderError({
           statusCode: 502,
           message: 'AI provider returned a malformed embedding response',
@@ -74,6 +96,9 @@ export const embedOpenAi = (
     catch: mapEmbedError,
   })
 
+/**
+ * Generate an embedding via Ollama's native `/api/embeddings` endpoint.
+ */
 export const embedOllama = (
   conn: EmbedConn,
   input: EmbedInput
@@ -87,10 +112,12 @@ export const embedOllama = (
           'Content-Type': 'application/json',
           ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
         },
+        // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
         body: JSON.stringify({ model, prompt: input.text }),
       })
       if (!response.ok) {
         const body = await response.text().catch(() => '')
+        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
         throw new AiProviderError({
           statusCode: response.status,
           message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
@@ -98,6 +125,7 @@ export const embedOllama = (
       }
       const payload = (await response.json()) as OllamaEmbeddingPayload
       if (payload.embedding === undefined) {
+        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
         throw new AiProviderError({
           statusCode: 502,
           message: 'AI provider returned a malformed embedding response',

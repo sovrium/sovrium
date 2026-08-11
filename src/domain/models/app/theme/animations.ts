@@ -11,6 +11,23 @@ import {
   EasingFunctionSchema,
 } from '@/domain/models/app/pages/components/interactions/hover'
 
+/**
+ * Animation configuration object
+ *
+ * Detailed animation config with duration, easing, delay, and keyframes.
+ *
+ * @example
+ * ```typescript
+ * const config = {
+ *   enabled: true,
+ *   duration: '300ms',
+ *   easing: 'ease-in-out',
+ *   delay: '0ms',
+ * }
+ * ```
+ *
+ * @see [internal ref]#/patternProperties/.../oneOf[2]
+ */
 export const AnimationConfigObjectSchema = Schema.Struct({
   enabled: Schema.optional(Schema.Boolean),
   duration: Schema.optional(DurationSchema),
@@ -24,6 +41,27 @@ export const AnimationConfigObjectSchema = Schema.Struct({
   })
 )
 
+/**
+ * Animation value (boolean, string, or object)
+ *
+ * Flexible animation configuration:
+ * - Boolean: Simple enable/disable (true/false)
+ * - String: CSS animation value or class name
+ * - Object: Detailed config (duration, easing, delay, keyframes)
+ *
+ * @example
+ * ```typescript
+ * const simple = true
+ * const className = 'animate-fade-in'
+ * const detailed = {
+ *   enabled: true,
+ *   duration: '300ms',
+ *   easing: 'ease-in-out',
+ * }
+ * ```
+ *
+ * @see [internal ref]#/patternProperties/.../oneOf
+ */
 export const AnimationValueSchema = Schema.Union(
   Schema.Boolean,
   Schema.String,
@@ -35,6 +73,20 @@ export const AnimationValueSchema = Schema.Union(
   })
 )
 
+/**
+ * Duration design tokens schema
+ *
+ * Map of duration token names to CSS duration values.
+ *
+ * @example
+ * ```typescript
+ * const durations = {
+ *   fast: '200ms',
+ *   normal: '300ms',
+ *   slow: '500ms',
+ * }
+ * ```
+ */
 const DurationTokensSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
@@ -45,6 +97,19 @@ const DurationTokensSchema = Schema.Record({
   value: DurationSchema,
 })
 
+/**
+ * Easing function design tokens schema
+ *
+ * Map of easing token names to CSS easing functions.
+ *
+ * @example
+ * ```typescript
+ * const easings = {
+ *   smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
+ *   bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+ * }
+ * ```
+ */
 const EasingTokensSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
@@ -54,6 +119,26 @@ const EasingTokensSchema = Schema.Record({
   value: EasingFunctionSchema,
 })
 
+/**
+ * Keyframes design tokens schema
+ *
+ * Map of keyframe animation names to CSS keyframe definitions.
+ *
+ * @example
+ * ```typescript
+ * const keyframes = {
+ *   fadeIn: {
+ *     from: { opacity: '0' },
+ *     to: { opacity: '1' },
+ *   },
+ *   colorPulse: {
+ *     '0%': { backgroundColor: '$colors.primary' },
+ *     '50%': { backgroundColor: '$colors.accent' },
+ *     '100%': { backgroundColor: '$colors.primary' },
+ *   },
+ * }
+ * ```
+ */
 const KeyframesTokensSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
@@ -64,6 +149,34 @@ const KeyframesTokensSchema = Schema.Record({
   value: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 })
 
+/**
+ * Animation configuration (animation and transition design tokens)
+ *
+ * Supports two formats:
+ * 1. Nested design tokens (duration, easing, keyframes)
+ * 2. Legacy flat animation names
+ *
+ * @example
+ * ```typescript
+ * // Nested design tokens
+ * const animations = {
+ *   duration: { fast: '200ms', normal: '300ms', slow: '500ms' },
+ *   easing: { smooth: 'cubic-bezier(0.4, 0, 0.2, 1)', bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)' },
+ *   keyframes: {
+ *     fadeIn: { from: { opacity: '0' }, to: { opacity: '1' } },
+ *     colorPulse: { '0%': { backgroundColor: '$colors.primary' }, '50%': { backgroundColor: '$colors.accent' }, '100%': { backgroundColor: '$colors.primary' } },
+ *   },
+ * }
+ *
+ * // Legacy flat animations
+ * const animations = {
+ *   fadeIn: true,
+ *   slideUp: 'animate-slide-up',
+ *   modalOpen: { enabled: true, duration: '300ms', easing: 'ease-in-out' },
+ * }
+ * ```
+ *
+ */
 export const AnimationsConfigSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
@@ -90,5 +203,6 @@ export const AnimationsConfigSchema = Schema.Record({
 )
 
 export type AnimationConfigObject = Schema.Schema.Type<typeof AnimationConfigObjectSchema>
+/** @public */
 export type AnimationValue = Schema.Schema.Type<typeof AnimationValueSchema>
 export type AnimationsConfig = Schema.Schema.Type<typeof AnimationsConfigSchema>

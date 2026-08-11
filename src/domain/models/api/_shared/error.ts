@@ -7,6 +7,11 @@
 
 import { z } from '@hono/zod-openapi'
 
+/**
+ * Field validation error schema
+ *
+ * Represents a validation error on a specific field.
+ */
 export const fieldErrorSchema = z
   .object({
     field: z.string().describe('Field name that failed validation'),
@@ -15,6 +20,11 @@ export const fieldErrorSchema = z
   })
   .openapi('FieldError')
 
+/**
+ * Validation error response schema
+ *
+ * Used for 400 Bad Request responses with field-level errors.
+ */
 export const validationErrorResponseSchema = z
   .object({
     success: z.literal(false).describe('Operation failed'),
@@ -24,6 +34,11 @@ export const validationErrorResponseSchema = z
   })
   .openapi('ValidationErrorResponse')
 
+/**
+ * Generic error response schema
+ *
+ * Used for non-validation errors (401, 403, 404, 500, etc).
+ */
 export const errorResponseSchema = z
   .object({
     success: z.literal(false).describe('Operation failed'),
@@ -41,6 +56,9 @@ export const errorResponseSchema = z
         'RATE_LIMITED',
         'INTERNAL_ERROR',
         'SERVICE_UNAVAILABLE',
+        // Promoted in audit-cleanup commit — operator-facing error categories
+        // that recur often enough to deserve a stable code rather than being
+        // collapsed into INTERNAL_ERROR or BAD_REQUEST.
         'STORAGE_ERROR',
         'DATABASE_ERROR',
         'QUOTA_EXCEEDED',
@@ -50,6 +68,15 @@ export const errorResponseSchema = z
   })
   .openapi('ErrorResponse')
 
+/**
+ * Frozen lookup of every canonical API error code, derived from the schema.
+ *
+ * Use `ApiErrorCode.FORBIDDEN` instead of the bare `'FORBIDDEN'` literal at
+ * call sites to get IDE autocomplete + rename safety. The values are the
+ * literal strings the wire format uses; consuming `ApiErrorCode[X]` is
+ * type-equivalent to writing the literal directly, so no callsite churn is
+ * forced on existing string-literal users.
+ */
 export const ApiErrorCode = {
   UNAUTHORIZED: 'UNAUTHORIZED',
   FORBIDDEN: 'FORBIDDEN',
@@ -68,6 +95,11 @@ export const ApiErrorCode = {
 
 export type ApiErrorCode = (typeof ApiErrorCode)[keyof typeof ApiErrorCode]
 
+/**
+ * Better Auth error response schema
+ *
+ * Better Auth returns errors in this format.
+ */
 export const betterAuthErrorSchema = z
   .object({
     error: z
@@ -79,12 +111,20 @@ export const betterAuthErrorSchema = z
   })
   .openapi('BetterAuthError')
 
+/**
+ * Combined API error schema
+ *
+ * Union of all possible error response formats.
+ */
 export const apiErrorSchema = z.union([
   validationErrorResponseSchema,
   errorResponseSchema,
   betterAuthErrorSchema,
 ])
 
+/**
+ * TypeScript types inferred from schemas
+ */
 export type FieldError = z.infer<typeof fieldErrorSchema>
 export type ValidationErrorResponse = z.infer<typeof validationErrorResponseSchema>
 export type ErrorResponse = z.infer<typeof errorResponseSchema>

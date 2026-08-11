@@ -7,17 +7,33 @@
 
 import { Schema } from 'effect'
 import { FieldConditionSchema } from '../../../../../shared/condition-operators'
-import { BaseFieldSchema } from '../base-field'
+import { BaseFieldWithoutLabelSchema } from '../base-field'
 import { validateButtonAction } from '../validation-utils'
 
-const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
+/**
+ * Built on the `label`-LESS base (`BaseFieldWithoutLabelSchema`), unlike every
+ * other field type. `button` spends the top-level `label` key on its own
+ * required button TEXT, and `Schema.extend` throws at module-import time on a
+ * duplicated key — so it cannot also inherit the field-level display `label`.
+ * See `BaseFieldWithoutLabelSchema` for the full rationale. `description` is
+ * inherited normally.
+ */
+const ButtonFieldBaseSchema = BaseFieldWithoutLabelSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('button'),
+      /** The text printed INSIDE the button — NOT the field's display name. */
       label: Schema.String.pipe(
         Schema.nonEmptyString({ message: () => 'label is required' }),
         Schema.annotations({ description: 'Button text label' })
       ),
+      /**
+       * What pressing the button does. A closed vocabulary because it is a
+       * DISPATCH key, not a label: the renderer and the invoke endpoint both
+       * switch on it, and a value neither recognises produces a button that
+       * renders and does nothing. Leaving it open let `action: 'markComplete'`
+       * validate and silently no-op.
+       */
       action: Schema.Literal('url', 'automation').pipe(
         Schema.annotations({
           description:
@@ -36,6 +52,13 @@ const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      /**
+       * Per-record visibility predicate. Omitted, the button renders on every
+       * record; supplied, only on records whose named field satisfies the
+       * operator(s). Reuses the shared condition vocabulary the `data-table`
+       * action column already spends, so "show this control on some rows" has
+       * one grammar across the config surface.
+       */
       visibleWhen: Schema.optional(
         FieldConditionSchema.annotations({
           description:
@@ -65,4 +88,5 @@ export const ButtonFieldSchema = ButtonFieldBaseSchema.pipe(
   })
 )
 
+/** @public */
 export type ButtonField = Schema.Schema.Type<typeof ButtonFieldSchema>

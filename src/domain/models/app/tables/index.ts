@@ -17,6 +17,37 @@ import {
 } from '@/domain/validators/table-transforms'
 import { TableSchema } from './table'
 
+/**
+ * Data Tables
+ *
+ * Collection of database tables that define the data structure of your application.
+ * Each table represents an entity (e.g., users, products, orders) with fields that
+ * define the schema. Tables support relationships, indexes, constraints, and various
+ * field types. Tables are the foundation of your application's data model and
+ * determine what information can be stored and how it relates.
+ *
+ * Table IDs can be:
+ * - Explicit numeric IDs (e.g., 1, 2, 3)
+ * - UUID strings (e.g., '550e8400-e29b-41d4-a716-446655440000')
+ * - Simple string identifiers (e.g., 'products', 'users')
+ * - Auto-generated (omit the id field and it will be assigned automatically)
+ *
+ * @example
+ * ```typescript
+ * const tables = [
+ *   {
+ *     id: 1,
+ *     name: 'users',
+ *     fields: [
+ *       { id: 1, name: 'email', type: 'email', required: true },
+ *       { id: 2, name: 'name', type: 'text', required: true }
+ *     ]
+ *   }
+ * ]
+ * ```
+ *
+ * @see [internal ref] for full specification
+ */
 export const TablesSchema = Schema.Array(TableSchema).pipe(
   Schema.annotations({
     identifier: 'DataTables',
@@ -72,6 +103,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     return true
   }),
   Schema.filter((tables) => {
+    // Validate that inherited tables exist
     const tableNames = new Set(tables.map((table) => table.name))
     const invalidInheritance = tables
       .filter((table) => table.permissions?.inherit !== undefined)
@@ -83,8 +115,10 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     return true
   }),
   Schema.filter((tables) => {
+    // Create tablesByName map once for all field validations
     const tablesByName = new Map(tables.map((table) => [table.name, table]))
 
+    // Validate relationship fields reference existing tables
     const invalidRelationship = tables
       .flatMap((table) =>
         table.fields
@@ -110,6 +144,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
       return `Relationship field "${invalidRelationship.table}.${invalidRelationship.field}": relatedTable "${invalidRelationship.relatedTable}" does not exist`
     }
 
+    // Validate lookup fields reference existing relationship fields (either in same table or reverse relationship)
     const invalidLookup = tables
       .flatMap((table) =>
         table.fields
@@ -120,8 +155,10 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
               relatedField: string
             }
 
+            // Check if relationshipField exists in the same table (forward lookup)
             const fieldInSameTable = table.fields.find((f) => f.name === relationshipField)
             if (fieldInSameTable) {
+              // Use shared validation helper for forward lookup
               return validateRelationshipFieldReference({
                 table,
                 fieldName: lookupField.name,
@@ -131,6 +168,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
               })
             }
 
+            // Check if relationshipField exists in other tables (reverse lookup)
             const reverseRelationship = [...tablesByName.values()]
               .flatMap((otherTable) =>
                 otherTable.fields
@@ -152,6 +190,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
               }
             }
 
+            // For reverse lookup, check if relatedField exists in the table that has the relationship
             if (reverseRelationship.relatedTable) {
               const relatedFieldExists = reverseRelationship.relatedTable.fields.some(
                 (f) => f.name === relatedField
@@ -175,6 +214,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
       return `Lookup field "${invalidLookup.table}.${invalidLookup.field}" ${invalidLookup.error}`
     }
 
+    // Validate rollup fields reference existing relationship fields and related fields
     const invalidRollup = validateAllRollupFields(tables, tablesByName)
 
     if (invalidRollup) {
@@ -187,6 +227,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
 
 export type Tables = Schema.Schema.Type<typeof TablesSchema>
 
+// Re-export Table and TableSchema for convenience
 export { TableSchema } from './table'
 export type { Table } from './table'
 export { CommentsConfigSchema } from './comments'

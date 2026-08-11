@@ -9,6 +9,11 @@ import { sql } from 'drizzle-orm'
 import { text, timestamp, jsonb, integer, boolean, index } from 'drizzle-orm/pg-core'
 import { systemSchema } from './migration-audit'
 
+/**
+ * Webhook Configs Table
+ *
+ * Outgoing webhook endpoint configurations (URL, secret, events, active status).
+ */
 export const webhookConfigs = systemSchema.table(
   'webhook_configs',
   {
@@ -31,6 +36,11 @@ export const webhookConfigs = systemSchema.table(
   (table) => [index('webhook_configs_tableName_idx').on(table.tableName)]
 )
 
+/**
+ * Webhook Deliveries Table
+ *
+ * Outgoing webhook delivery log (attempt tracking, status, response).
+ */
 export const webhookDeliveries = systemSchema.table(
   'webhook_deliveries',
   {
@@ -58,6 +68,7 @@ export const webhookDeliveries = systemSchema.table(
   ]
 )
 
+// Type inference
 export type WebhookConfig = typeof webhookConfigs.$inferSelect
 export type NewWebhookConfig = typeof webhookConfigs.$inferInsert
 export type WebhookDelivery = typeof webhookDeliveries.$inferSelect

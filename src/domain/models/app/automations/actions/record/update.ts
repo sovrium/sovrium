@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { ConditionGroupSchema } from '../../conditions'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Update Action (type: record, operator: update)
+ *
+ * Update existing records matching a filter. Requires both data and filter.
+ */
 export const RecordUpdateActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
@@ -39,4 +44,5 @@ export const RecordUpdateActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordUpdateAction = Schema.Schema.Type<typeof RecordUpdateActionSchema>

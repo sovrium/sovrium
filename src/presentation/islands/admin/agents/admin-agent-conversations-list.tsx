@@ -5,6 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * The conversation-LIST column of the `admin-agent-conversations` island — the
+ * left column of the ChatGPT-style two-column viewer. A search box over the
+ * loaded titles + a scrollable list of conversation cards (title + last-activity
+ * + message count), the selected one accented. Its own loading / empty / no-match
+ * / error states live here so the island stays a thin render under the per-island
+ * `max-lines` cap. Click handlers are named (not inline) to avoid per-render
+ * function allocation (react-perf).
+ */
 
 import { type ChangeEvent, type ReactElement, useCallback } from 'react'
 import {
@@ -14,6 +23,12 @@ import {
 } from './admin-agent-conversations-data'
 import type { NewConversationState } from './admin-agent-conversations-state'
 
+/**
+ * The "New conversation" trigger + agent picker. The
+ * "New conversation" button opens an "Agent" combobox; picking an agent
+ * opens the composer in the thread column. The picker only renders once the
+ * compose flow is active so the empty starting state is a single clean CTA.
+ */
 function NewConversation({
   state,
   agentNames,
@@ -42,7 +57,7 @@ function NewConversation({
         >
           +
         </span>
-        Nouvelle conversation
+        New conversation
       </button>
       {state.active ? (
         <label className="flex items-center gap-2 text-sm">
@@ -53,7 +68,7 @@ function NewConversation({
             onChange={handlePick}
             className="border-border bg-background text-foreground flex-1 rounded-md border px-2 py-1 text-sm"
           >
-            <option value="">Choisir un agent…</option>
+            <option value="">Choose an agent…</option>
             {agentNames.map((name) => (
               <option
                 key={name}
@@ -69,6 +84,12 @@ function NewConversation({
   )
 }
 
+/**
+ * The agent filter above the conversation list. Defaults to
+ * "All agents" (value `''`); selecting an agent narrows the merged list to
+ * that agent's conversations. Hidden when the app declares a single agent (there
+ * is nothing to filter). Mirrors the native-select pattern used elsewhere.
+ */
 function AgentFilter({
   agent,
   onAgent,
@@ -78,23 +99,25 @@ function AgentFilter({
   readonly agent: string
   readonly onAgent: (value: string) => void
   readonly agentNames: ReadonlyArray<string>
+  /** Hidden while the "New conversation" picker is open, so only one "Agent"-ish combobox exists. */
   readonly hidden: boolean
 }): ReactElement | null {
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => onAgent(event.target.value),
     [onAgent]
   )
+  // eslint-disable-next-line unicorn/no-null -- React conditional needs null, not undefined
   if (agentNames.length < 2 || hidden) return null
   return (
     <label className="flex items-center gap-2 text-sm">
       <span className="text-foreground-subtle text-xs">Agent</span>
       <select
-        aria-label="Filtrer par agent"
+        aria-label="Filter by agent"
         value={agent}
         onChange={handleChange}
         className="border-border bg-background text-foreground flex-1 rounded-md border px-2 py-1 text-sm"
       >
-        <option value="">Tous les agents</option>
+        <option value="">All agents</option>
         {agentNames.map((name) => (
           <option
             key={name}
@@ -108,6 +131,7 @@ function AgentFilter({
   )
 }
 
+/** The search box above the conversation list. */
 function ListSearch({
   search,
   onSearch,
@@ -144,14 +168,15 @@ function ListSearch({
         type="search"
         value={search}
         onChange={handleChange}
-        placeholder="Rechercher une conversation…"
-        aria-label="Rechercher une conversation"
+        placeholder="Search conversations…"
+        aria-label="Search conversations"
         className="border-border bg-background-raised focus:border-border-strong focus:ring-focus-ring/30 w-full rounded-md border py-1.5 pr-3 pl-8 text-sm transition-colors focus:ring-2 focus:outline-none"
       />
     </div>
   )
 }
 
+/** One conversation card in the list, the selected one accented. */
 function ConversationCard({
   conversation,
   active,
@@ -195,6 +220,7 @@ function ConversationCard({
   )
 }
 
+/** A centered state card for the list column (loading / empty / no-match / error). */
 function ListStateCard({
   label,
   title,
@@ -218,10 +244,11 @@ function ListStateCard({
   )
 }
 
+/** The loading skeleton for the list column. */
 function ListLoading(): ReactElement {
   return (
     <div
-      aria-label="Chargement des conversations"
+      aria-label="Loading conversations"
       aria-busy="true"
       className="flex flex-col gap-2"
     >
@@ -235,52 +262,56 @@ function ListLoading(): ReactElement {
   )
 }
 
+/** The error state for the list column (retryable). */
 function ListErrorState({ onRetry }: { readonly onRetry: () => void }): ReactElement {
   return (
     <ListStateCard
-      label="Erreur de chargement"
-      title="Impossible de charger les conversations"
-      body="La liste n’a pas pu être récupérée. Réessayez."
+      label="Couldn’t load"
+      title="Couldn’t load conversations"
+      body="The list could not be loaded. Try again."
     >
       <button
         type="button"
         onClick={onRetry}
         className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-xs font-medium"
       >
-        Réessayer
+        Retry
       </button>
     </ListStateCard>
   )
 }
 
+/** The empty state when no agent has any conversation yet (the list spans all agents). */
 function ListEmptyState(): ReactElement {
   return (
     <ListStateCard
-      label="Aucune conversation"
-      title="Aucune conversation"
-      body="Vos agents n’ont pas encore de conversation. Elles s’afficheront ici dès qu’un utilisateur leur parlera."
+      label="No conversations yet"
+      title="No conversations yet"
+      body="Conversations appear here once a user talks to one of your agents."
     />
   )
 }
 
+/** The no-match state when a search narrows every conversation away. */
 function ListNoMatchState({ onResetSearch }: { readonly onResetSearch: () => void }): ReactElement {
   return (
     <ListStateCard
-      label="Aucun résultat"
-      title="Aucune conversation ne correspond"
-      body="Aucune conversation ne correspond à votre recherche."
+      label="No results"
+      title="No conversation matches"
+      body="No conversation matches your search."
     >
       <button
         type="button"
         onClick={onResetSearch}
         className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-xs font-medium"
       >
-        Réinitialiser
+        Reset
       </button>
     </ListStateCard>
   )
 }
 
+/** Props for the conversation-list column. */
 interface ConversationListProps {
   readonly state: ListState
   readonly visibleConversations: ReadonlyArray<ConversationRow>
@@ -290,14 +321,17 @@ interface ConversationListProps {
   readonly onSelect: (id: string) => void
   readonly onRetry: () => void
   readonly onResetSearch: () => void
+  /** The agent filter value (`''` = all) + setter + the available agent names. */
   readonly agent: string
   readonly onAgent: (value: string) => void
   readonly agentNames: ReadonlyArray<string>
+  /** The "New conversation" compose flow. */
   readonly newConversation: NewConversationState
   readonly onStartNewConversation: () => void
   readonly onPickNewAgent: (value: string) => void
 }
 
+/** Resolve the list body from the load phase + the search outcome. */
 function ListBody(props: ConversationListProps): ReactElement {
   const { state, visibleConversations, selectedId, onSelect, onRetry, onResetSearch } = props
   if (state.phase === 'loading') return <ListLoading />
@@ -318,6 +352,12 @@ function ListBody(props: ConversationListProps): ReactElement {
   )
 }
 
+/**
+ * The conversation-list column: the "New conversation" trigger, the agent
+ * filter, search, and the result list with all its states. A `region` named
+ * "Conversations" — the new-conversation flow and the result cards both live
+ * inside it (CONV-013 reads the list region + its conversation buttons).
+ */
 export function ConversationList(props: ConversationListProps): ReactElement {
   return (
     <section

@@ -7,7 +7,15 @@
 
 import { Schema } from 'effect'
 
+// ============================================================================
+// Preload
+// ============================================================================
 
+/**
+ * Resource type hint for preloading
+ *
+ * 8 standard resource types for <link rel="preload" as="...">
+ */
 export const PreloadResourceTypeSchema = Schema.Literal(
   'style',
   'script',
@@ -21,6 +29,9 @@ export const PreloadResourceTypeSchema = Schema.Literal(
   description: 'Resource type hint',
 })
 
+/**
+ * CORS setting for preloaded resources
+ */
 export const PreloadCrossOriginSchema = Schema.Union(
   Schema.Boolean,
   Schema.Literal('anonymous', 'use-credentials')
@@ -28,6 +39,11 @@ export const PreloadCrossOriginSchema = Schema.Union(
   description: 'CORS setting for the resource',
 })
 
+/**
+ * Preload resource configuration
+ *
+ * Defines a single resource to preload early in page load for performance optimization.
+ */
 export const PreloadItemSchema = Schema.Struct({
   href: Schema.String.annotations({
     description: 'Resource URL to preload',
@@ -48,12 +64,20 @@ export const PreloadItemSchema = Schema.Struct({
   description: 'Preload resource',
 })
 
+/**
+ * Resource preloading for performance optimization
+ *
+ * Array of critical resources to preload early in page load.
+ */
 export const PreloadSchema = Schema.Array(PreloadItemSchema).annotations({
   title: 'Resource Preloading',
   description: 'Preload critical resources for performance optimization',
 })
 
+/** @public */
 export type PreloadResourceType = Schema.Schema.Type<typeof PreloadResourceTypeSchema>
+/** @public */
 export type PreloadCrossOrigin = Schema.Schema.Type<typeof PreloadCrossOriginSchema>
+/** @public */
 export type PreloadItem = Schema.Schema.Type<typeof PreloadItemSchema>
 export type Preload = Schema.Schema.Type<typeof PreloadSchema>

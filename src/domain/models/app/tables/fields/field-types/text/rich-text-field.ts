@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Rich Text Field
+ *
+ * Stores formatted text with support for bold, italic, links, lists, and other rich formatting.
+ * Typically rendered with a WYSIWYG editor in the UI.
+ * Supports optional maximum length constraints.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'article_content',
+ *   type: 'rich-text',
+ *   required: true,
+ *   maxLength: 10000
+ * }
+ * ```
+ */
 export const RichTextFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -62,4 +80,5 @@ export const RichTextFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type RichTextField = Schema.Schema.Type<typeof RichTextFieldSchema>

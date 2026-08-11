@@ -9,6 +9,14 @@ import { integer, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { users } from './auth-tables'
 import { systemTable } from './table-helpers'
 
+/**
+ * User Saved Views Table — sqlite-core mirror of `schema/user-views.ts`.
+ *
+ * SQLite has no JSONB; the `config` column is stored as TEXT and serialized
+ * via `JSON.stringify` / `JSON.parse` at the application boundary. The
+ * runtime shape (filters / sorts / fields / groupBy / baseViewId) is
+ * identical.
+ */
 export const userSavedViews = systemTable(
   'user_saved_views',
   {
@@ -20,6 +28,7 @@ export const userSavedViews = systemTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     tableName: text('table_name').notNull(),
     name: text('name').notNull(),
+    /** Serialized JSON blob — same shape as the pg-core `config` JSONB. */
     config: text('config').notNull().default('{}'),
     isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
@@ -38,6 +47,12 @@ export const userSavedViews = systemTable(
   ]
 )
 
+/**
+ * User Table Preferences Table — sqlite-core mirror of `schema/user-views.ts`.
+ *
+ * JSON columns (`columnWidths`, `columnOrder`) stored as TEXT — serialized
+ * at the application boundary.
+ */
 export const userTablePreferences = systemTable(
   'user_table_preferences',
   {
@@ -65,6 +80,7 @@ export const userTablePreferences = systemTable(
   ]
 )
 
+// Type inference
 export type UserSavedView = typeof userSavedViews.$inferSelect
 export type NewUserSavedView = typeof userSavedViews.$inferInsert
 export type UserTablePreferences = typeof userTablePreferences.$inferSelect

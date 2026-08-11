@@ -15,7 +15,37 @@ import {
 } from './run-context-resolution'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
+/**
+ * `data/*` handlers — pure run-context transforms (set, aggregate, sort,
+ * limit, deduplicate, merge, split, compare, lookup). The n8n "Set / Edit
+ * Fields" + "Item Lists" family. These reshape intermediate run data so
+ * downstream steps don't need a `code` action just to `.map`/`.filter`.
+ *
+ * Spec: [internal ref]-{AGGREGATE,COMPARE,DEDUPLICATE,LIMIT,
+ * LOOKUP,MERGE,SET,SORT,SPLIT}-NNN + REGRESSION.
+ *
+ * Why these resolve templates themselves instead of relying on the run
+ * loop's `resolveTriggerInValue`: that resolver stringifies non-scalar
+ * values (`String([{...}])` → `"[object Object]"`), which would destroy
+ * the array a `data:aggregate`/`sort`/… needs. So each handler reads the
+ * RAW pre-substitution action (`runContext.rawAction.props`) and resolves
+ * `{{...}}` itself against a context built from the trigger payload +
+ * prior step outputs — returning the actual array/object for
+ * whole-string references, falling back to string substitution otherwise.
+ * The raw-props/`{{path}}`-or-raw resolution machinery is shared with
+ * `loop.ts` via `./run-context-resolution` (the #63 audit flagged
+ * extracting it once a second handler family needed it — `loop` is here).
+ *
+ * Each handler returns `{ status: 'success', output: { result: <value> } }`
+ * (or `{ value }` for `data:set`, mirroring how a `code` action's return
+ * value surfaces under `steps.<name>`). The run loop shallow-merges every
+ * step's `output` into `lastOutput`, which the webhook dispatcher exposes
+ * as the sync response's `output`.
+ */
 
+/** Resolve a prop value against the run context — alias of the shared
+ *  recursive resolver (whole-string `{{path}}` → raw value; interpolated
+ *  → substitution; structured → recurse; scalar → verbatim). */
 const resolveProp = resolveRunContextValue
 const buildContext = buildRunContextView
 const rawProps = rawActionProps
@@ -46,6 +76,7 @@ const numProp = (
   key: string
 ): number => Number(resolveProp(props[key], ctx))
 
+// ── aggregation helpers ─────────────────────────────────────────────────────
 
 const numericFieldValues = (items: readonly unknown[], field: string): readonly number[] =>
   items.map((item) => Number(fieldOf(item, field))).filter((n) => Number.isFinite(n))
@@ -99,6 +130,7 @@ const compareByKey = (fn: string): ((a: unknown, b: unknown) => number) => {
   }
 }
 
+// ── handler wrapper ─────────────────────────────────────────────────────────
 
 const withRunContext = (
   runContext: ActionRunContext | undefined,
@@ -111,6 +143,7 @@ const withRunContext = (
   return body(rawProps(runContext), buildContext(runContext))
 }
 
+// ── handlers ─────────────────────────────────────────────────────────────────
 
 export const handleDataSet: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -225,12 +258,23 @@ export const handleDataLookup: ActionHandler = (_action, _app, _automation, runC
     })
   )
 
+// ── validate-config (GAP-J2) ──────────────────────────────────────────────────
 
+/**
+ * Result of validating a submitted config string against AppSchema, surfaced as
+ * `steps.<name>.result` so later steps can branch on `.valid` / `.errors`.
+ */
 interface ValidateConfigResult {
   readonly valid: boolean
   readonly errors: readonly string[]
 }
 
+/**
+ * Parse a config string into a JS object. JSON is the default; `yaml` parses via
+ * the native `Bun.YAML` parser (the same one the CLI / schema loaders use). A
+ * parse failure is surfaced as a structured error message rather than a throw so
+ * the action returns `{ valid: false, errors }` rather than failing the run.
+ */
 const parseConfigString = (
   raw: string,
   format: string | undefined
@@ -238,6 +282,10 @@ const parseConfigString = (
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly error: string } => {
   try {
+    // The raw config string is intentionally untyped: it is decoded against
+    // AppSchema by `decodeAppConfigObject` AFTER this structural parse, so there
+    // is no single Effect Schema that applies at the parse step.
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     const value = format === 'yaml' ? Bun.YAML.parse(raw) : JSON.parse(raw)
     return { ok: true, value }
   } catch (error) {
@@ -248,6 +296,23 @@ const parseConfigString = (
   }
 }
 
+/**
+ * `data:validate-config` (GAP-J2) — decode a submitted config string against
+ * AppSchema via the platform's own structural-decode choke point
+ * (`decodeAppConfigObject`, shared with the `sovrium validate` CLI) and expose
+ * `{ valid, errors }` on the step output so later steps can read
+ * `{{steps.<name>.valid}}` / `{{steps.<name>.errors}}`. Decode-only: no side
+ * effects, no boot. Parse failures and structural-decode failures both surface
+ * as `{ valid: false, errors }` (HTTP 200 — the action itself succeeds; the
+ * config is what is invalid).
+ *
+ * The outcome exposes the result BOTH nested under `result` (so the webhook
+ * `output.result.valid` envelope + the `{{steps.<name>.result.valid}}` alias
+ * resolve) AND flattened at the top level (so the bare `{{steps.<name>.valid}}`
+ * / `{{steps.<name>.errors}}` chaining the spec uses resolves). The step-result
+ * view does NOT re-wrap an output that already carries a `result` key, so we
+ * spread the flattened keys alongside it here.
+ */
 const validateConfigOutput = (result: ValidateConfigResult): Record<string, unknown> => ({
   result,
   valid: result.valid,

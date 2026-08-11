@@ -5,6 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * `usePageSearch` — the state-machine hook for the page-search island.
+ *
+ * Owns the query / results / open state, the debounce timer, the document-
+ * level outside-click listener, and the unmount cleanup. Exposed as a single
+ * hook so `page-search-island.tsx` stays under the size ceiling while
+ * keeping a clear public surface (the returned `PageSearchController`).
+ *
+ * Index loading is module-scoped (one cache shared across every island
+ * instance on the page) — see {@link loadIndex} below.
+ */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchIndex, type SearchIndex, type SearchResult } from './matcher'
@@ -13,6 +24,7 @@ import type { ChangeEvent, KeyboardEvent } from 'react'
 const DEBOUNCE_MS = 150
 const MIN_QUERY_LENGTH = 2
 
+// ── Index fetch + cache (module-scoped, shared by every island instance) ─────
 
 interface IndexCache {
   cached: SearchIndex | undefined
@@ -29,25 +41,31 @@ const loadIndex = (): Promise<SearchIndex | undefined> => {
   })
     .then(async (r) => {
       if (!r.ok) {
+        // eslint-disable-next-line functional/no-throw-statements
         throw new Error(`Failed to load search index: ${r.status}`)
       }
       return (await r.json()) as SearchIndex
     })
     .then((data) => {
+      // eslint-disable-next-line functional/immutable-data
       indexCache.cached = data
+      // eslint-disable-next-line functional/immutable-data
       indexCache.pending = undefined
       return data
     })
     .catch((err: unknown) => {
+      // eslint-disable-next-line functional/immutable-data
       indexCache.pending = undefined
       console.warn('[page-search] index load failed:', err)
       return undefined
     })
+  // eslint-disable-next-line functional/immutable-data
   indexCache.pending = promise
   return promise
 }
 
 export const navigateTo = (url: string): void => {
+  // eslint-disable-next-line functional/immutable-data
   window.location.href = url
 }
 
@@ -66,6 +84,11 @@ interface DebounceController {
   readonly cancel: () => void
 }
 
+/**
+ * Encapsulates the debounce timer ref so callers don't have to pass refs
+ * around (which would trigger `no-param-reassign`). Mirrors the pattern in
+ * `use-inline-editing.ts::useSavedStatusTimer`.
+ */
 function useDebounce(): DebounceController {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const cancel = useCallback(() => {
@@ -74,6 +97,7 @@ function useDebounce(): DebounceController {
   const schedule = useCallback(
     (run: () => void) => {
       cancel()
+      // eslint-disable-next-line functional/immutable-data -- ref holds the debounce timer
       timerRef.current = setTimeout(run, DEBOUNCE_MS)
     },
     [cancel]
@@ -135,6 +159,8 @@ function useChangeHandler(
     (e: ChangeEvent<HTMLInputElement>): void => {
       const nextQuery = e.target.value
       setQuery(nextQuery)
+      // Invalidate stale results so users can't click a stale item between
+      // keystrokes. `runSearch` reopens once new matches land.
       setResults([])
       setIsOpen(false)
       debounce.schedule(() => {
@@ -175,6 +201,7 @@ function useLifecycleEffects(
   setIsOpen: (open: boolean) => void,
   containerRef: React.RefObject<HTMLDivElement | null>
 ): void {
+  // Outside-click → collapse panel.
   useEffect(() => {
     if (!isOpen) return
     const handler = (event: globalThis.MouseEvent): void => {
@@ -188,6 +215,7 @@ function useLifecycleEffects(
     return () => document.removeEventListener('mousedown', handler)
   }, [isOpen, setIsOpen, containerRef])
 
+  // Mark host element ready so `waitForIslandReady` fixture unblocks.
   useEffect(() => {
     const el = containerRef.current
     if (el) el.setAttribute('data-island-ready', 'true')

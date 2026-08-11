@@ -1,3 +1,137 @@
+## [0.22.1](https://github.com/sovrium/sovrium/compare/v0.22.0...v0.22.1) (2026-08-11)
+
+### Bug Fixes
+
+- **cli**: exclude dev live-reload route from the static build crawl
+
+## [0.22.0](https://github.com/sovrium/sovrium/compare/v0.21.0...v0.22.0) (2026-08-11)
+
+### BREAKING CHANGES
+
+- **ai**: refuse an agent knowledge table the agent cannot read
+- **tables**: honour every rung of a view's read permission
+- **automations**: resolve every automation template through one engine
+- **automations**: serve run history from persisted rows only
+- **pages**: always validate the active-assignment cookie against user access
+- **tables**: remove the boolean comment-moderation shape
+- **pages**: remove the meta.priority and meta.changefreq sitemap fields
+- **eco**: remove the off / on / auto ECO_MODE aliases
+- **tables**: drop the batch-delete route alias and the permanent query flag
+- **storage**: remove the bare S3_* environment variable aliases
+- **config**: remove the legacy config-shorthand rewriting pass
+- **cli**: remove the short --template aliases
+- **automations**: remove the currentDateTime template helper
+- **activity**: require a UUID for the activity-detail lookup
+- **admin**: remove the /_admin/connect-ai alias
+- **tables**: deny table operations a permissions block leaves out
+- **config**: a config that validates and does nothing now fails to start
+- **config**: unknown config properties now fail validation instead of being silently ignored
+
+### Features
+
+- **cli**: add `sovrium secret adopt` to persist an existing encryption key
+- **crypto**: generate an encryption key on first start instead of refusing to boot
+- **pages**: open a grid row into its record with one line
+- **pages**: group a data grid by up to three fields at once
+- **tables**: show when an AI field still holds its locally computed fallback
+- **cli**: load relational sample data with a new seed command
+- **tables**: name fields for readers, and summarise every group in a grid
+- **pages**: populate a select's choices from a table's rows
+- **cli**: report unrecognised config properties by name, path and source
+- **data-table**: color grid rows by a select field's declared option colors
+- **tables**: render kanban, calendar and gallery from the view switcher
+- **pages**: edit every field type in place in a data grid
+- **pages**: render a purpose-built cell for the eight field types that had none
+- **tables**: paint the colour a select option declares
+- **records-api**: honour page and q on the record list endpoint
+
+### Bug Fixes
+
+- **pages**: keep type-specific fields when resolving a component reference
+- **admin**: gate every admin API route when no auth is configured
+- **css**: stop startup overwriting the pre-compiled stylesheet on search-enabled apps
+- **auth**: regenerate unreadable JWT signing keys at boot instead of failing every request
+- **forms**: stop blanking restricted columns in an admin CSV export
+- **tables**: let an admin filter and group by a restricted field it can read
+- **tables**: honor the "all" and "authenticated" permission literals on writes
+- **connections**: count pre-fingerprint tokens the current key cannot read
+- **connections**: report a changed encryption key instead of losing tokens silently
+- **cli**: stop claiming success when nothing was stopped
+- **server**: refuse to boot without an encryption key
+- **cli**: let commands run without an encryption key configured
+- **cli**: stop --help from running the command
+- **pages**: serve the language the URL asks for
+- **migrations**: stop adding a field mid-list from dropping a declared column
+- **migrations**: stop adding a table mid-list from moving rows into the wrong table
+- **tables**: show names, dates and prose in grid cells
+- **charts**: paint chart series from the app theme
+- **pages**: show record field values on collection-bound pages
+- **cli**: describe the seed directory default as config-relative
+- **build**: stop embedding local runtime data and secrets in the binary
+- **migrations**: keep SQLite foreign keys intact when a table is rebuilt
+- **tables**: let a declared view work on the default database engine
+- **tables**: report a view's filter as declared, whatever shape it takes
+- **tables**: apply every declared view filter, including bare and nested ones
+- **tables**: stop reporting a hand-written AI value as a failed computation
+- **tables**: allow MIN/MAX to roll up text and timestamp columns
+- **cli**: name the field and value when the database rejects a seeded row
+- **tables**: count non-empty values on any column type, not just text
+- **tables**: make the ARRAYUNIQUE rollup work on SQLite
+- **config**: stop refusing form field names the form itself resolves
+- **tables**: refuse unknown rollup aggregations and filter operators
+- **pages**: order grouped table headers and count them across the whole view
+- **cli**: decode the new config before stopping the running server
+- **search**: match %, _ and \ as text, and search a one-column table
+- **records**: return a multiple-attachments field as an array on SQLite
+- **cli**: reject field names inside arrays that no table column matches
+- **buckets**: show the label on the file-upload control in the data console
+- **pages**: don't let the record drawer be edited before its record loads
+- **ai**: keep a conversation's turns in the order they happened
+- **admin**: stop listing AI agents as people in the users console
+- **mcp**: show the author's table description on the MCP docs page
+- **tables**: render a formula's amount in the currency it declares
+- **pages**: resolve translation tokens in data-table view-switcher labels
+- **config**: read one config the same way from validate, start and build
+- **records**: delete the right file when purging a storeMetadata attachment
+- **records**: return an array field as an array on SQLite, not a JSON string
+- **records**: stop upsert rejecting a required field that declares a default
+- **tables**: match contains/startsWith/endsWith without regard to case
+- **pages**: apply one field-reference rule across kanban, calendar and timeline
+- **auth**: validate assignable roles, prevent last-admin lockout, block admin impersonation
+- **pages**: cross-check data-table field references at validate time
+- **forms**: drop the unpopulated antiSpam block from the form response shape
+- **automations**: publish every automation action in the JSON Schema
+- **pages**: show byte sizes in English units
+- **admin**: render the operator console in English
+- **pages**: reject row-click and drop actions the handlers never ran
+- **pages**: paint declared option colours on kanban, calendar and timeline
+- **tables**: actually pin a frozen column when the grid scrolls sideways
+- **i18n**: localize the remaining engine-supplied control labels
+- **pages**: derive record-drawer fields from its table when none are declared
+- **records**: read a metadata attachment back correctly on SQLite
+- **pages**: let a grouped grid edit its cells and answer a row click
+- **records**: store list-valued fields correctly when updating on PostgreSQL
+- **pages**: make a grid's summary, row numbers and toolbar honour what they declare
+- **tables**: read a stored duration as the seconds its schema declares
+- **records-api**: answer a batch unique collision with 409, like a single write
+- **records-api**: answer batch write rejections with the shared error wording
+- **records-api**: answer 400 rather than 500 when a write leaves a required value empty
+- **records-api**: treat search text as literal rather than as a pattern
+- **records-api**: return a usable record id from a batch create on a table with computed fields
+- **records-api**: store array values correctly when an upsert updates a record
+- **tables**: resolve an array field's item type before it reaches the database
+- **tables**: reject a relationship foreign-key override that is not a valid column name
+- **records-api**: store array field values correctly on batch create
+- **tables**: make soft delete work on tables with computed fields
+- **records-api**: stop batch create from silently discarding flat records
+- **tables**: infer the foreign key for count and rollup over one-to-many
+- **records-api**: answer 400 instead of 500 for a bad record reference
+- **tables**: compute formula fields on the SQLite engine
+
+### Performance Improvements
+
+- **islands**: load the rich-text and code editors only where they are used
+
 ## [0.21.0](https://github.com/sovrium/sovrium/compare/v0.20.0...v0.21.0) (2026-08-01)
 
 ### BREAKING CHANGES
@@ -993,38 +1127,38 @@ _No user-facing changes in this release._
 
 ### Features
 
-- **escp**: API-AUTOMATION-RUNS-005/006/010 — runs-api replay endpoint + per-run attempt counter; fix CODE-RUN-002/REGRESSION (6-key context)
-- **escp**: APP-AUTOMATION-RETRY-003..005 — platform admin email-on-failure notification
-- **escp**: APP-AUTOMATION-RETRY-015..017 — webhook deduplication + context.run.attempt + skipped-on-retry
-- **escp**: APP-AUTOMATION-RETRY-012..014 — skipped step status + replay endpoint + completed-with-errors run status
-- **escp**: APP-AUTOMATION-RETRY-009..011 — exhausted run status + per-attempt history + failure-handler details
-- **escp**: APP-AUTOMATION-RETRY-006..008 — per-action + per-run timeout enforcement; new 'timed-out' run status
-- **escp**: APP-AUTOMATION-{SAFETY-LOOP,DEFINITION-012/013/015,SAFETY-RATE-002/003,API-AUTOMATION-RUNS-{001,002,003,008,009,012}}-* — infinite-loop detection + concurrency + rate-limit (partial) + runs-API (partial)
-- **escp**: APP-AUTOMATION-RETRY-001/002 — automation-level retry: exponential backoff wiring
-- **escp**: APP-AUTOMATION-ACTION-FILE-{LIST,GETMETADATA,MOVE,COPY,DELETE,SIGNURL}-* — file:* automation actions (v1+ ops)
-- **escp**: APP-AUTOMATION-ACTION-FILE-{PARSECSV,DOWNLOAD,UPLOAD}-* — file:* automation actions (escp-v1: parse-csv, download, upload)
-- **escp**: APP-AUTOMATION-ACTION-FLOW-STOP-* + APP-AUTOMATION-ACTION-HTTP-{PUT,PATCH,DELETE}-* — flow:stop + http verbs
-- **escp**: APP-AUTOMATION-ACTION-AUTOMATION-{CALL,RETURN}-* + APP-AUTOMATION-TRIGGER-AUTOMATION-{CALL,FAILURE}-* — sub-automations
-- **escp**: APP-AUTOMATION-ACTION-{DELAY-WAIT,DELAY-WEBHOOK,DELAY-QUEUE,LOOP-EACH}-* — delay + loop automation actions
-- **escp**: APP-AUTOMATION-ACTION-DATA-* — data:* automation action family (set/aggregate/sort/limit/deduplicate/merge/split/compare/lookup)
-- **escp**: APP-TABLES-FIELD-AI-GENERATE-* — ai-generate computed field type + ai-*-triggers hub refactor
-- **escp**: APP-TABLES-FIELD-AI-SENTIMENT-* — ai-sentiment computed field type
-- **escp**: APP-TABLES-FIELD-AI-CATEGORIZE-* — finish the ai-categorize computed-field spec corpus
-- **escp**: APP-TABLES-FIELD-AI-SUMMARY-* — finish the ai-summary computed-field spec corpus
-- **escp**: APP-TABLES-FIELD-AI-EXTRACT-* — ai-extract computed field type
-- **escp**: APP-TABLES-FIELD-AI-TRANSLATE-001..012 — ai-translate computed field type
-- **escp**: APP-AI-ECO-ROUTING-001..005 — ECO_AI_PROVIDER_PRECEDENCE AI provider routing
-- **escp**: APP-AUTOMATION-ACTION-AI-ERROR-001..005 — ai action runtime-error contract
-- **escp**: APP-AUTOMATION-ACTION-AI-EXTRACT-001 — ai:extract automation action
-- **escp**: APP-AUTOMATION-ACTION-AI-CLASSIFY-001 — ai:classify automation action
-- **escp**: APP-AUTOMATION-ACTION-AI-GENERATE-001 — ai:generate automation action
-- **escp**: APP-AI-CONFIG-MISSING-KEY-001..006 — startup fails clearly when AI_PROVIDER set but API key missing
-- **escp**: APP-AI-CONFIG-034..037 — common AI parameters (temperature/maxTokens) honored uniformly + startup range validation
-- **escp**: APP-AI-CONFIG-001..004 — configure Anthropic Claude via environment variables
-- **escp**: APP-AI-CONFIG-039..047 — AI_MODEL string validation at startup + cross-provider warnings
-- **escp**: APP-AI-CONFIG-026..029 — AI cleanly disabled when AI_PROVIDER unset
-- **escp**: APP-AUTOMATION-ACTION-COMMON-001..004 — per-action retry/continueOnError + cross-step template resolution
-- **escp**: APP-AUTOMATION-ACTION-TEMPLATE-001..004 — top-level actions[] reusable templates via $ref
+- **automations**: replay a run from the runs API, and count attempts per run
+- **automations**: email the platform admin when an automation fails
+- **automations**: deduplicate webhook deliveries, expose the attempt number to steps, and mark steps skipped on retry
+- **automations**: report skipped steps, replay a run, and mark runs completed-with-errors
+- **automations**: report exhausted runs, keep per-attempt history, and surface failure-handler details
+- **automations**: enforce per-action and per-run timeouts, with a new 'timed-out' run status
+- **automations**: detect infinite loops, limit concurrency, and rate-limit runs
+- **automations**: automation-level retry with exponential backoff
+- **automations**: file actions — list, get metadata, move, copy, delete, and sign a URL
+- **automations**: file actions — parse CSV, download, and upload
+- **automations**: a flow:stop action, plus HTTP PUT, PATCH and DELETE verbs
+- **automations**: call another automation as a sub-automation, and trigger on its call or failure
+- **automations**: delay and loop actions — wait, webhook, queue, and for-each
+- **automations**: data actions — set, aggregate, sort, limit, deduplicate, merge, split, compare and lookup
+- **tables**: ai-generate computed field type
+- **tables**: ai-sentiment computed field type
+- **tables**: ai-categorize computed field type
+- **tables**: ai-summary computed field type
+- **tables**: ai-extract computed field type
+- **tables**: ai-translate computed field type
+- **ai**: route AI requests by provider precedence via ECO_AI_PROVIDER_PRECEDENCE
+- **automations**: a runtime-error contract for AI actions
+- **automations**: ai:extract action
+- **automations**: ai:classify action
+- **automations**: ai:generate action
+- **ai**: fail startup clearly when AI_PROVIDER is set but its API key is missing
+- **ai**: honor temperature and maxTokens uniformly, and validate their range at startup
+- **ai**: configure Anthropic Claude through environment variables
+- **ai**: validate AI_MODEL at startup and warn on cross-provider mismatches
+- **ai**: disable AI cleanly when AI_PROVIDER is unset
+- **automations**: per-action retry and continueOnError, plus cross-step template resolution
+- **automations**: reusable action templates in a top-level actions[] via $ref
 - **tables**: ai-summary compute trigger + per-kind dispatch
 - **ai**: add streaming completion to AiService port
 - **ai**: add AiService port + Live layer + POST /api/ai/chat

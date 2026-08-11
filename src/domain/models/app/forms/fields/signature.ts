@@ -8,6 +8,9 @@
 import { Schema } from 'effect'
 import { commonFieldProps } from '../../../shared/form-field-props'
 
+/**
+ * Signature field — captures a hand-drawn or typed signature.
+ */
 export const SignatureFieldSchema = Schema.Struct({
   kind: Schema.Literal('signature'),
   name: Schema.String.pipe(Schema.pattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/)),

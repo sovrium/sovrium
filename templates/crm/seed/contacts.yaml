@@ -1,0 +1,78 @@
+# Sample contacts, linked to companies by their file-local key.
+#
+# `last_contacted` uses relative-date tokens so the demo never looks abandoned:
+# every night the reset replays this file and the dates roll forward with it.
+records:
+  - key: priya
+    fields:
+      name: Priya Raman
+      email: priya.raman@northwind.example
+      phone: '+1-415-555-0142'
+      company: '@companies.northwind'
+      title: VP Operations
+      status: Active
+      tags: [Decision Maker, Champion]
+      last_contacted: '{{today-3d}}'
+
+  - key: marcus
+    fields:
+      name: Marcus Bell
+      email: marcus.bell@northwind.example
+      phone: '+1-415-555-0177'
+      company: '@companies.northwind'
+      title: Warehouse Systems Lead
+      status: Active
+      tags: [Technical]
+      last_contacted: '{{today-11d}}'
+
+  - key: aisha
+    fields:
+      name: Aisha Nwosu
+      email: aisha.nwosu@helios-health.example
+      phone: '+1-617-555-0198'
+      company: '@companies.helios'
+      title: Director of Clinical Systems
+      status: Active
+      tags: [Champion, Technical]
+      last_contacted: '{{today-1d}}'
+
+  - key: tomas
+    fields:
+      name: Tomás Ferreira
+      email: tomas.ferreira@helios-health.example
+      company: '@companies.helios'
+      title: Procurement Manager
+      status: Lead
+      tags: [Billing]
+      last_contacted: '{{today-24d}}'
+
+  - key: dana
+    fields:
+      name: Dana Whitfield
+      email: dana.whitfield@lumen-analytics.example
+      phone: '+1-206-555-0110'
+      company: '@companies.lumen'
+      title: Head of Data
+      status: Active
+      tags: [Decision Maker, Technical, Newsletter]
+      last_contacted: '{{today-6d}}'
+
+  - key: seb
+    fields:
+      name: Sébastien Roy
+      email: sebastien.roy@cardinalfreight.example
+      company: '@companies.cardinal'
+      title: CISO
+      status: Lead
+      tags: [Decision Maker]
+      last_contacted: '{{today-18d}}'
+
+  - key: gwen
+    fields:
+      name: Gwen Alvarez
+      email: gwen.alvarez@pinewood.example
+      company: '@companies.pinewood'
+      title: Bursar
+      status: Inactive
+      tags: [Billing, Newsletter]
+      last_contacted: '{{today-142d}}'

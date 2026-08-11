@@ -5,9 +5,39 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Pure server-side evaluator for the `VisibleWhenCondition` shape.
+ *
+ * Used by:
+ *   - `application/use-cases/forms/submit-form.ts` to drop hidden-field
+ * values from the submitted payload and to flip
+ * `requiredWhen` rules into hard required-field rejections.
+ *   - `application/use-cases/forms/submit-form.ts` to skip required-field
+ * enforcement on conditionally-hidden fields.
+ *
+ * Mirrors the client-side `evaluateCondition` in
+ * `presentation/islands/components/crud-form/conditions.ts` so the runtime
+ * and the server agree on visibility for every operator. The client variant
+ * still handles the smaller `eq | neq | contains | empty | notEmpty` set
+ * because the inline crud-form was authored before the operator catalog
+ * grew; once that gap is felt by a spec we promote the same evaluator into
+ * a shared module.
+ *
+ * Operator catalog:
+ *   - `eq` / `neq`           — strict equality
+ *   - `contains`             — substring (string) or membership (array)
+ *   - `empty` / `notEmpty`   — absent (`null`/`undefined`/`""`/`[]`)
+ *   - `gt` / `gte` / `lt` / `lte` — numeric or date comparison
+ *   - `in` / `notIn`         — value matches one of an array
+ */
 
 import type { VisibleWhen, VisibleWhenCondition } from './visible-when'
 
+/**
+ * Loose value type for evaluation. `undefined` and `null` mark the field as
+ * absent; everything else is compared per-operator. Arrays are tolerated for
+ * `contains` (membership) and `empty`/`notEmpty` (length-based).
+ */
 export type FieldValue =
   string | number | boolean | null | undefined | ReadonlyArray<string | number | boolean>
 
@@ -18,6 +48,12 @@ const isAbsent = (value: FieldValue): boolean => {
   return false
 }
 
+/**
+ * Coerce a value into a number for ordered comparison. Returns `undefined`
+ * when the coercion fails so the caller can short-circuit to `false`. Date
+ * strings (ISO-8601) parse via `Date.parse`; raw numbers pass through; raw
+ * numeric strings (e.g. `"42"`) parse via `Number`.
+ */
 const toComparableNumber = (value: FieldValue): number | undefined => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value !== '') {
@@ -72,6 +108,14 @@ const evaluateOrdered = (
   return compare(left, right)
 }
 
+/**
+ * Per-operator dispatch table. Each entry receives the resolved field value
+ * and the rule's `value` and returns the boolean evaluation result. The
+ * dispatch shape keeps cyclomatic complexity inside `evaluateSimple` low
+ * (the per-case `return` statements would otherwise push ESLint over its
+ * complexity limit) without sacrificing the per-operator clarity of a
+ * switch statement.
+ */
 type OperatorEvaluator = (fieldValue: FieldValue, expected: VisibleWhen['value']) => boolean
 
 const SIMPLE_OPERATORS: Readonly<Record<string, OperatorEvaluator>> = {
@@ -99,6 +143,17 @@ const evaluateSimple = (
   return evaluator(values[rule.field], rule.value)
 }
 
+/**
+ * Evaluate a (possibly compound) `VisibleWhenCondition` against the
+ * supplied field-value record. Returns `true` when the condition is
+ * satisfied; `false` otherwise.
+ *
+ * `values` is a flat `name → value` map keyed by the submitter-facing
+ * identifier (`column` for table-bound fields, `name` for standalone /
+ * signature). The submit pipeline wires this directly off the resolved-
+ * defaults body so `$query.X` references that already landed via
+ * `defaultValue` naturally participate in the predicate.
+ */
 export const evaluateVisibleWhen = (
   condition: Readonly<VisibleWhenCondition>,
   values: Readonly<Record<string, FieldValue>>

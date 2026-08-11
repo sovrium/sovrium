@@ -12,6 +12,7 @@ import {
   ListActivityLogs,
 } from '@/application/use-cases/list-activity-logs'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
@@ -20,12 +21,22 @@ import { provideActivityLive, provideListActivityLogsLive } from './activity/eff
 import { listActivityEntries } from './agents/approval-store'
 import type { Context, Hono } from 'hono'
 
+/**
+ * User metadata in activity log API response
+ */
 interface ActivityLogResponseUser {
   readonly id: string
   readonly name: string
   readonly email: string
 }
 
+/**
+ * Activity log API response type
+ *
+ * Maps application ActivityLogOutput to API JSON response format.
+ * Uses camelCase for all fields per API conventions.
+ * user is null for system-logged activities (no user_id).
+ */
 interface ActivityLogResponse {
   readonly id: string
   readonly createdAt: string
@@ -36,6 +47,9 @@ interface ActivityLogResponse {
   readonly user: ActivityLogResponseUser | null
 }
 
+/**
+ * Pagination metadata for list responses
+ */
 interface PaginationMeta {
   readonly total: number
   readonly page: number
@@ -43,11 +57,17 @@ interface PaginationMeta {
   readonly totalPages: number
 }
 
+/**
+ * Parsed and validated pagination parameters
+ */
 interface PaginationParams {
   readonly page: number
   readonly pageSize: number
 }
 
+/**
+ * Map ActivityLogOutput to API response format
+ */
 function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
   return {
     id: log.id,
@@ -60,6 +80,11 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
   }
 }
 
+/**
+ * Parse and validate pagination query parameters
+ *
+ * Returns undefined if parameters are invalid.
+ */
 function parsePaginationParams(
   pageParam: string | undefined,
   pageSizeParam: string | undefined
@@ -73,6 +98,9 @@ function parsePaginationParams(
   return { page, pageSize }
 }
 
+/**
+ * Build paginated response from activity log list
+ */
 function buildPaginatedResponse(
   logs: readonly ActivityLogOutput[],
   page: number,
@@ -86,6 +114,9 @@ function buildPaginatedResponse(
   return { activities: paginatedLogs.map(mapToApiResponse), pagination }
 }
 
+/**
+ * Handle GET /api/activity/:activityId - Get activity log details
+ */
 async function handleGetActivityById(c: Context) {
   const activityId = c.req.param('activityId')!
 
@@ -117,8 +148,16 @@ async function handleGetActivityById(c: Context) {
   return c.json(result.right, 200)
 }
 
+/**
+ * Valid activity action types
+ */
 const VALID_ACTIONS = ['create', 'update', 'delete', 'restore', 'permanent_delete'] as const
 
+/**
+ * Parse and validate action filter parameter
+ *
+ * Returns undefined if no filter, null if invalid value.
+ */
 function parseActionFilter(
   action: string | undefined
 ): 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete' | undefined | null {
@@ -126,9 +165,17 @@ function parseActionFilter(
   if (VALID_ACTIONS.includes(action as (typeof VALID_ACTIONS)[number])) {
     return action as 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete'
   }
+  // eslint-disable-next-line unicorn/no-null -- Null signals invalid action (vs undefined = no filter)
   return null
 }
 
+/**
+ * Check if a user is authorized to filter by the given userId
+ *
+ * Admins can filter by any userId.
+ * Non-admin users can only filter by their own userId.
+ * Returns true if authorized, false if forbidden.
+ */
 async function isAuthorizedForUserIdFilter(
   sessionUserId: string,
   userIdFilter: string | undefined
@@ -136,9 +183,12 @@ async function isAuthorizedForUserIdFilter(
   if (userIdFilter === undefined) return true
   if (userIdFilter === sessionUserId) return true
   const role = await getUserRole(sessionUserId)
-  return role === 'admin'
+  return isAdminRole(role)
 }
 
+/**
+ * Filter options for activity log queries
+ */
 interface ActivityFilters {
   readonly tableName?: string
   readonly action?: 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete'
@@ -146,6 +196,9 @@ interface ActivityFilters {
   readonly startDate?: Date
 }
 
+/**
+ * Apply tableName, action, userId, and startDate filters to activity logs
+ */
 function applyFilters(
   logs: readonly ActivityLogOutput[],
   filters: ActivityFilters
@@ -159,6 +212,12 @@ function applyFilters(
   )
 }
 
+/**
+ * Parse query filter parameters from request context
+ *
+ * Returns undefined for tableName/userId if not provided,
+ * null for action if invalid value provided.
+ */
 function parseQueryFilters(c: Context): {
   tableName: string | undefined
   action: 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete' | undefined | null
@@ -174,11 +233,19 @@ function parseQueryFilters(c: Context): {
   }
 }
 
+/**
+ * Validation error response from list activity request validation
+ */
 interface ListActivityValidationError {
   readonly status: number
   readonly body: { success: false; message: string; code: string }
 }
 
+/**
+ * Validate list activity request parameters
+ *
+ * Returns error response object if invalid, or undefined if valid.
+ */
 async function validateListActivityRequest(
   c: Context,
   sessionUserId: string
@@ -215,6 +282,9 @@ async function validateListActivityRequest(
   return undefined
 }
 
+/**
+ * Handle GET /api/activity - List activity logs with pagination
+ */
 async function handleListActivityLogs(c: Context) {
   const session = getSessionContext(c)
   if (!session) {
@@ -251,6 +321,10 @@ async function handleListActivityLogs(c: Context) {
     userId,
     startDate,
   })
+  // `entries` carries the AI agent-approval decision log (approval.approved /
+  // approval.rejected) alongside the CRUD `activities`. It is additive — the
+  // existing `{ activities, pagination }` contract is preserved for the
+  // activity-monitoring specs while approval specs read `entries`.
   return c.json(
     {
       ...buildPaginatedResponse(filtered, params.page, params.pageSize),
@@ -260,6 +334,16 @@ async function handleListActivityLogs(c: Context) {
   )
 }
 
+/**
+ * Chain activity routes onto a Hono app
+ *
+ * Provides:
+ * - GET /api/activity/:activityId - Get activity log details
+ * - GET /api/activity - List activity logs (admin/member only)
+ *
+ * @param honoApp - Hono instance to chain routes onto
+ * @returns Hono app with activity routes chained
+ */
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
   return honoApp
     .get('/api/activity/:activityId', handleGetActivityById)

@@ -16,6 +16,11 @@ interface CalendarCreateModalProps {
   readonly onSubmitted?: () => void
 }
 
+/**
+ * Convert a `<form>` element's payload into a plain JSON object.
+ * Skips File entries — only string values are forwarded, matching the
+ * minimal create-event modal's hidden-input + text-input contract.
+ */
 function formToJsonPayload(form: HTMLFormElement): Record<string, string> {
   const formData = new FormData(form)
   const entries = Array.from(formData.entries())
@@ -33,6 +38,11 @@ interface CalendarCreateFormProps {
   readonly onSubmitted: (() => void) | undefined
 }
 
+/**
+ * Submit a form payload to the records endpoint. Returns whether the
+ * request succeeded so the caller can decide whether to close the modal
+ * or surface an error.
+ */
 async function postRecord(
   tableName: string,
   payload: Record<string, string>
@@ -50,6 +60,7 @@ async function postRecord(
   }
 }
 
+/** Inner form — split from the wrapper to satisfy max-lines-per-function. */
 function CalendarCreateForm({
   tableName,
   clickedDate,
@@ -57,6 +68,7 @@ function CalendarCreateForm({
   onClose,
   onSubmitted,
 }: CalendarCreateFormProps): ReactElement {
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- React 19 Compiler memoizes; useCallback restricted by no-restricted-syntax
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault()
     const payload = formToJsonPayload(e.currentTarget)
@@ -107,6 +119,20 @@ function CalendarCreateForm({
   )
 }
 
+/**
+ * Lightweight create-event modal opened by `calendarInteraction.onDateClick`.
+ *
+ * The schema config is a CRUD `create` action targeting a table — we render
+ * a minimal `<form>` (matching the spec assertion: the modal exposes either
+ * `getByRole('dialog')` or `[data-modal="create-event"]`). The form posts
+ * JSON to the records endpoint via `fetch` so we don't full-page reload,
+ * and closes the modal on success.
+ *
+ * Why minimal: the test contract only requires that *some* dialog appears
+ * with the clicked date pre-filled — the schema does not (yet) declare
+ * which fields the modal should render. A future spec can extend this
+ * with field-level configuration.
+ */
 export function CalendarCreateModal({
   open,
   tableName,

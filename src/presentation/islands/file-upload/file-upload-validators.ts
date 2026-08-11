@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * File-upload client-side validators. Pure functions returning a
+ * human-readable error message or `undefined` when the file selection
+ * passes the constraint.
+ */
 
 export function validateMaxFiles(
   files: FileList,
@@ -26,6 +31,11 @@ export function validateMaxFileSize(
   return `File "${oversized.name}" is too large — size limit is ${limitMb}MB`
 }
 
+/**
+ * Composes the file-upload validators. Returns the first failing
+ * constraint's error message, or `undefined` when all pass (including
+ * the empty/no-files case which is treated as a no-op upstream).
+ */
 export function validateFiles(
   files: FileList | undefined | null,
   maxFiles: number | undefined,

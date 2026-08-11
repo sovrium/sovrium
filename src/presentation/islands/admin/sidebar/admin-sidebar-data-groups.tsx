@@ -5,12 +5,30 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Notion-style expandable sidebar disclosures for the Application section
+ *.
+ *
+ * Each Application destination (Records / Submissions / Files) is a
+ * collapsible toggle: clicking the chevron expands the group and LAZY-LOADS its
+ * object list on first expand (tables / forms / buckets — see
+ * {@link fetchGroupItems}); clicking the label still SPA-navigates to the
+ * destination's own page. Each loaded object is a real `<a href="/_admin/{key}/
+ * {name}">` link, so the shell's SPA-nav island intercepts it for a content-only
+ * swap — selecting an object opens its runtime-data surface WITHOUT the old
+ * in-page object picker. Loading / empty / error states are all rendered.
+ *
+ * Keyboard a11y: the toggle is a `<button aria-expanded>` (Enter/Space toggle);
+ * the expanded list is real links in tab order; the active object carries
+ * `aria-current="page"`.
+ */
 
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { fetchGroupItems, IDLE_GROUP_STATE, type GroupLoadState } from './admin-sidebar-groups-data'
 import { FamilyGlyph } from './admin-sidebar-icon'
 import type { DataNavItem } from './admin-sidebar-data-nav'
 
+/** A chevron that rotates with the disclosure's expanded state (decorative). */
 function DisclosureChevron({ expanded }: { readonly expanded: boolean }): ReactElement {
   return (
     <svg
@@ -30,6 +48,7 @@ function DisclosureChevron({ expanded }: { readonly expanded: boolean }): ReactE
   )
 }
 
+/** Resolve a per-phase status line shown beneath an expanded group. */
 function GroupStatusLine({ state }: { readonly state: GroupLoadState }): ReactElement | null {
   if (state.phase === 'loading') {
     return (
@@ -37,7 +56,7 @@ function GroupStatusLine({ state }: { readonly state: GroupLoadState }): ReactEl
         aria-busy="true"
         className="text-foreground-subtle px-2 py-1 pl-8 text-xs"
       >
-        Chargement…
+        Loading…
       </li>
     )
   }
@@ -47,16 +66,18 @@ function GroupStatusLine({ state }: { readonly state: GroupLoadState }): ReactEl
         role="status"
         className="text-foreground-subtle px-2 py-1 pl-8 text-xs"
       >
-        Impossible de charger la liste.
+        Couldn’t load the list.
       </li>
     )
   }
   if (state.phase === 'loaded' && state.items.length === 0) {
-    return <li className="text-foreground-subtle px-2 py-1 pl-8 text-xs">Aucun élément.</li>
+    return <li className="text-foreground-subtle px-2 py-1 pl-8 text-xs">No items.</li>
   }
+  // eslint-disable-next-line unicorn/no-null -- React conditional needs null, not undefined
   return null
 }
 
+/** One expanded child object row: a link to `/_admin/{key}/{name}`. */
 function GroupChildRow({
   itemKey,
   name,
@@ -84,6 +105,7 @@ function GroupChildRow({
   )
 }
 
+/** The disclosure's header row: the chevron toggle button + the destination label link. */
 function GroupToggleHeader({
   item,
   parentActive,
@@ -105,7 +127,7 @@ function GroupToggleHeader({
     >
       <button
         type="button"
-        aria-label={expanded ? `Réduire ${item.label}` : `Développer ${item.label}`}
+        aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
         aria-expanded={expanded}
         aria-controls={listId}
         onClick={onToggle}
@@ -128,6 +150,7 @@ function GroupToggleHeader({
   )
 }
 
+/** The expanded child list: one row per loaded object + the per-phase status line. */
 function GroupChildList({
   itemKey,
   listId,
@@ -157,6 +180,14 @@ function GroupChildList({
   )
 }
 
+/**
+ * Open the group automatically when its section is the active one, and lazy-load
+ * its child list on first expand. The disclosure is default-OPEN when
+ * `parentActive` so an operator who lands on (or SPA-navigates into)
+ * Records/Submissions/Files sees the object list without a second
+ * click; the re-open effect is one-directional (only opens) so a manual collapse
+ * on the active section is respected until the operator navigates away and back.
+ */
 function useDataNavGroupDisclosure(itemKey: string, parentActive: boolean) {
   const [expanded, setExpanded] = useState(parentActive)
   const [state, setState] = useState<GroupLoadState>(IDLE_GROUP_STATE)
@@ -165,6 +196,7 @@ function useDataNavGroupDisclosure(itemKey: string, parentActive: boolean) {
     if (parentActive) setExpanded(true)
   }, [parentActive])
 
+  // Lazy-load on FIRST expand only (idle → loading → loaded/error).
   useEffect(() => {
     if (!expanded || state.phase !== 'idle') return
     setState({ phase: 'loading', items: [] })
@@ -175,13 +207,20 @@ function useDataNavGroupDisclosure(itemKey: string, parentActive: boolean) {
   return { expanded, state, onToggle }
 }
 
+/**
+ * One Application-section disclosure: a toggle (chevron + glyph + label link)
+ * over a lazy-loaded child list. The label is a real link to the destination
+ * page; the chevron button toggles expansion and triggers the first fetch.
+ */
 export function DataNavGroup({
   item,
   parentActive,
   activePath,
 }: {
   readonly item: DataNavItem
+  /** True when the active path is this destination's page or an object under it. */
   readonly parentActive: boolean
+  /** The `/_admin`-stripped active path (drives the active child highlight). */
   readonly activePath: string
 }): ReactElement {
   const { expanded, state, onToggle } = useDataNavGroupDisclosure(item.key, parentActive)

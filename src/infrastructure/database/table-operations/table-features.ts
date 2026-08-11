@@ -32,6 +32,16 @@ import {
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 
+/**
+ * AI-compute and volatile-formula triggers (`ai-categorize`, `ai-summary`,
+ * `ai-tag`, `ai-translate`, `ai-extract`, `ai-sentiment`, `ai-generate`, and
+ * the volatile-formula recompute trigger) are all PL/pgSQL — SQLite has no
+ * procedural language. On SQLite these features degrade: the column still
+ * exists but no DB-side trigger computes it. Returning early here keeps the
+ * dynamic-table DDL succeeding without emitting any PL/pgSQL.
+ *
+ * @returns the trigger-application effects, or `[]` on SQLite
+ */
 const advancedTriggerEffects = (
   tx: TransactionLike,
   physicalTable: Table,
@@ -52,16 +62,31 @@ const advancedTriggerEffects = (
   ]
 }
 
+/**
+ * Apply table features (indexes, triggers)
+ * Shared by both createNewTable and migrateExistingTable
+ * Note: Triggers are applied to the base table, not the VIEW
+ *
+ * Field-level permissions are enforced at the application layer,
+ * not via PostgreSQL column-level GRANTs.
+ */
 export const applyTableFeatures = (
   tx: TransactionLike,
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    // Sanitize table name for PostgreSQL
     const sanitized = sanitizeTableName(table.name)
+    // Determine actual table name (base table if using VIEW)
     const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
 
+    // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
+    // Indexes and triggers (can run in parallel - all independent).
+    // The created/autonumber/updated triggers are dialect-aware in
+    // `trigger-generators.ts`; the AI / formula triggers are PL/pgSQL and are
+    // omitted on SQLite by `advancedTriggerEffects`.
     yield* Effect.all(
       [
         executeSQLStatementsParallel(tx, generateIndexStatements(physicalTable)),
@@ -75,16 +100,29 @@ export const applyTableFeatures = (
     )
   })
 
+/**
+ * Apply table features without indexes (triggers only)
+ * Used during migration when indexes are handled separately by syncIndexes
+ * Note: Triggers are applied to the base table, not the VIEW
+ *
+ * Field-level permissions are enforced at the application layer,
+ * not via PostgreSQL column-level GRANTs.
+ */
 export const applyTableFeaturesWithoutIndexes = (
   tx: TransactionLike,
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    // Sanitize table name for PostgreSQL
     const sanitized = sanitizeTableName(table.name)
+    // Determine actual table name (base table if using VIEW)
     const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
 
+    // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
+    // Triggers (can run in parallel - all independent).
+    // AI / formula triggers are PL/pgSQL — omitted on SQLite.
     yield* Effect.all(
       [
         executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable)),

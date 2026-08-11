@@ -5,6 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * The self-hosted `@font-face` set, assembled by `buildDefaultLayer` in
+ * `../../compiler.ts`.
+ *
+ * Emitted on BOTH compilation paths — layer-on and `ECO_DESIGN_LAYER=off`.
+ * Under layer-off, islands render from their inline `withVarFallback` token
+ * literals rather than from the token layer, but they still need the font to
+ * exist; a face shipped only with the layer would silently fall back to the
+ * system stack.
+ *
+ * Emitted BEFORE the token layer so both families are registered before
+ * `--font-sans` / `--font-mono` reference them.
+ *
+ * Kept out of `V1_TOKEN_LAYER` because `default-theme-layer.test.ts` asserts
+ * that constant contains no `@font-face` and no `.woff2` — the token layer is
+ * a pure token block.
+ *
+ * Two families only: [internal ref] amendment A2 deletes the Source Serif italic
+ * grace note along with the `fg-humane` role. See
+ * `[internal ref]`.
+ */
 import { JETBRAINS_MONO_FONT_FACE } from './jetbrains-mono'
 import { PLEX_SANS_FONT_FACE } from './plex-sans'
 

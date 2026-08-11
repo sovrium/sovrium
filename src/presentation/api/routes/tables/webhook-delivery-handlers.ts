@@ -21,14 +21,23 @@ import type { App } from '@/domain/models/app'
 import type { Webhook } from '@/domain/models/app/tables/webhooks'
 import type { Context } from 'hono'
 
+/** Default page size for `GET /deliveries` when `?limit=` is omitted. */
 const DEFAULT_LIMIT = 50
+/** Hard cap on the page size to bound query cost. */
 const MAX_LIMIT = 200
 
+/**
+ * Resolve the webhook declared on `tableName` with name `webhookName`.
+ *
+ * Returns `undefined` when the table or webhook does not exist — the caller
+ * maps this to a 404 (anti-enumeration: the route itself was matched).
+ */
 const findWebhook = (app: App, tableName: string, webhookName: string): Webhook | undefined => {
   const table = app.tables?.find((t) => t.name === tableName)
   return table?.webhooks?.find((w) => w.name === webhookName)
 }
 
+/** Parse a positive integer query param, clamped to `[1, max]`, with a default. */
 const parseLimit = (raw: string | undefined): number => {
   if (raw === undefined) return DEFAULT_LIMIT
   const parsed = Number.parseInt(raw, 10)
@@ -36,15 +45,23 @@ const parseLimit = (raw: string | undefined): number => {
   return Math.min(parsed, MAX_LIMIT)
 }
 
+/** Parse a numeric cursor query param; returns `undefined` when absent/invalid. */
 const parseCursor = (raw: string | undefined): number | undefined => {
   if (raw === undefined) return undefined
   const parsed = Number.parseInt(raw, 10)
   return Number.isNaN(parsed) ? undefined : parsed
 }
 
+/** Parse the optional `?status=` filter; ignores unknown values. */
 const parseStatus = (raw: string | undefined): 'success' | 'failed' | undefined =>
   raw === 'success' || raw === 'failed' ? raw : undefined
 
+/**
+ * GET /api/tables/:tableId/webhooks/:webhookName/deliveries
+ *
+ * Returns a paginated delivery-log history for a single table webhook,
+ * newest-first, with `?limit`, `?cursor`, and `?status` query support.
+ */
 export async function handleListDeliveries(c: Context, app: App): Promise<Response> {
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
@@ -72,6 +89,11 @@ export async function handleListDeliveries(c: Context, app: App): Promise<Respon
   )
 }
 
+/**
+ * GET /api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId
+ *
+ * Returns the full detail (payload, headers, response body) for one delivery.
+ */
 export async function handleGetDelivery(c: Context, app: App): Promise<Response> {
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
@@ -95,6 +117,12 @@ export async function handleGetDelivery(c: Context, app: App): Promise<Response>
   return c.json(delivery, 200)
 }
 
+/**
+ * Rebuild a webhook payload envelope from a stored delivery row.
+ *
+ * The stored `payload` already carries the canonical envelope shape; this
+ * refreshes the `timestamp` so the retry is delivered as a fresh attempt.
+ */
 const rebuildPayload = (delivery: DeliveryLogEntry): TableWebhookPayload => {
   const stored = (delivery.payload ?? {}) as Partial<TableWebhookPayload>
   const record =
@@ -109,6 +137,12 @@ const rebuildPayload = (delivery: DeliveryLogEntry): TableWebhookPayload => {
   }
 }
 
+/**
+ * POST /api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId/retry
+ *
+ * Re-sends the original payload of a stored delivery. The retry produces a
+ * NEW delivery-log entry (the original is left untouched as an audit record).
+ */
 export async function handleRetryDelivery(c: Context, app: App): Promise<Response> {
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
@@ -141,11 +175,29 @@ export async function handleRetryDelivery(c: Context, app: App): Promise<Respons
   )
 }
 
+/**
+ * Resolve a table's declared fields by name, narrowed to the
+ * {@link SampleFieldShape} slice the sample-record generator reads (empty
+ * array when the table is absent).
+ */
 const findTableFields = (app: App, tableName: string): ReadonlyArray<SampleFieldShape> => {
   const table = app.tables?.find((t) => t.name === tableName)
   return (table?.fields ?? []) as ReadonlyArray<SampleFieldShape>
 }
 
+/**
+ * POST /api/tables/:tableId/webhooks/:webhookName/test
+ *
+ * Sends a one-off `webhook.test` payload to a configured webhook so a
+ * developer can verify connectivity before relying on it in production. The
+ * payload carries `test: true` and synthetic sample data matching the table's
+ * field structure; the webhook's auth config is honoured. The attempt is
+ * recorded in `_webhook_deliveries` tagged as a test delivery.
+ *
+ * Returns 200 with `{ success, httpStatus, duration }` when the endpoint
+ * responded (regardless of its status code), and 502 with
+ * `{ success: false, error }` when the endpoint was unreachable.
+ */
 export async function handleTestWebhook(c: Context, app: App): Promise<Response> {
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
@@ -158,6 +210,8 @@ export async function handleTestWebhook(c: Context, app: App): Promise<Response>
   const sampleRecord = buildSampleRecord(findTableFields(app, tableName))
   const result = await deliverTestWebhook({ webhook, tableName, sampleRecord })
 
+  // A `httpStatus` of 0 means the request never reached the endpoint
+  // (DNS/connection failure or SSRF-guard rejection) — surface a 502.
   if (result.httpStatus === 0) {
     return c.json(
       {

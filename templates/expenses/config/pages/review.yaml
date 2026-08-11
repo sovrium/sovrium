@@ -59,8 +59,17 @@ components:
             kpiAggregate:
               function: sum
               field: amount
+            # `options.currency` is NOT optional in practice. `kpiFormat.type:
+            # currency` alone falls back to USD (kpi-compute.ts:71), so this
+            # tile read "$4,471.59" while every amount beneath it in the grid
+            # read "€84.00" — the two disagreed on the same column. The KPI does
+            # not inherit the currency declared on the `amount` field, so it has
+            # to be restated here; if that field's currency changes, change it
+            # in both places.
             kpiFormat:
               type: currency
+              options:
+                currency: EUR
 
       - type: container
         props:

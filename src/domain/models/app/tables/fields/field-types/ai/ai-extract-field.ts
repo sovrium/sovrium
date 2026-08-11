@@ -8,6 +8,39 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * AI Extract Field
+ *
+ * Pulls structured data from unstructured text into JSON using AI analysis.
+ * The output conforms to a user-defined JSON Schema, enabling automatic parsing
+ * of entities, attributes, and facts from free-form content.
+ *
+ * Business Rules:
+ * - Output is stored as PostgreSQL JSONB and validated against the defined `schema`
+ * - Returns NULL with error if AI output does not match the schema
+ * - Supports nested objects and arrays in the schema definition
+ * - Handles partial extraction gracefully (missing optional fields set to null)
+ * - Returns NULL when all source fields are empty or NULL
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 2,
+ *   name: 'extracted_data',
+ *   type: 'ai-extract',
+ *   sourceFields: ['raw_text'],
+ *   schema: {
+ *     type: 'object',
+ *     properties: {
+ *       vendor_name: { type: 'string', description: 'Name of the vendor' },
+ *       total_amount: { type: 'number', description: 'Total amount due' },
+ *     },
+ *   },
+ *   computeOn: 'create',
+ *   temperature: 0.1,
+ * }
+ * ```
+ */
 export const AiExtractFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -113,4 +146,5 @@ export const AiExtractFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AiExtractField = Schema.Schema.Type<typeof AiExtractFieldSchema>

@@ -1,0 +1,152 @@
+# Suppliers — the vendor side of the catalog.
+#
+# This table carries the contact/integration field types plus every AI field
+# type. AI fields compute server-side on write and stay empty until an AI
+# provider is configured (AI_PROVIDER), so the table is fully usable without one.
+id: 1
+name: suppliers
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: contact_email
+    type: email
+  - id: 3
+    name: phone
+    type: phone-number
+  - id: 4
+    name: website
+    type: url
+  - id: 5
+    name: notes
+    type: long-text
+  # `itemType` is authoring vocabulary, resolved to a real SQL element type —
+  # `text`, `string` and `varchar` all select `TEXT`. An unrecognised spelling
+  # is now refused at config validation, by name, instead of reaching CREATE
+  # TABLE. (It once WAS emitted verbatim, so `string` produced `string[]` and
+  # killed the boot on Postgres; that is fixed, and either spelling is safe.)
+  - id: 6
+    name: certifications
+    type: array
+    itemType: text
+    maxItems: 12
+  - id: 7
+    name: integration_config
+    type: json
+  - id: 8
+    name: edi_mapping
+    type: code
+    language: yaml
+    lineNumbers: true
+    minLines: 4
+    maxLines: 20
+    tabSize: 2
+  - id: 9
+    name: open_portal
+    type: button
+    label: Open portal
+    action: url
+    url: https://example.com/supplier-portal
+  - id: 10
+    name: account_manager
+    type: user
+    allowMultiple: false
+  - id: 11
+    name: created_at
+    type: created-at
+
+  # ── AI fields ───────────────────────────────────────────────────────
+  # Each one derives from `sourceFields` on write, per its `computeOn`.
+  #
+  # WARNING: with no AI provider configured, ai-categorize / ai-extract /
+  # ai-tag / ai-translate still WRITE a deterministic placeholder — they do not
+  # stay empty. Only `computeOn: manual` suppresses the write, and only
+  # ai-generate and ai-summary accept it. Set AI_PROVIDER before you trust
+  # these columns.
+  - id: 12
+    name: ai_summary
+    type: ai-summary
+    sourceFields:
+      - notes
+    computeOn: manual
+  - id: 13
+    name: ai_tags
+    type: ai-tag
+    sourceFields:
+      - notes
+    tags:
+      - logistics
+      - packaging
+      - electronics
+      - textiles
+      - food
+    maxTags: 3
+    computeOn: create
+  - id: 14
+    name: ai_risk_tier
+    type: ai-categorize
+    sourceFields:
+      - notes
+    categories:
+      - low
+      - medium
+      - high
+    computeOn: create
+  - id: 15
+    name: ai_blurb
+    type: ai-generate
+    sourceFields:
+      - name
+      - notes
+    prompt: Write one sentence describing this supplier for an internal buyer.
+    computeOn: manual
+  - id: 16
+    name: ai_contact_details
+    type: ai-extract
+    sourceFields:
+      - notes
+    schema:
+      type: object
+      properties:
+        contact_name:
+          type: string
+        city:
+          type: string
+    computeOn: create
+  - id: 17
+    name: ai_review_sentiment
+    type: ai-sentiment
+    sourceFields:
+      - notes
+    computeOn: create
+  - id: 18
+    name: ai_name_fr
+    type: ai-translate
+    sourceFields:
+      - notes
+    targetLanguage: fr
+    computeOn: create
+
+aiAccess:
+  description: >-
+    Vendors that supply the catalog. Use this when the user asks about
+    suppliers, lead times, contacts, or sourcing.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

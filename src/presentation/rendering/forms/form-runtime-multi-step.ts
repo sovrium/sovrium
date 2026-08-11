@@ -5,6 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Multi-step navigation: inline JS source for the per-step nav portion of
+ * the standalone form runtime. Sliced out of `form-runtime.tsx` so the
+ * runtime file stays under the project's max-lines cap; concatenated
+ * verbatim into the IIFE source string at module load time.
+ *
+ * The fragment assumes the surrounding IIFE provides:
+ *   - `form` (HTMLFormElement)
+ *   - `formName` (string)
+ *   - `stepIds` (array of step ids in declaration order)
+ *   - `isMultiStep` (boolean)
+ *   - `namedInputs` (helper returning `input[name]`-style elements)
+ *   - `renderOnError` (inline error rendering helper)
+ *
+ * Defines a no-arg `bindStepNav` function the surrounding code calls
+ * once on mount and again after a step replacement. Defines a stub
+ * `showStep(_index)` so the existing `applyReset` call site keeps
+ * working without changes.
+ */
 export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
   // ---- Multi-step navigation -------------------------------------------------
   //

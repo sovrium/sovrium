@@ -5,11 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Better Auth Drizzle table definitions.
+// All auth tables are created in the dedicated "auth" PostgreSQL schema so
+// they cannot collide with user-defined application tables in `public`.
+// Relations live in `schema-relations.ts` (split for ESLint max-lines).
 
 import { boolean, index, integer, jsonb, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
 
+// Better Auth schema - isolated from main app schema
 export const authSchema = pgSchema('auth')
 
+// Better Auth Tables (using native table names in dedicated auth schema)
+// Schema isolation prevents conflicts when users create their own tables
 export const users = authSchema.table('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -21,11 +28,18 @@ export const users = authSchema.table('user', {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
+  // Admin plugin fields
   role: text('role'),
   banned: boolean('banned').default(false),
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires', { withTimezone: true }),
+  // Two-factor plugin fields
   twoFactorEnabled: boolean('two_factor_enabled').default(false),
+  // GDPR account-erasure scheduling (Art. 17). When set, the account is
+  // scheduled for a hard delete at this timestamp; the purge scheduler
+  // physically removes the account once `scheduledErasureAt <= NOW()`.
+  // NULL means no erasure is pending. Column is intentionally camelCase-
+  // quoted to match the Better Auth naming convention used by callers.
   scheduledErasureAt: timestamp('scheduledErasureAt', { withTimezone: true }),
 })
 
@@ -45,7 +59,9 @@ export const sessions = authSchema.table(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    // Admin plugin fields
     impersonatedBy: text('impersonated_by'),
+    // Organization plugin fields
     activeOrganizationId: text('active_organization_id'),
   },
   (table) => [index('session_userId_idx').on(table.userId)]
@@ -92,6 +108,7 @@ export const verifications = authSchema.table(
   (table) => [index('verification_identifier_idx').on(table.identifier)]
 )
 
+// Two-factor plugin table
 export const twoFactors = authSchema.table(
   'two_factor',
   {
@@ -102,6 +119,10 @@ export const twoFactors = authSchema.table(
     secret: text('secret').notNull(),
     backupCodes: text('backup_codes').notNull(),
     verified: boolean('verified').default(true),
+    // Better Auth 1.6.x TOTP verification-rate-limiting fields: the failed
+    // attempt counter and the lockout expiry the plugin reads/writes on
+    // /two-factor/verify-totp. Absent columns make the Drizzle adapter throw
+    // "field does not exist" and 500 the enable/verify endpoints.
     failedVerificationCount: integer('failed_verification_count').default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
   },
@@ -111,6 +132,8 @@ export const twoFactors = authSchema.table(
   ]
 )
 
+// Organization plugin tables
+// Every Sovrium app IS one organization (1:1, non-configurable)
 export const organizations = authSchema.table('organization', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -161,6 +184,7 @@ export const invitations = authSchema.table(
   ]
 )
 
+// Teams (optional — enabled via auth.teams.enabled in app schema)
 export const teams = authSchema.table(
   'team',
   {
@@ -196,6 +220,8 @@ export const teamMembers = authSchema.table(
   ]
 )
 
+// JWT plugin table (peer requirement of @better-auth/oauth-provider)
+// See: https://better-auth.com/docs/plugins/jwt#schema
 export const jwks = authSchema.table('jwks', {
   id: text('id').primaryKey(),
   publicKey: text('public_key').notNull(),
@@ -204,6 +230,8 @@ export const jwks = authSchema.table('jwks', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
 })
 
+// OAuth Provider plugin tables
+// See: https://better-auth.com/docs/plugins/oauth-provider#schema
 export const oauthClients = authSchema.table(
   'oauth_client',
   {

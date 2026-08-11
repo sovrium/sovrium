@@ -8,7 +8,11 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Known field types that should NOT match UnknownFieldSchema
+ */
 export const KNOWN_FIELD_TYPES = [
+  // AI field types
   'ai-categorize',
   'ai-extract',
   'ai-generate',
@@ -16,6 +20,7 @@ export const KNOWN_FIELD_TYPES = [
   'ai-summary',
   'ai-tag',
   'ai-translate',
+  // Standard field types
   'array',
   'autonumber',
   'barcode',
@@ -60,6 +65,35 @@ export const KNOWN_FIELD_TYPES = [
   'user',
 ] as const
 
+/**
+ * Unknown Field Type
+ *
+ * A DECODE-LEVEL ESCAPE VALVE, not a hole. It exists so `AppSchema` decoding
+ * does not fail on an unrecognised `type`; rejecting the value is left to the
+ * two layers that can name the offending field.
+ *
+ * An unrecognised type is refused TWICE, and both were measured, not assumed:
+ *
+ *   sovrium validate -> `Unknown field type "sinlge-line-text" in field "f"`
+ *                       (`detectUnknownFieldTypes`, a live `runPostDecodeChecks` sweep)
+ *   sovrium start    -> `Failed to generate CREATE TABLE DDL:
+ *                        Unknown field type: sinlge-line-text`
+ *
+ * An earlier revision of this comment said such a field "passes schema
+ * validation" and justified the deferral by "PostgreSQL transaction rollback".
+ * Both halves were false: validation rejects it, and SQLite is the default
+ * engine. That claim was believed, relayed, and nearly bought a whole work item
+ * to fix a defect that does not exist. Verify against the CLI, not this prose.
+ *
+ * @example
+ * ```json
+ * {
+ *   "id": 1,
+ *   "name": "my_field",
+ *   "type": "INVALID_TYPE"
+ * }
+ * ```
+ */
 export const UnknownFieldSchema = Schema.Struct({
   ...BaseFieldSchema.fields,
   type: Schema.String.pipe(
@@ -69,4 +103,5 @@ export const UnknownFieldSchema = Schema.Struct({
   ),
 })
 
+/** @public */
 export type UnknownField = Schema.Schema.Type<typeof UnknownFieldSchema>

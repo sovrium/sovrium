@@ -29,9 +29,14 @@ import {
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
+// Handler for GET /api/tables
+// Note: This route doesn't have :tableId, so only session is guaranteed by middleware
+// (requireAuth ensures session exists, but validateTable/enrichUserRole don't run)
 async function handleListTables(c: Context, app: App) {
+  // Session is guaranteed by requireAuth() middleware (non-null assertion safe)
   const session = getSessionContext(c)!
 
+  // Fetch userRole manually since enrichUserRole middleware doesn't run on /api/tables
   const userRole = await getUserRole(session.userId)
 
   const program = Effect.gen(function* () {
@@ -42,18 +47,24 @@ async function handleListTables(c: Context, app: App) {
   return runEffect(c, program)
 }
 
+// Handler for GET /api/tables/:tableId
 async function handleGetTable(c: Context, app: App) {
+  // Session, tableId, and userRole are guaranteed by middleware chain
   const { tableId, userRole } = getTableContext(c)
 
   const program = Effect.gen(function* () {
     const result = yield* createGetTableProgram(tableId, app, userRole)
     const validated = getTableResponseSchema.parse(result)
+    // Return the table object directly (unwrapped) to match test expectations
     return validated.table
   })
 
   return runEffect(c, program)
 }
 
+// Handler for GET /api/tables/:tableId/webhooks
+// Lists the outgoing webhook configurations declared on a table. Webhook
+// secrets are stripped from the response so auth credentials never leak.
 function handleListWebhooks(c: Context, app: App) {
   const { tableId } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableId)
@@ -66,7 +77,9 @@ function handleListWebhooks(c: Context, app: App) {
   return c.json({ webhooks }, 200)
 }
 
+// Handler for GET /api/tables/:tableId/permissions
 async function handleGetPermissions(c: Context, app: App) {
+  // Session, tableId, and userRole are guaranteed by middleware chain
   const { tableId, userRole } = getTableContext(c)
 
   const program = Effect.gen(function* () {

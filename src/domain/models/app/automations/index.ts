@@ -12,6 +12,9 @@ import { type Action, ActionSchema } from './actions'
 import { RetryConfigSchema } from './retry'
 import { TriggerSchema } from './trigger'
 
+/**
+ * Recursively collect all action names (including nested in path/loop props)
+ */
 const collectActionNames = (
   actions: ReadonlyArray<{ readonly name: string; readonly type: string }>
 ): readonly string[] => {
@@ -52,8 +55,21 @@ const collectActionNames = (
   })
 }
 
+// ─── Automation Schema ──────────────────────────────────────────────────────
 
+/**
+ * Single Automation Schema
+ *
+ * An automation is a workflow with one trigger and a sequence of actions.
+ * Actions execute sequentially unless a PathAction branches execution.
+ *
+ * Data flows between steps via template variables:
+ * - {{trigger.data.fieldName}} — access trigger payload
+ * - {{stepName.result}} — access previous step output
+ * - $env.VAR_NAME — access environment variable (never logged)
+ */
 export const AutomationSchema = Schema.Struct({
+  /** Unique automation name (kebab-case, used in webhook URLs) */
   name: Schema.String.pipe(
     Schema.pattern(/^[a-z][a-z0-9-]*$/),
     Schema.maxLength(100),
@@ -62,33 +78,40 @@ export const AutomationSchema = Schema.Struct({
     })
   ),
 
+  /** Human-readable label */
   label: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({ description: 'Human-readable label for this automation' })
     )
   ),
 
+  /** Description of what this automation does */
   description: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({ description: 'Description of what this automation does' })
     )
   ),
 
+  /** Whether this automation is enabled (default: true) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotations({ description: 'Whether this automation is active (default: true)' })
     )
   ),
 
+  /** Trigger that starts this automation */
   trigger: TriggerSchema,
 
+  /** Sequential list of actions to execute */
   actions: Schema.Array(ActionSchema).pipe(
     Schema.minItems(1),
     Schema.annotations({ description: 'Ordered list of actions to execute when triggered' })
   ),
 
+  /** Automation-level retry configuration (applies to the entire workflow) */
   retry: Schema.optional(RetryConfigSchema),
 
+  /** Timeout for the entire automation run in milliseconds */
   timeout: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -99,6 +122,21 @@ export const AutomationSchema = Schema.Struct({
     )
   ),
 
+  /**
+   * Per-automation concurrency control.
+   *
+   * When set, the scheduler enforces a FIFO cap on simultaneously-running
+   * runs of this automation: incoming triggers beyond `limit` are persisted
+   * as `'queued'` and promoted to `'running'` as in-flight slots free.
+   *
+   * Omitted ⇒ the runs of this automation are governed by the global default
+   * (`AUTOMATION_CONCURRENCY_DEFAULT` env, falling back to 5). Each automation
+   * has an independent semaphore so unrelated workflows never block each
+   * other.
+   *
+   * Single-process scheduler: queueing is in-memory, no DB-coordinated lock
+   * across hosts. Designed for Sovrium's single-tenant deployment model.
+   */
   concurrency: Schema.optional(
     Schema.Struct({
       limit: Schema.optional(
@@ -119,14 +157,17 @@ export const AutomationSchema = Schema.Struct({
     )
   ),
 
+  /** Tags for organization and filtering */
   tags: Schema.optional(
     Schema.Array(Schema.String).pipe(
       Schema.annotations({ description: 'Tags for organizing automations' })
     )
   ),
 
+  /** Per-automation permission configuration */
   permissions: Schema.optional(
     Schema.Struct({
+      /** Who can trigger this automation (e.g., via chat commands, manual trigger) */
       trigger: Schema.optional(
         PermissionValueSchema.pipe(
           Schema.annotations({
@@ -142,6 +183,33 @@ export const AutomationSchema = Schema.Struct({
     )
   ),
 
+  /**
+   * AI/MCP exposure configuration.
+   *
+   * Declares this automation as eligible for invocation via Sovrium's MCP
+   * server. Only manual-trigger automations may set this — record / cron /
+   * webhook triggers fire on their own and cannot be invoked by an AI client.
+   *
+   * Cross-validation enforced at AppSchema level: setting `aiAccess` on a
+   * non-manual-trigger automation produces a decode error.
+   *
+   * Whether the operator actually mounts the MCP server is controlled
+   * separately via `MCP_ENABLED`. This flag is the schema author's
+   * declaration of intent; the operator decides activation.
+   *
+   * @example AI-callable manual automation
+   * ```typescript
+   * trigger: { type: 'manual', label: 'Send Q-Report', requiredRole: 'admin' },
+   * aiAccess: {
+   *   enabled: true,
+   *   description: 'Generate and email the quarterly sales report.',
+   *   annotations: { readOnly: false, destructive: false, idempotent: false },
+   *   requireConfirmation: true,
+   * }
+   * ```
+   *
+   * @see AiAccessSchema for full configuration options
+   */
   aiAccess: Schema.optional(AiAccessSchema),
 }).pipe(
   Schema.annotations({
@@ -180,8 +248,14 @@ export const AutomationSchema = Schema.Struct({
 )
 
 export type Automation = Schema.Schema.Type<typeof AutomationSchema>
+/** @public */
 export type AutomationEncoded = Schema.Schema.Encoded<typeof AutomationSchema>
 
+/**
+ * Automations Array Schema
+ *
+ * Top-level array of automations with unique name validation.
+ */
 export const AutomationsSchema = Schema.Array(AutomationSchema).pipe(
   Schema.annotations({
     identifier: 'Automations',
@@ -195,8 +269,10 @@ export const AutomationsSchema = Schema.Array(AutomationSchema).pipe(
   })
 )
 
+/** @public */
 export type Automations = Schema.Schema.Type<typeof AutomationsSchema>
 
+// Re-export all sub-modules
 export * from './actions'
 export * from './conditions'
 export * from './retry'

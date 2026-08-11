@@ -28,6 +28,12 @@ interface RadioIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Radio group island — wraps Base UI RadioGroup + Radio for radio buttons.
+ *
+ * Supports horizontal/vertical layout, keyboard navigation (arrow keys),
+ * and roving tabindex for accessibility.
+ */
 export default function RadioIsland({
   options = [],
   defaultValue,

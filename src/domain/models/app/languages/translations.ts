@@ -7,6 +7,17 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Translation key for centralized translations dictionary
+ *
+ * Format: Alphanumeric with dots, hyphens, and underscores
+ * Convention: Use namespaces for organization (e.g., common.save, nav.home, homepage.hero.title)
+ *
+ * @example
+ * ```typescript
+ * const keys = ['common.save', 'nav.home', 'homepage.hero.title', 'errors.404']
+ * ```
+ */
 export const TranslationKeySchema = Schema.String.pipe(
   Schema.pattern(/^[a-zA-Z0-9._-]+$/, {
     message: () =>
@@ -19,6 +30,23 @@ export const TranslationKeySchema = Schema.String.pipe(
   })
 )
 
+/**
+ * Translation dictionary for a single language
+ *
+ * Maps translation keys to localized strings.
+ * Use semantic keys that describe meaning, not location.
+ * Organize by feature/page for better maintainability.
+ *
+ * @example
+ * ```typescript
+ * const translations = {
+ *   'common.save': 'Save',
+ *   'common.cancel': 'Cancel',
+ *   'nav.home': 'Home',
+ *   'homepage.hero.title': 'Welcome to Sovrium'
+ * }
+ * ```
+ */
 export const TranslationDictionarySchema = Schema.Record({
   key: TranslationKeySchema,
   value: Schema.String,
@@ -29,6 +57,29 @@ export const TranslationDictionarySchema = Schema.Record({
   })
 )
 
+/**
+ * Centralized translations for all supported languages
+ *
+ * Outer Record key: Short language code (2 letters, e.g., en, fr, es)
+ * Outer Record value: Translation dictionary for that language
+ *
+ * This is the PRIMARY i18n pattern. Use $t:key syntax in ANY string property
+ * to reference translations: children arrays, component props, meta properties, etc.
+ *
+ * @example
+ * ```typescript
+ * const translations = {
+ *   'en': {
+ *     'common.save': 'Save',
+ *     'nav.home': 'Home'
+ *   },
+ *   'fr': {
+ *     'common.save': 'Enregistrer',
+ *     'nav.home': 'Accueil'
+ *   }
+ * }
+ * ```
+ */
 export const TranslationsSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-z]{2}$/, {
@@ -45,6 +96,9 @@ export const TranslationsSchema = Schema.Record({
   })
 )
 
+/** @public */
 export type TranslationKey = Schema.Schema.Type<typeof TranslationKeySchema>
+/** @public */
 export type TranslationDictionary = Schema.Schema.Type<typeof TranslationDictionarySchema>
+/** @public */
 export type Translations = Schema.Schema.Type<typeof TranslationsSchema>

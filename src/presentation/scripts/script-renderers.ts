@@ -7,6 +7,10 @@
 
 import React, { type ReactElement } from 'react'
 
+/**
+ * Render a script tag with optional attributes
+ * Unified helper for rendering external scripts (analytics, external scripts, etc.)
+ */
 export function renderScriptTag({
   src,
   async: asyncProp,
@@ -43,6 +47,19 @@ export function renderScriptTag({
   return React.createElement('script', props)
 }
 
+/**
+ * Render an inline script tag with JavaScript code
+ * Wraps code in async IIFE if async property is true
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Inline JavaScript code from page configuration
+ * - Source: Validated InlineScripts schema (page.scripts.inlineScripts[].code)
+ * - Risk: Low - content is from server configuration, not user input
+ * - Validation: Schema validation ensures string type
+ * - Purpose: Render inline scripts for page-specific functionality
+ * - CSP: Inline script - consider using nonce for stricter CSP
+ * - Transformation: Optionally wraps in async IIFE for async execution
+ */
 export function renderInlineScriptTag({
   code,
   async: asyncProp,
@@ -60,6 +77,23 @@ export function renderInlineScriptTag({
   })
 }
 
+/**
+ * Renders an inline script tag that exposes configuration data to window object
+ * Merges with existing window property if it already exists
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Build-time generated configuration data (JSON.stringify)
+ * - Source: Validated schema from app/page configuration
+ * - Risk: None - no user input, server-controlled data only
+ * - Purpose: Expose configuration for client-side JavaScript access
+ * - CSP: Compatible - inline script with deterministic content
+ * - Note: Only public configuration (no secrets)
+ *
+ * @param windowKey - Name of the window property (e.g., 'APP_CONFIG', 'APP_LANGUAGES')
+ * @param data - Configuration object to expose
+ * @param reactKey - Unique React key for the script element
+ * @returns React script element with inline configuration
+ */
 export function renderWindowConfig({
   windowKey,
   data,

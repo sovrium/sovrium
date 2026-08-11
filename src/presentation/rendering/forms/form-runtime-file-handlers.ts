@@ -5,6 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * F-11 (file-uploads): inline JS source for the file-input portion of
+ * the standalone form runtime. Sliced out of `form-runtime.tsx` so the
+ * runtime file stays under the project's max-lines cap; concatenated
+ * verbatim into the IIFE source string at module load time.
+ *
+ * The fragment assumes the surrounding IIFE provides:
+ *   - `form` (HTMLFormElement)
+ *   - `removeIfPresent` (DOM helper)
+ *   - `showFieldError` (inline-error helper)
+ *
+ * The fragment exports two locals:
+ *   - `fileStash` (per-field selected-file array, keyed on input name)
+ *   - `fileInputs` / `hasFileInputs` (used by the submit interceptor)
+ *
+ * Both branches (`bindFileInput`, `buildMultipartBody` etc.) read these
+ * via closure capture once the fragment runs.
+ */
 export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
   // ---- File-input handling ---------------------------------------------------
   // Per-field stash of File objects the user has accepted (passed accept /

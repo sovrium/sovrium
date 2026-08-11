@@ -8,65 +8,198 @@
 import { renderTemplate } from '@/infrastructure/templates/template-engine'
 import { mapStringsDeep } from './value-walker'
 
+/**
+ * Trigger data accessible to a running automation through `{{trigger.data.X}}`
+ * template references.
+ *
+ * For webhook triggers, `body` carries the parsed request body and
+ * `headers`/`query` carry the inbound HTTP context. The shape mirrors the
+ * convention established by spec 1's environment-variables tests and the
+ * existing template-helpers spec (`{{trigger.data.body.name}}`).
+ */
 export interface TriggerData {
   readonly body?: unknown
   readonly headers?: Readonly<Record<string, unknown>>
   readonly query?: Readonly<Record<string, unknown>>
+  /**
+   * HTTP method of the request that fired the webhook trigger. Surfaced for
+   * `{{trigger.data.method}}` templating in webhook handlers
+   *.
+   */
   readonly method?: string
+  /**
+   * Request path including query string. Surfaced for `{{trigger.data.path}}`
+   * templating so handlers can log or branch on the original URL.
+   */
   readonly path?: string
+  /**
+   * Client IP address (best-effort: parsed from `x-forwarded-for` or falls
+   * back to localhost). Useful for audit-log fields and per-IP routing
+   * decisions inside the automation.
+   */
   readonly ip?: string
+  /** Optional input payload (used by manual / automation-call triggers). */
   readonly input?: unknown
+  /**
+   * Name of the automation that invoked this one via an `automation:call`
+   * action. Surfaces at `{{trigger.caller}}`. Undefined for non-called runs.
+   */
   readonly caller?: string
+  /**
+   * Current call-stack depth (1 for the first `automation:call` hop).
+   * Surfaces at `{{trigger.depth}}`. Undefined for non-called runs.
+   */
   readonly depth?: number
+  /**
+   * Trigger kind discriminator used by system-triggered runs (cron) so handler
+   * templates can distinguish a scheduled fire from an HTTP-driven one via
+   * `{{trigger.data.type}}`. Webhook/manual triggers leave this undefined —
+   * their kind is implicit from the route they entered through.
+   */
   readonly type?: string
+  /**
+   * ISO-8601 timestamp at which the cron scheduler observed the fire and
+   * synthesised this envelope. Surfaced for `{{trigger.data.firedAt}}` and
+   * persisted to `system.automation_runs.trigger_data` so operators can audit
+   * scheduled runs after the fact.
+   */
   readonly firedAt?: string
+  /**
+   * Marks a cron-triggered run that was invoked ON DEMAND ("run now") through
+   * the trigger endpoint rather than by the background scheduler. Surfaces at
+   * `{{trigger.data.invokedOnDemand}}` so handler templates / audit logs can
+   * distinguish an operator-initiated run from a scheduled fire
+   *.
+   */
   readonly invokedOnDemand?: boolean
+  /**
+   * Single record payload emitted by record-event triggers (create / update
+   * / delete). Surfaces as `{{trigger.data.record.<field>}}` so action props
+   * can reference the row that fired the trigger — most commonly its `id`,
+   * to update the same row back through a `record/update` action.
+   */
   readonly record?: Readonly<Record<string, unknown>>
+  /**
+   * Pre-mutation snapshot of the row, populated only for `update` events.
+   * Lets templates compare new vs old values via
+   * `{{trigger.data.previousRecord.<field>}}`. Undefined for create/delete.
+   */
   readonly previousRecord?: Readonly<Record<string, unknown>>
+  /**
+   * Plural form used by batch operations (`{{trigger.data.records}}`).
+   * Currently asserted by the batch-create/update/upsert/delete spec
+   * fixtures; the field is reserved here so the substitution context
+   * surfaces it without per-trigger ENVELOPE allowlist edits.
+   */
   readonly records?: ReadonlyArray<Readonly<Record<string, unknown>>>
+  /**
+   * Comment payload emitted by the comment-posted trigger (Y-6). Surfaces at
+   * `{{trigger.comment.X}}` (NOT `{{trigger.data.comment.X}}`) so spec
+   * authors can read fields like `comment.parentCommentId`,
+   * `comment.author.email`, and `comment.body` directly.
+   */
   readonly comment?: Readonly<Record<string, unknown>>
+  /**
+   * Distinct user IDs of every prior comment author on the same record,
+   * EXCLUDING the comment that just fired the trigger. Surfaces at
+   * `{{trigger.threadParticipants}}`. Used by notification automations to
+   * fan out to thread members without notifying the new author back.
+   */
   readonly threadParticipants?: readonly string[]
+  /**
+   * User IDs mentioned via `@<name>` markup in the comment body. The
+   * caller passes the already-resolved IDs (the engine does not re-parse
+   * the body string). Surfaces at `{{trigger.mentions}}`.
+   */
   readonly mentions?: readonly string[]
+  /**
+   * User payload emitted by the auth-event trigger (AU-03 — sign-up /
+   * sign-in / sign-out / password-reset / email-verified). Surfaces at
+   * `{{trigger.data.user.<field>}}` so action props can reference fields
+   * like `user.email` and `user.id` (the values the better-auth
+   * `user.create.after` hook receives). The optional `event` sibling key
+   * mirrors record-event's `event` so action templates can branch on which
+   * auth lifecycle fired (`{{trigger.data.event}}`).
+   */
   readonly user?: Readonly<Record<string, unknown>>
+  /**
+   * Auth-event discriminator for `{{trigger.data.event}}`. Populated only
+   * by auth triggers — record triggers re-use the same key already through
+   * the dynamic envelope pass-through in `buildAutomationContext`.
+   */
   readonly event?: string
 }
 
-const SIMPLE_TEMPLATE_PATTERN = /\{\{\s*([\w.]+)\s*\}\}/g
-
+/**
+ * Walk a dotted path (`a.b.c`) through a context object, returning the value
+ * at that path — or `undefined` on any miss (a missing key, or a non-object
+ * encountered before the path is exhausted).
+ *
+ * Shared single source of truth for dotted-path lookup across the automation
+ * template resolvers: used by `resolveTriggerInString` here and by
+ * `resolveRunContextValue` in `action-handlers/run-context-resolution`.
+ */
 export const lookupPath = (context: Readonly<Record<string, unknown>>, path: string): unknown =>
   path.split('.').reduce<unknown>((acc, segment) => {
     if (acc === undefined || acc === null || typeof acc !== 'object') return undefined
     return (acc as Record<string, unknown>)[segment]
   }, context)
 
-const formatValue = (value: unknown): string => {
-  if (value === undefined || value === null) return ''
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  if (typeof value === 'object' && !Array.isArray(value)) {
-    const { id } = value as Record<string, unknown>
-    if (typeof id === 'string' || typeof id === 'number') return String(id)
-  }
-  return String(value)
-}
-
+/**
+ * Resolve template references in a single string against the automation
+ * context.
+ *
+ * Substitution is owned entirely by the Handlebars engine in
+ * `infrastructure/templates/template-engine.ts`: helper calls
+ * (`{{uppercase trigger.data.body.x}}`, `{{add a b}}`) and bare path lookups
+ * (`{{trigger.data.body.foo}}`) alike. Unknown paths render as the empty
+ * string, which is the contract the webhook/trigger specs depend on.
+ */
 export const resolveTriggerInString = (
   input: string,
   context: Readonly<Record<string, unknown>>
 ): string => {
+  // Fast path: no `{{...}}` at all → return as-is. Avoids paying the
+  // compile/regex cost on the (overwhelmingly common) literal-string case.
   if (!input.includes('{{')) return input
-  const rendered = renderTemplate(input, context)
-  if (rendered !== input) return rendered
-  return input.replace(SIMPLE_TEMPLATE_PATTERN, (_match, path: string) =>
-    formatValue(lookupPath(context, path))
-  )
+  return renderTemplate(input, context)
 }
 
+/**
+ * Recursively walk a value and resolve `{{path.to.value}}` references in
+ * any string leaves. The structural traversal is owned by `mapStringsDeep`,
+ * which `resolveEnvInValue` also uses — the two passes compose cleanly.
+ */
 export const resolveTriggerInValue = (
   value: unknown,
   context: Readonly<Record<string, unknown>>
 ): unknown => mapStringsDeep(value, (s) => resolveTriggerInString(s, context))
 
+/**
+ * Build the substitution context an action sees during a run.
+ *
+ * For webhook triggers, `triggerData.body` is the parsed request body and
+ * its scalar fields are flattened into `trigger.data.X` so
+ * `{{trigger.data.userId}}` resolves the same way as
+ * `context.trigger.data.userId` inside a code action's sandbox
+ * (`buildCodeTriggerView`). All other keys on `triggerData` (the HTTP
+ * envelope keys `headers`/`query`/`method`/… for webhook, `record` /
+ * `previousRecord` for record-event triggers, `firedAt` for cron, etc.)
+ * are passed through verbatim so `{{trigger.data.record.id}}`,
+ * `{{trigger.data.headers.x}}`, etc. all resolve. Flattened body fields
+ * win on key collision (consistent with `context.trigger.data.X` in the
+ * code sandbox).
+ *
+ * The pass-through is dynamic (uses `Object.keys(triggerData)`) rather
+ * than a hardcoded allowlist so adding a new trigger type does not
+ * require touching this builder — the previous allowlist regressed the
+ * record-event trigger when it was introduced because `record` was not
+ * on it (the value substituted to the empty string and downstream filters
+ * matched zero rows).
+ *
+ * Future migration specs will extend this place with step outputs
+ * (`{{step1.X}}`) and loop variables (`{{loop.item.X}}`).
+ */
 export const buildAutomationContext = (
   triggerData: TriggerData
 ): Readonly<Record<string, unknown>> => {
@@ -76,11 +209,23 @@ export const buildAutomationContext = (
     body !== undefined && body !== null && typeof body === 'object'
       ? { ...(body as Record<string, unknown>) }
       : {}
+  // Pass through every non-body key on triggerData. `body` itself is also
+  // re-exposed (so `{{trigger.data.body.X}}` keeps working) — only its
+  // already-flattened scalar children would otherwise duplicate.
   const envelopeAdditions = Object.fromEntries(
     Object.keys(td)
       .filter((key) => td[key] !== undefined && !(key in fromBody))
       .map((key) => [key, td[key]] as const)
   )
+  // Top-level keys exposed at `trigger.X` (in addition to `trigger.data.X`)
+  // for triggers whose specs assert paths like `{{trigger.comment.X}}` and
+  // `{{trigger.threadParticipants}}` — i.e. the Y-6 comment-posted trigger.
+  // The pass-through is intentionally narrow (an explicit allowlist) so
+  // legacy specs that read `{{trigger.data.X}}` continue to be the
+  // canonical path for the rest of the trigger families.
+  // `input` / `caller` / `depth` join the comment keys here: the
+  // automation-call trigger's specs read `{{trigger.input.X}}`,
+  // `{{trigger.caller}}`, `{{trigger.depth}}` (NOT `{{trigger.data.X}}`).
   const TOPLEVEL_KEYS = [
     'comment',
     'record',

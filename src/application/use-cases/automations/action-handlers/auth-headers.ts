@@ -18,11 +18,25 @@ import {
   type OAuth2RefreshProps,
 } from '@/infrastructure/connections/token-refresh'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
+import { isEncryptionKeyMismatch } from '@/infrastructure/errors/encryption-key-mismatch-error'
 import { buildEnvLookup, resolveEnvInString } from '../resolve-env-vars'
 import { stringProp } from './shared'
 import type { AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
+import type { Context } from 'effect'
 
+/**
+ * Auth header injection for connection-bound HTTP requests.
+ *
+ * Static auth types (apiKey, basic, bearer) build their header purely from
+ * the connection's in-memory props. OAuth2 connections require a DB lookup
+ * keyed on the running automation's userId — cross-user token theft via a
+ * shared automation is prevented because the token row is scoped by
+ * `(connection_id, user_id)`.
+ *
+ * Public surface: `resolveConnectionHeaders`. Everything else is internal
+ * scaffolding kept module-local.
+ */
 
 interface ConnectionDef {
   readonly name: string
@@ -35,6 +49,22 @@ const findConnection = (app: App, name: string): ConnectionDef | undefined => {
   return list.find((conn) => conn.name === name)
 }
 
+/**
+ * Build the static auth header (apiKey/basic/bearer) from a connection's
+ * in-memory props.
+ *
+ * Secret-bearing props (`key`, `token`, `username`, `password`) are documented
+ * as "supports $env.VAR" in the connection prop schemas
+ * (`src/domain/models/app/connections/props.ts`). Because connection
+ * definitions are read straight off `app.connections[]` (never run through the
+ * upstream action-prop env substitution), a connection declaring
+ * `key: '$env.MY_TOKEN'` would otherwise send the LITERAL `$env.MY_TOKEN`
+ * string on the wire. We resolve `$env.` on those props here, against the
+ * supplied env lookup (built from `app.env` + `process.env`). Non-secret
+ * identifier props (`prefix`, `header`) are plain config and pass through
+ * untouched — mirroring `resolveEnvRef` in
+ * `src/infrastructure/webhooks/auth-headers.ts`.
+ */
 const buildStaticAuthHeader = (
   conn: ConnectionDef,
   envLookup: Readonly<Record<string, string>>
@@ -63,10 +93,22 @@ const buildStaticAuthHeader = (
   return { error: `connection ${conn.name}: unsupported type ${conn.type}` }
 }
 
+/**
+ * Tagged error for the inner refresh-fetch promise. Wrapping the
+ * unknown rejection from `fetch`/`AbortController` in a Data.TaggedError
+ * keeps the Effect error channel discriminable (effect/unknownInEffectCatch).
+ */
 class RefreshTransportError extends Data.TaggedError('RefreshTransportError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Predicate: does this token need refreshing? `expiresAt === undefined`
+ * means the provider didn't give an expiry (some non-OIDC OAuth2 flows
+ * issue long-lived tokens) — treat as fresh. Add a small skew so a
+ * token expiring in the next second isn't injected only to fail at the
+ * upstream API.
+ */
 const REFRESH_SKEW_MS = 5000
 
 const isExpired = (token: ConnectionTokenPlaintext): boolean => {
@@ -74,6 +116,20 @@ const isExpired = (token: ConnectionTokenPlaintext): boolean => {
   return token.expiresAt.getTime() - Date.now() < REFRESH_SKEW_MS
 }
 
+/**
+ * Build the `OAuth2RefreshProps` shape consumed by
+ * `refreshAccessToken`. Mirrors the OAuth2Props read by
+ * `connections/index.ts` but trimmed to the fields the refresh request
+ * actually forwards. Returns `undefined` when any of the three required
+ * client-config fields is missing — the caller surfaces this as a
+ * "missing client config for refresh" failure rather than POSTing with
+ * empty credentials.
+ *
+ * Note: `stringProp` returns `''` (not `undefined`) when a key is
+ * missing on `conn.props`, so the required-field guard compares against
+ * the empty string. The previous `=== undefined` check was dead code
+ * and would have let a misconfigured connection POST to an empty URL.
+ */
 const buildRefreshProps = (conn: ConnectionDef): OAuth2RefreshProps | undefined => {
   const clientId = stringProp(conn.props, 'clientId')
   const clientSecret = stringProp(conn.props, 'clientSecret')
@@ -100,6 +156,14 @@ const buildRefreshProps = (conn: ConnectionDef): OAuth2RefreshProps | undefined 
   }
 }
 
+/**
+ * Wrap the upstream refresh call in an Effect, surfacing transport
+ * failures as a typed error. The actual single-flight dedup is now
+ * applied at the `performTokenRefresh` level so the locked unit
+ * spans refresh AND persist — see comments there for the rationale
+ * (closes the persist/findForUser race window flagged by
+ * [internal ref]).
+ */
 const callRefreshEndpoint = (
   refreshProps: OAuth2RefreshProps,
   refreshToken: string
@@ -125,6 +189,20 @@ const callRefreshEndpoint = (
     )
   )
 
+/**
+ * Persist new tokens through the encrypted upsert path. The
+ * (connection_id, user_id) unique-index conflict resolution makes
+ * the write atomic against any concurrent writers.
+ *
+ * Persistence failure handling: if the encrypted write fails we
+ * surface a refresh failure rather than returning the freshly
+ * issued accessToken. Most providers invalidate the previous
+ * refresh_token the moment they issue a new one, so a successful
+ * upstream exchange that we fail to persist would burn the
+ * refresh chain — the next cycle would re-use the now-invalid
+ * stored refresh_token and the connection would deadlock.
+ * Failing this cycle keeps the option to re-authorize open.
+ */
 const persistRefreshedTokens = (input: {
   readonly connectionId: string
   readonly userId: string
@@ -158,9 +236,37 @@ type RefreshOutcome =
 const refreshFailure = (conn: ConnectionDef, suffix: string): RefreshOutcome =>
   ({ ok: false, reason: `connection ${conn.name}: ${suffix}` }) as const
 
+/**
+ * Determine whether a refresh-failure error tag indicates a permanent
+ * 4xx rejection (revoked or expired refresh token) vs a transient 5xx
+ * provider failure or a network/timeout.
+ *
+ * 4xx rejections are terminal — RFC 6749 §5.2 mandates the provider
+ * returns 400 Bad Request with `error: invalid_grant` for revoked or
+ * expired refresh tokens, and the spec is explicit that the token will
+ * never become valid again. Keeping the row would let stale state
+ * silently break the connection forever; delete-on-4xx forces the
+ * user to re-authorize.
+ *
+ * 5xx and transport failures are transient — the next attempt may
+ * succeed, so the row must survive.
+ *
+ * The error format is set in `token-refresh.ts`:
+ *   `refresh_endpoint_4xx_<statusCode>` (4xx rejection)
+ *   `refresh_endpoint_5xx_<statusCode>` (5xx upstream failure)
+ *   `refresh_response_missing_access_token` (malformed 200 response)
+ *   `refresh_request_failed` / network error message (transport)
+ */
 const isPermanentRefreshFailure = (errorTag: string): boolean =>
   errorTag.startsWith('refresh_endpoint_4xx')
 
+/**
+ * Delete the stored token row for `(connectionId, userId)`. Invoked
+ * after a 4xx refresh failure so subsequent `/status` calls report
+ * `disconnected` and the user is forced to re-authorize. Errors are
+ * swallowed — failing to delete after a refresh failure should not
+ * mask the underlying refresh failure to the caller.
+ */
 const deleteStoredToken = (
   connectionId: string,
   userId: string
@@ -172,6 +278,42 @@ const deleteStoredToken = (
       .pipe(Effect.catchAll(() => Effect.void))
   })
 
+/**
+ * Run the refresh-token exchange and persist the new tokens through the
+ * encrypted upsert path. Wrapped in `withRefreshLock` so concurrent
+ * automations sharing a connection coalesce into a single upstream
+ * refresh.
+ *
+ * Returns the new accessToken on success, or a tagged error string on
+ * failure (provider rejection, missing refresh_token, missing client
+ * config, persistence failure). Failures here translate to action
+ * failures upstream — the caller surfaces the reason in the action's
+ * error log.
+ *
+ * Failure handling:
+ *   - 4xx (permanent): the refresh token is revoked/invalid and will
+ *     never work again. Delete the stored token row so `/status`
+ *     reports `disconnected` and the user re-authorizes
+ *.
+ *   - 5xx (transient) or network error: keep the row; the next
+ * attempt may succeed.
+ */
+/**
+ * Inner refresh+persist sequence — the unit that runs INSIDE
+ * `withRefreshLock`'s single-flight dedup. The full
+ * "look up refresh props, hit the provider, persist new tokens,
+ * handle 4xx/5xx differently" lifecycle is bundled here so concurrent
+ * triggers for the same (connectionId, userId) coalesce into one
+ * locked execution and observe the same final outcome — including
+ * the post-persist DB state.
+ *
+ * Bundling persist into the lock closes the race window flagged by
+ * [internal ref]: the previous structure locked only
+ * the upstream HTTP call, so caller B's `findForUser` could observe
+ * the still-expired pre-refresh token between A's response landing
+ * and A's `upsertForUser` completing — triggering a redundant second
+ * refresh.
+ */
 const refreshAndPersistInner = (
   conn: ConnectionDef,
   token: ConnectionTokenPlaintext,
@@ -188,6 +330,10 @@ const refreshAndPersistInner = (
     }
     const result = yield* callRefreshEndpoint(refreshProps, token.refreshToken)
     if (!result.ok) {
+      // Permanent 4xx → delete the row before surfacing the failure
+      // so subsequent automations see "no token" rather than re-trying
+      // the same dead refresh_token forever. Transient 5xx and network
+      // failures leave the row intact so a follow-up attempt can recover.
       if (isPermanentRefreshFailure(result.error)) {
         yield* deleteStoredToken(connectionId, userId)
       }
@@ -206,6 +352,22 @@ const refreshAndPersistInner = (
     return { ok: true, token: result.accessToken } as const
   })
 
+/**
+ * Single-flight refresh+persist for `(connectionId, userId)`. Wraps
+ * `refreshAndPersistInner` with `withRefreshLock` so concurrent
+ * automations sharing the same connection AND triggering user
+ * coalesce into one upstream `/token` POST AND one `upsertForUser` —
+ * the second arrival awaits the same Promise and reads the same
+ * `RefreshOutcome` rather than re-fetching the token from the DB
+ * (which is what the previous structure did, exposing the
+ * persist/findForUser race that flaked [internal ref]).
+ *
+ * Inner Effect → Promise conversion goes through the live token
+ * repository layer because the lock is a Promise-shaped primitive
+ * (`withRefreshLock` is in token-refresh.ts which has no Effect
+ * Context dependency). The dynamic import mirrors the lazy-load
+ * pattern used by `runSeedTestConnectionTokens` and `getUserRole`.
+ */
 const performTokenRefresh = (
   conn: ConnectionDef,
   token: ConnectionTokenPlaintext,
@@ -229,6 +391,70 @@ const performTokenRefresh = (
           err.cause instanceof Error ? err.cause.message : 'refresh_request_failed'
         )
       )
+    )
+  )
+
+/**
+ * OAuth2 token lookup: find the system.connections row by name, then
+ * load the user's stored token row. Both queries scope the result to
+ * the current automation's user so cross-user token theft via a
+ * shared automation is prevented.
+ *
+ * If the stored token's `expiresAt` is in the past (or near-past, see
+ * REFRESH_SKEW_MS), this function attempts an in-flight refresh against
+ * the provider's token endpoint, persists the new tokens via the
+ * encrypted upsert path, and returns the new accessToken. Concurrent
+ * refreshes for the same (connectionId, userId) are deduplicated by
+ * `withRefreshLock` so the provider sees at most one refresh request per
+ * tuple at a time.
+ *
+ * Yields:
+ *   - `'no-user-context'` when the automation has no userId (e.g. cron
+ *     trigger) — caller surfaces this as a clear failure.
+ *   - `'no-connection-row'` when the connection name isn't registered
+ *     in `system.connections` (the user hasn't completed authorize yet).
+ *   - `'no-token-for-user'` when the row exists but the user has no
+ *     stored token (the user hasn't completed authorize yet).
+ *   - refresh-failure reasons when the token is expired and the
+ *     provider rejects the refresh (revoked, malformed response, etc.).
+ */
+/**
+ * Outcome of reading a user's stored token.
+ *
+ * `absent` and `unreadable` used to collapse into the same value, and that
+ * collapse is the defect this type exists to prevent: they call for opposite
+ * operator responses — "this user never connected" versus "every connected
+ * user's credentials just became unreadable".
+ */
+type TokenLookup =
+  | { readonly kind: 'found'; readonly token: ConnectionTokenPlaintext }
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'key-mismatch' }
+
+/**
+ * Read the user's stored token, keeping an unreadable row distinguishable from
+ * an absent one.
+ *
+ * The read failure used to be swallowed into `Effect.void`, collapsing both into
+ * "no stored token". That is the worst available confusion: it points the
+ * operator at a user who never connected, while the real cause is that every
+ * connected user's credentials just became unreadable. See
+ * [internal ref].
+ *
+ * Any OTHER read failure still reports as absent — a database that cannot be
+ * reached is not a claim about this user's key.
+ */
+const lookUpStoredToken = (
+  tokenRepo: Context.Tag.Service<typeof ConnectionTokenRepository>,
+  connectionId: string,
+  userId: string
+): Effect.Effect<TokenLookup> =>
+  tokenRepo.findForUser({ connectionId, userId }).pipe(
+    Effect.map((row): TokenLookup =>
+      row === undefined ? { kind: 'absent' } : { kind: 'found', token: row }
+    ),
+    Effect.catchAll((error): Effect.Effect<TokenLookup> =>
+      Effect.succeed(isEncryptionKeyMismatch(error) ? { kind: 'key-mismatch' } : { kind: 'absent' })
     )
   )
 
@@ -257,15 +483,26 @@ const resolveOAuth2AccessToken = (
     }
     const connectionId = String(row['id'])
     const tokenRepo = yield* ConnectionTokenRepository
-    const token = yield* tokenRepo
-      .findForUser({
-        connectionId,
-        userId: automation.userId,
-      })
-      .pipe(Effect.catchAll(() => Effect.void))
-    if (token === undefined) {
+    const lookup = yield* lookUpStoredToken(tokenRepo, connectionId, automation.userId)
+    if (lookup.kind === 'key-mismatch') {
+      return {
+        ok: false,
+        reason:
+          `connection ${conn.name}: the stored token was encrypted with a different encryption key ` +
+          '— the user must reconnect',
+      } as const
+    }
+    if (lookup.kind === 'absent') {
       return { ok: false, reason: `connection ${conn.name}: user has no stored token` } as const
     }
+    const { token } = lookup
+    // Test-mode seeder sentinel detection: the seeder upserts a placeholder
+    // token at user-create time so encryption-at-rest specs have a row to
+    // assert against. The sentinel must
+    // never be injected into outbound HTTP requests — [internal ref] explicitly asserts that a triggering user with no
+    // real token gets a "no.*token|not.*authorized|disconnected" error.
+    // Without this gate the seeder's 1h-TTL sentinel would silently flow to
+    // upstream APIs as a Bearer header, masking the genuine failure mode.
     if (isSentinelAccessToken(token.accessToken)) {
       return {
         ok: false,
@@ -283,6 +520,20 @@ export interface InjectedHeaders {
   readonly error?: string
 }
 
+/**
+ * Verify that a connection's `system.connections` row still exists at
+ * runtime. The startup seeder (`runSeedAllConnectionDefinitions`)
+ * upserts a row for every connection in `app.connections[]`; this
+ * lookup catches the "deleted out from under us" case
+ * where an operator removes the row
+ * directly via SQL or the management UI. The error message names the
+ * connection so the caller sees `will-be-removed` (or whatever the
+ * connection is called) rather than a generic "connection error".
+ *
+ * Returns `undefined` on success, a refusal-reason string on failure.
+ * The DB-error and not-found branches both surface as a refusal so
+ * the action's run-history error is human-readable.
+ */
 const ensureConnectionExistsInDb = (
   connectionName: string
 ): Effect.Effect<string | undefined, never, ConnectionRepository> =>
@@ -295,6 +546,24 @@ const ensureConnectionExistsInDb = (
     return undefined
   })
 
+/**
+ * Resolve the connection (if any) referenced by `props.connection`,
+ * compute the auth header for the appropriate auth type, and merge it
+ * into the request's headers. Static auth types (apiKey, basic, bearer)
+ * are pure; oauth2 yields a DB lookup using `automation.userId`.
+ *
+ * Both static and oauth2 paths verify the connection's
+ * `system.connections` row exists at runtime — startup seeds the row
+ * for every connection in `app.connections[]`, so a missing row means
+ * the connection was deleted between server start and trigger fire
+ *. For oauth2 the existence check is
+ * inlined in `resolveOAuth2AccessToken` (it already does
+ * findByName); for static types we do an explicit lookup before
+ * building the header so the error surfaces with the connection name.
+ *
+ * Returns the merged headers OR a clear error string for the handler
+ * to surface as an action failure.
+ */
 export const resolveConnectionHeaders = (
   app: App,
   automation: AutomationContext,
@@ -316,8 +585,17 @@ export const resolveConnectionHeaders = (
         headers: { ...baseHeaders, Authorization: `Bearer ${result.token}` },
       }
     }
+    // Static auth types (apiKey/basic/bearer): the in-memory props are
+    // sufficient to build the header, but we still require a DB row so
+    // a runtime DELETE (operator action, accidental cascade, manual SQL)
+    // surfaces as a clear action failure rather than silently succeeding.
     const dbMissing = yield* ensureConnectionExistsInDb(connectionName)
     if (dbMissing !== undefined) return { headers: baseHeaders, error: dbMissing }
+    // Resolve `$env.` in secret-bearing connection props against the app's
+    // declared env vars + the OS environment. Connection definitions are read
+    // straight off `app.connections[]` (never through the upstream action-prop
+    // env substitution), so a `key: '$env.MY_TOKEN'` ref would otherwise reach
+    // the wire verbatim.
     const envLookup = buildEnvLookup(app.env, process.env)
     const built = buildStaticAuthHeader(conn, envLookup)
     if ('error' in built) return { headers: baseHeaders, error: built.error }

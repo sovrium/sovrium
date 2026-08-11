@@ -5,26 +5,47 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Lazy-load data for the Application-section sidebar disclosures
+ *. Each Application destination
+ * (Records / Submissions / Files) is a Notion-style toggle that
+ * fetches its object list on FIRST expand — tables from
+ * `GET /api/admin/tables/overview`, forms from `GET /api/admin/forms`, buckets
+ * from `GET /api/admin/buckets`. This module owns the three reads + their shared
+ * load-state shape so the disclosure component stays a thin render. Every read is
+ * admin-only (S1: a non-admin gets a 404 envelope, surfaced as the error state).
+ */
 
+/** A loaded object in a sidebar group: a name that deep-links to `/_admin/{key}/{name}`. */
 export interface SidebarGroupItem {
+  /** The object name (table / form / bucket) — the `/_admin/{key}/{name}` segment. */
   readonly name: string
 }
 
+/** The lazy-load lifecycle of a sidebar group's object list. */
 export type GroupLoadPhase = 'idle' | 'loading' | 'loaded' | 'error'
 
+/** The fetched state of a sidebar group: its phase + (when loaded) its items. */
 export interface GroupLoadState {
   readonly phase: GroupLoadPhase
   readonly items: ReadonlyArray<SidebarGroupItem>
 }
 
+/** The idle (not-yet-fetched) state — the disclosure starts collapsed + unfetched. */
 export const IDLE_GROUP_STATE: GroupLoadState = { phase: 'idle', items: [] }
 
+/** Coerce an unknown JSON value to a `{ name }` item, or `undefined` when nameless. */
 function toItem(raw: unknown): SidebarGroupItem | undefined {
   if (raw === null || typeof raw !== 'object') return undefined
   const { name } = raw as { readonly name?: unknown }
   return typeof name === 'string' && name.length > 0 ? { name } : undefined
 }
 
+/**
+ * GET a JSON endpoint and project the named array into `{ name }` items. The
+ * array lives under different keys per endpoint: tables-overview nests it under
+ * `by_table`, while the forms + buckets lists use the cursor-paginated `items`.
+ */
 async function fetchItems(url: string, arrayKey: 'by_table' | 'items'): Promise<GroupLoadState> {
   try {
     const res = await fetch(url, { headers: { Accept: 'application/json' } })
@@ -41,6 +62,12 @@ async function fetchItems(url: string, arrayKey: 'by_table' | 'items'): Promise<
   }
 }
 
+/**
+ * Fetch the object list for a sidebar group key. Returns a `loaded` state (with
+ * items, possibly empty) or an `error` state — never throws, so the disclosure
+ * can render a calm state for any outcome. Only the three Application toggles
+ * have a list source; any other key resolves to an empty `loaded` state.
+ */
 export async function fetchGroupItems(key: string): Promise<GroupLoadState> {
   if (key === 'tables') return fetchItems('/api/admin/tables/overview', 'by_table')
   if (key === 'forms') return fetchItems('/api/admin/forms', 'items')

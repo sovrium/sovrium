@@ -5,8 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Escape single quotes in SQL string literals to prevent SQL injection
+ * PostgreSQL escapes single quotes by doubling them: ' becomes ''
+ *
+ * Used across all SQL generators (view-generators, lookup-view-generators, sql-generators)
+ */
 export const escapeSqlString = (value: string): string => value.replace(/'/g, "''")
 
+/**
+ * Quote a SQL identifier (table/view/column name) only when PostgreSQL
+ * requires it.
+ *
+ * A plain unquoted identifier in PostgreSQL must match `[a-z_][a-z0-9_]*`.
+ * Anything else (hyphens, leading digits, uppercase, reserved words) needs
+ * double-quoting. View IDs accept kebab-case (e.g. `active-orders`), so an
+ * unquoted `CREATE VIEW active-orders` produces `syntax error at or near "-"`.
+ *
+ * Identifiers that are already valid bare identifiers are returned unchanged
+ * so existing snake_case names (`test_view`, `idx_orders_status`) keep their
+ * unquoted form. Embedded double-quotes are doubled per the SQL standard.
+ */
 export const quoteSqlIdentifier = (identifier: string): string => {
   if (/^[a-z_][a-z0-9_]*$/.test(identifier)) {
     return identifier
@@ -14,6 +33,10 @@ export const quoteSqlIdentifier = (identifier: string): string => {
   return `"${identifier.replace(/"/g, '""')}"`
 }
 
+/**
+ * Format a value for SQL interpolation with proper escaping
+ * Strings are escaped and quoted, numbers/booleans are used directly
+ */
 export const formatSqlValue = (value: unknown): string => {
   if (typeof value === 'string') {
     return `'${escapeSqlString(value)}'`
@@ -24,9 +47,14 @@ export const formatSqlValue = (value: unknown): string => {
   if (value === null) {
     return 'NULL'
   }
+  // For other types (objects, arrays), convert to JSON string
   return `'${escapeSqlString(JSON.stringify(value))}'`
 }
 
+/**
+ * Generate SQL LIKE pattern with wildcards for pattern matching operators
+ * Automatically escapes the value to prevent SQL injection
+ */
 export const formatLikePattern = (
   value: unknown,
   pattern: 'contains' | 'startsWith' | 'endsWith'

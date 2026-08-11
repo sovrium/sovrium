@@ -36,6 +36,7 @@ fields:
     type: currency
     currency: USD
     precision: 0
+    thousandsSeparator: comma
   - id: 7
     name: is_active
     type: checkbox

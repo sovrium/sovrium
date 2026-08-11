@@ -9,11 +9,18 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Flow Stop Action (type: flow, operator: stop)
+ *
+ * Immediately stop automation execution. Can indicate success or error status
+ * and optionally produce output data for the caller.
+ */
 export const FlowStopActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('flow'),
   operator: Schema.Literal('stop'),
   props: Schema.Struct({
+    /** Human-readable message explaining why execution was stopped */
     message: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -22,6 +29,7 @@ export const FlowStopActionSchema = Schema.Struct({
       )
     ),
 
+    /** Stop status: success or error */
     status: Schema.optional(
       Schema.Literal('success', 'error').pipe(
         Schema.annotations({
@@ -30,6 +38,7 @@ export const FlowStopActionSchema = Schema.Struct({
       )
     ),
 
+    /** Output data to return to the caller */
     output: Schema.optional(
       Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
         Schema.annotations({
@@ -46,4 +55,5 @@ export const FlowStopActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FlowStopAction = Schema.Schema.Type<typeof FlowStopActionSchema>

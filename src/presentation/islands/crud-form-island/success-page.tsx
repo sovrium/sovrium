@@ -9,6 +9,10 @@ import { cn } from '@/presentation/utils/design/class-merge'
 import { type FieldDef, labelOf } from '../components/crud-form/fields'
 import { type SuccessPageConfig } from './types'
 
+/**
+ * Checkmark icon shown at the top of the success page. Exposed under several
+ * selectors so specs can locate it: `data-testid`, `aria-label`, and a class.
+ */
 function SuccessCheckmark() {
   return (
     <svg
@@ -31,6 +35,10 @@ function SuccessCheckmark() {
   )
 }
 
+/**
+ * Read-only summary of the submitted field values, rendered when
+ * `onSuccess.showSummary` is true. Empty values are omitted.
+ */
 function SubmittedSummary(props: {
   readonly fields: readonly FieldDef[]
   readonly values: Record<string, string>
@@ -54,6 +62,12 @@ function SubmittedSummary(props: {
   )
 }
 
+/**
+ * Success page rendered after a successful submission when the form's
+ * `onSuccess.type` is `successPage`. Replaces the form with a checkmark,
+ * a configurable title/message, an optional read-only summary of submitted
+ * values, and optional action buttons (`reset` / `navigate`).
+ */
 export function SuccessPage(props: {
   readonly config: SuccessPageConfig
   readonly fields: readonly FieldDef[]

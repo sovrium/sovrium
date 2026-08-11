@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export { auth } from './auth'
+/**
+ * Better Auth Module
+ *
+ * Provides authentication functionality using Better Auth library.
+ * Re-exports all auth-related services and types.
+ */
 export { Auth, createAuthLayer } from './layer'
 export { AuthError } from '../../errors/auth-error'

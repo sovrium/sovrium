@@ -15,6 +15,11 @@ import { validateTableName, validateColumnName } from '../shared/validation'
 import { hasDeletedByColumn, getDeletedByValue } from './authorship-helpers'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
+/**
+ * Cascade soft delete to related records
+ *
+ * Helper function to cascade soft delete to child records based on onDelete: 'cascade' configuration
+ */
 export async function cascadeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -34,6 +39,7 @@ export async function cascadeSoftDelete(
 ): Promise<void> {
   if (!app.tables) return
 
+  // Find all tables with relationship fields that reference this table with onDelete: 'cascade'
   const relatedTables = app.tables.flatMap((table) =>
     table.fields
       .filter(
@@ -50,6 +56,8 @@ export async function cascadeSoftDelete(
 
   const deletedByValue = getDeletedByValue(userId)
 
+  // Cascade soft delete to each related table
+  // eslint-disable-next-line functional/no-expression-statements -- Database updates for cascade delete are required side effects
   await Promise.all(
     relatedTables.map(async (relatedInfo) => {
       const childTable = relatedInfo.tableName
@@ -58,17 +66,22 @@ export async function cascadeSoftDelete(
       validateTableName(childTable)
       validateColumnName(childColumn)
 
+      // Check if child table has deleted_at column (dialect-aware introspection)
       const childHasDeletedAt = await columnExists(tx, childTable, 'deleted_at')
 
       if (childHasDeletedAt) {
+        // Check if child table has deleted_by column (using helper)
         const hasDeletedByCol = await hasDeletedByColumn(tx, childTable)
 
+        // Cascade soft delete to related records with deleted_by if column exists
         if (hasDeletedByCol) {
+          // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
           await executeRaw(
             tx,
             sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = ${nowExpr()}, deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
           )
         } else {
+          // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
           await executeRaw(
             tx,
             sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = ${nowExpr()} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
@@ -79,6 +92,12 @@ export async function cascadeSoftDelete(
   )
 }
 
+/**
+ * Cascade set-null to related records
+ *
+ * Helper function to set FK columns to NULL in child records based on onDelete: 'set-null' configuration.
+ * Returns true if any child records were updated.
+ */
 export async function cascadeSetNull(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -97,6 +116,7 @@ export async function cascadeSetNull(
 ): Promise<boolean> {
   if (!app.tables) return false
 
+  // Find all tables with relationship fields that reference this table with onDelete: 'set-null'
   const relatedTables = app.tables.flatMap((table) =>
     table.fields
       .filter(
@@ -113,6 +133,8 @@ export async function cascadeSetNull(
 
   if (relatedTables.length === 0) return false
 
+  // Set FK to NULL in each related table
+  // eslint-disable-next-line functional/no-expression-statements -- Database updates for set-null cascade are required side effects
   await Promise.all(
     relatedTables.map(async (relatedInfo) => {
       const childTable = relatedInfo.tableName
@@ -121,6 +143,7 @@ export async function cascadeSetNull(
       validateTableName(childTable)
       validateColumnName(childColumn)
 
+      // eslint-disable-next-line functional/no-expression-statements -- Database update for set-null is required
       await executeRaw(
         tx,
         sql`UPDATE ${sql.identifier(childTable)} SET ${sql.identifier(childColumn)} = NULL WHERE ${sql.identifier(childColumn)} = ${recordId}`
@@ -131,6 +154,14 @@ export async function cascadeSetNull(
   return true
 }
 
+/**
+ * Check restrict-on-delete constraint for related records.
+ *
+ * Returns true if any child records exist whose `relationship` field on
+ * `tableName` is configured with `onDelete: 'restrict'`. Caller (`deleteRecord`)
+ * surfaces this as `restrictViolation: true` so the route handler can return
+ * HTTP 400 instead of attempting the delete.
+ */
 export async function checkRestrictConstraint(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -179,6 +210,10 @@ export async function checkRestrictConstraint(
   return hasChildrenResults.some(Boolean)
 }
 
+/**
+ * Execute soft delete operation
+ * Promise-based for transaction use
+ */
 export async function executeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -186,11 +221,13 @@ export async function executeSoftDelete(
   userId?: string
 ): Promise<boolean> {
   try {
+    // Check if table has deleted_by column using helper
     const hasDeletedByCol = await hasDeletedByColumn(tx, tableName)
     const deletedByValue = getDeletedByValue(userId)
 
     const tableIdent = sql.identifier(tableName)
 
+    // Build UPDATE query with or without deleted_by
     const result = hasDeletedByCol
       ? await executeRaw(
           tx,
@@ -203,10 +240,15 @@ export async function executeSoftDelete(
 
     return result.length > 0
   } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to delete record ${recordId} from ${tableName}`, error)
   }
 }
 
+/**
+ * Execute hard delete operation
+ * Promise-based for transaction use
+ */
 export async function executeHardDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -220,10 +262,15 @@ export async function executeHardDelete(
     )
     return result.length > 0
   } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to delete record ${recordId} from ${tableName}`, error)
   }
 }
 
+/**
+ * Check if table has deleted_at column for soft delete support
+ * Promise-based for transaction use
+ */
 export async function checkDeletedAtColumn(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
@@ -231,6 +278,7 @@ export async function checkDeletedAtColumn(
   try {
     return await columnExists(tx, tableName, 'deleted_at')
   } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
     throw new DatabaseError(`Failed to check columns for ${tableName}`, error)
   }
 }

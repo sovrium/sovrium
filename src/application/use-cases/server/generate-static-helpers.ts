@@ -29,8 +29,15 @@ import * as translationReplacer from './translation-replacer'
 import type { GenerateStaticOptions } from './generate-static'
 import type { App } from '@/domain/models/app'
 
+// Re-export static modules for callers that previously used the import helpers
 export { fs, path, translationReplacer }
 
+/**
+ * Minimal filesystem interface for static generation
+ *
+ * Compatible with Node.js fs/promises, Bun's filesystem APIs, and test mocks.
+ * Only includes methods actually used by static generation functions.
+ */
 export interface FileSystemLike {
   readonly mkdir: (
     path: string,
@@ -40,10 +47,22 @@ export interface FileSystemLike {
   readonly readFile: (path: string, encoding: BufferEncoding) => Promise<string>
 }
 
+/**
+ * Minimal path module interface for static generation
+ *
+ * Compatible with Node.js path module, Bun's path APIs, and test mocks.
+ */
 export interface PathModuleLike {
   readonly join: (...paths: readonly string[]) => string
 }
 
+/**
+ * Write CSS file to output directory
+ *
+ * @param outputDir - Output directory path
+ * @param css - Compiled CSS content
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ */
 export function writeCssFile(outputDir: string, css: string, fs: FileSystemLike) {
   return Effect.gen(function* () {
     logDebug('Writing compiled CSS...')
@@ -70,6 +89,13 @@ export function writeCssFile(outputDir: string, css: string, fs: FileSystemLike)
   })
 }
 
+/**
+ * Generate client-side hydration script if enabled
+ *
+ * @param outputDir - Output directory path
+ * @param enabled - Whether hydration is enabled
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ */
 export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: FileSystemLike) {
   return Effect.if(enabled, {
     onTrue: () =>
@@ -90,12 +116,28 @@ export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: 
   })
 }
 
+/**
+ * Resolve whether `publicDir` is a real directory on disk.
+ *
+ * Mirrors `collectPublicDirPhases` (server mode): a missing or non-directory
+ * `publicDir` is NOT an error — it is silently skipped. The anchored `./public`
+ * default (resolved by `resolveBuildPublicDir`) frequently points at a path
+ * that does not exist (e.g. a config file with no sibling `public/`), so the
+ * copy step must degrade gracefully rather than abort the whole build.
+ */
 const publicDirExists = (publicDir: string): Effect.Effect<boolean, never, never> =>
   Effect.tryPromise({
     try: () => fs.stat(publicDir).then((s) => s.isDirectory()),
     catch: () => false as const,
   }).pipe(Effect.catchAll(() => Effect.succeed(false)))
 
+/**
+ * Copy static assets from public directory if provided.
+ *
+ * Skips silently when `publicDir` is unset OR when it does not resolve to a
+ * directory on disk — matching `sovrium start`'s static-asset behavior, where a
+ * missing `./public` is a no-op rather than a fatal error.
+ */
 export function copyPublicAssets(publicDir: string | undefined, outputDir: string) {
   return Effect.if(publicDir !== undefined, {
     onTrue: () =>
@@ -112,6 +154,14 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
   })
 }
 
+/**
+ * Format HTML files with Prettier
+ *
+ * @param generatedFiles - List of generated file paths
+ * @param outputDir - Output directory path
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param path - Path module (Node.js path or Bun's equivalent)
+ */
 export function formatHtmlFiles(
   generatedFiles: readonly string[],
   outputDir: string,
@@ -156,6 +206,16 @@ export function formatHtmlFiles(
   })
 }
 
+/**
+ * Apply optimizations to generated HTML files
+ *
+ * @param config - Configuration object
+ * @param config.generatedFiles - List of generated file paths
+ * @param config.outputDir - Output directory path
+ * @param config.options - Static generation options
+ * @param config.fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param config.path - Path module (Node.js path or Bun's equivalent)
+ */
 export function applyHtmlOptimizations(config: {
   readonly generatedFiles: readonly string[]
   readonly outputDir: string
@@ -164,6 +224,7 @@ export function applyHtmlOptimizations(config: {
   readonly path: PathModuleLike
 }) {
   return Effect.gen(function* () {
+    // Step 1: Apply base path rewriting if basePath is configured
     yield* Effect.if(config.options.basePath !== undefined && config.options.basePath !== '', {
       onTrue: () =>
         rewriteBasePathInHtml(
@@ -176,6 +237,7 @@ export function applyHtmlOptimizations(config: {
       onFalse: () => Effect.void,
     })
 
+    // Step 2: Inject hydration script into HTML if enabled
     yield* Effect.if(config.options.hydration ?? false, {
       onTrue: () =>
         injectHydrationScript(
@@ -190,6 +252,9 @@ export function applyHtmlOptimizations(config: {
   })
 }
 
+/**
+ * Build HreflangConfig from app languages when multi-language mode is active
+ */
 const buildHreflangConfig = (
   app: App,
   options: GenerateStaticOptions
@@ -203,6 +268,9 @@ const buildHreflangConfig = (
   }
 }
 
+/**
+ * Generate sitemap.xml if enabled
+ */
 export function generateSitemapFile(
   app: App,
   outputDir: string,
@@ -244,6 +312,14 @@ export function generateSitemapFile(
   })
 }
 
+/**
+ * Generate robots.txt if enabled
+ *
+ * @param app - Application configuration
+ * @param outputDir - Output directory path
+ * @param options - Static generation options
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ */
 export function generateRobotsFile(
   app: App,
   outputDir: string,
@@ -274,6 +350,7 @@ export function generateRobotsFile(
   })
 }
 
+/** Write `/llms-full.txt` (gated on `app.llms.full !== false`). */
 function writeLlmsFullFile(app: App, outputDir: string, fs: FileSystemLike) {
   return Effect.if(app.llms?.full !== false, {
     onTrue: () =>
@@ -297,6 +374,15 @@ function writeLlmsFullFile(app: App, outputDir: string, fs: FileSystemLike) {
   })
 }
 
+/**
+ * Generate `/llms.txt` and `/llms-full.txt` for the static build when the app
+ * declares content-directory pages and `app.llms.enabled` is not `false`.
+ *
+ * Mirrors the live `setupSeoRoutes` behavior (default-on, derived from
+ * content-directory pages) so the built output matches the served routes.
+ * Uses `options.baseUrl` as the absolute link prefix (static builds emit a
+ * canonical origin), falling back to relative links when no baseUrl is set.
+ */
 export function generateLlmsFiles(
   app: App,
   outputDir: string,
@@ -328,12 +414,16 @@ export function generateLlmsFiles(
   })
 }
 
+/**
+ * Generate GitHub Pages specific files
+ */
 export function generateGitHubPagesFiles(
   outputDir: string,
   options: GenerateStaticOptions,
   fs: FileSystemLike
 ) {
   return Effect.gen(function* () {
+    // Create .nojekyll file
     const nojekyllFiles = yield* Effect.if(options.deployment === 'github-pages', {
       onTrue: () =>
         Effect.gen(function* () {
@@ -351,6 +441,7 @@ export function generateGitHubPagesFiles(
       onFalse: () => Effect.succeed([] as readonly string[]),
     })
 
+    // Generate CNAME file for custom domains
     const cnameFiles = yield* Effect.if(
       options.deployment === 'github-pages' &&
         options.baseUrl !== undefined &&

@@ -9,6 +9,9 @@ import { sql } from 'drizzle-orm'
 import { text, timestamp, serial, jsonb, customType, index, unique } from 'drizzle-orm/pg-core'
 import { systemSchema } from './migration-audit'
 
+/**
+ * Custom `tsvector` column type for PostgreSQL full-text search.
+ */
 const tsvector = (name: string) =>
   customType<{ data: string }>({
     dataType() {
@@ -16,6 +19,12 @@ const tsvector = (name: string) =>
     },
   })(name)
 
+/**
+ * Search Indexes Table
+ *
+ * Tracks FTS/trigram index state per table per field.
+ * Used by the search service to manage PostgreSQL full-text search indexes.
+ */
 export const searchIndexes = systemSchema.table(
   'search_indexes',
   {
@@ -32,6 +41,18 @@ export const searchIndexes = systemSchema.table(
   (table) => [index('search_indexes_table_field_idx').on(table.tableName, table.fieldName)]
 )
 
+/**
+ * Search Index Content Table
+ *
+ * Stores the actual `tsvector` content rows backing PostgreSQL full-text
+ * search across dynamically created user tables. Distinct from
+ * `search_indexes`, which stores index *metadata* (which table/field, last
+ * reindex time) — this table holds the indexed content itself.
+ *
+ * Maintained by `fts-manager.ts`. The GIN index on `content_tsv` powers the
+ * `@@` full-text match; the `(table_name, record_id)` unique constraint keeps
+ * one row per record so reindexing is an upsert.
+ */
 export const searchIndex = systemSchema.table(
   'search_index',
   {
@@ -49,6 +70,7 @@ export const searchIndex = systemSchema.table(
   ]
 )
 
+// Type inference
 export type SearchIndex = typeof searchIndexes.$inferSelect
 export type NewSearchIndex = typeof searchIndexes.$inferInsert
 export type SearchIndexRow = typeof searchIndex.$inferSelect

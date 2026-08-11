@@ -7,6 +7,22 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Page-level variables for substitution in sections
+ *
+ * Variables can be referenced in section content, props, and children using
+ * $variableName syntax. These variables are substituted at runtime.
+ *
+ * Page-level variables provide values for sections without component references.
+ * They complement component-level vars (from $ref with $vars) for direct sections.
+ *
+ * @example
+ * ```yaml
+ * vars:
+ *   siteName: Sovrium
+ *   primaryColor: blue
+ * ```
+ */
 export const PageVarsSchema = Schema.Record({
   key: Schema.String,
   value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
@@ -19,4 +35,5 @@ export const PageVarsSchema = Schema.Record({
   })
 )
 
+/** @public */
 export type PageVars = Schema.Schema.Type<typeof PageVarsSchema>

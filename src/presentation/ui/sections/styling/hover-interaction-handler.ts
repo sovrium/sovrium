@@ -7,6 +7,12 @@
 
 import type { HoverInteraction } from '@/domain/models/app/pages/components/interactions/hover'
 
+/**
+ * Maps hover interaction properties to CSS property names
+ *
+ * @param hover - Hover interaction configuration
+ * @returns Array of CSS property names
+ */
 function getAnimatableProperties(hover: HoverInteraction): ReadonlyArray<string> {
   return [
     (hover.scale !== undefined || hover.transform) && 'transform',
@@ -18,6 +24,17 @@ function getAnimatableProperties(hover: HoverInteraction): ReadonlyArray<string>
   ].filter((prop): prop is string => Boolean(prop))
 }
 
+/**
+ * Build CSS transition styles for base element state
+ *
+ * Generates transition property for smooth hover animations.
+ * Applied to the base element to define which properties should animate.
+ * Uses explicit transition properties (transitionProperty, transitionDuration, transitionTimingFunction)
+ * in camelCase for React style objects.
+ *
+ * @param hover - Hover interaction configuration
+ * @returns Transition style object or undefined
+ */
 export function buildHoverTransitionStyles(
   hover: HoverInteraction | undefined
 ): Record<string, string> | undefined {
@@ -36,10 +53,26 @@ export function buildHoverTransitionStyles(
   }
 }
 
+/**
+ * Converts scale number to transform string
+ *
+ * @param scale - Scale factor (e.g., 1.05)
+ * @returns CSS transform string (e.g., 'scale(1.05)')
+ */
 function scaleToTransform(scale: number): string {
   return `scale(${scale})`
 }
 
+/**
+ * Build hover effect data for component
+ *
+ * Returns data attributes and style tag content for hover interactions.
+ * Uses a unique identifier to scope hover styles to specific elements.
+ *
+ * @param hover - Hover interaction configuration
+ * @param uniqueId - Unique identifier for the element
+ * @returns Hover data object with attributes and styles
+ */
 export function buildHoverData(
   hover: HoverInteraction | undefined,
   uniqueId: string
@@ -51,8 +84,11 @@ export function buildHoverData(
   | undefined {
   if (!hover) return undefined
 
+  // Convert scale to transform if present (scale takes priority over transform)
   const transformValue = hover.scale !== undefined ? scaleToTransform(hover.scale) : hover.transform
 
+  // Build hover rules list (immutable)
+  // Use !important to override inline styles from props.style
   const hoverRules = [
     transformValue && `transform: ${transformValue} !important`,
     hover.opacity !== undefined && `opacity: ${hover.opacity} !important`,

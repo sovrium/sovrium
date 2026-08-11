@@ -28,6 +28,12 @@ export const dropdownMenuFields = {
         'Visual tone of the dropdown popup surface. "inverted" renders a dark surface with light text so the menu matches a near-black primary CTA trigger; "default" (or omitted) keeps the light surface.',
     })
   ),
+  /**
+   * When true, the dropdown trigger opens on pointer hover (in addition to
+   * click). Click always still opens/closes the menu; hover is purely additive.
+   * The pointer can travel from the trigger into the open popup without the menu
+   * closing.
+   */
   openOnHover: Schema.optional(
     Schema.Boolean.annotations({
       description:

@@ -7,6 +7,9 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Responsive column configuration for gallery grid.
+ */
 export const GalleryGridColumnsSchema = Schema.Struct({
   mobile: Schema.optional(
     Schema.Number.pipe(
@@ -54,4 +57,5 @@ export const GalleryGridColumnsSchema = Schema.Struct({
   description: 'Responsive column counts per breakpoint for the gallery grid layout',
 })
 
+/** @public */
 export type GalleryGridColumns = Schema.Schema.Type<typeof GalleryGridColumnsSchema>

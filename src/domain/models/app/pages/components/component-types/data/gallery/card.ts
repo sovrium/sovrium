@@ -8,6 +8,9 @@
 import { Schema } from 'effect'
 import { ActionSchema } from '../../../action'
 
+/**
+ * Gallery card template configuration.
+ */
 export const GalleryCardSchema = Schema.Struct({
   coverImage: Schema.optional(
     Schema.String.annotations({
@@ -44,4 +47,5 @@ export const GalleryCardSchema = Schema.Struct({
   description: 'Template configuration for how records render as gallery cards',
 })
 
+/** @public */
 export type GalleryCard = Schema.Schema.Type<typeof GalleryCardSchema>

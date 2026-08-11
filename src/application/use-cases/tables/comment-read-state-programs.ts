@@ -11,6 +11,17 @@ import { NotFoundError } from '@/domain/errors'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { DatabaseError } from '@/domain/errors'
 
+/**
+ * Mark a record's comments read for the current user.
+ *
+ * Verifies the caller can access the record — a caller who cannot read the
+ * record must not be able to write read-state for it, so a missing/inaccessible
+ * record fails with a not-found error the route maps to 404 (S1
+ * anti-enumeration). On success, upserts the per-user read-state watermark to
+ * NOW(). `readTracking` gating happens at the route layer (the read-state table
+ * only exists when a table opts in), so this program is only reached for
+ * tracking-enabled tables.
+ */
 export function markRecordCommentsReadProgram(config: {
   readonly session: Readonly<UserSession>
   readonly tableId: string

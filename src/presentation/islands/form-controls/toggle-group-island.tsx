@@ -30,6 +30,14 @@ interface ToggleGroupIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Toggle group island — wraps Base UI ToggleGroup for grouped toggles.
+ *
+ * Supports single (one active at a time) or multiple selection modes with
+ * roving tabindex keyboard navigation. Default styling lives in
+ * `toggle-default-classes.ts` (prestyled-by-default); author
+ * `className` composes AFTER the default wrapper recipe.
+ */
 export default function ToggleGroupIsland({
   items = [],
   toggleType = 'single',

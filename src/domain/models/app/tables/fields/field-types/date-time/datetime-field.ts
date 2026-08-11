@@ -8,6 +8,25 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * DateTime Field
+ *
+ * Stores timezone-aware timestamps (PostgreSQL TIMESTAMPTZ).
+ * Used for event times, deadlines, and appointments.
+ * Returns ISO 8601 format in API responses.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'starts_at',
+ *   type: 'datetime',
+ *   required: true,
+ *   indexed: true,
+ *   timezone: 'UTC'
+ * }
+ * ```
+ */
 export const DateTimeFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({

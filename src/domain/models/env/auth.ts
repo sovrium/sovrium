@@ -8,6 +8,11 @@
 import { Schema } from 'effect'
 import { EMAIL_PATTERN, MAX_EMAIL_LENGTH } from '@/domain/utils/email-validation'
 
+/**
+ * Authentication environment configuration.
+ *
+ * Env vars: AUTH_SECRET, AUTH_ADMIN_EMAIL, AUTH_ADMIN_PASSWORD, AUTH_ADMIN_NAME
+ */
 export const AuthEnvSchema = Schema.Struct({
   authSecret: Schema.optional(
     Schema.String.pipe(

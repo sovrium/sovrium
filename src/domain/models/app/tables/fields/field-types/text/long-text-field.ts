@@ -8,6 +8,32 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Long Text Field
+ *
+ * Multi-line text input for paragraphs, descriptions, notes, and comments.
+ * Supports line breaks and longer content. Text is stored as-is without rich
+ * formatting (no bold, italics, etc.). Required flag makes the field mandatory.
+ * Indexing improves search performance but may be slower for very long content.
+ *
+ * Business Rules:
+ * - Multi-line support allows paragraphs and extended content while preserving line breaks
+ * - Text is stored without formatting, focusing on plain text content
+ * - Indexing optional due to performance trade-offs with large text content
+ * - Constant value 'long-text' ensures type safety and enables discriminated unions
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'description',
+ *   type: 'long-text',
+ *   required: true,
+ *   indexed: false,
+ *   default: 'Enter description here...'
+ * }
+ * ```
+ */
 export const LongTextFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -48,4 +74,5 @@ export const LongTextFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type LongTextField = Schema.Schema.Type<typeof LongTextFieldSchema>

@@ -8,6 +8,13 @@
 import { Effect } from 'effect'
 import { CommandSearchLayer } from '@/application/use-cases/command-search'
 
+/**
+ * Provide CommandSearchLayer to an Effect program.
+ *
+ * Isolates the infrastructure import (the repository Live layer, bundled in
+ * `CommandSearchLayer`) so the command-search route handler depends only on the
+ * application layer. This is the composition root for `GET /api/command-search`.
+ */
 export function provideCommandSearchLive<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {

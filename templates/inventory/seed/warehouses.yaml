@@ -1,0 +1,32 @@
+# Sample warehouses.
+#
+# `key` is file-local — it exists so products, movements and orders can name a
+# warehouse before any row has a database id. It is never written to a column.
+#
+# Three sites, one of them deactivated, so `is_active` is a filter that actually
+# filters. `coordinates` (a `geolocation` field) is left unseeded: it maps to a
+# Postgres `POINT`, and a literal that Postgres accepts is not the literal SQLite
+# stores, so any value written here would seed correctly on one dialect and
+# wrongly on the other. Set it through the UI, where the map picker writes the
+# right shape for the running engine.
+records:
+  - key: paris-central
+    fields:
+      name: Paris Central
+      code: PAR-01
+      capacity_pallets: 1200
+      is_active: true
+
+  - key: lyon-south
+    fields:
+      name: Lyon South
+      code: LYO-02
+      capacity_pallets: 640
+      is_active: true
+
+  - key: lille-overflow
+    fields:
+      name: Lille Overflow
+      code: LIL-03
+      capacity_pallets: 300
+      is_active: false

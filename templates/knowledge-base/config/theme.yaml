@@ -1,18 +1,95 @@
-# Default Sovrium theming.
+# Knowledge-base theming — sky blue.
 #
-# `baseline: extend` inherits Sovrium's built-in design system — the achromatic
-# OKLCH neutral ramp (`--sv-*`) plus the self-hosted IBM Plex Sans / JetBrains
-# Mono type that IS the Sovrium visual identity. Colour is reserved for
-# consequence (see ADR-024), so a template that needs an accent declares its own
-# colour key rather than borrowing one from the engine.
+# The file used to carry `baseline: extend` and nothing else, which is a
+# perfectly valid choice and also the reason this template rendered identically
+# to every other themeless demo. Sky blue is assigned centrally and stays clear
+# of the docs site's teal (its nearest neighbour on the wheel) by leaning
+# distinctly blue rather than green.
 #
-# No `fonts` block: the workhorse and mono families ship self-hosted with the
-# platform. This template previously pulled Inter from the Google Fonts CDN,
-# which contradicted the no-CDN-ever rule in
-# `docs/architecture/patterns/fonts.md` — every such request leaks the
-# operator's IP and Referer to a third party, which an internal tool cannot
-# accept. Author a `fonts` block here only for a genuinely self-hosted family.
+# WHY THESE KEY NAMES
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens every prestyled island consumes. Everything
+#   else emits `--color-*` and does nothing until something cites it. This
+#   template cites nothing — it carries no inline styles anywhere — so an
+#   off-map key here would paint literally nothing.
+#
+#   The mapping is not identity. `muted` → `bg-subtle`, `background-raised` →
+#   `bg-raised`, `background-overlay` → `bg-overlay`, `ring` → `focus-ring`,
+#   `success` → `success-solid`. And `foreground-muted` → `fg-muted`, which the baseline has
+#   already registered as `--color-muted-foreground`, so the
+#   `text-muted-foreground` utility the pages use resolves from it.
+#
+#
+# WHY `background-raised` / `background-overlay` AND NOT `card` / `popover`
+#   The two pairs map to the SAME role tokens (`--sv-bg-raised`,
+#   `--sv-bg-overlay`), so this is not a behaviour change — but `card`, `popover`
+#   and `muted` are listed in `COLORS_NEEDING_FOREGROUND`, which auto-derives a
+#   `<key>-foreground: #ffffff` companion whenever the base key is declared
+#   without one. On a white card that companion is white text on white. Worse,
+#   the derivation runs over the LIGHT block only and is never mirrored into
+#   `darkColors`, so it is a light-surface guess that silently persists into
+#   dark mode. The `background-*` spellings carry no such companion.
+#
+# WHY `primary-foreground` IS SPELLED OUT IN BOTH BLOCKS
+#   `primary` IS in `COLORS_NEEDING_FOREGROUND`, so omitting it derives
+#   `#ffffff` — correct here in light mode, and wrong in dark, where `primary`
+#   lightens and white-on-light is unreadable. The derived companion is not
+#   mirrored into `darkColors`, so the only way to get a legible on-primary ink
+#   in both schemes is to name it twice, which is what happens below.
+# NO SEED DIRECTORY, AND THAT IS CORRECT
+#   This template declares ZERO tables. Its content is markdown under
+#   `content/kb/`, read through `contentDir` at request time, so there is
+#   nothing for `sovrium seed` to write. Adding a `seed/` folder here would be
+#   inventing a table to hold data the template deliberately keeps in files.
+#
+# NO `fonts` BLOCK
+#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
+#   Naming any other family emits `font-family: X, …` with no matching
+#   `@font-face`: the page silently falls to the OS default and the shipped face
+#   is locked out of its own stack. The previous note here worried about a
+#   Google Fonts CDN leak; that was the older, louder failure mode. Nothing is
+#   fetched now — the quiet one is what remains, and the fix is the same.
 baseline: extend
+
+colors:
+  primary: '#0284c7'
+  primary-hover: '#0369a1'
+  primary-foreground: '#ffffff'
+  primary-subtle: '#e0f2fe'
+  ring: '#0ea5e9'
+  background: '#ffffff'
+  background-subtle: '#f5fafe'
+  foreground: '#0c1a26'
+  foreground-muted: '#42606f'
+  foreground-subtle: '#7392a3'
+  background-raised: '#ffffff'
+  background-overlay: '#ffffff'
+  border: '#dbeafe'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+
+# Rendered only when the app declares `theme.colorScheme` or ships a
+# `theme-toggle`; the stylesheet carries it either way, under
+# `html:is(.dark, [data-theme='dark'])`.
+darkColors:
+  primary: '#38bdf8'
+  primary-hover: '#7dd3fc'
+  primary-foreground: '#08151d'
+  primary-subtle: '#082f49'
+  ring: '#0ea5e9'
+  background: '#08151d'
+  background-subtle: '#0f1f2b'
+  foreground: '#e3eff7'
+  foreground-muted: '#a2c0d1'
+  foreground-subtle: '#7695a8'
+  background-raised: '#0f1f2b'
+  background-overlay: '#0f1f2b'
+  border: '#1b3042'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
 
 borderRadius:
   sm: 0.25rem

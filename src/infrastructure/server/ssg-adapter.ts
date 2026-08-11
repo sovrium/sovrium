@@ -9,11 +9,17 @@ import { Effect, Data } from 'effect'
 import { toSSG } from 'hono/bun'
 import type { Hono } from 'hono'
 
+/**
+ * SSG Generation Error - infrastructure layer error
+ */
 export class SSGGenerationError extends Data.TaggedError('SSGGenerationError')<{
   readonly message: string
   readonly cause?: unknown
 }> {}
 
+/**
+ * Options for static site generation (infrastructure layer)
+ */
 export interface SSGOptions {
   readonly outputDir?: string
   readonly baseUrl?: string
@@ -26,37 +32,53 @@ export interface SSGOptions {
   readonly hydration?: boolean
   readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
-  readonly pagePaths?: readonly string[]
-  readonly publicDir?: string
+  readonly pagePaths?: readonly string[] // Explicit list of page paths to generate
+  readonly publicDir?: string // Directory containing static assets to copy
 }
 
+/**
+ * Register explicit page paths in Hono app for SSG discovery
+ */
 function registerPagePaths(
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono type is mutable
   app: Hono,
   pagePaths: readonly string[]
 ): void {
   const mutableApp = app as Hono
 
+  // eslint-disable-next-line functional/no-loop-statements -- Imperative route registration required by Hono's mutable API for toSSG discovery
   for (const path of pagePaths) {
     if (path !== '/') {
+      // eslint-disable-next-line functional/no-expression-statements -- Necessary side effect to mutate Hono app for toSSG route discovery
       mutableApp.get(path, (c) => c.text(''))
     }
   }
 }
 
+/**
+ * Check if a route should be excluded from SSG
+ */
 function shouldExcludeRoute(pathname: string): boolean {
   return (
     pathname === '/api/health' ||
     pathname === '/api/openapi.json' ||
     pathname === '/api/scalar' ||
     pathname.startsWith('/api/auth/') ||
-    pathname === '/api/tables' ||
+    pathname === '/api/tables' || // Exact match for list endpoint
     pathname.startsWith('/api/tables/') ||
-    pathname === '/api/records' ||
+    pathname === '/api/records' || // Exact match for records endpoint
     pathname.startsWith('/api/records/') ||
+    // Dev live-reload routes: `/__sovrium_dev/reload` is an SSE stream that
+    // only ends at SSE_STREAM_MAX_LIFETIME_MS (25s) — toSSG awaits every
+    // response body, so crawling it stalls each build for the full lifetime.
+    pathname.startsWith('/__sovrium_dev/') ||
     pathname.startsWith('/test/')
   )
 }
 
+/**
+ * Normalize file path to be relative to output directory
+ */
 function normalizeFilePath(file: string, outputDir: string): string {
   const normalizedOutputDir = outputDir.startsWith('./') ? outputDir.substring(2) : outputDir
   const normalizedFile = file.startsWith('./') ? file.substring(2) : file
@@ -70,7 +92,18 @@ function normalizeFilePath(file: string, outputDir: string): string {
   return normalizedFile
 }
 
+/**
+ * Generate static site using Hono's SSG functionality
+ *
+ * This adapter wraps Hono's toSSG function with Effect.ts patterns
+ * and Sovrium-specific logic.
+ *
+ * @param app - Hono application instance
+ * @param options - Static generation options
+ * @returns Effect with output directory and generated files
+ */
 export const generateStaticSite = (
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono is a mutable class from external library
   app: Hono | Readonly<Hono>,
   options: Readonly<SSGOptions>
 ): Effect.Effect<
@@ -82,10 +115,12 @@ export const generateStaticSite = (
     try: async () => {
       const outputDir = options.outputDir || './static'
 
+      // Register explicit page paths for SSG discovery
       if (options.pagePaths && options.pagePaths.length > 0) {
         registerPagePaths(app as Hono, options.pagePaths)
       }
 
+      // Use Hono's toSSG to generate static files
       const result = await toSSG(app as Hono, {
         dir: outputDir,
         beforeRequestHook: (req) => {
@@ -94,16 +129,20 @@ export const generateStaticSite = (
         },
       })
 
+      // Check if SSG generation was successful
       if (!result.success) {
+        // eslint-disable-next-line functional/no-throw-statements -- Error handling requires throw
         throw new Error(
           `Static site generation failed: ${result.error?.message || 'Unknown error'}`
         )
       }
 
+      // Normalize file paths to be relative to outputDir
       const normalizedFiles = (result.files as readonly string[]).map((file) =>
         normalizeFilePath(file, outputDir)
       )
 
+      // Return output directory and generated files from toSSG
       return {
         outputDir,
         files: normalizedFiles,

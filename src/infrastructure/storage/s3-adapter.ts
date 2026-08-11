@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types, functional/no-expression-statements */
 
 import {
   S3Client,
@@ -28,6 +29,9 @@ export const createS3Client = (config: S3StorageEnvConfig): S3Client =>
     forcePathStyle: config.forcePathStyle,
   })
 
+/**
+ * Parameters for {@link s3Upload}
+ */
 export interface S3UploadParams {
   readonly client: S3Client
   readonly bucket: string
@@ -81,6 +85,11 @@ export const s3ValidateBucket = async (client: S3Client, bucket: string): Promis
   await client.send(new HeadBucketCommand({ Bucket: bucket }))
 }
 
+/**
+ * Sum object sizes in the bucket (capped at 1000 keys per page — the test fixture
+ * is per-bucket so this is sufficient for quota enforcement). Used for
+ * `STORAGE_MAX_TOTAL_SIZE` on the S3 provider.
+ */
 export const s3GetTotalBytes = async (client: S3Client, bucket: string): Promise<number> => {
   const response = await client.send(
     new ListObjectsV2Command({
@@ -99,6 +108,9 @@ export const s3GetSignedUrl = async (
 ): Promise<string> =>
   getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn })
 
+/**
+ * Parameters for {@link s3GetSignedUploadUrl}
+ */
 export interface S3SignedUploadUrlParams {
   readonly client: S3Client
   readonly bucket: string

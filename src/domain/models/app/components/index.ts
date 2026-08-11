@@ -8,6 +8,43 @@
 import { Schema } from 'effect'
 import { ComponentTemplateSchema } from './component'
 
+/**
+ * Array of reusable UI component templates
+ *
+ * Components provide a library that can be referenced across pages
+ * using the $ref pattern. Each component defines a template with variable
+ * placeholders ($variable) that are substituted when the component is instantiated.
+ *
+ * Benefits:
+ * - DRY: Define once, reuse multiple times
+ * - Consistency: Centralized updates affect all instances
+ * - Maintainability: Single source of truth for UI patterns
+ *
+ * @example
+ * ```typescript
+ * const components = [
+ *   {
+ *     name: 'icon-badge',
+ *     type: 'badge',
+ *     props: { color: '$color' },
+ *     children: [
+ *       { type: 'icon', props: { name: '$icon' } },
+ *       { type: 'text', content: '$text' }
+ *     ]
+ *   },
+ *   {
+ *     name: 'section-header',
+ *     type: 'container',
+ *     props: { className: 'text-center mb-12' },
+ *     children: [
+ *       { type: 'text', props: { level: 'h2' }, content: '$title' },
+ *       { type: 'text', props: { level: 'p' }, content: '$subtitle' }
+ *     ]
+ *   }
+ * ]
+ * ```
+ *
+ */
 export const ComponentsSchema = Schema.Array(ComponentTemplateSchema).pipe(
   Schema.annotations({
     identifier: 'Components',

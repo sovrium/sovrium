@@ -8,10 +8,21 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Database error for connection operations.
+ */
 export class ConnectionDatabaseError extends Data.TaggedError('ConnectionDatabaseError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Connection Repository Port.
+ *
+ * Backs `system.connections` — the catalogue of OAuth/API integrations
+ * an automation can call. Connections are app-scoped (created by an
+ * admin); per-user tokens are stored separately in `connection_tokens`
+ * via {@link ../connection-token-repository}.
+ */
 export class ConnectionRepository extends Context.Tag('ConnectionRepository')<
   ConnectionRepository,
   {
@@ -30,6 +41,12 @@ export class ConnectionRepository extends Context.Tag('ConnectionRepository')<
       readonly metadata?: Record<string, unknown>
       readonly createdById?: string
     }) => Effect.Effect<Record<string, unknown>, ConnectionDatabaseError>
+    /**
+     * Atomically resolve-or-create a connection row keyed on `name`.
+     * Backed by INSERT ... ON CONFLICT (name) DO UPDATE so two concurrent
+     * first-authorize requests for the same connection both succeed and
+     * resolve to the same row (audit H3). Returns the resulting row.
+     */
     readonly upsertByName: (input: {
       readonly name: string
       readonly provider: string

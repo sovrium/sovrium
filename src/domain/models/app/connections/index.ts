@@ -8,8 +8,10 @@
 import { Schema } from 'effect'
 import { OAuth2PropsSchema, ApiKeyPropsSchema, BasicPropsSchema, BearerPropsSchema } from './props'
 
+// ─── Connection Base Fields ──────────────────────────────────────────────────
 
 const ConnectionBaseFields = {
+  /** Connection name (kebab-case identifier, used as $connection.NAME) */
   name: Schema.String.pipe(
     Schema.pattern(/^[a-z][a-z0-9-]*$/),
     Schema.maxLength(100),
@@ -18,12 +20,14 @@ const ConnectionBaseFields = {
     })
   ),
 
+  /** Human-readable label */
   label: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({ description: 'Human-readable label for this connection' })
     )
   ),
 
+  /** Description of what this connection is for */
   description: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({ description: 'Description of this connection and its purpose' })
@@ -31,6 +35,7 @@ const ConnectionBaseFields = {
   ),
 }
 
+// ─── OAuth2 Connection ───────────────────────────────────────────────────────
 
 export const OAuth2ConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
@@ -44,6 +49,7 @@ export const OAuth2ConnectionSchema = Schema.Struct({
   })
 )
 
+// ─── API Key Connection ──────────────────────────────────────────────────────
 
 export const ApiKeyConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
@@ -57,6 +63,7 @@ export const ApiKeyConnectionSchema = Schema.Struct({
   })
 )
 
+// ─── Basic Auth Connection ───────────────────────────────────────────────────
 
 export const BasicConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
@@ -70,6 +77,7 @@ export const BasicConnectionSchema = Schema.Struct({
   })
 )
 
+// ─── Bearer Token Connection ─────────────────────────────────────────────────
 
 export const BearerConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
@@ -83,6 +91,7 @@ export const BearerConnectionSchema = Schema.Struct({
   })
 )
 
+// ─── Connection Union ────────────────────────────────────────────────────────
 
 export const ConnectionSchema = Schema.Union(
   OAuth2ConnectionSchema,
@@ -98,8 +107,10 @@ export const ConnectionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type Connection = Schema.Schema.Type<typeof ConnectionSchema>
 
+// ─── Connections Array ───────────────────────────────────────────────────────
 
 export const ConnectionsSchema = Schema.Array(ConnectionSchema).pipe(
   Schema.annotations({
@@ -114,4 +125,5 @@ export const ConnectionsSchema = Schema.Array(ConnectionSchema).pipe(
   })
 )
 
+/** @public */
 export type Connections = Schema.Schema.Type<typeof ConnectionsSchema>

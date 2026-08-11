@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { fieldNamesMatch } from '@/domain/models/shared/field-name-matching'
+import {
+  declaredFieldDescription,
+  declaredFieldLabel,
+  resolveDisplayDescription,
+  resolveDisplayLabel,
+} from '@/presentation/utils/field-display'
 import { showsDeclaredDefault } from '@/presentation/utils/field-type-behavior'
 import { humanizeFieldName } from '@/presentation/utils/string-utils'
 import type { ResolvedFieldDef } from './crud-form-renderer'
@@ -14,6 +21,15 @@ import type { FormFieldConfig } from '@/domain/models/app/pages/components/compo
 import type { Tables } from '@/domain/models/app/tables'
 import type { FieldType } from '@/domain/models/app/tables/fields'
 
+/**
+ * Normalize a choice field's declared options to their VALUE strings.
+ *
+ * `single-select` / `multi-select` declare `options: string[]`, but `status`
+ * declares `options: { value, color }[]`. Rendering the raw entry would emit
+ * `<option value="[object Object]">`, so the object form is unwrapped here —
+ * once, at the single boundary where table-schema fields become form fields —
+ * rather than in each of the two renderers.
+ */
 function normalizeOptions(raw: unknown): readonly string[] | undefined {
   if (!Array.isArray(raw)) return undefined
   return raw
@@ -28,6 +44,15 @@ function normalizeOptions(raw: unknown): readonly string[] | undefined {
     .filter((value): value is string => value !== undefined)
 }
 
+/**
+ * Read a table field's schema-declared `default` as a form default value.
+ *
+ * Restricted to the field types whose control can legitimately show it (choice
+ * controls — see `showsDeclaredDefault`) and to scalar values: an array default
+ * (`multi-select`) has no single-control representation. Everything else keeps
+ * its default in the column's `DEFAULT` clause, which applies when the untouched
+ * field is omitted from the write.
+ */
 function declaredDefaultOf(
   tableField: { readonly type: string },
   fieldType: string
@@ -40,11 +65,20 @@ function declaredDefaultOf(
   return undefined
 }
 
+/** Column types that accept a column-level `bucket` binding. */
 const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
   'single-attachment',
   'multiple-attachments',
 ])
 
+/**
+ * Field-type pass-through props extracted from the table-schema field object.
+ *
+ * Rich-text fields carry `toolbar`, `maxLength`, `placeholder`. Code fields
+ * carry `language`, `lineNumbers`, `tabSize`, `minLines`, `maxLines`. We
+ * extract a superset here and let the renderer (downstream) ignore irrelevant
+ * keys.
+ */
 type FieldTypePassthrough = {
   readonly placeholder?: string
   readonly maxLength?: number
@@ -70,12 +104,22 @@ function extractFieldTypePassthrough(tableField: unknown): FieldTypePassthrough 
   }
 }
 
-function resolveCfgOverrides(cfg: FormFieldConfig, fallbackLabel: string) {
+/**
+ * The per-field overrides a form's `fields[]` entry contributes.
+ *
+ * `label` and `description` are deliberately ABSENT here: both are resolved once
+ * in {@link resolveFieldDef} through the shared `resolveDisplayLabel` /
+ * `resolveDisplayDescription`, because the form entry is only the FIRST rung of
+ * a three-rung order (entry override -> the field's own value -> this surface's
+ * fallback) and this function cannot see the other two.
+ */
+function resolveCfgOverrides(cfg: FormFieldConfig) {
   return {
-    displayLabel: cfg.label ?? fallbackLabel,
     placeholder: cfg.placeholder,
     readOnly: cfg.readOnly,
     disabled: cfg.disabled,
+    // Conditional: an absent form-level default must NOT clobber the
+    // table field's schema-declared `default`.
     ...(cfg.defaultValue !== undefined && { defaultValue: cfg.defaultValue }),
     hidden: cfg.hidden,
     visibleWhen: cfg.visibleWhen,
@@ -87,6 +131,32 @@ function resolveCfgOverrides(cfg: FormFieldConfig, fallbackLabel: string) {
   }
 }
 
+/**
+ * The control's display name + guidance, resolved in one place.
+ *
+ * Order for both: the form entry's override, then the field's own value, then
+ * THIS surface's fallback — the HUMANIZED name for the label (the drawer and the
+ * column header keep the raw one, deliberately), and nothing at all for the
+ * description, so an undescribed control emits no help-text node.
+ */
+function resolveDisplayProps(
+  tf: Readonly<Record<string, unknown>>,
+  cfg: FormFieldConfig | undefined,
+  fallbackLabel: string
+): { readonly displayLabel: string; readonly description?: string } {
+  const description = resolveDisplayDescription(cfg?.description, declaredFieldDescription(tf))
+  return {
+    displayLabel: resolveDisplayLabel(cfg?.label, declaredFieldLabel(tf), fallbackLabel),
+    ...(description === undefined ? {} : { description }),
+  }
+}
+
+/**
+ * [internal ref]: the file field uploads to — and previews from — the bucket DECLARED
+ * on the bound column, not the implicit 'default' and not the "single declared
+ * bucket" heuristic used for the rich-text image button (which is wrong the
+ * moment an app declares two buckets).
+ */
 function resolveAttachmentBucket(
   fieldType: string,
   tf: Readonly<Record<string, unknown>>
@@ -96,10 +166,19 @@ function resolveAttachmentBucket(
   return typeof bucket === 'string' && bucket.length > 0 ? bucket : undefined
 }
 
+/**
+ * The upload size cap, read off the TABLE column.
+ *
+ * Deliberately NOT gated on {@link ATTACHMENT_FIELD_TYPES} — unlike
+ * {@link resolveAttachmentBucket} — because a column of any type that declares
+ * `maxFileSize` has always had it forwarded, and narrowing that here would be a
+ * silent behaviour change dressed up as a refactor.
+ */
 function resolveMaxFileSize(tf: Readonly<Record<string, unknown>>): number | undefined {
   return typeof tf['maxFileSize'] === 'number' ? (tf['maxFileSize'] as number) : undefined
 }
 
+/** The accepted-MIME allowlist, read off the TABLE column. Ungated, as above. */
 function resolveAllowedFileTypes(
   tf: Readonly<Record<string, unknown>>
 ): readonly string[] | undefined {
@@ -109,6 +188,11 @@ function resolveAllowedFileTypes(
     : undefined
 }
 
+/**
+ * Carry a `type: 'button'` field's own config onto the resolved field def, so
+ * the form renders the declared action instead of a text box. Returns an empty
+ * overlay for every other type so the caller spreads it unconditionally.
+ */
 function resolveButtonConfig(
   fieldType: string,
   tf: Record<string, unknown>
@@ -133,19 +217,29 @@ function resolveFieldDef(
   const options = normalizeOptions((tableField as Record<string, unknown>)['options'])
   const fallbackLabel = humanizeFieldName(tableField.name)
   const passthrough = extractFieldTypePassthrough(tableField)
+  // imageBucket is only meaningful for rich-text; including it on every type
+  // is harmless because the field renderer reads it conditionally.
   const richTextBucket = tableField.type === 'rich-text' ? imageBucket : undefined
+  // maxFileSize, allowedFileTypes and bucket are defined on the table column.
   const tf = tableField as Record<string, unknown>
   const maxFileSize = resolveMaxFileSize(tf)
   const allowedFileTypes = resolveAllowedFileTypes(tf)
   const attachmentBucket = resolveAttachmentBucket(tableField.type, tf)
+  // The domain deliberately admits unrecognized field types (UnknownFieldSchema),
+  // so `type` is a plain `string` here. Assert it into the union at this single
+  // boundary; every consumer routes through the defensive
+  // `fieldTypeBehavior()` accessor, which degrades an unknown type to a text box.
   const fieldType = tableField.type as FieldType
+  // A choice field's declared `default` is what the record will actually carry,
+  // so the control preselects it up front. Overridden below by a form-level
+  // `fields[].defaultValue` when one is configured.
   const declaredDefault = declaredDefaultOf(tableField, fieldType)
   return {
     name: tableField.name,
     type: fieldType,
     required: tableField.required,
     options,
-    displayLabel: fallbackLabel,
+    ...resolveDisplayProps(tf, cfg, fallbackLabel),
     ...(declaredDefault !== undefined && { defaultValue: declaredDefault }),
     ...passthrough,
     ...(richTextBucket && { imageBucket: richTextBucket }),
@@ -153,20 +247,36 @@ function resolveFieldDef(
     ...(allowedFileTypes !== undefined && { allowedFileTypes }),
     ...(attachmentBucket !== undefined && { bucket: attachmentBucket }),
     ...resolveButtonConfig(tableField.type, tf),
-    ...(cfg ? resolveCfgOverrides(cfg, fallbackLabel) : undefined),
+    ...(cfg ? resolveCfgOverrides(cfg) : undefined),
   }
 }
 
+/**
+ * Reads the optional `fields[]` array from a form component definition.
+ *
+ * When present, the array filters and orders the rendered fields and provides
+ * per-field overrides (label, placeholder, readOnly, defaultValue, hidden).
+ */
 function getFieldsConfig(component?: Component): readonly FormFieldConfig[] | undefined {
   if (!component) return undefined
   const { fields } = component as { readonly fields?: readonly FormFieldConfig[] }
   return fields && fields.length > 0 ? fields : undefined
 }
 
-function normalizeFieldName(name: string): string {
-  return name.replace(/[_-]/g, '').toLowerCase()
-}
-
+/**
+ * Build the ordered, resolved list of fields to render.
+ *
+ * - When `fields[]` is configured, ONLY those fields are rendered, in the given
+ *   order. Each is enriched with the matching table-schema info (type, options).
+ * - When `fields[]` is omitted, every table field is rendered using auto-derived
+ *   labels (humanized field names).
+ *
+ * Field name matching is case/separator-insensitive: `firstName` matches
+ * `first_name` and vice-versa. That folding is the SHARED
+ * `fieldNamesMatch` — the config validator resolves `fields[].field` through the
+ * same definition, so a config this resolver renders can never be refused at
+ * boot for naming a field it found perfectly well.
+ */
 export function buildResolvedFieldDefs(
   tables: Tables | undefined,
   tableName: string,
@@ -176,12 +286,16 @@ export function buildResolvedFieldDefs(
   const tableSchema = tables?.find((t) => t.name === tableName)
   const tableFields = tableSchema?.fields ?? []
   const fieldsConfig = getFieldsConfig(component)
+  // Rich-text image-button bucket binding: the contract is "the single bucket
+  // declared in the schema's buckets[] array" (asserted by
+  // [internal ref]). When zero or more than one bucket is
+  // declared, no implicit binding happens — the editor falls back to a
+  // server-default bucket.
   const imageBucket = buckets && buckets.length === 1 ? buckets[0]!.name : undefined
 
   if (fieldsConfig) {
     return fieldsConfig.flatMap((cfg) => {
-      const normalizedCfgField = normalizeFieldName(cfg.field)
-      const tf = tableFields.find((t) => normalizeFieldName(t.name) === normalizedCfgField)
+      const tf = tableFields.find((t) => fieldNamesMatch(t.name, cfg.field))
       if (!tf) return []
       return [resolveFieldDef(tf, cfg, imageBucket)]
     })

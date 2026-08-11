@@ -7,6 +7,30 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Database Indexes
+ *
+ * Custom database indexes for query optimization. Indexes improve query performance by creating efficient lookup structures for specified fields.
+ *
+ * @example
+ * ```typescript
+ * [
+ *   {
+ *     "name": "idx_user_email",
+ *     "fields": [
+ *       "email"
+ *     ]
+ *   },
+ *   {
+ *     "name": "idx_user_created",
+ *     "fields": [
+ *       "created_at"
+ *     ],
+ *     "unique": false
+ *   }
+ * ]
+ * ```
+ */
 export const IndexesSchema = Schema.Array(
   Schema.Struct({
     name: Schema.String.pipe(
@@ -56,4 +80,5 @@ export const IndexesSchema = Schema.Array(
   })
 )
 
+/** @public */
 export type Indexes = Schema.Schema.Type<typeof IndexesSchema>

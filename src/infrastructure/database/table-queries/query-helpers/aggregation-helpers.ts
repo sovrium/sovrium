@@ -17,26 +17,67 @@ import {
 import { generateSqlConditionFragment } from '../filter-operators'
 import { validateColumnName } from '../shared/validation'
 
+/**
+ * `COUNT(*)` cast to a text type for the active dialect — Postgres uses the
+ * `::text` cast, SQLite uses `CAST(... AS TEXT)`.
+ */
 const countSelectClause = (): string =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? 'CAST(COUNT(*) AS TEXT) as count'
     : 'COUNT(*)::text as count'
 
+/**
+ * `COUNT(*)` returned as an integer for the active dialect, ready for callers
+ * that build the SELECT clause via Drizzle's typed `sql<number>` literal:
+ *
+ *   - Postgres: `count(*)::int`
+ *   - SQLite:   `CAST(COUNT(*) AS INTEGER)`
+ *
+ * Drizzle's `bun-sql` driver decodes Postgres `int` directly to a JS number;
+ * the SQLite driver returns INTEGER values as numbers natively. Either way the
+ * result deserializes as a JS number, matching the Postgres-only call sites
+ * that originally hard-coded `count(*)::int`.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's `sql<T>` template returns its native mutable `SQL<T>` shape; wrapping in `Readonly<>` breaks Drizzle's typed `.select({ key: sqlExpr })` API which requires `SQL<unknown> | ...`. Same rationale as the dialect-schema selectors.
 export const countAsIntSelectClause = (): SQL<number> =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? sql<number>`CAST(COUNT(*) AS INTEGER)`
     : sql<number>`count(*)::int`
 
+/**
+ * Cast an arbitrary Drizzle SQL expression to an integer for the active dialect:
+ *
+ *   - Postgres: `(<expr>)::int`
+ *   - SQLite:   `CAST((<expr>) AS INTEGER)`
+ *
+ * Used by call sites that already hand-build an aggregate (e.g. `SUM(...)`)
+ * and need a dialect-aware integer cast on top.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- same rationale as countAsIntSelectClause above (Drizzle's native mutable SQL shape).
 export const castToInt = (expr: SQL): SQL<number> =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? sql<number>`CAST((${expr}) AS INTEGER)`
     : sql<number>`(${expr})::int`
 
+/**
+ * Cast an arbitrary Drizzle SQL expression to a floating-point number for the
+ * active dialect:
+ *
+ *   - Postgres: `(<expr>)::float`
+ *   - SQLite:   `CAST((<expr>) AS REAL)`
+ *
+ * Used by call sites that hand-build a numeric aggregate (e.g. `AVG(...)`)
+ * and need a dialect-aware float cast on top.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- same rationale as countAsIntSelectClause above (Drizzle's native mutable SQL shape).
 export const castToFloat = (expr: SQL): SQL<number> =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? sql<number>`CAST((${expr}) AS REAL)`
     : sql<number>`(${expr})::float`
 
+/**
+ * Build SQL aggregation SELECT clauses for requested operations
+ */
 export function buildAggregationSelects(aggregate: {
   readonly count?: boolean
   readonly sum?: readonly string[]
@@ -73,6 +114,9 @@ export function buildAggregationSelects(aggregate: {
   return [...countSelect, ...sumSelects, ...avgSelects, ...minSelects, ...maxSelects]
 }
 
+/**
+ * Parse count aggregation from result row
+ */
 function parseCountAggregation(
   row: Readonly<Record<string, unknown>>,
   aggregate: { readonly count?: boolean }
@@ -80,6 +124,9 @@ function parseCountAggregation(
   return aggregate.count && row['count'] !== undefined ? { count: String(row['count']) } : {}
 }
 
+/**
+ * Parse numeric aggregation fields (sum, avg, min, max)
+ */
 function parseNumericAggregation(
   row: Readonly<Record<string, unknown>>,
   fields: readonly string[],
@@ -94,6 +141,9 @@ function parseNumericAggregation(
   }, {})
 }
 
+/**
+ * Parse aggregation result row into structured aggregation object
+ */
 export function parseAggregationResult(
   row: Readonly<Record<string, unknown>>,
   aggregate: {
@@ -141,6 +191,9 @@ export function parseAggregationResult(
   }
 }
 
+/**
+ * Check if table has deleted_at column
+ */
 export function checkDeletedAtColumn(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
@@ -152,12 +205,20 @@ export function checkDeletedAtColumn(
   })
 }
 
+/**
+ * A single filter leaf clause (`field <operator> value`).
+ */
 export interface FilterLeaf {
   readonly field: string
   readonly operator: string
   readonly value: unknown
 }
 
+/**
+ * Nestable filter node (GAP-3): a leaf, an `and` group, or an `or` group.
+ * Row-level composite predicates project to this tree; the WHERE builder
+ * renders `( … AND … )` / `( … OR … )` groups recursively.
+ */
 export type FilterNode =
   FilterLeaf | { readonly and: readonly FilterNode[] } | { readonly or: readonly FilterNode[] }
 
@@ -169,24 +230,44 @@ const isAndGroup = (node: FilterNode): node is { readonly and: readonly FilterNo
 const isOrGroup = (node: FilterNode): node is { readonly or: readonly FilterNode[] } =>
   'or' in node && Array.isArray((node as { readonly or?: unknown }).or)
 
+/**
+ * Render a single filter node to a parameterized Drizzle SQL fragment.
+ *
+ * Leaves go through `generateSqlConditionFragment` (bound parameters); `and`
+ * / `or` groups recurse and wrap their children in `( … AND … )` /
+ * `( … OR … )`. An empty group renders as a no-op clause so it neither
+ * widens nor narrows the surrounding condition.
+ */
 function renderFilterNode(node: FilterNode): Readonly<SQL> {
   if (isLeaf(node)) {
     validateColumnName(node.field)
     return generateSqlConditionFragment(node.field, node.operator, node.value)
   }
   if (isOrGroup(node)) {
-    if (node.or.length === 0) return sql`(1 = 0)`
+    if (node.or.length === 0) return sql`(1 = 0)` // empty OR matches nothing
     const parts = node.or.map(renderFilterNode)
     return sql`(${sql.join(parts, sql` OR `)})`
   }
   if (isAndGroup(node)) {
-    if (node.and.length === 0) return sql`(1 = 1)`
+    if (node.and.length === 0) return sql`(1 = 1)` // empty AND matches everything
     const parts = node.and.map(renderFilterNode)
     return sql`(${sql.join(parts, sql` AND `)})`
   }
+  // Unknown node shape — conservatively match nothing.
   return sql`(1 = 0)`
 }
 
+/**
+ * Build parameterized filter condition fragments from user-provided filters
+ *
+ * Returns Drizzle SQL fragments with bound query parameters for all
+ * user-supplied filter values (defense-in-depth against SQL injection).
+ * Column names are validated via validateColumnName and rendered via
+ * sql.identifier() inside generateSqlConditionFragment.
+ *
+ * Each top-level `and` entry may itself be a nested AND/OR group (GAP-3
+ * composite row-level predicates); `renderFilterNode` recurses through them.
+ */
 export function buildUserFilterConditions(filter?: {
   readonly and?: readonly FilterNode[]
 }): readonly Readonly<SQL>[] {
@@ -194,6 +275,9 @@ export function buildUserFilterConditions(filter?: {
   return filter.and.map((node) => renderFilterNode(node))
 }
 
+/**
+ * Find field definition in app schema
+ */
 function findFieldDefinition(
   app: {
     readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
@@ -212,6 +296,9 @@ function findFieldDefinition(
   return field as { readonly type?: string; readonly options?: readonly string[] } | undefined
 }
 
+/**
+ * Build CASE expression for single-select field sorting
+ */
 function buildSingleSelectCaseExpression(
   field: string,
   options: readonly string[],
@@ -223,6 +310,9 @@ function buildSingleSelectCaseExpression(
   return `CASE ${caseWhen} END ${direction}`
 }
 
+/**
+ * Build sort clause for a single field
+ */
 function buildSortClause(
   field: string,
   direction: string | undefined,
@@ -234,6 +324,7 @@ function buildSortClause(
   validateColumnName(field)
   const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
 
+  // Check if this is a single-select field with options
   if (app && tableName) {
     const fieldDef = findFieldDefinition(app, tableName, field)
 
@@ -245,6 +336,12 @@ function buildSortClause(
   return `"${field}" ${dir}`
 }
 
+/**
+ * Build ORDER BY clause from sort parameter
+ * @param sort - Sort parameter (e.g., 'field:asc' or 'field:desc')
+ * @param app - Optional App config for single-select field option ordering
+ * @param tableName - Optional table name for single-select field lookups
+ */
 export function buildOrderByClause(
   sort?: string,
   app?: {
@@ -266,6 +363,12 @@ export function buildOrderByClause(
   return orderClauses.length > 0 ? sql.raw(` ORDER BY ${orderClauses.join(', ')}`) : sql.raw('')
 }
 
+/**
+ * Build a parameterized WHERE clause from filter conditions
+ *
+ * User-supplied filter values are bound as query parameters (not inlined).
+ * The soft-delete `deleted_at IS NULL` clause is a static fragment.
+ */
 export function buildWhereClause(
   hasDeletedAt: boolean,
   includeDeleted: boolean | undefined,
@@ -281,6 +384,10 @@ export function buildWhereClause(
   return conditions.length > 0 ? sql` WHERE ${sql.join(conditions, sql` AND `)}` : sql``
 }
 
+/**
+ * Check which authorship columns exist in a table
+ * Returns an object indicating presence of created_by, updated_by, and deleted_by
+ */
 export function checkAuthorshipColumns(
   tx: Readonly<DrizzleTransaction>,
   tableName: string

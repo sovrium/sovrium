@@ -5,6 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Use case for the admin users-overview tile (`GET /api/admin/users/overview`).
+ *
+ * The application layer owns all pure logic:
+ *   - coercing dialect-native timestamps to epoch-ms,
+ *   - bucketing signup + session timestamps into the interval grid,
+ *   - building a dense bucket series (empty buckets present with 0 counts),
+ *   - classifying the raw `auth.user.role` value into the response's by_role
+ *     bucket,
+ *   - assembling + response-schema-validating the final overview body.
+ *
+ * Only the three raw reads (full user scan, distinct-active count, session list)
+ * live in the infrastructure repository, accessed via
+ * {@link UsersOverviewRepository}. The audit emit (`user.overview.queried`) is
+ * already an application-layer async funnel and is composed by the route after a
+ * successful read.
+ *
+ * Locks plan §6.4 (canonical `series` rollup shape) + [internal ref] D5 (fixed-bucket
+ * interval mapping) by consuming the shared `resolvePeriodWindow()` helper rather
+ * than re-deriving the bucket grid.
+ */
 
 import { Effect, Layer } from 'effect'
 import {
@@ -31,14 +52,26 @@ import {
 } from '@/domain/utils/time-series-bucketing'
 import { UsersOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/users-overview-repository-live'
 
+// ─── Role mapping ────────────────────────────────────────────────────────────
 
+/**
+ * Map the raw `auth.user.role` column value to the response's by_role bucket.
+ *
+ * Mirrors `application/use-cases/tables/user-role.ts`: NULL / unknown → 'member'.
+ * `admin` and `operator` are the two named admin-tier roles; everything else
+ * (including a future custom role) collapses into 'member' for the
+ * dashboard tile. When a new role lands, the response schema gets an
+ * additive field and this mapping gets a new branch — non-breaking.
+ */
 function classifyRole(raw: string | null | undefined): 'admin' | 'operator' | 'member' {
   if (raw === 'admin') return 'admin'
   if (raw === 'operator') return 'operator'
   return 'member'
 }
 
+// ─── Role / bucket tallies ─────────────────────────────────────────────────
 
+/** Aggregate tallies derived from a single full scan of `auth.user`. */
 interface UserTotals {
   readonly totalUsers: number
   readonly admins: number
@@ -50,6 +83,12 @@ interface UserTotals {
   }>
 }
 
+/**
+ * Fold the full `auth.user` row list into the totals + in-period signup rows.
+ * NULL / unknown roles classify to `member`; a row counts toward
+ * `newInPeriod` (and its createdAt joins `signupRowsInPeriod`) when its
+ * timestamp is on/after `fromMs`.
+ */
 const tallyUserRows = (rows: ReadonlyArray<UserOverviewRow>, fromMs: number): UserTotals =>
   rows.reduce<UserTotals>(
     (acc, row) => {
@@ -76,6 +115,10 @@ const tallyUserRows = (rows: ReadonlyArray<UserOverviewRow>, fromMs: number): Us
     }
   )
 
+/**
+ * Merge the signup and sessions_started bucket counts into a single map keyed
+ * by ISO timestamp, ready for the dense-series fill.
+ */
 const mergeBuckets = (
   signupsByBucket: ReadonlyMap<string, number>,
   sessionsByBucket: ReadonlyMap<string, number>
@@ -92,6 +135,12 @@ const mergeBuckets = (
   )
 }
 
+/**
+ * Bucket the in-period signup + session timestamps into the dense response
+ * series via the shared time-series helpers. Signups and sessions are counted
+ * into separate per-bucket maps, then merged into the
+ * `{ signups, sessions_started }` point shape and filled across the dense grid.
+ */
 function buildUsersSeries(
   window: PeriodWindow,
   signupRows: ReadonlyArray<{ readonly createdAt: Readonly<Date> | string | number }>,
@@ -120,12 +169,32 @@ function buildUsersSeries(
   })
 }
 
+// ─── Result shape ────────────────────────────────────────────────────────────
 
+/**
+ * Outcome of the overview build. `Ok` carries the response-schema-validated
+ * body; `ValidationFailed` signals the assembled body failed the response gate
+ * (the route maps this to a 500 + logs the Zod error, exactly as before).
+ */
 export type UsersOverviewOutcome =
   | { readonly _tag: 'Ok'; readonly body: UsersOverviewResponse }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
+// ─── Use case ────────────────────────────────────────────────────────────────
 
+/**
+ * Build the users-overview body for the requested `period`.
+ *
+ * Reads (via {@link UsersOverviewRepository}):
+ *   - the full `auth.user` `{ role, createdAt }` scan → totals.users + by_role +
+ *     in-period signups,
+ *   - the distinct-active-users count since 24h ago → totals.active_24h,
+ *   - the in-period `auth.session` `{ createdAt }` list → sessions_started series.
+ *
+ * Returns the response-schema-validated body (`Ok`) or `ValidationFailed` when
+ * the assembled body does not match `usersOverviewResponseSchema`. The audit
+ * emit is composed by the route after a successful read.
+ */
 export const BuildUsersOverview = (
   period: PeriodPreset
 ): Effect.Effect<UsersOverviewOutcome, UsersOverviewDatabaseError, UsersOverviewRepository> =>
@@ -138,10 +207,15 @@ export const BuildUsersOverview = (
     const nowMs = Date.now()
     const last24hDate = new Date(nowMs - 24 * HOUR_MS)
 
+    // 1) totals.users + by_role + in-period signups — one full scan.
     const totals = tallyUserRows(yield* repo.listUserRows(), fromMs)
 
+    // 2) active_24h — distinct user_id from auth.session rows in last 24h.
     const active24h = yield* repo.countActiveUsersSince(last24hDate)
 
+    // 3) series — bucket signups + sessions_started by the window.interval grid.
+    //    Signups come from the in-memory rows we already filtered above; for
+    //    sessions, fetch the createdAt list scoped to the same window.
     const sessionRowsInPeriod = yield* repo.listSessionRowsSince(fromDate)
 
     const points = buildUsersSeries(window, totals.signupRowsInPeriod, sessionRowsInPeriod)
@@ -170,4 +244,7 @@ export const BuildUsersOverview = (
     return { _tag: 'Ok', body: parsed.data } as const
   })
 
+/**
+ * Application layer for the users-overview use case.
+ */
 export const UsersOverviewLayer = Layer.mergeAll(UsersOverviewRepositoryLive)

@@ -10,11 +10,18 @@ import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 import { DestinationPropSchema } from './shared'
 
+/**
+ * File Transform Image Action (type: file, operator: transformImage)
+ *
+ * Resize, crop, or convert an image file.
+ * The transformed file is available as the step output for subsequent actions.
+ */
 export const FileTransformImageActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('transformImage'),
   props: Schema.Struct({
+    /** Storage key of the source image */
     key: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -23,6 +30,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Storage key of the source image (alias of `key`) */
     source: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -31,6 +39,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Transformation operation to perform */
     operation: Schema.optional(
       Schema.Literal('resize', 'crop', 'convert').pipe(
         Schema.annotations({
@@ -39,6 +48,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Target width in pixels (resize) or crop region width */
     width: Schema.optional(
       Schema.Number.pipe(
         Schema.positive(),
@@ -49,6 +59,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Target height in pixels (resize) or crop region height */
     height: Schema.optional(
       Schema.Number.pipe(
         Schema.positive(),
@@ -59,6 +70,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Crop region X offset in pixels (operation: crop) */
     x: Schema.optional(
       Schema.Number.pipe(
         Schema.nonNegative(),
@@ -69,6 +81,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Crop region Y offset in pixels (operation: crop) */
     y: Schema.optional(
       Schema.Number.pipe(
         Schema.nonNegative(),
@@ -79,6 +92,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Resize fit strategy */
     fit: Schema.optional(
       Schema.Literal('cover', 'contain', 'fill', 'inside', 'outside').pipe(
         Schema.annotations({
@@ -87,6 +101,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Output image format (operation: convert) */
     outputFormat: Schema.optional(
       Schema.Literal('jpeg', 'png', 'webp', 'avif').pipe(
         Schema.annotations({
@@ -95,6 +110,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Output image format (alias of `outputFormat`) */
     format: Schema.optional(
       Schema.Literal('jpeg', 'png', 'webp', 'avif').pipe(
         Schema.annotations({
@@ -103,6 +119,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Output quality for lossy formats */
     quality: Schema.optional(
       Schema.Number.pipe(
         Schema.between(1, 100),
@@ -112,6 +129,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Crop region (alternative to top-level x/y/width/height) */
     crop: Schema.optional(
       Schema.Struct({
         x: Schema.Number,
@@ -125,6 +143,7 @@ export const FileTransformImageActionSchema = Schema.Struct({
       )
     ),
 
+    /** Storage destination for transformed file */
     destination: DestinationPropSchema,
   }).pipe(
     Schema.filter((props) => (props.key ?? props.source) !== undefined, {
@@ -139,4 +158,5 @@ export const FileTransformImageActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileTransformImageAction = Schema.Schema.Type<typeof FileTransformImageActionSchema>

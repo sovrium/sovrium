@@ -10,6 +10,12 @@ import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 import type { Action } from '../..'
 
+/**
+ * Loop Action (type: loop, operator: each)
+ *
+ * Iterate over an array and execute actions for each item.
+ * Current item available as {{loop.item}}, index as {{loop.index}}.
+ */
 export const LoopEachActionSchema: Schema.Schema<Action & { readonly type: 'loop' }, unknown> =
   Schema.Struct({
     ...ActionBaseFields,
@@ -24,6 +30,13 @@ export const LoopEachActionSchema: Schema.Schema<Action & { readonly type: 'loop
       ),
       actions: Schema.Array(
         Schema.suspend((): Schema.Schema<Action, unknown> => {
+          // `require('..')` resolves to `actions/index.ts` (top-level
+          // ActionSchema union); `require('.')` would resolve to
+          // `actions/loop/index.ts`, which only re-exports the operator
+          // schema and has no ActionSchema. Same fix applied to
+          // `actions/path/branch.ts` — both surfaced when a spec first
+          // exercised a recursive action shape.
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { ActionSchema } = require('..') as { ActionSchema: Schema.Schema<Action, unknown> }
           return ActionSchema
         })

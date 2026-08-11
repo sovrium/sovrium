@@ -8,6 +8,10 @@
 import { Schema } from 'effect'
 import { ResponsiveSchema } from '../../responsive'
 
+/**
+ * Responsive fields for components that adapt to breakpoints.
+ * Layout containers and components that change shape/content across screen sizes.
+ */
 export const responsiveFields = {
   responsive: Schema.optional(ResponsiveSchema),
 } as const

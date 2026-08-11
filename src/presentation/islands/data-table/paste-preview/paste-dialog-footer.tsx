@@ -6,11 +6,15 @@
  */
 
 interface PasteDialogFooterProps {
+  /** Whether the batch create is in flight. */
   readonly isPasting: boolean
+  /** Confirms the import. */
   readonly onPaste: () => void
+  /** Dismisses the dialog without importing. */
   readonly onCancel: () => void
 }
 
+/** Cancel / Paste action row for the paste-preview dialog. */
 export function PasteDialogFooter({ isPasting, onPaste, onCancel }: PasteDialogFooterProps) {
   return (
     <div className="mt-4 flex justify-end gap-2">

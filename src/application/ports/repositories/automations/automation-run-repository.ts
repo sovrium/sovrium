@@ -8,10 +8,20 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Database error for automation run operations
+ */
 export class AutomationRunDatabaseError extends Data.TaggedError('AutomationRunDatabaseError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Persisted run row, matching the shape of `system.automation_runs`.
+ *
+ * Stored in the same schema as the engine writes, with `status` mapped
+ * to the public API enum (`completed`, `failed`, `pending`, etc.) before
+ * persistence.
+ */
 export interface PersistedRun {
   readonly id: string
   readonly automationId: string
@@ -24,6 +34,9 @@ export interface PersistedRun {
   readonly error: string | null
 }
 
+/**
+ * Persisted step row, matching the shape of `system.automation_run_steps`.
+ */
 export interface PersistedStep {
   readonly id: string
   readonly runId: string
@@ -38,10 +51,23 @@ export interface PersistedStep {
   readonly error: string | null
 }
 
+/**
+ * Run insert payload — used by the engine after a run completes to
+ * atomically persist the run plus its step rows.
+ */
 export interface CreateRunInput {
   readonly automationId: string
   readonly status: string
   readonly triggerData?: unknown
+  /**
+   * The `auth.user.id` of the person whose action caused this run. Omitted for
+   * a system-initiated run (cron, `automation:call`), which lands the column as
+   * SQL NULL.
+   *
+   * Callers MUST pass an id that exists in `auth.user` — the column carries a
+   * foreign key, so the guest/system sentinels are rejected by the database.
+   * Resolve raw session ids through `resolveActorUserId` before setting this.
+   */
   readonly triggeredByUserId?: string
   readonly startedAt?: Date
   readonly completedAt?: Date
@@ -50,6 +76,9 @@ export interface CreateRunInput {
   readonly steps?: readonly CreateStepInput[]
 }
 
+/**
+ * Step insert payload, paired with its parent run on creation.
+ */
 export interface CreateStepInput {
   readonly actionName: string
   readonly stepIndex: number
@@ -62,6 +91,19 @@ export interface CreateStepInput {
   readonly error?: string
 }
 
+/**
+ * Automation Run Repository Port
+ *
+ * Provides type-safe database operations for automation execution runs.
+ * Implementation lives in infrastructure layer.
+ */
+/**
+ * Filter / pagination options for the `listAll` reader.
+ *
+ * - `automationName` — restricts to runs of a single automation by user-facing name.
+ * - `status` — restricts to runs in the given status (e.g. `'completed'`, `'failed'`).
+ * - `page` (1-indexed) + `pageSize` — optional pagination; when omitted, all rows are returned.
+ */
 export interface ListRunsOptions {
   readonly automationName?: string
   readonly status?: string
@@ -69,6 +111,10 @@ export interface ListRunsOptions {
   readonly pageSize?: number
 }
 
+/**
+ * Result envelope for the `listAll` reader. `total` is the unpaginated count
+ * (matching the filters); `runs` is the paginated slice.
+ */
 export interface ListRunsResult {
   readonly runs: readonly PersistedRun[]
   readonly total: number
@@ -92,10 +138,25 @@ export class AutomationRunRepository extends Context.Tag('AutomationRunRepositor
     readonly create: (
       input: CreateRunInput
     ) => Effect.Effect<PersistedRun, AutomationRunDatabaseError>
+    /**
+     * Update the `status` column of a persisted run. Used by the cancel
+     * endpoint to mark in-flight runs as
+     * `'cancelled'`. Returns `undefined` when no row matches the id.
+     */
     readonly updateStatus: (input: {
       readonly id: string
       readonly status: string
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
+    /**
+     * Finalise a run that was previously inserted as `'queued'` / `'running'`:
+     * update the terminal status + timings, optionally append step rows.
+     * Used by the scheduler at the end of a run so the row id stays stable
+     * across the queued → running → terminal lifecycle (the cancel endpoint
+     * keeps finding the same id throughout).
+     *
+     * Returns the updated row (with definition name joined) or `undefined`
+     * when no row matches the id.
+     */
     readonly finaliseRun: (input: {
       readonly id: string
       readonly status: string

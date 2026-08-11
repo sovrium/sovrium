@@ -8,6 +8,25 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Code Field
+ *
+ * Stores source code as plain text with syntax highlighting metadata.
+ * Rendered with a CodeMirror 6 editor in the UI.
+ * Requires a programming language for syntax highlighting.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'source_code',
+ *   type: 'code',
+ *   language: 'javascript',
+ *   lineNumbers: true,
+ *   tabSize: 2
+ * }
+ * ```
+ */
 export const CodeFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -69,4 +88,5 @@ export const CodeFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type CodeField = Schema.Schema.Type<typeof CodeFieldSchema>

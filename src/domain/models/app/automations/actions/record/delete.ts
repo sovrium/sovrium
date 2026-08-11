@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { ConditionGroupSchema } from '../../conditions'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Delete Action (type: record, operator: delete)
+ *
+ * Delete records matching a filter.
+ */
 export const RecordDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
@@ -28,4 +33,5 @@ export const RecordDeleteActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordDeleteAction = Schema.Schema.Type<typeof RecordDeleteActionSchema>

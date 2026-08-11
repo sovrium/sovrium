@@ -9,6 +9,9 @@ import { Schema } from 'effect'
 import { DigestCollectActionSchema } from './collect'
 import { DigestReleaseActionSchema } from './release'
 
+/**
+ * Digest Action — union of all digest operators
+ */
 export const DigestActionSchema = Schema.Union(
   DigestCollectActionSchema,
   DigestReleaseActionSchema
@@ -21,6 +24,7 @@ export const DigestActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type DigestAction = Schema.Schema.Type<typeof DigestActionSchema>
 
 export * from './collect'

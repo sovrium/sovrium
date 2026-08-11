@@ -7,7 +7,17 @@
 
 import { z } from 'zod'
 
+// ---------------------------------------------------------------------------
+// RAG similarity search request schema
+// ---------------------------------------------------------------------------
 
+/**
+ * Request schema for the RAG similarity search endpoint (`POST /api/ai/rag/search`).
+ *
+ * Used for:
+ * - OpenAPI documentation generation
+ * - Runtime API request validation via @hono/zod-validator
+ */
 export const ragSearchRequestSchema = z.object({
   query: z
     .string()
@@ -21,7 +31,11 @@ export const ragSearchRequestSchema = z.object({
 
 export type RagSearchRequest = z.infer<typeof ragSearchRequestSchema>
 
+// ---------------------------------------------------------------------------
+// RAG similarity search result schemas
+// ---------------------------------------------------------------------------
 
+/** A single pgvector cosine-similarity match returned by the search endpoint. */
 export const ragSearchResultSchema = z.object({
   agentName: z.string().describe('Name of the agent the matched knowledge belongs to'),
   sourceRef: z.string().describe('Reference to the source document or table record'),
@@ -35,6 +49,12 @@ export const ragSearchResultSchema = z.object({
 
 export type RagSearchResult = z.infer<typeof ragSearchResultSchema>
 
+/**
+ * Response schema for the RAG similarity search endpoint.
+ *
+ * On a provider or database failure the endpoint degrades gracefully and
+ * returns an empty `results` array rather than a 5xx error.
+ */
 export const ragSearchResponseSchema = z.object({
   results: z
     .array(ragSearchResultSchema)

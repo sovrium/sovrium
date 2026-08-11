@@ -19,8 +19,23 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import type { TopLevelFormSubmissionRow } from '@/application/ports/repositories/forms/form-submission-repository'
 import type { formSubmissions } from '@/infrastructure/database/drizzle/schema/form-submissions'
 
+/** Wrap a DB promise, adapting failures to FormSubmissionDatabaseError. */
 const wrap = makeDbWrap((cause) => new FormSubmissionDatabaseError({ cause }))
 
+/**
+ * Build the insert values for a top-level form submission. Conditional
+ * spreads keep the call site narrow when optional columns are absent.
+ *
+ * `data` is wrapped in `jsonbLiteral(...)` to work around drizzle-orm +
+ * bun-sql's TEXT-bind behaviour for `jsonb` columns; see the helper's
+ * docstring in `sql-utils.ts` for the full explanation.
+ *
+ * NOTE: the `create` method below (share-link path) does NOT yet apply the
+ * same workaround for `submittedData`. That code path predates the JSONB
+ * fix and is out of scope for D-3; if a downstream spec exposes a JSONB
+ * extraction failure on share-link submissions, switch `submittedData` to
+ * `jsonbLiteral(submittedData)` the same way.
+ */
 interface TopLevelInsertInput {
   readonly formName: string
   readonly formId: number
@@ -29,6 +44,12 @@ interface TopLevelInsertInput {
   readonly data: Record<string, unknown>
   readonly linkedRecordTable?: string
   readonly linkedRecordId?: string
+  /**
+   * SHA-256(`FORM_IP_HASH_SALT` + raw IP) as 64 hex chars. [internal ref]
+   * + S5: raw IP is NEVER persisted on the top-level forms write path —
+   * the hash lands in `submitter_ip_hash` and the legacy `ip_address`
+   * column stays NULL.
+   */
   readonly submitterIpHash?: string
   readonly userAgent?: string
   readonly submitterUserId?: string
@@ -47,6 +68,13 @@ const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
   ...(input.submitterUserId !== undefined ? { submitterUserId: input.submitterUserId } : {}),
 })
 
+/**
+ * Project a Drizzle insert result back into the port's
+ * `TopLevelFormSubmissionRow` shape. Falls back to the input values
+ * when the row is missing — should never happen, but the renderer must
+ * stay robust against unexpected driver behaviour.
+ */
+/* eslint-disable unicorn/no-null -- public API contract: linkedRecord* are nullable text columns */
 const shapeTopLevelRow = (
   row: Readonly<typeof formSubmissions.$inferSelect> | undefined,
   input: Readonly<TopLevelInsertInput>
@@ -72,6 +100,7 @@ const shapeTopLevelRow = (
     linkedRecordId: row.linkedRecordId ?? null,
   }
 }
+/* eslint-enable unicorn/no-null */
 
 type ReserveInput = Readonly<
   TopLevelInsertInput & {
@@ -80,6 +109,7 @@ type ReserveInput = Readonly<
   }
 >
 
+/** Comma-separated SQL fragment of bound status literals for the `IN (...)` list. */
 const buildStatusListFragment = (statuses: readonly string[]) =>
   statuses.length > 0
     ? sql.join(
@@ -88,12 +118,17 @@ const buildStatusListFragment = (statuses: readonly string[]) =>
       )
     : sql.raw(`''`)
 
+/** The cap-guarded `INSERT ... SELECT ... WHERE (count) < cap` statement. */
 const reserveInsertSql = (input: ReserveInput) => {
   const statusList = buildStatusListFragment(input.countStatuses)
+  // Optional text columns bind as SQL NULL via `sql.raw('NULL')` (avoids
+  // passing a JS `null` literal, which the project's lint rules forbid).
   const linkedTable =
     input.linkedRecordTable === undefined ? sql.raw('NULL') : sql`${input.linkedRecordTable}`
   const linkedId =
     input.linkedRecordId === undefined ? sql.raw('NULL') : sql`${input.linkedRecordId}`
+  // [internal ref] + S5: raw IP never lands in `ip_address` on the top-level
+  // forms path — the hash goes to `submitter_ip_hash` instead.
   const ipHash =
     input.submitterIpHash === undefined ? sql.raw('NULL') : sql`${input.submitterIpHash}`
   const ua = input.userAgent === undefined ? sql.raw('NULL') : sql`${input.userAgent}`
@@ -112,6 +147,24 @@ const reserveInsertSql = (input: ReserveInput) => {
         RETURNING *`
 }
 
+/**
+ * Atomic cap-reservation insert.
+ *
+ * The `INSERT ... SELECT ... WHERE (count) < cap` statement is not race-free
+ * on its own under PostgreSQL READ COMMITTED — concurrent transactions each
+ * see only committed rows, so several can observe the same pre-insert count
+ * and overshoot the cap. To serialize reservations per form we acquire a
+ * transaction-scoped advisory lock keyed on the form name BEFORE the insert;
+ * the lock auto-releases at commit. Each lock holder therefore sees every
+ * prior holder's committed row, so at most `maxSubmissions` inserts succeed.
+ *
+ * SQLite serialises all writes via its database-level write lock, so the
+ * advisory-lock dance is unnecessary there — the bare insert is already
+ * atomic against concurrent writers.
+ *
+ * Returns the inserted row, or `undefined` when the cap was already reached
+ * (the WHERE guard short-circuits the SELECT so zero rows insert).
+ */
 const reserveSlotRaw = async (
   input: ReserveInput
 ): Promise<typeof formSubmissions.$inferSelect | undefined> => {
@@ -122,6 +175,10 @@ const reserveSlotRaw = async (
     return rows[0]
   }
   return db.transaction(async (tx) => {
+    // Transaction-scoped advisory lock keyed on the form name. `hashtextextended`
+    // maps the name to a bigint lock key; the lock blocks concurrent
+    // reservations for the SAME form and is released automatically on commit.
+    // eslint-disable-next-line functional/no-expression-statements
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.formName}, 0))`)
     const rows = (await tx.execute(reserveInsertSql(input))) as unknown as ReadonlyArray<
       typeof formSubmissions.$inferSelect
@@ -130,6 +187,14 @@ const reserveSlotRaw = async (
   })
 }
 
+/**
+ * Form Submission Repository Implementation (Drizzle).
+ *
+ * `countRecentByIp` filters by `submitted_at > now() - windowSeconds`
+ * AND `deleted_at IS NULL`, so soft-deleted submissions don't count
+ * toward the rate limit. The DB index on `(ip_address, submitted_at)`
+ * makes this efficient even under heavy traffic.
+ */
 export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionRepository, {
   create: ({ pageName, shareToken, tableName, submittedData, guestEmail, ipAddress }) =>
     wrap(async () => {
@@ -192,12 +257,20 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
 
   reserveTopLevelSlot: (input) =>
     wrap(async () => {
+      // Atomic cap reservation: insert one row IFF the count of non-deleted
+      // rows with a counted status is strictly below the cap. The count
+      // subquery runs inside the INSERT...SELECT statement, so two
+      // concurrent requests cannot both observe the same pre-insert count
+      // and overshoot the cap — at most `maxSubmissions` inserts succeed.
       const row = await reserveSlotRaw(input)
       return row === undefined ? undefined : shapeTopLevelRow(row, input)
     }),
 
   updateStatus: ({ id, status, statusReason }) =>
     wrap(() => {
+      // Conditional spread keeps the column unchanged when the caller
+      // omits a reason; explicitly passing `null` clears any prior
+      // failure note (transitioning back to `done`).
       const reasonOverride = statusReason === undefined ? {} : { statusReason }
       const submissions = formSubmissionsTable()
       return db

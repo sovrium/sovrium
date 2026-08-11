@@ -12,7 +12,7 @@ components:
     props:
       className: py-10 px-6
       style:
-        backgroundColor: '#f8fafc'
+        backgroundColor: var(--color-background-subtle)
     children:
       - type: container
         props:
@@ -23,14 +23,14 @@ components:
             props:
               className: text-4xl font-bold mb-2
               style:
-                color: '#0f172a'
+                color: var(--color-foreground)
             content: Intranet
           - type: text
             element: p
             props:
               className: text-lg mb-8
               style:
-                color: '#475569'
+                color: var(--color-foreground-muted)
             content: Catch up on announcements, find colleagues, and reach the tools you use every day.
 
           # Employee section — visible to any authenticated user
@@ -38,8 +38,8 @@ components:
             props:
               className: p-6 rounded-xl border mb-6
               style:
-                backgroundColor: '#ffffff'
-                borderColor: '#e2e8f0'
+                backgroundColor: var(--color-card)
+                borderColor: var(--color-border)
             visibility:
               when: authenticated
             children:
@@ -53,35 +53,33 @@ components:
                 props:
                   className: mb-4
                   style:
-                    color: '#475569'
+                    color: var(--color-foreground-muted)
                 content: What has been published across the company.
               - type: data-table
-                props:
-                  dataSource:
-                    table: posts
-                    sort:
-                      - field: created_at
-                        direction: desc
-                  columns:
-                    - field: title
-                      header: Title
-                      sortable: true
-                    - field: status
-                      header: Status
-                      sortable: true
-                    - field: author
-                      header: Author
-                  pagination:
-                    enabled: true
-                    pageSize: 10
+                dataSource:
+                  table: posts
+                  sort:
+                    - field: created_at
+                      direction: desc
+                columns:
+                  - field: title
+                    label: Title
+                    sortable: true
+                  - field: status
+                    label: Status
+                    sortable: true
+                  - field: author
+                    label: Author
+                pagination:
+                  pageSize: 10
 
           # Shared resources — quick links every employee needs
           - type: container
             props:
               className: p-6 rounded-xl border mb-6
               style:
-                backgroundColor: '#ffffff'
-                borderColor: '#e2e8f0'
+                backgroundColor: var(--color-card)
+                borderColor: var(--color-border)
             visibility:
               when: authenticated
             children:
@@ -95,35 +93,33 @@ components:
                 props:
                   className: mb-4
                   style:
-                    color: '#475569'
+                    color: var(--color-foreground-muted)
                 content: Tools, policies, and guides — one bookmark for everything.
               - type: data-table
-                props:
-                  dataSource:
-                    table: resources
-                    sort:
-                      - field: added_at
-                        direction: desc
-                  columns:
-                    - field: title
-                      header: Title
-                      sortable: true
-                    - field: category
-                      header: Category
-                      sortable: true
-                    - field: url
-                      header: Link
-                  pagination:
-                    enabled: true
-                    pageSize: 10
+                dataSource:
+                  table: resources
+                  sort:
+                    - field: added_at
+                      direction: desc
+                columns:
+                  - field: title
+                    label: Title
+                    sortable: true
+                  - field: category
+                    label: Category
+                    sortable: true
+                  - field: url
+                    label: Link
+                pagination:
+                  pageSize: 10
 
           # Manager tools — role-gated, only managers and admins see it
           - type: container
             props:
               className: p-6 rounded-xl border mb-6
               style:
-                backgroundColor: '#fefce8'
-                borderColor: '#fde047'
+                backgroundColor: var(--color-warning-subtle)
+                borderColor: var(--color-warning-border)
             visibility:
               roles:
                 - admin
@@ -139,29 +135,27 @@ components:
                 props:
                   className: mb-4
                   style:
-                    color: '#713f12'
+                    color: var(--color-warning-strong)
                 content: Publish announcements, manage the directory, and curate resources. Only managers and admins see this section.
               - type: data-table
-                props:
-                  dataSource:
-                    table: members
-                    sort:
-                      - field: joined_at
-                        direction: desc
-                  columns:
-                    - field: name
-                      header: Name
-                      sortable: true
-                    - field: email
-                      header: Email
-                    - field: location
-                      header: Location
+                dataSource:
+                  table: members
+                  sort:
                     - field: joined_at
-                      header: Joined
-                      sortable: true
-                  pagination:
-                    enabled: true
-                    pageSize: 20
+                      direction: desc
+                columns:
+                  - field: name
+                    label: Name
+                    sortable: true
+                  - field: email
+                    label: Email
+                  - field: location
+                    label: Location
+                  - field: joined_at
+                    label: Joined
+                    sortable: true
+                pagination:
+                  pageSize: 20
 
           # Sign-out button at the bottom
           - type: container
@@ -172,9 +166,9 @@ components:
                 props:
                   className: px-4 py-2 rounded-md border text-sm font-medium
                   style:
-                    color: '#0f172a'
-                    borderColor: '#e2e8f0'
-                    backgroundColor: '#ffffff'
+                    color: var(--color-foreground)
+                    borderColor: var(--color-border)
+                    backgroundColor: var(--color-card)
                 content: Sign out
                 action:
                   type: auth

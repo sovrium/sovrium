@@ -15,6 +15,9 @@ type FilterResult =
   | { readonly error: false; readonly value: FilterStructure }
   | { readonly error: true; readonly response?: Response }
 
+/**
+ * Parse filter parameter from request (formula or standard filter)
+ */
 export function parseFilter(
   c: Context,
   app: App,

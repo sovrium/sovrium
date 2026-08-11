@@ -10,6 +10,12 @@ import { db, DatabaseError, activityLogs } from '@/infrastructure/database'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
+/**
+ * Common activity logging helper
+ *
+ * Logs database operations (create, update, delete) for audit trail.
+ * This is a non-critical operation that should not fail the main operation.
+ */
 export function logActivity(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
@@ -25,9 +31,11 @@ export function logActivity(config: {
   return Effect.ignore(
     Effect.tryPromise({
       try: async () => {
+        // Get table ID from app schema if available
         const table = app?.tables?.find((t) => t.name === tableName)
         const tableId = table?.id ? String(table.id) : '1'
 
+        // eslint-disable-next-line functional/no-expression-statements -- Database insert for logging is an acceptable side effect
         await db.insert(activityLogs).values({
           id: crypto.randomUUID(),
           userId: session.userId,

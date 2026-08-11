@@ -12,6 +12,17 @@ import {
   resolveOllamaBaseUrl,
 } from '@/domain/models/env/ai/ai-eco-routing'
 
+/**
+ * Startup gate for `ECO_AI_PROVIDER_PRECEDENCE=local-only`: a local-only
+ * deployment has no cloud fall-back, so the runtime refuses to start unless a
+ * reachable Ollama instance is configured. Other precedences (`local-first`,
+ * `cloud-first`) tolerate an absent/unreachable Ollama at startup — the
+ * resolver simply routes to the configured cloud provider — so this check is
+ * a no-op for them.
+ *
+ * `probeOllama` is injected (the real fetch-based probe lives in
+ * `@/infrastructure/ai/ollama-reachability`) so this use-case stays unit-testable.
+ */
 export const validateEcoAiRouting = (
   processEnv: Readonly<Record<string, string | undefined>>,
   probeOllama: (baseUrl: string | undefined) => Promise<boolean>

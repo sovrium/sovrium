@@ -30,12 +30,20 @@ import { WebhookActionSchema } from './webhook'
 import type { ConditionGroup } from '../conditions'
 import type { RetryConfig } from '../retry'
 
+// ─── Action Type (manually defined for recursive types) ─────────────────────
 
 export interface ActionBase {
   readonly name: string
   readonly label?: string
   readonly retry?: RetryConfig
   readonly continueOnError?: boolean
+  /**
+   * Per-action timeout (ms). When the action's execution exceeds this
+   * duration the run loop cancels it and the step records as failure.
+   * Distinct from per-action-type `props.timeout` (e.g. `code.props.timeout`,
+   * `http.props.timeout`) which fence the handler's internal Promise-race.
+   * This top-level field is enforced uniformly for ALL action types.
+   */
   readonly timeout?: number
 }
 
@@ -47,21 +55,27 @@ export interface PathBranch {
 
 type Props<T> = { readonly props: T }
 
+/**
+ * Action type — manually defined union of all action variants.
+ * Each type+operator pair is a separate variant with specific props.
+ */
 export type Action =
+  // ── code ──
   | (ActionBase & {
       readonly type: 'code'
       readonly operator: 'runTypescript'
     } & Props<{
         readonly code: string
         readonly inputData?: { readonly [key: string]: unknown }
-        readonly packages?: readonly string[]
         readonly timeout?: number
       }>)
+  // ── http ──
   | (ActionBase & {
       readonly type: 'http'
       readonly operator: 'request'
     } & Props<{
         readonly url: string
+        // Literal HTTP method or a template string resolved at runtime.
         readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | string
         readonly headers?: { readonly [key: string]: string }
         readonly body?: string | { readonly [key: string]: unknown }
@@ -98,6 +112,7 @@ export type Action =
         readonly timeout?: number
         readonly connection?: string
       }>)
+  // ── record (4 operator variants) ──
   | (ActionBase & {
       readonly type: 'record'
       readonly operator: 'create'
@@ -129,6 +144,7 @@ export type Action =
         readonly table: string
         readonly filter: ConditionGroup
       }>)
+  // ── filter ──
   | (ActionBase & {
       readonly type: 'filter'
       readonly operator: 'continue'
@@ -136,6 +152,7 @@ export type Action =
         readonly condition: ConditionGroup
         readonly onFalse?: 'stop' | 'skip'
       }>)
+  // ── path (recursive) ──
   | (ActionBase & {
       readonly type: 'path'
       readonly operator: 'branch'
@@ -143,6 +160,7 @@ export type Action =
         readonly paths: readonly PathBranch[]
         readonly mode?: 'first-match' | 'all-matching'
       }>)
+  // ── loop (recursive) ──
   | (ActionBase & {
       readonly type: 'loop'
       readonly operator: 'each'
@@ -152,6 +170,7 @@ export type Action =
         readonly maxIterations?: number
         readonly continueOnItemError?: boolean
       }>)
+  // ── email ──
   | (ActionBase & {
       readonly type: 'email'
       readonly operator: 'send'
@@ -160,10 +179,12 @@ export type Action =
         readonly subject: string
         readonly body: string
         readonly from?: string
+        // Single recipient or array — handler normalises to array.
         readonly cc?: string | readonly string[]
         readonly bcc?: string | readonly string[]
         readonly replyTo?: string | readonly string[]
       }>)
+  // ── auth (4 operator variants) ──
   | (ActionBase & {
       readonly type: 'auth'
       readonly operator: 'createUser'
@@ -193,6 +214,7 @@ export type Action =
     } & Props<{
         readonly userId: string
       }>)
+  // ── analytics ──
   | (ActionBase & {
       readonly type: 'analytics'
       readonly operator: 'track'
@@ -200,6 +222,7 @@ export type Action =
         readonly event: string
         readonly properties?: { readonly [key: string]: unknown }
       }>)
+  // ── webhook (2 operator variants) ──
   | (ActionBase & {
       readonly type: 'webhook'
       readonly operator: 'send'
@@ -217,6 +240,7 @@ export type Action =
         readonly body?: string | { readonly [key: string]: unknown }
         readonly headers?: { readonly [key: string]: string }
       }>)
+  // ── delay ──
   | (ActionBase & {
       readonly type: 'delay'
       readonly operator: 'wait'
@@ -224,6 +248,7 @@ export type Action =
         readonly duration?: string
         readonly until?: string
       }>)
+  // ── automation ──
   | (ActionBase & {
       readonly type: 'automation'
       readonly operator: 'call'
@@ -233,6 +258,7 @@ export type Action =
         readonly waitForCompletion?: boolean
         readonly timeout?: number
       }>)
+  // ── ai (3 operator variants) ──
   | (ActionBase & {
       readonly type: 'ai'
       readonly operator: 'generate'
@@ -269,6 +295,7 @@ export type Action =
         readonly connection?: string
         readonly baseUrl?: string
       }>)
+  // ── approval ──
   | (ActionBase & {
       readonly type: 'approval'
       readonly operator: 'request'
@@ -283,6 +310,7 @@ export type Action =
         readonly onTimeout?: 'approve' | 'reject' | 'escalate'
         readonly notifyVia?: 'email' | 'webhook' | 'both'
       }>)
+  // ── record batch operators ──
   | (ActionBase & {
       readonly type: 'record'
       readonly operator: 'batchCreate'
@@ -307,6 +335,8 @@ export type Action =
         readonly filter: ConditionGroup
         readonly limit?: number
       }>)
+  // ── file (14 operator variants) ──
+  // Phase 1 — Storage Operations
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'upload'
@@ -348,6 +378,7 @@ export type Action =
         readonly prefix: string
         readonly limit?: number
       }>)
+  // Phase 1 — Metadata & Access
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'getMetadata'
@@ -362,6 +393,7 @@ export type Action =
         readonly expiresIn?: number
         readonly operation?: 'download' | 'upload'
       }>)
+  // Phase 1 — Generation (enhanced with destination)
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'generatePdf'
@@ -393,6 +425,7 @@ export type Action =
         readonly includeHeaders?: boolean
         readonly destination?: string
       }>)
+  // Phase 2 — Advanced
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'parseCsv'
@@ -438,6 +471,7 @@ export type Action =
         readonly filename: string
         readonly destination?: string
       }>)
+  // ── data (10 operator variants) ──
   | (ActionBase & {
       readonly type: 'data'
       readonly operator: 'set'
@@ -513,6 +547,7 @@ export type Action =
         readonly config: string
         readonly format?: 'json' | 'yaml'
       }>)
+  // ── state (5 operator variants) ──
   | (ActionBase & {
       readonly type: 'state'
       readonly operator: 'get'
@@ -552,6 +587,7 @@ export type Action =
         readonly namespace?: string
         readonly limit?: number
       }>)
+  // ── digest (2 operator variants) ──
   | (ActionBase & {
       readonly type: 'digest'
       readonly operator: 'collect'
@@ -568,6 +604,7 @@ export type Action =
         readonly sort?: { readonly field: string; readonly direction?: 'asc' | 'desc' }
         readonly limit?: number
       }>)
+  // ── crypto (2 operator variants) ──
   | (ActionBase & {
       readonly type: 'crypto'
       readonly operator: 'hash'
@@ -585,6 +622,7 @@ export type Action =
         readonly algorithm: 'sha256' | 'sha512'
         readonly encoding?: 'hex' | 'base64'
       }>)
+  // ── flow ──
   | (ActionBase & {
       readonly type: 'flow'
       readonly operator: 'stop'
@@ -593,6 +631,7 @@ export type Action =
         readonly status?: 'success' | 'error'
         readonly output?: { readonly [key: string]: unknown }
       }>)
+  // ── delay:webhook (new operator) ──
   | (ActionBase & {
       readonly type: 'delay'
       readonly operator: 'webhook'
@@ -602,6 +641,7 @@ export type Action =
         readonly onTimeout?: 'continue' | 'stop' | 'error'
         readonly expectedData?: { readonly [key: string]: unknown }
       }>)
+  // ── ai:agent (new operator) ──
   | (ActionBase & {
       readonly type: 'ai'
       readonly operator: 'agent'
@@ -614,13 +654,20 @@ export type Action =
         readonly timeout?: number
         readonly connection?: string
       }>)
+  // ── ref (no operator) ──
   | (ActionBase & {
       readonly type: 'ref'
       readonly $ref: string
       readonly $vars?: { readonly [key: string]: unknown }
     })
 
+// ─── Action Schema Union ────────────────────────────────────────────────────
 
+/**
+ * Union of all action types.
+ * Each type folder exports a union of its operators.
+ * The top-level union composes all type unions.
+ */
 export const ActionSchema: Schema.Schema<Action, unknown> = Schema.Union(
   CodeActionSchema,
   HttpActionSchema,
@@ -645,13 +692,24 @@ export const ActionSchema: Schema.Schema<Action, unknown> = Schema.Union(
   ActionRefSchema
 ).pipe(
   Schema.annotations({
-    identifier: 'Action',
+    // MUST stay distinct from the component-action union's `Action` identifier
+    // (`src/domain/models/app/pages/components/action.ts`). Effect keys JSON
+    // Schema `$defs` by `identifier`, so two schemas sharing one identifier
+    // collapse into a single `$def`: one union is published and the other is
+    // erased. That is what happened here — every automation action
+    // (`file/generatePdf`, `http/request`, `email/send`, …) was missing from
+    // the public schema at https://sovrium.com/schema/app.json that config
+    // authors are told to validate against. Guarded by the identifier
+    // collision + action-coverage tests in
+    // `src/domain/services/json-schema.test.ts`.
+    identifier: 'AutomationAction',
     title: 'Automation Action',
     description:
       'An individual step in an automation workflow. Structure: type + operator + props.',
   })
 ) as Schema.Schema<Action, unknown>
 
+// Re-export all action type schemas
 export * from './ai'
 export * from './analytics'
 export * from './approval'

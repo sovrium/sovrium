@@ -29,9 +29,20 @@ import { viewGroupSpec } from '../view-routes'
 import type { ResourceGroupSpec, StaticGroupSpec } from './route-spec'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Single registry of every route group, consumed by both `createOpenApiApp`
+ * (to register routes) and `buildTags` (to generate the top-level tag list).
+ * Adding a route group is a one-line change here plus its spec file.
+ */
 
+/** OpenAPI tag descriptor. */
 type TagSpec = { readonly name: string; readonly description: string }
 
+/**
+ * Resource-scoped route groups: each expands into concrete per-resource paths
+ * via `expandRoutesPerResource`. Multiple groups may share a `tagPrefix`
+ * (table/record/batch/view all use `Table`).
+ */
 export const RESOURCE_GROUPS: readonly ResourceGroupSpec[] = [
   tableGroupSpec,
   recordsGroupSpec,
@@ -44,6 +55,7 @@ export const RESOURCE_GROUPS: readonly ResourceGroupSpec[] = [
   agentGroupSpec,
 ]
 
+/** Static (non-resource-scoped) route groups, registered via `registerStaticRoutes`. */
 export const STATIC_GROUPS: readonly StaticGroupSpec[] = [
   healthGroup,
   tableCollectionGroup,
@@ -62,6 +74,14 @@ export const STATIC_GROUPS: readonly StaticGroupSpec[] = [
   activeScopeGroup,
 ]
 
+/**
+ * Build the top-level OpenAPI `tags` array for the given app config.
+ *
+ * Resource groups contribute one tag per configured resource
+ * (`Table: contacts`) when a config is present, or their single generic tag
+ * in the app-absent fallback. Tags are deduplicated by name, since several
+ * groups intentionally share a tag.
+ */
 export const buildTags = (app?: App): readonly TagSpec[] => {
   const resourceTags = RESOURCE_GROUPS.flatMap((group): readonly TagSpec[] => {
     const resources = app === undefined ? [] : group.collection(app)

@@ -7,7 +7,41 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Internal Table Registry
+ *
+ * Hardcoded enumeration of Sovrium-internal tables (auth + system pgSchemas)
+ * exposed read-only via MCP to the admin role when MCP_EXPOSE_INTERNALS=true.
+ *
+ * NOT a configurable schema property — this lives under `shared/` (alongside
+ * `permissions.ts`) rather than `app/` because it is stable infrastructure
+ * data authored by Sovrium's developers, not the schema author. The `app/`
+ * namespace is reserved for properties the schema author declares in their
+ * YAML/TS app definition.
+ *
+ * These tables are NOT declared in the user's app schema (`app.tables[]`) —
+ * they live in `pgSchema('auth')` (Better Auth) and `pgSchema('system')`
+ * (Sovrium observability). Per the realistic-test mandate and security
+ * principle, secret-bearing columns are denylisted at the tool layer
+ * regardless of role.
+ *
+ * Derived tool names follow `{appName}_auth_{table}_{op}` and
+ * `{appName}_system_{table}_{op}` (e.g. `crm_auth_user_list`,
+ * `crm_system_activity_logs_list`).
+ *
+ * Operations exposed: only `read` and `list`. No create/update/delete tools
+ * are generated for internal tables — the admin's MCP surface is strictly
+ * observational.
+ *
+ * Maintenance contract: when a new table is added under `pgSchema('auth')` or
+ * `pgSchema('system')`, this registry MUST be updated. The companion test
+ * file iterates Drizzle schema exports and asserts every internal table
+ * appears here — failing the test forces the registry to stay in sync.
+ */
 
+// ---------------------------------------------------------------------------
+// Schema
+// ---------------------------------------------------------------------------
 
 export const InternalTableSchemaName = Schema.Literal('auth', 'system')
 
@@ -29,7 +63,16 @@ export const InternalTableEntrySchema = Schema.Struct({
 
 export type InternalTableEntry = typeof InternalTableEntrySchema.Type
 
+// ---------------------------------------------------------------------------
+// Registry data — auth pgSchema
+// ---------------------------------------------------------------------------
 
+/**
+ * Auth tables exposed read-only to admin MCP role. Source of truth:
+ * `src/infrastructure/auth/better-auth/schema.ts` (`authSchema =
+ * pgSchema('auth')`). Denylists strip credentials, session tokens, OAuth
+ * refresh tokens, 2FA secrets, and any verification codes.
+ */
 export const AUTH_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   {
     schema: 'auth',
@@ -98,7 +141,16 @@ export const AUTH_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   },
 ] as const
 
+// ---------------------------------------------------------------------------
+// Registry data — system pgSchema
+// ---------------------------------------------------------------------------
 
+/**
+ * System / observability tables exposed read-only to admin MCP role. Source
+ * of truth: `src/infrastructure/database/drizzle/schema/*.ts`. Denylists
+ * strip webhook secrets, raw file bytes, embedding vectors, and password
+ * hashes.
+ */
 export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   {
     schema: 'system',
@@ -237,12 +289,25 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
   },
 ] as const
 
+// ---------------------------------------------------------------------------
+// Combined registry
+// ---------------------------------------------------------------------------
 
+/**
+ * Full internal table registry. Concatenation of `AUTH_INTERNAL_TABLES` and
+ * `SYSTEM_INTERNAL_TABLES`. Used by the MCP tool generator to compile
+ * admin-only read-only tools.
+ */
 export const InternalTableRegistry: ReadonlyArray<InternalTableEntry> = [
   ...AUTH_INTERNAL_TABLES,
   ...SYSTEM_INTERNAL_TABLES,
 ]
 
+/**
+ * Query helper: returns all denylisted columns for a given internal table, or
+ * an empty array if the table is not in the registry. Used by tool-handler
+ * code to strip secret-bearing columns from query results.
+ */
 export const getDenylistFields = (
   schema: InternalTableSchemaName,
   tableName: string
@@ -251,6 +316,11 @@ export const getDenylistFields = (
   return entry?.denylistFields ?? []
 }
 
+/**
+ * Query helper: returns true if a given table name uses an internal-reserved
+ * prefix. Used by AppSchema cross-validation to reject user-defined tables
+ * that would collide with the auto-generated admin internals tools.
+ */
 export const isReservedInternalPrefix = (tableName: string): boolean => {
   return tableName.startsWith('auth_') || tableName.startsWith('system_')
 }

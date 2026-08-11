@@ -5,6 +5,28 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * One-shot migration: rename each standalone template repo from the bare slug
+ * `sovrium/<slug>` to `sovrium/<slug>-template`. GitHub auto-creates redirects
+ * (git, API, and web) from the old name, so existing clones, "Use this
+ * template" links, and `sovrium init --template sovrium/<slug>` keep working.
+ *
+ * Idempotent — safe to re-run:
+ *   · target already `<slug>-template`  → skip ("already")
+ *   · old `<slug>` repo absent          → skip ("absent"; the publisher will
+ *                                          create it as `<slug>-template`)
+ *   · old `<slug>` repo present         → rename it
+ * The target-name check comes FIRST because GitHub's post-rename redirect keeps
+ * `repos/<org>/<slug>` resolving (to the renamed repo), so only target-first
+ * stays idempotent.
+ *
+ * Run ONCE, after the publisher / website / demo-fleet references adopt the
+ * `-template` name (see publish-template-repos.ts). Thereafter the publisher
+ * targets the renamed repos directly and this script is a no-op.
+ *
+ * Flags: --dry-run · --only <slug>
+ * Env:   GH_TOKEN (fine-grained PAT with Administration write — rename needs it)
+ */
 
 import { readCatalog, repoName } from './publish-template-repos'
 
@@ -39,6 +61,7 @@ const repoExists = (name: string): boolean =>
 
 type RenameOutcome = 'renamed' | 'already' | 'absent'
 
+/** Rename one repo `<org>/<slug>` → `<org>/<slug>-template` (idempotent). */
 export const renameOne = (slug: string, dryRun: boolean): RenameOutcome => {
   const target = repoName(slug)
   if (repoExists(target)) return 'already'

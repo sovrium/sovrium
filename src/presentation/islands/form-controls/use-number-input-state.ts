@@ -35,6 +35,10 @@ export interface NumberInputState {
   readonly handleDecrement: () => void
 }
 
+/**
+ * Composition-root hook for the number-input island. Owns the value
+ * state + clamped increment/decrement/blur callbacks.
+ */
 export function useNumberInputState({
   defaultValue,
   min,
@@ -47,6 +51,9 @@ export function useNumberInputState({
   const clamp = useCallback((next: number): number => clampValue(next, min, max), [min, max])
 
   const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    // Allow free typing during edit (don't clamp mid-keystroke); the spec
+    // clamps on blur. If the input is empty or unparsable, fall back to 0
+    // for state but keep the raw display via `value=` on the input.
     setValue(parseNumberInput(event.target.value))
   }, [])
 

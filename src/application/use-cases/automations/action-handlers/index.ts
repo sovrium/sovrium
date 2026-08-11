@@ -83,6 +83,20 @@ import {
 import { handleWebhookResponse, handleWebhookSend } from './webhook'
 import type { ActionHandler, ActionKey } from './shared'
 
+/**
+ * Default registry of action handlers.
+ *
+ * Adding a new action type means registering its handler here, NOT
+ * branching on `type/operator` inside the run loop. Each handler module
+ * (`record.ts`, `http.ts`, `state.ts`, `digest.ts`) owns the operators
+ * within its concern; the registry's job is dispatch by key, not
+ * reasoning about action semantics.
+ *
+ * This file replaced the monolithic `../action-handlers.ts` (audit M3).
+ * The original split tipped at 588 LOC across 5 concerns; the directory
+ * structure exposes those concerns as separate, individually-testable
+ * modules.
+ */
 export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new Map<
   ActionKey,
   ActionHandler
@@ -156,9 +170,19 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['automation/return', handleAutomationReturn],
 ])
 
+/**
+ * No-op success handler used when no entry is registered for the action's
+ * key. Records the run as successful so the dispatch shape stays additive
+ * across waves (a new action type that lands without a handler doesn't
+ * regress unrelated tests; it surfaces as a missing-handler entry in logs
+ * that the next migration spec can fill in).
+ */
 export const noopActionHandler: ActionHandler = (_action, _app, _automation) =>
   Effect.succeed({ status: 'success' } as const)
 
+// Re-export the public surface so external callers (currently
+// `run-automation.ts`) can keep importing from the same module path
+// regardless of internal file structure.
 export { actionKey } from './shared'
 export type {
   ActionHandler,

@@ -10,6 +10,7 @@ import { ParentSize } from '@visx/responsive'
 import { scaleBand, scaleLinear } from '@visx/scale'
 import { Bar } from '@visx/shape'
 import { formatAxisLabel, formatAxisValue } from './chart-format'
+import { PRIMARY_SERIES_PAINT } from './chart-series-shared'
 import type { ChartAxisFormat } from './chart-format'
 import type { TableRecord } from '../shared/types'
 import type { ReactElement } from 'react'
@@ -19,6 +20,10 @@ export interface BarDatum {
   readonly value: number
 }
 
+/**
+ * Per-axis display configuration forwarded from the chart schema's
+ * `xAxis`/`yAxis` (custom title, value format, grid lines).
+ */
 export interface ChartAxisDisplay {
   readonly label?: string
   readonly format?: ChartAxisFormat
@@ -29,17 +34,29 @@ interface BarChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly yField: string
+  /**
+   * Pre-aggregated `{ key, value }` series. When supplied (chart declares
+   * `chartAggregate`), it bypasses the record-driven `buildBarData` path.
+   */
   readonly data?: readonly BarDatum[]
   readonly xAxis?: ChartAxisDisplay
   readonly yAxis?: ChartAxisDisplay
+  /** Operator-set `<svg role="img">` name; falls back to the "Bar chart" default. */
   readonly accessibleName?: string
 }
 
+/**
+ * Builds bar data by mapping each record onto an x-key (xField) and a numeric
+ * y-value (yField). When multiple records share the same x-key, values are
+ * summed — keeps the basic chart honest if upstream data has duplicates.
+ */
 function buildBarData(
   records: readonly TableRecord[],
   xField: string,
   yField: string
 ): readonly BarDatum[] {
+  // Reduce over records into an immutable record keyed by x-value, then
+  // project to a BarDatum array. Avoids in-place Map mutation.
   const grouped = records.reduce<Readonly<Record<string, number>>>((acc, r) => {
     const xRaw = r[xField]
     const yRaw = r[yField]
@@ -66,6 +83,7 @@ interface BarChartSvgProps {
 
 const MARGIN = { top: 16, right: 16, bottom: 56, left: 72 }
 
+/** Horizontal grid lines aligned with the Y-axis ticks (gridLines: true). */
 function GridLines({
   ticks,
   yScale,
@@ -92,6 +110,11 @@ function GridLines({
   )
 }
 
+/**
+ * Renders horizontal grid lines when either axis declares `gridLines`. Both
+ * axes draw the same Y-tick-aligned horizontal lines, so a single layer is
+ * emitted if X or Y opts in.
+ */
 function ChartGridLayers({
   xAxis,
   yAxis,
@@ -115,6 +138,12 @@ function ChartGridLayers({
   )
 }
 
+/**
+ * Renders the X-axis baseline + tick labels as plain `<text>` nodes (no
+ * @visx/axis Axis component) — visx wraps each tick in a nested `<svg>`,
+ * which breaks `locator('[data-component="chart"] svg')` strict-mode
+ * lookups in the spec. Plain `<text>` keeps the SVG flat.
+ */
 function XAxisLabels({
   data,
   xScale,
@@ -221,6 +250,7 @@ function YAxisLabels({
   )
 }
 
+/** Renders the `<Bar>` rects for the chart's aggregated series. */
 function BarRects({
   data,
   xScale,
@@ -243,7 +273,7 @@ function BarRects({
             y={barY}
             width={xScale.bandwidth()}
             height={innerHeight - barY}
-            fill="#3b82f6"
+            fill={PRIMARY_SERIES_PAINT}
             data-bar-key={d.key}
           />
         )
@@ -252,6 +282,7 @@ function BarRects({
   )
 }
 
+/** Builds the band (X) and linear (Y) scales for the chart's inner area. */
 function buildScales(
   data: readonly BarDatum[],
   innerWidth: number,
@@ -333,6 +364,8 @@ function BarChartSvg({
   )
 }
 
+// Tailwind-driven container height keeps `style={...}` out of JSX (react-perf
+// rule forbids inline objects).
 const CHART_CONTAINER_CLASSES = 'w-full h-80'
 
 export function BarChartCanvas({

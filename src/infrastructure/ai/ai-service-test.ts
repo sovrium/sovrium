@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types -- AiError tagged classes are mutable by Data.TaggedError design */
 
 import { Effect, Layer, Stream } from 'effect'
 import {
@@ -17,11 +18,44 @@ import {
   type AiError,
 } from '@/application/ports/services/ai-service'
 
+/**
+ * AiService test Layer factory.
+ *
+ * Provides a `Layer.succeed`-based stub for unit-testing use cases that
+ * depend on `AiService` without going through `AiServiceLive` (which would
+ * read `process.env` and call out via `fetch`).
+ *
+ * Per project memory `feedback_mock_module_contamination`, application-
+ * layer unit tests must NOT use `mock.module()` — pass mocks as parameters
+ * instead. This factory is the canonical pattern for that DI.
+ *
+ * @example
+ *   const Live = makeAiServiceTest({ canned: { content: 'Hello!', model: 'm' } })
+ *   const result = await Effect.runPromise(
+ *     program.pipe(Effect.provide(Live))
+ *   )
+ */
 export interface AiServiceTestOptions {
+  /** Static reply returned by every `chat` call. */
   readonly canned?: ChatReply
+  /**
+   * Optional response provider for prompt-pattern-based stubbing.
+   * When provided, takes precedence over `canned`.
+   */
   readonly respond?: (input: ChatInput) => ChatReply | AiError
+  /**
+   * Static chunk sequence emitted by every `chatStream` call. The factory
+   * automatically appends a terminal `{ type: 'done', model }` chunk when
+   * the array contains only `content` deltas, so test fixtures can supply
+   * just the deltas they care about.
+   */
   readonly streamCanned?: ReadonlyArray<ChatChunk>
+  /**
+   * Optional stream-response provider for prompt-pattern-based stubbing.
+   * Mirrors `respond` for streams; takes precedence over `streamCanned`.
+   */
   readonly streamRespond?: (input: ChatInput) => ReadonlyArray<ChatChunk> | AiError
+  /** Override the return value of `isConfigured()`. Default: true. */
   readonly isConfigured?: boolean
 }
 
@@ -44,6 +78,11 @@ const normaliseStreamChunks = (chunks: ReadonlyArray<ChatChunk>): ReadonlyArray<
   return [...chunks, { type: 'done', model: 'mock-model' }]
 }
 
+/**
+ * Canonical DI test Layer for `AiService` (see the module-level docs above).
+ *
+ * @public — consumed by unit tests across layers, not from `src/index.ts`.
+ */
 export const makeAiServiceTest = (options: AiServiceTestOptions = {}): Layer.Layer<AiService> =>
   Layer.succeed(
     AiService,

@@ -8,6 +8,16 @@
 import { Context, type Effect } from 'effect'
 import type { TSValidationError } from './errors'
 
+/**
+ * Effect Context.Tag exposing the in-process TypeScript validator. The
+ * live implementation runs `ts.createProgram` over a virtual file system
+ * where each `code` action body becomes a synthetic `.ts` file with a
+ * prepended ambient `CodeContext` declaration.
+ *
+ * Provided by `TypeScriptValidatorLive`; consumed at server startup by
+ * `startServer`. Validation failures short-circuit `startServer` with a
+ * `TSValidationError` before the HTTP listener binds.
+ */
 export class TypeScriptValidator extends Context.Tag('TypeScriptValidator')<
   TypeScriptValidator,
   {

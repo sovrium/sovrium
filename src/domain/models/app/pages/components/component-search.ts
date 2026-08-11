@@ -7,16 +7,34 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Shared search configuration for data-bound components.
+ *
+ * Used by data-table, kanban, and calendar components to add
+ * an in-component search bar with consistent behavior.
+ *
+ * @example
+ * ```yaml
+ * search:
+ *   enabled: true
+ *   placeholder: Search products...
+ *   debounceMs: 300
+ *   highlight: true
+ * ```
+ */
 export const ComponentSearchSchema = Schema.Struct({
+  /** Enable search bar on the component */
   enabled: Schema.optional(
     Schema.Boolean.annotations({ description: 'Enable search bar (default: true)' })
   ),
+  /** Search input placeholder text */
   placeholder: Schema.optional(
     Schema.String.annotations({
       description: 'Search input placeholder text',
       examples: ['Search products...', 'Type to search...'],
     })
   ),
+  /** Debounce delay in milliseconds */
   debounceMs: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -27,6 +45,7 @@ export const ComponentSearchSchema = Schema.Struct({
       })
     )
   ),
+  /** Highlight matched search terms in results */
   highlight: Schema.optional(
     Schema.Boolean.annotations({
       description: 'Highlight matched search terms in results (default: false)',
@@ -39,4 +58,5 @@ export const ComponentSearchSchema = Schema.Struct({
     'Shared search bar configuration for data-bound components (data-table, kanban, calendar)',
 })
 
+/** @public */
 export type ComponentSearch = Schema.Schema.Type<typeof ComponentSearchSchema>

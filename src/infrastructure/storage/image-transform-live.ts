@@ -17,6 +17,7 @@ import {
 import { parseEcoImageFormat } from '@/domain/models/env/eco/eco-image-format'
 import { resizeImage, createThumbnail, convertImage, cropImage } from './image-processor'
 
+/** Internal failure when `sharp` cannot process the composed-pipeline input. */
 class SharpProcessingError extends Data.TaggedError('SharpProcessingError')<{
   readonly cause: unknown
 }> {}
@@ -28,6 +29,7 @@ const MIME_BY_FORMAT: Readonly<Record<ImageOutputFormat, string>> = {
   avif: 'image/avif',
 }
 
+/** Resize args when the operation requests a resize with both dimensions. */
 const resizeArgs = (
   options: ImageTransformOptions
 ): Readonly<{ width: number; height: number; fit: 'cover' }> | undefined =>
@@ -35,6 +37,7 @@ const resizeArgs = (
     ? { width: options.width, height: options.height, fit: 'cover' }
     : undefined
 
+/** Extract/crop args when the operation requests a crop with a full region. */
 const cropArgs = (
   options: ImageTransformOptions
 ): Readonly<{ left: number; top: number; width: number; height: number }> | undefined => {
@@ -46,6 +49,14 @@ const cropArgs = (
   return { left: x, top: y, width, height }
 }
 
+/**
+ * Run the composed sharp pipeline (resize-or-crop + optional format conversion).
+ *
+ * `sharp` is loaded lazily for the same reason as `image-processor.ts`: its
+ * native addon cannot load from a `bun build --compile` standalone binary's
+ * virtual filesystem at module-load time, so the import is deferred to call
+ * time. Bun caches the dynamic import so subsequent calls have no extra cost.
+ */
 const runSharpPipeline = async (
   input: Uint8Array,
   options: ImageTransformOptions
@@ -97,6 +108,21 @@ export const ImageTransformServiceLive = Layer.succeed(
         catch: (error: unknown) => new ImageTransformError({ cause: error }),
       }),
 
+    /**
+     * Composed pipeline for the automation `file.transformImage` action.
+     *
+     * When the caller does not specify an `outputFormat`, the operator's
+     * `ECO_IMAGE_FORMAT` env var (default `avif`) is honoured per standing
+     * rule R1 — AVIF gives the smallest payload at equivalent visual quality
+     * and is the eco-aligned default. Operators opt out (e.g. `jpeg` for
+     * legacy-browser compatibility).
+     *
+     * Degrades to a verbatim passthrough when sharp cannot process the input
+     * (corrupt / unsupported bytes, or the native module unavailable in a
+     * compiled binary). Error channel `never` — callers always receive a
+     * usable `{ bytes, contentType }` pair. The automation contract is "a
+     * file exists at the destination", not "the pixels were re-encoded".
+     */
     transform: (input: Uint8Array, options: ImageTransformOptions) => {
       const ecoFormat = parseEcoImageFormat(process.env)
       const resolvedFormat: ImageOutputFormat = options.outputFormat ?? ecoFormat

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Re-export all CRUD operations from modular files
 export { listRecords, computeAggregations, listTrash, getRecord } from './crud-read'
 export {
   createRecord,

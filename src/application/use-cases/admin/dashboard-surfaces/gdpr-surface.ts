@@ -5,40 +5,95 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Dashboard Data & GDPR self-service surface,
+ * converted onto generic config (Consoles-as-Config, [internal ref] dogfooding).
+ *
+ * The signed-in admin's self-service GDPR console: export and erase the admin's
+ * OWN account (hard-delete with a 7-day grace, S5) and cancel a pending erasure.
+ * It reuses the EXISTING session-bound account backends end to end
+ * (`GET /api/account/export`, `POST /api/account/delete`,
+ * `GET /api/account/pending-erasure`) — no new backend.
+ *
+ * The bespoke `admin-gdpr` island (a hand-rolled IdentityCard + ExportCard +
+ * EraseCard + EraseConfirmDialog + PendingTable) is GONE; every affordance is now
+ * generic page vocabulary that ships for ANY Sovrium app:
+ *
+ *   - IDENTITY  → a session-bound `text` (`session: 'email'`) renders the
+ *     signed-in operator's OWN email, resolved client-side from the session;
+ *   - EXPORT    → a standalone `button` whose config `fetch` action is
+ *     `mode: 'download'` to `GET /api/account/export` (native `my-account.json`)
+ *     with a persistent `onSuccess.status` "Export generated";
+ *   - ERASE     → a destructive `button` whose object `confirm` is a type-to-confirm
+ *     gate (`role: 'alertdialog'`, `input.matchValue: '$session.email'`, "Effacer"
+ *     stays disabled until the operator retypes their own email) over a config
+ *     `fetch` POST `/api/account/delete { confirm: true }` with a persistent
+ *     `onSuccess.status` "Deletion scheduled" (STATUS ONLY — scheduling an
+ *     erasure revokes the session by design, so the pending table is NOT
+ *     re-asserted in that flow);
+ *   - PENDING   → a generic system-source `data-table` bound to
+ *     `GET /api/account/pending-erasure` (`rowsKey: 'items'`), with a
+ *     `relative-time` due column, an `emptyMessage`, and a per-row "Cancel"
+ *     config `fetch` action POST `/api/account/delete { cancel: true }`
+ *     (confirm-gated) that `onSuccess.refetch`es the table back to empty.
+ *
+ * Wrapped in the persistent 3-zone shell so the sidebar + breadcrumb persist.
+ */
 
 import { homeCrumb, wrapInShell, type ShellBreadcrumbItem } from './dashboard-shell-surface'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
-const EXPORT_BUTTON = "Générer l'export"
-const EXPORT_STATUS = 'Export généré'
-const ERASE_BUTTON = "Demander l'effacement"
+// ── Preserved French copy (byte-identical to the bespoke island so the
+//    conversion is copy-neutral and the spec's exact role/name lookups match). ──
+/** Export card button label. */
+const EXPORT_BUTTON = 'Generate export'
+/** Persistent export-success status (the `onSuccess.status` message → role="status" name). */
+const EXPORT_STATUS = 'Export generated'
+/** Erase card button label. */
+const ERASE_BUTTON = 'Request erasure'
+/** The 7-day-grace / irreversibility callout copy (S5) shown on the erase card. */
 const GRACE_CALLOUT =
-  "L'effacement est définitif et irréversible. Après un délai de grâce de 7 jours, votre compte et vos données sont supprimés définitivement — ils ne sont pas récupérables depuis la corbeille."
-const CONFIRM_TITLE = "Confirmer l'effacement"
+  'Erasure is permanent and irreversible. After a 7-day grace period, your account and your data are deleted for good — they cannot be restored from the trash.'
+/** Erase type-to-confirm gate — the dialog's accessible name (its `title`). */
+const CONFIRM_TITLE = 'Confirm erasure'
+/** Erase confirm body — states the irreversibility (S5). Distinct from the title. */
 const CONFIRM_BODY =
-  "Cette action est définitif et irréversible. Saisissez votre adresse e-mail pour confirmer l'effacement de votre compte."
-const CONFIRM_INPUT = 'Saisissez votre adresse e-mail'
-const CONFIRM_LABEL = 'Effacer'
-const ERASE_STATUS = 'Suppression planifiée'
-const CANCEL_BUTTON = 'Annuler'
-const CANCEL_CONFIRM_TITLE = "Confirmer l'annulation"
+  'This action is permanent and irreversible. Enter your email address to confirm erasure of your account.'
+/** Erase type-to-confirm input label (also the visible input label). */
+const CONFIRM_INPUT = 'Enter your email address'
+/** Erase confirm affordance label (distinct from the trigger label). */
+const CONFIRM_LABEL = 'Erase'
+/** Persistent erasure-scheduled status (STATUS ONLY — the session is revoked). */
+const ERASE_STATUS = 'Deletion scheduled'
+/** Pending-erasure per-row cancel trigger label. */
+const CANCEL_BUTTON = 'Cancel'
+/** Cancel confirm gate — accessible name + confirm affordance (distinct from the row trigger). */
+const CANCEL_CONFIRM_TITLE = 'Confirm cancellation'
 
+/** The pending-erasure `data-table` id — the `onSuccess.refetch` target. */
 const PENDING_GRID_ID = 'gdpr-pending-grid'
 
+/** Shared card chrome (border + raised background + rounded padding). */
 const CARD_CLASS = 'border-border bg-background-raised flex flex-col gap-3 rounded-md border p-5'
 
+/**
+ * The identity card: a heading + a session-bound `text` rendering the signed-in
+ * operator's OWN email (`session: 'email'`, resolved client-side from the caller's
+ * session; anonymous callers render nothing). Replaces the bespoke "My identity"
+ * card's hand-rolled session fetch.
+ */
 function identityCard(): Component {
   return {
     type: 'container',
     element: 'section',
-    props: { className: CARD_CLASS, 'aria-label': 'Mon identité' },
+    props: { className: CARD_CLASS, 'aria-label': 'My identity' },
     children: [
       {
         type: 'text',
         element: 'h3',
         props: { className: 'text-foreground text-lg font-semibold' },
-        content: 'Mon identité',
+        content: 'My identity',
       },
       {
         type: 'text',
@@ -50,24 +105,30 @@ function identityCard(): Component {
   } as unknown as Component
 }
 
+/**
+ * The export card: heading + archive copy + a `mode: download` config `fetch`
+ * button (native `my-account.json` over `GET /api/account/export`) whose
+ * `onSuccess.status` paints the persistent "Export generated" region. The reserved
+ * status target (`#gdpr-export-status`) is promoted to `role="status"` on success.
+ */
 function exportCard(): Component {
   return {
     type: 'container',
     element: 'section',
-    props: { className: CARD_CLASS, 'aria-label': 'Exporter mes données' },
+    props: { className: CARD_CLASS, 'aria-label': 'Export my data' },
     children: [
       {
         type: 'text',
         element: 'h3',
         props: { className: 'text-foreground text-lg font-semibold' },
-        content: 'Exporter mes données',
+        content: 'Export my data',
       },
       {
         type: 'text',
         element: 'p',
         props: { className: 'text-foreground-subtle text-sm' },
         content:
-          'Téléchargez une archive JSON de vos données (profil, enregistrements créés, soumissions de formulaires, activité).',
+          'Download a JSON archive of your data (profile, records you created, form submissions, activity).',
       },
       {
         type: 'button',
@@ -77,11 +138,11 @@ function exportCard(): Component {
           type: 'fetch',
           mode: 'download',
           url: '/api/account/export',
-          filename: 'mon-compte.json',
+          filename: 'my-account.json',
           onSuccess: {
             type: 'toast',
             variant: 'success',
-            message: 'Export terminé',
+            message: 'Export complete',
             status: { target: 'gdpr-export-status', message: EXPORT_STATUS },
           },
         },
@@ -96,29 +157,45 @@ function exportCard(): Component {
   } as unknown as Component
 }
 
+/**
+ * The erase button's object `confirm` — a type-to-confirm `alertdialog` whose
+ * "Effacer" affordance stays disabled until the operator retypes their OWN email
+ * (`input.matchValue: '$session.email'`, resolved client-side from the session).
+ * The body states the irreversibility (S5); the title is separate from it.
+ */
 const ERASE_CONFIRM = {
   title: CONFIRM_TITLE,
   message: CONFIRM_BODY,
   role: 'alertdialog',
   input: { label: CONFIRM_INPUT, matchValue: '$session.email' },
   confirmLabel: CONFIRM_LABEL,
-  cancelLabel: 'Annuler',
+  cancelLabel: 'Cancel',
 } as const
 
+/**
+ * The erase card: a red-accented heading + the 7-day-grace / irreversibility
+ * callout (S5) + a destructive config `fetch` button. The button's object
+ * {@link ERASE_CONFIRM} type-to-confirm gate holds the erase until the operator
+ * retypes their own email; on confirm it POSTs `/api/account/delete
+ * { confirm: true }` (schedules the hard-delete after the 7-day grace) and paints
+ * the persistent "Deletion scheduled" status. NO `onSuccess.refetch` — the
+ * erase revokes the session, so a refetch would be an unauthenticated read (the
+ * approved status-only simplification).
+ */
 function eraseCard(): Component {
   return {
     type: 'container',
     element: 'section',
     props: {
       className: 'border-error-border bg-error-subtle flex flex-col gap-3 rounded-md border p-5',
-      'aria-label': 'Effacer mon compte',
+      'aria-label': 'Erase my account',
     },
     children: [
       {
         type: 'text',
         element: 'h3',
         props: { className: 'text-error-fg text-lg font-semibold' },
-        content: 'Effacer mon compte',
+        content: 'Erase my account',
       },
       {
         type: 'text',
@@ -154,9 +231,17 @@ function eraseCard(): Component {
   } as unknown as Component
 }
 
+/**
+ * The pending-erasure table's per-row action column: a single "Cancel" gesture
+ * whose object `confirm` (a distinct `alertdialog` titled "Confirm cancellation"
+ * so the confirm affordance does not collide with the "Cancel" row trigger) gates
+ * a config `fetch` POST `/api/account/delete { cancel: true }`; `onSuccess.refetch`
+ * re-queries the system source, clearing the row (cancel does NOT revoke the
+ * session, so the live refetch-to-empty is valid).
+ */
 const PENDING_COLUMNS = [
-  { field: 'email', label: 'Compte' },
-  { field: 'scheduledErasureAt', label: 'Échéance', format: 'relative-time' },
+  { field: 'email', label: 'Account' },
+  { field: 'scheduledErasureAt', label: 'Due', format: 'relative-time' },
   {
     type: 'actions',
     label: 'Actions',
@@ -165,28 +250,33 @@ const PENDING_COLUMNS = [
         label: CANCEL_BUTTON,
         confirm: {
           title: CANCEL_CONFIRM_TITLE,
-          message:
-            "Annuler la demande d'effacement de votre compte ? Votre compte ne sera pas supprimé.",
+          message: 'Cancel your account erasure request? Your account will not be deleted.',
           role: 'alertdialog',
           confirmLabel: CANCEL_CONFIRM_TITLE,
-          cancelLabel: 'Retour',
+          cancelLabel: 'Back',
         },
         action: {
           type: 'fetch',
           url: '/api/account/delete',
           method: 'POST',
           body: { cancel: true },
-          onSuccess: { type: 'toast', message: 'Demande annulée', refetch: PENDING_GRID_ID },
+          onSuccess: { type: 'toast', message: 'Request cancelled', refetch: PENDING_GRID_ID },
         },
       },
     ],
   },
 ] as const
 
+/**
+ * The pending-erasure table as a generic system-source `data-table`, bound to
+ * `GET /api/account/pending-erasure` (`{ items: [...] }`, keyed on `id`). Renders
+ * the caller's own pending row (email + a `relative-time` due date) and an
+ * `emptyMessage` when nothing is scheduled.
+ */
 function pendingTable(): Component {
   return {
     type: 'data-table',
-    props: { id: PENDING_GRID_ID, 'aria-label': 'Demandes en cours' },
+    props: { id: PENDING_GRID_ID, 'aria-label': 'Requests in progress' },
     dataSource: {
       system: {
         endpoint: '/api/account/pending-erasure',
@@ -195,22 +285,37 @@ function pendingTable(): Component {
       },
     },
     columns: PENDING_COLUMNS,
-    emptyMessage: "Aucune demande d'effacement en cours",
+    emptyMessage: 'No erasure request in progress',
   } as unknown as Component
 }
 
+/** Shell-wrap concerns for the standalone Data & GDPR surface. */
 export interface GdprOptions {
+  /** F6 tier / F5 editing flag; drives the read-only posture + sidebar affordances. */
   readonly canEdit: boolean
+  /** Operator slug; seeds the shell sidebar brand label. */
   readonly appName?: string
+  /** Operator config version (`app.version`); seeds the sidebar version chip. */
   readonly appVersion?: string
+  /** Operator published config; seeds the read-through count badges. */
   readonly publishedSnapshot: Readonly<Record<string, unknown>>
 }
 
+/**
+ * Build the Data & GDPR page (`/_admin/gdpr`), wrapped in the persistent
+ * 3-zone sidebar shell. The body is generic config — the bespoke `admin-gdpr`
+ * island is GONE.
+ *
+ * @param title - the page meta title
+ * @param options - tier + shell concerns
+ */
 export function buildGdprPage(title: string, options: GdprOptions): Page {
   const { canEdit, appName, appVersion, publishedSnapshot } = options
+  // The profile menu's "My account" opens this page, so the breadcrumb leaf reads
+  // "My account" — the operator's own account (identity + GDPR self-service).
   const breadcrumb: ReadonlyArray<ShellBreadcrumbItem> = [
     homeCrumb(appName),
-    { label: 'Mon compte' },
+    { label: 'My account' },
   ]
   const body: Component = {
     type: 'container',

@@ -5,11 +5,42 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Rate-limit wiring for admin / auth-endpoints / tables / activity.
+ *
+ * Four separate sliding windows share the same map-of-timestamps math; that
+ * math lives in the shared `createSlidingWindowLimiter()` primitive (see
+ * `@/infrastructure/utils/sliding-window-limiter`). Each domain below
+ * composes its own key derivation + config map on top.
+ *
+ * Critical contract preservation: the admin window is **1 second**
+ * (`ADMIN_CONFIG.windowMs = 1000`); auth / tables / activity use
+ * `getRateLimitWindowMs()` (env-overridable, default 60_000 ms). These
+ * differ by 60× by design — admin endpoints intentionally allow 10 req/s
+ * during dashboard polling while user-facing auth is brute-force-prevented
+ * at 20 req/min. A naive consolidation that uses one window everywhere
+ * would silently weaken admin to 10 req/min — a security regression.
+ *
+ * Out of scope: the MCP rate limiter (`mcp/rate-limit.ts`) has a different
+ * contract (dual-window, JSON-RPC envelope, X-RateLimit-* headers) and stays
+ * independent.
+ */
 
 import { createSlidingWindowLimiter } from '@/infrastructure/utils/sliding-window-limiter'
 import type { SlidingWindowConfig } from '@/infrastructure/utils/sliding-window-limiter'
 
+// ---------------------------------------------------------------------------
+// Common helpers
+// ---------------------------------------------------------------------------
 
+/**
+ * Get rate limit window duration in milliseconds from environment variable.
+ * Defaults to 60 seconds (production) if not set.
+ * Tests should set RATE_LIMIT_WINDOW_SECONDS=5 for faster execution.
+ *
+ * NOT used by the admin limiter — admin uses a hardcoded 1-second window
+ * (see ADMIN_CONFIG below). Used by auth / tables / activity.
+ */
 const getRateLimitWindowMs = (): number => {
   const windowSeconds = process.env.RATE_LIMIT_WINDOW_SECONDS
   return windowSeconds ? parseInt(windowSeconds, 10) * 1000 : 60 * 1000
@@ -20,7 +51,16 @@ interface EndpointRateLimitConfig {
   readonly maxRequests: number
 }
 
+// ---------------------------------------------------------------------------
+// Admin rate limiter — 10 req per 1-SECOND window (NOT env-overridable)
+// ---------------------------------------------------------------------------
 
+/**
+ * Admin window is intentionally 1 second (NOT 60 seconds like the other
+ * three limiters in this file). 10 requests per second matches dashboard
+ * polling cadence. If you change this, read `getRateLimitWindowMs()` above
+ * and confirm the discrepancy is still intentional.
+ */
 const ADMIN_CONFIG: SlidingWindowConfig = { windowMs: 1000, maxRequests: 10 }
 const adminLimiter = createSlidingWindowLimiter()
 
@@ -30,6 +70,9 @@ export const isRateLimitExceeded = (ip: string): boolean =>
 export const recordRateLimitRequest = (ip: string): readonly number[] =>
   adminLimiter.record(ip, ADMIN_CONFIG)
 
+// ---------------------------------------------------------------------------
+// Auth rate limiter — per-endpoint config, env-derived window default 60s
+// ---------------------------------------------------------------------------
 
 const authLimiter = createSlidingWindowLimiter()
 
@@ -38,15 +81,15 @@ const getAuthRateLimitConfigs = (): Record<string, EndpointRateLimitConfig> => {
   return {
     '/api/auth/sign-in/email': {
       windowMs,
-      maxRequests: 20,
+      maxRequests: 20, // 20 attempts per window (prevents brute force while allowing legitimate retries)
     },
     '/api/auth/sign-up/email': {
       windowMs,
-      maxRequests: 20,
+      maxRequests: 20, // 20 signups per window (prevents abuse while allowing test scenarios)
     },
     '/api/auth/request-password-reset': {
       windowMs,
-      maxRequests: 10,
+      maxRequests: 10, // 10 attempts per window (prevents enumeration while allowing legitimate use)
     },
   }
 }
@@ -71,6 +114,9 @@ export const getAuthRateLimitRetryAfter = (endpoint: string, ip: string): number
   return authLimiter.getRetryAfter(getAuthRateLimitKey(endpoint, ip), config.windowMs)
 }
 
+// ---------------------------------------------------------------------------
+// Tables rate limiter — per-method:path config, env-derived window default 60s
+// ---------------------------------------------------------------------------
 
 const tablesLimiter = createSlidingWindowLimiter()
 
@@ -83,6 +129,10 @@ const getTablesRateLimitConfigs = (): Record<string, EndpointRateLimitConfig> =>
   }
 }
 
+/**
+ * Resolve the effective config-key for a given method+path. Matches an
+ * exact key first, then falls back to the wildcard `<method>:/api/tables/*`.
+ */
 const resolveTablesConfigKey = (method: string, path: string): string => {
   const exactKey = `${method}:${path}`
   return getTablesRateLimitConfigs()[exactKey] ? exactKey : `${method}:/api/tables/*`
@@ -107,9 +157,18 @@ export const recordTablesRateLimitRequest = (
   return tablesLimiter.record(getTablesRateLimitKey(method, path, ip), config)
 }
 
+/**
+ * The original tables retry-after used `getRateLimitWindowMs()` directly
+ * (not the per-config windowMs). Both produce the same value today —
+ * every tables config uses the env-derived window — but preserving the
+ * original behaviour keeps this commit a true no-op.
+ */
 export const getTablesRateLimitRetryAfter = (method: string, path: string, ip: string): number =>
   tablesLimiter.getRetryAfter(getTablesRateLimitKey(method, path, ip), getRateLimitWindowMs())
 
+// ---------------------------------------------------------------------------
+// Activity rate limiter — per-method:path config, env-derived window default 60s
+// ---------------------------------------------------------------------------
 
 const activityLimiter = createSlidingWindowLimiter()
 
@@ -145,5 +204,10 @@ export const recordActivityRateLimitRequest = (
   return activityLimiter.record(getActivityRateLimitKey(method, path, ip), config)
 }
 
+/**
+ * Same caveat as `getTablesRateLimitRetryAfter` — preserve original
+ * behaviour of using `getRateLimitWindowMs()` directly rather than the
+ * per-config windowMs (the values are identical today).
+ */
 export const getActivityRateLimitRetryAfter = (method: string, path: string, ip: string): number =>
   activityLimiter.getRetryAfter(getActivityRateLimitKey(method, path, ip), getRateLimitWindowMs())

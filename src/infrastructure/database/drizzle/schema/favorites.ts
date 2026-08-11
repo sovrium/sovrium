@@ -10,6 +10,14 @@ import { text, timestamp, index } from 'drizzle-orm/pg-core'
 import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
 
+/**
+ * User Favorites Table
+ *
+ * Tracks user-bookmarked entities (records, pages). Supports soft delete
+ * for unfavorite/refavorite semantics.
+ *
+ * Entity types: 'record', 'page'
+ */
 export const userFavorites = systemSchema.table(
   'user_favorites',
   {
@@ -31,6 +39,14 @@ export const userFavorites = systemSchema.table(
   ]
 )
 
+/**
+ * User Recent Items Table
+ *
+ * Tracks recently viewed entities per user. Upsert on re-visit (updates viewedAt).
+ * Application layer enforces max 20 items per user and 30-day auto-prune.
+ *
+ * Entity types: 'record', 'page'
+ */
 export const userRecentItems = systemSchema.table(
   'user_recent_items',
   {
@@ -49,6 +65,7 @@ export const userRecentItems = systemSchema.table(
   (table) => [index('user_recent_items_user_viewedAt_idx').on(table.userId, table.viewedAt)]
 )
 
+// Type inference
 export type UserFavorite = typeof userFavorites.$inferSelect
 export type NewUserFavorite = typeof userFavorites.$inferInsert
 export type UserRecentItem = typeof userRecentItems.$inferSelect

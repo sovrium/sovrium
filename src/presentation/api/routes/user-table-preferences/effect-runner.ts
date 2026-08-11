@@ -5,6 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Provide the user-table-preferences runtime layer to a preferences Effect
+ * program. Mirror of the sibling `user-views/effect-runner.ts`.
+ *
+ * Phase 9 Cycle 5 — composes `UserTablePreferencesRepositoryLive` (which
+ * needs `Database`) over `DatabaseLive`, isolating the infrastructure import
+ * at this single presentation-layer boundary.
+ */
 
 import { Effect, Layer } from 'effect'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'

@@ -10,6 +10,19 @@ import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import { submitSchemaConfig } from './schema-config-submit'
 import type { Extension } from '@codemirror/state'
 
+/**
+ * Shared schema config-editor island core (platform B10).
+ *
+ * Both the JSON (`schema-json-editor`) and YAML (`schema-yaml-editor`) editor
+ * islands mount this component, differing only in the CodeMirror language
+ * `extension` and the `format` discriminant written to the submit table. The
+ * editor honors `initialValue`, `height`, and `lineNumbers` from the component
+ * schema, and on Submit POSTs the edited text to the records API for
+ * `submitToTable`, writing `{ [configField]: <text>, [formatField]: format }`.
+ *
+ * Errors are surfaced inline; on success the component is left intact so the
+ * operator can submit again (the records API is idempotent per click).
+ */
 export interface SchemaConfigEditorProps {
   readonly submitToTable?: string
   readonly configField?: string
@@ -20,11 +33,18 @@ export interface SchemaConfigEditorProps {
   readonly readOnly?: boolean
   readonly id?: string
   readonly className?: string
+  /**
+   * GAP-I2: resolved `inlinePrefill` record-context (e.g. the host page's
+   * `app` FK). Merged into the records POST body so the editor's submit
+   * carries the page record FK.
+   */
   readonly submitContext?: Readonly<Record<string, unknown>>
 }
 
 export interface SchemaConfigEditorCoreProps extends SchemaConfigEditorProps {
+  /** CodeMirror language extension (JSON or YAML syntax mode). */
   readonly extension: Extension
+  /** Format discriminant written to `formatField` ('json' | 'yaml'). */
   readonly format: 'json' | 'yaml'
 }
 

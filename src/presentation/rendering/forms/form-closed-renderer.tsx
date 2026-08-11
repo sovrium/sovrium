@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-refresh/only-export-components -- SSR-only closed-form
+   page component co-located with its `renderClosedFormPage` serialisation
+   helper; never participates in client-side HMR. Mirrors form-renderer.tsx. */
 
 import { renderToString } from 'react-dom/server'
 import { isBadgeEnabled } from '@/domain/models/app/badge'
@@ -13,8 +16,21 @@ import { DemoNotice } from '@/presentation/ui/demo-notice/demo-notice'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
+/**
+ * Reason a form is closed, surfaced to the closed-page renderer so the
+ * default copy can distinguish "not yet open" from "closed/expired".
+ */
 export type ClosedReason = 'not-yet-open' | 'closed'
 
+/**
+ * Custom closed-page configuration (`availability.closedPage`). Optional —
+ * when absent the renderer falls back to the form title + default copy.
+ *
+ * NOTE: `availability.closedPage` is not yet part of `FormAvailabilitySchema`;
+ * this shape is read defensively off the form so the renderer is ready once
+ * the schema field lands. Until then `closedPage` is always
+ * undefined and only the default copy renders.
+ */
 interface ClosedPageConfig {
   readonly title?: string
   readonly message?: string
@@ -59,15 +75,23 @@ function ClosedFormPage(props: {
             <a href={closedPage.cta.href}>{closedPage.cta.label}</a>
           )}
         </main>
-        {}
+        {/* Closed-form documents are hardcoded lang="en"; the badge follows
+            with its English label (graceful fallback). */}
         {badgeEnabled && <SovriumBadge />}
-        {}
+        {/* Closed-form documents are hardcoded lang="en"; the notice follows
+            with its English copy (graceful fallback), same as the badge. */}
         <DemoNotice />
       </body>
     </html>
   )
 }
 
+/**
+ * Render the closed-form HTML document. Shows a custom `closedPage` block
+ * when configured, otherwise the form title + default "not yet open" /
+ * "closed" copy. Backs the GET `/forms/:name` response when the form's
+ * availability window has not yet opened or has already closed.
+ */
 export function renderClosedFormPage(
   app: Readonly<App>,
   form: Readonly<Form>,

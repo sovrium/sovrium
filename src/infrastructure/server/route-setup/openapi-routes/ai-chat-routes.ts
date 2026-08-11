@@ -13,6 +13,7 @@ import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 const chatRequestBody = { content: { 'application/json': { schema: chatRequestSchema } } }
 
+/** AI chat route group. */
 export const aiChatGroup: StaticGroupSpec = {
   tag: 'ai',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',

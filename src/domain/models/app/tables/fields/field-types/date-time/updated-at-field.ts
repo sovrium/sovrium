@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Updated At Field
+ *
+ * Automatically updates the timestamp whenever a record is modified.
+ * This field is system-managed and cannot be manually edited.
+ * Automatically updates on every record update operation.
+ * Commonly used for tracking last modification time and cache invalidation.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'updated_at',
+ *   type: 'updated-at',
+ *   indexed: true
+ * }
+ * ```
+ */
 export const UpdatedAtFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -29,4 +47,5 @@ export const UpdatedAtFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type UpdatedAtField = Schema.Schema.Type<typeof UpdatedAtFieldSchema>

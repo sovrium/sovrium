@@ -7,7 +7,13 @@
 
 import { z } from '@hono/zod-openapi'
 
+// ============================================================================
+// Activity Log Schemas
+// ============================================================================
 
+/**
+ * Activity log user reference schema
+ */
 export const activityLogUserSchema = z
   .object({
     id: z.string().describe('User identifier'),
@@ -16,6 +22,9 @@ export const activityLogUserSchema = z
   })
   .openapi('ActivityLogUser')
 
+/**
+ * Activity log entry schema (list view)
+ */
 export const activityLogSchema = z
   .object({
     id: z.string().describe('Activity log identifier'),
@@ -28,6 +37,9 @@ export const activityLogSchema = z
   })
   .openapi('ActivityLog')
 
+/**
+ * Activity log detail schema (single view, includes changes)
+ */
 export const activityLogDetailSchema = activityLogSchema
   .extend({
     changes: z
@@ -37,6 +49,9 @@ export const activityLogDetailSchema = activityLogSchema
   })
   .openapi('ActivityLogDetail')
 
+/**
+ * Activity log pagination schema
+ */
 export const activityPaginationSchema = z.object({
   total: z.number().int().describe('Total count of activities'),
   page: z.number().int().describe('Current page number'),
@@ -44,16 +59,32 @@ export const activityPaginationSchema = z.object({
   totalPages: z.number().int().describe('Total number of pages'),
 })
 
+// ============================================================================
+// Activity Log Response Schemas
+// ============================================================================
 
+/**
+ * List activity logs response schema
+ *
+ * GET /api/activity
+ */
 export const listActivityLogsResponseSchema = z.object({
   activities: z.array(activityLogSchema).describe('List of activity log entries'),
   pagination: activityPaginationSchema.describe('Pagination metadata'),
 })
 
+/**
+ * Get activity log detail response schema
+ *
+ * GET /api/activity/:activityId
+ */
 export const getActivityLogResponseSchema = activityLogDetailSchema.describe(
   'Single activity log entry with change details'
 )
 
+// ============================================================================
+// TypeScript Types
+// ============================================================================
 
 export type ActivityLogUser = z.infer<typeof activityLogUserSchema>
 export type ActivityLog = z.infer<typeof activityLogSchema>

@@ -7,6 +7,18 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Transition easing function types
+ *
+ * Standard CSS easing functions for smooth transitions:
+ * - linear: Constant speed
+ * - ease: Slow start, fast middle, slow end (default)
+ * - ease-in: Slow start, fast end
+ * - ease-out: Fast start, slow end
+ * - ease-in-out: Slow start and end, fast middle
+ * - cubic-bezier(): Custom cubic bezier function (e.g., cubic-bezier(0.4, 0, 0.2, 1))
+ * - steps(): Step function for discrete animations (e.g., steps(40, end) for typewriter effect)
+ */
 export const EasingFunctionSchema = Schema.Union(
   Schema.Literal('linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out'),
   Schema.String.pipe(
@@ -31,12 +43,55 @@ export const EasingFunctionSchema = Schema.Union(
   description: 'Transition timing function',
 })
 
+/**
+ * CSS duration pattern (ms or s)
+ *
+ * Must be a number (integer or decimal) followed by 'ms' (milliseconds) or 's' (seconds).
+ *
+ * @example
+ * ```typescript
+ * const durations = ['200ms', '0.5s', '1s', '1500ms']
+ * ```
+ */
 export const DurationSchema = Schema.String.pipe(
   Schema.pattern(/^[0-9]+(\.[0-9]+)?(ms|s)$/, {
     message: () => 'Duration must be a number followed by ms or s (e.g., 200ms, 0.5s)',
   })
 )
 
+/**
+ * Visual changes when user hovers over component
+ *
+ * Supports CSS properties for hover effects (all optional):
+ * - scale: Scale factor (e.g., 1.05 for 5% larger) - shorthand for transform: scale(X)
+ * - transform: CSS transforms (scale, rotate, translate)
+ * - opacity: Opacity value (0-1)
+ * - backgroundColor: Background color
+ * - color: Text color
+ * - borderColor: Border color
+ * - shadow: Box shadow
+ * - duration: Transition duration (default: 200ms)
+ * - easing: Transition easing (default: ease-out)
+ *
+ * All properties are animated smoothly using CSS transitions.
+ *
+ * @example
+ * ```typescript
+ * const hoverEffect = {
+ *   scale: 1.05,
+ *   shadow: '0 10px 25px rgba(0,0,0,0.15)',
+ *   duration: '200ms',
+ *   easing: 'ease-out'
+ * }
+ *
+ * const colorChange = {
+ *   opacity: 0.8,
+ *   backgroundColor: '#007bff',
+ *   color: '#ffffff'
+ * }
+ * ```
+ *
+ */
 export const HoverInteractionSchema = Schema.Struct({
   scale: Schema.optional(
     Schema.Number.annotations({
@@ -83,6 +138,8 @@ export const HoverInteractionSchema = Schema.Struct({
   description: 'Visual changes when user hovers over component',
 })
 
+/** @public */
 export type EasingFunction = Schema.Schema.Type<typeof EasingFunctionSchema>
+/** @public */
 export type Duration = Schema.Schema.Type<typeof DurationSchema>
 export type HoverInteraction = Schema.Schema.Type<typeof HoverInteractionSchema>

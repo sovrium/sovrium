@@ -1,0 +1,224 @@
+# Sample stock ledger — the append-only history behind every stock figure.
+#
+# This file is what makes `products.movement_count` and `products.units_moved`
+# mean something: with no movements, both computed columns render 0 on every row
+# and the demo silently shows nothing about count/rollup fields at all.
+#
+# `quantity` is a POSITIVE MAGNITUDE on every row, including outbound ones — the
+# `direction` column carries the sign. That means the `units_moved` rollup is
+# GROSS throughput (everything that ever crossed the door), not net stock on
+# hand. Signing the outbound rows would make the rollup read as net and look
+# tidier, but it would also make the same number mean two different things
+# depending on which row you looked at, and a demo that teaches the wrong model
+# is worse than one that teaches a plain one.
+#
+# Dates are relative and spread over roughly four months so the ledger has depth
+# — a history where everything happened on the same day is not a history.
+records:
+  # ── Opening receipts ────────────────────────────────────────────────
+  - key: mv-0001
+    fields:
+      reference: GRN-2481
+      product: '@products.rack-shelf-1200'
+      warehouse: '@warehouses.paris-central'
+      direction: Inbound
+      quantity: 300
+      unit_cost: 98.00
+      moved_on: '{{today-118d}}'
+      note: Opening receipt against the annual racking contract.
+
+  - key: mv-0002
+    fields:
+      reference: GRN-2482
+      product: '@products.rack-upright-2400'
+      warehouse: '@warehouses.paris-central'
+      direction: Inbound
+      quantity: 200
+      unit_cost: 66.00
+      moved_on: '{{today-118d}}'
+      note: Same delivery as GRN-2481, separate line on the packing note.
+
+  - key: mv-0003
+    fields:
+      reference: GRN-2495
+      product: '@products.label-roll-100x150'
+      warehouse: '@warehouses.paris-central'
+      direction: Inbound
+      quantity: 1800
+      unit_cost: 5.05
+      moved_on: '{{today-96d}}'
+      note: Monthly standing order from Valmont.
+
+  - key: mv-0004
+    fields:
+      reference: GRN-2496
+      product: '@products.carton-400'
+      warehouse: '@warehouses.lyon-south'
+      direction: Inbound
+      quantity: 800
+      unit_cost: 30.20
+      moved_on: '{{today-92d}}'
+      note: Full pallet, Nordpack. No partials accepted.
+
+  - key: mv-0005
+    fields:
+      reference: GRN-2503
+      product: '@products.barcode-scanner-2d'
+      warehouse: '@warehouses.paris-central'
+      direction: Inbound
+      quantity: 120
+      unit_cost: 110.00
+      moved_on: '{{today-84d}}'
+      note: Kessler, three weeks late against the confirmed date.
+
+  # ── Outbound against orders ─────────────────────────────────────────
+  - key: mv-0006
+    fields:
+      reference: PICK-8801
+      product: '@products.rack-shelf-1200'
+      warehouse: '@warehouses.paris-central'
+      direction: Outbound
+      quantity: 40
+      moved_on: '{{today-61d}}'
+      note: Picked for the Northwind fit-out.
+
+  - key: mv-0007
+    fields:
+      reference: PICK-8802
+      product: '@products.rack-upright-2400'
+      warehouse: '@warehouses.paris-central'
+      direction: Outbound
+      quantity: 24
+      moved_on: '{{today-61d}}'
+
+  - key: mv-0008
+    fields:
+      reference: PICK-8840
+      product: '@products.label-roll-100x150'
+      warehouse: '@warehouses.paris-central'
+      direction: Outbound
+      quantity: 380
+      moved_on: '{{today-44d}}'
+      note: Bulk pull for the wholesale channel.
+
+  - key: mv-0009
+    fields:
+      reference: PICK-8855
+      product: '@products.carton-400'
+      warehouse: '@warehouses.lyon-south'
+      direction: Outbound
+      quantity: 190
+      moved_on: '{{today-38d}}'
+
+  - key: mv-0010
+    fields:
+      reference: PICK-8871
+      product: '@products.barcode-scanner-2d'
+      warehouse: '@warehouses.paris-central'
+      direction: Outbound
+      quantity: 42
+      moved_on: '{{today-27d}}'
+      note: Helios rollout, phase one.
+
+  - key: mv-0011
+    fields:
+      reference: PICK-8890
+      product: '@products.pallet-wrap-500'
+      warehouse: '@warehouses.paris-central'
+      direction: Outbound
+      quantity: 96
+      moved_on: '{{today-16d}}'
+      note: Cleared the last of the wrap. Reorder not raised — this is why it is at zero.
+
+  - key: mv-0012
+    fields:
+      reference: PICK-8894
+      product: '@products.cotton-tote-natural'
+      warehouse: '@warehouses.paris-central'
+      direction: Outbound
+      quantity: 300
+      moved_on: '{{today-9d}}'
+      note: Conference giveaway. Gone in one afternoon.
+
+  - key: mv-0013
+    fields:
+      reference: PICK-8902
+      product: '@products.void-fill-paper'
+      warehouse: '@warehouses.lyon-south'
+      direction: Outbound
+      quantity: 58
+      moved_on: '{{today-6d}}'
+
+  - key: mv-0014
+    fields:
+      reference: PICK-8907
+      product: '@products.scanner-1d-legacy'
+      warehouse: '@warehouses.paris-central'
+      direction: Outbound
+      quantity: 4
+      moved_on: '{{today-3d}}'
+      note: One of the three customers who still reorder this.
+
+  # ── Adjustments ─────────────────────────────────────────────────────
+  - key: mv-0015
+    fields:
+      reference: ADJ-0312
+      product: '@products.label-roll-100x150'
+      warehouse: '@warehouses.paris-central'
+      direction: Adjustment
+      quantity: 12
+      moved_on: '{{today-52d}}'
+      note: Cycle count. Twelve rolls found behind the rack, never booked in.
+
+  - key: mv-0016
+    fields:
+      reference: ADJ-0318
+      product: '@products.printhead-203dpi'
+      warehouse: '@warehouses.paris-central'
+      direction: Adjustment
+      quantity: 1
+      moved_on: '{{today-31d}}'
+      note: Written off. Dropped on the bench; elements cracked.
+
+  - key: mv-0017
+    fields:
+      reference: ADJ-0325
+      product: '@products.carton-400'
+      warehouse: '@warehouses.lille-overflow'
+      direction: Adjustment
+      quantity: 45
+      moved_on: '{{today-22d}}'
+      note: Water damage on the Lille pallet. Site deactivated after this.
+
+  # ── Recent receipts ─────────────────────────────────────────────────
+  - key: mv-0018
+    fields:
+      reference: GRN-2571
+      product: '@products.printhead-203dpi'
+      warehouse: '@warehouses.paris-central'
+      direction: Inbound
+      quantity: 4
+      unit_cost: 167.00
+      moved_on: '{{today-14d}}'
+      note: Kessler again. Four of the six ordered; the rest backordered indefinitely.
+
+  - key: mv-0019
+    fields:
+      reference: GRN-2578
+      product: '@products.void-fill-paper'
+      warehouse: '@warehouses.lyon-south'
+      direction: Inbound
+      quantity: 90
+      unit_cost: 43.50
+      moved_on: '{{today-8d}}'
+
+  - key: mv-0020
+    fields:
+      reference: GRN-2584
+      product: '@products.shelf-divider-kit'
+      warehouse: '@warehouses.paris-central'
+      direction: Inbound
+      quantity: 2
+      unit_cost: 0
+      moved_on: '{{today-2d}}'
+      note: Second sample set from Acme, free of charge. Not for sale.

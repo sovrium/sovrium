@@ -13,6 +13,16 @@ import {
 
 export { type Action } from '@/domain/models/app/automations/actions'
 
+/**
+ * Synthetic step name injected into a template's `action` body during
+ * validation. Action variant schemas require a `name` field (from
+ * `ActionBaseFields`) since within an automation the step name is how
+ * outputs are referenced. A reusable template, by contrast, is nameless —
+ * the step name comes from the `$ref` call site
+ * (`{ name: 'alert', $ref: 'notify-admin' }`). To validate the template's
+ * action body against the canonical `ActionSchema` union we inject this
+ * placeholder when absent, then strip it on encode.
+ */
 const TEMPLATE_ACTION_PLACEHOLDER_NAME = 'templateAction'
 
 const withPlaceholderName = (value: unknown): unknown => {
@@ -28,6 +38,15 @@ const stripPlaceholderName = (action: Action): unknown => {
   return rest
 }
 
+/**
+ * Action property for ActionTemplate.
+ *
+ * Accepts any action type from the automation action union (code, http,
+ * record, email, etc.) but does NOT require a `name` field — the step name
+ * is supplied at the `$ref` call site, not in the template definition.
+ *
+ * @see {@link AutomationActionSchema} from `@/domain/models/app/automations/actions`
+ */
 export const ActionSchema: Schema.Schema<Action, unknown> = Schema.transform(
   Schema.Unknown,
   AutomationActionSchema,

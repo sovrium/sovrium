@@ -11,6 +11,7 @@ import {
   type SupportedAiProvider,
 } from './ai-providers'
 
+/** A model override declared on an agent (only the bits relevant to warnings). */
 export interface AgentModelOverride {
   readonly name: string
   readonly model?: string | undefined
@@ -28,6 +29,15 @@ const formatAgentModelWarning = (
   `Agent "${agentName}" declares model "${model}", which is not a known model for the ` +
   `"${provider}" provider — it may be a typo. The platform will still attempt to use it.`
 
+/**
+ * Compute non-fatal startup warnings about model identifiers given the
+ * configured provider, the default `AI_MODEL` (if any), and any agent
+ * `model` overrides.
+ *
+ * Providers with open-ended model catalogues (Ollama, OpenAI-compatible)
+ * always yield an empty list — the platform cannot know which models a given
+ * deployment has installed.
+ */
 export const computeAiModelWarnings = (
   provider: SupportedAiProvider,
   defaultModel: string | undefined,

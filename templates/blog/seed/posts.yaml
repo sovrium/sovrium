@@ -1,0 +1,287 @@
+# Seven posts: five published, two still drafts.
+#
+# The split is the point. `/` filters on `status = published` and `/blog/:slug`
+# carries the same filter, so the drafts prove the filter is doing something —
+# they appear in the admin dashboard and 404 on the public site. A seed set
+# where every row is published cannot demonstrate that.
+#
+# `published_at` is a `datetime`, so these use `{{now-Nd}}` (full ISO 8601)
+# rather than `{{today-Nd}}` (date only). They fan out across roughly three
+# months so the desc sort has something to sort and the dates do not all read as
+# the same afternoon. Drafts leave it unset, which is what an unpublished post
+# actually looks like.
+#
+# Bodies are HTML because `body` is a `rich-text` field. They pass through the
+# sanitizer on render, so only the tags the editor toolbar can produce are worth
+# writing here — h2, p, ul/li, blockquote, strong, em, a, pre/code.
+records:
+  - key: config-as-code
+    fields:
+      title: Your app is a config file, and that changes the argument
+      slug: your-app-is-a-config-file
+      status: published
+      published_at: '{{now-4d}}'
+      author: '@authors.mireille'
+      tags:
+        - '@tags.self-hosting'
+        - '@tags.engineering'
+      excerpt: >-
+        Most "no-code versus code" arguments are really arguments about who is
+        allowed to press deploy. Moving the app definition into a file settles
+        it quietly.
+      body: |-
+        <p>Every few years the same argument comes round: should the business
+        build on a visual tool it can change itself, or on code it will need an
+        engineer to change? It is framed as a question about power and
+        flexibility. It is almost never actually that.</p>
+
+        <h2>The real question is who can press deploy</h2>
+
+        <p>When the application lives inside a hosted editor, the answer is
+        "whoever has the login". That is genuinely useful right up until the
+        afternoon somebody edits the wrong view and there is no diff, no
+        history, and no way to say what the thing looked like on Tuesday.</p>
+
+        <p>When the application lives in a file, the answer is "whoever can get
+        a change merged". That sounds slower, and for the first week it is. Then
+        the file starts paying for itself:</p>
+
+        <ul>
+          <li>Every change has an author, a date, and a reason.</li>
+          <li>Two people can propose conflicting changes and see the conflict.</li>
+          <li>Reverting is a revert, not an archaeology project.</li>
+          <li>The staging copy is the same file with different environment variables.</li>
+        </ul>
+
+        <blockquote>The interesting property is not that it is text. It is that
+        it is <em>one</em> text — one artefact that fully describes the running
+        thing.</blockquote>
+
+        <p>None of this requires giving up the visual layer. It requires the
+        visual layer to be a view of the file rather than the place the truth
+        lives.</p>
+
+  - key: backups-nobody-tests
+    fields:
+      title: The backup you have never restored is a rumour
+      slug: the-backup-you-have-never-restored
+      status: published
+      published_at: '{{now-19d}}'
+      author: '@authors.mireille'
+      tags:
+        - '@tags.operations'
+        - '@tags.self-hosting'
+      excerpt: >-
+        Backups fail quietly and restores fail loudly. The gap between those two
+        facts is where most self-hosted data actually goes missing.
+      body: |-
+        <p>A backup job that exits zero every night tells you one thing: the job
+        exits zero. It does not tell you the archive is readable, that it
+        contains the tables you think it contains, or that the restore path
+        works on a machine that is not the one it was written on.</p>
+
+        <h2>Three failures, in the order they usually happen</h2>
+
+        <p><strong>The archive is empty.</strong> A credential rotated, the
+        dump wrote a zero-byte file, and the job cheerfully compressed nothing
+        for eight months.</p>
+
+        <p><strong>The archive is fine and the restore is not.</strong> Extension
+        missing, version mismatch, a collation the new host does not have. All
+        recoverable — but you are discovering it during the outage, not before
+        it.</p>
+
+        <p><strong>The restore works and the data is stale.</strong> Somebody
+        added a table, nobody added it to the job. This is the one that gets
+        found latest.</p>
+
+        <h2>The cheapest possible fix</h2>
+
+        <p>Restore into a scratch database on a schedule, count the rows, and
+        alert if the count moves the wrong way. It is an afternoon of work and
+        it converts a rumour into a fact.</p>
+
+        <pre><code>0 4 * * 0  restore-check.sh --into scratch --min-rows 1</code></pre>
+
+        <p>Do it before you need it. Nobody has ever regretted this one.</p>
+
+  - key: design-is-operational
+    fields:
+      title: Design decisions become operational decisions faster than you think
+      slug: design-decisions-become-operational
+      status: published
+      published_at: '{{now-33d}}'
+      author: '@authors.aoife'
+      tags:
+        - '@tags.design'
+        - '@tags.operations'
+      excerpt: >-
+        An empty state is a design artefact until the day it is the only thing
+        standing between a user and a support ticket.
+      body: |-
+        <p>The handoff most teams imagine goes: design decides how it looks,
+        engineering decides how it works, operations deals with what happens
+        after. In practice the boundary is much earlier and much blurrier, and
+        the place it collapses first is the empty state.</p>
+
+        <h2>An empty state is a support decision</h2>
+
+        <p>Consider a table with no rows yet. There are three things it can
+        say:</p>
+
+        <ul>
+          <li>Nothing at all. The user assumes it is broken and writes in.</li>
+          <li>"No results." The user assumes they did something wrong and writes in.</li>
+          <li>What this is, and the one action that fills it. The user does the action.</li>
+        </ul>
+
+        <p>The third costs one sentence and removes a whole category of ticket.
+        That is not a visual refinement, it is a load-bearing operational
+        choice that happens to be made in a design tool.</p>
+
+        <h2>The same applies to errors</h2>
+
+        <p>"Something went wrong" is not a message, it is the absence of one. An
+        error that names what failed and what to do next converts a support
+        conversation into a self-service recovery — and the person best placed
+        to write that sentence is whoever understands the failure, which is
+        rarely the person who owns the design file.</p>
+
+        <p>Write them together. It goes faster and the result is better than
+        either half alone.</p>
+
+  - key: small-team-tooling
+    fields:
+      title: Why every tool stops fitting at about thirty people
+      slug: why-every-tool-stops-fitting
+      status: published
+      published_at: '{{now-51d}}'
+      author: '@authors.tomas'
+      tags:
+        - '@tags.engineering'
+        - '@tags.notes'
+      excerpt: >-
+        The spreadsheet works, then the shared spreadsheet works, then it
+        doesn't. The failure is remarkably consistent, and it is not about
+        volume.
+      body: |-
+        <p>I have watched this happen at maybe a dozen companies now and the
+        shape is always the same. Someone starts a spreadsheet. It works
+        brilliantly. It keeps working through the first few hires. Then somewhere
+        around twenty-five or thirty people it stops working, fast, and everyone
+        blames the spreadsheet.</p>
+
+        <h2>It is not the row count</h2>
+
+        <p>Nobody hits a size limit. What they hit is the point where two people
+        need to be editing different parts of the same thing at once, with
+        different permissions, and neither the tool nor the team has any concept
+        of who owns what.</p>
+
+        <p>The symptoms arrive in a predictable order: a tab called
+        <em>DO NOT EDIT</em>, then a second copy of the file with someone's
+        initials in the name, then a weekly meeting whose entire purpose is
+        reconciling the two.</p>
+
+        <h2>What actually replaces it</h2>
+
+        <p>Not, usually, a bigger spreadsheet. What replaces it is the first
+        thing that can say <strong>this field is yours and that one is not</strong>
+        — which is a much lower bar than "a real application", and a much
+        higher one than "a shared document".</p>
+
+  - key: licence-choice
+    fields:
+      title: Notes on picking a licence when you have not raised money
+      slug: notes-on-picking-a-licence
+      status: published
+      published_at: '{{now-72d}}'
+      author: '@authors.tomas'
+      tags:
+        - '@tags.open-source'
+        - '@tags.notes'
+      excerpt: >-
+        Source-available, permissive, or copyleft — the decision looks
+        ideological and is mostly about which failure mode you can live with.
+      body: |-
+        <p>Licence threads go badly because everyone argues values and nobody
+        states which outcome they are trying to avoid. There are really only
+        three, and picking one tells you most of what you need.</p>
+
+        <h2>The three failures</h2>
+
+        <p><strong>Nobody uses it.</strong> Permissive licensing removes the most
+        friction, so if adoption is the thing you are short of, this is the
+        cheapest lever you have.</p>
+
+        <p><strong>Somebody resells it.</strong> A larger company hosts your work
+        as a service, captures the revenue, and contributes nothing back. This
+        is what source-available terms exist to prevent, at the cost of not
+        being open source by the usual definition — and you should say so
+        plainly rather than blur it.</p>
+
+        <p><strong>The work gets taken private.</strong> Copyleft answers this
+        and creates its own friction in return.</p>
+
+        <h2>Say which one you picked</h2>
+
+        <p>The reaction is rarely to the licence itself. It is to the sense that
+        a project is being vague about what it is. Naming the failure mode you
+        chose to guard against — and the one you accepted — costs a paragraph
+        and buys a great deal of goodwill.</p>
+
+  - key: migrations-draft
+    fields:
+      title: A migration is a promise about the past
+      slug: a-migration-is-a-promise-about-the-past
+      status: draft
+      author: '@authors.mireille'
+      tags:
+        - '@tags.engineering'
+        - '@tags.operations'
+      excerpt: >-
+        Still drafting. The argument is that editing an already-released
+        migration is a lie about what every existing database has run.
+      body: |-
+        <p><em>Draft — not finished, do not publish.</em></p>
+
+        <p>The premise: once a migration has shipped, it has been applied to
+        databases you do not control, and the record of that application lives
+        in those databases rather than in your repository. Editing the file
+        afterwards does not change what they ran. It only changes what you
+        believe they ran.</p>
+
+        <h2>To finish</h2>
+
+        <ul>
+          <li>The squash-the-history temptation and why it breaks upgrades.</li>
+          <li>Fresh installs hide it — they apply the rewritten file cleanly.</li>
+          <li>Worked example of the boot failure.</li>
+        </ul>
+
+  - key: onboarding-draft
+    fields:
+      title: The first five minutes are the whole product
+      slug: the-first-five-minutes
+      status: draft
+      author: '@authors.aoife'
+      tags:
+        - '@tags.design'
+      excerpt: >-
+        Rough notes on why the install path deserves more attention than the
+        feature list it leads to.
+      body: |-
+        <p><em>Draft — outline only.</em></p>
+
+        <p>Everyone measures the features. Almost nobody measures the distance
+        between "I read the landing page" and "it is running on my machine",
+        which is the only part of the product a first-time user has actually
+        experienced when they decide whether to continue.</p>
+
+        <h2>Outline</h2>
+
+        <ul>
+          <li>Count the steps. Then count the ones that can fail.</li>
+          <li>Every prerequisite is a place someone leaves.</li>
+          <li>Sample data is not a nicety — an empty product cannot be evaluated.</li>
+        </ul>

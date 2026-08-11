@@ -86,5 +86,20 @@ components:
           - type: link
             props:
               href: /activity
-              className: inline-block px-6 py-3 rounded-lg font-medium border
+              className: inline-block px-6 py-3 rounded-lg font-medium
+              # The one filled element on the page. Four bordered cards and a
+              # fifth bordered box gave the single primary action no more weight
+              # than the things describing it, and left the accent declared in
+              # config/theme.yaml with nowhere to appear above the fold.
+              #
+              # Inline `style` rather than a `bg-primary` class on purpose: the
+              # CSS compiler does not scan templates/ for class names, so a
+              # utility that is not already in the emitted candidate set renders
+              # as nothing at all. A `var(--color-*)` reference needs no
+              # candidate — the custom property is emitted by the theme itself.
+              style:
+                backgroundColor: var(--color-primary)
+                # Text ON a filled button, so it stays a literal rather than
+                # following a surface token.
+                color: '#ffffff'
             content: Open the activity feed

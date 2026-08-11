@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Email Action (type: email, operator: send)
+ *
+ * Send emails using the configured SMTP transport (Nodemailer).
+ */
 export const EmailSendActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('email'),
@@ -32,6 +37,10 @@ export const EmailSendActionSchema = Schema.Struct({
         })
       )
     ),
+    // Single-recipient strings AND arrays are accepted: in real-world YAML
+    // configs operators frequently write `cc: 'manager@example.com'` instead
+    // of `cc: ['manager@example.com']`. The handler normalises both into an
+    // array before calling Nodemailer.
     cc: Schema.optional(
       Schema.Union(TemplateStringSchema, Schema.Array(TemplateStringSchema)).pipe(
         Schema.annotations({ description: 'CC recipient(s) — single string or array' })
@@ -56,4 +65,5 @@ export const EmailSendActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type EmailSendAction = Schema.Schema.Type<typeof EmailSendActionSchema>

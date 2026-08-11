@@ -7,6 +7,24 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Unique positive integer identifier for entities
+ *
+ * IDs are system-generated, auto-incrementing, and immutable.
+ * Must be unique within the parent collection (e.g., field IDs unique within a table).
+ * IDs are read-only and assigned automatically when entities are created.
+ *
+ * Range: 1 to 9,007,199,254,740,991 (JavaScript MAX_SAFE_INTEGER)
+ *
+ * @example
+ * ```typescript
+ * const id = 1
+ * const tableId = 100
+ * const fieldId = 1000
+ * ```
+ *
+ * @see [internal ref]#/definitions/id
+ */
 export const IdSchema = Schema.Int.pipe(
   Schema.greaterThanOrEqualTo(1),
   Schema.lessThanOrEqualTo(9_007_199_254_740_991),
@@ -18,6 +36,26 @@ export const IdSchema = Schema.Int.pipe(
   })
 )
 
+/**
+ * Internal identifier name used for database tables, columns, and programmatic references
+ *
+ * Must follow database naming conventions:
+ * - Start with a letter
+ * - Contain only lowercase letters, numbers, and underscores
+ * - Maximum 63 characters (PostgreSQL limit)
+ *
+ * Used in SQL queries, API endpoints, and code generation.
+ * Choose descriptive names that clearly indicate the purpose.
+ *
+ * @example
+ * ```typescript
+ * const name1 = 'user'
+ * const name2 = 'email_address'
+ * const name3 = 'created_at'
+ * ```
+ *
+ * @see [internal ref]#/definitions/name
+ */
 export const NameSchema = Schema.String.pipe(
   Schema.minLength(1),
   Schema.maxLength(63),
@@ -33,6 +71,30 @@ export const NameSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * URL path for routing and navigation
+ *
+ * Must:
+ * - Start with forward slash (/)
+ * - Contain only lowercase letters, numbers, hyphens, colons, and forward slashes
+ * - Be descriptive and hierarchical
+ * - Support dynamic route parameters with colon prefix (e.g., :id, :slug)
+ *
+ * Used for page routing, API endpoints, and navigation links.
+ * Nested paths and dynamic parameters are supported for flexible routing.
+ *
+ * @example
+ * ```typescript
+ * const root = '/'
+ * const simple = '/about'
+ * const nested = '/products/inventory'
+ * const kebabCase = '/our-team'
+ * const dynamic = '/blog/:slug'
+ * const multiParam = '/users/:userId/posts/:postId'
+ * ```
+ *
+ * @see [internal ref]#/definitions/path
+ */
 export const PathSchema = Schema.String.pipe(
   Schema.minLength(1),
   Schema.pattern(/^\/[a-z0-9-_/:*]*$/, {
@@ -57,6 +119,25 @@ export const PathSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * Relative file path for local assets
+ *
+ * Must:
+ * - Start with ./ or ../
+ * - Be relative to current file or parent directory
+ *
+ * Used for referencing local assets like images, fonts, and stylesheets.
+ * Relative paths are resolved at build time and work across different environments.
+ *
+ * @example
+ * ```typescript
+ * const logo = './public/logo.svg'
+ * const image = '../images/hero.jpg'
+ * const icon = './assets/icon.png'
+ * ```
+ *
+ * @see [internal ref]#/definitions/relativePath
+ */
 export const RelativePathSchema = Schema.String.pipe(
   Schema.pattern(/^\.{1,2}\//, {
     message: () => 'Relative path must start with ./ or ../',
@@ -68,6 +149,28 @@ export const RelativePathSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * Hex color code (6-digit format)
+ *
+ * Validates hex color format: #RRGGBB
+ * - Starts with #
+ * - Followed by exactly 6 hex digits (0-9, A-F, case-insensitive)
+ *
+ * Used for:
+ * - Banner background/text colors
+ * - Safari mask-icon color attribute
+ * - Theme color customization
+ *
+ * @example
+ * ```typescript
+ * const primary = '#007BFF'
+ * const success = '#28A745'
+ * const danger = '#DC3545'
+ * const safariMask = '#5BBAD5'
+ * ```
+ *
+ * @see [internal ref]#/definitions/hexColor
+ */
 export const HexColorSchema = Schema.String.pipe(
   Schema.pattern(/^#[0-9A-Fa-f]{6}$/, {
     message: () => 'Color must be a 6-digit hex code (e.g., #007BFF, #5BBAD5)',
@@ -79,8 +182,13 @@ export const HexColorSchema = Schema.String.pipe(
   })
 )
 
+/** @public */
 export type Id = Schema.Schema.Type<typeof IdSchema>
+/** @public */
 export type Name = Schema.Schema.Type<typeof NameSchema>
+/** @public */
 export type Path = Schema.Schema.Type<typeof PathSchema>
+/** @public */
 export type RelativePath = Schema.Schema.Type<typeof RelativePathSchema>
+/** @public */
 export type HexColor = Schema.Schema.Type<typeof HexColorSchema>

@@ -1,0 +1,115 @@
+# Sample attendee list.
+#
+# Registrations cluster unevenly on purpose. Two events carry a waitlist because
+# they are Sold out, one carries a cancellation, and the Draft and Cancelled
+# events carry none at all — which is what makes the registrations grid worth
+# looking at: filtering by event or by status actually changes what you see.
+#
+# `@events.<key>` resolves to the event's database id at write time. Emails use
+# `.example`, a reserved TLD that can never receive mail, so a demo re-seed can
+# never send a stranger a confirmation.
+records:
+  - key: reg-winter-nadia
+    fields:
+      event: '@events.winter-summit'
+      name: Nadia Bouchard
+      email: nadia.bouchard@northwind.example
+      status: Confirmed
+
+  - key: reg-winter-tomas
+    fields:
+      event: '@events.winter-summit'
+      name: Tomás Ferreira
+      email: t.ferreira@lumen-analytics.example
+      status: Confirmed
+
+  - key: reg-winter-anke
+    fields:
+      event: '@events.winter-summit'
+      name: Anke Visser
+      email: anke.visser@helios-health.example
+      status: Waitlist
+
+  - key: reg-clinic-marc
+    fields:
+      event: '@events.onboarding-clinic-jan'
+      name: Marc Delaunay
+      email: marc.delaunay@cardinal-freight.example
+      status: Confirmed
+
+  - key: reg-clinic-priya
+    fields:
+      event: '@events.onboarding-clinic-jan'
+      name: Priya Raman
+      email: priya.raman@northwind.example
+      status: Confirmed
+
+  - key: reg-breakfast-yusuf
+    fields:
+      event: '@events.partner-breakfast'
+      name: Yusuf Demir
+      email: yusuf@atlas-integrations.example
+      status: Confirmed
+
+  - key: reg-breakfast-claire
+    fields:
+      event: '@events.partner-breakfast'
+      name: Claire Nkemelu
+      email: claire.n@pinewood.example
+      status: Cancelled
+
+  - key: reg-office-hours-sven
+    fields:
+      event: '@events.office-hours-today'
+      name: Sven Halvorsen
+      email: sven.h@lumen-analytics.example
+      status: Confirmed
+
+  - key: reg-migration-ingrid
+    fields:
+      event: '@events.migration-workshop'
+      name: Ingrid Sørensen
+      email: ingrid@cardinal-freight.example
+      status: Confirmed
+
+  - key: reg-migration-hugo
+    fields:
+      event: '@events.migration-workshop'
+      name: Hugo Barreto
+      email: hugo.barreto@helios-health.example
+      status: Confirmed
+
+  - key: reg-migration-lena
+    fields:
+      event: '@events.migration-workshop'
+      name: Lena Kowalski
+      email: l.kowalski@pinewood.example
+      status: Confirmed
+
+  - key: reg-design-jam-ade
+    fields:
+      event: '@events.design-review-jam'
+      name: Ade Okonkwo
+      email: ade.okonkwo@atlas-integrations.example
+      status: Confirmed
+
+  - key: reg-design-jam-mei
+    fields:
+      event: '@events.design-review-jam'
+      name: Mei Watanabe
+      email: mei.watanabe@northwind.example
+      status: Waitlist
+
+  - key: reg-meetup-farid
+    fields:
+      event: '@events.community-meetup-spring'
+      name: Farid Belkacem
+      email: farid.b@lumen-analytics.example
+      status: Confirmed
+
+  - key: reg-meetup-orla
+    fields:
+      event: '@events.community-meetup-spring'
+      name: Orla Byrne
+      email: orla.byrne@pinewood.example
+      status: Confirmed

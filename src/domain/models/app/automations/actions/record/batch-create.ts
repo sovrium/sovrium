@@ -9,15 +9,23 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Batch Create Action (type: record, operator: batchCreate)
+ *
+ * Create multiple records in a single operation.
+ * The `items` prop references a template variable resolving to an array of data objects.
+ */
 export const RecordBatchCreateActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
   operator: Schema.Literal('batchCreate'),
   props: Schema.Struct({
+    /** Target table name */
     table: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Table to create records in' })
     ),
 
+    /** Template variable referencing an array of data objects */
     items: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -27,6 +35,7 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
       )
     ),
 
+    /** Template variable referencing an array of data objects (alias of `items`) */
     records: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -36,7 +45,9 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
       )
     ),
 
+    /** Maximum records per batch operation */
 
+    /** Continue creating remaining records if one fails */
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotations({
@@ -53,4 +64,5 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordBatchCreateAction = Schema.Schema.Type<typeof RecordBatchCreateActionSchema>

@@ -5,6 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Update a saved view the caller owns.
+ *
+ * Phase 9 Cycle 5 — thin orchestrator over the `UserViewRepository` port.
+ * Ownership scoping `(viewId, userId, tableName)`, the PATCH config merge,
+ * and the collision → conflict translation all live in the repository's live
+ * implementation.
+ */
 
 import { Effect } from 'effect'
 import {

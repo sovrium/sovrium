@@ -7,9 +7,49 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Built-in Analytics Configuration Schema
+ *
+ * Configures the first-party, privacy-friendly analytics engine.
+ * When this property exists in the app config, analytics is enabled.
+ * When omitted, no analytics endpoints are available.
+ *
+ * Configuration forms:
+ * - `true` — Enable analytics with all defaults
+ * - `false` — Explicitly disable analytics
+ * - `{ ... }` — Enable analytics with custom options
+ *
+ * Design principles:
+ * - No cookies (visitor hashing via SHA-256)
+ * - No external dependencies
+ * - GDPR-friendly by default (respectDoNotTrack: true)
+ * - Configurable data retention
+ *
+ * @example
+ * ```typescript
+ * // Enable with all defaults
+ * true
+ *
+ * // Explicitly disabled
+ * false
+ *
+ * // Custom retention and excluded paths
+ * {
+ *   retentionDays: 90,
+ *   excludedPaths: ['/admin/*', '/api/*'],
+ *   sessionTimeout: 15
+ * }
+ * ```
+ */
 export const BuiltInAnalyticsSchema = Schema.Union(
   Schema.Boolean,
   Schema.Struct({
+    /**
+     * Number of days to retain analytics data (optional).
+     *
+     * Must be between 1 and 730 days (2 years).
+     * Defaults to 365 days. Data older than this is automatically purged.
+     */
     retentionDays: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -21,6 +61,12 @@ export const BuiltInAnalyticsSchema = Schema.Union(
       )
     ),
 
+    /**
+     * URL path patterns to exclude from tracking (optional).
+     *
+     * Glob patterns matching page paths that should not be tracked.
+     * Useful for excluding admin pages, API docs, or internal routes.
+     */
     excludedPaths: Schema.optional(
       Schema.Array(Schema.String).pipe(
         Schema.annotations({
@@ -30,8 +76,20 @@ export const BuiltInAnalyticsSchema = Schema.Union(
       )
     ),
 
+    /**
+     * Whether to honor the Do Not Track browser setting (optional).
+     *
+     * When true, visitors with DNT:1 header will not be tracked.
+     * Defaults to true for privacy compliance.
+     */
     respectDoNotTrack: Schema.optional(Schema.Boolean),
 
+    /**
+     * Session timeout in minutes (optional).
+     *
+     * Time of inactivity before a new session is created.
+     * Must be between 1 and 120 minutes. Defaults to 30 minutes.
+     */
     sessionTimeout: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -61,8 +119,15 @@ export const BuiltInAnalyticsSchema = Schema.Union(
   })
 )
 
+/**
+ * TypeScript type inferred from BuiltInAnalyticsSchema
+ */
 export type BuiltInAnalytics = Schema.Schema.Type<typeof BuiltInAnalyticsSchema>
 
+/**
+ * Encoded type of BuiltInAnalyticsSchema (what goes in before validation)
+ * @public
+ */
 export type BuiltInAnalyticsEncoded = Schema.Schema.Encoded<typeof BuiltInAnalyticsSchema>
 
 export * from './event-type'

@@ -13,6 +13,9 @@ import type { UserSession } from '@/application/ports/models/user-session'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
 import type { DatabaseError } from '@/domain/errors'
 
+/**
+ * Get record history configuration
+ */
 interface GetRecordHistoryConfig {
   readonly session: Readonly<UserSession>
   readonly tableName: string
@@ -21,16 +24,34 @@ interface GetRecordHistoryConfig {
   readonly offset?: number
 }
 
+/**
+ * Reader-exposed actor shape for a record-history entry.
+ *
+ * The record-history endpoint (`GET /api/tables/:tableId/records/:recordId/history`)
+ * is authenticated-only — it does NOT gate on read-permission or admin role,
+ * so a `viewer` who can reach the route would otherwise see the email of
+ * every actor who touched the record. Drop `email` (B1): the history surface
+ * only needs an id + display name + avatar to attribute a change. The shared
+ * `UserMetadataWithImage` port keeps email for legit consumers; it is only
+ * projected away at this response boundary.
+ */
 interface HistoryActor {
   readonly id: string
   readonly name: string
   readonly image: string | null | undefined
 }
 
+/**
+ * Project the full actor metadata down to the reader-safe history actor,
+ * dropping `email`.
+ */
 function toHistoryActor(user: UserMetadataWithImage | undefined): HistoryActor | undefined {
   return user ? { id: user.id, name: user.name, image: user.image } : undefined
 }
 
+/**
+ * Format activity history entry for API response
+ */
 function formatActivityEntry(entry: ActivityHistoryEntry) {
   return {
     action: entry.action,
@@ -40,6 +61,9 @@ function formatActivityEntry(entry: ActivityHistoryEntry) {
   }
 }
 
+/**
+ * Get record history program
+ */
 export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.Effect<
   {
     readonly history: readonly {
@@ -61,8 +85,10 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
     const activityRepo = yield* ActivityRepository
     const { session, tableName, recordId, limit, offset } = config
 
+    // Check if record exists in the table (handles live records)
     const recordExists = yield* activityRepo.checkRecordExists({ session, tableName, recordId })
 
+    // Fetch activity history with pagination (needed even for deleted records)
     const { entries, total } = yield* activityRepo.getRecordHistory({
       session,
       tableName,
@@ -71,13 +97,16 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       offset,
     })
 
+    // If record doesn't exist in table AND has no activity logs, it truly doesn't exist
     if (!recordExists && total === 0) {
       return yield* Effect.fail(new NotFoundError('Record not found'))
     }
 
+    // Resolve pagination values (default: all results)
     const resolvedLimit = limit ?? total
     const resolvedOffset = offset ?? 0
 
+    // Format response
     return {
       history: entries.map(formatActivityEntry),
       pagination: {

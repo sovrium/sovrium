@@ -8,11 +8,21 @@
 import { Schema } from 'effect'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Automation Call Action (type: automation, operator: call)
+ *
+ * Invoke another automation as a step in the current workflow.
+ * Enables composable, DRY automation architectures.
+ *
+ * The referenced automation name is validated against app.automations[]
+ * in the AppSchema cross-validation layer.
+ */
 export const AutomationCallActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('automation'),
   operator: Schema.Literal('call'),
   props: Schema.Struct({
+    /** Name of the automation to invoke (must exist in app.automations[]) */
     name: Schema.String.pipe(
       Schema.pattern(/^[a-z][a-z0-9-]*$/),
       Schema.annotations({
@@ -21,6 +31,7 @@ export const AutomationCallActionSchema = Schema.Struct({
       })
     ),
 
+    /** Input data passed to the called automation */
     inputData: Schema.optional(
       Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
         Schema.annotations({
@@ -30,6 +41,11 @@ export const AutomationCallActionSchema = Schema.Struct({
       )
     ),
 
+    /**
+     * Execution mode: `sync` (default) waits for the called automation to
+     * complete and captures its return data as `steps.{name}.result`;
+     * `async` fires the child and immediately continues to the next action.
+     */
     mode: Schema.optional(
       Schema.Literal('sync', 'async').pipe(
         Schema.annotations({
@@ -39,6 +55,10 @@ export const AutomationCallActionSchema = Schema.Struct({
       )
     ),
 
+    /**
+     * Maximum call-stack depth before the action fails with a recursion
+     * error (default: 10). Guards against infinite A→B→A chains.
+     */
     maxDepth: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -50,6 +70,7 @@ export const AutomationCallActionSchema = Schema.Struct({
       )
     ),
 
+    /** Whether to wait for the called automation to complete */
     waitForCompletion: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotations({
@@ -59,6 +80,7 @@ export const AutomationCallActionSchema = Schema.Struct({
       )
     ),
 
+    /** Timeout for the called automation in milliseconds */
     timeout: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -77,4 +99,5 @@ export const AutomationCallActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AutomationCallAction = Schema.Schema.Type<typeof AutomationCallActionSchema>

@@ -7,9 +7,18 @@
 
 import { z } from '@hono/zod-openapi'
 
+/**
+ * AI agent API contract schemas.
+ *
+ * These mirror the runtime presenter shapes in
+ * `src/presentation/api/routes/agents/`. They back the OpenAPI documentation
+ * for the agent route group.
+ */
 
+/** Approval lifecycle status. */
 export const approvalStatusSchema = z.enum(['pending', 'approved', 'rejected', 'expired'])
 
+/** A serialized AI agent configuration. */
 export const serializedAgentSchema = z.object({
   name: z.string(),
   role: z.string(),
@@ -35,6 +44,7 @@ export const serializedAgentSchema = z.object({
   }),
 })
 
+/** A serialized agent approval request. */
 export const serializedApprovalSchema = z.object({
   approvalId: z.string(),
   id: z.string(),
@@ -50,6 +60,7 @@ export const serializedApprovalSchema = z.object({
   expiresAt: z.string(),
 })
 
+/** Result of an agent action execution — completed, pending approval, or queued. */
 export const executeResultSchema = z.union([
   z.object({
     status: z.literal('completed'),
@@ -65,7 +76,11 @@ export const executeResultSchema = z.union([
   z.object({ status: z.literal('queued'), agent: z.string(), reason: z.string() }),
 ])
 
+/** @public */
 export type ApprovalStatus = z.infer<typeof approvalStatusSchema>
+/** @public */
 export type SerializedAgent = z.infer<typeof serializedAgentSchema>
+/** @public */
 export type SerializedApproval = z.infer<typeof serializedApprovalSchema>
+/** @public */
 export type ExecuteResult = z.infer<typeof executeResultSchema>

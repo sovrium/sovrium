@@ -7,6 +7,24 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Component properties that can be overridden at specific breakpoints
+ *
+ * Supports overriding:
+ * - props: Component properties (className, style, etc.)
+ * - content: Text content
+ * - visible: Show/hide component
+ * - children: Different child components
+ *
+ * @example
+ * ```typescript
+ * const overrides = {
+ *   props: { className: 'text-2xl text-center' },
+ *   content: 'Welcome!',
+ *   visible: true
+ * }
+ * ```
+ */
 export const VariantOverridesSchema = Schema.Struct({
   props: Schema.optional(
     Schema.Record({
@@ -46,6 +64,40 @@ export const VariantOverridesSchema = Schema.Struct({
   description: 'Component properties to override at this breakpoint',
 })
 
+/**
+ * Breakpoint-specific component overrides for responsive design
+ *
+ * Provides responsive variants matching common breakpoints:
+ * - mobile: Base mobile styles
+ * - sm: Small (640px)
+ * - md: Medium (768px)
+ * - lg: Large (1024px)
+ * - xl: Extra large (1280px)
+ * - 2xl: 2x extra large (1536px)
+ *
+ * All breakpoints are optional. Use mobile-first approach: define base
+ * styles at mobile level, then override at larger breakpoints.
+ *
+ * @example
+ * ```typescript
+ * const responsive = {
+ *   mobile: {
+ *     props: { className: 'text-2xl text-center' },
+ *     content: 'Welcome!',
+ *     visible: true
+ *   },
+ *   md: {
+ *     props: { className: 'text-4xl text-left' },
+ *     content: 'Welcome to Our Platform'
+ *   },
+ *   lg: {
+ *     props: { className: 'text-6xl text-left font-bold' },
+ *     content: 'Welcome to Our Amazing Platform'
+ *   }
+ * }
+ * ```
+ *
+ */
 export const ResponsiveSchema = Schema.Struct({
   mobile: Schema.optional(VariantOverridesSchema),
   sm: Schema.optional(VariantOverridesSchema),

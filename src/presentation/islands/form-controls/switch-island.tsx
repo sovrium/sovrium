@@ -24,6 +24,14 @@ interface SwitchIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Switch island — wraps Base UI Switch for toggle controls.
+ *
+ * Renders a custom-styled toggle switch with smooth thumb animation, keyboard
+ * support (Space to toggle), and ARIA switch role. Default track + thumb
+ * styling lives in `toggle-default-classes.ts` (prestyled-by-default per
+ * [internal ref]); the outer label wrapper handles layout-only utility classes.
+ */
 export default function SwitchIsland({
   checked,
   disabled = false,

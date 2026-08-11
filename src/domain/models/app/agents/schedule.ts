@@ -7,7 +7,17 @@
 
 import { Cron, DateTime, Either, Schema } from 'effect'
 
+/**
+ * AgentScheduleSchema defines periodic execution configuration for an agent.
+ *
+ * Agents with a schedule run automatically at the specified cron interval.
+ * The `taskPrompt` is sent to the LLM as the user message for each execution.
+ *
+ * Disabled agents (`enabled: false`) skip scheduled executions.
+ * Scheduled execution respects approval config (e.g., `mode: all` pauses for approval).
+ */
 export const AgentScheduleSchema = Schema.Struct({
+  /** Standard 5-field cron expression (e.g., every 15 minutes, daily at 2am) */
   cron: Schema.String.pipe(
     Schema.minLength(1),
     Schema.annotations({
@@ -16,6 +26,7 @@ export const AgentScheduleSchema = Schema.Struct({
     })
   ),
 
+  /** IANA timezone identifier (defaults to UTC) */
   timezone: Schema.optional(
     Schema.String.pipe(
       Schema.minLength(1),
@@ -26,6 +37,7 @@ export const AgentScheduleSchema = Schema.Struct({
     )
   ),
 
+  /** Prompt describing the task to execute on each scheduled run */
   taskPrompt: Schema.String.pipe(
     Schema.minLength(1),
     Schema.annotations({
@@ -34,6 +46,11 @@ export const AgentScheduleSchema = Schema.Struct({
   ),
 }).pipe(
   Schema.filter(({ cron, timezone }) => {
+    // Validation is delegated to Effect's `Cron.parse` (the same triplet used
+    // by `automations/trigger/cron.ts`): field ranges are enforced, `*\/0`
+    // step expressions are rejected, and IANA timezones are validated via
+    // `DateTime.zoneUnsafeMakeNamed`. Wrapped in `Either.try` so the filter
+    // body stays expression-only (functional/no-let).
     const tz = timezone ?? 'UTC'
     const zone = Either.try({
       try: () => DateTime.zoneUnsafeMakeNamed(tz),
@@ -56,4 +73,5 @@ export const AgentScheduleSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AgentSchedule = Schema.Schema.Type<typeof AgentScheduleSchema>

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types -- Effect Layer service object is mutated during construction by library design */
 
 import { Effect, Layer } from 'effect'
 import { StorageService, StorageError } from '@/application/ports/services/storage-service'
@@ -45,6 +46,7 @@ import {
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
 
+/** File metadata lookup shared by every provider — reads `system.file_storage_metadata`. */
 const getMetadataFromCatalog = (
   key: string
 ): Effect.Effect<
@@ -69,25 +71,43 @@ const signedUploadUrlUnsupported = (provider: string): Effect.Effect<string, Sto
     new StorageError({ cause: `Signed upload URLs not supported for ${provider} storage` })
   )
 
+/**
+ * Find the first missing required S3 environment variable when
+ * STORAGE_PROVIDER=s3. Returns the env-var name (e.g. "STORAGE_S3_BUCKET") so
+ * startup errors surface with the name the operator actually wrote, instead of
+ * a generic Effect Schema decode error reporting the schema-key name (e.g.
+ * "bucket") — which names nothing an operator can grep their deployment for.
+ *
+ * Runs only when the operator has set at least one of the four, so an
+ * unconfigured install still reaches `parseStorageEnvConfig` and gets the
+ * schema's own message rather than a guess about which var came first.
+ */
 const findMissingS3EnvVar = (): string | undefined => {
   if (process.env.STORAGE_PROVIDER !== 's3') return undefined
-  const requiredS3LegacyVars: ReadonlyArray<string> = [
-    'S3_BUCKET',
-    'S3_ENDPOINT',
-    'S3_ACCESS_KEY_ID',
-    'S3_SECRET_ACCESS_KEY',
+  const requiredS3Vars: ReadonlyArray<string> = [
+    'STORAGE_S3_BUCKET',
+    'STORAGE_S3_ENDPOINT',
+    'STORAGE_S3_ACCESS_KEY_ID',
+    'STORAGE_S3_SECRET_ACCESS_KEY',
   ]
-  const anyLegacySet = requiredS3LegacyVars.some((name) => process.env[name] !== undefined)
-  if (!anyLegacySet) return undefined
-  return requiredS3LegacyVars.find((name) => !process.env[name])
+  const anySet = requiredS3Vars.some((name) => process.env[name] !== undefined)
+  if (!anySet) return undefined
+  return requiredS3Vars.find((name) => !process.env[name])
 }
 
 export const StorageServiceLive = Layer.effect(
   StorageService,
   Effect.gen(function* () {
+    // Validate operator-controlled storage size-limit env vars at startup so
+    // misconfigured STORAGE_MAX_FILE_SIZE / STORAGE_MAX_TOTAL_SIZE values fail
+    // the boot with a descriptive error rather than being silently ignored.
     validateStorageSizeLimits()
     const missingS3Var = findMissingS3EnvVar()
     if (missingS3Var) {
+      // Thrown synchronously so error.message surfaces with the canonical env-var name
+      // (matches the existing pattern of Schema.decodeUnknownSync in parseStorageEnvConfig).
+      // Effect.fail with a tagged error would lose the message at the top-level catch.
+      // eslint-disable-next-line functional/no-throw-statements -- see comment above
       throw new Error(`Required env var ${missingS3Var} is missing`)
     }
     const config = parseStorageEnvConfig()
@@ -205,6 +225,16 @@ export const StorageServiceLive = Layer.effect(
       })
     }
 
+    // No storage config resolved. `parseStorageEnvConfig()` already applies the
+    // dialect-aware defaults: PostgreSQL with no STORAGE_PROVIDER → bytea;
+    // SQLite (zero-config) with no STORAGE_PROVIDER → local filesystem. It only
+    // returns `undefined` when storage is genuinely disabled (no database and
+    // no STORAGE_PROVIDER) — so this stub branch is now the true "disabled"
+    // case. The matching startup warning
+    //   "Storage: Not configured (attachment fields will be disabled)"
+    // is emitted by collectStoragePhases() in
+    // src/infrastructure/server/startup-degradation-phases.ts (this layer is
+    // constructed lazily per request, so it can't emit the warning itself).
     if (!config) {
       const notConfigured = (): StorageError =>
         new StorageError({
@@ -225,6 +255,12 @@ export const StorageServiceLive = Layer.effect(
       })
     }
 
+    // Auto-fallback: bytea (DATABASE_URL is set).
+    // Validate the database connection at startup so unreachable-DB failures
+    // surface immediately instead of on the first upload. The
+    // system.file_storage_bytea / system.file_storage_metadata tables are
+    // created by Drizzle migrations (run by serverFactory.create after this
+    // validation), so the bytea adapter only checks connectivity here.
     yield* Effect.tryPromise({
       try: () => byteaValidateAndInit(),
       catch: (e: unknown) =>

@@ -17,6 +17,9 @@ import { DataSortActionSchema } from './sort'
 import { DataSplitActionSchema } from './split'
 import { DataValidateConfigActionSchema } from './validate-config'
 
+/**
+ * Data Action — union of all data transformation operators
+ */
 export const DataActionSchema = Schema.Union(
   DataSetActionSchema,
   DataAggregateActionSchema,
@@ -37,6 +40,7 @@ export const DataActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type DataAction = Schema.Schema.Type<typeof DataActionSchema>
 
 export * from './aggregate'

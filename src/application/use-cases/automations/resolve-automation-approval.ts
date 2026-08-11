@@ -5,6 +5,31 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Resolve a paused automation-step approval.
+ *
+ * A `waiting-approval` run is resumed (approve) or terminated (reject) via the
+ * run-scoped endpoint
+ * `POST /api/automations/runs/:runId/approvals/:approvalId/{approve,reject}`.
+ *
+ * RESUME mechanism (reuses the battle-tested replay skip machinery):
+ *   - Load the pending approval row → verify it links to `runId` and is
+ *     still `pending` (a second resolution is a no-op).
+ *   - Load the paused run → resolve its automation definition + persisted
+ *     `triggerData`.
+ *   - APPROVE: mark the row `approved`, then re-run the automation skipping
+ *     every action at index ≤ the approval's `stepIndex` (the approval action
+ *     itself and everything before it already ran). The skipped actions are
+ *     recorded as `'skipped'` (side-effects fire ONCE), and only the
+ *     downstream actions execute — resuming the gated flow.
+ *   - REJECT: mark the row `rejected` and finalise the paused run as
+ *     terminal WITHOUT re-running; the downstream actions never execute.
+ *
+ * Re-running the tail with `skipActionNames` is observationally identical to
+ * resuming the same run (the downstream side-effect appears) and reuses the
+ * existing engine path rather than threading a half-finished accumulator
+ * through a second invocation.
+ */
 
 import { Effect } from 'effect'
 import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
@@ -19,6 +44,10 @@ import {
 import type { TriggerData } from './resolve-trigger-data'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Error tags surfaced by the approval-resolution flow. Mapped to HTTP
+ * responses by the route handler.
+ */
 export type ResolveApprovalError =
   | { readonly _tag: 'ApprovalNotFound'; readonly approvalId: string }
   | { readonly _tag: 'ApprovalRunMismatch'; readonly approvalId: string; readonly runId: string }
@@ -30,6 +59,11 @@ export type ResolveApprovalError =
   | { readonly _tag: 'AutomationRunNotFound'; readonly runId: string }
   | { readonly _tag: 'AutomationNotFound'; readonly name: string }
 
+/**
+ * Result of resolving an approval. `decision` echoes the action taken;
+ * `result` carries the resumed run on approve (absent on reject — the run
+ * was terminated, not resumed).
+ */
 export interface ResolveApprovalResult {
   readonly decision: 'approved' | 'rejected'
   readonly runId: string
@@ -49,11 +83,22 @@ export interface ResolveApprovalOptions {
 type ResolveRequirements =
   AutomationApprovalRepository | AutomationRunRepository | ExecuteAutomationRunRequirements
 
+/**
+ * Coerce the persisted `triggerData` JSON column into a `TriggerData` shape.
+ * Null / non-object payloads degrade to an empty object (the resume still
+ * runs, with no trigger context).
+ */
 const coerceTriggerData = (raw: unknown): TriggerData => {
   if (raw === null || raw === undefined || typeof raw !== 'object') return {}
   return raw as TriggerData
 }
 
+/**
+ * Build the set of action names to skip on resume: every action at index
+ * ≤ the approval's `stepIndex` (the approval itself + everything before it).
+ * Those already ran in the original (now-paused) run, so re-running them
+ * would duplicate their side effects.
+ */
 const collectActionsUpToIndex = (
   actions: readonly { readonly name?: unknown }[],
   stepIndex: number
@@ -65,6 +110,11 @@ const collectActionsUpToIndex = (
       .filter((name) => name !== '')
   )
 
+/**
+ * Load the pending approval row + its paused run + the resolved automation,
+ * validating the link to `runId` and that the row is still pending. Shared by
+ * the approve and reject paths.
+ */
 const loadResolutionTarget = (input: {
   readonly runId: string
   readonly approvalId: string
@@ -116,6 +166,11 @@ const loadResolutionTarget = (input: {
     }
   })
 
+/**
+ * Resolve a paused approval. On approve the run resumes (downstream actions
+ * execute); on reject the paused run is finalised terminal and nothing else
+ * runs. See module docstring for the full contract.
+ */
 export const resolveAutomationApproval = (
   options: ResolveApprovalOptions
 ): Effect.Effect<ResolveApprovalResult, ResolveApprovalError, ResolveRequirements> =>
@@ -127,6 +182,8 @@ export const resolveAutomationApproval = (
     const approvalRepo = yield* AutomationApprovalRepository
 
     if (decision === 'reject') {
+      // Terminate: stamp the row rejected and mark the paused run failed.
+      // No re-run — the downstream actions never execute.
       yield* approvalRepo
         .updateStatus({ id: approvalId, status: 'rejected' })
         .pipe(Effect.mapError(() => ({ _tag: 'ApprovalNotFound' as const, approvalId })))
@@ -137,6 +194,7 @@ export const resolveAutomationApproval = (
       return { decision: 'rejected', runId, approvalId } as const
     }
 
+    // Approve: stamp the row approved, then resume by re-running the tail.
     yield* approvalRepo
       .updateStatus({ id: approvalId, status: 'approved' })
       .pipe(Effect.mapError(() => ({ _tag: 'ApprovalNotFound' as const, approvalId })))
@@ -157,6 +215,8 @@ export const resolveAutomationApproval = (
       processEnv,
       triggerData: target.triggerData,
       handlers,
+      // The resume runs system-side (no caller user) — the original trigger's
+      // context is reused via the persisted `triggerData`, not a session.
       userId: undefined,
       skipActionNames,
     })

@@ -7,6 +7,10 @@
 
 import type { TableRecord } from '../shared/types'
 
+/**
+ * Timeline item config — the per-component display bindings supplied through
+ * the page-component `props` object.
+ */
 export interface TimelineConfig {
   readonly startField: string
   readonly endField?: string
@@ -16,6 +20,10 @@ export interface TimelineConfig {
   readonly defaultZoom?: 'day' | 'week' | 'month' | 'quarter' | 'year'
 }
 
+/**
+ * A single resolved timeline entry. `kind: 'bar'` spans `start`→`end`;
+ * `kind: 'point'` has only a `start` (renders as a diamond marker).
+ */
 export interface TimelineItem {
   readonly id: string
   readonly label: string
@@ -26,23 +34,30 @@ export interface TimelineItem {
   readonly group?: string
 }
 
+/** A swimlane groups timeline items under a shared header label. */
 export interface TimelineLane {
   readonly key: string
   readonly items: readonly TimelineItem[]
 }
 
+/** Parses a record date value to an epoch-millisecond number, or undefined. */
 function parseDate(value: unknown): number | undefined {
   if (value === undefined || value === null || value === '') return undefined
   const ms = new Date(String(value)).getTime()
   return Number.isFinite(ms) ? ms : undefined
 }
 
+/** Reads an optional string-valued binding off a record, or returns undefined. */
 function readOptionalField(record: TableRecord, field: string | undefined): string | undefined {
   if (!field) return undefined
   const value = record[field]
   return value === undefined || value === null ? undefined : String(value)
 }
 
+/**
+ * Resolves a single record into a timeline item, or `undefined` when the
+ * record has no parseable start date.
+ */
 function recordToTimelineItem(
   record: TableRecord,
   index: number,
@@ -67,6 +82,11 @@ function recordToTimelineItem(
   }
 }
 
+/**
+ * Resolves table records into timeline items. Records with both a start and
+ * end date become `bar` items; records with only a start become `point`
+ * markers. Records with no parseable start date are dropped.
+ */
 export function buildTimelineItems(
   records: readonly TableRecord[],
   config: TimelineConfig
@@ -77,6 +97,11 @@ export function buildTimelineItems(
   })
 }
 
+/**
+ * Groups timeline items into swimlanes by their `group` value. Lane order
+ * follows first-appearance order in the item list. Returns a single lane
+ * with key `''` when `groupBy` is not configured.
+ */
 export function buildTimelineLanes(
   items: readonly TimelineItem[],
   groupBy: string | undefined
@@ -94,11 +119,16 @@ export function buildTimelineLanes(
   }))
 }
 
+/** Inclusive [min, max] epoch-ms bounds covering every item's span. */
 export interface TimelineBounds {
   readonly min: number
   readonly max: number
 }
 
+/**
+ * Computes the time-axis bounds spanning all items. Falls back to a
+ * single-day window when the data has zero extent (or no items).
+ */
 export function computeTimelineBounds(items: readonly TimelineItem[]): TimelineBounds {
   if (items.length === 0) {
     const now = Date.now()
@@ -111,6 +141,10 @@ export function computeTimelineBounds(items: readonly TimelineItem[]): TimelineB
   return min === max ? { min, max: max + 86_400_000 } : { min, max }
 }
 
+/**
+ * Maps an epoch-ms timestamp to a 0–100 percentage offset within the bounds.
+ * Used to position bars/points along the time axis.
+ */
 export function toPercent(value: number, bounds: TimelineBounds): number {
   const span = bounds.max - bounds.min
   if (span <= 0) return 0

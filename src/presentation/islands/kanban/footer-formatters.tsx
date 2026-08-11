@@ -39,6 +39,10 @@ export function avatarInitials(name: string): string {
   return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase()
 }
 
+/**
+ * Render a single footer item per its format. Falls back to plain text when
+ * format is unset or unrecognized.
+ */
 export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord): ReactNode {
   const value = record[item.field]
   if (value === undefined || value === null || value === '') return undefined

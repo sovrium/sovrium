@@ -7,6 +7,21 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Component reference name (kebab-case identifier)
+ *
+ * Name of the component to reference (must match a component name in the components array).
+ * Uses kebab-case format for consistency with web standards.
+ *
+ * @example
+ * ```typescript
+ * const ref1 = 'icon-badge'
+ * const ref2 = 'section-header'
+ * const ref3 = 'call-to-action'
+ * ```
+ *
+ * @see [internal ref]#/properties/$ref
+ */
 export const ComponentReferenceNameSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z][a-z0-9-]*$/, {
     message: () =>
@@ -19,6 +34,25 @@ export const ComponentReferenceNameSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * Component variables (for template substitution)
+ *
+ * Variables to substitute in the component template.
+ * Keys are alphanumeric identifiers, values are strings, numbers, or booleans.
+ *
+ * @example
+ * ```typescript
+ * const vars = {
+ *   color: 'orange',
+ *   icon: 'users',
+ *   text: '6 à 15 personnes',
+ *   count: 10,
+ *   enabled: true,
+ * }
+ * ```
+ *
+ * @see [internal ref]#/properties/vars
+ */
 export const ComponentVarsSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
@@ -39,6 +73,19 @@ export const ComponentVarsSchema = Schema.Record({
   })
 )
 
+/**
+ * Simple Component Reference (reference to a component by name without variables)
+ *
+ * Simplified syntax for referencing components that don't require variable substitution.
+ * Uses the `component` property to identify the component by name.
+ *
+ * @example
+ * ```typescript
+ * const simpleReference = {
+ *   component: 'shared-component'
+ * }
+ * ```
+ */
 export const SimpleComponentReferenceSchema = Schema.Struct({
   component: ComponentReferenceNameSchema,
 }).pipe(
@@ -48,6 +95,33 @@ export const SimpleComponentReferenceSchema = Schema.Struct({
   })
 )
 
+/**
+ * Component Reference (reference to a reusable component template with variable substitution)
+ *
+ * Allows referencing and customizing predefined component templates.
+ * Supports two syntaxes:
+ * 1. Full syntax: { $ref: 'component-name', vars: {...} }
+ * 2. Shorthand syntax: { component: 'component-name' } (vars default to empty object)
+ *
+ * @example
+ * ```typescript
+ * // Full syntax
+ * const reference1 = {
+ *   $ref: 'icon-badge',
+ *   vars: {
+ *     color: 'orange',
+ *     icon: 'users',
+ *     text: '6 à 15 personnes',
+ *   },
+ * }
+ *
+ * // Shorthand syntax
+ * const reference2 = {
+ *   component: 'shared-component',
+ * }
+ * ```
+ *
+ */
 const FullComponentReferenceSchema = Schema.Struct({
   $ref: ComponentReferenceNameSchema,
   vars: ComponentVarsSchema,
@@ -77,6 +151,12 @@ const HybridComponentReferenceSchema = Schema.Struct({
   })
 )
 
+/**
+ * Component nested variables (for deep object variable substitution)
+ *
+ * Variables with nested object support for dot-notation access ($user.name).
+ * Values can be any type including nested objects.
+ */
 const ComponentNestedVariablesSchema = Schema.Record({
   key: Schema.String,
   value: Schema.Unknown,
@@ -110,7 +190,9 @@ export const ComponentReferenceSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type ComponentReferenceName = Schema.Schema.Type<typeof ComponentReferenceNameSchema>
+/** @public */
 export type ComponentVars = Schema.Schema.Type<typeof ComponentVarsSchema>
 export type SimpleComponentReference = Schema.Schema.Type<typeof SimpleComponentReferenceSchema>
 export type ComponentReference = Schema.Schema.Type<typeof ComponentReferenceSchema>

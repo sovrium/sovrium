@@ -31,10 +31,13 @@ export function batchCreateProgram(config: {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
 
+    // Create records in the database
     const createdRecords = yield* batch.batchCreate(session, tableName, recordsData)
 
+    // Transform records to API format with app schema for numeric coercion
     const transformed = transformRecords(createdRecords, { app, tableName })
 
+    // Use functional pattern to build response object
     const response: { readonly created: number; readonly records?: readonly TransformedRecord[] } =
       returnRecords
         ? {
@@ -68,8 +71,10 @@ export function batchUpdateProgram(config: {
     const batch = yield* BatchRepository
     const updatedRecords = yield* batch.batchUpdate(session, tableName, recordsData)
 
+    // Transform records to API format with app schema for numeric coercion
     const transformed = transformRecords(updatedRecords, { app, tableName })
 
+    // Use functional pattern to build response object
     const response: { readonly updated: number; readonly records?: readonly TransformedRecord[] } =
       returnRecords
         ? {

@@ -22,6 +22,9 @@ import type { Interactions } from '@/domain/models/app/pages/components/interact
 import type { Theme } from '@/domain/models/app/theme'
 import type { ReactElement } from 'react'
 
+/**
+ * Configuration for building component props
+ */
 export type ComponentPropsConfig = {
   readonly type: string
   readonly props: Record<string, unknown> | undefined
@@ -39,12 +42,20 @@ export type ComponentPropsConfig = {
   readonly badgeVariant?: string
 }
 
+/**
+ * Result of component props building
+ * @public
+ */
 export type ComponentPropsResult = {
   readonly elementProps: Record<string, unknown>
   readonly elementPropsWithSpacing: Record<string, unknown>
   readonly renderedChildren: ReadonlyArray<ReactElement | string | null>
 }
 
+/**
+ * Props configuration for component rendering
+ * @public
+ */
 export type RenderPropsConfig = {
   readonly components?: unknown
   readonly theme?: Theme
@@ -53,20 +64,37 @@ export type RenderPropsConfig = {
   readonly componentInstanceIndex?: number
 }
 
+/**
+ * Applies token substitutions to component props
+ *
+ * @param props - Original props
+ * @param currentLang - Current language
+ * @param languages - Languages configuration
+ * @param theme - Theme configuration
+ * @returns Props with all tokens substituted
+ */
 function applyTokenSubstitutions(
   props: Record<string, unknown> | undefined,
   currentLang: string | undefined,
   languages: Languages | undefined,
   theme: Theme | undefined
 ): Record<string, unknown> | undefined {
+  // Translation token substitution (must happen before theme tokens)
   const translationSubstitutedProps = substitutePropsTranslationTokens(
     props,
     currentLang,
     languages
   )
+  // Theme token substitution
   return substitutePropsThemeTokens(translationSubstitutedProps, theme)
 }
 
+/**
+ * Prepares processed component values (tokens, translations, styles, className)
+ *
+ * @param config - Component props configuration
+ * @returns Processed intermediate values
+ */
 function prepareProcessedValues(config: ComponentPropsConfig) {
   const {
     type,
@@ -83,6 +111,7 @@ function prepareProcessedValues(config: ComponentPropsConfig) {
   } = config
 
   const substitutedProps = applyTokenSubstitutions(props, currentLang, languages, theme)
+  // Check both children and content for translation keys
   const firstTranslationKey =
     findFirstTranslationKey(children) || extractTranslationKeyFromContent(content)
   const translationData = getTranslationData(firstTranslationKey, languages)
@@ -103,6 +132,7 @@ function prepareProcessedValues(config: ComponentPropsConfig) {
     badgeVariant,
   })
 
+  // Merge hover transition styles with existing styles
   const styleWithHover = hoverTransitionStyles
     ? { ...styleWithShadow, ...hoverTransitionStyles }
     : styleWithShadow
@@ -116,6 +146,15 @@ function prepareProcessedValues(config: ComponentPropsConfig) {
   }
 }
 
+/**
+ * Builds complete component props with all transformations applied
+ *
+ * Orchestrates: token substitution, translation handling, style processing,
+ * className finalization, element props building, and spacing styles application.
+ *
+ * @param config - Component props configuration
+ * @returns Complete element props with spacing
+ */
 export function buildComponentProps(config: ComponentPropsConfig): {
   readonly substitutedProps: Record<string, unknown> | undefined
   readonly firstTranslationKey: string | undefined

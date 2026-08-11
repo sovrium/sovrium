@@ -7,7 +7,11 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Chart tooltip configuration.
+ */
 export const ChartTooltipSchema = Schema.Struct({
+  /** Tooltip text template with `{label}` and `{value}` placeholders */
   format: Schema.optional(
     Schema.String.annotations({
       description: 'Tooltip text template — supports {label} and {value} placeholders',
@@ -19,4 +23,5 @@ export const ChartTooltipSchema = Schema.Struct({
   description: 'Tooltip display configuration',
 })
 
+/** @public */
 export type ChartTooltip = Schema.Schema.Type<typeof ChartTooltipSchema>

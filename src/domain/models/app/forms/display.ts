@@ -7,7 +7,14 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Form Display
+ *
+ * Cosmetic display options for the form renderer. None affect submission
+ * semantics — only how the form looks to the submitter.
+ */
 export const FormDisplaySchema = Schema.Struct({
+  /** Per-form theme overrides. */
   theme: Schema.optional(
     Schema.Struct({
       primaryColor: Schema.optional(Schema.String),
@@ -15,6 +22,7 @@ export const FormDisplaySchema = Schema.Struct({
       borderRadius: Schema.optional(Schema.String),
     })
   ),
+  /** Submit button label (`Submit` by default; supports `$t:` keys). */
   submitLabel: Schema.optional(Schema.String),
 }).annotations({
   identifier: 'FormDisplay',
@@ -22,4 +30,5 @@ export const FormDisplaySchema = Schema.Struct({
   description: 'Cosmetic display options for the form renderer',
 })
 
+/** @public */
 export type FormDisplay = Schema.Schema.Type<typeof FormDisplaySchema>

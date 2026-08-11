@@ -1,0 +1,35 @@
+# Topical tags for the knowledge base.
+#
+# `key` is file-local — it exists so `documents.yaml` can name a tag before this
+# row has a database id, and it is never written to a column.
+#
+# Seeded first because `documents` links here; `sovrium seed` orders tables
+# parent-first from the link graph, so file order on disk does not matter.
+#
+# `created_at` is absent: a `created-at` field is engine-stamped on insert and a
+# seeded value would be discarded.
+#
+# Four rows for four `color` options. `tags` exposes `fieldExposure:
+# permissioned` rather than a whitelist, so an MCP client reading
+# `mcp-server-example_tags_list` sees `color` too — the whole enum being present
+# is what makes that visible.
+records:
+  - key: runbooks
+    fields:
+      name: Runbooks
+      color: blue
+
+  - key: decisions
+    fields:
+      name: Decisions
+      color: green
+
+  - key: incidents
+    fields:
+      name: Incidents
+      color: red
+
+  - key: onboarding
+    fields:
+      name: Onboarding
+      color: gray

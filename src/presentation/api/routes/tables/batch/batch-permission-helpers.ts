@@ -16,6 +16,12 @@ import type {
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/**
+ * Check if user is viewer and return 404 response if so (S1 anti-enumeration —
+ * viewer-role denial is uniform across batch endpoints so the write boundary
+ * is not discoverable). The `action` parameter is retained for call-site
+ * readability but never emitted in the response.
+ */
 export function checkViewerPermission(
   userRole: string,
   c: Context,
@@ -34,6 +40,9 @@ export function checkViewerPermission(
   return undefined
 }
 
+/**
+ * Check if request has more than 1000 records and return 413 if so
+ */
 export function checkRecordLimitExceeded(
   records: readonly unknown[],
   c: Context
@@ -44,12 +53,21 @@ export function checkRecordLimitExceeded(
   return undefined
 }
 
+/**
+ * Parameters for read-level field filtering
+ */
 interface ReadFilteringParams {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
 }
 
+/**
+ * Apply read-level filtering to batch response records.
+ *
+ * Generic over the count property key (e.g. 'updated', 'created')
+ * to eliminate duplication between batch create and batch update responses.
+ */
 export function applyBatchReadFiltering<K extends string>(
   response: { readonly [P in K]: number } & { readonly records?: readonly TransformedRecord[] },
   params: ReadFilteringParams,
@@ -73,6 +91,9 @@ export function applyBatchReadFiltering<K extends string>(
   } as { readonly [P in K]: number } & { readonly records?: readonly TransformedRecord[] }
 }
 
+/**
+ * Check field-level write permissions for batch records
+ */
 export function checkBatchFieldPermissions(config: {
   readonly records: readonly { readonly fields: Record<string, unknown> }[]
   readonly app: App
@@ -85,6 +106,7 @@ export function checkBatchFieldPermissions(config: {
     .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
     .filter((fields) => fields.length > 0)
 
+  // S1 anti-enumeration: field-permission denial returns 404; field names dropped.
   if (allForbiddenFields.length > 0) {
     return c.json(
       {
@@ -96,9 +118,13 @@ export function checkBatchFieldPermissions(config: {
     )
   }
 
+  // eslint-disable-next-line unicorn/no-null -- null indicates no permission error
   return null
 }
 
+/**
+ * Validate stripped records have at least some writable fields
+ */
 export function validateStrippedRecordsNotEmpty(config: {
   readonly strippedRecords: readonly { readonly fields: Record<string, unknown> }[]
   readonly originalRecords: readonly { readonly fields: Record<string, unknown> }[]
@@ -109,6 +135,12 @@ export function validateStrippedRecordsNotEmpty(config: {
 }): Response | null {
   const { strippedRecords, c } = config
   const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
+  // S1 anti-enumeration: stripped-all-fields means user tried to write only
+  // protected fields — return 404 so the field-permission boundary is not
+  // discoverable. Field names are dropped from the response envelope, so we
+  // don't need `originalRecords`/`app`/`tableName`/`userRole` to enumerate
+  // the offending fields — those config keys are kept on the type to keep
+  // call-site signatures stable but are no longer destructured.
   if (!hasWritableFields) {
     return c.json(
       {
@@ -120,5 +152,6 @@ export function validateStrippedRecordsNotEmpty(config: {
     )
   }
 
+  // eslint-disable-next-line unicorn/no-null -- null indicates no error
   return null
 }

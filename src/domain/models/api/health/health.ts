@@ -18,6 +18,34 @@ import {
   resolveBaseUrl,
 } from '@/domain/models/env/ai/ai-providers'
 
+/**
+ * Health check response schema
+ *
+ * Defines the shape of the health check API response.
+ * This schema is shared between:
+ * - Regular Hono routes (for runtime validation and RPC typing)
+ * - OpenAPI schema generation (for API documentation)
+ */
+/**
+ * AI subsystem status reported by the health endpoint.
+ *
+ * `status` is `'configured'` when the `AI_PROVIDER` env var is set to a
+ * recognised provider, `'not_configured'` otherwise. When configured, the
+ * provider identifier, default model, and (for self-hosted / compatible
+ * endpoints) the base URL are surfaced for operator visibility. Secrets
+ * (API keys) are never included.
+ */
+/**
+ * AI-compute two-phase descriptor.
+ *
+ * AI-compute fields are always available because the deterministic baseline is
+ * the guaranteed floor on both database dialects, so `enabled` is always `true`
+ * and `mode` is the constant `'baseline-then-refined'`. `refinement` reflects
+ * whether an AI provider is configured/usable: `'on'` means the baseline is
+ * later refined by the provider, `'off'` means the baseline is the final value.
+ * The retired per-engine descriptor (`sqlite-heuristic` / `postgres-trigger`)
+ * is intentionally absent.
+ */
 export const aiComputeHealthSchema = z.object({
   enabled: z.boolean().describe('AI-compute availability (always true — baseline is the floor)'),
   mode: z.literal('baseline-then-refined').describe('Two-phase compute mode'),
@@ -32,7 +60,7 @@ export const aiHealthStatusSchema = z.object({
   status: z
     .enum(['configured', 'not_configured'])
     .describe('Whether an AI provider is configured via AI_PROVIDER'),
-  compute: aiComputeHealthSchema.describe('AI-compute two-phase descriptor (DEC-030 Phase 2)'),
+  compute: aiComputeHealthSchema.describe('AI-compute two-phase descriptor'),
   provider: z.string().optional().describe('Configured AI provider identifier (AI_PROVIDER)'),
   model: z.string().optional().describe('Default AI model identifier (AI_MODEL)'),
   endpoint: z.string().optional().describe('AI provider base URL (AI_BASE_URL), when applicable'),
@@ -40,6 +68,7 @@ export const aiHealthStatusSchema = z.object({
     .array(z.string())
     .optional()
     .describe('Non-fatal AI configuration warnings surfaced at startup (e.g. unknown model names)'),
+  // ── Eco-conception provider routing (ECO_AI_PROVIDER_PRECEDENCE) ──────────
   precedence: z
     .enum(['local-first', 'cloud-first', 'local-only'])
     .optional()
@@ -80,8 +109,27 @@ export const healthResponseSchema = z.object({
   ai: aiHealthStatusSchema.describe('AI subsystem status'),
 })
 
+/**
+ * TypeScript type inferred from Zod schema
+ *
+ * Use this type for type-safe health check responses in application code.
+ */
 export type HealthResponse = z.infer<typeof healthResponseSchema>
 
+/**
+ * Build the `ai` health-status object from a snapshot of env vars.
+ *
+ * Pure function (takes `processEnv` so it stays trivially testable). When
+ * `AI_PROVIDER` is unset or unrecognised, AI is reported as not configured;
+ * a recognised provider yields `'configured'` plus the provider/model/endpoint
+ * for operator visibility. API keys are intentionally never surfaced.
+ */
+/**
+ * Resolve the active model to surface: an explicitly-set `AI_MODEL` wins,
+ * otherwise the canonical provider's current default (which may itself be
+ * `undefined` for providers without a universal default, e.g.
+ * `openai-compatible`).
+ */
 const resolveActiveModel = (
   canonicalProvider: ReturnType<typeof resolveAiProvider>,
   explicitModel: string | undefined
@@ -96,9 +144,13 @@ const buildConfiguredAiHealthStatus = (
   const canonicalProvider = resolveAiProvider(rawProvider)
   const explicitModel = processEnv['AI_MODEL']?.trim() || undefined
   const model = resolveActiveModel(canonicalProvider, explicitModel)
+  // Resolve the endpoint via the provider-specific alias (e.g. `OLLAMA_BASE_URL`)
+  // so a base URL configured only via the alias is still surfaced.
   const endpoint = canonicalProvider
     ? resolveBaseUrl(canonicalProvider, processEnv)
     : processEnv['AI_BASE_URL']?.trim() || undefined
+  // Warnings are about *explicitly* configured models — a resolved default is
+  // by definition a known model, so pass `explicitModel` here.
   const warnings = canonicalProvider
     ? computeAiModelWarnings(canonicalProvider, explicitModel, agents)
     : []
@@ -112,12 +164,25 @@ const buildConfiguredAiHealthStatus = (
   }
 }
 
+/**
+ * Build the AI-compute two-phase descriptor. AI-compute is always enabled (the
+ * deterministic baseline is the guaranteed floor); `refinement` is `'on'` when
+ * a provider is configured/usable so the baseline gets refined, `'off'`
+ * otherwise (the baseline is then the final value).
+ */
 const aiComputeHealth = (providerConfigured: boolean): Readonly<AiComputeHealth> => ({
   enabled: true,
   mode: 'baseline-then-refined',
   refinement: providerConfigured ? 'on' : 'off',
 })
 
+/**
+ * The startup/health warning surfaced when an app declares `agents:` but no AI
+ * provider is resolvable. Names the missing env var AND states the
+ * agents are inert so an operator can self-serve the fix. The same message is
+ * logged at WARN at startup. Empty array when no agents are declared (nothing
+ * degrades, so nothing to warn about).
+ */
 const inertAgentWarnings = (agentCount: number): ReadonlyArray<string> =>
   agentCount > 0
     ? [
@@ -141,6 +206,12 @@ export const buildAiHealthStatus = (
   return buildConfiguredAiHealthStatus(rawProvider, processEnv, agents)
 }
 
+/**
+ * Project an {@link AiEcoRouting} decision onto the `body.ai` health surface:
+ * `precedence`, `resolvedProvider`, `ollamaReachable`, `configured`, and
+ * `fallbackReason` (when present). Empty fields are omitted so the response
+ * stays minimal.
+ */
 const ecoRoutingFields = (routing: AiEcoRouting): Readonly<Partial<AiHealthStatus>> => ({
   precedence: routing.precedence,
   ...(routing.resolvedProvider ? { resolvedProvider: routing.resolvedProvider } : {}),
@@ -149,6 +220,12 @@ const ecoRoutingFields = (routing: AiEcoRouting): Readonly<Partial<AiHealthStatu
   ...(routing.fallbackReason ? { fallbackReason: routing.fallbackReason } : {}),
 })
 
+/**
+ * Build the full `body.ai` health object: the base `AI_PROVIDER`-derived
+ * status plus the `ECO_AI_PROVIDER_PRECEDENCE` routing decision. The Ollama
+ * reachability result is supplied by the caller (the route handler performs
+ * the async probe), keeping this function pure.
+ */
 export const buildAiHealthStatusWithEcoRouting = (
   processEnv: Readonly<Record<string, string | undefined>>,
   ollamaReachable: boolean,

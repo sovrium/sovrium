@@ -8,8 +8,27 @@
 import { z } from '@hono/zod-openapi'
 import { timestampSchema } from '../_shared/common'
 
+/**
+ * Account self-service & GDPR API schemas
+ *
+ * Zod schemas for the authenticated account endpoints:
+ * - `GET  /api/account/export` — GDPR Art. 15 (access) + Art. 20 (portability)
+ * - `POST /api/account/delete` — GDPR Art. 17 (erasure)
+ *
+ * Both endpoints operate only on the authenticated caller. There is no
+ * client-supplied user id, so cross-account access is impossible by
+ * construction (anti-enumeration).
+ */
 
+// ============================================================================
+// Account Export Schemas
+// ============================================================================
 
+/**
+ * Account export — profile section
+ *
+ * The caller's `auth.user` row. Secret material is never present on this row.
+ */
 export const accountExportProfileSchema = z
   .object({
     id: z.string().describe('Unique user identifier'),
@@ -22,6 +41,12 @@ export const accountExportProfileSchema = z
   .extend(timestampSchema.shape)
   .openapi('AccountExportProfile')
 
+/**
+ * Account export — session section
+ *
+ * One entry per `auth.session` row belonging to the caller. The session token
+ * is deliberately omitted — it is a live credential, not export-relevant data.
+ */
 export const accountExportSessionSchema = z
   .object({
     id: z.string().describe('Session identifier'),
@@ -33,6 +58,14 @@ export const accountExportSessionSchema = z
   .extend(timestampSchema.shape)
   .openapi('AccountExportSession')
 
+/**
+ * Account export — linked-account section
+ *
+ * One entry per `auth.account` row (OAuth providers and the email/password
+ * credential record). Secret material (`password`, `accessToken`,
+ * `refreshToken`, `idToken`) is deliberately OMITTED — exporting credentials is
+ * a security risk and is not required by GDPR Art. 15.
+ */
 export const accountExportLinkedAccountSchema = z
   .object({
     id: z.string().describe('Linked account identifier'),
@@ -46,6 +79,13 @@ export const accountExportLinkedAccountSchema = z
   .extend(timestampSchema.shape)
   .openapi('AccountExportLinkedAccount')
 
+/**
+ * Account export — authored-record section
+ *
+ * One entry per table record across the app where `created_by` equals the
+ * caller. Satisfies the GDPR Art. 20 portability requirement for
+ * user-generated content.
+ */
 export const accountExportRecordSchema = z
   .object({
     tableSlug: z.string().describe('Slug of the table the record belongs to'),
@@ -55,6 +95,22 @@ export const accountExportRecordSchema = z
   .extend(timestampSchema.shape)
   .openapi('AccountExportRecord')
 
+/**
+ * Account export — form-submission section
+ *
+ * One entry per `system.form_submissions` row whose `submitter_user_id` equals
+ * the caller. Submissions made anonymously (no `submitter_user_id`) belong to
+ * nobody and are never attributed to an exporting user.
+ *
+ * `submitter_ip_hash` is deliberately OMITTED. Sovrium never holds the
+ * submitter's IP: it is hashed at the route boundary and the raw address never
+ * reaches the application layer, so there is no address to disclose — only a
+ * digest of one. That digest is also unstable (with `FORM_IP_HASH_SALT` unset
+ * the salt is a process-lifetime random value, so the same address hashes
+ * differently after a restart), which makes it neither intelligible under
+ * Art. 15 nor portable under Art. 20. Where an IP IS retained in clear, the
+ * export already surfaces it (`sessions[].ipAddress`).
+ */
 export const accountExportFormSubmissionSchema = z
   .object({
     submissionId: z.string().describe('Ledger row identifier of the submission'),
@@ -76,6 +132,13 @@ export const accountExportFormSubmissionSchema = z
   })
   .openapi('AccountExportFormSubmission')
 
+/**
+ * Account export response schema
+ *
+ * The complete personal-data footprint of the authenticated caller, returned by
+ * `GET /api/account/export`. A single machine-readable JSON document covering
+ * GDPR Art. 15 (right of access) and Art. 20 (right to data portability).
+ */
 export const accountExportResponseSchema = z
   .object({
     exportedAt: z.iso.datetime().describe('ISO 8601 timestamp the export was generated'),
@@ -95,7 +158,16 @@ export const accountExportResponseSchema = z
   })
   .openapi('AccountExportResponse')
 
+// ============================================================================
+// Account Deletion Schemas
+// ============================================================================
 
+/**
+ * Account delete — confirm request shape
+ *
+ * `{ confirm: true }` schedules the account for erasure. The literal-`true`
+ * requirement is an explicit anti-fat-finger confirmation.
+ */
 export const accountDeleteConfirmRequestSchema = z
   .object({
     confirm: z
@@ -104,16 +176,32 @@ export const accountDeleteConfirmRequestSchema = z
   })
   .openapi('AccountDeleteConfirmRequest')
 
+/**
+ * Account delete — cancel request shape
+ *
+ * `{ cancel: true }` cancels a pending erasure during the grace window.
+ */
 export const accountDeleteCancelRequestSchema = z
   .object({
     cancel: z.literal(true).describe('Explicit request to cancel a pending account erasure'),
   })
   .openapi('AccountDeleteCancelRequest')
 
+/**
+ * Account delete request schema
+ *
+ * Body of `POST /api/account/delete`. A discriminated union — exactly one of a
+ * confirm-shape or a cancel-shape. A body matching neither is rejected `400`.
+ */
 export const accountDeleteRequestSchema = z
   .union([accountDeleteConfirmRequestSchema, accountDeleteCancelRequestSchema])
   .openapi('AccountDeleteRequest')
 
+/**
+ * Account delete — scheduled response shape
+ *
+ * Returned `202 Accepted` when `{ confirm: true }` schedules an erasure.
+ */
 export const accountDeleteScheduledResponseSchema = z
   .object({
     status: z.literal('scheduled').describe('Erasure has been scheduled'),
@@ -125,17 +213,52 @@ export const accountDeleteScheduledResponseSchema = z
   })
   .openapi('AccountDeleteScheduledResponse')
 
+/**
+ * Account delete — cancelled response shape
+ *
+ * Returned `200 OK` when `{ cancel: true }` clears a pending erasure.
+ */
 export const accountDeleteCancelledResponseSchema = z
   .object({
     status: z.literal('cancelled').describe('A pending erasure has been cancelled'),
   })
   .openapi('AccountDeleteCancelledResponse')
 
+/**
+ * Account delete response schema
+ *
+ * Response of `POST /api/account/delete` — a union of the scheduled (`202`) and
+ * cancelled (`200`) response shapes.
+ */
 export const accountDeleteResponseSchema = z
   .union([accountDeleteScheduledResponseSchema, accountDeleteCancelledResponseSchema])
   .openapi('AccountDeleteResponse')
 
+// ============================================================================
+// Pending-Erasure Read Schemas
+// ============================================================================
 
+/**
+ * Pending-erasure — one item
+ *
+ * The caller's OWN scheduled erasure, surfaced by `GET
+ * /api/account/pending-erasure`. There is exactly one item while an erasure is
+ * scheduled (`scheduledErasureAt` is set on the `auth.user` row), and the
+ * collection is empty otherwise. The shape is a rows envelope so a `data-table`
+ * can bind to it via `dataSource.system` and re-query it on `onSuccess.refetch`
+ * (the GDPR pending-erasure list the consoles-as-config conversion needs).
+ *
+ * `requestedAt` is DERIVED, not stored: scheduling always sets
+ * `scheduledErasureAt = requestedAt + gracePeriodDays`, so the request moment is
+ * recovered as `scheduledErasureAt − gracePeriodDays` (the `auth.user` table
+ * carries no separate request-timestamp column).
+ *
+ * `email` is the caller's OWN address. The pending erasure is always the
+ * requester's own account (the read is session-bound — there is no client-supplied
+ * id), so surfacing it is not a PII leak; it lets the GDPR pending-erasure
+ * data-table bind a `{ field: 'email' }` column that names whose account is on its
+ * way out.
+ */
 export const accountPendingErasureItemSchema = z
   .object({
     id: z
@@ -162,6 +285,16 @@ export const accountPendingErasureItemSchema = z
   })
   .openapi('AccountPendingErasureItem')
 
+/**
+ * Pending-erasure response schema
+ *
+ * Body of `GET /api/account/pending-erasure` — the caller's OWN pending erasure
+ * as a `{ items }` rows envelope. Exactly one item while an erasure is scheduled;
+ * an empty `items` array once it is cancelled (or was never scheduled). The
+ * endpoint is session-bound (no client-supplied id → no enumeration surface);
+ * an unauthenticated request is rejected `401` (the same `unauthorized` envelope
+ * as the sibling export/delete handlers), never leaking another caller's state.
+ */
 export const accountPendingErasureResponseSchema = z
   .object({
     items: z
@@ -172,6 +305,9 @@ export const accountPendingErasureResponseSchema = z
   })
   .openapi('AccountPendingErasureResponse')
 
+// ============================================================================
+// TypeScript Types
+// ============================================================================
 
 export type AccountExportProfile = z.infer<typeof accountExportProfileSchema>
 export type AccountExportSession = z.infer<typeof accountExportSessionSchema>

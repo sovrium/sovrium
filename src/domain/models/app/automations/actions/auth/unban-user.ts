@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Auth Unban User Action (type: auth, operator: unbanUser)
+ *
+ * Unban a previously banned user account.
+ */
 export const AuthUnbanUserActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('auth'),
@@ -24,4 +29,5 @@ export const AuthUnbanUserActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AuthUnbanUserAction = Schema.Schema.Type<typeof AuthUnbanUserActionSchema>

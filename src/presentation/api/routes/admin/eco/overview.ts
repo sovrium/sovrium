@@ -5,6 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * `GET /api/admin/eco/overview` route handler — operator-grade
+ * environmental footprint dashboard.
+ *
+ * Reads `process.env.ECO_*` at REQUEST TIME (not boot cache, per
+ * user-story implementation note "operator can toggle ECO_INDEX_HEADER and
+ * see the panel change on the next refresh"), snapshots the in-memory
+ * `X-Eco-Index` tracker, collects per-table storage rows (lazy — table-list
+ * comes from the live App; bucket rows come from the StorageService), and
+ * builds the response via the pure `buildEcoOverview` use case.
+ *
+ * Auth gating is handled upstream by `requireAdminTier()` in
+ * `api-routes.ts`. Unauthenticated and non-admin-tier callers receive 404
+ * per anti-enumeration (S1).
+ *
+ * No third-party SaaS call is made during request handling — the spec
+ * verifies this with a network-spy assertion.
+ */
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
@@ -21,6 +39,19 @@ import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/**
+ * Collect storage consumer rows for the top-3 panel.
+ *
+ * Returns one synthetic row per declared table (with `bytes = 0` until a
+ * future tier-2 PR threads `pg_total_relation_size`) plus one row for the
+ * default bucket. The use case sorts and slices to top-3 — the caller does
+ * NOT need to pre-sort.
+ *
+ * The bucket row's `bytes` is harvested from the live StorageService when
+ * one is configured; storage failures fall back to `0` so the dashboard
+ * never 500s on a storage misconfiguration.
+ */
+/* eslint-disable unicorn/no-null -- the eco-overview API contract uses `null` for absent retention horizons (matches every other admin overview schema's nullable retentionDays); switching to `undefined` would diverge from the JSON shape end-clients consume */
 
 async function collectStorageConsumers(app: App): Promise<readonly StorageConsumerInput[]> {
   const tableRows: StorageConsumerInput[] = (app.tables ?? []).map((t) => ({
@@ -49,6 +80,11 @@ async function collectStorageConsumers(app: App): Promise<readonly StorageConsum
   return [...tableRows, bucketRow]
 }
 
+/**
+ * Build the handler factory bound to an App. The factory closes over `app`
+ * so the handler can enumerate configured tables for the storage panel
+ * without re-importing the runtime App state on every call.
+ */
 export function createHandleGetEcoOverview(app: App) {
   return async function handleGetEcoOverview(c: Context): Promise<Response> {
     const storageConsumers = await collectStorageConsumers(app)

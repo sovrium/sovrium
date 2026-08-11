@@ -18,10 +18,24 @@ import { buildStoredZip } from './file-zip'
 import { numberProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
+/**
+ * Advanced `file:*` action handlers — `compress`, `extractText`,
+ * `transformImage`, `generatePdf`. These complement `file.ts` (upload /
+ * download / CSV) and `file-ops.ts` (list / move / copy / sign); kept in a
+ * sibling module so neither file outgrows the per-file line cap.
+ *
+ * The heavy lifting (ZIP container, PDF wrapper, text extraction) lives in
+ * the small sibling pure modules `file-zip.ts`, `file-pdf.ts`,
+ * `file-extract.ts`, plus the `ImageTransformService` port (composed sharp
+ * pipeline in `infrastructure/storage/image-transform-live.ts`), so each
+ * concern stays individually testable and the handler stays a thin
+ * storage-port glue.
+ */
 
 const props = (action: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> =>
   (action['props'] as Record<string, unknown> | undefined) ?? {}
 
+/** A failure callers may swallow via `output.error` (status stays success). */
 const softError = (message: string): ActionOutcome => ({
   status: 'success',
   output: { error: message },
@@ -30,7 +44,11 @@ const softError = (message: string): ActionOutcome => ({
 const optionalString = (p: Readonly<Record<string, unknown>>, key: string): string | undefined =>
   p[key] !== undefined && stringProp(p, key) !== '' ? stringProp(p, key) : undefined
 
+// ---------------------------------------------------------------------------
+// compress
+// ---------------------------------------------------------------------------
 
+/** Resolve `props.keys` (array) or `props.files` (alias) to a string array. */
 const compressKeys = (p: Readonly<Record<string, unknown>>): readonly string[] => {
   const raw = p['keys'] ?? p['files']
   if (Array.isArray(raw)) return raw.map((k) => String(k))
@@ -73,6 +91,9 @@ export const handleFileCompress: ActionHandler = (action) =>
     } as const
   })
 
+// ---------------------------------------------------------------------------
+// extractText
+// ---------------------------------------------------------------------------
 
 const resolveExtractFormat = (raw: unknown): ExtractTextFormat =>
   raw === 'markdown' ? 'markdown' : 'plain'
@@ -104,10 +125,14 @@ export const handleFileExtractText: ActionHandler = (action) =>
     } as const
   })
 
+// ---------------------------------------------------------------------------
+// transformImage
+// ---------------------------------------------------------------------------
 
 const resolveImageFormat = (raw: unknown): ImageOutputFormat | undefined =>
   raw === 'jpeg' || raw === 'png' || raw === 'webp' || raw === 'avif' ? raw : undefined
 
+/** Optional numeric prop accessor — returns `undefined` when the key is absent. */
 const optionalNumber = (
   p: Readonly<Record<string, unknown>>,
   key: string,
@@ -129,6 +154,7 @@ interface TransformImageInputs {
   readonly y: number | undefined
 }
 
+/** Parse `transformImage` props into the typed shape the port consumes. */
 const parseTransformImageInputs = (p: Readonly<Record<string, unknown>>): TransformImageInputs => ({
   operation: resolveImageOperation(stringProp(p, 'operation') || 'resize'),
   outputFormat: resolveImageFormat(p['outputFormat'] ?? p['format']),
@@ -139,9 +165,11 @@ const parseTransformImageInputs = (p: Readonly<Record<string, unknown>>): Transf
   y: optionalNumber(p, 'y', 0),
 })
 
+/** Resolve `(source key) | undefined` from either `props.key` or `props.source`. */
 const resolveSourceKey = (p: Readonly<Record<string, unknown>>): string =>
   p['key'] !== undefined ? stringProp(p, 'key') : stringProp(p, 'source')
 
+/** Resolve the destination key + suffix used for the upload target. */
 const resolveDestinationKey = (
   p: Readonly<Record<string, unknown>>,
   sourceKey: string,
@@ -162,6 +190,7 @@ interface TransformImageOutputContext {
   readonly byteSize: number
 }
 
+/** Shape the `transformImage` action's `output.*` payload. */
 const buildTransformImageOutput = (
   ctx: TransformImageOutputContext
 ): Readonly<Record<string, unknown>> => {
@@ -210,6 +239,9 @@ export const handleFileTransformImage: ActionHandler = (action) =>
     } as const
   })
 
+// ---------------------------------------------------------------------------
+// generatePdf
+// ---------------------------------------------------------------------------
 
 export const handleFileGeneratePdf: ActionHandler = (action) =>
   Effect.gen(function* () {

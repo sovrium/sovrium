@@ -30,14 +30,31 @@ import type {
 const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
 const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
 
+/** Wrap a DB promise, adapting failures to AiMemoryDatabaseError. */
 const wrap = makeDbWrap((cause) => new AiMemoryDatabaseError({ cause }))
 
+/**
+ * Derive a conversation title from the first user message.
+ *
+ * Keeps it short (a thread label, not the whole message) — truncates to 60
+ * characters with an ellipsis. [internal ref] only asserts the title is a
+ * non-empty string, so any deterministic projection of the first message is
+ * acceptable.
+ */
 const deriveTitle = (firstMessage: string): string => {
   const trimmed = firstMessage.trim()
   if (trimmed.length === 0) return 'New conversation'
   return trimmed.length > 60 ? `${trimmed.slice(0, 57)}...` : trimmed
 }
 
+/**
+ * Resolve the conversation row id for a `(userId, sessionId)` thread,
+ * creating the row on first use. `firstMessage` seeds the auto-generated
+ * title; `agentName` distinguishes per-agent threads.
+ *
+ * On every call the conversation's `updatedAt` is bumped so the retention
+ * sweep and the most-recently-updated ordering both observe live activity.
+ */
 const ensureConversation = async (input: {
   readonly userId: string
   readonly sessionId: string
@@ -68,9 +85,18 @@ const ensureConversation = async (input: {
       ...(input.agentName !== undefined ? { agentName: input.agentName } : {}),
     })
     .returning({ id: aiConversations.id })
+  // `returning()` always yields the inserted row; the fallback keeps the
+  // function total against unexpected driver behaviour.
   return created?.id ?? ''
 }
 
+/**
+ * AI Memory Repository Implementation (Drizzle).
+ *
+ * Persists chat turns to `system.ai_conversations` / `system.ai_messages`.
+ * `ai_messages.conversation_id` has `ON DELETE CASCADE`, so deleting a
+ * conversation removes all its messages without an explicit message delete.
+ */
 export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
   recordTurn: ({ userId, sessionId, userMessage, assistantReply, agentName, model }) =>
     wrap(async (): Promise<void> => {
@@ -80,15 +106,42 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
         firstMessage: userMessage,
         agentName,
       })
+      // `created_at` is stamped EXPLICITLY, one millisecond apart, rather than
+      // left to the column default.
+      //
+      // A turn is two rows written in one statement, and every reader orders
+      // them by `created_at`. The default gives both rows the SAME instant — on
+      // Postgres because `now()` is the transaction timestamp, on SQLite because
+      // two `new Date()` calls in one batch land in the same millisecond. The
+      // readers then fell through to their tie-break, `id ASC`, which is a
+      // random UUID on both dialects: a coin flip deciding whether a transcript
+      // reads user-then-assistant or assistant-then-user. That surfaced as a
+      // ~50% flaky spec, but the transcript endpoint is the small half of it —
+      // `getHistory` feeds prior turns back to the MODEL, so half the time the
+      // model was handed its own reply as though it preceded the question.
+      //
+      // Ordering belongs in the data, not in a tie-break: the assistant reply
+      // genuinely happens after the user message, so the timestamps say so and
+      // every reader — present and future, on both dialects — gets it right
+      // without needing to know about this.
+      const askedAt = new Date()
+      const answeredAt = new Date(askedAt.getTime() + 1)
       return db
         .insert(aiMessages)
         .values([
-          { conversationId, role: 'user', content: userMessage, status: 'complete' },
+          {
+            conversationId,
+            role: 'user',
+            content: userMessage,
+            status: 'complete',
+            createdAt: askedAt,
+          },
           {
             conversationId,
             role: 'assistant',
             content: assistantReply,
             status: 'complete',
+            createdAt: answeredAt,
             ...(model !== undefined ? { model } : {}),
           },
         ])
@@ -97,6 +150,12 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
 
   getHistory: ({ userId, sessionId }) =>
     wrap(async (): Promise<ReadonlyArray<AiMemoryMessage>> => {
+      // Chronological, and it has to be exactly right: this is the transcript
+      // replayed INTO the model as prior context, so a mis-ordered pair tells
+      // the model it answered before it was asked. `recordTurn` guarantees the
+      // ordering in the data (distinct `created_at` per turn); `id ASC` trails
+      // only as a stability tie-break, never as a chronological fallback — the
+      // id is a random UUID and would sort a genuine tie by coin flip.
       const rows = await db
         .select({
           role: aiMessages.role,
@@ -107,7 +166,7 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
         .from(aiMessages)
         .innerJoin(aiConversations, eq(aiMessages.conversationId, aiConversations.id))
         .where(and(eq(aiConversations.userId, userId), eq(aiConversations.sessionId, sessionId)))
-        .orderBy(asc(aiMessages.createdAt))
+        .orderBy(asc(aiMessages.createdAt), asc(aiMessages.id))
       return rows
     }),
 

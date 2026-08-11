@@ -7,6 +7,27 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Border radius configuration (design tokens for rounded corners)
+ *
+ * Map of semantic radius names to CSS border-radius values.
+ * Supports progressive rounding scale:
+ * - none: 0 (sharp corners)
+ * - sm, md, lg, xl, 2xl, 3xl: progressive rounding
+ * - full: 9999px (perfect circles/pills)
+ *
+ * @example
+ * ```typescript
+ * const borderRadius = {
+ *   none: '0',
+ *   sm: '0.125rem',
+ *   md: '0.375rem',
+ *   lg: '0.5rem',
+ *   full: '9999px',
+ * }
+ * ```
+ *
+ */
 export const BorderRadiusConfigSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^(DEFAULT|[a-z0-9]+(-[a-z0-9]+)*)$/, {

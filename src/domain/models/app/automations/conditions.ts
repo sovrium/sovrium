@@ -8,6 +8,9 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from './template'
 
+/**
+ * Comparison operators for filter conditions
+ */
 export const ComparisonOperatorSchema = Schema.Literal(
   'equals',
   'notEquals',
@@ -32,15 +35,25 @@ export const ComparisonOperatorSchema = Schema.Literal(
   })
 )
 
+/** @public */
 export type ComparisonOperator = Schema.Schema.Type<typeof ComparisonOperatorSchema>
 
+/**
+ * Single filter condition
+ *
+ * Evaluates: field <operator> value
+ * The `field` may use template variables: {{trigger.data.status}}
+ */
 export const ConditionSchema = Schema.Struct({
+  /** Field path or template variable to evaluate */
   field: TemplateStringSchema.pipe(
     Schema.annotations({ description: 'Field path or template variable to evaluate' })
   ),
 
+  /** Comparison operator */
   operator: ComparisonOperatorSchema,
 
+  /** Value to compare against (optional for isEmpty/isNull operators) */
   value: Schema.optional(
     Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null).pipe(
       Schema.annotations({ description: 'Value to compare against' })
@@ -65,9 +78,14 @@ export const ConditionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type Condition = Schema.Schema.Type<typeof ConditionSchema>
 
+/**
+ * Condition group with AND/OR logic
+ */
 export const ConditionGroupSchema = Schema.Struct({
+  /** Logical operator for combining conditions */
   logic: Schema.optional(
     Schema.Literal('and', 'or').pipe(
       Schema.annotations({
@@ -76,6 +94,7 @@ export const ConditionGroupSchema = Schema.Struct({
     )
   ),
 
+  /** Array of conditions */
   conditions: Schema.Array(ConditionSchema).pipe(
     Schema.minItems(1),
     Schema.annotations({ description: 'One or more conditions to evaluate' })

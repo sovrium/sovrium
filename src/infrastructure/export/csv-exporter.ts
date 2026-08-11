@@ -14,6 +14,9 @@ export interface CsvExportOptions {
   readonly header?: boolean
 }
 
+/**
+ * Export data as CSV using csv-stringify.
+ */
 export const exportToCsv = (options: CsvExportOptions): string =>
   stringify(options.rows as unknown[][], {
     columns: options.columns as string[],
@@ -21,6 +24,10 @@ export const exportToCsv = (options: CsvExportOptions): string =>
     delimiter: options.delimiter ?? ',',
   })
 
+/**
+ * Export records (array of objects) as CSV.
+ * @public
+ */
 export const exportRecordsToCsv = (
   records: readonly Readonly<Record<string, unknown>>[],
   columns?: readonly string[]

@@ -11,6 +11,15 @@ import { renderMetaTags } from './meta-utils'
 import type { Languages } from '@/domain/models/app/languages'
 import type { OpenGraph } from '@/domain/models/app/pages/meta'
 
+/**
+ * Render Open Graph metadata tags
+ * Generates <meta property="og:*"> tags for Facebook/LinkedIn sharing
+ *
+ * @param openGraph - Open Graph configuration from page.meta
+ * @param lang - Current language code for translation resolution
+ * @param languages - Languages configuration for translation resolution
+ * @returns React fragment with OG meta tags
+ */
 export function OpenGraphMeta({
   openGraph,
   lang,
@@ -24,6 +33,7 @@ export function OpenGraphMeta({
     return undefined
   }
 
+  // Resolve translation patterns in OpenGraph fields
   const resolveValue = (value: string | undefined): string | undefined => {
     if (!value || !lang) return value
     return resolveTranslationPattern(value, lang, languages)

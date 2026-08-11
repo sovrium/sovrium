@@ -18,6 +18,17 @@ import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormPrefillContext } from '@/presentation/rendering/forms/form-prefill-resolver'
 
+/**
+ * Bundle of form-rendering callbacks supplied to the presentation
+ * route layer. Routes cannot import `presentation-rendering` directly
+ * under the layer-boundary rules, so this module — which lives in
+ * `infrastructure-layer` (allowed to import `presentation-rendering`)
+ * — provides the bridge.
+ *
+ * Mirrors the `PageRendererLive` ports/adapters approach used for page
+ * rendering, but skipped the Effect Service indirection because form
+ * rendering is a pure function and does not need Layer composition.
+ */
 export const FormRenderers = {
   renderForm: (
     app: Readonly<App>,

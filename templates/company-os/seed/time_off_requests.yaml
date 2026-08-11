@@ -1,0 +1,72 @@
+# Time-off requests on /people.
+#
+# All three statuses are represented — four Approved, three Pending, one
+# Rejected — because `status` is the field the `approve-time-off` automation
+# writes, and a table stuck on one value cannot show what the flow produces.
+#
+# Dates straddle today: approved leave in the past (taken), approved leave in
+# the future (booked), and pending requests for dates still to come. A set where
+# every request is in the future reads as a fresh install rather than a system
+# somebody has been using.
+#
+# Noor is absent from this file on purpose — that employee has a `start_date` in
+# the future in `employees.yaml`, and somebody who has not started has no leave
+# history.
+records:
+  - key: priya-summer
+    fields:
+      employee: '@employees.priya'
+      start_date: '{{today+34d}}'
+      end_date: '{{today+48d}}'
+      status: Approved
+
+  - key: mateo-parental
+    fields:
+      employee: '@employees.mateo'
+      start_date: '{{today-21d}}'
+      end_date: '{{today-7d}}'
+      status: Approved
+
+  - key: hannah-long-weekend
+    fields:
+      employee: '@employees.hannah'
+      start_date: '{{today+11d}}'
+      end_date: '{{today+13d}}'
+      status: Approved
+
+  - key: jules-conference
+    fields:
+      employee: '@employees.jules'
+      start_date: '{{today-45d}}'
+      end_date: '{{today-43d}}'
+      status: Approved
+
+  - key: sofia-autumn
+    fields:
+      employee: '@employees.sofia'
+      start_date: '{{today+19d}}'
+      end_date: '{{today+26d}}'
+      status: Pending
+
+  - key: omar-family
+    fields:
+      employee: '@employees.omar'
+      start_date: '{{today+5d}}'
+      end_date: '{{today+6d}}'
+      status: Pending
+
+  - key: keiko-moving-day
+    fields:
+      employee: '@employees.keiko'
+      start_date: '{{today+2d}}'
+      end_date: '{{today+2d}}'
+      status: Pending
+
+  - key: dan-clash
+    fields:
+      employee: '@employees.dan'
+      start_date: '{{today+12d}}'
+      end_date: '{{today+16d}}'
+      # Rejected: overlaps the quarter-end close. Every approval flow needs one
+      # visible No, or the demo only ever shows the happy path.
+      status: Rejected

@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Map operator symbol to internal operator name
+ */
 function mapOperator(operator: string): string | undefined {
   const operatorMap: Record<string, string> = {
     '=': 'equals',
@@ -17,6 +20,9 @@ function mapOperator(operator: string): string | undefined {
   return operatorMap[operator]
 }
 
+/**
+ * Parse a single condition from regex match
+ */
 function parseCondition(match: RegExpExecArray):
   | {
       readonly field: string
@@ -30,10 +36,12 @@ function parseCondition(match: RegExpExecArray):
   const stringValue2 = match[4]
   const numberValue = match[5]
 
+  // Validate required captures
   if (!field || !operator) {
     return undefined
   }
 
+  // Determine value (string or number)
   const value = stringValue1 ?? stringValue2 ?? Number(numberValue)
 
   const mappedOperator = mapOperator(operator)
@@ -48,11 +56,15 @@ function parseCondition(match: RegExpExecArray):
   }
 }
 
+/**
+ * Extract all conditions from formula string
+ */
 function extractConditions(conditions: string): Array<{
   readonly field: string
   readonly operator: string
   readonly value: unknown
 }> {
+  // Regex to match: {field}operator'value' or {field}operatorvalue
   const conditionRegex = /\{([^}]+)\}\s*([!=<>]+)\s*(?:'([^']*)'|"([^"]*)"|(\d+))/g
 
   const matches = [...conditions.matchAll(conditionRegex)]
@@ -63,6 +75,19 @@ function extractConditions(conditions: string): Array<{
   return parsedConditions
 }
 
+/**
+ * Parse Airtable-style formula syntax into filter structure
+ *
+ * Supported syntax:
+ * - AND({field}='value', {field}>=value)
+ * - Field references: {fieldName}
+ * - Operators: =, !=, <, <=, >, >=
+ * - String values: 'value' or "value"
+ * - Number values: 123
+ *
+ * @param formula - Airtable-style formula string
+ * @returns Filter structure compatible with existing filter system
+ */
 export function parseFormulaToFilter(formula: string):
   | {
       readonly and?: Array<{
@@ -72,6 +97,7 @@ export function parseFormulaToFilter(formula: string):
       }>
     }
   | undefined {
+  // Match AND(...) pattern
   const andMatch = formula.match(/^AND\((.*)\)$/i)
   if (!andMatch) {
     return undefined

@@ -18,10 +18,14 @@ import {
   computeDividerRuleClasses,
 } from '../../renderers/element-renderers/recipes/layout-default-classes'
 import { mergePrestyle } from './interactive-prestyle-builders'
-import type { ComponentRenderer } from '../component-dispatch-config'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentRenderer, DispatchableComponentType } from '../component-dispatch-config'
 
-export const structuralComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
+/**
+ * Structural HTML components (section, header, footer, main, etc.)
+ *
+ * These components render semantic HTML elements for page structure.
+ */
+export const structuralComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   container: ({ elementPropsWithSpacing, content, renderedChildren, interactions, component }) => {
     const element =
       ((component as Record<string, unknown> | undefined)?.element as
@@ -61,6 +65,10 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
       interactions: interactions,
     }),
 
+  // Card — prestyled-by-default chip with bg + border + radius + shadow +
+  // padding chrome. Author-supplied `props.className` appends LAST
+  // so it wins at the Tailwind cascade (e.g. a grid cell tightening `p-4`
+  // to `p-3`).
   card: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) => {
     const authorClassName = elementPropsWithSpacing['className'] as string | undefined
     const mergedClassName = mergePrestyle(computeCardClasses(), authorClassName)
@@ -73,6 +81,10 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
     })
   },
 
+  // Timeline — structural-display container. Distinct from the
+  // data-bound `data-timeline` Gantt island. Renders a vertical event list
+  // with a left rail line; the rail is an absolute-positioned `<div>` so
+  // it sits behind the children rendered to the right of `pl-6`.
   timeline: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) => {
     const authorClassName = elementPropsWithSpacing['className'] as string | undefined
     const mergedClassName = mergePrestyle(computeTimelineContainerClasses(), authorClassName)
@@ -140,6 +152,9 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
       interactions: interactions,
     }),
 
+  // List-item — prestyled `<li>` row. The schema's action fields
+  // promote a passive row to an interactive one; the `selected` and
+  // `disabled` schema-level flags drive the state axis.
   'list-item': ({ elementProps, content, renderedChildren }) => {
     const interactive =
       Boolean(elementProps['onClick']) ||
@@ -153,6 +168,12 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
     return Renderers.renderListItem({ ...elementProps, className }, content, renderedChildren)
   },
 
+  // Divider — renders an <hr> with prestyled `sv-border` color tone
+  //. `style` (solid|dashed|dotted) maps to inline `borderStyle`
+  // since that's a schema literal that shouldn't go through the token
+  // cascade. `label` (when present) wraps the rule in an aria-separator
+  // container with muted-fg label text so labelled separators read as
+  // passive chrome.
   divider: ({ elementProps }) => {
     const style = elementProps['style'] as string | undefined
     const label = elementProps['label'] as string | undefined
@@ -170,11 +191,13 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
         >
           <hr
             className={ruleClassName}
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only style derived from `style` prop literal
             style={{ borderStyle }}
           />
           <span className={computeDividerLabelTextClasses()}>{label}</span>
           <hr
             className={ruleClassName}
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only style derived from `style` prop literal
             style={{ borderStyle }}
           />
         </div>
@@ -185,11 +208,14 @@ export const structuralComponents: Partial<Record<Component['type'], ComponentRe
       <hr
         {...elementProps}
         className={ruleClassName}
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only style derived from `style` prop literal
         style={{ borderStyle }}
       />
     )
   },
 
+  // Spacer — renders a div with a configurable height. `size` (sm/md/lg/xl)
+  // maps to Tailwind h-* utilities; defaults to `md`.
   spacer: ({ elementProps }) => {
     const size = elementProps['size'] as string | undefined
     const sizeClass =

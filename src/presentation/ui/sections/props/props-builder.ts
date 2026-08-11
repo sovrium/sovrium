@@ -9,8 +9,14 @@ import { calculateTotalDelay } from '../utils/time-parser'
 import { convertCustomPropsToDataAttributes } from './prop-conversion'
 import type { ElementPropsConfig, TestIdConfig } from './props-builder-config'
 
+/**
+ * Component types that should receive role="group" when used as component references with children
+ */
 const CONTAINER_TYPES = ['div', 'container', 'flex', 'grid', 'card', 'badge'] as const
 
+/**
+ * Builds test ID for component references
+ */
 function buildComponentTestId(
   componentName: string,
   componentInstanceIndex: number | undefined
@@ -20,6 +26,9 @@ function buildComponentTestId(
     : `component-${componentName}`
 }
 
+/**
+ * Auto-generates test ID for common component types
+ */
 function buildDefaultTestId(type: string): string | undefined {
   const typeMap: Record<string, string> = {
     container: 'container',
@@ -31,6 +40,9 @@ function buildDefaultTestId(type: string): string | undefined {
   return typeMap[type]
 }
 
+/**
+ * Build test ID for component using config object
+ */
 
 function buildTestId(config: TestIdConfig): string | undefined {
   const { type, componentName, componentInstanceIndex, substitutedProps, childIndex } = config
@@ -50,10 +62,17 @@ function buildTestId(config: TestIdConfig): string | undefined {
   return buildDefaultTestId(type)
 }
 
+/**
+ * Build element props with all attributes using config object
+ * Complexity reduced by extracting helper functions
+ */
 export function buildElementProps(config: ElementPropsConfig): Record<string, unknown> {
   return buildElementPropsFromConfig(config)
 }
 
+/**
+ * Build element props from config object
+ */
 function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string, unknown> {
   const hasScrollAnimation = config.type === 'card' && Boolean(config.theme?.animations?.scaleUp)
   const testId = buildTestId({
@@ -64,6 +83,7 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
     childIndex: config.childIndex,
   })
 
+  // Build all props
   const coreProps = buildCoreProps(config, testId)
   const componentDataProps = buildComponentDataProps(config)
   const translationProps = buildTranslationProps(config)
@@ -72,6 +92,7 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
   const scrollProps = buildScrollInteractionProps(config)
   const emptyStyleProps = buildEmptyElementStyles(config)
 
+  // Merge all style objects to prevent overwrites
   const mergedStyle = {
     ...(coreProps.style as Record<string, unknown> | undefined),
     ...(entranceProps.style as Record<string, unknown> | undefined),
@@ -79,17 +100,20 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
     ...(emptyStyleProps.style as Record<string, unknown> | undefined),
   }
 
+  // Remove style from individual prop objects
   const { style: _coreStyle, ...corePropsWithoutStyle } = coreProps
   const { style: _entranceStyle, ...entrancePropsWithoutStyle } = entranceProps
   const { style: _scrollStyle, ...scrollPropsWithoutStyle } = scrollProps
   const { style: _emptyStyle, ...emptyStylePropsWithoutStyle } = emptyStyleProps
 
+  // Remove animation and style props from substitutedProps (already applied to style object)
   const {
     animation: _animation,
     style: _style,
     ...substitutedPropsWithoutAnimation
   } = config.substitutedProps || {}
 
+  // Convert custom props to data attributes
   const customDataAttributes = convertCustomPropsToDataAttributes(substitutedPropsWithoutAnimation)
 
   return {
@@ -106,13 +130,23 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
   }
 }
 
+/**
+ * Build core props (className, style, data-testid)
+ * Handles animation prop by extracting it from substitutedProps and merging into style
+ *
+ * Note: data-component-type removed for clean production HTML
+ * This debug attribute was useful during development but adds unnecessary
+ * markup to static sites and production builds
+ */
 function buildCoreProps(
   config: ElementPropsConfig,
   testId: string | undefined
 ): Record<string, unknown> {
+  // Extract animation prop if present (after theme token substitution)
   const animationProp = config.substitutedProps?.animation
   const hasAnimationProp = typeof animationProp === 'string'
 
+  // Merge animation into style object if present
   const styleWithAnimation = hasAnimationProp
     ? { ...config.styleWithShadow, animation: animationProp }
     : config.styleWithShadow
@@ -124,6 +158,9 @@ function buildCoreProps(
   }
 }
 
+/**
+ * Build component-related data props (data-component, data-type, role)
+ */
 function buildComponentDataProps(config: ElementPropsConfig): Record<string, unknown> {
   if (!config.componentName) return {}
 
@@ -137,6 +174,9 @@ function buildComponentDataProps(config: ElementPropsConfig): Record<string, unk
   }
 }
 
+/**
+ * Build translation props (data-translation-key, data-translations)
+ */
 function buildTranslationProps(config: ElementPropsConfig): Record<string, unknown> {
   if (!config.firstTranslationKey || !config.translationData) return {}
 
@@ -146,6 +186,9 @@ function buildTranslationProps(config: ElementPropsConfig): Record<string, unkno
   }
 }
 
+/**
+ * Build animation props (data-scroll-animation)
+ */
 function buildAnimationProps(hasScrollAnimation: boolean): Record<string, unknown> {
   if (!hasScrollAnimation) return {}
 
@@ -154,17 +197,23 @@ function buildAnimationProps(hasScrollAnimation: boolean): Record<string, unknow
   }
 }
 
+/**
+ * Build entrance interaction props (style for animations)
+ */
 function buildEntranceInteractionProps(config: ElementPropsConfig): Record<string, unknown> {
   if (!config.interactions?.entrance) return {}
 
   const { delay, duration, stagger } = config.interactions.entrance
 
+  // Calculate total delay including stagger
   const totalDelay = calculateTotalDelay(delay, stagger, config.childIndex)
 
+  // Build animation styles immutably
   const delayStyle = totalDelay ? { animationDelay: totalDelay } : {}
   const durationStyle = duration ? { animationDuration: duration } : {}
   const animationStyles = { ...delayStyle, ...durationStyle }
 
+  // Combine all props immutably
   const hasAnimationStyles = Object.keys(animationStyles).length > 0
   const styleProps = hasAnimationStyles
     ? { style: { ...config.styleWithShadow, ...animationStyles } }
@@ -173,11 +222,15 @@ function buildEntranceInteractionProps(config: ElementPropsConfig): Record<strin
   return styleProps
 }
 
+/**
+ * Build scroll interaction props (data-scroll-*, style for animations)
+ */
 function buildScrollInteractionProps(config: ElementPropsConfig): Record<string, unknown> {
   if (!config.interactions?.scroll) return {}
 
   const { animation, threshold, delay, duration, once } = config.interactions.scroll
 
+  // Build base data attributes immutably
   const baseProps: Record<string, unknown> = {
     'data-scroll-animation': animation,
   }
@@ -188,10 +241,12 @@ function buildScrollInteractionProps(config: ElementPropsConfig): Record<string,
   const durationProps = duration ? { 'data-scroll-duration': duration } : {}
   const onceProps = once === true ? { 'data-scroll-once': once.toString() } : {}
 
+  // Build animation styles immutably
   const delayStyle = delay ? { animationDelay: delay } : {}
   const durationStyle = duration ? { animationDuration: duration } : {}
   const animationStyles = { ...delayStyle, ...durationStyle }
 
+  // Combine all props immutably
   const hasAnimationStyles = Object.keys(animationStyles).length > 0
   const styleProps = hasAnimationStyles
     ? { style: { ...config.styleWithShadow, ...animationStyles } }
@@ -207,15 +262,27 @@ function buildScrollInteractionProps(config: ElementPropsConfig): Record<string,
   }
 }
 
+/**
+ * Build styles for empty elements (components and grids without content)
+ */
 function buildEmptyElementStyles(config: ElementPropsConfig): Record<string, unknown> {
   if (config.hasContent) return {}
 
+  // An `image` element is never truly "empty" — it renders its own intrinsic
+  // content (the bitmap from `src`) and is sized by `h-*`/`w-*` classes. It must
+  // NOT receive the contentless-placeholder `display:inline-block` below: an
+  // INLINE `style="display:inline-block"` beats every class-based display
+  // utility, so it would defeat `hidden` / `dark:hidden` / `dark:block` — e.g.
+  // the dual-image dark/light logo lockup would show BOTH images at once. Hand
+  // display control back to the className for images (only the shadow style, if
+  // any, is preserved).
   if (config.type === 'image') {
     return config.styleWithShadow && Object.keys(config.styleWithShadow).length > 0
       ? { style: { ...config.styleWithShadow } }
       : {}
   }
 
+  // Component reference or child without content
   if (config.componentName || config.childIndex !== undefined) {
     return {
       style: {
@@ -227,6 +294,7 @@ function buildEmptyElementStyles(config: ElementPropsConfig): Record<string, unk
     }
   }
 
+  // Grid without content and not a component reference
   if (!config.componentName && config.type === 'grid') {
     return {
       style: {

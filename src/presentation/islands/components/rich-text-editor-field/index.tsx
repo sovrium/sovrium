@@ -18,20 +18,17 @@ import { useDomInputSync, usePasteImage, useSlashMenu } from './hooks'
 import { insertImageAtCursor, uploadImageToBucket } from './image-helpers'
 import { SlashMenu } from './slash-menu'
 import { Toolbar } from './toolbar'
+import type { RichTextEditorFieldProps } from './props'
 
-const RICH_TEXT_EMPTY_DOC_LENGTH = '<p></p>'.length
+/**
+ * Length of the empty Tiptap document HTML (`<p></p>`). Subtracted from the
+ * raw `editor.view.dom.innerHTML.length` so the visible character counter
+ * matches what the user typed. Must stay in sync with
+ * `RICH_TEXT_EMPTY_DOC_LENGTH` in `crud-form-island.tsx`.
+ */
+const RICH_TEXT_EMPTY_DOC_LENGTH = '<p></p>'.length // 7
 
-interface RichTextEditorFieldProps {
-  readonly name: string
-  readonly value: string
-  readonly onChange: (name: string, value: string) => void
-  readonly toolbar?: readonly string[]
-  readonly placeholder?: string
-  readonly maxLength?: number
-  readonly displayLabel?: string
-  readonly imageBucket?: string
-}
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- @tiptap/core version mismatch between starter-kit (3.22.2) and root (3.22.3)
 function buildExtensions(placeholder?: string, maxLength?: number): any[] {
   return [
     StarterKit,
@@ -69,8 +66,11 @@ export function RichTextEditorField({
       onChange(name, ed.getHTML())
     },
   })
+  // eslint-disable-next-line functional/immutable-data -- React ref pattern: refs are designed to be mutated
   editorRef.current = editor
 
+  // Re-sync editor content when the `value` prop changes (used by the update
+  // form for round-trip rehydration — [internal ref]).
   useEffect(() => {
     if (!editor) return
     if (editor.getHTML() !== value && value !== undefined) {
@@ -86,6 +86,8 @@ export function RichTextEditorField({
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const { target } = e
       const file = target.files?.[0]
+      // Reset the input so the same file can be re-selected
+      // eslint-disable-next-line functional/immutable-data -- DOM mutation: clearing the file input value is the standard pattern
       target.value = ''
       if (!file || !editorRef.current) return
       const url = await uploadImageToBucket(file, bucket)
@@ -98,6 +100,12 @@ export function RichTextEditorField({
   usePasteImage({ editor, bucket })
   const domLength = useDomInputSync({ editor, name, onChange })
 
+  // The character counter renders the bigger of:
+  //  - Tiptap's internal character count (covers normal user typing), and
+  //  - the editor's raw DOM `innerHTML.length` (covers content smuggled in
+  //    via `el.innerHTML = ...` — see `useDomInputSync` above and test 006).
+  // Tiptap wraps empty content as `<p></p>` (RICH_TEXT_EMPTY_DOC_LENGTH
+  // characters), so we subtract that baseline before comparing.
   const counter = (() => {
     if (!maxLength || !editor) return undefined
     const tiptapCount = editor.storage.characterCount?.characters?.() ?? 0
@@ -114,7 +122,16 @@ export function RichTextEditorField({
 
   const overLimit = !!(maxLength && Math.max(0, domLength - RICH_TEXT_EMPTY_DOC_LENGTH) > maxLength)
 
+  // The placeholder text needs to be rendered as a real text node (not just
+  // a CSS pseudo-element) so that the spec's `toContainText` assertion finds
+  // it. We hide it once the editor has content.
   const isEmpty = editor ? editor.isEmpty : true
+  // We use a `<label>` for the visible field name (so `getByLabel(/<name>/i)`
+  // resolves the same way as for plain-text fields — asserted by
+  // `auto-generated-form-from-table.spec.ts` for the `notes` rich-text field),
+  // and point its `htmlFor` at the contenteditable's id so a click on the
+  // label moves focus into the editor (NOT into the sibling hidden input —
+  // that delegation was the root cause of regression-step-8 failing earlier).
   const editorId = `rich-text-${name}-editor`
   const accessibleLabel = displayLabel ?? name
   return (
@@ -134,6 +151,12 @@ export function RichTextEditorField({
         <EditorContent
           editor={editor}
           id={editorId}
+          // `aria-label` makes the contenteditable resolvable through
+          // `page.getByLabel(/<name>/i)` (asserted by the auto-generated form
+          // spec for the `notes` rich-text field). Playwright's getByLabel
+          // matches any labelable element, but `contenteditable` is not
+          // strictly labelable per HTML spec, so the explicit aria-label is
+          // what makes the locator deterministic across browsers.
           aria-label={accessibleLabel}
           role="textbox"
           aria-multiline="true"
@@ -162,7 +185,8 @@ export function RichTextEditorField({
           </div>
         )}
       </div>
-      {}
+      {/* Hidden file input — clicking the toolbar's image button opens the
+          system file picker, which the test asserts via `waitForEvent('filechooser')`. */}
       <input
         ref={fileInputRef}
         type="file"
@@ -172,7 +196,8 @@ export function RichTextEditorField({
         tabIndex={-1}
         onChange={onFileChange}
       />
-      {}
+      {/* Hidden input mirrors the editor value for native form submissions and
+          for E2E selectors that target the field by `[name="..."]`. */}
       <input
         type="hidden"
         name={name}

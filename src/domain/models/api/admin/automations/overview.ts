@@ -5,22 +5,61 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * API contract for `GET /api/admin/automations/overview`.
+ *
+ * First overview-shape endpoint after the audit-log keystone. Locks [internal ref] D5
+ * (`series` rollup with fixed buckets) and consumes CC-2 (the shared period
+ * preset). Every subsequent overview endpoint — users, tables, buckets — MUST
+ * reuse this shape rather than redefining it.
+ *
+ * Source story: [internal ref]
+ *
+ * @see plan §6.4 (canonical `series` rollup shape)
+ * @see [internal ref] D5 (locked `series` rollup with fixed buckets)
+ */
 
 import { z } from '@hono/zod-openapi'
 import { periodPresetSchema } from '@/domain/models/api/admin/_shared/period-preset'
 
+/**
+ * Query parameters accepted by `GET /api/admin/automations/overview`.
+ *
+ * `period` is the only filter — by design. Operators wanting top-N
+ * drill-downs (which automation failed most? which run took longest?) read
+ * `/api/admin/automations/runs` (story #3); the overview is a tile, not a
+ * report. Adding `?automationName=` later would not break this contract.
+ */
 export const automationsOverviewQuerySchema = z
   .object({
     period: periodPresetSchema,
   })
   .openapi('AutomationsOverviewQuery')
 
+/** @public */
 export type AutomationsOverviewQuery = z.input<typeof automationsOverviewQuerySchema>
 
+/**
+ * Bucket interval used by the response `series.interval` field.
+ *
+ * Re-exported from the shared period-preset so consumers reading the response
+ * schema do not need to import a second module. Locked to `1h` and `1d` only;
+ * extending the set requires re-opening [internal ref] D5.
+ */
 const seriesIntervalSchema = z
   .enum(['1h', '1d'])
   .describe('Bucket size for the rollup. 1h for 24h period; 1d for 7d/30d periods.')
 
+/**
+ * One bucketed point on the `series` rollup.
+ *
+ * `runs` is the total number of automation runs whose `startedAt` falls
+ * inside the bucket (inclusive of the lower bound, exclusive of the upper —
+ * the standard half-open convention for time bucketing). `failures` is the
+ * subset that ended with `status = 'failed'`. The success count can be
+ * derived as `runs - failures`; the response intentionally omits it to keep
+ * the bucket payload compact.
+ */
 const seriesPointSchema = z
   .object({
     timestamp: z
@@ -42,6 +81,30 @@ const seriesPointSchema = z
   })
   .openapi('AutomationsOverviewSeriesPoint')
 
+/**
+ * Response shape of `GET /api/admin/automations/overview`.
+ *
+ * Three top-level fields:
+ *
+ * - `totals` — aggregate counters for the period. `runs_24h` and
+ *   `failures_24h` are always 24-hour aggregates regardless of the requested
+ *   `period` (the dashboard footer always shows "today" no matter which tile
+ *   filter is active). `success_rate` is the period-scoped fraction
+ *   `(runs - failures) / runs`, returned as a decimal in `[0, 1]`. When
+ *   `runs = 0` the rate is `1` (a no-op period is by convention 100% healthy
+ *   — operators get a clean tile, not an NaN).
+ *
+ * - `series` — the bucketed rollup. `interval` mirrors the period mapping
+ *   (`1h` for 24h period; `1d` for 7d/30d). `points` is ordered ascending by
+ *   `timestamp` so the dashboard renders left-to-right without sorting.
+ *   Empty buckets are present with `runs = 0` and `failures = 0` — the
+ *   response is dense, not sparse, so chart libraries do not have to fill
+ *   gaps.
+ *
+ * - The response intentionally omits per-automation breakdowns and percentile
+ *   latencies; both are out-of-scope for Phase 0 (covered by sibling stories
+ *   in Phase 1).
+ */
 export const automationsOverviewResponseSchema = z
   .object({
     totals: z
@@ -87,5 +150,7 @@ export const automationsOverviewResponseSchema = z
   })
   .openapi('AutomationsOverviewResponse')
 
+/** @public */
 export type AutomationsOverviewResponse = z.infer<typeof automationsOverviewResponseSchema>
+/** @public */
 export type AutomationsOverviewSeriesPoint = z.infer<typeof seriesPointSchema>

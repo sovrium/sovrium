@@ -5,6 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * `split-pane` enhancement island
+ *.
+ *
+ * A pure side-effect island: it renders NOTHING and instead wires
+ * pointer-drag resizing onto the STATIC split-pane structure the SSR renderer
+ * already emitted (located by `data-split-pane="<hostId>"`). Because it never
+ * re-renders the panes, the nested islands inside each pane (the config
+ * editor, the live preview) survive hydration untouched — the drag is
+ * progressive enhancement layered on top of the server-rendered fallback.
+ *
+ * Dragging the `role="separator"` divider adjusts the first pane's flex-basis
+ * (width for `horizontal`, height for `vertical`) within the configured
+ * `minSize`/`maxSize` constraints; the second pane fills the remainder.
+ */
 
 import { useEffect } from 'react'
 
@@ -21,6 +36,7 @@ interface SplitPaneElements {
   readonly divider: HTMLElement
 }
 
+/** Locate the SSR-rendered split-pane structure for `hostId`. */
 function findElements(hostId: string): SplitPaneElements | undefined {
   const host = document.querySelector<HTMLElement>(`[data-split-pane="${hostId}"]`)
   if (!host) return undefined
@@ -30,12 +46,17 @@ function findElements(hostId: string): SplitPaneElements | undefined {
   return { host, first, divider }
 }
 
+/** Clamp a candidate first-pane size to the configured min/max bounds. */
 function clampSize(size: number, total: number, min?: number, max?: number): number {
   const lower = typeof min === 'number' ? min : 0
   const upper = typeof max === 'number' ? max : total
   return Math.max(lower, Math.min(size, upper))
 }
 
+/**
+ * Wire pointer-drag resizing onto the static structure. Returns the cleanup
+ * function that removes every listener it attached.
+ */
 function wireResize(els: SplitPaneElements, props: SplitPaneIslandProps): () => void {
   const { host, first, divider } = els
   const horizontal = (props.orientation ?? 'horizontal') === 'horizontal'
@@ -45,6 +66,7 @@ function wireResize(els: SplitPaneElements, props: SplitPaneIslandProps): () => 
     const total = horizontal ? rect.width : rect.height
     const offset = horizontal ? event.clientX - rect.left : event.clientY - rect.top
     const next = clampSize(offset, total, props.minSize, props.maxSize)
+    // eslint-disable-next-line functional/immutable-data -- DOM resize is the contract here
     first.style.flexBasis = `${next}px`
   }
 
@@ -71,11 +93,15 @@ function wireResize(els: SplitPaneElements, props: SplitPaneIslandProps): () => 
   }
 }
 
+/**
+ * Split-pane island — renders nothing; enhances the SSR structure in place.
+ */
 export default function SplitPaneIsland(props: SplitPaneIslandProps): null {
   useEffect(() => {
     const els = findElements(props.hostId)
     if (!els) return undefined
     return wireResize(els, props)
   }, [props])
+  // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
   return null
 }

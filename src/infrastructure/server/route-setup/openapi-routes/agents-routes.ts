@@ -20,6 +20,10 @@ import {
   jsonResponse,
 } from './_shared/route-spec'
 
+/**
+ * AI agent routes — split into a per-agent group (resource-scoped to
+ * `app.agents`, tagged `Agent: <name>`) and a static collection group.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
@@ -213,6 +217,7 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/** Per-agent route group — resource-scoped to the configured agents. */
 export const agentGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Agent',
   genericTag: 'agents',
@@ -224,6 +229,7 @@ export const agentGroupSpec: ResourceGroupSpec = {
   routes,
 }
 
+/** Agent collection route group — not scoped to one agent. */
 export const agentCollectionGroup: StaticGroupSpec = {
   tag: 'agents',
   tagDescription: 'AI agent execution, approval, and schedule endpoints',

@@ -20,8 +20,14 @@ import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
 
+/** Wrap a DB promise, adapting failures to UserAccessDatabaseError. */
 const wrap = makeDbWrap((cause) => new UserAccessDatabaseError({ cause }))
 
+/**
+ * Project a Drizzle row into the port's `UserAccessRow` shape. Centralised
+ * so insert and list paths emit identical envelopes (and the route handler
+ * can stay agnostic of Drizzle's `$inferSelect` typing).
+ */
 const shapeRow = (row: Readonly<typeof userAccess.$inferSelect>): UserAccessRow => ({
   id: row.id,
   userId: row.userId,
@@ -32,9 +38,29 @@ const shapeRow = (row: Readonly<typeof userAccess.$inferSelect>): UserAccessRow 
   createdBy: row.createdBy ?? undefined,
 })
 
+/**
+ * User-Access Repository Implementation (Drizzle).
+ *
+ * Replaces the raw `bun:sql` access that previously lived in
+ * `user-access-handlers.ts` (R-1 audit follow-up). The DDL is still
+ * engine-managed via `schema-initializer.ts` — this layer just provides
+ * type-safe inserts/selects against that schema.
+ */
 export const UserAccessRepositoryLive = Layer.succeed(UserAccessRepository, {
   insert: (input, createdBy) =>
     wrap(async () => {
+      // We populate `createdAt` from the JS clock rather than relying
+      // on the DDL's `DEFAULT NOW()`. Two reasons:
+      //   1. The Z-2 spec asserts the returned `created_at` is bounded
+      //      by the test process's `Date.now()` at request entry — a
+      //      DB-clock-vs-host-clock skew (≤10ms in containerised
+      //      Postgres) flips that assertion intermittently.
+      //   2. The previous raw-SQL implementation paid ~50ms of
+      //      connection-setup latency per call, which incidentally
+      //      masked any clock skew. Reusing the pool removes that
+      //      latency and exposes the timestamp ordering directly.
+      // This is a *behaviour-preserving* tweak: the timestamp still
+      // represents grant time within milliseconds of the request.
       const [row] = await db
         .insert(userAccess)
         .values({
@@ -47,6 +73,7 @@ export const UserAccessRepositoryLive = Layer.succeed(UserAccessRepository, {
         })
         .returning()
       if (!row) {
+        /* eslint-disable-next-line functional/no-throw-statements */
         throw new Error('user_access INSERT returned no rows')
       }
       return shapeRow(row)

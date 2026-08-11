@@ -11,6 +11,29 @@ import { visibilityFields } from '../modules/visibility'
 
 export const TabPanelTypeLiteral = Schema.Literal('tab-panel')
 
+/**
+ * Tab-panel content: the user-facing strings rendered for each tab.
+ *
+ * - `label`       — the text on the tab trigger (visible in the tab list)
+ * - `description` — an optional second line rendered beneath the label on the
+ *                   trigger, for tab sets that name a feature and then say what
+ *                   it does
+ * - `body`        — the text shown in the tab panel when this tab is active
+ *
+ * Defined as a structured object (rather than reusing the parent
+ * Component's string-typed `content` field) so the renderer can split
+ * trigger text from panel text without parsing conventions like
+ * "label\n\n---\n\nbody".
+ *
+ * `description` is readable from EITHER placement — `content.description` here,
+ * or `props.description` (`ComponentPropsSchema` is an open record, so it needs
+ * no field of its own) — exactly as `label` already is.
+ * Whichever placement an author uses, the trigger's ACCESSIBLE NAME stays the
+ * label alone: the description is associated via
+ * `aria-describedby`, never appended to the name, so every existing
+ * `getByRole('tab', { name })` keeps resolving the moment an author adds a
+ * subtitle.
+ */
 export const TabPanelContentSchema = Schema.Struct({
   label: Schema.String.annotations({ description: 'Text on the tab trigger button' }),
   description: Schema.optional(

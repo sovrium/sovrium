@@ -9,11 +9,19 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Delay Webhook Action (type: delay, operator: webhook)
+ *
+ * Pause automation execution until an external webhook callback is received.
+ * Supports timeout configuration and expected data validation.
+ * Useful for human-in-the-loop workflows and external system integrations.
+ */
 export const DelayWebhookActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('delay'),
   operator: Schema.Literal('webhook'),
   props: Schema.Struct({
+    /** Custom callback identifier (auto-generated if not provided) */
     callbackId: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -23,6 +31,7 @@ export const DelayWebhookActionSchema = Schema.Struct({
       )
     ),
 
+    /** Maximum time to wait for the callback */
     timeout: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^\d+\s*(ms|s|m|h|d)$/),
@@ -33,6 +42,7 @@ export const DelayWebhookActionSchema = Schema.Struct({
       )
     ),
 
+    /** Behavior when timeout is reached */
     onTimeout: Schema.optional(
       Schema.Literal('continue', 'stop', 'error').pipe(
         Schema.annotations({
@@ -41,6 +51,7 @@ export const DelayWebhookActionSchema = Schema.Struct({
       )
     ),
 
+    /** Expected data shape for callback payload validation */
     expectedData: Schema.optional(
       Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
         Schema.annotations({
@@ -57,4 +68,5 @@ export const DelayWebhookActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type DelayWebhookAction = Schema.Schema.Type<typeof DelayWebhookActionSchema>

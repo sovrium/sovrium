@@ -5,8 +5,87 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Default theme layer — Sovrium's always-present CSS token layer.
+ *
+ * The standalone Sovrium binary cannot read files at runtime, so the default
+ * design system is inlined here as bundled TypeScript string constants — the
+ * V1_TOKEN_LAYER / ROLE_TOKEN_BRIDGE / NEUTRAL_FLOOR_LAYER constants below ARE
+ * the source of truth. Three layers are exported and assembled by
+ * `buildDefaultLayer` in `compiler.ts`:
+ *
+ *   - {@link V1_TOKEN_LAYER}    — canonical role tokens, ramps and non-color
+ *     tokens. Registers the canonical token names in an `@theme` block (so the
+ *     Tailwind engine mints `bg-background`, `text-foreground`, `bg-primary`, `bg-error-bg`,
+ *     `ring-focus-ring`, … utilities) and ships their light/dark VALUES in plain
+ *     `:root` / dark-selector blocks so they switch at runtime. The minting
+ *     names point at an internal `--sv-*` indirection layer whose value is
+ *     supplied by {@link ROLE_TOKEN_BRIDGE}.
+ *   - {@link ROLE_TOKEN_BRIDGE}  — `var()` fallback chains supplying every
+ *     canonical `--sv-*` role var with its default value. `var()` late-binds at
+ *     use-time, so the author's `@theme` (emitted later in the pipeline) still
+ *     wins.
+ *
+ *     MOST roles now resolve to the neutral default DIRECTLY, because reading
+ *     the matching `--color-*` name back would form a custom-property CYCLE
+ * once that name became a registered canonical alias — see the
+ *     per-role notes in the block itself. Only six roles still read a
+ *     `--color-*` key as an intermediate rung: `--sv-focus-ring`
+ *     (`--color-ring`), the four `-solid` status roles (`--color-success` /
+ *     `-warning` / `-error` / `-info`) and `--sv-border` (`--color-input`).
+ *
+ *     Of those, `ring`/`success`/`warning`/`error`/`info` are ALSO first-class
+ *     `theme.colors` keys routed through `COLOR_TO_SV_TOKEN`
+ *     (`theme-generators.ts`), so their rung is redundant with the author
+ *     bridge. `--color-input` is the one exception: it is absent from
+ *     `COLOR_TO_SV_TOKEN`, so this rung is the ONLY path by which it reaches
+ *     `--sv-border` — a surviving shadcn component-layer alias. Retiring it is
+ *     a per-token change that needs visual-regression baselines, so it stays.
+ *   - {@link NEUTRAL_FLOOR_LAYER} — the same canonical token set as
+ *     {@link V1_TOKEN_LAYER} but with neutral, unstyled grayscale / system-font
+ *     values + a dark cascade, used when `theme.baseline === 'replace'` so a
+ *     replaced baseline never renders unstyled.
+ *
+ * ## How the Tailwind v4 wiring works (verified, not assumed)
+ *
+ * `@theme { --color-background: var(--sv-bg) }` does two things: it registers
+ * `--color-background` (so the `bg-background` utility resolves to `background-color:
+ * var(--color-background)`) AND it would normally hoist that var into `:root`. We keep
+ * the actual light/dark VALUES in a separate `:root` block and a dark-selector
+ * block keyed off the `--sv-*` indirection layer; overriding `--sv-bg` under the
+ * dark selector switches the role token at runtime. `@source inline(...)`
+ * safelists every canonical utility so it is emitted in BOTH the native PostCSS
+ * path AND the candidate-driven native-free binary path — independent of the
+ * source-tree scan in `generated-css-assets.ts`.
+ *
+ * ## Dark-mode selector
+ *
+ * The running app toggles dark mode by adding the `.dark` class to
+ * `<html>` (see `command-palette-runtime.ts`), and the compiler declares
+ * `@custom-variant dark (&:is(.dark *))`. v1's own source keys dark off
+ * `[data-theme="dark"]`. To honour both, the dark cascade is emitted under
+ * `:where(.dark, [data-theme='dark'])` — the `.dark` arm matches the live
+ * toggle, the `[data-theme='dark']` arm matches the legacy authored convention.
+ *
+ * Source of truth: the {@link V1_TOKEN_LAYER} string constant below. Semantic
+ * element styles (html/body/h1/a/.humane/…) are deliberately EXCLUDED because
+ * they overlap with the existing `generateBaseLayer`. The Source Serif 4
+ * italic `@font-face` declaration is shipped via
+ * `SELF_HOSTED_FONT_FACES` (assembled by `buildDefaultLayer` in
+ * `compiler.ts`); Plex Sans and JetBrains Mono are self-hosted —
+ * for the self-hosted font strategy
+ * for the strategy and budget.
+ */
 
+/**
+ * The full set of canonical color utilities the v1 token layer must mint.
+ * Safelisted via `@source inline(...)` so they are emitted in both the native
+ * and native-free compilation paths regardless of source-tree candidate scan.
+ *
+ * Kept in sync with the `@theme` color-token registrations below.
+ */
 const CANONICAL_COLOR_UTILITIES = [
+  // Neutral ramp
   'bg-neutral-50',
   'bg-neutral-100',
   'bg-neutral-200',
@@ -25,6 +104,7 @@ const CANONICAL_COLOR_UTILITIES = [
   'text-neutral-950',
   'border-neutral-200',
   'border-neutral-300',
+  // Surface roles
   'bg-background',
   'bg-background-subtle',
   'bg-background-raised',
@@ -34,18 +114,21 @@ const CANONICAL_COLOR_UTILITIES = [
   'text-background-overlay',
   'bg-scrim',
   'bg-scrim/50',
+  // Border roles
   'border-border',
   'border-border-strong',
   'border-border-inverse',
   'divide-border',
   'bg-border',
   'bg-border-strong',
+  // Foreground roles
   'text-foreground',
   'text-foreground-muted',
   'text-foreground-subtle',
   'text-foreground-disabled',
   'text-foreground-inverse',
   'text-foreground-humane',
+  // Primary
   'bg-primary',
   'bg-primary-hover',
   'bg-primary-active',
@@ -54,13 +137,17 @@ const CANONICAL_COLOR_UTILITIES = [
   'text-primary-fg',
   'text-primary-subtle-fg',
   'border-primary',
+  // Focus ring
   'ring-focus-ring',
   'border-focus-ring',
+  // Warmth accent
+  // Success
   'bg-success-bg',
   'bg-success-solid',
   'text-success-fg',
   'text-success-solid-fg',
   'border-success-border',
+  // Success numbered ramp (50/100/300/500/600/700/950 — the v1 ramp steps; see V1_ROOT_LIGHT)
   'bg-success-50',
   'bg-success-100',
   'bg-success-300',
@@ -68,22 +155,26 @@ const CANONICAL_COLOR_UTILITIES = [
   'bg-success-600',
   'bg-success-700',
   'bg-success-950',
+  // Warning
   'bg-warning-bg',
   'bg-warning-solid',
   'text-warning-fg',
   'text-warning-solid-fg',
   'border-warning-border',
+  // Warning numbered ramp (50/100/300/500/700/950)
   'bg-warning-50',
   'bg-warning-100',
   'bg-warning-300',
   'bg-warning-500',
   'bg-warning-700',
   'bg-warning-950',
+  // Error
   'bg-error-bg',
   'bg-error-solid',
   'text-error-fg',
   'text-error-solid-fg',
   'border-error-border',
+  // Error numbered ramp (50/100/300/500/600/700/950)
   'bg-error-50',
   'bg-error-100',
   'bg-error-300',
@@ -91,11 +182,13 @@ const CANONICAL_COLOR_UTILITIES = [
   'bg-error-600',
   'bg-error-700',
   'bg-error-950',
+  // Info
   'bg-info-bg',
   'bg-info-solid',
   'text-info-fg',
   'text-info-solid-fg',
   'border-info-border',
+  // Info numbered ramp (50/100/300/500/600/700/950)
   'bg-info-50',
   'bg-info-100',
   'bg-info-300',
@@ -103,6 +196,10 @@ const CANONICAL_COLOR_UTILITIES = [
   'bg-info-600',
   'bg-info-700',
   'bg-info-950',
+  // shadcn-convention alias utilities — mirror COLOR_TO_SV_TOKEN so the
+  // default theme always emits them (they otherwise tree-shake to no-ops when a
+  // config authored with shadcn names is not scanned, e.g. the native-free binary
+  // path). Each resolves to the same --sv-* role as its v1-name sibling.
   'text-primary-foreground',
   'bg-card',
   'bg-muted',
@@ -112,8 +209,31 @@ const CANONICAL_COLOR_UTILITIES = [
   'text-destructive-foreground',
 ].join(' ')
 
+/**
+ * Canonical typography utilities the v1 token layer must mint.
+ *
+ * Tailwind v4 tree-shakes `@theme` token declarations whose minted utility
+ * has no candidate in the source-tree scan, so a font slot referenced only
+ * dynamically would be dropped from the compiled CSS and its `@font-face`
+ * would never load — no element ever requests the family. Safelisting keeps
+ * every slot reachable in both compilation paths.
+ *
+ * There is no `font-serif` entry: [internal ref] amendment A2 deletes the serif
+ * grace note, the `--font-serif` token and the Source Serif face with it.
+ *
+ * `font-mono` is included for parity (the safelist contract is "every v1
+ * font slot is always reachable"). `font-sans` is the default and
+ * already emitted via the body cascade, but listing it here makes the
+ * contract symmetric and prevents a future tree-shake regression.
+ */
 const CANONICAL_FONT_UTILITIES = ['font-sans', 'font-mono'].join(' ')
 
+/**
+ * `@theme` block registering every canonical color token name. Each maps to an
+ * internal `--sv-*` indirection var (whose value is supplied by the `:root`
+ * blocks below and {@link ROLE_TOKEN_BRIDGE}). Registering them here is what mints
+ * the corresponding `bg-*` / `text-*` / `border-*` / `ring-*` utilities.
+ */
 const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     /* Neutral ramp — minted directly so bg-neutral-* utilities resolve */
     --color-neutral-50: var(--sv-neutral-50);
@@ -246,6 +366,13 @@ const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     --color-destructive-foreground: var(--sv-error-solid-fg);
   }`
 
+/**
+ * `@theme` block registering the non-color v1 tokens — fonts, sizes, weights,
+ * line-heights, letter-spacing, spacing, radii, shadows, durations, easings,
+ * z-index, density. Values are inlined verbatim from v1 (oklch / rgb / var()
+ * kept as-is). These do not need `--sv-*` indirection (they do not switch by
+ * theme baseline) so they carry their values directly.
+ */
 const V1_THEME_NONCOLOR_REGISTRATIONS = `@theme {
     /* ---------- Typography ---------- */
     --font-sans: 'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -332,6 +459,19 @@ const V1_THEME_NONCOLOR_REGISTRATIONS = `@theme {
     --ease-emphasized: cubic-bezier(0.3, 0, 0.1, 1.1);
   }`
 
+/**
+ * Plain `:root` block holding v1's LIGHT-mode token values. The neutral ramp,
+ * warmth accent, and semantic ramps are inlined verbatim (oklch kept as-is —
+ * the CSS engine handles oklch; only the schema rejects it). The role tokens
+ * (`--sv-bg`, `--sv-fg`, …) get their light values here by referencing the
+ * ramps via `var()`, exactly as v1's `:root` does. The fallback for any role
+ * token can still be overridden by {@link ROLE_TOKEN_BRIDGE} (author/legacy keys).
+ *
+ * Note: `--sv-*` role token light values are intentionally NOT set here — they
+ * are set by {@link ROLE_TOKEN_BRIDGE} so the author-key fallback chain is the
+ * single source of their light value. Only the underlying ramps + the few role
+ * tokens with literal (non-aliasable) values live here.
+ */
 const V1_ROOT_LIGHT = `:root {
     color-scheme: light;
 
@@ -390,6 +530,22 @@ const V1_ROOT_LIGHT = `:root {
     --sv-scrim: var(--sv-neutral-950);
   }`
 
+/**
+ * Dark cascade — overrides the `--sv-*` role vars under the live `.dark` toggle
+ * (and v1's authored `[data-theme='dark']`). Re-points role tokens to different
+ * ramp steps, exactly mirroring v1's `[data-theme="dark"]` block.
+ *
+ * Specificity note: the selector is prefixed with `html` (not the cleaner
+ * `:is(.dark, [data-theme='dark'])`) so its specificity rises to (0,1,1) —
+ * type+class — strictly above `:root`'s (0,1,0) — pseudo-class only. Without
+ * the type prefix, the ROLE_TOKEN_BRIDGE `:root` rule and any later `:root`
+ * block (Tailwind preflight, etc.) tie on specificity, and the
+ * LATER-IN-SOURCE rule wins. Tailwind emits additional `:root` blocks AFTER
+ * our dark cascade, so without `html` the dark overrides are silently masked:
+ * `.dark` on `<html>` adds the class but `--sv-bg`/`--sv-fg` never re-point.
+ * This was the root cause of "ui-kit (and foundations) snapshots look
+ * identical in light and dark mode". Do NOT remove the `html` prefix.
+ */
 const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     color-scheme: dark;
 
@@ -445,6 +601,12 @@ const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-info-solid-fg: var(--sv-neutral-50);
   }`
 
+/**
+ * The always-present v1 token layer. Assembled from the `@source inline(...)`
+ * safelist, the color + non-color `@theme` registrations, and the light/dark
+ * value blocks. Pair with {@link ROLE_TOKEN_BRIDGE} (which supplies the light
+ * values of the role tokens via author/legacy fallback chains).
+ */
 export const V1_TOKEN_LAYER = `@source inline("${CANONICAL_COLOR_UTILITIES} ${CANONICAL_FONT_UTILITIES}");
 
   ${V1_THEME_COLOR_REGISTRATIONS}
@@ -455,13 +617,55 @@ export const V1_TOKEN_LAYER = `@source inline("${CANONICAL_COLOR_UTILITIES} ${CA
 
   ${V1_ROOT_DARK}`
 
+/**
+ * The token-VOCABULARY half of {@link V1_TOKEN_LAYER}: the `@source inline(...)`
+ * safelist plus the color + non-color `@theme` registration blocks, WITHOUT any
+ * `:root` value block. This registers the canonical token names so the Tailwind
+ * engine mints the `bg-*` / `text-*` / `border-*` / `ring-*` / `font-*` /
+ * `text-{size}` utilities — which is what `generateBaseLayer`'s
+ * `@apply text-foreground`, `@apply font-sans`, etc. require to resolve.
+ *
+ * Emitted under `ECO_DESIGN_LAYER=off` (see `buildDefaultLayer` in
+ * `compiler.ts`). The VALUE blocks (`V1_ROOT_LIGHT` / `V1_ROOT_DARK` /
+ * {@link ROLE_TOKEN_BRIDGE}) are the [internal ref] override surface and stay demoted, so
+ * the canonical color tokens register to a now-undefined `--sv-*` indirection.
+ * The prestyled-by-default islands paint via their own inline `withVarFallback`
+ * literals (the `--sv-*` lookup is just an override hook), so the page still
+ * renders styled. Keeping the registrations means the per-app compile no longer
+ * crashes on `@apply <canonical-utility>` when the override surface is off —
+ * letting layer-off compile per-app exactly like layer-on (the with≡without
+ * parity contract, `contract-without-theme-layer.spec.ts`).
+ */
 export const V1_THEME_REGISTRATIONS = `@source inline("${CANONICAL_COLOR_UTILITIES} ${CANONICAL_FONT_UTILITIES}");
 
   ${V1_THEME_COLOR_REGISTRATIONS}
 
   ${V1_THEME_NONCOLOR_REGISTRATIONS}`
 
-export const V1_ALIAS_BRIDGE = `:root {
+/**
+ * Alias `var()` bridge — the critical artifact. Supplies the LIGHT-mode value of
+ * each canonical `--sv-*` role var as a fallback chain:
+ *
+ *   author key  →  legacy component-layer name  →  v1 default
+ *
+ * `var()` late-binds at use-time, so the author's `@theme` (emitted later in the
+ * pipeline, e.g. `--color-background: #fff`) still wins. The dark cascade in
+ * {@link V1_ROOT_DARK} overrides `--sv-*` directly and is unaffected.
+ *
+ * ## Ambiguous-alias decisions (revisit at pilot review)
+ *
+ *  - `card → bg-raised` — cards are elevated surfaces.
+ *  - `popover → bg-overlay`.
+ *  - `input` border → `--sv-border` (v1 has no dedicated `input` token).
+ *  - `muted → bg-subtle`, `muted-foreground → fg-muted`.
+ *  - `ring → focus-ring`.
+ *  - Author single-hue semantics (`success` / `warning` / `error` /
+ *    `destructive`) map to the `-solid` slot ONLY; the `-bg` / `-border` / `-fg`
+ *    slots keep their v1 ramp defaults (a partial override; v1 fills the rest).
+ *  - Canonical danger name: islands consume v1's `error-*` directly. `danger` /
+ *    `destructive` are treated as author-override aliases onto `error-solid`.
+ */
+export const ROLE_TOKEN_BRIDGE = `:root {
     /* Surface roles.
        Neutral defaults are used directly (no var(--color-background, ...)
        self-reference) to avoid the --color-background to --sv-bg to
@@ -537,6 +741,25 @@ export const V1_ALIAS_BRIDGE = `:root {
     --sv-primary-subtle: var(--sv-neutral-100);
     --sv-primary-subtle-fg: var(--sv-neutral-900);
 
+    /* Chart series palette — slot N paints series index N-1.
+
+       Slot 1 is the anchor: when the app declares a theme primary,
+       generateAuthorSvBridge re-points it at that colour, so the
+       overwhelmingly common single-series chart is on-brand with no config.
+       It is NOT written as var(--sv-primary, …) here, because the zero-config
+       primary is a near-black neutral — correct for a button, unreadable as a
+       chart. An unthemed chart therefore keeps the blue it has always had.
+
+       Slots 2-5 are a fixed CATEGORICAL ramp, never derived from the theme: a
+       ramp of one hue's lightness steps collapses under deuteranopia and on
+       small bars, and a multi-series chart is unreadable the moment two series
+       cannot be told apart. Distinguishability wins over palette purity. */
+    --sv-chart-1: #3b82f6;
+    --sv-chart-2: #ef4444;
+    --sv-chart-3: #10b981;
+    --sv-chart-4: #f59e0b;
+    --sv-chart-5: #8b5cf6;
+
     /* Focus ring */
     --sv-focus-ring: var(--color-ring, var(--sv-neutral-900));
 
@@ -576,6 +799,11 @@ export const V1_ALIAS_BRIDGE = `:root {
     --sv-info-solid-fg: var(--sv-neutral-50);
   }`
 
+/**
+ * `:root` block holding the NEUTRAL-FLOOR light values for the `--sv-*` ramps —
+ * grayscale, no warm cast, system fonts implied. Used by
+ * {@link NEUTRAL_FLOOR_LAYER} when `theme.baseline === 'replace'`.
+ */
 const NEUTRAL_FLOOR_ROOT_LIGHT = `:root {
     color-scheme: light;
 
@@ -629,6 +857,10 @@ const NEUTRAL_FLOOR_ROOT_LIGHT = `:root {
     --sv-scrim: var(--sv-neutral-950);
   }`
 
+/**
+ * Dark cascade for the neutral floor — same role re-pointing as v1's dark
+ * cascade but on the grayscale ramp.
+ */
 const NEUTRAL_FLOOR_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     color-scheme: dark;
 
@@ -681,6 +913,11 @@ const NEUTRAL_FLOOR_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-info-solid-fg: var(--sv-neutral-50);
   }`
 
+/**
+ * `@theme` block registering the non-color tokens for the neutral floor —
+ * system fonts (no self-hosted faces), same scales as v1 so layout/spacing/
+ * radius utilities still resolve. Shadows are plain gray.
+ */
 const NEUTRAL_FLOOR_NONCOLOR = `@theme {
     --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -726,6 +963,13 @@ const NEUTRAL_FLOOR_NONCOLOR = `@theme {
     --shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.13), 0 8px 16px -4px rgb(0 0 0 / 0.06);
   }`
 
+/**
+ * The neutral-floor layer used when `theme.baseline === 'replace'`. Defines the
+ * SAME canonical token set as {@link V1_TOKEN_LAYER} (so components never render
+ * unstyled) but with neutral grayscale values + system fonts + a dark cascade.
+ * Pair with {@link ROLE_TOKEN_BRIDGE} (which still supplies role-token light
+ * values via author/legacy fallbacks onto the neutral ramps defined here).
+ */
 export const NEUTRAL_FLOOR_LAYER = `@source inline("${CANONICAL_COLOR_UTILITIES} ${CANONICAL_FONT_UTILITIES}");
 
   ${V1_THEME_COLOR_REGISTRATIONS}

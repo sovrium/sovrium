@@ -12,25 +12,29 @@ import {
   type ActivityNotFoundError,
 } from '@/infrastructure/database/table-queries/activity-queries'
 
+/**
+ * Invalid activity ID error
+ */
 export class InvalidActivityIdError {
   readonly _tag = 'InvalidActivityIdError'
   constructor(readonly activityId: string) {}
 }
 
+/**
+ * Get activity log by ID
+ *
+ * Validates the activity ID format and fetches activity details with user metadata.
+ *
+ * @param activityId - Activity ID as string (UUID from URL parameter)
+ * @returns Effect program that resolves to activity with user or fails with error
+ */
+const ACTIVITY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export const GetActivityById = (activityId: string) =>
   Effect.gen(function* () {
-    if (!activityId || activityId.trim() === '') {
-      return yield* Effect.fail(new InvalidActivityIdError(activityId))
-    }
-
-    const parsedId = parseInt(activityId, 10)
-    const isNumericId = !isNaN(parsedId) && parsedId > 0 && parsedId.toString() === activityId
-
-    const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      activityId
-    )
-
-    if (!isNumericId && !isValidUuid) {
+    // Activity IDs are UUIDs. Anything else is a malformed request, not a
+    // lookup miss, so it fails here rather than reaching the database.
+    if (!ACTIVITY_ID_PATTERN.test(activityId)) {
       return yield* Effect.fail(new InvalidActivityIdError(activityId))
     }
 
@@ -39,5 +43,9 @@ export const GetActivityById = (activityId: string) =>
     return activity
   })
 
+/**
+ * Export all error types for external use
+ * @public
+ */
 export type GetActivityByIdError =
   InvalidActivityIdError | ActivityNotFoundError | ActivityDatabaseError

@@ -14,11 +14,26 @@ import { visibilityFields } from '../modules/visibility'
 
 export const MarqueeTypeLiteral = Schema.Literal('marquee')
 
+/**
+ * Scroll direction of the marquee track.
+ *
+ * `left`/`right` scroll horizontally, `up`/`down` scroll vertically. The
+ * renderer duplicates the child group once and translates the track by exactly
+ * 50% along the axis, so the loop is seamless in either direction.
+ */
 export const MarqueeDirectionSchema = Schema.Literal('left', 'right', 'up', 'down').annotations({
   title: 'Marquee Direction',
   description: 'Direction the marquee content scrolls towards (default: left)',
 })
 
+/**
+ * A CSS length accepted for the gap between marquee items.
+ *
+ * Deliberately restricted to a bare `0` or a number with a `px`/`rem`/`em`/`%`
+ * unit. The value is interpolated into a CSS custom property by the renderer,
+ * so an unconstrained string would be a CSS-injection surface (security rule
+ * S3's spirit applied to style generation, not SQL).
+ */
 export const MarqueeGapSchema = Schema.String.pipe(
   Schema.pattern(/^(0|\d+(\.\d+)?(px|rem|em|%))$/),
   Schema.annotations({
@@ -29,6 +44,21 @@ export const MarqueeGapSchema = Schema.String.pipe(
   })
 )
 
+/**
+ * Marquee — a continuously scrolling band of child components.
+ *
+ * A container: its `children` are rendered once, then duplicated (the clone
+ * marked `aria-hidden`) so the track can loop seamlessly. Unlike `entrance`
+ * animations, a marquee never settles — its animation iterates infinitely,
+ * which is exactly what makes WCAG 2.2.2 (Pause, Stop, Hide) apply. Provide
+ * `pauseOnHover` and/or `pauseControl` so the motion can be stopped, and
+ * expect the renderer to fall back to a statically laid-out, scrollable band
+ * under `prefers-reduced-motion: reduce`.
+ *
+ * Every field below sits at the component TOP LEVEL (a sibling of `props`),
+ * because `props` is an open record where any key validates. Renderers must
+ * read `component.marqueeDirection`, never `elementProps.marqueeDirection`.
+ */
 export const marqueeFields = {
   ...coreFields,
   ...interactionFields,

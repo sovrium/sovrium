@@ -8,6 +8,11 @@
 import { Schema } from 'effect'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Create Action (type: record, operator: create)
+ *
+ * Insert a new record into a table. Requires data payload.
+ */
 export const RecordCreateActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
@@ -37,4 +42,5 @@ export const RecordCreateActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordCreateAction = Schema.Schema.Type<typeof RecordCreateActionSchema>

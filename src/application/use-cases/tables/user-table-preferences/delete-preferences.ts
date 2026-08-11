@@ -5,6 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Delete the caller's preferences row for one table.
+ *
+ * Phase 9 Cycle 5 — thin orchestrator over the
+ * `UserTablePreferencesRepository` port. Resolves to `void`; deletion is
+ * idempotent (no-op when no row exists) in the repository's live
+ * implementation. The route handler returns the canonical
+ * `emptyPreferencesResponse` envelope on success.
+ */
 
 import { Effect } from 'effect'
 import {
@@ -22,5 +31,6 @@ export const deleteUserTablePreferences = (
 ): Effect.Effect<void, UserPreferencesDbError, UserTablePreferencesRepository> =>
   Effect.gen(function* () {
     const repo = yield* UserTablePreferencesRepository
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- `repo.delete` is the port method; the `(userId, tableName)` scoping lives in the live impl's Drizzle `.where(...)`
     return yield* repo.delete(input)
   })

@@ -15,6 +15,17 @@ import { runCronAutomationOnDemand } from '@/application/use-cases/automations/r
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Select the run program for the `POST /api/automations/:name/trigger`
+ * endpoint.
+ *
+ * A `cron`-triggered automation is invocable ON DEMAND ("run now") here by an
+ * authorized operator — it runs the action chain once immediately WITHOUT
+ * touching the background schedule, reusing the existing cron runner
+ * (`runCronAutomationOnDemand`) and mirroring the manual trigger's auth gate
+ * (default 'admin'; anonymous → 404). Non-cron automations route to the manual
+ * path unchanged.
+ */
 export function selectTriggerProgram(input: {
   readonly name: string
   readonly app: App

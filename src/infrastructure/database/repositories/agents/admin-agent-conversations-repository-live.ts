@@ -27,11 +27,24 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
+/** Wrap a DB promise, adapting failures to AdminAgentConversationsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminAgentConversationsDatabaseError({ cause }))
 
+/**
+ * Dialect-correct Drizzle table objects, resolved once at module-init. The PG
+ * variant generates `system.ai_conversations` / `system.ai_messages`; the SQLite
+ * variant maps the flat `system_*` names. Column property names are identical
+ * across both mirrors so the query builder stays dialect-agnostic.
+ */
 const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
 const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
 
+/**
+ * Build the optional `from`/`to` date-window conditions on the conversation
+ * `updatedAt` (`lastActivityAt`) column. Bounds are inclusive. The use case
+ * passes raw ISO strings; coerce them to `Date` so the bound parameter matches
+ * the column's native type on both dialects (S3 — Drizzle binds the value).
+ */
 const buildDateWindowConditions = (
   filters: AdminAgentConversationsListFilters
 ): ReadonlyArray<SQL> => {
@@ -42,6 +55,13 @@ const buildDateWindowConditions = (
   return [fromCond, toCond].filter((cond): cond is SQL => cond !== undefined)
 }
 
+/**
+ * Build the deterministic newest-first cursor-seek predicate for the
+ * `(updatedAt, id)` tuple. A row is strictly "after" the cursor (i.e. older, in
+ * descending order) when `updatedAt < value OR (updatedAt = value AND id < id)`.
+ * The cursor `value` is an ISO string coerced to `Date` to match the column.
+ * Returns an empty list when no cursor is set (first page).
+ */
 const buildCursorConditions = (filters: AdminAgentConversationsListFilters): ReadonlyArray<SQL> => {
   if (filters.cursor === undefined) return []
   const { value, id } = filters.cursor
@@ -53,6 +73,15 @@ const buildCursorConditions = (filters: AdminAgentConversationsListFilters): Rea
   return seek !== undefined ? [seek] : []
 }
 
+/**
+ * The conversation-projection select map shared by the list + detail reads. Each
+ * row is annotated with its `messageCount` via a LEFT JOIN + GROUP BY on
+ * `ai_messages` (`count(ai_messages.id)` counts 0 for a conversation with no
+ * messages, since the join nulls). A LEFT JOIN keeps the cross-dialect query a
+ * single well-typed query-builder call (no raw correlated subquery — which does
+ * not render the outer-table correlation portably). The GROUP BY enumerates
+ * every projected conversation column so both dialects accept the aggregate.
+ */
 const conversationSelect = {
   id: aiConversations.id,
   title: aiConversations.title,
@@ -70,6 +99,7 @@ const conversationGroupBy = [
   aiConversations.createdAt,
 ]
 
+/** Coerce a raw conversation-projection row into the port's row type. */
 const toConversationRow = (row: {
   readonly id: string
   readonly title: string | null
@@ -86,6 +116,12 @@ const toConversationRow = (row: {
   createdAt: row.createdAt,
 })
 
+/**
+ * Drizzle implementation for {@link AdminAgentConversationsRepository.listConversations}.
+ * Pulled out of the `wrap()` callback so the latter stays under the complexity
+ * cap. Fetches `limit + 1` rows ordered by the `(updatedAt, id)` tuple descending
+ * (newest first) so the use case can derive `hasMore` / `nextCursor`.
+ */
 const listConversationsImpl = async (
   filters: AdminAgentConversationsListFilters
 ): Promise<ReadonlyArray<AdminAgentConversationRow>> => {
@@ -95,6 +131,9 @@ const listConversationsImpl = async (
     ...buildCursorConditions(filters),
   ]
 
+  // `id` is the deterministic tie-breaker — same (descending) direction as the
+  // primary sort key so the `(updatedAt, id)` tuple is strictly monotonic and
+  // the cursor never revisits a row.
   const rows = await db
     .select(conversationSelect)
     .from(aiConversations)
@@ -107,6 +146,12 @@ const listConversationsImpl = async (
   return rows.map((row) => toConversationRow(row))
 }
 
+/**
+ * Drizzle implementation for {@link AdminAgentConversationsRepository.getConversation}.
+ * Agent-scoped: the WHERE binds BOTH `agent_name` and `id`, so a conversation
+ * belonging to a DIFFERENT agent (or no agent) resolves to `undefined` — the use
+ * case maps that to the anti-enum 404.
+ */
 const getConversationImpl = async (
   agentName: string,
   conversationId: string
@@ -123,6 +168,18 @@ const getConversationImpl = async (
   return row === undefined ? undefined : toConversationRow(row)
 }
 
+/**
+ * Drizzle implementation for {@link AdminAgentConversationsRepository.listMessages}.
+ * Every message of a conversation, ordered chronologically by `created_at`.
+ *
+ * `id ASC` trails it as a STABILITY tie-break only — it makes repeated reads of
+ * the same rows agree with each other, and nothing more. It is emphatically not
+ * a chronological fallback: `ai_messages.id` is a random UUID on both dialects
+ * (`crypto.randomUUID()` / `gen_random_uuid()`), so two same-instant rows sort
+ * by coin flip. Chronology is the writer's job, and `recordTurn` does it by
+ * stamping the two turns of a round-trip one millisecond apart instead of
+ * letting the column default collapse them onto one instant.
+ */
 const listMessagesImpl = async (
   conversationId: string
 ): Promise<ReadonlyArray<AdminAgentMessageRow>> => {
@@ -144,6 +201,19 @@ const listMessagesImpl = async (
   return rows as ReadonlyArray<AdminAgentMessageRow>
 }
 
+/**
+ * Admin Agent Conversations Repository Implementation (Drizzle).
+ *
+ * Three dialect-aware reads over `system.ai_conversations` + `system.ai_messages`
+ * backing the admin conversation-history viewer. All projection / cursor /
+ * pagination / ISO-normalization logic lives in the `agent-conversations` use
+ * case; this layer emits only raw queries. Dialect resolution is handled by the
+ * module-init `resolveDialectSchema` selectors.
+ *
+ * The reads are CROSS-USER (no `user_id` predicate) and AGENT-SCOPED (by
+ * `agent_name`). `user_id`, `agent_id`, and `metadata` are deliberately NOT
+ * projected so the use case cannot leak them (S4).
+ */
 export const AdminAgentConversationsRepositoryLive = Layer.succeed(
   AdminAgentConversationsRepository,
   {

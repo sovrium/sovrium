@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Rating Field
+ *
+ * Allows users to assign a rating value (e.g., 1-5 stars, 1-10 points).
+ * Supports configurable maximum rating value and visual style.
+ * Typically rendered as stars, hearts, or other rating indicators in the UI.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'product_rating',
+ *   type: 'rating',
+ *   max: 5,
+ *   style: 'stars'
+ * }
+ * ```
+ */
 export const RatingFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -53,4 +71,5 @@ export const RatingFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type RatingField = Schema.Schema.Type<typeof RatingFieldSchema>

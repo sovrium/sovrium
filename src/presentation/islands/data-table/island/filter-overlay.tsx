@@ -6,10 +6,35 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
+import { optionLabel, optionValue } from '@/domain/utils/select-option'
 import { getOperatorsForType, isSelectValueField } from './filter-operators'
 import type { FilterConjunction, FilterRow } from './use-ui-state'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
+/**
+ * Runtime filter-builder panel (PG-03 / [internal ref]..007).
+ *
+ * Renders three native `<select>` / `<input>` controls (field / operator /
+ * value) for authoring a single filter row, plus an "Add filter" commit
+ * button. Already-committed rows render above as chips with a per-row
+ * remove button (`× remove filter`). A header-level AND/OR toggle flips
+ * the conjunction; a footer-level "Clear all" wipes every committed row.
+ *
+ * The spec drives the controls via `selectOption()` + `fill()` against
+ * native `<select>` / `<input type="text">`, so all three controls MUST
+ * be native form elements (not Base UI Select). The accessibility roles
+ * fall out of the native element + `aria-label`:
+ *
+ * | Element                  | role      | accessible name |
+ * | ------------------------ | --------- | --------------- |
+ * | `<select>` field         | combobox  | "Field"         |
+ * | `<select>` operator      | combobox  | "Operator"      |
+ * | `<select>` value (enum)  | combobox  | "Value"         |
+ * | `<input>` value (free)   | textbox   | "Value"         |
+ *
+ * NOTE: the panel is purely client-side. Saved views (Cycle 5) will
+ * serialise the `activeFilters` + `filterConjunction` state verbatim.
+ */
 interface FilterOverlayProps {
   readonly tableFields: readonly string[]
   readonly fieldMeta?: FieldMetaMap
@@ -21,6 +46,9 @@ interface FilterOverlayProps {
   readonly onToggleConjunction: () => void
 }
 
+// ---------------------------------------------------------------------------
+// ActiveFilterChip — a single committed filter row
+// ---------------------------------------------------------------------------
 
 interface ActiveFilterChipProps {
   readonly row: FilterRow
@@ -50,7 +78,11 @@ function ActiveFilterChip({ row, onRemove }: ActiveFilterChipProps) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// FilterOverlay — the panel itself
+// ---------------------------------------------------------------------------
 
+// eslint-disable-next-line max-lines-per-function, complexity -- single-screen panel with 4 native form controls + chip list; further extraction would just split a single visual unit across files
 export function FilterOverlay({
   tableFields,
   fieldMeta,
@@ -61,6 +93,8 @@ export function FilterOverlay({
   onClearAll,
   onToggleConjunction,
 }: FilterOverlayProps) {
+  // Draft row state — what the user is currently authoring before clicking
+  // "Add filter". The committed state lives in the parent's `activeFilters`.
   const initialField = tableFields[0] ?? ''
   const [field, setField] = useState<string>(initialField)
   const initialOps = getOperatorsForType(fieldMeta?.[initialField]?.type)
@@ -77,6 +111,8 @@ export function FilterOverlay({
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const newField = event.target.value
       setField(newField)
+      // Re-default the operator + value when the field type changes so the
+      // panel never carries a number-only operator into a text field.
       const newOps = getOperatorsForType(fieldMeta?.[newField]?.type)
       setOperator(newOps[0]?.value ?? 'is')
       setValue('')
@@ -204,10 +240,10 @@ export function FilterOverlay({
               <option value="">Select…</option>
               {fieldOptions?.map((opt) => (
                 <option
-                  key={opt}
-                  value={opt}
+                  key={optionValue(opt)}
+                  value={optionValue(opt)}
                 >
-                  {opt}
+                  {optionLabel(opt)}
                 </option>
               ))}
             </select>

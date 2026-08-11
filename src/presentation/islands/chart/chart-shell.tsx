@@ -5,6 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Shared layout shell for the multi-series chart family. Renders the
+ * `data-component="chart"` container, the optional interactive legend, and
+ * a `ParentSize`-measured body that delegates SVG rendering to a
+ * per-chart-type `renderSvg` callback.
+ *
+ * Hidden-series state lives here because the legend and the SVG both need
+ * it — keeping it in one place removes the identical `useState` +
+ * `handleToggle` block previously copied into every chart canvas.
+ */
 
 import { ParentSize } from '@visx/responsive'
 import { useCallback, useState } from 'react'
@@ -22,6 +32,12 @@ interface ChartShellProps {
   readonly series: readonly ChartSeriesConfig[]
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
+  /**
+   * Render-prop that draws the chart SVG for a measured viewport with the
+   * current hidden-series set. Returning `undefined` (e.g. a zero-size
+   * viewport) skips rendering. Passed as `children` so an inline arrow
+   * does not trip `react-perf/jsx-no-new-function-as-prop`.
+   */
   readonly children: (args: {
     readonly width: number
     readonly height: number
@@ -29,6 +45,11 @@ interface ChartShellProps {
   }) => ReactElement | undefined
 }
 
+/**
+ * Multi-series chart shell — owns the legend visibility toggle and the
+ * responsive measuring wrapper. Each chart canvas supplies only its own
+ * SVG via the `children` render-prop.
+ */
 export function ChartShell({
   series,
   legendPosition,

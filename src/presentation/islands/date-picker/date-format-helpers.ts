@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Date formatting / parsing / comparison helpers extracted from the
+ * date-picker island. Pure functions only — no React, no DOM.
+ */
 
 export interface DateRange {
   readonly from?: Date

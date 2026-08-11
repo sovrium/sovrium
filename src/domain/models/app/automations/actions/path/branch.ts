@@ -10,6 +10,12 @@ import { ConditionGroupSchema } from '../../conditions'
 import { ActionBaseFields } from '../base'
 import type { Action } from '../..'
 
+/**
+ * Path Action (type: path, operator: branch)
+ *
+ * Split automation into parallel branches (like n8n Switch or Make router).
+ * Each path has a condition and its own sequence of actions.
+ */
 export const PathBranchActionSchema: Schema.Schema<Action & { readonly type: 'path' }, unknown> =
   Schema.Struct({
     ...ActionBaseFields,
@@ -25,6 +31,13 @@ export const PathBranchActionSchema: Schema.Schema<Action & { readonly type: 'pa
           condition: Schema.optional(ConditionGroupSchema),
           actions: Schema.Array(
             Schema.suspend((): Schema.Schema<Action, unknown> => {
+              // `require('..')` resolves to `actions/index.ts` (the top-level
+              // ActionSchema union); `require('.')` would resolve to
+              // `actions/path/index.ts`, which only re-exports
+              // PathBranchActionSchema and has no ActionSchema. Schema.suspend
+              // defers this lookup until decode time, after the module graph
+              // has fully loaded, so the circular import is safe.
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               const { ActionSchema } = require('..') as {
                 ActionSchema: Schema.Schema<Action, unknown>
               }

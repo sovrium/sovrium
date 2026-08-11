@@ -8,10 +8,23 @@
 import { isValidEmail } from '@/domain/utils/email-validation'
 import { type AuthFormField } from '@/presentation/utils/auth-form-types'
 
+// Re-exported so existing importers of `auth-form-validation` keep working
+// without reaching across to `@/presentation/utils`.
 export { type AuthFormField }
 
+/** Per-field validation errors keyed by field name. */
 export type FieldErrors = Readonly<Record<string, string>>
 
+/**
+ * Validates a single auth-form field against its declared rules.
+ *
+ * - Required fields with an empty value produce a `"<Label> is required"`
+ *   message.
+ * - Email-typed fields with a non-empty value that fails the email pattern
+ *   produce a `"<Label> must be a valid email address"` message.
+ *
+ * Returns `undefined` when the field is valid.
+ */
 export function validateField(field: AuthFormField, value: string): string | undefined {
   const trimmed = value.trim()
   if (field.required && trimmed === '') {
@@ -23,6 +36,10 @@ export function validateField(field: AuthFormField, value: string): string | und
   return undefined
 }
 
+/**
+ * Validates every field in the form, returning a map of field-name → error
+ * message for each invalid field. An empty object means the form is valid.
+ */
 export function validateAllFields(
   fields: readonly AuthFormField[],
   values: Readonly<Record<string, string>>
@@ -33,6 +50,12 @@ export function validateAllFields(
   return Object.fromEntries(entries)
 }
 
+/**
+ * Returns a new `FieldErrors` map with a single field's entry updated.
+ *
+ * When `error` is `undefined` the field's entry is omitted; otherwise it is
+ * set. Implemented immutably (no mutation of the input map).
+ */
 export function withFieldError(
   errors: FieldErrors,
   name: string,

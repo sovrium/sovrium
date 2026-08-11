@@ -9,6 +9,13 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * HTTP POST Action (type: http, operator: post)
+ *
+ * Convenience operator for POST requests. Defaults Content-Type to
+ * application/json when a body is provided and no explicit Content-Type
+ * header is set.
+ */
 export const HttpPostActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('http'),
@@ -63,4 +70,5 @@ export const HttpPostActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type HttpPostAction = Schema.Schema.Type<typeof HttpPostActionSchema>

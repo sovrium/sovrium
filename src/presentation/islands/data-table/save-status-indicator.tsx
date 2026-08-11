@@ -9,7 +9,11 @@ import { cn } from '@/presentation/utils/design/class-merge'
 import type { SaveStatus } from '../hooks/use-inline-editing'
 import type { ReactElement } from 'react'
 
+// ---------------------------------------------------------------------------
+// Save status indicator
+// ---------------------------------------------------------------------------
 
+/** Human-readable label for each non-idle save status. */
 function statusLabel(status: SaveStatus): string {
   switch (status) {
     case 'saving':
@@ -23,6 +27,7 @@ function statusLabel(status: SaveStatus): string {
   }
 }
 
+/** Tailwind text-color class for each non-idle save status. */
 function statusColorClass(status: SaveStatus): string {
   switch (status) {
     case 'saving':
@@ -38,9 +43,18 @@ function statusColorClass(status: SaveStatus): string {
 
 interface SaveStatusIndicatorProps {
   readonly status: SaveStatus
+  /** Extra class names for layout (e.g. positioning in the toolbar). */
   readonly className?: string
 }
 
+/**
+ * Renders the auto-save status (Saving... / Saved / Error) for an editable
+ * component. Hidden entirely when the status is `idle` so a successful save
+ * indicator auto-dismisses.
+ *
+ * Marked with `data-save-indicator` for inline-position lookups and exposes
+ * `role="status"` so it surfaces to assistive tech and the toast position.
+ */
 export function SaveStatusIndicator({
   status,
   className,

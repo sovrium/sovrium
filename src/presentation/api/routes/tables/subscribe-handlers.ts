@@ -5,15 +5,53 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Records API real-time subscription endpoint — served at both
+ * `GET /api/tables/:tableId/subscribe/sse` and `GET /api/tables/:tableId/subscribe`.
+ *
+ * Drives `[internal ref]`
+ *, the subscription-filtering
+ * specs in `subscription-filtering.spec.ts`
+ *, and the WebSocket-transport
+ * specs in `real-time-mode-via-websocket.spec.ts`
+ *.
+ *
+ * The `/subscribe` path is the canonical handshake URL — clients open it with
+ * optional `filter` / `fields` query params. The `/subscribe/sse` path is an
+ * explicit-transport alias; both resolve to the same handler.
+ *
+ * Two transports share this endpoint:
+ *
+ * - **WebSocket**: a request carrying the standard
+ *    `Upgrade: websocket` handshake is upgraded (HTTP 101) and driven by
+ *    the `websocket` handler from `hono/bun` (mounted in `server.ts`). The
+ *    socket is registered as a channel-manager listener and receives live
+ *    `insert`/`update`/`delete` change events, a 30s heartbeat ping, and
+ *    answers a client `ping` with a `pong`.
+ * - **SSE**: a plain `GET` opens a Server-Sent Events stream,
+ *    emits a `subscribed` confirmation, then streams `change` events as
+ *    records are mutated. A periodic `heartbeat` keeps the connection alive;
+ *    the stream closes after a bounded lifetime so `EventSource` clients
+ *    reconnect cleanly and `fetch`-based callers are never left hanging.
+ *
+ * Both transports reuse the SAME channel-manager fan-out — a record CRUD
+ * handler publishes a single change event and it is delivered over every
+ * open SSE stream AND every open WebSocket on the table channel.
+ *
+ * Auth + table resolution are handled upstream by the `/api/tables/*`
+ * middleware chain (`authMiddleware → requireAuth → validateTable →
+ * enrichUserRole`): unauthenticated requests get HTTP 401 and unknown tables
+ * get HTTP 404 before this handler ever runs.
+ */
 
 import { Effect, Stream } from 'effect'
 import { upgradeWebSocket } from 'hono/bun'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { REALTIME_TRANSPORT_CONFIG } from '@/domain/models/api/realtime/realtime'
 import {
   evaluateFieldPermissions,
   hasReadPermissionForRoles,
-} from '@/application/use-cases/tables/permissions/permissions'
-import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
-import { REALTIME_TRANSPORT_CONFIG } from '@/domain/models/api/realtime/realtime'
+} from '@/domain/validators/permission-evaluators'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
 import { registerConnection } from '@/infrastructure/realtime/connection-counter'
 import { tableChannel } from '@/infrastructure/realtime/record-change-publisher'
@@ -25,7 +63,18 @@ import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables/table'
 import type { Context } from 'hono'
 
+// ---------------------------------------------------------------------------
+// Field-permission resolution
+// ---------------------------------------------------------------------------
 
+/**
+ * Resolve the column whitelist a set of roles may read on a table.
+ *
+ * A field with no explicit `permissions.fields` entry is readable by every
+ * role; a field with a `read` restriction is included only when at least one
+ * of `effectiveRoles` satisfies it. Returns `undefined` when every column is
+ * readable (the common case) so callers can skip filtering entirely.
+ */
 const resolveReadableFields = (
   table: Table,
   effectiveRoles: readonly string[]
@@ -34,18 +83,28 @@ const resolveReadableFields = (
   if (!fieldPerms || fieldPerms.length === 0) return undefined
 
   const isAdmin = effectiveRoles.includes('admin')
+  // A field is readable when ANY effective role can read it.
   const readableByAnyRole = (fieldName: string): boolean =>
     effectiveRoles.some((role) => {
       const evaluated = evaluateFieldPermissions(fieldPerms, role, isAdmin)
       const entry = evaluated[fieldName]
+      // No explicit entry → readable by all.
       return entry === undefined ? true : entry.read
     })
 
   const readable = table.fields.map((f) => f.name).filter(readableByAnyRole)
+  // All columns readable → undefined (no filtering needed).
   return readable.length === table.fields.length ? undefined : readable
 }
 
+// ---------------------------------------------------------------------------
+// Change-event payload shaping
+// ---------------------------------------------------------------------------
 
+/**
+ * Apply a column whitelist to a single record payload. `id` is always
+ * retained. Returns the payload unchanged when no whitelist was supplied.
+ */
 const pickRecordFields = (
   payload: unknown,
   whitelist: ReadonlySet<string> | undefined
@@ -63,6 +122,11 @@ const pickRecordFields = (
   return { id, fields: filtered }
 }
 
+/**
+ * Apply a `fields` whitelist to a change event's record/oldRecord payloads.
+ * `id` is always retained. Returns the event unchanged when no whitelist was
+ * requested.
+ */
 const applyFieldSelection = (
   event: Record<string, unknown>,
   fields: readonly string[] | undefined
@@ -80,6 +144,13 @@ const applyFieldSelection = (
   }
 }
 
+/**
+ * Shape a raw channel event into the wire message for a WebSocket subscriber.
+ *
+ * `delete` events are reduced to `{ type: 'delete', recordId, table }`.
+ * `insert` / `update` events carry the field-permission-filtered record (and
+ * previous values, for updates) under the canonical change-event shape.
+ */
 const toWebSocketWireMessage = (
   event: Record<string, unknown>,
   readableFields: readonly string[] | undefined
@@ -90,7 +161,11 @@ const toWebSocketWireMessage = (
   return applyFieldSelection(event, readableFields)
 }
 
+// ---------------------------------------------------------------------------
+// SSE transport
+// ---------------------------------------------------------------------------
 
+/** Scoping parameters resolved from a subscription handshake. */
 interface SubscriptionScope {
   readonly fields: readonly string[] | undefined
   readonly filter: ReturnType<typeof parseSubscriptionFilter>
@@ -98,6 +173,10 @@ interface SubscriptionScope {
 
 const enqueue = enqueueSseMessage
 
+/**
+ * Parse the optional comma-separated `fields` query param into a field list.
+ * Returns `undefined` when no field selection was requested.
+ */
 const parseFieldSelection = (raw: string | undefined): readonly string[] | undefined => {
   if (raw === undefined || raw.trim() === '') return undefined
   const fields = raw
@@ -107,6 +186,11 @@ const parseFieldSelection = (raw: string | undefined): readonly string[] | undef
   return fields.length > 0 ? fields : undefined
 }
 
+/**
+ * Buffered handshake stream for `fetch`/Playwright `request.get` callers
+ * (a wildcard `Accept` header): emits the `subscribed` + `heartbeat`
+ * confirmation and closes immediately so the caller is never left blocked.
+ */
 const buildHandshakeStream = (tableName: string): ReadableStream<Uint8Array> =>
   new ReadableStream<Uint8Array>({
     start(controller) {
@@ -116,17 +200,34 @@ const buildHandshakeStream = (tableName: string): ReadableStream<Uint8Array> =>
     },
   })
 
+/**
+ * Live SSE response for browser `EventSource` clients.
+ *
+ * Emits the `subscribed` + initial `heartbeat` handshake (preamble), then
+ * streams server-side-filtered `change` events plus keep-alive heartbeats
+ * until the bounded lifetime elapses (after which the client auto-reconnects).
+ * Lifecycle (heartbeat ticker, lifetime ceiling, abort observability) is
+ * owned by the shared `runEffectSse` bridge; this function only owns the
+ * subscription-scoping (filter + field-selection) of the source stream.
+ */
 const buildLiveResponse = (params: {
   readonly c: Context
   readonly appId: string
   readonly tableName: string
   readonly scope: SubscriptionScope
+  /**
+   * Released on stream teardown (bounded-lifetime timeout OR client abort)
+   * so the per-user connection counter does not leak. The counter's
+   * `release` is idempotent so double-fire is safe; the bridge fires
+   * `onTerminate` exactly once per connection regardless of reason.
+   */
   readonly release: () => void
 }): Response => {
   const { c, appId, tableName, scope, release } = params
   const source = Stream.async<Record<string, unknown>>((emit) => {
     const unsubscribe = addChannelListener(tableChannel(appId, tableName), (event) => {
       if (!changeEventMatchesFilter(event, scope.filter)) return
+      // eslint-disable-next-line functional/no-expression-statements -- emit is the Stream.async side-effect API
       void emit.single(applyFieldSelection(event, scope.fields))
     })
     return Effect.sync(() => unsubscribe())
@@ -141,33 +242,59 @@ const buildLiveResponse = (params: {
   })
 }
 
+// ---------------------------------------------------------------------------
+// WebSocket transport
+// ---------------------------------------------------------------------------
 
+/**
+ * Detect a WebSocket upgrade handshake. A browser `WebSocket` client sends
+ * `Upgrade: websocket`; a plain `fetch`/SSE caller does not.
+ */
 const isWebSocketUpgrade = (c: Context): boolean =>
   (c.req.header('upgrade') ?? '').toLowerCase() === 'websocket'
 
+/** The minimal `send`-capable surface of a Hono WebSocket context. */
 interface SendableWebSocket {
   readonly send: (data: string) => unknown
 }
 
+/** Per-connection teardown handle held across the WebSocket lifetime. */
 interface WebSocketConnectionState {
   unsubscribe?: () => void
   heartbeat?: ReturnType<typeof setInterval>
 }
 
+/**
+ * Serialise and send a realtime message over a WebSocket. A send on an
+ * already-closed socket is swallowed — `onClose` runs the teardown path.
+ */
 const sendWebSocketMessage = (ws: SendableWebSocket, msg: Record<string, unknown>): void => {
   try {
+    // eslint-disable-next-line functional/no-expression-statements -- WebSocket send is an effect
     ws.send(JSON.stringify(msg))
   } catch {
+    // Connection already torn down.
   }
 }
 
+/**
+ * Build the per-connection event callbacks for one upgraded WebSocket.
+ *
+ * The socket is registered as a channel-manager listener (the SAME fan-out
+ * the SSE transport uses) so it receives live `insert`/`update`/`delete`
+ * change events. A `subscribed` confirmation is sent on open, a 30s heartbeat
+ * ping keeps the connection alive, a client `ping` is answered with a `pong`,
+ * and the channel listener + heartbeat timer are torn down on close.
+ */
 const buildWebSocketEvents = (params: {
   readonly appId: string
   readonly tableName: string
   readonly readableFields: readonly string[] | undefined
+  /** Released on `onClose` so the per-user connection counter does not leak. */
   readonly release: () => void
 }) => {
   const { appId, tableName, readableFields, release } = params
+  /* eslint-disable functional/immutable-data, functional/no-expression-statements -- per-connection teardown state mutated once on open */
   const state: WebSocketConnectionState = {}
 
   return {
@@ -183,6 +310,7 @@ const buildWebSocketEvents = (params: {
       }, REALTIME_TRANSPORT_CONFIG.heartbeatIntervalMs)
     },
     onMessage(event: { data: unknown }, ws: SendableWebSocket): void {
+      // A client-sent `ping` keep-alive is answered with a `pong`.
       const text = typeof event.data === 'string' ? event.data : ''
       if (text.includes('ping')) {
         sendWebSocketMessage(ws, { type: 'pong', timestamp: new Date().toISOString() })
@@ -194,8 +322,13 @@ const buildWebSocketEvents = (params: {
       release()
     },
   }
+  /* eslint-enable functional/immutable-data, functional/no-expression-statements */
 }
 
+/**
+ * Upgrade the request to a WebSocket connection driven by the per-connection
+ * event callbacks built by {@link buildWebSocketEvents}.
+ */
 const handleWebSocketUpgrade = (params: {
   readonly c: Context
   readonly appId: string
@@ -208,12 +341,31 @@ const handleWebSocketUpgrade = (params: {
     buildWebSocketEvents({ appId, tableName, readableFields, release })
   )
 
+  // `upgradeWebSocket` is a Hono middleware: invoke it directly with a no-op
+  // `next` so it runs `server.upgrade()` and returns the 101 handshake.
   return Promise.resolve(middleware(c, async () => undefined)).then(
     (res) => res ?? new Response(undefined, { status: 426 })
   )
 }
 
+// ---------------------------------------------------------------------------
+// Endpoint handler
+// ---------------------------------------------------------------------------
 
+/**
+ * Handle `GET /api/tables/:tableId/subscribe/sse` and `/subscribe`.
+ *
+ * When the request carries a WebSocket upgrade handshake the connection is
+ * upgraded (HTTP 101) and driven by the WebSocket transport. Otherwise an SSE
+ * stream is opened confirming the subscription, then streaming live `change`
+ * events for the bound table until the connection closes or the bounded
+ * lifetime elapses.
+ */
+/**
+ * Build the response headers that echo the requested filter/fields scoping
+ * back to the client. Used by both the live SSE stream
+ * and the handshake-only stream so the wire format stays uniform.
+ */
 const buildSubscriptionHeaders = (
   filterExpr: string | undefined,
   fields: readonly string[] | undefined
@@ -223,6 +375,7 @@ const buildSubscriptionHeaders = (
   ...(fields !== undefined ? { 'X-Subscription-Fields': fields.join(',') } : {}),
 })
 
+/** Construct the 429 "Too Many Connections" response. */
 const tooManyConnectionsResponse = (c: Context, current: number, limit: number): Response =>
   c.json(
     {
@@ -242,6 +395,12 @@ interface LiveTransportInput {
   readonly readableFields: readonly string[] | undefined
 }
 
+/**
+ * Open a live realtime transport (WebSocket or SSE) under the per-user
+ * connection cap. Returns 429 + Retry-After when the user is already at
+ * cap; otherwise upgrades to WS or opens an SSE stream that releases the
+ * connection slot on teardown.
+ */
 const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
   const { c, app, session, tableName, readableFields } = input
   const registration = registerConnection(session.userId)
@@ -260,6 +419,10 @@ const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
   const fields = parseFieldSelection(c.req.query('fields'))
   const filterExpr = c.req.query('filter')
   const filter = parseSubscriptionFilter(filterExpr)
+  // Echo the requested scoping back so clients can confirm the server
+  // honoured their `filter` / `fields` handshake parameters. Hono's
+  // `c.header(...)` sets headers that streamSSE carries into its
+  // 200 response without us having to construct the Response by hand.
   if (filterExpr !== undefined) c.header('X-Subscription-Filter', filterExpr)
   if (fields !== undefined) c.header('X-Subscription-Fields', fields.join(','))
   return Promise.resolve(
@@ -277,15 +440,24 @@ export async function handleSubscribe(c: Context, app: App): Promise<Response> {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
+  // validateTable already guarantees the table exists; this is a defensive
+  // narrow so the permission check below has a concrete table.
   if (!table) {
     return c.json({ success: false, message: 'Table not found', code: 'NOT_FOUND' }, 404)
   }
 
   const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
   if (!hasReadPermissionForRoles(table, effectiveRoles, app.tables)) {
+    // Anti-enumeration: a denied subscription is indistinguishable from a
+    // missing table (S1 — return 404, never 403).
     return c.json({ success: false, message: 'Table not found', code: 'NOT_FOUND' }, 404)
   }
 
+  // [internal ref]: enforce the per-user concurrent transport-connection
+  // cap. The handshake-only stream (`fetch` / Playwright `request.get`) does
+  // not register because the response closes before the helper returns —
+  // counting it would over-report. Live SSE and WebSocket transports DO
+  // register and release on teardown.
   const acceptsEventStream = (c.req.header('accept') ?? '').includes('text/event-stream')
   if (isWebSocketUpgrade(c) || acceptsEventStream) {
     return openLiveTransport({
@@ -297,6 +469,9 @@ export async function handleSubscribe(c: Context, app: App): Promise<Response> {
     })
   }
 
+  // Buffered `fetch`/Playwright (Accept: */*) caller — handshake-only stream
+  // that closes immediately. Echo the requested scoping headers so callers
+  // can confirm the server honoured their filter/fields handshake.
   const fields = parseFieldSelection(c.req.query('fields'))
   const filterExpr = c.req.query('filter')
   return new Response(buildHandshakeStream(tableName), {

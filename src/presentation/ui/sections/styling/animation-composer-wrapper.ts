@@ -9,6 +9,12 @@ import { composeAnimation } from '@/presentation/styling/animation-composer'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Apply all component-specific animations functionally using composition
+ * Compose fadeOut animation for toast components
+ * Compose scaleUp animation for card components with scroll trigger
+ * Compose float animation for fab components (continuous floating effect)
+ */
 export function applyComponentAnimations(
   type: Component['type'],
   baseStyle: Record<string, unknown> | undefined,

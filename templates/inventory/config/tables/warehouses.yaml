@@ -1,0 +1,43 @@
+# Warehouses — the places stock physically sits.
+id: 2
+name: warehouses
+fields:
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: code
+    type: single-line-text
+  - id: 3
+    name: coordinates
+    type: geolocation
+  - id: 4
+    name: capacity_pallets
+    type: integer
+    min: 0
+  - id: 5
+    name: is_active
+    type: checkbox
+    default: true
+  - id: 6
+    name: created_at
+    type: created-at
+
+aiAccess:
+  description: >-
+    Storage locations. Use this when the user asks where stock is held or about
+    warehouse capacity.
+  operations:
+    - read
+    - list
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin

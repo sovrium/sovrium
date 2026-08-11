@@ -8,8 +8,20 @@
 import { Schema } from 'effect'
 import { ActionBaseFields } from './base'
 
+/**
+ * Action Reference (type: ref, no operator)
+ *
+ * References a reusable action template defined in app.actions[].
+ * Variables in $vars override the template's default variable values.
+ */
 export const ActionRefSchema = Schema.Struct({
   ...ActionBaseFields,
+  /**
+   * Discriminator. Optional — when omitted it defaults to `'ref'` since the
+   * presence of `$ref` is itself unambiguous. Authors may write either
+   * `{ name: 'alert', $ref: 'notify-admin' }` (concise) or the explicit
+   * `{ name: 'alert', type: 'ref', $ref: 'notify-admin' }`.
+   */
   type: Schema.optionalWith(Schema.Literal('ref'), { default: () => 'ref' as const }),
 
   $ref: Schema.String.pipe(
@@ -38,4 +50,5 @@ export const ActionRefSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type ActionRef = Schema.Schema.Type<typeof ActionRefSchema>

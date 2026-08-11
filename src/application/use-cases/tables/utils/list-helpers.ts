@@ -10,6 +10,11 @@ import { transformRecords } from './record-transformer'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Apply field selection to transform records into flat structure
+ * When fields parameter is specified, returns records with only selected fields
+ * Maintains Airtable-style structure: { id, fields: { ... }, createdAt, updatedAt }
+ */
 export function applyFieldSelection(
   records: readonly TransformedRecord[],
   fields: string
@@ -17,13 +22,16 @@ export function applyFieldSelection(
   const fieldNames = fields.split(',').map((f) => f.trim())
 
   return records.map((record) => {
+    // Build fields object with only requested fields
     const selectedFields = fieldNames.reduce<
       Record<string, RecordFieldValue | FormattedFieldValue>
     >((acc, fieldName) => {
+      // Skip system fields (id, createdAt, updatedAt) - they're at root level
       if (fieldName === 'id' || fieldName === 'createdAt' || fieldName === 'updatedAt') {
         return acc
       }
 
+      // Include user field if it exists
       if (record.fields[fieldName] !== undefined) {
         return { ...acc, [fieldName]: record.fields[fieldName] }
       }
@@ -31,6 +39,7 @@ export function applyFieldSelection(
       return acc
     }, {})
 
+    // Return record with Airtable structure, only selected fields
     return {
       id: record.id,
       fields: selectedFields,
@@ -40,6 +49,19 @@ export function applyFieldSelection(
   })
 }
 
+/**
+ * Page size applied when a request names none.
+ *
+ * Exported because `page` is translated to an `offset` at the route boundary
+ * (`offset = (page - 1) * limit`), which needs the same fallback this function
+ * uses. Two independent defaults would make `?page=2` skip a different number of
+ * rows than the envelope then reports.
+ */
+export const DEFAULT_PAGE_SIZE = 10
+
+/**
+ * Apply pagination to records and calculate pagination metadata
+ */
 export function applyPagination(
   records: readonly TransformedRecord[],
   totalRecords: number,
@@ -57,7 +79,7 @@ export function applyPagination(
     readonly hasPreviousPage: boolean
   }
 } {
-  const paginationLimit = limit ?? 10
+  const paginationLimit = limit ?? DEFAULT_PAGE_SIZE
   const paginationOffset = offset ?? 0
   const paginatedRecords = records.slice(paginationOffset, paginationOffset + paginationLimit)
 
@@ -78,6 +100,9 @@ export function applyPagination(
   }
 }
 
+/**
+ * Process and transform records with filtering and field selection
+ */
 export function processRecords(config: {
   readonly records: readonly Record<string, unknown>[]
   readonly app: App
@@ -89,6 +114,7 @@ export function processRecords(config: {
 }): readonly TransformedRecord[] {
   const { records, app, tableName, userRole, format, timezone, fields } = config
 
+  // Apply field-level read permissions filtering
   const filteredRecords = records.map((record) =>
     filterReadableFields({ app, tableName, userRole, record })
   )
@@ -100,5 +126,6 @@ export function processRecords(config: {
     timezone,
   }) as TransformedRecord[]
 
+  // Apply field selection if specified
   return fields ? applyFieldSelection(transformedRecords, fields) : transformedRecords
 }

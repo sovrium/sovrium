@@ -5,11 +5,29 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Component-level visibility filtering for the page renderer.
+ *
+ * Extracted from `render-page.tsx` so the entry file stays under the
+ * line cap. The two strategies are:
+ *   - `condition` — fully exclude the component from the SSR output (the
+ *     value never reaches the HTML for unauthorised users).
+ *   - `when` / `roles` — render the component but inject `display: none`
+ *     into its style prop (preserves DOM structure for client-side
+ *     rehydration).
+ *
+ * Visibility config is read off `component.props.visibility`; the
+ * declarative shape lives in the schema layer and is duck-typed here so
+ * the renderer stays decoupled from the Effect Schema definitions.
+ */
 
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { SessionInfo } from '@/domain/types/session-info'
 
+/**
+ * Visibility config shape as stored in component props
+ */
 interface VisibilityCondition {
   readonly field: string
   readonly operator: 'eq' | 'neq'
@@ -22,12 +40,19 @@ interface VisibilityConfig {
   readonly condition?: VisibilityCondition
 }
 
+/**
+ * Evaluates a field-based condition against the current session.
+ *
+ * Supports $user.* field references (e.g., $user.role, $user.plan).
+ * Returns true if the condition is satisfied.
+ */
 function evaluateCondition(
   condition: VisibilityCondition,
   session: SessionInfo | undefined
 ): boolean {
   const { field, operator, value } = condition
 
+  // Resolve field value from session ($user.* references only)
   const fieldValue =
     field.startsWith('$user.') && session !== undefined
       ? (session as unknown as Record<string, string | undefined>)[field.slice('$user.'.length)]
@@ -38,12 +63,18 @@ function evaluateCondition(
   return false
 }
 
+/**
+ * Checks if the session role satisfies the role requirements of a visibility config.
+ */
 function isRoleVisible(visibility: VisibilityConfig, session: SessionInfo | undefined): boolean {
   if (!visibility.roles || visibility.roles.length === 0) return true
   if (session === undefined) return false
   return visibility.roles.includes(session.role)
 }
 
+/**
+ * Determines if a section should be visible given the current session.
+ */
 function isSectionVisible(visibility: VisibilityConfig, session: SessionInfo | undefined): boolean {
   const isAuthenticated = session !== undefined
 
@@ -56,6 +87,9 @@ function isSectionVisible(visibility: VisibilityConfig, session: SessionInfo | u
   return true
 }
 
+/**
+ * Extracts visibility config from component props if present
+ */
 function extractVisibilityFromProps(
   props: Record<string, unknown> | undefined
 ): VisibilityConfig | undefined {
@@ -63,10 +97,17 @@ function extractVisibilityFromProps(
   return props.visibility as VisibilityConfig
 }
 
+/**
+ * Returns true when visibility is purely condition-based (no when/roles).
+ */
 function isConditionOnlyVisibility(visibility: VisibilityConfig): boolean {
   return !visibility.when && (!visibility.roles || visibility.roles.length === 0)
 }
 
+/**
+ * Applies visibility to a single section: either returns it unchanged,
+ * or injects `display: none` into its style prop.
+ */
 function applyVisibilityToSection(
   section: Page['components'][number],
   session: SessionInfo | undefined
@@ -93,6 +134,18 @@ function applyVisibilityToSection(
   }
 }
 
+/**
+ * True when a component node carries a `when`/`roles` visibility config that
+ * EXCLUDES the given session. Condition-only visibility is ignored (it is
+ * field-value based, not a session/role gate). Reads `props.visibility` (the
+ * runtime convention) and tolerates a top-level `visibility` key (the schema
+ * spreads `visibilityFields` at the component root).
+ *
+ * Consumed by the embedded-formRef access check: a formRef hidden from this
+ * session is not part of the page for that session, so its form-access gate
+ * must not 404 the page (the submit endpoint still enforces form access
+ * independently).
+ */
 export function isComponentHiddenForSession(
   node: unknown,
   session: SessionInfo | undefined
@@ -109,6 +162,9 @@ export function isComponentHiddenForSession(
   return !isSectionVisible(visibility, session)
 }
 
+/**
+ * Applies visibility filtering to page sections based on the current session.
+ */
 export function applyVisibilityToComponents(
   components: Page['components'],
   session: SessionInfo | undefined

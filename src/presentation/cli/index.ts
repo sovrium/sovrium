@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * CLI Presentation Module
+ *
+ * CLI-specific utilities with user-facing error handling.
+ */
 
 export {
   loadSchemaFromFile,

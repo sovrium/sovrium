@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asc, count, countDistinct, eq } from 'drizzle-orm'
+import { and, asc, count, countDistinct, eq, inArray, isNull, or } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AuthRepository,
@@ -21,8 +21,18 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
+/** Wrap a DB promise, adapting failures to AuthDatabaseError. */
 const wrap = makeDbWrap((error) => new AuthDatabaseError({ cause: error }))
 
+/**
+ * Auth Repository Implementation
+ *
+ * Provides database operations for auth-related user management.
+ * Methods operate on the Better Auth `user` and `session` tables via Drizzle
+ * ORM. The table objects are resolved per-dialect (`authUsersTable()` /
+ * `authSessionsTable()`) so a query targets `auth.user` on PostgreSQL and the
+ * flat `auth_user` on SQLite (which has no schemas).
+ */
 export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
   verifyUserEmail: (userId: string) =>
     wrap(() => {
@@ -85,9 +95,15 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
   unbanUser: (userId: string) =>
     wrap(() => {
       const users = authUsersTable()
+      // Drizzle requires an explicit `null` to issue `SET ban_reason = NULL`;
+      // `undefined` would omit the column and leave the stale reason behind.
+      // eslint-disable-next-line unicorn/no-null
       return db.update(users).set({ banned: false, banReason: null }).where(eq(users.id, userId))
     }).pipe(Effect.asVoid),
 
+  // Groups are Better Auth "teams": a membership is a `team_member` row linking
+  // `user.id` to `team.id`. The INNER JOIN projects the team NAME, which is the
+  // un-prefixed Sovrium group name that permission evaluation compares against.
   getUserGroups: (userId: string) =>
     Effect.gen(function* () {
       const rows = yield* wrap(async () => {
@@ -136,6 +152,12 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return Number(rows[0]?.value ?? 0)
     }),
 
+  // Count only sign-in-capable (human) users — those with at least one
+  // `auth.account` row. Synthetic agent users (mirrored from `app.agents[]`,
+  // `type='agent'`) carry NO account row, so an INNER JOIN on accounts
+  // excludes them. `countDistinct(users.id)` collapses the (rare) multi-account
+  // user to a single count. Dialect-portable: it relies only on the always-
+  // present `account.user_id` FK, never on the lazily-added `user.type` column.
   countHumanUsers: () =>
     Effect.gen(function* () {
       const rows = yield* wrap(async () => {
@@ -162,5 +184,28 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       })
       const first = result[0]
       return first ? { email: first.email } : undefined
+    }),
+
+  // Count the ACTIVE admins — those holding one of `adminRoles` whose account
+  // is not banned. `or(isNull(banned), eq(banned, false))` (never
+  // `ne(banned, true)`, which silently drops NULL rows in both dialects) is
+  // what makes the ban-then-demote lockout route observable: a banned admin
+  // still carries `role='admin'` but cannot sign in.
+  countActiveAdmins: (adminRoles: readonly string[]) =>
+    Effect.gen(function* () {
+      if (adminRoles.length === 0) return 0
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ value: count() })
+          .from(users)
+          .where(
+            and(
+              inArray(users.role, [...adminRoles]),
+              or(isNull(users.banned), eq(users.banned, false))
+            )
+          )
+      })
+      return Number(rows[0]?.value ?? 0)
     }),
 })

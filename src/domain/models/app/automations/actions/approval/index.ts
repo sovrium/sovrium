@@ -8,8 +8,12 @@
 import { ApprovalRequestActionSchema } from './request'
 import type { Schema } from 'effect'
 
+/**
+ * Approval Action — currently only the 'request' operator
+ */
 export const ApprovalActionSchema = ApprovalRequestActionSchema
 
+/** @public */
 export type ApprovalAction = Schema.Schema.Type<typeof ApprovalActionSchema>
 
 export * from './request'

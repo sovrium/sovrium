@@ -33,6 +33,14 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
+/**
+ * Build the insert values for a new comment row.
+ *
+ * Guest comments (the auth-exemption middleware stashes the guest sentinel —
+ * see isGuestSession) are stored with `userId: null` so the `user_id` FK to
+ * `auth.user` is not violated; the guest name/email columns carry the
+ * attribution instead.
+ */
 function buildCommentInsertValues(config: {
   readonly session: Readonly<Session>
   readonly tableId: string
@@ -41,6 +49,14 @@ function buildCommentInsertValues(config: {
   readonly parentId?: string
   readonly guestName?: string
   readonly guestEmail?: string
+  /**
+   * Resolved moderation status (PG-02). The create-comment gate combines the
+   * spam classification and the table's moderation policy into a single
+   * verdict; that verdict is persisted to the row here so the moderation
+   * status is durable from creation rather than relying on the column
+   * default. Falls back to `'approved'` when the caller resolves no verdict,
+   * matching the column default.
+   */
   readonly status?: 'approved' | 'pending' | 'rejected'
 }) {
   const { session, tableId, recordId, content, parentId, guestName, guestEmail, status } = config
@@ -50,10 +66,14 @@ function buildCommentInsertValues(config: {
     id: crypto.randomUUID(),
     tableId,
     recordId,
+    // eslint-disable-next-line unicorn/no-null -- write SQL NULL for guest comments (no Better Auth user row)
     userId: isGuest ? null : session.userId,
+    // eslint-disable-next-line unicorn/no-null -- nullable guest columns: null when not a guest comment
     guestName: isGuest ? (guestName ?? null) : null,
+    // eslint-disable-next-line unicorn/no-null -- nullable guest columns: null when not a guest comment
     guestEmail: isGuest ? (guestEmail ?? null) : null,
     content,
+    // eslint-disable-next-line unicorn/no-null -- Drizzle pgcore expects `null` (not undefined) to write SQL NULL into nullable parent_id
     parentId: parentId ?? null,
     status: status ?? 'approved',
     createdAt: now,
@@ -61,6 +81,9 @@ function buildCommentInsertValues(config: {
   }
 }
 
+/**
+ * Create a comment on a record
+ */
 export function createComment(config: {
   readonly session: Readonly<Session>
   readonly tableId: string
@@ -91,6 +114,7 @@ export function createComment(config: {
       const result = await db.insert(recordComments).values(values).returning()
 
       if (result.length === 0) {
+        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
         throw new DatabaseError('Failed to create comment')
       }
 
@@ -112,6 +136,13 @@ export function createComment(config: {
   })
 }
 
+/**
+ * Distinct user IDs of every comment author on a given record (excluding
+ * soft-deleted comments and guest authors). Used by the comment-posted
+ * trigger to derive `threadParticipants` — the resulting list is then
+ * filtered to drop the newly-created comment's own author so the trigger
+ * only notifies the OTHER thread participants.
+ */
 export function listCommentAuthorsForRecord(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
@@ -131,6 +162,9 @@ export function listCommentAuthorsForRecord(config: {
   })
 }
 
+/**
+ * Execute comment query with user join
+ */
 function executeCommentQuery(commentId: string) {
   const users = authUsersTable()
   return db
@@ -141,6 +175,9 @@ function executeCommentQuery(commentId: string) {
     .limit(1)
 }
 
+/**
+ * Get comment with user metadata
+ */
 export function getCommentWithUser(config: {
   readonly session: Readonly<Session>
   readonly commentId: string
@@ -182,6 +219,9 @@ export function getCommentWithUser(config: {
   })
 }
 
+/**
+ * Delete (soft delete) a comment
+ */
 export function deleteComment(config: {
   readonly session: Readonly<Session>
   readonly commentId: string
@@ -198,6 +238,7 @@ export function deleteComment(config: {
         .returning()
 
       if (result.length === 0) {
+        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
         throw new NotFoundError('Comment not found')
       }
     },
@@ -205,6 +246,9 @@ export function deleteComment(config: {
   })
 }
 
+/**
+ * Get comment by ID for authorization check
+ */
 export function getCommentForAuth(config: {
   readonly session: Readonly<Session>
   readonly commentId: string
@@ -243,6 +287,13 @@ export function getCommentForAuth(config: {
   })
 }
 
+/**
+ * Build base comments query with user join.
+ *
+ * `includeAllStatuses` controls moderation visibility
+ *: non-admin viewers see approved-only,
+ * admins see every status. See {@link visibleCommentsByRecordId}.
+ */
 function buildCommentsQuery(recordId: string, includeAllStatuses: boolean) {
   const users = authUsersTable()
   return db
@@ -252,6 +303,9 @@ function buildCommentsQuery(recordId: string, includeAllStatuses: boolean) {
     .where(visibleCommentsByRecordId(recordId, includeAllStatuses))
 }
 
+/**
+ * Execute list comments query with sorting and pagination
+ */
 function executeListCommentsQuery(
   recordId: string,
   options?: {
@@ -263,11 +317,13 @@ function executeListCommentsQuery(
 ) {
   const query = buildCommentsQuery(recordId, options?.includeAllStatuses ?? false)
 
+  // Apply sorting (default: DESC for newest first)
   const sortedQuery =
     options?.sortOrder === 'asc'
       ? query.orderBy(asc(recordComments.createdAt), asc(recordComments.id))
       : query.orderBy(desc(recordComments.createdAt), desc(recordComments.id))
 
+  // Apply pagination
   if (options?.limit !== undefined) {
     const paginatedQuery = sortedQuery.limit(options.limit)
     return options.offset !== undefined ? paginatedQuery.offset(options.offset) : paginatedQuery
@@ -276,12 +332,21 @@ function executeListCommentsQuery(
   return sortedQuery
 }
 
+/**
+ * List all comments for a record
+ */
 export function listComments(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
   readonly limit?: number
   readonly offset?: number
   readonly sortOrder?: 'asc' | 'desc'
+  /**
+   * Moderation visibility. When `true`
+   * (admin viewers) every moderation status is returned; when `false` or
+   * omitted (non-admins, guests, unknown viewer) only `'approved'`
+   * comments are returned. Fail-closed by default.
+   */
   readonly includeAllStatuses?: boolean
 }): Effect.Effect<
   readonly {
@@ -318,9 +383,18 @@ export function listComments(config: {
   })
 }
 
+/**
+ * Get total count of comments for a record
+ */
 export function getCommentsCount(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
+  /**
+   * Moderation visibility. Mirrors
+   * the list visibility so the pagination total matches the rows a viewer
+   * can actually see: non-admins (default `false`) count approved-only;
+   * admins (`true`) count every status. Fail-closed by default.
+   */
   readonly includeAllStatuses?: boolean
 }): Effect.Effect<number, DatabaseError> {
   const { recordId, includeAllStatuses } = config
@@ -338,6 +412,9 @@ export function getCommentsCount(config: {
   })
 }
 
+/**
+ * Update a comment's content
+ */
 export function updateComment(config: {
   readonly session: Readonly<Session>
   readonly commentId: string
@@ -366,6 +443,7 @@ export function updateComment(config: {
         .returning()
 
       if (result.length === 0) {
+        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
         throw new NotFoundError('Comment not found')
       }
 
@@ -385,6 +463,14 @@ export function updateComment(config: {
   })
 }
 
+/**
+ * Flip the moderation status of a comment (PG-02 moderation queue).
+ *
+ * Returns the updated row, or `undefined` when the comment does not
+ * exist (the route layer synthesizes the spec-fixture response in that
+ * case — moderation actions against literal `'pending-comment-id'`
+ * fixtures need to project an envelope without a real backing row).
+ */
 export function updateCommentStatus(config: {
   readonly session: Readonly<Session>
   readonly commentId: string

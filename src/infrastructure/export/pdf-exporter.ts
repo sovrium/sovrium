@@ -49,6 +49,10 @@ export interface PdfExportOptions {
   readonly rows: readonly (readonly string[])[]
 }
 
+/**
+ * Generate a PDF document from tabular data using @react-pdf/renderer.
+ * @public
+ */
 export const exportToPdf = async (options: PdfExportOptions): Promise<Uint8Array> => {
   const doc = React.createElement(
     Document,
@@ -60,6 +64,7 @@ export const exportToPdf = async (options: PdfExportOptions): Promise<Uint8Array
       React.createElement(
         View,
         { style: styles.table },
+        // Header row
         React.createElement(
           View,
           { style: styles.tableHeader },
@@ -67,6 +72,7 @@ export const exportToPdf = async (options: PdfExportOptions): Promise<Uint8Array
             React.createElement(Text, { key: `h-${String(i)}`, style: styles.tableCell }, col)
           )
         ),
+        // Data rows
         ...options.rows.map((row, ri) =>
           React.createElement(
             View,

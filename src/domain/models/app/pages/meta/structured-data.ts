@@ -7,20 +7,37 @@
 
 import { Schema } from 'effect'
 
+// ============================================================================
+// Structured Data — Common Fields
+// ============================================================================
 
+/**
+ * Schema.org @context field
+ *
+ * Required in all Schema.org structured data to indicate the vocabulary being used.
+ */
 export const SchemaOrgContext = Schema.Literal('https://schema.org').annotations({
   description: 'Schema.org context',
 })
 
+/**
+ * Email address field
+ */
 export const SchemaOrgEmail = Schema.String.annotations({
   description: 'Email address',
   format: 'email',
 })
 
+/**
+ * Telephone number field
+ */
 export const SchemaOrgTelephone = Schema.String.annotations({
   description: 'Phone number',
 })
 
+/**
+ * Array of social media profile URLs
+ */
 export const SchemaOrgSameAs = Schema.Array(
   Schema.String.annotations({
     description: 'Social media profile URL',
@@ -37,29 +54,50 @@ export const SchemaOrgSameAs = Schema.Array(
   ],
 })
 
+/**
+ * URL field for web resources
+ */
 export const SchemaOrgUrl = Schema.String.annotations({
   description: 'URL',
   format: 'uri',
 })
 
+/**
+ * Image URL field
+ */
 export const SchemaOrgImageUrl = Schema.String.annotations({
   description: 'Image URL',
   format: 'uri',
 })
 
+/**
+ * Helper: Create optional field
+ */
 export const optional = <A, I, R>(schema: Schema.Schema<A, I, R>) => Schema.optional(schema)
 
+/**
+ * Helper: Create Schema.org @type field
+ */
 export const schemaType = <T extends string>(type: T) =>
   Schema.Literal(type).annotations({
     description: 'Schema.org type',
   })
 
+/**
+ * Helper: Create positive integer field
+ */
 export const positiveInt = (description: string) =>
   Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
     description,
   })
 
+// ============================================================================
+// Structured Data — Postal Address
+// ============================================================================
 
+/**
+ * ISO 3166-1 alpha-2 country code
+ */
 export const CountryCodeSchema = Schema.String.pipe(
   Schema.pattern(/^[A-Z]{2}$/, {
     message: () =>
@@ -70,6 +108,9 @@ export const CountryCodeSchema = Schema.String.pipe(
   examples: ['US', 'FR', 'GB', 'DE'],
 })
 
+/**
+ * Schema.org PostalAddress structured data
+ */
 export const PostalAddressSchema = Schema.Struct({
   '@type': schemaType('PostalAddress'),
   streetAddress: Schema.optional(
@@ -98,10 +139,18 @@ export const PostalAddressSchema = Schema.Struct({
   description: 'Schema.org PostalAddress structured data',
 })
 
+/** @public */
 export type CountryCode = Schema.Schema.Type<typeof CountryCodeSchema>
+/** @public */
 export type PostalAddress = Schema.Schema.Type<typeof PostalAddressSchema>
 
+// ============================================================================
+// Structured Data — Article
+// ============================================================================
 
+/**
+ * Article type
+ */
 export const ArticleTypeSchema = Schema.Literal(
   'Article',
   'NewsArticle',
@@ -110,6 +159,9 @@ export const ArticleTypeSchema = Schema.Literal(
   description: 'Article type',
 })
 
+/**
+ * Article author
+ */
 export const ArticleAuthorSchema = Schema.Union(
   Schema.String,
   Schema.Struct({
@@ -132,6 +184,9 @@ export const ArticleAuthorSchema = Schema.Union(
   description: 'Article author',
 })
 
+/**
+ * Publisher logo
+ */
 export const PublisherLogoSchema = Schema.Struct({
   '@type': schemaType('ImageObject'),
   url: Schema.optional(
@@ -144,6 +199,9 @@ export const PublisherLogoSchema = Schema.Struct({
   description: 'Publisher logo',
 })
 
+/**
+ * Article publisher
+ */
 export const ArticlePublisherSchema = Schema.Struct({
   '@type': schemaType('Organization'),
   name: Schema.optional(
@@ -156,6 +214,9 @@ export const ArticlePublisherSchema = Schema.Struct({
   description: 'Article publisher',
 })
 
+/**
+ * Schema.org Article structured data
+ */
 export const ArticleSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': ArticleTypeSchema,
@@ -208,13 +269,24 @@ export const ArticleSchema = Schema.Struct({
   description: 'Schema.org Article structured data',
 })
 
+/** @public */
 export type ArticleType = Schema.Schema.Type<typeof ArticleTypeSchema>
+/** @public */
 export type ArticleAuthor = Schema.Schema.Type<typeof ArticleAuthorSchema>
+/** @public */
 export type PublisherLogo = Schema.Schema.Type<typeof PublisherLogoSchema>
+/** @public */
 export type ArticlePublisher = Schema.Schema.Type<typeof ArticlePublisherSchema>
+/** @public */
 export type Article = Schema.Schema.Type<typeof ArticleSchema>
 
+// ============================================================================
+// Structured Data — Breadcrumb
+// ============================================================================
 
+/**
+ * Breadcrumb list item
+ */
 export const BreadcrumbListItemSchema = Schema.Struct({
   '@type': schemaType('ListItem'),
   position: positiveInt('Item position in breadcrumb trail'),
@@ -231,6 +303,9 @@ export const BreadcrumbListItemSchema = Schema.Struct({
   description: 'Breadcrumb list item',
 })
 
+/**
+ * Schema.org BreadcrumbList structured data
+ */
 export const BreadcrumbSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('BreadcrumbList'),
@@ -242,10 +317,18 @@ export const BreadcrumbSchema = Schema.Struct({
   description: 'Schema.org BreadcrumbList structured data',
 })
 
+/** @public */
 export type BreadcrumbListItem = Schema.Schema.Type<typeof BreadcrumbListItemSchema>
+/** @public */
 export type Breadcrumb = Schema.Schema.Type<typeof BreadcrumbSchema>
 
+// ============================================================================
+// Structured Data — FAQ Page
+// ============================================================================
 
+/**
+ * FAQ answer
+ */
 export const FaqAnswerSchema = Schema.Struct({
   '@type': schemaType('Answer'),
   text: Schema.String.annotations({
@@ -255,6 +338,9 @@ export const FaqAnswerSchema = Schema.Struct({
   description: 'FAQ answer',
 })
 
+/**
+ * FAQ question with accepted answer
+ */
 export const FaqQuestionSchema = Schema.Struct({
   '@type': schemaType('Question'),
   name: Schema.String.annotations({
@@ -265,6 +351,9 @@ export const FaqQuestionSchema = Schema.Struct({
   description: 'FAQ question',
 })
 
+/**
+ * Schema.org FAQPage structured data
+ */
 export const FaqPageSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('FAQPage'),
@@ -276,11 +365,20 @@ export const FaqPageSchema = Schema.Struct({
   description: 'Schema.org FAQPage structured data',
 })
 
+/** @public */
 export type FaqAnswer = Schema.Schema.Type<typeof FaqAnswerSchema>
+/** @public */
 export type FaqQuestion = Schema.Schema.Type<typeof FaqQuestionSchema>
+/** @public */
 export type FaqPage = Schema.Schema.Type<typeof FaqPageSchema>
 
+// ============================================================================
+// Structured Data — Product
+// ============================================================================
 
+/**
+ * Product brand
+ */
 export const ProductBrandSchema = Schema.Struct({
   '@type': schemaType('Brand'),
   name: Schema.optional(
@@ -292,6 +390,9 @@ export const ProductBrandSchema = Schema.Struct({
   description: 'Product brand',
 })
 
+/**
+ * ISO 4217 currency code
+ */
 export const CurrencyCodeSchema = Schema.String.pipe(
   Schema.pattern(/^[A-Z]{3}$/, {
     message: () =>
@@ -302,6 +403,9 @@ export const CurrencyCodeSchema = Schema.String.pipe(
   examples: ['USD', 'EUR', 'GBP'],
 })
 
+/**
+ * Product offer
+ */
 export const ProductOfferSchema = Schema.Struct({
   '@type': schemaType('Offer'),
   price: Schema.optional(
@@ -325,6 +429,9 @@ export const ProductOfferSchema = Schema.Struct({
   description: 'Product offer',
 })
 
+/**
+ * Aggregate rating
+ */
 export const AggregateRatingSchema = Schema.Struct({
   '@type': schemaType('AggregateRating'),
   ratingValue: Schema.optional(
@@ -341,6 +448,9 @@ export const AggregateRatingSchema = Schema.Struct({
   description: 'Aggregate rating',
 })
 
+/**
+ * Schema.org Product structured data
+ */
 export const ProductSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('Product'),
@@ -386,13 +496,24 @@ export const ProductSchema = Schema.Struct({
   description: 'Schema.org Product structured data',
 })
 
+/** @public */
 export type ProductBrand = Schema.Schema.Type<typeof ProductBrandSchema>
+/** @public */
 export type CurrencyCode = Schema.Schema.Type<typeof CurrencyCodeSchema>
+/** @public */
 export type ProductOffer = Schema.Schema.Type<typeof ProductOfferSchema>
+/** @public */
 export type AggregateRating = Schema.Schema.Type<typeof AggregateRatingSchema>
+/** @public */
 export type Product = Schema.Schema.Type<typeof ProductSchema>
 
+// ============================================================================
+// Structured Data — Education Event
+// ============================================================================
 
+/**
+ * Event attendance mode
+ */
 export const EventAttendanceModeSchema = Schema.Literal(
   'https://schema.org/OfflineEventAttendanceMode',
   'https://schema.org/OnlineEventAttendanceMode',
@@ -401,6 +522,9 @@ export const EventAttendanceModeSchema = Schema.Literal(
   description: 'Event attendance mode',
 })
 
+/**
+ * Event status
+ */
 export const EventStatusSchema = Schema.Literal(
   'https://schema.org/EventScheduled',
   'https://schema.org/EventCancelled',
@@ -410,6 +534,9 @@ export const EventStatusSchema = Schema.Literal(
   description: 'Event status',
 })
 
+/**
+ * Event location (Place)
+ */
 export const EventLocationSchema = Schema.Struct({
   '@type': schemaType('Place'),
   name: Schema.optional(
@@ -422,6 +549,9 @@ export const EventLocationSchema = Schema.Struct({
   description: 'Event location',
 })
 
+/**
+ * Event organizer
+ */
 export const EventOrganizerSchema = Schema.Struct({
   '@type': Schema.Literal('Organization', 'Person').annotations({
     description: 'Organizer type',
@@ -441,6 +571,9 @@ export const EventOrganizerSchema = Schema.Struct({
   description: 'Event organizer',
 })
 
+/**
+ * Ticket availability status
+ */
 export const TicketAvailabilitySchema = Schema.Literal(
   'https://schema.org/InStock',
   'https://schema.org/OutOfStock',
@@ -450,6 +583,9 @@ export const TicketAvailabilitySchema = Schema.Literal(
   description: 'Ticket availability status',
 })
 
+/**
+ * Event ticket offer
+ */
 export const EventOfferSchema = Schema.Struct({
   '@type': schemaType('Offer'),
   price: Schema.optional(
@@ -469,6 +605,9 @@ export const EventOfferSchema = Schema.Struct({
   description: 'Event ticket offer',
 })
 
+/**
+ * Schema.org EducationEvent structured data
+ */
 export const EducationEventSchema = Schema.Struct({
   '@type': schemaType('EducationEvent'),
   name: Schema.String.annotations({
@@ -501,15 +640,28 @@ export const EducationEventSchema = Schema.Struct({
   description: 'Schema.org EducationEvent structured data',
 })
 
+/** @public */
 export type EventAttendanceMode = Schema.Schema.Type<typeof EventAttendanceModeSchema>
+/** @public */
 export type EventStatus = Schema.Schema.Type<typeof EventStatusSchema>
+/** @public */
 export type EventLocation = Schema.Schema.Type<typeof EventLocationSchema>
+/** @public */
 export type EventOrganizer = Schema.Schema.Type<typeof EventOrganizerSchema>
+/** @public */
 export type TicketAvailability = Schema.Schema.Type<typeof TicketAvailabilitySchema>
+/** @public */
 export type EventOffer = Schema.Schema.Type<typeof EventOfferSchema>
+/** @public */
 export type EducationEvent = Schema.Schema.Type<typeof EducationEventSchema>
 
+// ============================================================================
+// Structured Data — Person
+// ============================================================================
 
+/**
+ * Organization reference for Person's employer
+ */
 export const PersonWorksForSchema = Schema.Struct({
   '@type': schemaType('Organization'),
   name: Schema.optional(
@@ -521,6 +673,9 @@ export const PersonWorksForSchema = Schema.Struct({
   description: "Person's employer organization",
 })
 
+/**
+ * Schema.org Person structured data
+ */
 export const PersonSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('Person'),
@@ -562,10 +717,18 @@ export const PersonSchema = Schema.Struct({
   description: 'Schema.org Person structured data',
 })
 
+/** @public */
 export type PersonWorksFor = Schema.Schema.Type<typeof PersonWorksForSchema>
+/** @public */
 export type Person = Schema.Schema.Type<typeof PersonSchema>
 
+// ============================================================================
+// Structured Data — Local Business
+// ============================================================================
 
+/**
+ * Day of week for opening hours
+ */
 export const DayOfWeekSchema = Schema.Literal(
   'Monday',
   'Tuesday',
@@ -578,6 +741,9 @@ export const DayOfWeekSchema = Schema.Literal(
   description: 'Day of the week',
 })
 
+/**
+ * Time in HH:MM format (24-hour)
+ */
 export const TimeSchema = Schema.String.pipe(
   Schema.pattern(/^[0-9]{2}:[0-9]{2}$/, {
     message: () => 'Time must be in HH:MM format (24-hour, e.g., 09:00, 18:30, 23:59)',
@@ -587,6 +753,9 @@ export const TimeSchema = Schema.String.pipe(
   examples: ['09:00', '18:00'],
 })
 
+/**
+ * Opening hours specification
+ */
 export const OpeningHoursSpecificationSchema = Schema.Struct({
   '@type': schemaType('OpeningHoursSpecification'),
   dayOfWeek: Schema.optional(
@@ -600,6 +769,9 @@ export const OpeningHoursSpecificationSchema = Schema.Struct({
   description: 'Opening hours specification',
 })
 
+/**
+ * Geographic coordinates
+ */
 export const GeoCoordinatesSchema = Schema.Struct({
   '@type': schemaType('GeoCoordinates'),
   latitude: Schema.optional(
@@ -616,6 +788,9 @@ export const GeoCoordinatesSchema = Schema.Struct({
   description: 'Geographic coordinates',
 })
 
+/**
+ * Schema.org LocalBusiness structured data
+ */
 export const LocalBusinessSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('LocalBusiness'),
@@ -693,13 +868,24 @@ export const LocalBusinessSchema = Schema.Struct({
   description: 'Schema.org LocalBusiness structured data',
 })
 
+/** @public */
 export type DayOfWeek = Schema.Schema.Type<typeof DayOfWeekSchema>
+/** @public */
 export type Time = Schema.Schema.Type<typeof TimeSchema>
+/** @public */
 export type OpeningHoursSpecification = Schema.Schema.Type<typeof OpeningHoursSpecificationSchema>
+/** @public */
 export type GeoCoordinates = Schema.Schema.Type<typeof GeoCoordinatesSchema>
+/** @public */
 export type LocalBusiness = Schema.Schema.Type<typeof LocalBusinessSchema>
 
+// ============================================================================
+// Structured Data — Organization
+// ============================================================================
 
+/**
+ * Schema.org Organization structured data
+ */
 export const OrganizationSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('Organization'),
@@ -788,9 +974,18 @@ export const OrganizationSchema = Schema.Struct({
   description: 'Schema.org Organization structured data',
 })
 
+/** @public */
 export type Organization = Schema.Schema.Type<typeof OrganizationSchema>
 
+// ============================================================================
+// Structured Data — Union
+// ============================================================================
 
+/**
+ * Schema.org structured data for search engine understanding
+ *
+ * Orchestrator schema that combines all 8 structured data types into a single configuration.
+ */
 export const StructuredDataSchema = Schema.Struct({
   organization: Schema.optional(OrganizationSchema),
   person: Schema.optional(PersonSchema),
@@ -805,4 +1000,5 @@ export const StructuredDataSchema = Schema.Struct({
   description: 'Schema.org structured data for search engine understanding',
 })
 
+/** @public */
 export type StructuredData = Schema.Schema.Type<typeof StructuredDataSchema>

@@ -8,6 +8,21 @@
 import { Cause } from 'effect'
 import { TreeFormatter } from 'effect/ParseResult'
 
+/**
+ * Extract a meaningful diagnostic string from any error thrown during
+ * `Effect.runPromise` / `Schema.decodeUnknownSync`. Without this helper,
+ * Effect's `FiberFailure` surfaces a generic "An error has occurred" and
+ * the real `Cause` / `ParseError` / `TaggedError` details are lost — which
+ * makes CLI startup failures unactionable for users.
+ *
+ * Used by `src/index.ts` (`start()`, `build()`) where errors caught from
+ * `Effect.runPromise` are re-thrown with an enriched message. Place new
+ * top-level Effect entry points alongside this helper if they need the
+ * same diagnostic surfacing.
+ *
+ * @param error Anything caught from `Effect.runPromise` / `decodeUnknownSync`
+ * @returns A human-readable diagnostic string (never throws)
+ */
 export const formatRuntimeError = (error: unknown): string => {
   const fromFiber = formatFromFiberFailure(error)
   if (fromFiber !== undefined) return fromFiber
@@ -22,6 +37,11 @@ export const formatRuntimeError = (error: unknown): string => {
   return String(error)
 }
 
+/**
+ * Unwrap Effect's `FiberFailure` (thrown by `Effect.runPromise` rejection)
+ * via `Cause.pretty`. Returns `undefined` when the input doesn't look like
+ * a `FiberFailure`, so the caller can fall through to the next strategy.
+ */
 const formatFromFiberFailure = (error: unknown): string | undefined => {
   if (error === null || typeof error !== 'object' || !('cause' in error)) {
     return undefined
@@ -37,6 +57,11 @@ const formatFromFiberFailure = (error: unknown): string | undefined => {
   }
 }
 
+/**
+ * Format an Effect tagged error: `ParseError` via `TreeFormatter` for indented
+ * schema diagnostics, or generic `Data.TaggedError` as `[Tag] {fields…}`.
+ * Returns `undefined` when the input isn't tagged.
+ */
 const formatFromTaggedError = (error: unknown): string | undefined => {
   if (error === null || typeof error !== 'object' || !('_tag' in error)) {
     return undefined
@@ -47,12 +72,17 @@ const formatFromTaggedError = (error: unknown): string | undefined => {
     try {
       return TreeFormatter.formatErrorSync(error as never)
     } catch {
+      // fall through to the generic tagged-error path
     }
   }
 
   return formatGenericTaggedError(tagged)
 }
 
+/**
+ * Render a generic `Data.TaggedError`-shaped object as `[Tag] {fields…}`.
+ * Skips function-typed fields so methods like `toJSON` don't pollute output.
+ */
 const formatGenericTaggedError = (
   tagged: Readonly<{ readonly _tag: string; readonly [key: string]: unknown }>
 ): string => {

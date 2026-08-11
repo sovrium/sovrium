@@ -15,11 +15,31 @@ import {
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
+import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
+import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { validateTableName, validateColumnName } from '../shared/validation'
 import { BatchValidationError, runEffectInTx, createSingleRecord } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
+/**
+ * Helper to update existing record
+ *
+ * The SET clause comes from the SINGLE shared builder
+ * (`buildUpdateSetClauseCRUD`), the one the CRUD update and `batch-update`
+ * already use. This helper used to carry its own copy that bound every value
+ * with `sql\`${value}\``, and drizzle expands a JS array into a SQL ROW
+ * CONSTRUCTOR — `['a','b']` became `($1, $2)`. Array-valued fields
+ * (`multi-select`, `multiple-attachments`, any JSON column holding an array)
+ * therefore failed by ARITY rather than by type: two or more elements raised a
+ * row-constructor error, an empty array produced invalid syntax, and a
+ * ONE-element array bound to `($1)` — legal scalar syntax — so the upsert
+ * answered 200 and silently stored the bare string where the array belonged.
+ *
+ * That is the same defect, through the same mechanism, that the batch CREATE
+ * path carried: both had COPIED the clause builder instead of calling it.
+ * Delegating is what stops a third copy from drifting back.
+ */
 async function updateSingleRecord(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -31,11 +51,13 @@ async function updateSingleRecord(
   )
   if (updateEntries.length === 0) return undefined
 
-  const setExpressions = updateEntries.map(([key, value]) => {
-    validateColumnName(key)
-    return sql`${sql.identifier(key)} = ${value}`
-  })
-  const setClause = sql.join(setExpressions, sql.raw(', '))
+  // Same array-encoding resolution the create branch performs, and for the same
+  // reason: a `text[]` column needs a native array literal, a `jsonb` one needs
+  // JSON, and PostgreSQL rejects the wrong choice outright.
+  const setClause = buildUpdateSetClauseCRUD(
+    updateEntries,
+    await resolveArrayColumnTypes(tx, tableName, [Object.fromEntries(updateEntries)])
+  )
 
   const result = await executeRaw(
     tx,
@@ -51,6 +73,9 @@ type UpsertResult = {
   readonly updated: number
 }
 
+/**
+ * Check if record exists based on merge fields
+ */
 function findExistingRecord(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -75,6 +100,9 @@ function findExistingRecord(
   })
 }
 
+/**
+ * Handle update path in upsert
+ */
 function handleUpsertUpdate(
   tx: Readonly<DrizzleTransaction>,
   params: {
@@ -121,6 +149,9 @@ function handleUpsertUpdate(
   })
 }
 
+/**
+ * Handle create path in upsert
+ */
 function handleUpsertCreate(
   tx: Readonly<DrizzleTransaction>,
   params: {
@@ -132,8 +163,19 @@ function handleUpsertCreate(
 ): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const created = yield* Effect.tryPromise({
-      try: async () => createSingleRecord(tx, params.tableName, params.fields),
+      try: async () =>
+        createSingleRecord(
+          tx,
+          params.tableName,
+          params.fields,
+          // Same array-encoding resolution the batch-create path uses. Scoped
+          // to this record because upsert interleaves creates with updates, so
+          // there is no batch-wide column union to hoist; the lookup skips its
+          // round-trip when nothing here is array-shaped.
+          await resolveArrayColumnTypes(tx, params.tableName, [params.fields])
+        ),
       catch: (error) => {
+        // If this is a ValidationError, propagate it as-is
         if (error instanceof ValidationError) {
           return error
         }
@@ -159,6 +201,9 @@ function handleUpsertCreate(
   })
 }
 
+/**
+ * Process single upsert operation
+ */
 function processSingleUpsert(
   tx: Readonly<DrizzleTransaction>,
   params: {
@@ -185,6 +230,9 @@ function processSingleUpsert(
   })
 }
 
+/**
+ * Validate merge fields are present in all records
+ */
 function validateMergeFieldsPresent(
   recordsData: readonly Record<string, unknown>[],
   fieldsToMergeOn: readonly string[]
@@ -208,17 +256,24 @@ function validateMergeFieldsPresent(
   return Effect.void
 }
 
+/**
+ * Validate required fields are present in record (for creates)
+ * This prevents database NOT NULL constraint violations
+ */
 async function validateRequiredFieldsInRecord(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   record: Readonly<Record<string, unknown>>,
   recordIndex: number
 ): Promise<readonly string[]> {
+  // Query table schema (dialect-aware) to get required fields: NOT NULL
+  // columns that have no DB-side default.
   const columns = await listTableColumns(tx, tableName)
   const requiredFields = columns
     .filter((col) => !col.isNullable && col.columnDefault === null)
     .map((col) => col.name)
 
+  // System fields that are auto-generated (exclude from validation)
   const autoFields = new Set(['id', 'created_at', 'updated_at'])
 
   const missingFields = requiredFields.filter(
@@ -232,6 +287,9 @@ async function validateRequiredFieldsInRecord(
   return []
 }
 
+/**
+ * Validate all records have required fields BEFORE processing
+ */
 function validateAllRecordsHaveRequiredFields(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -261,6 +319,9 @@ function validateAllRecordsHaveRequiredFields(
   })
 }
 
+/**
+ * Upsert records (create or update based on merge fields)
+ */
 export function upsertRecords(
   session: Readonly<Session>,
   tableName: string,
@@ -280,11 +341,14 @@ export function upsertRecords(
 
     fieldsToMergeOn.forEach((field) => validateColumnName(field))
 
+    // Validate merge fields are present in all records BEFORE processing
     yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
 
+    // Execute upsert in a transaction
     const result = yield* Effect.tryPromise({
       try: () =>
         db.transaction(async (tx) => {
+          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
           await runEffectInTx(validateAllRecordsHaveRequiredFields(tx, tableName, recordsData))
 
           return await runEffectInTx(
@@ -298,7 +362,17 @@ export function upsertRecords(
         }),
       catch: (error) => {
         if (error instanceof DatabaseError) return error
+        // A constraint rejection from the create branch arrives typed, carrying
+        // the client-safe wording from `CONSTRAINT_MESSAGES`. It used to fall
+        // through to the wrap below, and because `ValidationError` carries no
+        // `cause` that wrap produced a `DatabaseError` with a dead chain — which
+        // `sanitizeError` can only read as an unexplained fault and answer 500.
+        // So the SAME caller mistake was a 400 through batch create and a 500
+        // through upsert, blaming the caller on one route and paging the
+        // operator on the other. The return type already admitted this class.
+        if (error instanceof ValidationError) return error
         if (error instanceof BatchValidationError) {
+          // Re-wrap BatchValidationError as DatabaseError to match return type
           return new DatabaseError(error.message, error)
         }
         return new DatabaseError(`Failed to upsert records in ${tableName}`, error)

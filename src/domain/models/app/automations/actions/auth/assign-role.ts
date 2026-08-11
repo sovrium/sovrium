@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Auth Assign Role Action (type: auth, operator: assignRole)
+ *
+ * Assign a role to an existing user.
+ */
 export const AuthAssignRoleActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('auth'),
@@ -27,4 +32,5 @@ export const AuthAssignRoleActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AuthAssignRoleAction = Schema.Schema.Type<typeof AuthAssignRoleActionSchema>

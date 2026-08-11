@@ -12,12 +12,25 @@ import { usePasteToast } from './use-paste-toast'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
 interface UsePasteStateParams {
+  /** Target table name for the batch create. */
   readonly tableName: string
+  /** Table field names offered as column mapping targets. */
   readonly tableFields: readonly string[]
+  /** Field metadata (types) used to drop type-mismatched cells on import. */
   readonly fieldMeta?: FieldMetaMap
+  /** Called after a successful batch create so the table can refresh. */
   readonly onImported?: () => void
 }
 
+/**
+ * Owns the paste-preview dialog's reactive state: the input state (parsed
+ * payload + mappings, via {@link usePasteInputState}), the in-flight flag, and
+ * the post-import toast (via {@link usePasteToast}).
+ *
+ * Lives in a `.ts` module (no JSX) so `useCallback` here is exempt from the
+ * island JSX lint rules. The handlers are stable so the dialog presenter does
+ * not re-allocate them per render.
+ */
 export function usePasteState({
   tableName,
   tableFields,

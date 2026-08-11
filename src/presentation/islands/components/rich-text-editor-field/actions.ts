@@ -5,12 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Toolbar + slash-menu action tables for the rich-text editor field.
+ *
+ * Pure data + a tiny filter helper. Extracted from the main editor module
+ * so the data-table/Toolbar/SlashMenu/hooks files can each import only the
+ * rows they need without dragging the whole editor's React surface into
+ * their dependency graph.
+ */
 
 import type { Editor } from '@tiptap/react'
 
 export interface ToolbarActionDef {
+  /** Visible label; combined with `ariaLabel` for accessibility. */
   readonly label: string
+  /** Accessible name returned by the AT (matches the test selector). */
   readonly ariaLabel: string
+  /** Imperative editor command. May be undefined for buttons that delegate
+   * to an external handler (e.g. `image` opens a file picker). */
   readonly action?: (editor: Editor) => void
   readonly isActive?: (editor: Editor) => boolean
 }
@@ -78,6 +90,9 @@ export const TOOLBAR_ACTIONS: Record<string, ToolbarActionDef> = {
   image: {
     label: 'Img',
     ariaLabel: 'Insert image',
+    // No `action` — the image button is wired by the `RichTextEditorField`
+    // component itself so it can open a file picker (NOT window.prompt) and
+    // upload via the bucket multipart endpoint.
   },
   table: {
     label: 'Tbl',
@@ -96,7 +111,9 @@ export const TOOLBAR_ACTIONS: Record<string, ToolbarActionDef> = {
 export const DEFAULT_TOOLBAR = ['bold', 'italic', 'heading', 'list', 'link', 'code-block']
 
 export interface SlashMenuItem {
+  /** Toolbar token this menu entry maps to. */
   readonly token: string
+  /** User-visible label and matcher (case-insensitive substring). */
   readonly label: string
 }
 
@@ -111,6 +128,11 @@ export const SLASH_MENU_ITEMS: readonly SlashMenuItem[] = [
   { token: 'table', label: 'Table' },
 ]
 
+/**
+ * Filter slash-menu entries to those whose toolbar token is enabled by the
+ * field's `toolbar[]` config. This is what makes `/blockquote` a no-op when
+ * `blockquote` is NOT in the toolbar (asserted by [internal ref]).
+ */
 export function filterMenuItemsByToolbar(
   items: readonly SlashMenuItem[],
   toolbar: readonly string[]

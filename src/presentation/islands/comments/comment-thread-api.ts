@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Comment-thread API helpers — thin `fetch` wrappers calling the existing
+ * `/api/tables/:tableName/records/:recordId/comments` endpoints. Kept in a
+ * dedicated module so the main island file stays under the per-island
+ * `max-lines: 250` cap.
+ */
 
 import type { CommentCreateResponse } from './comment-thread-types'
 
@@ -44,6 +50,7 @@ export async function postComment(input: {
     }
   )
   if (!response.ok) {
+    // eslint-disable-next-line functional/no-throw-statements -- TanStack Query mutations expect thrown errors
     throw new Error(`Failed to post comment (${response.status})`)
   }
   return (await response.json()) as CommentCreateResponse
@@ -65,6 +72,7 @@ export async function patchComment(input: {
     }
   )
   if (!response.ok) {
+    // eslint-disable-next-line functional/no-throw-statements -- TanStack Query mutations expect thrown errors
     throw new Error(`Failed to update comment (${response.status})`)
   }
 }
@@ -79,6 +87,7 @@ export async function deleteCommentApi(input: {
     { method: 'DELETE', credentials: 'include' }
   )
   if (!response.ok) {
+    // eslint-disable-next-line functional/no-throw-statements -- TanStack Query mutations expect thrown errors
     throw new Error(`Failed to delete comment (${response.status})`)
   }
 }

@@ -14,6 +14,17 @@ const MS_PER_UNIT = {
 
 type Unit = keyof typeof MS_PER_UNIT
 
+/**
+ * Parse a duration string (or plain integer) into milliseconds.
+ *
+ * Accepted formats:
+ *   - "5s", "10m", "2h", "7d" — integer + unit suffix (s/m/h/d)
+ *   - "300" — plain integer interpreted as milliseconds
+ *
+ * Returns NaN on any other input. Callers handle invalid values explicitly
+ * (e.g. by skipping the TTL or returning a configuration error). Returning
+ * NaN is preferred over throwing because most callers want a soft fallback.
+ */
 export function parseDuration(input: string): number {
   const trimmed = input.trim()
   if (trimmed.length === 0) return NaN

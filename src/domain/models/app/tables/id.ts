@@ -7,6 +7,16 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Table ID
+ *
+ * Unique identifier for the table
+ *
+ * @example
+ * ```typescript
+ * 1
+ * ```
+ */
 export const IdSchema = Schema.Int.pipe(
   Schema.greaterThanOrEqualTo(1),
   Schema.lessThanOrEqualTo(9_007_199_254_740_991),
@@ -18,4 +28,5 @@ export const IdSchema = Schema.Int.pipe(
   })
 )
 
+/** @public */
 export type Id = Schema.Schema.Type<typeof IdSchema>

@@ -12,6 +12,8 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('multiple-attachments'),
+      /** Storage bucket name for this field's files. References a bucket defined in app.buckets.
+       *  When omitted, uses the implicit 'default' bucket. */
       bucket: Schema.optional(
         Schema.String.pipe(
           Schema.annotations({
@@ -56,9 +58,10 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
   Schema.annotations({
     title: 'Multiple Attachments Field',
     description:
-      'Stores multiple file attachments. Storage backend configured globally via environment variables (see US-STORAGE-STORAGE-CONFIGURATION).',
+      'Stores multiple file attachments. The storage backend is configured globally through STORAGE_* environment variables, not per field.',
     examples: [{ id: 1, name: 'documents', type: 'multiple-attachments', maxFiles: 10 }],
   })
 )
 
+/** @public */
 export type MultipleAttachmentsField = Schema.Schema.Type<typeof MultipleAttachmentsFieldSchema>

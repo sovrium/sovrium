@@ -5,6 +5,28 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Agent facts-memory routes:
+ *
+ *  - `POST /api/ai/agents/:name/chat`   — agent-bound chat turn that, when the
+ *    agent declares `memory.facts.enabled: true`, extracts an atomic fact from
+ *    the turn and persists it to `system.ai_facts` for the agent's namespace
+ *.
+ *  - `POST /api/ai/agents/:name/recall` — recall the facts the calling user
+ *    has stored for the agent's namespace, oldest first. Per-user scoped so
+ *    a caller never recalls another user's facts even within a shared
+ * namespace.
+ *
+ * Fact extraction is gated on the per-agent schema flag (`memory.facts`): when
+ * omitted or `false`, no fact is ever extracted or stored
+ *. The `namespace` declared on the agent
+ * isolates facts — an agent in namespace A never reads namespace B's facts
+ *.
+ *
+ * Auth: the `/api/ai/agents/*` paths get the `authMiddleware` chain installed
+ * in `api-routes.ts` when `app.auth` is configured, so the calling user's id
+ * is available for per-user scoping.
+ */
 
 import { Effect } from 'effect'
 import { extractAndStoreFact, recallAgentFacts } from '@/application/use-cases/ai/facts-memory'
@@ -17,15 +39,23 @@ import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Hono, Context } from 'hono'
 
+/** Default `maxFacts` cap when the agent omits it (mirrors the schema default). */
 const DEFAULT_MAX_FACTS = 100
 
+/** Resolve the authenticated user's id, or undefined when no session. */
 const resolveUserId = (c: Readonly<Context>): string | undefined => {
   const session = getSessionContext(c as unknown as Context)
   return session?.userId
 }
 
+/**
+ * Resolve the facts-memory namespace for an agent: the explicit
+ * `memory.facts.namespace` when declared, otherwise the agent name (the
+ * schema default).
+ */
 const resolveNamespace = (agent: Agent): string => agent.memory?.facts?.namespace ?? agent.name
 
+/** Read `{ message, sessionId }` from an agent-chat request body. */
 const parseFactsChatBody = async (
   c: Readonly<Context>
 ): Promise<{ readonly message: string; readonly sessionId: string }> => {
@@ -39,6 +69,14 @@ const parseFactsChatBody = async (
   }
 }
 
+/**
+ * Persist the assistant reply of a successful turn as an atomic fact for the
+ * agent's namespace — but only when the agent declares `memory.facts.enabled`
+ * and the calling user is known. Fact extraction is gated on the per-agent
+ * schema flag: when `memory.facts` is omitted or `false`, no fact is ever
+ * stored. Best-effort: a persistence failure
+ * is swallowed so it never breaks the chat turn.
+ */
 const maybeStoreFact = async (
   agent: Agent,
   userId: string | undefined,
@@ -57,6 +95,13 @@ const maybeStoreFact = async (
   )
 }
 
+/**
+ * `POST /api/ai/agents/:name/chat` — agent-bound chat turn with fact
+ * extraction. Delegates the AI provider round-trip to {@link handleAgentChat},
+ * then — when the agent has `memory.facts.enabled: true` and the turn
+ * succeeded — persists the assistant reply as an atomic fact for the agent's
+ * namespace via {@link maybeStoreFact}.
+ */
 const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Response> => {
   const agentName = c.req.param('name')
   if (typeof agentName !== 'string' || agentName.length === 0) {
@@ -76,12 +121,18 @@ const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Respons
   const { reply } = result.body
 
   if (result.status === 200 && typeof reply === 'string') {
+    // eslint-disable-next-line functional/no-expression-statements -- best-effort fact-persistence side effect
     await maybeStoreFact(agent, resolveUserId(c), reply)
   }
 
   return c.json(result.body, result.status)
 }
 
+/**
+ * `POST /api/ai/agents/:name/recall` — recall the calling user's stored facts
+ * for the agent's namespace. Returns `{ facts: [{ fact, createdAt }] }`,
+ * oldest first. Per-user scoped.
+ */
 const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Response> => {
   const agentName = c.req.param('name')
   const agent = (app?.agents ?? []).find((a) => a.name === agentName)
@@ -110,6 +161,11 @@ const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Respo
   return c.json({ facts }, 200)
 }
 
+/**
+ * Chain the agent facts-memory routes onto the given Hono app. Always
+ * registered — the handlers return 404 for agents not declared in
+ * `app.agents`, keeping the API shape stable across configurations.
+ */
 export function chainAiFactsRoutes<T extends Hono>(honoApp: T, app?: App): T {
   return honoApp
     .post('/api/ai/agents/:name/chat', (c) =>

@@ -5,11 +5,29 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * RAG HTTP routes — `/api/ai/rag/*` and `/api/ai/agents/:name/config`.
+ *
+ * Backs [internal ref] /
+ * PER-AGENT-KNOWLEDGE:
+ *  - `GET  /api/ai/rag/config`            — resolved RAG configuration.
+ *  - `GET  /api/ai/rag/status`            — discovered knowledge documents.
+ *  - `POST /api/ai/rag/search`            — pgvector similarity search.
+ *  - `POST /api/ai/rag/rebuild`           — re-embed agent + document
+ *                                           knowledge (admin).
+ *  - `GET  /api/ai/agents/:name/config`   — agent knowledge config readback.
+ *
+ * Auth: the `/api/ai/rag/*` and `/api/ai/agents/*` paths get `authMiddleware`
+ * in `api-routes.ts`; the rebuild handler additionally enforces the admin
+ * role itself so the 403 is distinguishable from a
+ * 401 ("not signed in").
+ */
 
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { resolveRagConfig } from '@/domain/services/rag/rag-config'
 import {
   discoverDocuments,
@@ -25,6 +43,7 @@ import type { App } from '@/domain/models/app'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
 import type { Hono, Context } from 'hono'
 
+/** Build the knowledge-sync input for a list of RAG agents. */
 const toSyncInput = (agents: ReadonlyArray<RagAgent>) =>
   agents
     .map((agent) => ({
@@ -37,6 +56,7 @@ const toSyncInput = (agents: ReadonlyArray<RagAgent>) =>
     }))
     .filter((agent) => agent.tables.length > 0)
 
+/** `GET /api/ai/rag/config` — resolved RAG configuration. */
 const handleConfig = async (c: Readonly<Context>): Promise<Response> => {
   const program = Effect.gen(function* () {
     const ai = yield* AiService
@@ -46,12 +66,20 @@ const handleConfig = async (c: Readonly<Context>): Promise<Response> => {
   return c.json(config)
 }
 
+/**
+ * `GET /api/ai/rag/status` — discovered knowledge documents.
+ *
+ * Lists every supported document file found in `AI_KNOWLEDGE_DIR`
+ *. Unsupported extensions are excluded by
+ * `discoverDocuments`. A missing directory yields an empty list.
+ */
 const handleStatus = async (c: Readonly<Context>): Promise<Response> => {
   const dir = resolveKnowledgeDir(process.env)
   const documents = await discoverDocuments(dir).catch((): ReadonlyArray<{ path: string }> => [])
   return c.json({ documents: documents.map((d) => ({ path: d.path })) })
 }
 
+/** `POST /api/ai/rag/search` — pgvector cosine similarity search. */
 const handleSearch = async (c: Readonly<Context>): Promise<Response> => {
   const body = (await c.req.json().catch(() => ({}))) as {
     query?: unknown
@@ -62,6 +90,9 @@ const handleSearch = async (c: Readonly<Context>): Promise<Response> => {
   if (query.trim().length === 0) {
     return c.json({ error: 'query is required' }, 400)
   }
+  // RAG requires a configured AI provider to compute embeddings. When
+  // `AI_PROVIDER` is unset/blank, refuse before attempting any embedding work
+  // — a clear 503 rather than a silent empty result.
   if ((process.env.AI_PROVIDER?.trim() ?? '') === '') {
     return c.json(
       {
@@ -79,13 +110,18 @@ const handleSearch = async (c: Readonly<Context>): Promise<Response> => {
     const reply = yield* ai.embed({ text: query })
     return yield* repo.search({
       embedding: reply.embedding,
+      // `query` powers the opt-in SQLite FTS5 lexical-hybrid path; the dense and
+      // pgvector paths ignore it.
       query,
       agentName,
       minSimilarity: ragConfig.similarity,
       maxResults: ragConfig.maxResults,
     })
   }).pipe(
+    // Single merged provide — `AiService` + `AiEmbeddingRepository` together.
     Effect.provide(RagSyncLayer),
+    // A provider/DB failure yields an empty result set rather than a 5xx —
+    // the search endpoint degrades gracefully.
     Effect.catchAll(() => Effect.succeed([]))
   )
   const results = await runRequestEffect(c, program)
@@ -99,6 +135,11 @@ const handleSearch = async (c: Readonly<Context>): Promise<Response> => {
   })
 }
 
+/**
+ * Authorize a rebuild request. Returns an HTTP error response when the
+ * caller is not an admin (and `app.auth` is configured), or `undefined`
+ * when the request may proceed.
+ */
 const authorizeRebuild = async (
   c: Readonly<Context>,
   app: App | undefined
@@ -109,12 +150,22 @@ const authorizeRebuild = async (
     return c.json({ error: 'Authentication required' }, 401)
   }
   const role = await getUserRole(session.userId).catch(() => 'member')
-  if (role !== 'admin') {
+  if (!isAdminRole(role)) {
+    // S1 anti-enumeration: admin-role denial returns 404.
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
   return undefined
 }
 
+/**
+ * `POST /api/ai/rag/rebuild` — re-embed agent table-knowledge and document
+ * knowledge.
+ *
+ * Admin-only when `app.auth` is configured. With no
+ * `app.auth` the endpoint is open (no role model exists). An optional
+ * `agent` body field scopes the table-knowledge rebuild to one agent;
+ * document knowledge is global and always re-embedded.
+ */
 const handleRebuild = async (c: Readonly<Context>, app?: App): Promise<Response> => {
   const body = (await c.req.json().catch(() => ({}))) as { agent?: unknown }
   const agentFilter = typeof body.agent === 'string' ? body.agent : undefined
@@ -151,6 +202,7 @@ const handleRebuild = async (c: Readonly<Context>, app?: App): Promise<Response>
   })
 }
 
+/** `GET /api/ai/agents/:name/config` — agent knowledge configuration. */
 const handleAgentConfig = async (c: Readonly<Context>, app?: App): Promise<Response> => {
   const name = c.req.param('name')
   const agent = (app?.agents ?? []).find((a) => a.name === name)
@@ -166,6 +218,20 @@ const handleAgentConfig = async (c: Readonly<Context>, app?: App): Promise<Respo
   })
 }
 
+/**
+ * Chain the RAG routes onto the given Hono app. Always registered — the
+ * handlers degrade gracefully when no agents / no AI provider are configured.
+ *
+ * `search` and `rebuild` work on BOTH runtimes: Postgres uses the
+ * pgvector `<=>` operator, SQLite stores embeddings as Float32Array BLOBs and
+ * computes cosine similarity in application code (see
+ * `ai-embedding-repository-live.ts (SQLite impl)`). The former Postgres-only
+ * `501 requires-postgres` gate is gone, and so is the runtime-gating helper it
+ * was built on — no route gates on the database engine any more. The
+ * `AI_PROVIDER` gate in `handleSearch`
+ * is dialect-independent and still fires (`503`) when no provider is configured.
+ * `config` / `status` / `agents/:name/config` are pure config readback.
+ */
 export function chainRagRoutes<T extends Hono>(honoApp: T, app?: App): T {
   return honoApp
     .get('/api/ai/rag/config', (c) => handleConfig(c as unknown as Readonly<Context>))

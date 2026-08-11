@@ -13,6 +13,11 @@ import { NotFoundPage } from '@/presentation/ui/pages/NotFoundPage'
 import { renderPageByPath } from './render-page'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Builds the built-in analytics tracking script HTML tag for injection into error pages.
+ * Mirrors DynamicPage.tsx analytics script injection — ensures 404 pages
+ * are also tracked when analytics is enabled.
+ */
 function buildAnalyticsScriptTag(app: App): string | undefined {
   const { analytics } = app
   if (!analytics) return undefined
@@ -42,6 +47,13 @@ window.addEventListener("popstate",u);
   return `<script>${script}</script>`
 }
 
+/**
+ * Injects the "Built with Sovrium" badge into a static fallback error page.
+ * Mirrors the analytics string-injection technique above — the static
+ * NotFoundPage/ErrorPage components carry no app context, so the badge is
+ * spliced in before `</body>` only when the app opts in (`isBadgeEnabled`).
+ * The badge label follows the detected request language (English fallback).
+ */
 function injectBadgeIntoErrorPage(
   docHtml: string,
   app: App | undefined,
@@ -54,7 +66,19 @@ function injectBadgeIntoErrorPage(
     : `${docHtml}${badgeHtml}`
 }
 
+/**
+ * Renders NotFoundPage (404) to HTML string for server-side rendering
+ *
+ * If the app has a custom page configured at '/404', renders that page.
+ * Otherwise, renders the default NotFoundPage.
+ * When analytics is enabled, injects the tracking script so 404 visits are recorded.
+ *
+ * @param app - Optional validated application data from AppSchema
+ * @param detectedLanguage - Optional detected language from Accept-Language header
+ * @returns Complete HTML document as string with DOCTYPE
+ */
 export async function renderNotFoundPage(app?: App, detectedLanguage?: string): Promise<string> {
+  // Try to render custom 404 page first if app is provided
   if (app) {
     const custom404 = await renderPageByPath(app, '/404', { detectedLanguage })
     if (typeof custom404 === 'string') {
@@ -62,6 +86,7 @@ export async function renderNotFoundPage(app?: App, detectedLanguage?: string): 
     }
   }
 
+  // Fallback to default 404 page
   const html = renderToString(<NotFoundPage />)
   const docHtml = injectBadgeIntoErrorPage(`<!DOCTYPE html>\n${html}`, app, detectedLanguage)
   if (app) {
@@ -75,7 +100,18 @@ export async function renderNotFoundPage(app?: App, detectedLanguage?: string): 
   return docHtml
 }
 
+/**
+ * Renders ErrorPage (500) to HTML string for server-side rendering
+ *
+ * If the app has a custom page configured at '/500', renders that page.
+ * Otherwise, renders the default ErrorPage.
+ *
+ * @param app - Optional validated application data from AppSchema
+ * @param detectedLanguage - Optional detected language from Accept-Language header
+ * @returns Complete HTML document as string with DOCTYPE
+ */
 export async function renderErrorPage(app?: App, detectedLanguage?: string): Promise<string> {
+  // Try to render custom 500 page first if app is provided
   if (app) {
     const custom500 = await renderPageByPath(app, '/500', { detectedLanguage })
     if (typeof custom500 === 'string') {
@@ -83,6 +119,7 @@ export async function renderErrorPage(app?: App, detectedLanguage?: string): Pro
     }
   }
 
+  // Fallback to default 500 page
   const html = renderToString(<ErrorPage />)
   return injectBadgeIntoErrorPage(`<!DOCTYPE html>\n${html}`, app, detectedLanguage)
 }

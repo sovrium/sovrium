@@ -7,5 +7,8 @@
 
 import { createTaggedError } from '@/domain/errors/create-tagged-error'
 
+/**
+ * Error class for CSS compilation failures
+ */
 export const CSSCompilationError = createTaggedError('CSSCompilationError')
 export type CSSCompilationError = InstanceType<typeof CSSCompilationError>

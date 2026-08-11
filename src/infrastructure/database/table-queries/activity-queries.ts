@@ -9,6 +9,9 @@ import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { Database, activityLogs, users } from '@/infrastructure/database'
 
+/**
+ * Activity log with user metadata
+ */
 export interface ActivityLogWithUser {
   readonly id: string
   readonly userId: string
@@ -24,16 +27,31 @@ export interface ActivityLogWithUser {
   }
 }
 
+/**
+ * Database error for activity queries
+ */
 export class ActivityDatabaseError {
   readonly _tag = 'ActivityDatabaseError'
   constructor(readonly cause: unknown) {}
 }
 
+/**
+ * Activity not found error
+ */
 export class ActivityNotFoundError {
   readonly _tag = 'ActivityNotFoundError'
   constructor(readonly activityId: string) {}
 }
 
+/**
+ * Get activity log by ID with user metadata
+ *
+ * Fetches activity log details with a JOIN to the users table to include
+ * user information (name, email).
+ *
+ * @param activityId - Activity log ID (UUID string)
+ * @returns Effect program that resolves to activity with user metadata or fails with error
+ */
 export const getActivityById = (activityId: string) =>
   Effect.gen(function* () {
     const db = yield* Database
@@ -66,9 +84,12 @@ export const getActivityById = (activityId: string) =>
 
     const row = result[0]
 
+    // Parse recordId as integer (stored as text in DB)
     const recordIdInt = parseInt(row.recordId, 10)
     const recordId = isNaN(recordIdInt) ? 0 : recordIdInt
 
+    // Changes is already JSONB (parsed by Drizzle), cast to expected type
+    // eslint-disable-next-line unicorn/no-null -- Null is intentional for JSONB columns with no data
     const changes = (row.changes as Record<string, unknown> | null) ?? null
 
     const activity: ActivityLogWithUser = {

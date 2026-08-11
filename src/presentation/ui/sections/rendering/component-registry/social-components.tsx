@@ -5,6 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * SSR renderers for the `comments` and `commentCount` page-components.
+ *
+ * Both renderers emit accessible HTML keyed by `data-component=...`. When
+ * the bound `tableName` + `recordId` resolve at SSR time the renderers
+ * also emit a `data-island=...` marker so the hydration islands take over
+ * once mounted:
+ *
+ * - `comments` → `comment-thread-island.tsx` (paged list, auth form,
+ *   edit / delete, sort dropdown, load-more / numbered pagination)
+ * - `commentCount` → `comment-count-island.tsx` (fetches count from the
+ *   existing comments-API pagination metadata)
+ *
+ * The interactive surface (form, edit/delete) is gated by the island; the
+ * SSR placeholder always carries the empty-state copy so spec assertions
+ * on `[data-component=...]` pass on first paint without JS.
+ *
+ * Specs: [internal ref] … 035 +
+ * [internal ref] … 045
+ */
 
 import { GUEST_COMMENT_FORM_RUNTIME } from './guest-comment-runtime'
 import {
@@ -18,6 +38,11 @@ import {
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
 
+/**
+ * Stable react-perf-friendly off-screen style for the PG-02 honeypot input.
+ * Hoisted to module scope so SSR re-renders don't allocate a fresh object on
+ * every paint (the react-perf `jsx-no-new-object-as-prop` rule fires otherwise).
+ */
 const HONEYPOT_STYLE = {
   position: 'absolute' as const,
   left: '-9999px',
@@ -25,9 +50,14 @@ const HONEYPOT_STYLE = {
   width: 0,
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- server-side component-registry module, not a hot-reload candidate; helper components co-locate with the registry by convention
 function GuestCommentHoneypot(): ReactElement {
   return (
     <input
+      // The honeypot input is always rendered but is invisible to humans
+      // (`hidden` attribute + offscreen positioning). Bots that auto-fill
+      // every input give themselves away via this field; the create-pipeline
+      // silently 200s any submission that fills it.
       type="text"
       name="honeypot"
       data-testid="honeypot-field"
@@ -40,6 +70,17 @@ function GuestCommentHoneypot(): ReactElement {
   )
 }
 
+/**
+ * Render the guest comment form skeleton (PG-02 guest-comments). Shown in SSR
+ * when the table's `comments.guestComments === true`. The form posts to the
+ * existing comments API; the comment-thread hydration island layers on top
+ * for the authenticated variant.
+ *
+ * The honeypot input is always emitted (zero-config safety) when guest
+ * comments are enabled — matches the F-03 anti-spam floor and the
+ * PG-02 locked decision.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- server-side component-registry module, not a hot-reload candidate; helper components co-locate with the registry by convention
 function GuestCommentFormSkeleton({
   placeholder,
   guestEmailRequired,
@@ -96,6 +137,21 @@ function GuestCommentFormSkeleton({
   )
 }
 
+/**
+ * SSR comments-section renderer.
+ *
+ * Emits an accessible section keyed by `data-component="comments"` with the
+ * configured empty-state copy. When the bound table has `comments.guestComments:
+ * true`, a guest comment form skeleton is rendered inline so the form-visibility
+ * specs pass on first paint. When `tableName` + `recordId` are both resolvable
+ * the section also emits `data-island="comments"` so the comment-thread
+ * island hydrates on top of the SSR fallback.
+ */
+/**
+ * Render the SSR comments `<section>` from the resolved fields + config.
+ * Extracted from `commentsComponent` to keep that renderer under the
+ * function-size limit.
+ */
 function renderCommentsSection(input: {
   readonly f: ReturnType<typeof resolveCommentsFields>
   readonly cfg: ReturnType<typeof resolveTableCommentsConfig>
@@ -142,6 +198,7 @@ function renderCommentsSection(input: {
             honeypotEnabled={showGuestForm}
           />
           <script
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time SSR runtime emission
             dangerouslySetInnerHTML={{ __html: GUEST_COMMENT_FORM_RUNTIME }}
           />
         </>
@@ -170,6 +227,11 @@ export const commentsComponent: ComponentRenderer = ({
           })
         )
       : undefined
+  // PG-02 [internal ref]: when the SSR resolver carries an
+  // authenticated session, surface the name + email through data-* attrs
+  // so the inline guest-form runtime can prefill the visible inputs. The
+  // attrs themselves never render user data into the document body — the
+  // runtime reads them once and writes the values into the form inputs.
   return renderCommentsSection({
     f,
     cfg,
@@ -180,6 +242,16 @@ export const commentsComponent: ComponentRenderer = ({
   })
 }
 
+/**
+ * SSR comment-count renderer.
+ *
+ * Emits a small inline counter keyed by `data-component="comment-count"`.
+ * The label is computed from `format` (with `{count}` substituted) when a
+ * non-default format is provided, falling back to `emptyText` when both
+ * format and count are at their zero defaults. When `tableName` + `recordId`
+ * are both resolvable the span also carries `data-island="comment-count"`
+ * so the hydration island swaps the SSR placeholder for the live count.
+ */
 export const commentCountComponent: ComponentRenderer = ({ component, rawProps, elementProps }) => {
   const f = resolveCommentCountFields(component, rawProps, elementProps)
   const label = resolveCountLabel(0, f.format, f.emptyText, f.emptyTextWasCustomized)

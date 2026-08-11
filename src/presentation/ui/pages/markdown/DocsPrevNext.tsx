@@ -8,10 +8,20 @@
 import { type ReactElement } from 'react'
 import type { CollectionPrevNext } from '@/presentation/rendering/content-dir-lister'
 
+/**
+ * SSR previous/next chrome rendered at the foot of a markdown article in
+ * the `docs` layout. Either side may be
+ * undefined for boundary entries (first entry has no previous; last has no
+ * next) — the component still renders the `<div>` wrapper so the
+ * `[data-component="docs-prev-next"]` selector stays addressable even when
+ * only one neighbour exists.
+ */
 interface DocsPrevNextProps {
   readonly previous: CollectionPrevNext | undefined
   readonly next: CollectionPrevNext | undefined
+  /** Localized "Previous" label; the `←` arrow is prefixed here. */
   readonly previousLabel: string
+  /** Localized "Next" label; the `→` arrow is suffixed here. */
   readonly nextLabel: string
 }
 

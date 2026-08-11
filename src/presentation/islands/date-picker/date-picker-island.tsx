@@ -54,6 +54,16 @@ function TriggerButton({
   )
 }
 
+/**
+ * Date-picker island — a trigger button that opens a custom calendar
+ * popup. The calendar grid is a 7-column `<table role="grid">` with one
+ * `<td role="gridcell">` per day, matching the structure the spec asserts.
+ *
+ * Supports `single` (default) and `range` selection modes plus `minDate` /
+ * `maxDate` constraints. We intentionally roll a small grid rather than
+ * pull in `react-day-picker` (not installed in `package.json` despite being
+ * documented as a stack member) — keeping the island dependency-free.
+ */
 export default function DatePickerIsland({
   id,
   label,

@@ -7,7 +7,19 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Record Comment Domain Model
+ *
+ * Represents a comment on a table record with:
+ * - Content validation (non-empty, max 10,000 chars)
+ * - Support for @mentions stored as @[user_id]
+ * - Auto-injected user_id from session
+ * - Timestamps for audit trail
+ */
 
+/**
+ * Comment ID - UUID string
+ */
 export const CommentIdSchema = Schema.String.pipe(
   Schema.pattern(/^[a-f0-9-]+$/, {
     message: () => 'Comment ID must be a valid UUID',
@@ -15,8 +27,13 @@ export const CommentIdSchema = Schema.String.pipe(
   Schema.brand('CommentId')
 )
 
+/** @public */
 export type CommentId = typeof CommentIdSchema.Type
 
+/**
+ * Comment Content - non-empty, max 10,000 characters
+ * Supports @mentions as @[user_id] format
+ */
 export const CommentContentSchema = Schema.String.pipe(
   Schema.minLength(1, { message: () => 'Comment content cannot be empty' }),
   Schema.maxLength(10_000, {
@@ -24,8 +41,12 @@ export const CommentContentSchema = Schema.String.pipe(
   })
 )
 
+/** @public */
 export type CommentContent = typeof CommentContentSchema.Type
 
+/**
+ * Record Comment Schema
+ */
 export const RecordCommentSchema = Schema.Struct({
   id: CommentIdSchema,
   recordId: Schema.String,
@@ -37,14 +58,22 @@ export const RecordCommentSchema = Schema.Struct({
   deletedAt: Schema.optionalWith(Schema.Date, { nullable: true }),
 })
 
+/** @public */
 export type RecordComment = typeof RecordCommentSchema.Type
 
+/**
+ * Create Comment Input - content only (other fields auto-injected)
+ */
 export const CreateCommentInputSchema = Schema.Struct({
   content: CommentContentSchema,
 })
 
+/** @public */
 export type CreateCommentInput = typeof CreateCommentInputSchema.Type
 
+/**
+ * Comment with User Metadata (for API responses)
+ */
 export const CommentWithUserSchema = Schema.Struct({
   id: CommentIdSchema,
   recordId: Schema.String,
@@ -63,4 +92,5 @@ export const CommentWithUserSchema = Schema.Struct({
   ),
 })
 
+/** @public */
 export type CommentWithUser = typeof CommentWithUserSchema.Type

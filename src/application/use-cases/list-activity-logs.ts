@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// eslint-disable-next-line no-restricted-syntax -- Activity logs are a cross-cutting concern, not phase-specific
 import { Data, Effect, Layer } from 'effect'
 import {
   ActivityLogRepository,
@@ -19,14 +20,26 @@ import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositorie
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import type { UserMetadata } from '@/application/ports/models/user-metadata'
 
+/**
+ * Forbidden error when user lacks permission to access activity logs
+ */
 export class ActivityLogForbiddenError extends Data.TaggedError('ActivityLogForbiddenError')<{
   readonly message: string
 }> {}
 
+/**
+ * Input for ListActivityLogs use case
+ */
 export interface ListActivityLogsInput {
   readonly userId: string
 }
 
+/**
+ * Activity log output type for presentation layer
+ *
+ * Decouples presentation from infrastructure database schema.
+ * user is null for system-logged activities (no user_id).
+ */
 export interface ActivityLogOutput {
   readonly id: string
   readonly createdAt: string
@@ -37,7 +50,11 @@ export interface ActivityLogOutput {
   readonly user: UserMetadata | null
 }
 
+/**
+ * Map infrastructure ActivityLog to application output
+ */
 function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
+  // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
   const user = log.user != null ? log.user : null
   return {
     id: log.id,
@@ -50,6 +67,19 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
   }
 }
 
+/**
+ * List Activity Logs Use Case
+ *
+ * Application layer use case that:
+ * 1. Checks user role (viewers are forbidden)
+ * 2. Lists activity logs
+ * 3. Maps to presentation-friendly format
+ *
+ * Follows layer-based architecture:
+ * - Application Layer: This file (orchestration + business logic)
+ * - Infrastructure Layer: ActivityLogRepository, UserRoleRepository
+ * - Domain Layer: Business rules (viewer restriction)
+ */
 export const ListActivityLogs = (
   input: ListActivityLogsInput
 ): Effect.Effect<
@@ -61,23 +91,33 @@ export const ListActivityLogs = (
     const authRepo = yield* AuthRepository
     const activityLogRepo = yield* ActivityLogRepository
 
+    // Get user role to enforce permissions
     const role = yield* authRepo.getUserRole(input.userId)
 
+    // If user has no role, deny access
     if (!role) {
       return yield* new ActivityLogForbiddenError({
         message: 'You do not have permission to access activity logs',
       })
     }
 
+    // Domain rule: Viewers cannot access activity logs
     if (role === 'viewer') {
       return yield* new ActivityLogForbiddenError({
         message: 'You do not have permission to access activity logs',
       })
     }
 
+    // List all activity logs
     const logs = yield* activityLogRepo.listAll()
 
+    // Map to presentation-friendly format
     return logs.map(mapActivityLog)
   })
 
+/**
+ * Application Layer for Activity Logs
+ *
+ * Combines all services needed for activity log use cases.
+ */
 export const ListActivityLogsLayer = Layer.mergeAll(ActivityLogRepositoryLive, AuthRepositoryLive)

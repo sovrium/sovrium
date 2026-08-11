@@ -13,21 +13,80 @@ import { TS_LIB_FILES as RAW_TS_LIB_FILES } from './embedded-ts-lib-types.genera
 import { TSValidationError } from './errors'
 import { TypeScriptValidator } from './service'
 
+/**
+ * Map of `lib.*.d.ts` basename → embedded path.
+ *
+ * Source mode: each value is a real `node_modules/typescript/lib/<file>` path.
+ * Compiled binary: each value is a `/$bunfs/...` path (Bun's virtual FS).
+ *
+ * `with { type: 'file' }` imports are typed as the imported module's shape,
+ * not as strings, so the generated map is `@ts-nocheck` and we cast through
+ * `unknown` to recover the runtime type.
+ */
 const TS_LIB_FILES = RAW_TS_LIB_FILES as unknown as Readonly<Record<string, string>>
 
+/**
+ * Read the embedded contents of every `lib.*.d.ts` into a Map at module
+ * init. tsc's `CompilerHost.getSourceFile`/`fileExists`/`readFile` are
+ * synchronous so the contents must be available without an async hop.
+ *
+ * Reads happen ONCE per process (this module is loaded once). Total payload
+ * is ~3.9 MB across ~107 files — negligible at startup.
+ *
+ * The read uses `readFileSync` which transparently handles both real
+ * filesystem paths (dev) and Bun's `/$bunfs/` virtual paths (compiled binary).
+ *
+ * Marked as a let-initialized lazy `Map` rather than evaluated eagerly so
+ * tests that don't touch the validator never pay the read cost.
+ */
+// eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- module-scope lazy memoization cache; Map is mutated once on first read
 let TS_LIB_CONTENTS_CACHE: Map<string, string> | undefined
 
 const getTsLibContents = (): ReadonlyMap<string, string> => {
+  // eslint-disable-next-line functional/no-expression-statements -- memoization cache write
   TS_LIB_CONTENTS_CACHE ??= new Map(
     Object.entries(TS_LIB_FILES).map(([name, path]) => [name, readFileSync(path, 'utf-8')])
   )
   return TS_LIB_CONTENTS_CACHE
 }
 
+/**
+ * Inline `CodeContext` interface prepended to every synthetic `.ts`
+ * file as an ambient declaration. Mirrors the shape exported from
+ * `@sovrium/types` so the in-process compiler doesn't need to resolve
+ * an external module — declaration-emit + module-resolution would slow
+ * startup unnecessarily.
+ *
+ * IMPORTANT: keep this in sync with `packages/types/src/index.ts` —
+ * both must describe the same shape so the operator's IDE
+ * (`@sovrium/types`-resolved) matches the server-startup validator.
+ */
+// CodeContext exposes 5 properties to user code: `inputData`, `actions`,
+// `env`, `log`, `run`. Trigger payloads and prior step outputs are
+// NOT directly reachable from the sandbox — every value the code needs
+// must be declared explicitly via the action's `inputData` prop using
+// `{{trigger.data.X}}` / `{{steps.Y.Z}}` template references, resolved
+// before the sandbox sees the data. This makes a code action a pure
+// function of its declared inputs.
+//
+// `actions` references reusable action templates declared at
+// `app.actions[]` (the schema-root registry), NOT sibling steps in the
+// same automation. `context.actions.<templateName>(input)` invokes the
+// named template, substituting its `$vars` with the caller-supplied
+// `input` (shallow-merged on top of declared variable defaults).
+//
+// `any` (not `unknown`) is intentional for `inputData` and the `actions`
+// return: these hold dynamic JSON / action-output shapes; `unknown` would
+// force narrowing on every property access. `log` stays strict so
+// `context.log.debug()` (or any unknown method) fails at startup — see
+// TS-004.
+//
+// Note: the `any` below is in a string literal compiled by tsc against
+// user code, NOT a TypeScript expression in our source — ESLint's
+// no-explicit-any rule does not apply to template-literal contents.
 const CODE_CONTEXT_PRELUDE = `export {};
 interface CodeContext {
   readonly inputData: Record<string, any>;
-  readonly input?: Record<string, any>;
   readonly actions: {
     readonly ref: (templateName: string, vars?: Record<string, unknown>) => Promise<any>;
   } & Record<string, Record<string, (props?: Record<string, unknown>) => Promise<any>>>;
@@ -37,7 +96,6 @@ interface CodeContext {
     readonly warn: (...args: ReadonlyArray<unknown>) => void;
     readonly error: (...args: ReadonlyArray<unknown>) => void;
   };
-  readonly packages: Record<string, any>;
   /**
    * Run-scoped metadata. \`attempt\` is the 1-indexed retry attempt number —
    * 1 on the initial dispatch, 2 on the first retry, etc. Used by code
@@ -50,6 +108,11 @@ interface CodeContext {
 }
 `
 
+/**
+ * Number of source lines added by `CODE_CONTEXT_PRELUDE`. Used to
+ * subtract the prelude offset from raw tsc line numbers so reported
+ * locations match the user-authored code.
+ */
 const PRELUDE_LINE_COUNT = CODE_CONTEXT_PRELUDE.split('\n').length - 1
 
 interface CodeActionEntry {
@@ -64,6 +127,12 @@ interface VirtualFile {
   readonly entry: CodeActionEntry
 }
 
+/**
+ * Walk the validated app config collecting every `runTypescript` (or
+ * legacy `run`-on-`code`) action body alongside its automation id +
+ * positional index. Index is 1-based for human-friendly error messages
+ * (`action #1`, not `action #0`).
+ */
 const collectCodeActions = (root: unknown): ReadonlyArray<CodeActionEntry> => {
   const automations = (root as { readonly automations?: ReadonlyArray<unknown> } | undefined)
     ?.automations
@@ -96,9 +165,25 @@ const buildVirtualFile = (entry: CodeActionEntry): VirtualFile => ({
   entry,
 })
 
+/**
+ * Pre-`tsc` AST check: enforce that every `code` action's `execute`
+ * function annotates its first parameter as `CodeContext`. Without this
+ * gate, an untyped `(context)` would compile against `any` and the whole
+ * point of the `runTypescript` operator (typed `context` access checked
+ * at startup) would be lost. Zero-parameter `execute()` is allowed —
+ * that form genuinely needs no context.
+ *
+ * The check parses the user's source ONLY (no prelude prepended) so the
+ * error's line/column point at the operator's authored body, not at the
+ * synthetic prelude. Failures surface BEFORE `tsc` runs, giving a
+ * domain-specific error message instead of a raw type-checker diagnostic.
+ */
+// Predicate hoisted to module scope so the find() call below stays a
+// pure functional traversal — no `let` mutation, no visitor side-effect.
 const isExecuteFunctionDeclaration = (node: ts.Node): node is ts.FunctionDeclaration =>
   ts.isFunctionDeclaration(node) && node.name !== undefined && node.name.text === 'execute'
 
+/* eslint-disable functional/prefer-immutable-types -- TSValidationError is upstream-mutable */
 const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | undefined => {
   const sourceFile = ts.createSourceFile(
     `__signature-check__-${entry.automationId}-${String(entry.actionIndex)}.ts`,
@@ -107,7 +192,10 @@ const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | u
     true
   )
   const executeFn = sourceFile.statements.find(isExecuteFunctionDeclaration)
+  // No execute function — let tsc emit its own "execute must be defined"
+  // error so the validator never duplicates work the type-checker does.
   if (executeFn === undefined) return undefined
+  // Zero-parameter `execute()` is intentionally allowed (no context use).
   if (executeFn.parameters.length === 0) return undefined
   const firstParam = executeFn.parameters[0]
   if (firstParam === undefined) return undefined
@@ -127,16 +215,26 @@ const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | u
         "runTypescript code action must annotate execute()'s first parameter as `CodeContext`. Example: `async function execute(context: CodeContext) { ... }`. The annotation is required so type errors on `context.<key>` accesses surface at server startup instead of failing silently at request time.",
     })
   }
+  // Accept exactly `: CodeContext`. Aliases or unions are out of scope —
+  // the operator's contract is that `context` IS a `CodeContext`, not a
+  // superset/subset. `tsc` itself catches structural compatibility at the
+  // call site once the annotation is in place; we just enforce the
+  // annotation's identifier here.
   const annotationText = annotation.getText(sourceFile).trim()
   if (annotationText !== 'CodeContext') {
     return new TSValidationError({
       ...baseError,
-      message: `runTypescript code action must annotate execute()'s first parameter as \`CodeContext\` exactly. Found: \`${annotationText}\`. The runTypescript operator validates against the project's CodeContext shape (trigger, steps, env, actions, log, inputData, packages); aliases or refinements are not supported.`,
+      message: `runTypescript code action must annotate execute()'s first parameter as \`CodeContext\` exactly. Found: \`${annotationText}\`. The runTypescript operator validates against the project's CodeContext shape (inputData, actions, env, log, run); aliases or refinements are not supported.`,
     })
   }
   return undefined
 }
+/* eslint-enable functional/prefer-immutable-types */
 
+// `ts.CompilerOptions` is a third-party mutable type that the CompilerHost
+// API requires by reference. Treating it as Readonly here would force casts
+// at every call site without real safety improvement.
+// eslint-disable-next-line functional/prefer-immutable-types -- ts API requires mutable CompilerOptions
 const COMPILER_OPTIONS: ts.CompilerOptions = {
   target: ts.ScriptTarget.ES2020,
   module: ts.ModuleKind.ESNext,
@@ -150,12 +248,35 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   isolatedDeclarations: false,
 }
 
+/**
+ * Look up `lib.*.d.ts` content by basename. Returns `undefined` for any
+ * non-lib request so the caller can fall through to the real-host path.
+ *
+ * The lookup is by basename only: tsc requests lib files using a resolved
+ * absolute path (e.g. `/node_modules/typescript/lib/lib.es2020.d.ts` in dev,
+ * `/$bunfs/.../lib.es2020.d.ts` in the binary). Both surfaces produce the
+ * same basename, so a one-shot `basename()` match keeps the lookup uniform
+ * across deployment modes.
+ */
 const lookupTsLibContent = (fileName: string): string | undefined => {
   const base = basename(fileName)
   if (!base.startsWith('lib.') || !base.endsWith('.d.ts')) return undefined
   return getTsLibContents().get(base)
 }
 
+/**
+ * Build a CompilerHost backed by the in-memory virtual files. Serves the
+ * TypeScript standard library (`lib.*.d.ts`) from the embedded corpus so
+ * type-checking works identically in source mode (where the real host
+ * would read from `node_modules/typescript/lib/`) and in the compiled
+ * binary (where no `node_modules/` exists on disk).
+ *
+ * Returns a mutable `ts.CompilerHost` because `ts.createProgram`
+ * mutates the host (caches source files, etc.). Wrapping in `Readonly`
+ * would require casts on every call site without changing the
+ * underlying behavior.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- ts API requires mutable CompilerHost
 const buildVirtualHost = (files: ReadonlyArray<VirtualFile>): ts.CompilerHost => {
   const fileMap: ReadonlyMap<string, string> = new Map(files.map((f) => [f.path, f.content]))
   const realHost = ts.createCompilerHost(COMPILER_OPTIONS, true)
@@ -184,6 +305,17 @@ const buildVirtualHost = (files: ReadonlyArray<VirtualFile>): ts.CompilerHost =>
   }
 }
 
+/**
+ * Convert a single tsc diagnostic to a domain `TSValidationError` if
+ * the diagnostic points at a virtual file we built. Returns `undefined`
+ * for diagnostics anchored elsewhere (lib types, etc.) or without a
+ * source location.
+ *
+ * `ts.Diagnostic` is an upstream-mutable type — wrapping it in
+ * `Readonly` would require casts at every call site without changing
+ * runtime behavior.
+ */
+/* eslint-disable functional/prefer-immutable-types -- ts.Diagnostic / TSValidationError are upstream-mutable */
 const diagnosticToError = (
   diagnostic: ts.Diagnostic,
   files: ReadonlyArray<VirtualFile>
@@ -203,7 +335,15 @@ const diagnosticToError = (
     message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
   })
 }
+/* eslint-enable functional/prefer-immutable-types */
 
+/**
+ * Live TypeScriptValidator implementation. Runs `ts.createProgram`
+ * once per `validateAll` call across all collected code action bodies.
+ * Skip-check the standard lib (`skipLibCheck: true`) because we only
+ * care about the user's body — lib type errors would be on TypeScript
+ * itself, not the operator's config.
+ */
 export const TypeScriptValidatorLive = Layer.succeed(
   TypeScriptValidator,
   TypeScriptValidator.of({
@@ -211,6 +351,10 @@ export const TypeScriptValidatorLive = Layer.succeed(
       Effect.gen(function* () {
         const entries = collectCodeActions(app)
         if (entries.length === 0) return
+        // Pre-tsc gate: enforce the `execute(context: CodeContext)` annotation
+        // contract. Failures here surface a domain-specific error pointing at
+        // the user's body — far more actionable than a tsc diagnostic that
+        // would otherwise complain about `context.foo` being `any`.
         const signatureFailure = entries
           .map(validateExecuteSignature)
           .find((e): e is TSValidationError => e !== undefined)

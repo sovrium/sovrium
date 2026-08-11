@@ -24,6 +24,7 @@ export interface ItemTemplate {
   readonly metadata?: readonly { readonly field: string; readonly format?: string }[]
 }
 
+// Record substitution (mirrors data-source-resolver substituteRecordVars)
 export function substituteRecordVars(text: string, record: Record<string, unknown>): string {
   return text.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_, fieldName: string) => {
     const value = record[fieldName]
@@ -62,6 +63,7 @@ export function substituteChildTemplate(
   })
 }
 
+// Schema type → HTML tag mapping
 const TYPE_TO_TAG: Record<string, string> = {
   text: 'span',
   container: 'div',
@@ -74,6 +76,7 @@ const TYPE_TO_TAG: Record<string, string> = {
   hero: 'div',
 }
 
+// Render child template to JSX
 export function renderChild(child: ChildNode | string, key: string): React.ReactNode {
   if (typeof child === 'string') return child
 
@@ -99,6 +102,7 @@ export function renderChild(child: ChildNode | string, key: string): React.React
   return React.createElement(type, { key, id, className, 'data-testid': testid, ...rest }, inner)
 }
 
+// Item-template rendering (declarative title/subtitle/image/badge/metadata)
 function renderItemMetadata(
   metadata: ItemTemplate['metadata'],
   record: Record<string, unknown>,

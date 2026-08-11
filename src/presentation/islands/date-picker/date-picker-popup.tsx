@@ -27,6 +27,10 @@ interface DatePickerPopupProps {
   readonly onDayClick: (day: Date) => void
 }
 
+/**
+ * Calendar popup `<div role="dialog">` containing the month-nav buttons
+ * + the `<DateGrid>` mount.
+ */
 export function DatePickerPopup({
   label,
   viewMonth,

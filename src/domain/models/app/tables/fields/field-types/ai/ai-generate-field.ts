@@ -8,6 +8,35 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * AI Generate Field
+ *
+ * Produces free-form text from a prompt template with {{fieldName}} variable
+ * substitution and source field context. Ideal for automating content creation
+ * such as descriptions, emails, and formatted output.
+ *
+ * Business Rules:
+ * - `prompt` is required (unlike other AI fields where it is optional)
+ * - All {{fieldName}} placeholders must reference fields listed in `sourceFields`
+ * - Replaces {{fieldName}} with empty string when source field is NULL
+ * - Returns NULL when all source fields are empty or NULL
+ * - Respects `maxTokens` limit; defaults to no limit when omitted
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 4,
+ *   name: 'marketing_copy',
+ *   type: 'ai-generate',
+ *   sourceFields: ['product_name', 'features', 'target_audience'],
+ *   prompt: 'Write a compelling 2-paragraph marketing description for {{product_name}}.',
+ *   systemPrompt: 'You are an expert marketing copywriter.',
+ *   maxTokens: 500,
+ *   temperature: 0.7,
+ *   computeOn: 'both',
+ * }
+ * ```
+ */
 export const AiGenerateFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -129,4 +158,5 @@ export const AiGenerateFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AiGenerateField = Schema.Schema.Type<typeof AiGenerateFieldSchema>

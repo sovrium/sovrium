@@ -19,6 +19,9 @@ import { KPISparklineSchema } from './sparkline'
 import { KPIThresholdSchema } from './thresholds'
 import { KPITrendSchema } from './trend'
 
+// ---------------------------------------------------------------------------
+// Component type definition
+// ---------------------------------------------------------------------------
 
 export const KpiTypeLiteral = Schema.Literal('kpi')
 
@@ -29,6 +32,10 @@ export const kpiFields = {
   ...visibilityFields,
   ...i18nFields,
   ...dataBoundFields,
+  // Override the shared (table-only) `dataSource` with the KPI-specific
+  // discriminated union so a KPI can bind to either a DB table (unchanged,
+  // aggregated client-side) OR a system read endpoint (pre-computed scalar
+  // value-path). Must come AFTER `...dataBoundFields` to replace its `dataSource`.
   dataSource: Schema.optional(KpiDataSourceSchema),
   label: Schema.optional(
     Schema.String.annotations({
@@ -52,6 +59,9 @@ export const kpiFields = {
   sparkline: Schema.optional(KPISparklineSchema),
 } as const
 
+// ---------------------------------------------------------------------------
+// Re-export all sub-schemas
+// ---------------------------------------------------------------------------
 
 export {
   KPIAggregateFunctionSchema,

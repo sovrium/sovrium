@@ -5,6 +5,49 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * One-Question-At-A-Time runtime: inline JS source for the per-question
+ * navigation portion of the standalone form runtime. Sliced out of
+ * `form-runtime.tsx` so the runtime file stays under the project's
+ * max-lines cap; concatenated verbatim into the IIFE source string at
+ * module load time.
+ *
+ * The fragment assumes the surrounding IIFE provides:
+ *   - `form` (HTMLFormElement)
+ *   - `formName` (string)
+ *   - `isOneQuestion` (boolean from runtime config)
+ *   - `INPUT_SELECTOR` (named-input querySelector string)
+ *   - `namedInputs` (helper returning `input[name]`-style elements)
+ *   - `removeIfPresent` (DOM helper)
+ *   - `showFieldError` / `clearFieldErrors` (inline-error helpers)
+ *   - `applyOnSuccess` / `renderOnError` (post-submit UI helpers)
+ *   - `fieldErrorMessage` (per-input validation message helper)
+ *
+ * Design — purely client-side step-through (NOT server-mediated):
+ *   - All visible questions are emitted in the SSR HTML, each wrapped in
+ *     `<div class="form-question" data-question-index="N">`. Only the
+ *     active question lacks the `hidden` attribute; advancing simply
+ *     toggles the attribute on the prior/next sibling.
+ *   - This keeps Previous trivial — values stay in the DOM the whole
+ *     time, no draft store / round-trip needed (contrast with the
+ *     server-mediated multi-step flow in form-runtime-multi-step.ts,
+ *     where each step is fetched on demand).
+ *   - The summary screen is also pre-emitted by the SSR (hidden);
+ *     advancing past the last question reveals it and populates each
+ *     `<dd data-summary-for="...">` slot from the live input values.
+ *
+ * Auto-advance for radio fields fires ~250ms after the user clicks an
+ * option (spec [internal ref]). The delay is intentional: users want to
+ * see their selection highlight before being whisked to the next field.
+ *
+ * Up/Down arrow keys move a "highlight" cursor inside a radiogroup
+ *. This is a Sovrium-owned highlight, not the native
+ * browser auto-check-on-arrow behaviour — the spec advances only after
+ * Enter on the highlighted option. The native behaviour would check the
+ * radio AND change the visible focus on each ArrowDown, which would
+ * accidentally trigger auto-advance after ONE arrow press instead of
+ * after Enter.
+ */
 export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
   // ---- One-question-at-a-time navigation ------------------------------------
   var oqState = { current: 0, total: 0 }

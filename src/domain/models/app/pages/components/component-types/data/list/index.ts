@@ -24,4 +24,5 @@ export const listFields = {
   listDisplay: Schema.optional(ListDisplaySchema),
 } as const
 
+// Re-export all sub-schemas
 export * from './list-display'

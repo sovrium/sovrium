@@ -15,6 +15,9 @@ import { RecordReadActionSchema } from './read'
 import { RecordUpdateActionSchema } from './update'
 import { RecordUpsertActionSchema } from './upsert'
 
+/**
+ * Record Action — union of all record CRUD + batch operators
+ */
 export const RecordActionSchema = Schema.Union(
   RecordCreateActionSchema,
   RecordReadActionSchema,
@@ -32,6 +35,7 @@ export const RecordActionSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type RecordAction = Schema.Schema.Type<typeof RecordActionSchema>
 
 export * from './batch-create'

@@ -11,6 +11,14 @@ import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Inline no-FOUC color-scheme head script.
+ *
+ * Returns `undefined` (renders nothing) when neither a `theme-toggle` (page
+ * direct OR hosted in a referenced `app.components` template) nor
+ * `theme.colorScheme` is in play, so unrelated pages keep their existing
+ * head-script count.
+ */
 export function ThemeColorSchemeScript({
   page,
   components,
@@ -23,6 +31,7 @@ export function ThemeColorSchemeScript({
   if (!needsColorSchemeScript(page, theme, components)) return undefined
   return (
     <script
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only no-FOUC head script; never re-renders client-side
       dangerouslySetInnerHTML={{ __html: buildColorSchemeScript(theme?.colorScheme) }}
     />
   )

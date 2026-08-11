@@ -5,11 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Multi-step form body rendering, sliced out of `form-renderer.tsx`.
+ *
+ * The initial GET `/forms/:name` lands on step 1. Only that step's fields
+ * appear in the SSR HTML — the renderer does NOT inline the remaining steps'
+ * inputs. Subsequent steps are fetched on demand by the
+ * inline runtime via `GET /api/forms/:name/steps/:stepId`.
+ *
+ * `FormBodyStep` is exported because the step-fragment renderer in
+ * `form-renderer.tsx` reuses it to serialise a single step on demand.
+ */
 
 import { FormFieldElement, type PrefillValue } from './form-field-elements'
 import type { resolveAllFields } from './form-field-resolver'
 import type { Form } from '@/domain/models/app/forms'
 
+/**
+ * Shared layout props for a form body. Re-declared here (rather than imported
+ * from `form-renderer.tsx`) to avoid a circular module dependency.
+ */
 export interface FormBodyShared {
   readonly title: string
   readonly description: string
@@ -18,9 +33,33 @@ export interface FormBodyShared {
   readonly resolvedFields: ReturnType<typeof resolveAllFields>
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
+  /**
+   * P8: heading tag for the `form-title` element (`<h1|h2|h3>`). Defaults to
+   * `'h1'`; an embedded formRef can opt into `'h2'`/`'h3'` via
+   * `props.headingLevel` so it doesn't create a second page <h1>. All three
+   * body layouts (flat / multi-step / one-question) honor it.
+   */
   readonly titleAs?: 'h1' | 'h2' | 'h3'
+  /**
+   * Single-page section dividers. Only consumed by the flat layout; the
+   * multi-step and one-question bodies ignore it. Each visible group renders
+   * a labeled header above its fields in declaration order.
+   */
   readonly fieldGroups?: NonNullable<Form['fieldGroups']>
+  /**
+   * [internal ref]: when true, the form body renders a hidden honeypot
+   * input (`_hp`) inside the `<form>` element. The server-side
+   * `submit-form-honeypot.ts` rejects submissions whose `_hp` is non-empty.
+   */
   readonly antiSpamHoneypot?: boolean
+  /**
+   * Whether this body is rendered EMBEDDED inside a host page / dialog (via
+   * `renderEmbeddedFormBody`) rather than as the standalone `.form-page` shell.
+   * The flat layout uses it to (1) give the title→description header a real
+   * positive gap (the standalone shell's `.form-page`-scoped `-mt-3` does not
+   * reach an embedded body) and (2) end-align the submit button (bottom-right)
+   * instead of the standalone left alignment. Defaults to `false` (standalone).
+   */
   readonly embedded?: boolean
 }
 
@@ -131,7 +170,8 @@ function MultiStepFormElement({
         prefillMap={prefillMap}
         lockPrefill={lockPrefill}
       />
-      {}
+      {/* Submit button stays in markup but hidden until the submitter
+          reaches the last step; runtime toggles visibility per step. */}
       <button
         type="submit"
         {...(isLast ? {} : { hidden: true })}

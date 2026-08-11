@@ -7,7 +7,13 @@
 
 import { z } from 'zod'
 
+// ---------------------------------------------------------------------------
+// Conversation summary schema
+// ---------------------------------------------------------------------------
 
+/**
+ * Summary of a conversation thread for list views.
+ */
 export const conversationSummarySchema = z.object({
   sessionId: z.string().describe('Unique session identifier for the conversation'),
   title: z.string().nullable().describe('Auto-generated title from the first user message'),
@@ -20,7 +26,13 @@ export const conversationSummarySchema = z.object({
   updatedAt: z.string().datetime().describe('ISO 8601 timestamp of the most recent message'),
 })
 
+// ---------------------------------------------------------------------------
+// Conversation message schema
+// ---------------------------------------------------------------------------
 
+/**
+ * A single message within a conversation thread.
+ */
 export const conversationMessageSchema = z.object({
   id: z.number().int().describe('Message identifier'),
   role: z.enum(['user', 'assistant', 'system']).describe('Role of the message sender'),
@@ -39,7 +51,13 @@ export const conversationMessageSchema = z.object({
   createdAt: z.string().datetime().describe('ISO 8601 timestamp when the message was created'),
 })
 
+// ---------------------------------------------------------------------------
+// Conversation list response schema
+// ---------------------------------------------------------------------------
 
+/**
+ * Response schema for listing conversation threads.
+ */
 export const conversationListResponseSchema = z.object({
   conversations: z
     .array(conversationSummarySchema)
@@ -47,7 +65,13 @@ export const conversationListResponseSchema = z.object({
   total: z.number().int().min(0).describe('Total number of conversations'),
 })
 
+// ---------------------------------------------------------------------------
+// Conversation detail response schema
+// ---------------------------------------------------------------------------
 
+/**
+ * Response schema for retrieving a single conversation with its messages.
+ */
 export const conversationDetailResponseSchema = z.object({
   conversation: conversationSummarySchema.describe('Conversation thread metadata'),
   messages: z
@@ -55,6 +79,9 @@ export const conversationDetailResponseSchema = z.object({
     .describe('Ordered list of messages in the conversation'),
 })
 
+// ---------------------------------------------------------------------------
+// Type exports
+// ---------------------------------------------------------------------------
 
 export type ConversationSummary = z.infer<typeof conversationSummarySchema>
 export type ConversationMessage = z.infer<typeof conversationMessageSchema>

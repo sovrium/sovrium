@@ -5,19 +5,34 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-refresh/only-export-components -- This module pairs the
+   FieldDef type and renderField dispatcher (non-component utilities) with the
+   per-type field components they delegate to. Splitting them across multiple
+   files produces awkward circular helpers without an HMR benefit, since the
+   field components are not used as JSX leaves anywhere else. */
 
+/* eslint-disable react-perf/jsx-no-new-function-as-prop,
+                  react-perf/jsx-no-new-array-as-prop --
+   Field dispatcher: each per-type field component receives fresh `onChange`
+   and option arrays per render because the parent form passes them via the
+   field def. Lifting these out requires restructuring the form state model,
+   covered by the future crud-form refactor. */
 
 import {
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
 } from '@/presentation/utils/design/form-layout-classes'
+import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/utils/field-display'
 import { fieldWidgetOf, type FieldWidget } from '@/presentation/utils/field-type-behavior'
+import { readsAsTrue } from '../../shared/cell-value-semantics'
 import { RecordButton } from '../../shared/record-button'
-import { CodeEditorField } from '../code-editor-field'
-import { RichTextEditorField } from '../rich-text-editor-field'
+import { CodeFieldBoundary } from './code-field-boundary'
 import { type ConditionRule, type FieldDef, labelOf } from './field-def'
 import { FileField } from './file-field'
+import { RichTextFieldBoundary } from './rich-text-field-boundary'
 
+// Re-exported so existing importers of `crud-form/fields` keep working.
 export { type ConditionRule, type FieldDef, labelOf }
 
 interface FieldInputProps {
@@ -26,16 +41,50 @@ interface FieldInputProps {
   readonly onChange: (name: string, value: string) => void
 }
 
+/**
+ * Native `<input type>` per plain-input widget. Keyed by widget rather than by
+ * field type so it cannot drift from the SSR skeleton's equivalent map.
+ */
 const INPUT_TYPE_BY_WIDGET: Partial<Record<FieldWidget, string>> = {
   email: 'email',
   url: 'url',
 }
 
+// Shared design-system token classes for crud-form field chrome. Kept as
+// module-level consts so every per-type field stays consistent and the file
+// remains within the island max-lines cap.
+// - `LABEL_CLASS`: stacked label + control with foreground text. Sourced from
+//   the shared form-layout contract (`computeFormFieldClasses` for the
+//   `flex flex-col gap-1.5` stack + `computeFormFieldLabelClasses` for label
+//   typography) so the hydrated island matches the SSR `CrudFieldShell` exactly
+//   — no label→control spacing jump on hydration.
+// - `CONTROL_CLASS`: the canonical input/select/textarea surface (border-border
+//   + bg-background + focus ring on the primary role).
+// - `CHECKBOX_LABEL_CLASS` / `CHECKBOX_CLASS`: inline checkbox row + accent.
 const LABEL_CLASS = `${computeFormFieldClasses()} ${computeFormFieldLabelClasses()}`
 const CONTROL_CLASS =
   'border-border bg-background text-foreground focus:border-primary focus:ring-primary rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none'
 const CHECKBOX_LABEL_CLASS = 'text-foreground flex items-center gap-2 text-sm font-medium'
 const CHECKBOX_CLASS = 'accent-primary h-4 w-4'
+const HELP_TEXT_CLASS = `help-text ${computeFormHelpTextClasses()}`
+
+/**
+ * The field's persistent guidance, under its control and addressed by the
+ * control's `aria-describedby`. Renders NOTHING when the field declares no
+ * description — an empty node would be announced as a blank pause. Mirrors the
+ * SSR `CrudFieldShell` so hydration does not move the text.
+ */
+function FieldHelpText({ field }: { readonly field: FieldDef }) {
+  if (field.description === undefined) return undefined
+  return (
+    <small
+      id={fieldDescriptionId(field.name)}
+      className={HELP_TEXT_CLASS}
+    >
+      {field.description}
+    </small>
+  )
+}
 
 function TextAreaField({
   field,
@@ -59,7 +108,9 @@ function TextAreaField({
         {...(field.disabled && { disabled: true })}
         {...(field.required && { required: true })}
         {...(invalid && { 'aria-invalid': 'true' })}
+        {...fieldDescribedBy(field)}
       />
+      <FieldHelpText field={field} />
     </label>
   )
 }
@@ -89,6 +140,7 @@ function SelectField({
         {...(field.disabled && { disabled: true })}
         {...(field.required && { required: true })}
         {...(invalid && { 'aria-invalid': 'true' })}
+        {...fieldDescribedBy(field)}
       >
         <option value="">Select...</option>
         {options.map((opt) => (
@@ -100,10 +152,23 @@ function SelectField({
           </option>
         ))}
       </select>
+      <FieldHelpText field={field} />
     </label>
   )
 }
 
+/**
+ * The form's checkbox control.
+ *
+ * `checked` is decided by the SHARED {@link readsAsTrue}, not by a local
+ * comparison. This control used to test `value === 'true'` — a third, stricter
+ * copy of a decoding the grid already owned twice. `buildInitialValues` seeds
+ * the form by `String()`-ing the stored column, and SQLite has no boolean type:
+ * every ticked checkbox comes back as `1`, which `=== 'true'` reads as FALSE. So
+ * on the zero-config default engine every CRUD form rendered ticked rows
+ * unticked, while the grid beside it rendered them ticked — and saving the form
+ * then wrote that phantom untick back.
+ */
 function CheckboxField({ field, value, onChange }: FieldInputProps & { readonly field: FieldDef }) {
   return (
     <label
@@ -113,7 +178,7 @@ function CheckboxField({ field, value, onChange }: FieldInputProps & { readonly 
       <input
         type="checkbox"
         name={field.name}
-        checked={value === 'true'}
+        checked={readsAsTrue(value)}
         onChange={(e) => onChange(field.name, String(e.target.checked))}
         className={CHECKBOX_CLASS}
         {...(field.disabled && { disabled: true })}
@@ -151,14 +216,16 @@ function TypedInputField({
         {...(field.readOnly && { readOnly: true })}
         {...(field.disabled && { disabled: true })}
         {...(invalid && { 'aria-invalid': 'true' })}
+        {...fieldDescribedBy(field)}
       />
+      <FieldHelpText field={field} />
     </label>
   )
 }
 
 function renderCodeField(field: FieldDef, value: string, onChange: FieldInputProps['onChange']) {
   return (
-    <CodeEditorField
+    <CodeFieldBoundary
       name={field.name}
       value={value}
       onChange={onChange}
@@ -178,7 +245,7 @@ function renderRichTextField(
   onChange: FieldInputProps['onChange']
 ) {
   return (
-    <RichTextEditorField
+    <RichTextFieldBoundary
       name={field.name}
       value={value}
       onChange={onChange}
@@ -191,11 +258,17 @@ function renderRichTextField(
   )
 }
 
+/** Everything a per-widget renderer needs, bundled so each stays single-argument. */
 interface FieldRenderArgs {
   readonly field: FieldDef
   readonly value: string
   readonly onChange: FieldInputProps['onChange']
   readonly invalid: boolean
+  /**
+   * The record the form is bound to, when there is one. A create form has no
+   * record yet, so an automation button renders disabled there — there is
+   * nothing to run it against until the row exists.
+   */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
 }
 
@@ -213,6 +286,14 @@ function renderTypedInputField(args: FieldRenderArgs, inputType: string) {
   )
 }
 
+/**
+ * TOTAL widget → control table for the hydrated form.
+ *
+ * `Record<FieldWidget, …>` is the exhaustiveness guard: a newly added widget
+ * fails to compile here instead of silently degrading to a free-text box —
+ * which is exactly how a `status` field ended up posting an empty string that
+ * its CHECK constraint rejected.
+ */
 const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.ReactNode> = {
   button: ({ field, binding }) =>
     field.button ? (
@@ -271,8 +352,35 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
   text: (args) => renderTypedInputField(args, 'text'),
   email: (args) => renderTypedInputField(args, INPUT_TYPE_BY_WIDGET.email ?? 'text'),
   url: (args) => renderTypedInputField(args, INPUT_TYPE_BY_WIDGET.url ?? 'text'),
+
+  // ── Widgets the FORM has not been given a real control for yet ──────────
+  //
+  // These render as text boxes, which is exactly what they rendered before the
+  // widget vocabulary named them — the form's behaviour is unchanged here. What
+  // changed is that the gap is now VISIBLE: each line below is a control this
+  // form owes its user, rather than a field type quietly resolving to `text`
+  // three files away. The data-table's inline editor implements all six.
+  //
+  // `number` and `date` are deliberate divergences rather than gaps: the grid
+  // gives them native typed inputs, and switching the form to match would
+  // change how every existing numeric and date form field accepts input. That
+  // is its own change with its own specs.
+  number: (args) => renderTypedInputField(args, 'text'),
+  date: (args) => renderTypedInputField(args, 'text'),
+  datetime: (args) => renderTypedInputField(args, 'text'),
+  'multi-select': (args) => renderTypedInputField(args, 'text'),
+  'record-picker': (args) => renderTypedInputField(args, 'text'),
+  'user-picker': (args) => renderTypedInputField(args, 'text'),
+  rating: (args) => renderTypedInputField(args, 'text'),
 }
 
+/**
+ * Render a single CRUD-form field input as a controlled React element.
+ *
+ * Dispatches on the field type's WIDGET (see
+ * `@/presentation/utils/field-type-behavior`) rather than on the raw type, so
+ * the hydrated control and the SSR skeleton cannot disagree per field type.
+ */
 export function renderField(args: FieldRenderArgs) {
   return WIDGET_RENDERERS[fieldWidgetOf(args.field.type)](args)
 }

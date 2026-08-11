@@ -26,10 +26,22 @@ import { validateTableName } from '../shared/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError } from '@/infrastructure/database'
 
+/**
+ * List all records from a table
+ *
+ * Returns all accessible records (Permissions applied via application layer).
+ *
+ * @param config - Configuration object
+ * @param config.session - Better Auth session
+ * @param config.tableName - Name of the table to query
+ * @param config.filter - Optional filter to apply to the query
+ * @param config.includeDeleted - Whether to include soft-deleted records (default: false)
+ * @param config.sort - Optional sort specification (e.g., 'field:asc' or 'field:desc')
+ * @returns Effect resolving to array of records
+ */
 export function listRecords(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
-  readonly table?: { readonly permissions?: { readonly organizationScoped?: boolean } }
   readonly filter?: {
     readonly and?: readonly FilterNode[]
   }
@@ -50,6 +62,7 @@ export function listRecords(config: {
 
           const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
 
+          // Build query clauses
           const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
           const orderByClause = buildOrderByClause(sort, app, tableName)
 
@@ -63,6 +76,17 @@ export function listRecords(config: {
   )
 }
 
+/**
+ * Compute aggregations on records from a table
+ *
+ * @param config - Configuration object
+ * @param config.session - Better Auth session
+ * @param config.tableName - Name of the table to query
+ * @param config.filter - Optional filter to apply to the query
+ * @param config.includeDeleted - Whether to include soft-deleted records (default: false)
+ * @param config.aggregate - Aggregation configuration
+ * @returns Effect resolving to aggregation results
+ */
 
 export function computeAggregations(config: {
   readonly session: Readonly<Session>
@@ -115,6 +139,9 @@ export function computeAggregations(config: {
   )
 }
 
+/**
+ * Build SELECT field list for authorship columns
+ */
 function buildAuthorshipSelectFields(authorshipColumns: {
   readonly hasCreatedBy: boolean
   readonly hasUpdatedBy: boolean
@@ -147,6 +174,9 @@ function buildAuthorshipSelectFields(authorshipColumns: {
   return ['t.*', ...createdByFields, ...updatedByFields, ...deletedByFields]
 }
 
+/**
+ * Build query with conditional JOINs for authorship tables
+ */
 function buildAuthorshipJoins(
   baseQuery: Readonly<ReturnType<typeof sql>>,
   authorshipColumns: {
@@ -171,6 +201,9 @@ function buildAuthorshipJoins(
   return queryWithDeletedBy
 }
 
+/**
+ * Transform row data to include user objects for authorship fields
+ */
 function transformRowWithAuthorship(
   row: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, unknown>> {
@@ -222,6 +255,16 @@ function transformRowWithAuthorship(
   }
 }
 
+/**
+ * List soft-deleted records from a table
+ *
+ * Returns all accessible soft-deleted records (Permissions applied via application layer).
+ *
+ * @param config - Configuration object
+ * @param config.session - Better Auth session
+ * @param config.tableName - Name of the table to query
+ * @returns Effect resolving to array of soft-deleted records
+ */
 export function listTrash(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
@@ -265,6 +308,18 @@ export function listTrash(config: {
   )
 }
 
+/**
+ * Get a single record by ID
+ *
+ * Excludes soft-deleted records by default (deleted_at IS NULL).
+ * Use includeDeleted parameter to fetch soft-deleted records.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @param includeDeleted - Whether to include soft-deleted records (default: false)
+ * @returns Effect resolving to record or null
+ */
 export function getRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -281,16 +336,19 @@ export function getRecord(
 
           const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
 
+          // Build WHERE clause with soft-delete filter if applicable
           const whereClause =
             hasDeletedAt && !includeDeleted
               ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
               : sql` WHERE id = ${recordId}`
 
+          // Use parameterized query for recordId (automatic via template literal)
           const rows = await typedExecute(
             tx,
             sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
           )
 
+          // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
           return rows[0] ?? null
         }),
       catch: wrapDatabaseError(`Failed to get record ${recordId} from ${tableName}`),

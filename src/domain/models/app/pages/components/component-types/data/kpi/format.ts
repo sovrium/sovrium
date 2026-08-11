@@ -30,5 +30,7 @@ export const KPIFormatSchema = Schema.Struct({
   description: 'Display formatting configuration for the KPI metric value',
 })
 
+/** @public */
 export type KPIFormatType = Schema.Schema.Type<typeof KPIFormatTypeSchema>
+/** @public */
 export type KPIFormat = Schema.Schema.Type<typeof KPIFormatSchema>

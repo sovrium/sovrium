@@ -9,17 +9,25 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * File Copy Action (type: file, operator: copy)
+ *
+ * Copy a file to a new storage path.
+ * The copied file is available as the step output for subsequent actions.
+ */
 export const FileCopyActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('copy'),
   props: Schema.Struct({
+    /** Storage key of the source file */
     sourceKey: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Storage key of the source file',
       })
     ),
 
+    /** Storage key for the copy */
     destinationKey: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Storage key for the copy',
@@ -34,4 +42,5 @@ export const FileCopyActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileCopyAction = Schema.Schema.Type<typeof FileCopyActionSchema>

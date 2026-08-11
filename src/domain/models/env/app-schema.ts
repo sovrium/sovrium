@@ -7,6 +7,16 @@
 
 import { Schema } from 'effect'
 
+/**
+ * App schema environment configuration.
+ *
+ * Env vars: APP_SCHEMA
+ *
+ * Supports three formats:
+ * - Inline JSON: '{"name":"my-app"}'
+ * - Inline YAML: 'name: my-app'
+ * - Remote URL: 'https://example.com/app-config.yaml'
+ */
 export const AppSchemaEnvSchema = Schema.Struct({
   appSchema: Schema.optional(
     Schema.String.pipe(

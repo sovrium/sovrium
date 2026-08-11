@@ -25,6 +25,9 @@ export interface OverviewResult {
   readonly timeSeries: readonly TimeSeriesPoint[]
 }
 
+/**
+ * Query analytics overview: summary metrics + time series data.
+ */
 export const queryOverview = (
   input: QueryOverviewInput
 ): Effect.Effect<OverviewResult, AnalyticsDatabaseError, AnalyticsRepository> =>

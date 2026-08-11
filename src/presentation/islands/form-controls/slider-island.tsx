@@ -26,6 +26,12 @@ interface SliderIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Slider island — wraps Base UI Slider for range value selection.
+ *
+ * Supports keyboard interaction (arrow keys, Home/End), configurable
+ * min/max/step, and optional value display label.
+ */
 export default function SliderIsland({
   min = 0,
   max = 100,

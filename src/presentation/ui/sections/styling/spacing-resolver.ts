@@ -10,8 +10,14 @@ import { getSectionColorStyle } from './color-resolver'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Component types that should receive section spacing
+ */
 const SECTION_TYPES = new Set(['section', 'header', 'footer', 'hero'])
 
+/**
+ * Apply theme spacing to section elements when spacing.section is a CSS value
+ */
 export function getSectionSpacingStyle(
   type: Component['type'],
   theme?: Theme
@@ -20,6 +26,9 @@ export function getSectionSpacingStyle(
   return sectionSpacing && isCssValue(sectionSpacing) ? { padding: sectionSpacing } : undefined
 }
 
+/**
+ * Apply theme spacing to container elements when spacing.container is a CSS value
+ */
 export function getContainerSpacingStyle(
   type: Component['type'],
   theme?: Theme
@@ -30,6 +39,9 @@ export function getContainerSpacingStyle(
     : undefined
 }
 
+/**
+ * Apply theme spacing to flex elements when spacing.gap is a CSS value
+ */
 export function getFlexSpacingStyle(
   type: Component['type'],
   theme?: Theme
@@ -38,6 +50,9 @@ export function getFlexSpacingStyle(
   return flexSpacing && isCssValue(flexSpacing) ? { display: 'flex', gap: flexSpacing } : undefined
 }
 
+/**
+ * Apply all spacing and color styles in order: color → section → container → flex
+ */
 export function applySpacingStyles(
   type: Component['type'],
   baseProps: Record<string, unknown>,

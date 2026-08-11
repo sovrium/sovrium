@@ -7,13 +7,22 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Knowledge memory — RAG-based semantic retrieval from configured sources.
+ *
+ * When enabled, the runtime performs a similarity search against the listed
+ * knowledge sources before each agent invocation, injecting the most relevant
+ * documents into context. Reuses the existing pgvector/RAG pipeline.
+ */
 const KnowledgeMemorySchema = Schema.Struct({
+  /** Whether knowledge memory is enabled (default: false) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotations({ description: 'Whether knowledge memory is enabled (default: false)' })
     )
   ),
 
+  /** Knowledge source names to search (must reference configured knowledge bases) */
   sources: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
@@ -27,6 +36,7 @@ const KnowledgeMemorySchema = Schema.Struct({
     )
   ),
 
+  /** Maximum number of documents to retrieve per query (default: 5) */
   retrievalLimit: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -37,6 +47,7 @@ const KnowledgeMemorySchema = Schema.Struct({
     )
   ),
 
+  /** Minimum similarity score (0-1) for retrieved documents (default: 0.7) */
   similarityThreshold: Schema.optional(
     Schema.Number.pipe(
       Schema.greaterThanOrEqualTo(0),
@@ -54,13 +65,22 @@ const KnowledgeMemorySchema = Schema.Struct({
   })
 )
 
+/**
+ * Facts memory — persistent key-value facts the agent learns across sessions.
+ *
+ * Unlike the `state` automation action (explicit developer-set KV), facts are
+ * AI-managed: the agent decides what to remember. Facts are retrieved by
+ * semantic relevance to the current task, not by exact key lookup.
+ */
 const FactsMemorySchema = Schema.Struct({
+  /** Whether facts memory is enabled (default: false) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotations({ description: 'Whether facts memory is enabled (default: false)' })
     )
   ),
 
+  /** Maximum number of facts the agent can store (default: 100) */
   maxFacts: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -71,6 +91,7 @@ const FactsMemorySchema = Schema.Struct({
     )
   ),
 
+  /** Namespace for fact isolation (default: agent name) */
   namespace: Schema.optional(
     Schema.String.pipe(
       Schema.pattern(/^[a-z][a-z0-9-]*$/),
@@ -88,9 +109,26 @@ const FactsMemorySchema = Schema.Struct({
   })
 )
 
+/**
+ * AgentMemorySchema defines the memory configuration for an AI agent.
+ *
+ * Two memory tiers provide increasing levels of persistence:
+ * - `knowledge`: RAG-based retrieval from configured knowledge sources (read-only)
+ * - `facts`: Persistent learned facts across sessions (read-write, AI-managed)
+ *
+ * Both tiers are optional and disabled by default. When the `ai:agent` automation
+ * action dispatches a task, the runtime assembles context from enabled memory
+ * tiers before invoking the LLM.
+ *
+ * Session-level chat history is NOT configured here: it is durable and
+ * operator-tuned, keyed on `(userId, sessionId)` and capped by the
+ * `AI_MEMORY_CONTEXT_MESSAGES` environment variable.
+ */
 export const AgentMemorySchema = Schema.Struct({
+  /** RAG-based knowledge retrieval from configured sources */
   knowledge: Schema.optional(KnowledgeMemorySchema),
 
+  /** Persistent AI-managed facts learned across sessions */
   facts: Schema.optional(FactsMemorySchema),
 }).pipe(
   Schema.annotations({
@@ -100,4 +138,5 @@ export const AgentMemorySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AgentMemory = Schema.Schema.Type<typeof AgentMemorySchema>

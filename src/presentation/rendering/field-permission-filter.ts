@@ -5,11 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  evaluatePermission,
+  OPEN_WHEN_UNDECLARED,
+  permits,
+  toPermissionValue,
+} from '@/domain/models/shared/permission-evaluation'
 import type { Component } from '@/domain/models/app/pages/components'
 
+/**
+ * Extracts $record.fieldName references from a string.
+ */
 const extractFieldRefsFromString = (s: string): readonly string[] =>
   [...s.matchAll(/\$record\.([a-zA-Z0-9_]+)/g)].map((m) => m[1] as string)
 
+/**
+ * Extracts the set of field names referenced via $record.* in a component's content and props.
+ */
 function extractRecordFieldRefs(component: Component): readonly string[] {
   const contentRefs =
     typeof component.content === 'string' ? extractFieldRefsFromString(component.content) : []
@@ -23,6 +35,10 @@ function extractRecordFieldRefs(component: Component): readonly string[] {
   return [...contentRefs, ...propRefs]
 }
 
+/**
+ * Determines which fields the current user role is NOT allowed to read,
+ * based on the table's field-level permissions configuration.
+ */
 export function getRestrictedFields(
   tablePermissions:
     | { readonly fields?: readonly { readonly field: string; readonly read?: unknown }[] }
@@ -33,17 +49,30 @@ export function getRestrictedFields(
 
   return new Set(
     tablePermissions.fields
-      .filter((fp) => {
-        if (!fp.read) return false
-        if (fp.read === 'all') return false
-        if (fp.read === 'authenticated') return false
-        if (Array.isArray(fp.read)) return !fp.read.includes(userRole)
-        return false
-      })
+      // A field is RESTRICTED exactly when the ladder refuses this role. An
+      // absent or unparseable `read` restricts nothing. No admin override —
+      // callers that grant one do it before reaching here.
+      .filter(
+        (fp) =>
+          !permits(
+            evaluatePermission(
+              toPermissionValue(fp.read),
+              { role: userRole },
+              {
+                whenUndeclared: OPEN_WHEN_UNDECLARED,
+                adminOverride: 'no-admin-override',
+              }
+            )
+          )
+      )
       .map((fp) => fp.field)
   )
 }
 
+/**
+ * Filters children of a component to remove those that reference restricted fields.
+ * Also filters the requested fields list to exclude restricted fields from DB queries.
+ */
 export function applyFieldLevelPermissions(
   component: Component,
   requestedFields: readonly string[] | undefined,

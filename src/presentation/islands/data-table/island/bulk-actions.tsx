@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react'
-import type { DataTableBulkAction } from '@/domain/models/app/pages/components/data-table'
+import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
 
 interface BulkActionBarProps {
   readonly bulkActions: readonly DataTableBulkAction[]
@@ -14,6 +14,14 @@ interface BulkActionBarProps {
   readonly onExecute: (action: DataTableBulkAction) => void
 }
 
+/**
+ * Hidden placeholder rendered while no rows are selected.
+ *
+ * The bulk-action buttons must remain present in the DOM so that E2E specs
+ * targeting them by `getByRole('button', { name: ... })` resolve before the
+ * user makes any selection (the buttons are revealed when selection becomes
+ * non-empty).
+ */
 function HiddenBulkActionsPlaceholder({
   bulkActions,
 }: {
@@ -52,6 +60,7 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
             key={i}
             type="button"
             className="bg-background-subtle hover:bg-background-subtle rounded px-3 py-1 text-sm"
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-row click handler closes over loop-variable `action`; useCallback inside.map has equivalent allocation cost. React Compiler will memoize this once enabled in Bun.
             onClick={() => {
               if (action.confirm) {
                 setConfirmAction(action)
@@ -69,6 +78,7 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           <button
             type="button"
             className="text-success-fg ml-2 font-medium hover:underline"
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- two-statement handler closing over current confirmAction; React Compiler will memoize once enabled in Bun.
             onClick={() => {
               onExecute(confirmAction)
               setConfirmAction(undefined)
@@ -79,6 +89,7 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           <button
             type="button"
             className="text-primary ml-2 hover:underline"
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one-statement handler; React Compiler will memoize once enabled in Bun.
             onClick={() => setConfirmAction(undefined)}
           >
             Cancel

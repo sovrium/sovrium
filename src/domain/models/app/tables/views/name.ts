@@ -7,6 +7,18 @@
 
 import { Schema } from 'effect'
 
+/**
+ * View Name Schema
+ *
+ * Human-readable name for the view.
+ *
+ * @example
+ * ```typescript
+ * 'All Records'
+ * 'Active Tasks'
+ * 'Completed Orders'
+ * ```
+ */
 export const ViewNameSchema = Schema.String.pipe(
   Schema.minLength(1),
   Schema.maxLength(100),
@@ -17,4 +29,5 @@ export const ViewNameSchema = Schema.String.pipe(
   })
 )
 
+/** @public */
 export type ViewName = Schema.Schema.Type<typeof ViewNameSchema>

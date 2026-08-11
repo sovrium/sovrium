@@ -8,6 +8,13 @@
 import { buildHoverData } from './hover-interaction-handler'
 import type { Interactions } from '@/domain/models/app/pages/components/interactions/interactions'
 
+/**
+ * Merges hover attributes into element props
+ *
+ * @param elementProps - Base element props
+ * @param hoverData - Hover data with attributes
+ * @returns Element props with hover attributes merged
+ */
 function mergeHoverAttributes(
   elementProps: Record<string, unknown>,
   hoverData: { readonly attributes: Record<string, string> } | undefined
@@ -15,6 +22,15 @@ function mergeHoverAttributes(
   return hoverData ? { ...elementProps, ...hoverData.attributes } : elementProps
 }
 
+/**
+ * Builds interaction props with hover data merged into element props
+ *
+ * @param interactions - Component interactions configuration
+ * @param uniqueId - Unique ID for hover data
+ * @param elementProps - Base element props
+ * @param elementPropsWithSpacing - Base element props with spacing
+ * @returns Element props with hover attributes and hover data for style injection
+ */
 export function buildInteractionProps(
   interactions: Interactions | undefined,
   uniqueId: string,

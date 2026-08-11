@@ -5,10 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-perf/jsx-no-new-object-as-prop --
+ * Hero is rendered server-side once per page; inline `style={{...}}` objects
+ * compose theme tokens that are stable for the lifetime of a render. There is
+ * no client state in this component, so memoization would add code without
+ * removing any re-render work.
+ */
 
 import type { Theme } from '@/domain/models/app/theme'
 import type { ReactElement, ReactNode } from 'react'
 
+/**
+ * Extracted theme tokens for Hero component
+ */
 interface HeroThemeTokens {
   readonly breakpoints: {
     readonly sm: number
@@ -33,6 +42,9 @@ interface HeroThemeTokens {
   }
 }
 
+/**
+ * Default theme values
+ */
 const DEFAULT_THEME = {
   breakpoints: { sm: '640px', md: '768px', lg: '1024px' },
   spacing: { section: '4rem' },
@@ -43,6 +55,9 @@ const DEFAULT_THEME = {
   },
 } as const
 
+/**
+ * Extract breakpoint values from theme
+ */
 function extractBreakpoints(theme?: Theme): HeroThemeTokens['breakpoints'] {
   return {
     sm: parseInt(theme?.breakpoints?.sm ?? DEFAULT_THEME.breakpoints.sm, 10),
@@ -51,8 +66,14 @@ function extractBreakpoints(theme?: Theme): HeroThemeTokens['breakpoints'] {
   }
 }
 
+/**
+ * Type helper for a single font configuration item
+ */
 type FontItem = NonNullable<Theme['fonts']>[string]
 
+/**
+ * Extract title font weight (handles both legacy and current schemas)
+ */
 function extractTitleWeight(titleFont?: FontItem): number {
   // @ts-expect-error - legacy schema support (weight as number)
   const legacyWeight = titleFont?.weight as number | undefined
@@ -60,6 +81,9 @@ function extractTitleWeight(titleFont?: FontItem): number {
   return legacyWeight ?? currentWeight ?? DEFAULT_THEME.fonts.title.weight
 }
 
+/**
+ * Extract title font configuration
+ */
 function extractTitleFont(titleFont?: FontItem): HeroThemeTokens['fonts']['title'] {
   return {
     family: titleFont?.family ?? DEFAULT_THEME.fonts.title.family,
@@ -68,6 +92,9 @@ function extractTitleFont(titleFont?: FontItem): HeroThemeTokens['fonts']['title
   }
 }
 
+/**
+ * Extract font values from theme
+ */
 function extractFonts(theme?: Theme): HeroThemeTokens['fonts'] {
   return {
     title: extractTitleFont(theme?.fonts?.title),
@@ -77,10 +104,14 @@ function extractFonts(theme?: Theme): HeroThemeTokens['fonts'] {
   }
 }
 
+/**
+ * Extract and normalize theme tokens for Hero component
+ */
 function extractHeroTheme(theme?: Theme): HeroThemeTokens {
   return {
     breakpoints: extractBreakpoints(theme),
     spacing: {
+      // Use explicit theme.spacing.section if provided, otherwise use mobile-first default
       section: theme?.spacing?.section ?? '2rem',
     },
     borderRadius: {
@@ -90,6 +121,9 @@ function extractHeroTheme(theme?: Theme): HeroThemeTokens {
   }
 }
 
+/**
+ * Default content demonstrating cohesive theme integration
+ */
 function HeroDefaultContent({
   themeTokens,
 }: Readonly<{
@@ -130,6 +164,9 @@ function HeroDefaultContent({
   )
 }
 
+/**
+ * Generate responsive media query styles for Hero section
+ */
 function generateHeroMediaQueries(
   breakpoints: HeroThemeTokens['breakpoints'],
   testId?: string
@@ -153,6 +190,9 @@ function generateHeroMediaQueries(
   `
 }
 
+/**
+ * Resolve easing token from theme
+ */
 function resolveEasingToken(tokenName: string, theme?: Theme): string | undefined {
   if (!theme?.animations) return undefined
   const animations = theme.animations as Record<string, unknown>
@@ -162,12 +202,18 @@ function resolveEasingToken(tokenName: string, theme?: Theme): string | undefine
   return easingValue ? String(easingValue) : undefined
 }
 
+/**
+ * Resolve color token from theme
+ */
 function resolveColorToken(tokenName: string, theme?: Theme): string | undefined {
   if (!theme?.colors) return undefined
   const colorValue = theme.colors[tokenName]
   return colorValue ? String(colorValue) : undefined
 }
 
+/**
+ * Resolve single token reference
+ */
 function resolveSingleToken(category: string, tokenName: string, theme?: Theme): string {
   if (category === 'easing') {
     return resolveEasingToken(tokenName, theme) ?? `$${category}.${tokenName}`
@@ -178,12 +224,19 @@ function resolveSingleToken(category: string, tokenName: string, theme?: Theme):
   return `$${category}.${tokenName}`
 }
 
+/**
+ * Resolve token references in animation string
+ * Supports: $easing.smooth, $colors.primary, etc.
+ */
 function resolveAnimationTokens(animation: string, theme?: Theme): string {
   return animation.replace(/\$(\w+)\.(\w+)/g, (_match, category, tokenName) =>
     resolveSingleToken(category, tokenName, theme)
   )
 }
 
+/**
+ * Content structure for Hero section
+ */
 interface HeroContent {
   readonly button?: {
     readonly text: string
@@ -191,6 +244,9 @@ interface HeroContent {
   }
 }
 
+/**
+ * Base section styles for Hero component
+ */
 const heroSectionBaseStyle = {
   minHeight: '200px',
   display: 'flex',
@@ -198,12 +254,18 @@ const heroSectionBaseStyle = {
   justifyContent: 'center',
 } as const
 
+/**
+ * Check if theme has fadeInUp animation configured
+ */
 function hasFadeInUpAnimation(theme?: Theme): boolean {
   if (!theme?.animations) return false
   const animations = theme.animations as Record<string, unknown>
   return Boolean(animations.fadeInUp)
 }
 
+/**
+ * Build section style with theme tokens
+ */
 function buildHeroSectionStyle(themeTokens: HeroThemeTokens): Record<string, string> {
   return {
     ...heroSectionBaseStyle,
@@ -211,6 +273,9 @@ function buildHeroSectionStyle(themeTokens: HeroThemeTokens): Record<string, str
   }
 }
 
+/**
+ * Render Hero section with custom animated button
+ */
 function HeroWithButton({
   themeTokens,
   buttonContent,
@@ -252,6 +317,27 @@ function HeroWithButton({
   )
 }
 
+/**
+ * Hero Section Component
+ *
+ * Renders a hero section with full theme integration demonstrating cohesive UI.
+ * When no children are provided, renders default content (h1 heading + CTA button)
+ * that showcases all theme tokens applied together:
+ * - Background via the `bg-background` design-system role token (theme-driven, dark-mode aware)
+ * - Heading with theme fonts (family, size, weight) + `text-foreground` token color
+ * - Button with `bg-primary`/`text-primary-fg`/`hover:bg-primary-hover` tokens and border radius
+ * - Section padding (theme.spacing.section)
+ *
+ * Uses theme.breakpoints to determine responsive behavior via CSS custom properties.
+ * Applies progressive enhancement - padding increases as viewport grows.
+ *
+ * @param props - Component props
+ * @param props.theme - Theme configuration with all design tokens
+ * @param props.content - Structured content (button, etc.)
+ * @param props.children - Hero content (optional - defaults to themed heading + button)
+ * @param props.data-testid - Test identifier
+ * @returns Hero section element with cohesive theme integration
+ */
 export function Hero({
   theme,
   content,

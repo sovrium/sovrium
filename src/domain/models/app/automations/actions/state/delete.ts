@@ -9,17 +9,24 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * State Delete Action (type: state, operator: delete)
+ *
+ * Remove a value from key-value state by key.
+ */
 export const StateDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('state'),
   operator: Schema.Literal('delete'),
   props: Schema.Struct({
+    /** State key to delete */
     key: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'State key to delete (supports template variables)',
       })
     ),
 
+    /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^[a-z][a-z0-9-]*$/),
@@ -38,4 +45,5 @@ export const StateDeleteActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type StateDeleteAction = Schema.Schema.Type<typeof StateDeleteActionSchema>

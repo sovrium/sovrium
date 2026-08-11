@@ -7,6 +7,22 @@
 
 import { Schema } from 'effect'
 
+/**
+ * HTTP/HTTPS URL validation schema
+ *
+ * Validates URLs that start with http:// or https:// protocol.
+ * Used for external resources like images, videos, audio, and API endpoints.
+ *
+ * Validation rules:
+ * - Must start with http:// or https://
+ * - Follows standard URL format with protocol, domain, and optional path
+ * - Format annotated as 'uri' for OpenAPI/JSON Schema compatibility
+ *
+ * @example "https://example.com/image.jpg"
+ * @example "http://api.example.com/endpoint"
+ *
+ * @see [internal ref] - [internal ref]
+ */
 export const HttpUrlSchema = Schema.String.pipe(
   Schema.pattern(/^https?:\/\//, {
     message: () => 'URL must start with http:// or https://',
@@ -17,8 +33,32 @@ export const HttpUrlSchema = Schema.String.pipe(
   format: 'uri',
 })
 
+/** @public */
 export type HttpUrl = Schema.Schema.Type<typeof HttpUrlSchema>
 
+/**
+ * HTTP/HTTPS URL OR record-template URL string
+ *
+ * Accepts either:
+ *  - a literal http:// or https:// URL (per `HttpUrlSchema`), or
+ *  - a string containing one or more `$record.<field>` substitution
+ *    tokens which the collection-page renderer resolves to per-record
+ *    values BEFORE the URL is emitted to the document.
+ *
+ * Used by the collection-page metadata path (Open Graph, Twitter, JSON-LD)
+ * so a single page declaration can produce a per-record social-sharing URL
+ * (`'$record.cover_image'` or `'https://cdn.example.com/$record.cover_image'`)
+ * without forcing the schema author to inline a literal URL — see
+ * [internal ref] (B-4 dynamic-seo-for-collections).
+ *
+ * Decode-time validation only checks the string shape (literal URL OR
+ * presence of `$record.`); the resolver is responsible for ensuring the
+ * post-substitution value is itself a valid URL when it matters.
+ *
+ * @example "https://example.com/image.jpg"     // literal URL
+ * @example "$record.cover_image"               // per-record URL
+ * @example "https://cdn.example.com/$record.cover_image"  // templated URL
+ */
 export const HttpUrlOrRecordTemplateSchema = Schema.String.pipe(
   Schema.pattern(/^https?:\/\/|\$record\./, {
     message: () =>
@@ -30,4 +70,5 @@ export const HttpUrlOrRecordTemplateSchema = Schema.String.pipe(
   format: 'uri',
 })
 
+/** @public */
 export type HttpUrlOrRecordTemplate = Schema.Schema.Type<typeof HttpUrlOrRecordTemplateSchema>

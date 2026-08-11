@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Drizzle Relations for the Better Auth schema (separate file to keep
+// `schema.ts` under the 400-line ESLint limit).
+// These are consumed by the Drizzle adapter via the barrel re-export in
+// `infrastructure/database/drizzle/schema.ts` and by the auth schema tests.
 
 import { relations } from 'drizzle-orm'
 import {

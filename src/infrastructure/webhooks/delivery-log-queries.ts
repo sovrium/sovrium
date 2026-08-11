@@ -9,6 +9,13 @@ import { sql } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { getDb } from '@/infrastructure/database/drizzle/db-bun'
 
+/**
+ * A single webhook delivery-log row, shaped for the API response.
+ *
+ * `status` is `success` / `failed` — the storage layer records exactly these
+ * two values (see `table-webhook-dispatch.ts` `logDelivery`), so the wire
+ * contract and the stored value coincide.
+ */
 export interface DeliveryLogEntry {
   readonly id: string
   readonly webhookName: string
@@ -27,6 +34,7 @@ export interface DeliveryLogEntry {
   readonly requestHeaders: unknown
 }
 
+/** Raw row shape returned by the `_webhook_deliveries` SELECT. */
 interface RawDeliveryRow {
   readonly id: number
   readonly webhook_name: string
@@ -45,9 +53,11 @@ interface RawDeliveryRow {
   readonly request_headers: unknown
 }
 
+/** Normalise a stored status to the API `success`/`failed` form. */
 const toApiStatus = (status: string): 'success' | 'failed' =>
   status === 'success' ? 'success' : 'failed'
 
+/** Map a raw `_webhook_deliveries` row to a {@link DeliveryLogEntry}. */
 const mapRow = (row: RawDeliveryRow): DeliveryLogEntry => ({
   id: String(row.id),
   webhookName: row.webhook_name,
@@ -66,30 +76,53 @@ const mapRow = (row: RawDeliveryRow): DeliveryLogEntry => ({
   requestHeaders: row.request_headers,
 })
 
+/**
+ * Normalise a Drizzle `bun-sql` `execute()` result to a typed rows array.
+ *
+ * The `bun-sql` driver returns the result rows directly as an array; the
+ * defensive `.rows` fallback covers any driver that wraps them.
+ *
+ * @public
+ */
 export const rowsOf = <T>(result: unknown): ReadonlyArray<T> => {
   if (Array.isArray(result)) return result as ReadonlyArray<T>
   const wrapped = (result as { rows?: ReadonlyArray<T> }).rows
   return wrapped ?? []
 }
 
+/** Options for {@link listDeliveries}. */
 export interface ListDeliveriesOptions {
   readonly tableName: string
   readonly webhookName: string
   readonly limit: number
+  /** Cursor: only rows with `id` strictly less than this value are returned. */
   readonly cursor: number | undefined
+  /** Optional `success`/`failed` status filter. */
   readonly status: 'success' | 'failed' | undefined
 }
 
+/** Result of {@link listDeliveries} — a page plus paging metadata. */
 export interface ListDeliveriesResult {
   readonly deliveries: ReadonlyArray<DeliveryLogEntry>
   readonly totalCount: number
   readonly nextCursor: string | undefined
 }
 
+/**
+ * List delivery-log rows for a single table webhook, newest first.
+ *
+ * Cursor pagination is descending by `id`: a `cursor` of `N` returns rows with
+ * `id < N`. `nextCursor` is the `id` of the last row in the page when a
+ * further page may exist.
+ *
+ * @public
+ */
 export const listDeliveries = async (
   options: ListDeliveriesOptions
 ): Promise<ListDeliveriesResult> => {
   const { tableName, webhookName, limit, cursor, status } = options
+  // The stored status column holds `success`/`failed` verbatim — the API
+  // filter value and the storage value coincide, so no translation is needed.
   const cursorClause = cursor === undefined ? sql`` : sql` AND id < ${cursor}`
   const statusClause = status === undefined ? sql`` : sql` AND status = ${status}`
 
@@ -105,6 +138,9 @@ export const listDeliveries = async (
   const rows = rowsOf<RawDeliveryRow>(pageResult)
   const deliveries = rows.map(mapRow)
 
+  // COUNT(*) without the PG-only `::int` cast — both dialects return an
+  // integer-typed value from COUNT(*) natively; the cast was a defensive
+  // type-coercion that breaks SQLite's parser (`near "::"`).
   const countResult = await getDb().execute(sql`
     SELECT COUNT(*) AS count
     FROM _webhook_deliveries
@@ -113,6 +149,8 @@ export const listDeliveries = async (
   const countRow = rowsOf<{ count: number }>(countResult)[0]
   const totalCount = toFiniteCount(countRow?.count)
 
+  // A further page exists only when this page filled the limit AND more rows
+  // remain beyond the last id returned.
   const lastRow = rows[rows.length - 1]
   const nextCursor =
     rows.length === limit && lastRow !== undefined && totalCount > rows.length
@@ -122,6 +160,13 @@ export const listDeliveries = async (
   return { deliveries, totalCount, nextCursor }
 }
 
+/**
+ * Fetch a single delivery-log row by id, scoped to a table webhook.
+ *
+ * Returns `undefined` when no row matches (the caller maps this to 404).
+ *
+ * @public
+ */
 export const getDelivery = async (input: {
   readonly tableName: string
   readonly webhookName: string

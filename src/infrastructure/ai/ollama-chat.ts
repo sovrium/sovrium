@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types -- AiProviderError tagged class is mutable by Data.TaggedError design */
 
 import { Effect, Stream } from 'effect'
 import { AiProviderError } from '@/application/ports/services/ai-service'
@@ -15,11 +16,30 @@ import type {
   ChatReply,
 } from '@/application/ports/services/ai-service'
 
+/**
+ * Ollama-native chat path for the eco-conception provider router.
+ *
+ * When `ECO_AI_PROVIDER_PRECEDENCE` routes an AI call to the local Ollama
+ * provider, the request must go to Ollama's native `POST /api/chat` endpoint
+ * (not the OpenAI-compatible `/chat/completions` shape the cloud providers
+ * use). Ollama's request/response wire format differs:
+ *   - request: `{ model, messages, stream, options: { temperature } }`
+ *   - response: `{ model, message: { role, content }, done, ... }`
+ * Streaming Ollama responses are NDJSON (one JSON object per line); rather
+ * than re-implement that parser here, the streaming variant issues a
+ * non-streaming request and emits the full reply as a single chunk — adequate
+ * for the eco-routing specs and for `ai:*` automation steps (which only use
+ * the non-streaming `chat`).
+ */
 
+/** Resolved Ollama connection: base URL, default model, and optional bearer
+ * (Ollama ignores auth, but the E2E mock uses it for per-test isolation). */
 export interface OllamaConn {
   readonly baseUrl: string
   readonly defaultModel: string
+  /** `AI_API_KEY`, when set — forwarded as `Authorization: Bearer …`. */
   readonly apiKey: string | undefined
+  /** Default temperature from `AI_TEMPERATURE` (undefined when unset). */
   readonly temperature: number | undefined
 }
 
@@ -57,6 +77,7 @@ const mapOllamaError = (cause: unknown): AiError => {
   })
 }
 
+/** POST to Ollama's `/api/chat` (non-streaming) and reduce to a {@link ChatReply}. */
 export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<ChatReply, AiError> =>
   Effect.tryPromise({
     try: async () => {
@@ -64,10 +85,16 @@ export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<Ch
       const response = await fetch(ollamaUrl(conn.baseUrl), {
         method: 'POST',
         headers: ollamaHeaders(conn.apiKey),
+        // Schema would be ceremonial here: the request body is Ollama's
+        // native `/api/chat` wire format (an opaque `Record<string, unknown>`
+        // assembled by `ollamaBody`). The HTTP layer needs a JSON string,
+        // not a decoded domain value.
+        // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
         body: JSON.stringify(ollamaBody(conn, input, false)),
       })
       if (!response.ok) {
         const body = await response.text().catch(() => '')
+        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
         throw new AiProviderError({
           statusCode: response.status,
           message: `Ollama returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
@@ -76,6 +103,7 @@ export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<Ch
       const payload = (await response.json()) as OllamaChatPayload
       const content = payload.message?.content
       if (typeof content !== 'string') {
+        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
         throw new AiProviderError({
           statusCode: 502,
           message: 'Ollama returned a malformed chat response',
@@ -86,6 +114,8 @@ export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<Ch
     catch: mapOllamaError,
   })
 
+/** Stream variant: issues a non-streaming Ollama request and emits the reply
+ * as a single `content` chunk followed by the terminating `done` chunk. */
 export const ollamaChatStream = (
   conn: OllamaConn,
   input: ChatInput

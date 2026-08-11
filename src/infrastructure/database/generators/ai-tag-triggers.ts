@@ -16,10 +16,27 @@ import {
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+/**
+ * AI Tag field shape (narrowed from Fields union).
+ */
 type AiTagField = Extract<Fields[number], { readonly type: 'ai-tag' }>
 
+/**
+ * NOTIFY payload kind for ai-tag fields. Reuses the categorize discriminator so
+ * the `AiComputeListener` invokes the classification prompt path — tagging is
+ * a multi-label classification over a fixed vocabulary. The per-field `model`
+ * override travels in the same payload so the AI mock observes the chosen model.
+ */
 const TAG_PAYLOAD_KIND = 'categorize'
 
+/**
+ * Guard block for the tag function.
+ *
+ * - INSERT: preserve an explicit non-default user value (a non-empty JSONB
+ *   array supplied directly).
+ * - Either op: leave the column as the default empty array `[]` when the
+ *   source content is empty.
+ */
 const buildTagGuardSql = (fieldName: string): string =>
   `  -- INSERT: honour an explicit non-empty user-supplied tag array.
   IF TG_OP = 'INSERT' THEN
@@ -38,6 +55,12 @@ const buildTagGuardSql = (fieldName: string): string =>
 
   lower_content := lower(source_content);`
 
+/**
+ * Tag-selection block: deterministically collect every configured tag whose
+ * lowercased text appears in the source content. When no tag matches, fall
+ * back to the first configured tag so the column is never empty for non-empty
+ * input. Honours `maxTags` by truncating the selection.
+ */
 const buildTagSelectionSql = (field: AiTagField): string => {
   const maxTagsLimit = field.maxTags !== undefined ? `  chosen := chosen[1:${field.maxTags}];` : ''
   return `  -- Collect every tag whose keyword appears in the content.
@@ -54,6 +77,12 @@ const buildTagSelectionSql = (field: AiTagField): string => {
 ${maxTagsLimit}`
 }
 
+/**
+ * NOTIFY emission block: assigns the chosen tags as a JSONB array and emits a
+ * payload on `sovrium_ai_compute` carrying `kind: 'categorize'`, the tag
+ * vocabulary (as `categories`), and the per-field `model` override so the
+ * application layer can invoke the real AI provider with the right model.
+ */
 const buildTagNotifySql = (field: AiTagField, sanitized: string, fieldName: string): string => {
   const modelLiteral = sqlTextLiteral(field.model)
   return `  NEW.${fieldName} = to_jsonb(chosen);
@@ -75,6 +104,13 @@ const buildTagNotifySql = (field: AiTagField, sanitized: string, fieldName: stri
   RETURN NEW;`
 }
 
+/**
+ * Build the full set of SQL statements (function + drop + create trigger) for a
+ * single ai-tag field via the shared {@link buildAiComputeTriggerStatements}
+ * scaffold. The tag function needs the common `source_content`/`notify_payload`
+ * locals plus the `tags` vocabulary array and the `chosen`/`lower_content`/`tag`
+ * scratch locals, forwarded through `extraDeclarations`.
+ */
 const buildTagTriggerSql = (field: AiTagField, sanitized: string): readonly string[] => {
   const fieldName = field.name
   const functionBody = `${buildTagGuardSql(fieldName)}
@@ -99,6 +135,24 @@ ${buildTagNotifySql(field, sanitized, fieldName)}`
   })
 }
 
+/**
+ * Generate a BEFORE INSERT/UPDATE trigger that assigns a record's ai-tag field
+ * a JSONB array of labels selected from the configured `tags` vocabulary.
+ *
+ * Tagging logic (executed server-side in PL/pgSQL):
+ * 1. If the record already has a non-empty tag array, keep it (user override).
+ * 2. If all source fields are NULL or empty, leave the column as `[]`.
+ * 3. Otherwise, deterministically collect every tag whose keyword appears in
+ *    the concatenated source content (falling back to the first tag when none
+ *    match), truncated to `maxTags` when configured.
+ * 4. Emits pg_notify on the 'sovrium_ai_compute' channel — carrying the field's
+ *    `model` override — so the application layer can invoke the real AI
+ *    provider for the canonical tagging.
+ *
+ * Runtime Note: PostgreSQL triggers cannot make HTTP calls synchronously. The
+ * deterministic tag-picking keeps the INSERT synchronous while the NOTIFY gives
+ * the application layer a hook for the observational AI provider round-trip.
+ */
 export const generateAiTagTriggers = (table: Table): readonly string[] => {
   const aiTagFields = table.fields.filter((field): field is AiTagField => field.type === 'ai-tag')
 

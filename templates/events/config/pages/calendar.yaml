@@ -52,8 +52,16 @@ components:
                   message: Event created
                   variant: success
 
+      # `labelField` is optional in the schema but required in practice: without
+      # it every event renders as an unlabelled block, so the month view shows
+      # WHERE the events are and refuses to say WHAT they are. `colorField`
+      # points at the status field, whose option colours are record data — the
+      # one channel ADR-024 A7 keeps coloured — so a Cancelled event reads as
+      # cancelled at a glance instead of matching every other block on the grid.
       - type: calendar
         dataSource:
           table: events
         dateField: event_date
+        labelField: name
+        colorField: status
         defaultView: month

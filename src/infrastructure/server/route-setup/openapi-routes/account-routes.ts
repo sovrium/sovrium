@@ -17,6 +17,7 @@ import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
+/** Authenticated-user account data and erasure (GDPR) route group. */
 export const accountGroup: StaticGroupSpec = {
   tag: 'account',
   tagDescription: 'Authenticated-user account data and erasure (GDPR) endpoints',

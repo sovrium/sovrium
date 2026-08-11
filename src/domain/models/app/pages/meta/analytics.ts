@@ -7,7 +7,21 @@
 
 import { Schema } from 'effect'
 
+// ============================================================================
+// Analytics
+// ============================================================================
 
+/**
+ * Analytics provider name
+ *
+ * 6 supported analytics platforms:
+ * - google: Google Analytics 4 (most popular, 60% market share)
+ * - plausible: Privacy-focused, GDPR-compliant, no cookies
+ * - matomo: Open-source, self-hosted, privacy-focused
+ * - fathom: Privacy-first, simple, GDPR-compliant
+ * - posthog: Product analytics, session replay, feature flags
+ * - mixpanel: Product analytics, funnel analysis, cohort analysis
+ */
 export const AnalyticsProviderNameSchema = Schema.Literal(
   'google',
   'plausible',
@@ -19,6 +33,18 @@ export const AnalyticsProviderNameSchema = Schema.Literal(
   description: 'Analytics provider name',
 })
 
+/**
+ * Analytics script configuration
+ *
+ * External JavaScript file to load for analytics provider.
+ *
+ * Required properties:
+ * - src: Script source URL (CDN or provider-hosted)
+ *
+ * Optional properties:
+ * - async: Load asynchronously (default: true, recommended for analytics)
+ * - defer: Defer execution until DOM loaded
+ */
 export const AnalyticsScriptSchema = Schema.Struct({
   src: Schema.String.annotations({
     description: 'Script source URL',
@@ -39,6 +65,11 @@ export const AnalyticsScriptSchema = Schema.Struct({
   description: 'Analytics script',
 })
 
+/**
+ * Analytics provider configuration
+ *
+ * Defines a single analytics provider with scripts, initialization, and settings.
+ */
 export const AnalyticsProviderSchema = Schema.Struct({
   name: AnalyticsProviderNameSchema,
   enabled: Schema.optional(
@@ -71,6 +102,11 @@ export const AnalyticsProviderSchema = Schema.Struct({
   description: 'Analytics provider',
 })
 
+/**
+ * Analytics configuration for multiple providers
+ *
+ * Manages analytics tracking across one or more analytics platforms.
+ */
 export const AnalyticsSchema = Schema.Struct({
   providers: Schema.Array(AnalyticsProviderSchema),
 }).annotations({
@@ -78,7 +114,10 @@ export const AnalyticsSchema = Schema.Struct({
   description: 'Configuration for analytics providers',
 })
 
+/** @public */
 export type AnalyticsProviderName = Schema.Schema.Type<typeof AnalyticsProviderNameSchema>
+/** @public */
 export type AnalyticsScript = Schema.Schema.Type<typeof AnalyticsScriptSchema>
+/** @public */
 export type AnalyticsProvider = Schema.Schema.Type<typeof AnalyticsProviderSchema>
 export type Analytics = Schema.Schema.Type<typeof AnalyticsSchema>

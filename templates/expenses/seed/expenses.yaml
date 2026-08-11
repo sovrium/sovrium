@@ -1,0 +1,164 @@
+# Sample expense claims.
+#
+# All five categories carry rows, because the spend-by-category chart on /review
+# sums `amount` grouped by `category` — a data set concentrated in one category
+# renders a single bar and proves nothing. All four statuses appear too, so the
+# "Pending" and "Approved" KPI tiles are real numbers.
+#
+# `expense_date` straddles `{{today}}` so the grid's date sort has something to
+# sort and a "this month" reading is never empty.
+#
+# TWO FIELDS ARE DELIBERATELY UNSEEDED:
+#
+#   `receipt` is a `single-attachment` bound to the `receipts` bucket. Signed
+#   attachment URLs are always built against `/api/buckets/default/signed`
+#   regardless of the field's declared bucket, so a seeded receipt would carry a
+#   link that can never resolve — and `sovrium seed` refuses the whole file
+#   rather than write one. Upload receipts through /my-expenses instead.
+#
+#   `submitted_by` is a `created-by` field: the platform writes it from the
+#   session of whoever created the row. The CLI has no session, so every seeded
+#   claim is attributed to `system` in the "Filed by" column — verified in the
+#   running app, not assumed. That is left as-is deliberately, because it is
+#   also what makes the row-level rule demonstrable: `rowLevelPermissions`
+#   scopes reads to `submitted_by = $currentUser.id`, so a MEMBER sees NONE of
+#   these seventeen rows while an ADMIN (unrestricted) sees all of them. Signing
+#   in as each in turn is the clearest demonstration of row-level scoping this
+#   template can offer, and a member's own claims are the ones they file
+#   themselves through /my-expenses.
+records:
+  - key: berlin-flights
+    fields:
+      description: Return flights — Berlin customer visit
+      amount: 412.60
+      category: Travel
+      expense_date: '{{today-4d}}'
+      status: Pending
+
+  - key: berlin-hotel
+    fields:
+      description: Hotel, two nights — Berlin
+      amount: 268.00
+      category: Travel
+      expense_date: '{{today-4d}}'
+      status: Pending
+
+  - key: client-dinner-lyon
+    fields:
+      description: Client dinner — Lyon, four covers
+      amount: 187.45
+      category: Meals
+      expense_date: '{{today-2d}}'
+      status: Pending
+
+  - key: design-tool-seats
+    fields:
+      description: Design tool — three additional seats
+      amount: 144.00
+      category: Software
+      expense_date: '{{today-1d}}'
+      status: Pending
+
+  - key: standing-desk
+    fields:
+      description: Standing desk converter
+      amount: 229.90
+      category: Equipment
+      expense_date: '{{today-6d}}'
+      status: Pending
+
+  - key: taxi-airport
+    fields:
+      description: Airport transfer
+      amount: 54.20
+      category: Travel
+      expense_date: '{{today-9d}}'
+      status: Approved
+
+  - key: team-lunch-q1
+    fields:
+      description: Quarterly team lunch
+      amount: 312.75
+      category: Meals
+      expense_date: '{{today-13d}}'
+      status: Approved
+
+  - key: error-tracking
+    fields:
+      description: Error-tracking subscription — annual
+      amount: 588.00
+      category: Software
+      expense_date: '{{today-16d}}'
+      status: Approved
+
+  - key: monitor-27
+    fields:
+      description: 27-inch monitor for the new starter
+      amount: 349.00
+      category: Equipment
+      expense_date: '{{today-11d}}'
+      status: Approved
+
+  - key: conference-ticket
+    fields:
+      description: Conference ticket — engineering track
+      amount: 475.00
+      category: Other
+      expense_date: '{{today-19d}}'
+      status: Approved
+
+  - key: rail-paris-brussels
+    fields:
+      description: Rail — Paris to Brussels, return
+      amount: 138.00
+      category: Travel
+      expense_date: '{{today-38d}}'
+      status: Reimbursed
+
+  - key: coffee-supplies
+    fields:
+      description: Office coffee and kitchen supplies
+      amount: 96.30
+      category: Other
+      expense_date: '{{today-41d}}'
+      status: Reimbursed
+
+  - key: password-manager
+    fields:
+      description: Password manager — team plan renewal
+      amount: 240.00
+      category: Software
+      expense_date: '{{today-47d}}'
+      status: Reimbursed
+
+  - key: headset-support
+    fields:
+      description: Noise-cancelling headset — support desk
+      amount: 179.99
+      category: Equipment
+      expense_date: '{{today-52d}}'
+      status: Reimbursed
+
+  - key: onboarding-breakfast
+    fields:
+      description: New-starter breakfast
+      amount: 63.40
+      category: Meals
+      expense_date: '{{today-58d}}'
+      status: Reimbursed
+
+  - key: first-class-upgrade
+    fields:
+      description: Seat upgrade on the Brussels train
+      amount: 84.00
+      category: Travel
+      expense_date: '{{today-26d}}'
+      status: Rejected
+
+  - key: personal-tablet
+    fields:
+      description: Tablet — no business justification given
+      amount: 649.00
+      category: Equipment
+      expense_date: '{{today-33d}}'
+      status: Rejected

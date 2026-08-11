@@ -8,6 +8,25 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Progress Field
+ *
+ * Displays a percentage value as a progress bar.
+ * Used for tracking completion status, goals, or percentages.
+ * Supports optional color customization for the progress bar.
+ * Values are typically stored as numbers between 0 and 100.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'task_completion',
+ *   type: 'progress',
+ *   required: true,
+ *   color: '#10B981'
+ * }
+ * ```
+ */
 export const ProgressFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -49,4 +68,5 @@ export const ProgressFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type ProgressField = Schema.Schema.Type<typeof ProgressFieldSchema>

@@ -5,7 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Helper functions for HTML element rendering
+ *
+ * This module provides pure functions for building element props and attributes
+ * Used by element-renderers.tsx to reduce file size and complexity
+ */
 
+/**
+ * Adds accessibility role based on element type and content
+ */
 export function buildAccessibilityRole(
   type: string,
   hasChildren: boolean,
@@ -21,6 +30,9 @@ export function buildAccessibilityRole(
   return {}
 }
 
+/**
+ * Builds scroll interaction data attributes
+ */
 export function buildScrollAttributes(interactions: unknown): Record<string, unknown> {
   const scrollInteractions = interactions as
     | {
@@ -46,6 +58,9 @@ export function buildScrollAttributes(interactions: unknown): Record<string, unk
   }
 }
 
+/**
+ * Extracts animation config from theme
+ */
 export function getAnimationConfig(theme: { animations?: unknown } | undefined) {
   const animations = theme?.animations as { fadeIn?: unknown } | undefined
   const fadeInConfig = animations?.fadeIn
@@ -54,11 +69,17 @@ export function getAnimationConfig(theme: { animations?: unknown } | undefined) 
     : undefined
 }
 
+/**
+ * Calculates stagger delay from duration
+ */
 export function calculateStaggerDelay(duration: string): number {
   const durationMs = parseInt(duration.replace('ms', ''), 10)
-  return Math.max(50, durationMs / 4)
+  return Math.max(50, durationMs / 4) // 25% of duration, min 50ms
 }
 
+/**
+ * Builds alert variant styles from theme colors
+ */
 export function buildAlertVariantStyles(
   variant: string | undefined,
   theme: { colors?: Record<string, unknown> } | undefined

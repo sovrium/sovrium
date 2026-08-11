@@ -1,0 +1,114 @@
+# Orders — what customers asked for, and when.
+id: 5
+name: orders
+fields:
+  - id: 1
+    name: order_number
+    type: autonumber
+  - id: 2
+    name: customer_name
+    type: single-line-text
+    required: true
+  - id: 3
+    name: customer_email
+    type: email
+  - id: 4
+    name: status
+    type: status
+    options:
+      - value: Draft
+        color: '#6B7280'
+      - value: Confirmed
+        color: '#2563EB'
+      - value: Picking
+        color: '#F59E0B'
+      - value: Shipped
+        color: '#16A34A'
+      - value: Cancelled
+        color: '#DC2626'
+    default: Draft
+  - id: 5
+    name: channel
+    type: single-select
+    options:
+      - Online
+      - Phone
+      - In store
+      - Wholesale
+    default: Online
+  - id: 6
+    name: fulfilment_flags
+    type: multi-select
+    options:
+      - gift wrap
+      - express
+      - partial ship
+      - signature required
+  - id: 7
+    name: placed_at
+    type: datetime
+  - id: 8
+    name: pickup_time
+    type: time
+    timeFormat: 24-hour
+  - id: 9
+    name: warehouse
+    type: relationship
+    relatedTable: warehouses
+    relationType: many-to-one
+    displayField: name
+  - id: 10
+    name: lines
+    type: relationship
+    relatedTable: order_lines
+    relationType: one-to-many
+  - id: 11
+    name: line_count
+    type: count
+    relationshipField: lines
+  # NOTE: a rollup can only aggregate a stored numeric column (integer, decimal,
+  # currency, percentage, duration) — SUM over the computed `line_total` formula
+  # is rejected at validation. Roll up `quantity` instead and read the money
+  # total from the Line total summary on the order-lines grid.
+  - id: 12
+    name: units_ordered
+    type: rollup
+    relationshipField: lines
+    relatedField: quantity
+    aggregation: SUM
+  - id: 13
+    name: shipping_cost
+    type: currency
+    currency: EUR
+    precision: 2
+  - id: 14
+    name: notes
+    type: long-text
+  - id: 15
+    name: created_at
+    type: created-at
+  - id: 16
+    name: updated_at
+    type: updated-at
+
+aiAccess:
+  description: >-
+    Customer orders. Use this when the user asks about orders, order status,
+    channels, totals, or shipping.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

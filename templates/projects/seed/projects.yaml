@@ -1,0 +1,69 @@
+# Sample portfolio for the projects demo.
+#
+# `key` is file-local — it exists so `tasks.yaml` can name a project before
+# either row has a database id. It is never written to a column.
+#
+# Statuses are spread across all four options so the dashboard's "Active
+# projects" KPI is neither zero nor the whole table, and dates straddle
+# `{{today}}` so the Gantt timeline shows work already finished, work in flight,
+# and work not started yet — a timeline where every bar begins in the future is
+# an empty chart with extra steps.
+#
+# `owner` is deliberately unseeded. It is a `user` field storing an auth user id
+# (TEXT); `sovrium seed` resolves `@table.key` references but has no vocabulary
+# for auth users, and inventing an id would render as a blank cell that looks
+# like a bug rather than an absence. Assign owners in the UI after signing in.
+records:
+  - key: atlas-replatform
+    fields:
+      name: Atlas — replatform the ordering flow
+      status: Active
+      start_date: '{{today-38d}}'
+      end_date: '{{today+52d}}'
+      progress: 45
+      budget: 180000
+
+  - key: nomad-mobile
+    fields:
+      name: Nomad — mobile companion app
+      status: Active
+      start_date: '{{today-12d}}'
+      end_date: '{{today+96d}}'
+      progress: 15
+      budget: 240000
+
+  - key: ledger-migration
+    fields:
+      name: Ledger — finance data migration
+      status: Active
+      start_date: '{{today-61d}}'
+      end_date: '{{today+9d}}'
+      progress: 80
+      budget: 74000
+
+  - key: beacon-analytics
+    fields:
+      name: Beacon — self-hosted analytics rollout
+      status: Planned
+      start_date: '{{today+21d}}'
+      end_date: '{{today+112d}}'
+      progress: 0
+      budget: 46000
+
+  - key: harbor-compliance
+    fields:
+      name: Harbor — GDPR compliance review
+      status: On hold
+      start_date: '{{today-27d}}'
+      end_date: '{{today+40d}}'
+      progress: 30
+      budget: 32000
+
+  - key: quarry-warehouse
+    fields:
+      name: Quarry — warehouse stock sync
+      status: Done
+      start_date: '{{today-134d}}'
+      end_date: '{{today-23d}}'
+      progress: 100
+      budget: 58000

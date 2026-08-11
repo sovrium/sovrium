@@ -10,6 +10,14 @@ import { text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 import { automationDefinitions } from './automation'
 import { systemSchema } from './migration-audit'
 
+/**
+ * Automation Digest Buckets Table
+ *
+ * Digest buckets accumulate items over time before releasing them as a batch.
+ * Used by digest:collect and digest:release automation actions.
+ *
+ * Status lifecycle: collecting → released
+ */
 export const automationDigestBuckets = systemSchema.table(
   'automation_digest_buckets',
   {
@@ -30,6 +38,12 @@ export const automationDigestBuckets = systemSchema.table(
   ]
 )
 
+/**
+ * Automation Digest Items Table
+ *
+ * Individual items collected into a digest bucket. Items are stored as JSONB
+ * for flexible payload storage. Optional dedupeKey prevents duplicate items.
+ */
 export const automationDigestItems = systemSchema.table(
   'automation_digest_items',
   {
@@ -49,6 +63,7 @@ export const automationDigestItems = systemSchema.table(
   ]
 )
 
+// Type inference
 export type AutomationDigestBucket = typeof automationDigestBuckets.$inferSelect
 export type NewAutomationDigestBucket = typeof automationDigestBuckets.$inferInsert
 export type AutomationDigestItem = typeof automationDigestItems.$inferSelect

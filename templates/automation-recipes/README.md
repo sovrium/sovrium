@@ -34,6 +34,13 @@ Zero-config: embedded SQLite, local file storage, no env vars required to boot. 
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
 email, AI).
 
+Load the sample activity — eight leads across all four sources, and the activity-log rows
+recipe 2 writes for them:
+
+```bash
+sovrium seed app.yaml
+```
+
 ## Deploy
 
 The **Deploy on Scalingo** button above provisions the app with a PostgreSQL addon

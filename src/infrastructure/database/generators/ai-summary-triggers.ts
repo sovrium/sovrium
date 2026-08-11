@@ -18,12 +18,43 @@ import {
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+/**
+ * AI Summary field shape (narrowed from Fields union).
+ */
 type AiSummaryField = Extract<Fields[number], { readonly type: 'ai-summary' }>
 
+/**
+ * NOTIFY payload kind for ai-summary fields. The `AiComputeListener` discriminates
+ * on this value to choose between categorize-style and summary-style prompts.
+ */
 const SUMMARY_PAYLOAD_KIND = 'summary'
 
+/**
+ * Default placeholder character cap. The synchronous baseline value is a
+ * deterministic excerpt so the column is non-NULL inside the INSERT
+ * transaction. Capped to keep the baseline short and predictable.
+ *
+ * Sourced from the shared baseline module so the emitted PL/pgSQL
+ * `left(btrim(source_content), cap)` and the pure-TS
+ * `computeAiSummaryBaseline` agree on the default cap — see the TS↔SQL parity
+ * unit test in `baseline-sql-parity.test.ts`.
+ */
 const DEFAULT_PLACEHOLDER_CAP = DEFAULT_SUMMARY_CAP
 
+/**
+ * Guard block for the summary function.
+ *
+ * Summary semantics match translate's: a changed source must re-summarise, so
+ * the guard does *not* blanket-preserve an existing non-NULL value on UPDATE.
+ * Instead:
+ *
+ * - INSERT: preserve an explicit non-empty user value.
+ * - UPDATE: if the source field(s) did not change, leave the row untouched
+ *   (no recompute, no AI NOTIFY — avoids wasteful provider calls when an
+ *   unrelated column is updated). If the user changed the summary column
+ *   directly in this same statement, honour that override.
+ * - Either op: NULL out the column when the source content is empty.
+ */
 const buildSummaryGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-empty user value.
   IF TG_OP = 'INSERT' THEN
@@ -48,6 +79,14 @@ const buildSummaryGuardSql = (fieldName: string, sourceFields: readonly string[]
     RETURN NEW;
   END IF;`
 
+/**
+ * Placeholder selection + NOTIFY block for summary fields.
+ *
+ * The deterministic placeholder is a trimmed excerpt of the concatenated
+ * source content, capped at either `maxLength` (when set) or
+ * `DEFAULT_PLACEHOLDER_CAP`. The NOTIFY payload carries `kind: 'summary'` so
+ * the listener invokes the summary prompt path rather than the categorize one.
+ */
 const buildSummaryNotifySql = (
   field: AiSummaryField,
   sanitized: string,
@@ -86,6 +125,19 @@ const buildSummaryNotifySql = (
   RETURN NEW;`
 }
 
+/**
+ * Build the full set of SQL statements (function + drop + create trigger) for
+ * a single ai-summary field. Returns `[]` when `computeOn === 'manual'`,
+ * matching the user-story expectation that manual fields stay NULL until
+ * explicitly triggered.
+ *
+ * The function fills the column with a deterministic excerpt of the source
+ * content so the column is non-NULL inside the same transaction as the
+ * INSERT. The NOTIFY payload tells the listener to invoke the AI provider
+ * for the canonical free-form summary (observational only — the trigger
+ * value is authoritative for the synchronous SELECT immediately after
+ * INSERT, matching the categorize pattern).
+ */
 const buildSummaryTriggerSql = (field: AiSummaryField, sanitized: string): readonly string[] => {
   if (field.computeOn === 'manual') return []
 
@@ -104,6 +156,26 @@ ${buildSummaryNotifySql(field, sanitized, fieldName)}`
   })
 }
 
+/**
+ * Generate a BEFORE INSERT/UPDATE trigger that produces a deterministic
+ * placeholder summary and emits a NOTIFY so the application-layer
+ * `AiComputeListener` can invoke the real AI provider for the canonical
+ * free-form summary.
+ *
+ * Why a placeholder?
+ *
+ * PostgreSQL triggers cannot make outbound HTTP calls in PL/pgSQL, so the
+ * synchronous trigger writes a non-NULL excerpt of the concatenated source
+ * content (capped at `maxLength` or `DEFAULT_PLACEHOLDER_CAP`). This lets
+ * tests asserting on `summary` immediately after INSERT see a string value
+ * (matching the synchronous-first contract used by the categorize triggers).
+ * The NOTIFY payload includes `kind: 'summary'` so the listener picks the
+ * summary prompt template; the AI response itself is currently used only
+ * for audit / observability (see `AiComputeListener.handlePayload`).
+ *
+ * `computeOn: 'manual'` produces zero statements — the field stays NULL
+ * until explicitly triggered by an out-of-band mechanism.
+ */
 export const generateAiSummaryTriggers = (table: Table): readonly string[] => {
   const aiSummaryFields = table.fields.filter(
     (field): field is AiSummaryField => field.type === 'ai-summary'

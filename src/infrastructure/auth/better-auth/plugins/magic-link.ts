@@ -9,6 +9,9 @@ import { magicLink } from 'better-auth/plugins'
 import { hasStrategy } from '@/domain/models/app/auth'
 import type { Auth } from '@/domain/models/app/auth'
 
+/**
+ * Build magic link plugin if enabled in auth configuration
+ */
 export const buildMagicLinkPlugin = (
   sendMagicLink: (data: {
     readonly user: { readonly email: string }

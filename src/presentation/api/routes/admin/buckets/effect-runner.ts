@@ -8,6 +8,14 @@
 import { Effect } from 'effect'
 import { AdminBucketFilesLayer } from '@/application/use-cases/admin/bucket-files'
 
+/**
+ * Provide AdminBucketFilesLayer to an Effect program.
+ *
+ * Isolates the infrastructure import (the repository Live layer, bundled in
+ * `AdminBucketFilesLayer`) so the admin/buckets file-browser route handler
+ * depends only on the application layer. This is the composition root for
+ * `GET /api/admin/buckets/:bucketName/files`.
+ */
 export function provideAdminBucketFilesLive<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {

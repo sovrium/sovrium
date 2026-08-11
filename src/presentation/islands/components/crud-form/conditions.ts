@@ -7,6 +7,14 @@
 
 import type { ConditionRule, FieldDef } from './fields'
 
+/**
+ * Pure condition evaluation helpers shared by the island's submit gate and
+ * the layout components (FormFields / FormBody) that render conditionally
+ * visible/required/disabled fields.
+ *
+ * Kept side-effect-free so both server-side guard logic and client-side
+ * render logic can reuse the same predicates.
+ */
 
 function evaluateSimpleCondition(
   operator: string,

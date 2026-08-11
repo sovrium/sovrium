@@ -8,7 +8,21 @@
 import { Schema } from 'effect'
 import { HttpUrlOrRecordTemplateSchema } from '@/domain/types/url'
 
+// ============================================================================
+// Open Graph
+// ============================================================================
 
+/**
+ * Open Graph content type
+ *
+ * 6 standard Open Graph types for different content:
+ * - website: General websites, landing pages (most common, default)
+ * - article: Blog posts, news articles
+ * - book: Book pages, publications
+ * - profile: Personal or company profiles
+ * - video: Video content pages
+ * - music: Music content, albums
+ */
 export const OpenGraphTypeSchema = Schema.Literal(
   'website',
   'article',
@@ -20,6 +34,11 @@ export const OpenGraphTypeSchema = Schema.Literal(
   description: 'Open Graph object type',
 })
 
+/**
+ * Open Graph locale format
+ *
+ * Language and territory format: [language]_[TERRITORY]
+ */
 export const OpenGraphLocaleSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z]{2}_[A-Z]{2}$/, {
     message: () =>
@@ -30,10 +49,21 @@ export const OpenGraphLocaleSchema = Schema.String.pipe(
   examples: ['en_US', 'fr_FR', 'es_ES'],
 })
 
+/**
+ * Open Graph determiner
+ *
+ * Grammatical article that appears before the title in share messages.
+ */
 export const OpenGraphDeterminerSchema = Schema.Literal('a', 'an', 'the', 'auto', '').annotations({
   description: 'Word that appears before the title',
 })
 
+/**
+ * Open Graph protocol metadata for rich social media sharing
+ *
+ * Defines how pages appear when shared on Facebook, LinkedIn, and other platforms
+ * supporting the Open Graph protocol.
+ */
 export const OpenGraphSchema = Schema.Struct({
   title: Schema.optional(
     Schema.String.pipe(Schema.maxLength(90)).annotations({
@@ -83,7 +113,10 @@ export const OpenGraphSchema = Schema.Struct({
   description: 'Open Graph protocol metadata for rich social media sharing',
 })
 
+/** @public */
 export type OpenGraphType = Schema.Schema.Type<typeof OpenGraphTypeSchema>
+/** @public */
 export type OpenGraphLocale = Schema.Schema.Type<typeof OpenGraphLocaleSchema>
+/** @public */
 export type OpenGraphDeterminer = Schema.Schema.Type<typeof OpenGraphDeterminerSchema>
 export type OpenGraph = Schema.Schema.Type<typeof OpenGraphSchema>

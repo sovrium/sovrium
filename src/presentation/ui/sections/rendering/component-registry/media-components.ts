@@ -13,10 +13,25 @@ import {
   computeVideoPlayerClasses,
 } from '../../renderers/element-renderers/recipes/interactive-content-default-classes'
 import { mergePrestyle } from './interactive-prestyle-builders'
-import type { ComponentRenderer } from '../component-dispatch-config'
-import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentRenderer, DispatchableComponentType } from '../component-dispatch-config'
 
-export const mediaComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
+/**
+ * Media components (image, video, audio, iframe, etc.)
+ *
+ * These components render media content and embedded elements. Each variant
+ * gets a prestyled default className from
+ * `interactive-content-default-classes.ts` ([internal ref], prestyled-by-default)
+ * so a bare schema-author `{ type: 'image', src: '...' }` renders with the
+ * canonical Sovrium surface chrome (radius / border / object-fit) without
+ * the author spelling any classes.
+ *
+ * The `image` variant branches (`avatar` / `thumbnail` / `hero`) keep their
+ * existing dedicated renderers because those already paint their own radius
+ * recipe (full / md / lg-top). Only the bare `default` variant routes through
+ * `computeImageClasses` — applying the helper across all four variants would
+ * fight the radius these renderers already set.
+ */
+export const mediaComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   image: ({ elementProps, component }) => {
     const variant = (component as Record<string, unknown> | undefined)?.variant as
       string | undefined

@@ -15,6 +15,11 @@ import {
   upsertRecords,
 } from '@/infrastructure/database/table-queries'
 
+/**
+ * Live implementation of BatchRepository using table-queries infrastructure
+ *
+ * Maps port method names to infrastructure function names.
+ */
 export const BatchRepositoryLive = Layer.succeed(BatchRepository, {
   batchCreate: batchCreateRecords,
   batchUpdate: batchUpdateRecords,

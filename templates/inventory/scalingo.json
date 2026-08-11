@@ -1,0 +1,50 @@
+{
+  "name": "Sovrium Inventory",
+  "description": "Products, stock, and orders — an Airtable alternative you own.",
+  "repository": "https://github.com/sovrium/inventory-template",
+  "logo": "https://sovrium.com/logo.png",
+  "website": "https://sovrium.com/apps/inventory",
+  "env": {
+    "BUILDPACK_URL": {
+      "description": "Sovrium buildpack — downloads the released, checksum-verified sovrium binary and boots the app config (Scalingo does not build Dockerfiles).",
+      "value": "https://github.com/sovrium/scalingo-buildpack",
+      "required": true
+    },
+    "SOVRIUM_ENCRYPTION_KEY": {
+      "description": "Master key for encrypting stored credentials at rest (AES-256-GCM). Optional — the app generates and persists one on first start if unset. Keep it set here: the container filesystem is ephemeral, so a generated key would not survive a restart.",
+      "generator": "secret",
+      "required": false
+    },
+    "BASE_URL": {
+      "description": "Public URL of this app (e.g. https://my-inventory.osc-fr1.scalingo.io). Used for auth callbacks and absolute links.",
+      "required": true
+    },
+    "AUTH_ADMIN_EMAIL": {
+      "description": "Bootstrap the first admin account on first start (optional — you can also run `sovrium admin create <email>` later).",
+      "required": false
+    },
+    "AUTH_ADMIN_PASSWORD": {
+      "description": "Password for the bootstrap admin account (used with AUTH_ADMIN_EMAIL).",
+      "required": false
+    },
+    "AI_PROVIDER": {
+      "description": "AI provider for the assistant and the AI columns on suppliers (openai | anthropic | mistral | google | ollama). Leave empty to run without them.",
+      "required": false
+    },
+    "AI_API_KEY": {
+      "description": "API key for the chosen cloud AI provider (not needed for ollama).",
+      "required": false
+    }
+  },
+  "addons": [
+    {
+      "plan": "postgresql:postgresql-starter-512"
+    }
+  ],
+  "formation": {
+    "web": {
+      "amount": 1,
+      "size": "S"
+    }
+  }
+}

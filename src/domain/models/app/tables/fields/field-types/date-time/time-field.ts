@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Time Field
+ *
+ * Stores time-only values without a date component (PostgreSQL TIME).
+ * Used for schedules, opening hours, and time slots.
+ * Returns HH:MM:SS format in API responses.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'start_time',
+ *   type: 'time',
+ *   required: true,
+ *   timeFormat: '24-hour'
+ * }
+ * ```
+ */
 export const TimeFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({

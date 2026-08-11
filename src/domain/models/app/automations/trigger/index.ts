@@ -16,6 +16,9 @@ import { ManualTriggerSchema } from './manual'
 import { RecordTriggerSchema } from './record'
 import { WebhookTriggerSchema } from './webhook'
 
+/**
+ * Union of all trigger types
+ */
 export const TriggerSchema = Schema.Union(
   WebhookTriggerSchema,
   CronTriggerSchema,
@@ -35,9 +38,12 @@ export const TriggerSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type Trigger = Schema.Schema.Type<typeof TriggerSchema>
+/** @public */
 export type TriggerEncoded = Schema.Schema.Encoded<typeof TriggerSchema>
 
+// Re-export all trigger type schemas
 export * from './auth'
 export * from './automation-call'
 export * from './automation-failure'

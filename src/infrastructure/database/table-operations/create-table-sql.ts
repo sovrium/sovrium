@@ -15,10 +15,24 @@ import {
   generateCreatedAtColumn,
   generateUpdatedAtColumn,
   generateDeletedAtColumn,
-  generatePrimaryKeyConstraintIfNeeded,
 } from './column-generators'
 import type { Table } from '@/domain/models/app/tables'
 
+/**
+ * Whether the automatic-id column should declare `PRIMARY KEY` inline on the column.
+ *
+ *, the SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` contract requires
+ * the PK to be declared inline on the column — a separate table-level
+ * `PRIMARY KEY (id)` constraint under a bare `INTEGER` column will not
+ * auto-generate values. On Postgres an inline `PRIMARY KEY` is also valid,
+ * so this is dialect-agnostic.
+ *
+ * Two cases require inline-PK:
+ *   1. The schema author declared `primaryKey: { fields: ['id'] }` explicitly.
+ *   2. The default automatic-id path (no `primaryKey` declared at all) — the
+ *      automatic id column gets the inline PK so its `AUTOINCREMENT`/`SERIAL`
+ *      default actually fires.
+ */
 const requiresInlineIdPk = (table: Table, primaryKeyFields: readonly string[]): boolean => {
   const explicitPkOnId = primaryKeyFields.length === 1 && primaryKeyFields[0] === 'id'
   const defaultAutomaticIdPath =
@@ -26,6 +40,19 @@ const requiresInlineIdPk = (table: Table, primaryKeyFields: readonly string[]): 
   return explicitPkOnId || defaultAutomaticIdPath
 }
 
+/**
+ * Generate CREATE TABLE statement
+ * When table has lookup fields, creates a base table (_base suffix) and will later create a VIEW
+ *
+ * @param table - Table definition
+ * @param tableUsesView - Map of table names to whether they use a VIEW
+ * @param skipForeignKeys - Skip foreign key constraints (for circular dependencies)
+ * @param hasAuthConfig - Whether the app has an auth config (affects NOT NULL on user fields)
+ * @param tablePrimaryKeyTypes - Map of table name → `primaryKey.type`, used to
+ *   resolve `relationship` FK column types to match the referenced table's PK
+ *   type. Threaded alongside `tableUsesView` (built from the same table list).
+ */
+/* eslint-disable max-params -- extends an existing positional DDL-generator API; bundling into an options object would churn its call sites */
 export const generateCreateTableSQL = (
   table: Table,
   tableUsesView?: ReadonlyMap<string, boolean>,
@@ -33,17 +60,28 @@ export const generateCreateTableSQL = (
   hasAuthConfig: boolean = true,
   tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string => {
+  /* eslint-enable max-params */
+  // Sanitize table name for PostgreSQL (lowercase, underscores)
   const sanitized = sanitizeTableName(table.name)
+  // Determine table name (add _base suffix if using VIEW for lookup fields)
   const tableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
 
+  // Identify primary key fields
   const primaryKeyFields =
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
 
+  // Generate automatic id column based on primary key type.
+  //, declare PRIMARY KEY inline on the id column whenever the
+  // automatic-id path produces it (see `requiresInlineIdPk` helper).
   const primaryKeyOnId = requiresInlineIdPk(table, primaryKeyFields)
   const idColumnDefinition = needsAutomaticIdColumn(table, primaryKeyFields)
     ? [generateIdColumn(table.primaryKey?.type, primaryKeyOnId)]
     : []
 
+  // Filter out UI-only fields (like button), lookup fields, rollup fields, and
+  // view-computed formulas (handled by VIEW). Lookup/rollup fields and formulas
+  // that reference them don't exist as columns in the base table — they are
+  // computed in the VIEW's CTE instead.
   const columnDefinitions = table.fields
     .filter(
       (field) =>
@@ -53,6 +91,8 @@ export const generateCreateTableSQL = (
         !isViewComputedFormula(field, table.fields)
     )
     .map((field) => {
+      // Only add inline PRIMARY KEY for single-field composite keys (handled by generateSerialColumn)
+      // Multi-field composite keys must have PRIMARY KEY at table level to avoid "multiple primary keys" error
       const isPrimaryKey = primaryKeyFields.includes(field.name) && primaryKeyFields.length === 1
       return generateColumnDefinition(
         field,
@@ -63,6 +103,7 @@ export const generateCreateTableSQL = (
       )
     })
 
+  // Add PRIMARY KEY constraint on id if no custom primary key is defined
   const tableConstraints = generateTableConstraints(table, tableUsesView, skipForeignKeys)
 
   const allDefinitions = [
@@ -72,7 +113,6 @@ export const generateCreateTableSQL = (
     ...generateDeletedAtColumn(table),
     ...columnDefinitions,
     ...tableConstraints,
-    ...generatePrimaryKeyConstraintIfNeeded(table, primaryKeyFields),
   ]
 
   return `CREATE TABLE IF NOT EXISTS ${tableName} (

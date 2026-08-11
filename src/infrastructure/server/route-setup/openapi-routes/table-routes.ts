@@ -18,9 +18,15 @@ import {
   jsonResponse,
 } from './_shared/route-spec'
 
+/**
+ * Table routes — split into a collection-level group (`GET /api/tables`, not
+ * scoped to any table) and a per-table group (table metadata, resource-scoped
+ * to the configured tables and tagged `Table: <name>`).
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
+/** Table collection routes — not scoped to a specific table. */
 export const tableCollectionGroup: StaticGroupSpec = {
   tag: 'tables',
   tagDescription: 'Table management endpoints',
@@ -67,6 +73,7 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/** Per-table metadata route group — resource-scoped to the configured tables. */
 export const tableGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Table',
   genericTag: 'tables',

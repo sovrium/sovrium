@@ -7,7 +7,19 @@
 
 import { Schema } from 'effect'
 
+// ============================================================================
+// Twitter Card
+// ============================================================================
 
+/**
+ * Twitter Card type
+ *
+ * 4 card formats for different content types:
+ * - summary: Small square image (144x144px, 1:1 aspect)
+ * - summary_large_image: Large rectangular image (800x418px, 1.91:1)
+ * - app: Mobile app promotion with install button
+ * - player: Video/audio player embed
+ */
 export const TwitterCardTypeSchema = Schema.Literal(
   'summary',
   'summary_large_image',
@@ -17,6 +29,11 @@ export const TwitterCardTypeSchema = Schema.Literal(
   description: 'Type of Twitter Card',
 })
 
+/**
+ * Twitter username pattern
+ *
+ * Twitter @username format: starts with @ followed by alphanumeric and underscores.
+ */
 export const TwitterUsernameSchema = Schema.String.pipe(
   Schema.pattern(/^@[A-Za-z0-9_]+$/, {
     message: () =>
@@ -27,6 +44,9 @@ export const TwitterUsernameSchema = Schema.String.pipe(
   examples: ['@mysite', '@johndoe'],
 })
 
+/**
+ * App name configuration for Twitter App Card
+ */
 export const TwitterAppNameSchema = Schema.Struct({
   iPhone: Schema.optional(Schema.String.annotations({ description: 'App name for iPhone' })),
   iPad: Schema.optional(Schema.String.annotations({ description: 'App name for iPad' })),
@@ -37,6 +57,9 @@ export const TwitterAppNameSchema = Schema.Struct({
   description: 'Name of app (for app cards)',
 })
 
+/**
+ * App ID configuration for Twitter App Card
+ */
 export const TwitterAppIdSchema = Schema.Struct({
   iPhone: Schema.optional(Schema.String.annotations({ description: 'App Store ID for iPhone' })),
   iPad: Schema.optional(Schema.String.annotations({ description: 'App Store ID for iPad' })),
@@ -47,6 +70,13 @@ export const TwitterAppIdSchema = Schema.Struct({
   description: 'App ID in respective stores',
 })
 
+/**
+ * App URL configuration for Twitter App Card
+ *
+ * Deep-link URLs that open the native app on the corresponding platform when
+ * tapped from Twitter/X. Falls back to the web URL when the app is not
+ * installed.
+ */
 export const TwitterAppUrlSchema = Schema.Struct({
   iPhone: Schema.optional(
     Schema.String.annotations({ description: 'Deep-link URL for iPhone app' })
@@ -59,6 +89,15 @@ export const TwitterAppUrlSchema = Schema.Struct({
   description: 'Deep-link URL to open app in respective stores',
 })
 
+/**
+ * CORS setting for Twitter Card resources
+ * @public
+ */
+/**
+ * Twitter Card metadata for rich Twitter/X sharing
+ *
+ * Defines how pages appear when shared on Twitter/X platform.
+ */
 export const TwitterCardSchema = Schema.Struct({
   card: TwitterCardTypeSchema,
   title: Schema.optional(
@@ -112,9 +151,15 @@ export const TwitterCardSchema = Schema.Struct({
   description: 'Twitter Card metadata for rich Twitter/X sharing',
 })
 
+/** @public */
 export type TwitterCardType = Schema.Schema.Type<typeof TwitterCardTypeSchema>
+/** @public */
 export type TwitterUsername = Schema.Schema.Type<typeof TwitterUsernameSchema>
+/** @public */
 export type TwitterAppName = Schema.Schema.Type<typeof TwitterAppNameSchema>
+/** @public */
 export type TwitterAppId = Schema.Schema.Type<typeof TwitterAppIdSchema>
+/** @public */
 export type TwitterAppUrl = Schema.Schema.Type<typeof TwitterAppUrlSchema>
+/** @public */
 export type TwitterCard = Schema.Schema.Type<typeof TwitterCardSchema>

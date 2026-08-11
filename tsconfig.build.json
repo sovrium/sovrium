@@ -7,7 +7,15 @@
     "rootDir": "src",
     "outDir": "dist",
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+
+    // MUST differ from the inherited `tsconfig.json` path. Without this
+    // override both configs write the SAME `.tsbuildinfo`, and the two runs
+    // have incompatible jobs: `bun run typecheck` is `--noEmit`, this one emits
+    // declarations. Sharing one cache made each invalidate the other's work, so
+    // every `bun run build` cold-busted the `quality` typecheck cache and vice
+    // versa. Separate files keep both caches warm independently.
+    "tsBuildInfoFile": "./node_modules/.cache/tsc/tsconfig.build.tsbuildinfo"
   },
   "include": ["src"],
   "exclude": [

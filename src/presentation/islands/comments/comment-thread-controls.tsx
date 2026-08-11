@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-perf/jsx-no-new-function-as-prop, unicorn/no-null -- conventional React event-handler pattern; ReactElement | null return is canonical React component contract. */
 
+/**
+ * Comment-thread pagination + sort controls. Extracted from the main island
+ * file to respect the per-island `max-lines: 250` cap.
+ */
 
 import type { ReactElement } from 'react'
 

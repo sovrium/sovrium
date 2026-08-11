@@ -33,6 +33,7 @@ function MappingRow({
     <div
       data-column={mapping.csvColumn}
       className="border-border relative flex items-center gap-2 rounded border px-3 py-2"
+      // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-row hover handler closes over loop-variable `index`; useCallback inside.map has equivalent allocation cost. React Compiler will memoize this once enabled in Bun.
       onMouseEnter={() => onMouseEnter(index)}
       onMouseLeave={onMouseLeave}
     >
@@ -41,6 +42,7 @@ function MappingRow({
       <ColumnMappingSelect
         value={mapping.tableField}
         tableFields={tableFields}
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-row change handler closes over loop-variable `index`; useCallback inside.map has equivalent allocation cost. React Compiler will memoize this once enabled in Bun.
         onChange={(field) => onMappingChange(index, field)}
       />
       {hovered && sampleValues.length > 0 && (

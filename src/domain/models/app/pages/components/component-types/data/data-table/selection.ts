@@ -7,10 +7,22 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Row selection configuration.
+ *
+ * @example
+ * ```yaml
+ * selection:
+ *   mode: multiple
+ *   showCheckboxes: true
+ * ```
+ */
 export const DataTableSelectionSchema = Schema.Struct({
+  /** Selection mode */
   mode: Schema.Literal('none', 'single', 'multiple').annotations({
     description: 'Row selection mode (default: none)',
   }),
+  /** Show checkbox column (default: true when mode is multiple) */
   showCheckboxes: Schema.optional(
     Schema.Boolean.annotations({
       description: 'Show checkbox column (default: true when mode is multiple)',

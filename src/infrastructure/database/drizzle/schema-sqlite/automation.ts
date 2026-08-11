@@ -9,7 +9,16 @@ import { text, integer, index } from 'drizzle-orm/sqlite-core'
 import { users } from './auth-tables'
 import { systemTable } from './table-helpers'
 
+/**
+ * Automation tables — sqlite-core mirror of `schema/automation.ts`.
+ */
 
+/**
+ * Automation Definitions Table
+ *
+ * Stores automation configurations (trigger, actions, retry, status).
+ * Each row represents a registered automation in the system.
+ */
 export const automationDefinitions = systemTable(
   'automation_definitions',
   {
@@ -36,6 +45,11 @@ export const automationDefinitions = systemTable(
   (table) => [index('automation_definitions_name_idx').on(table.name)]
 )
 
+/**
+ * Automation Runs Table
+ *
+ * Tracks execution history of automations including status, duration, and errors.
+ */
 export const automationRuns = systemTable(
   'automation_runs',
   {
@@ -47,6 +61,16 @@ export const automationRuns = systemTable(
       .references(() => automationDefinitions.id, { onDelete: 'cascade' }),
     status: text('status').notNull().default('pending'),
     triggerData: text('trigger_data', { mode: 'json' }),
+    /**
+     * The user whose action caused this run, or SQL NULL when the system
+     * caused it (cron, `automation:call`). Never the empty string and never a
+     * sentinel, so `WHERE triggered_by_user_id IS NULL` is the whole of the
+     * system-initiated predicate.
+     *
+     * `ON DELETE SET NULL` mirrors `automation_approval_requests.requested_by_id`
+     * and `audit_log.actor_id`: erasing a user sheds the identifier while the
+     * run history itself survives (GDPR Art. 17).
+     */
     triggeredByUserId: text('triggered_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
@@ -66,6 +90,11 @@ export const automationRuns = systemTable(
   ]
 )
 
+/**
+ * Automation Run Steps Table
+ *
+ * Per-step execution detail (input, output, duration, error) within a run.
+ */
 export const automationRunSteps = systemTable(
   'automation_run_steps',
   {
@@ -88,6 +117,11 @@ export const automationRunSteps = systemTable(
   (table) => [index('automation_run_steps_runId_idx').on(table.runId)]
 )
 
+/**
+ * Automation Scheduled Jobs Table
+ *
+ * Tracks cron-scheduled automation next-run times.
+ */
 export const automationScheduledJobs = systemTable(
   'automation_scheduled_jobs',
   {
@@ -106,6 +140,11 @@ export const automationScheduledJobs = systemTable(
   (table) => [index('automation_scheduled_jobs_nextRunAt_idx').on(table.nextRunAt)]
 )
 
+/**
+ * Automation Delayed Steps Table
+ *
+ * Tracks paused delay actions awaiting resume time.
+ */
 export const automationDelayedSteps = systemTable(
   'automation_delayed_steps',
   {
@@ -125,6 +164,14 @@ export const automationDelayedSteps = systemTable(
   (table) => [index('automation_delayed_steps_resumeAt_idx').on(table.resumeAt)]
 )
 
+/**
+ * Automation Approval Requests Table
+ *
+ * Pending human approval requests with timeout and escalation. Used both by
+ * automation steps (where `runId` references an automation run) and by AI
+ * agent action approvals (where `runId` is null and `agentName` identifies
+ * the requesting agent). The `stepIndex` column is 0 for agent approvals.
+ */
 export const automationApprovalRequests = systemTable(
   'automation_approval_requests',
   {
@@ -137,12 +184,19 @@ export const automationApprovalRequests = systemTable(
     approvedById: text('approved_by_id').references(() => users.id, { onDelete: 'set null' }),
     status: text('status').notNull().default('pending'),
     message: text('message'),
+    /** Agent name when this approval is for an AI agent action (null for automation steps) */
     agentName: text('agent_name'),
+    /** JSON-encoded agent action descriptor (action, table, recordId, fields) */
     actionPayload: text('action_payload', { mode: 'json' }),
+    /** True once the underlying action has been executed */
     actionExecuted: integer('action_executed', { mode: 'boolean' }).notNull().default(false),
+    /** Identity the action executed as (the agent name) */
     executedAs: text('executed_as'),
+    /** Approval timeout in seconds */
     timeoutSeconds: integer('timeout_seconds'),
+    /** True once the request has been escalated */
     escalated: integer('escalated', { mode: 'boolean' }).notNull().default(false),
+    /** Role the request was escalated to */
     escalatedTo: text('escalated_to'),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
     respondedAt: integer('responded_at', { mode: 'timestamp_ms' }),
@@ -157,6 +211,7 @@ export const automationApprovalRequests = systemTable(
   ]
 )
 
+// Type inference
 export type AutomationDefinition = typeof automationDefinitions.$inferSelect
 export type NewAutomationDefinition = typeof automationDefinitions.$inferInsert
 export type AutomationRun = typeof automationRuns.$inferSelect

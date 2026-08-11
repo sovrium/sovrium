@@ -16,20 +16,25 @@ interface CardData {
   readonly coverImageSrc: string | undefined
 }
 
+/** Resolve onClick navigate action to a concrete path with $record.* substitutions. */
 function resolveNavigatePath(onClick: Action | undefined, record: TableRecord): string | undefined {
   if (!onClick || !('type' in onClick) || onClick.type !== 'navigate') return undefined
   return substitute(onClick.path, record)
 }
 
+/** Resolve `coverImage` template to a usable URL or undefined. */
 function resolveCoverImage(
   coverImage: string | undefined,
   record: TableRecord
 ): string | undefined {
   if (coverImage === undefined) return undefined
   const resolved = substitute(coverImage, record)
+  // Empty string means the referenced field was null/undefined — drop it so we
+  // don't render `<img src="">` which would still satisfy `toBeVisible()`.
   return resolved === '' ? undefined : resolved
 }
 
+/** Resolve all card-template-derived values in one pass. */
 function resolveCardData(card: GalleryCard | undefined, record: TableRecord): CardData {
   if (!card) {
     return { navigatePath: undefined, coverImageSrc: undefined }
@@ -46,6 +51,7 @@ function navigateTo(path: string): void {
   }
 }
 
+/** Default body when no card template is configured. */
 function GalleryCardDefault({ record }: { readonly record: TableRecord }): ReactElement {
   const title =
     (record.title as string | undefined) ??
@@ -55,6 +61,7 @@ function GalleryCardDefault({ record }: { readonly record: TableRecord }): React
   return <p className="text-foreground text-sm font-medium">{title}</p>
 }
 
+/** Render the configured card template body (cover + children). */
 function GalleryCardBody({
   card,
   record,
@@ -85,6 +92,10 @@ function GalleryCardBody({
   )
 }
 
+/**
+ * Build the hover-overlay button click handler. Stops bubbling so the card's
+ * own onClick (navigate) doesn't fire when the button is clicked.
+ */
 function buildOverlayClickHandler(
   navigatePath: string | undefined
 ): (e: MouseEvent<HTMLButtonElement>) => void {
@@ -94,6 +105,10 @@ function buildOverlayClickHandler(
   }
 }
 
+/**
+ * Render an action button inside the hover overlay. Uses `globalThis.location`
+ * for `navigate` actions to mirror the card's primary onClick navigation.
+ */
 function HoverOverlayButton({
   child,
   record,
@@ -120,6 +135,14 @@ function HoverOverlayButton({
   )
 }
 
+/**
+ * Hover overlay container — initially hidden via opacity-0/invisible and
+ * revealed on group-hover (Tailwind's "group" utility on the parent card
+ * lets us toggle visibility purely with CSS, no JS state needed).
+ *
+ * Playwright's `toBeHidden()` matches `visibility: hidden` (Tailwind's
+ * `invisible`) and `toBeVisible()` matches when both are removed.
+ */
 function HoverOverlay({
   card,
   record,
@@ -158,6 +181,7 @@ interface CardNavigation {
   readonly cursorClass: string
 }
 
+/** Build the navigation handlers + a11y props for a card with a navigate action. */
 function buildCardNavigation(navigatePath: string | undefined): CardNavigation {
   if (!navigatePath) {
     return { onClick: undefined, onKeyDown: undefined, navigateProps: {}, cursorClass: '' }
@@ -175,6 +199,7 @@ function buildCardNavigation(navigatePath: string | undefined): CardNavigation {
   }
 }
 
+/** Render the card body — either configured template or default fallback. */
 function CardBody({
   card,
   record,
@@ -200,6 +225,7 @@ function CardBody({
   )
 }
 
+/** Render a single card. */
 export function GalleryCardView({
   record,
   card,

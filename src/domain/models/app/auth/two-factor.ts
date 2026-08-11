@@ -7,6 +7,27 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Two-Factor Authentication Plugin Configuration
+ *
+ * Enables TOTP-based two-factor authentication.
+ * Users can set up 2FA using authenticator apps.
+ *
+ * Configuration options:
+ * - issuer: Name shown in authenticator apps (e.g., "MyApp")
+ * - backupCodes: Generate backup codes for account recovery
+ * - digits: Number of digits in TOTP code — 6 or 8 (default: 6)
+ * - period: Time period for code rotation in seconds (default: 30)
+ *
+ * @example
+ * ```typescript
+ * // Simple enable
+ * { plugins: { twoFactor: true } }
+ *
+ * // With configuration
+ * { plugins: { twoFactor: { issuer: 'MyApp', backupCodes: true } } }
+ * ```
+ */
 export const TwoFactorConfigSchema = Schema.Union(
   Schema.Boolean,
   Schema.Struct({
@@ -18,6 +39,13 @@ export const TwoFactorConfigSchema = Schema.Union(
     backupCodes: Schema.optional(
       Schema.Boolean.pipe(Schema.annotations({ description: 'Generate backup codes for recovery' }))
     ),
+    /**
+     * TOTP code length. Narrowed to the two values the TOTP implementation
+     * accepts: `Schema.between(4, 8)` also admitted 4, 5, 7 and non-integers
+     * like 6.5, which the plugin then had to force through an unsound
+     * `as 6 | 8` cast. Rejecting them here is the only feedback channel a
+     * config author has.
+     */
     digits: Schema.optional(
       Schema.Literal(6, 8).pipe(
         Schema.annotations({ description: 'Number of digits in TOTP code (6 or 8)' })
@@ -38,4 +66,5 @@ export const TwoFactorConfigSchema = Schema.Union(
   })
 )
 
+/** @public */
 export type TwoFactorConfig = Schema.Schema.Type<typeof TwoFactorConfigSchema>

@@ -44,12 +44,17 @@ function buildSubmitHandler(
   }
 }
 
+/** Default submit-button label for a given CRUD operation. */
 function defaultSubmitLabelFor(operation: string): string {
   if (operation === 'create') return 'Create'
   if (operation === 'automation') return 'Submit'
   return 'Update'
 }
 
+/**
+ * Renders the post-submit success page for an `onSuccess.type: 'successPage'`
+ * form. Owns the `reset` callback that returns the form to its empty state.
+ */
 function CrudSuccessPage(props: {
   readonly island: CrudFormIslandProps
   readonly fields: readonly FieldDef[]
@@ -74,6 +79,11 @@ function CrudSuccessPage(props: {
   )
 }
 
+/**
+ * Renders the `<form>` element + body for a create/update CRUD form. Split out
+ * of `CreateUpdateForm` so the latter stays within the size/complexity caps
+ * once the auto-save and success-page branches are both present.
+ */
 function CrudFormElement(props: {
   readonly island: CrudFormIslandProps
   readonly values: Record<string, string>
@@ -88,6 +98,9 @@ function CrudFormElement(props: {
   const formAction = useNativeForm ? buildNativeFormAction(table, island.recordId!) : undefined
   const submitLabel = island.buttonLabel ?? defaultSubmitLabelFor(operation)
   const onSubmit = buildSubmitHandler(useNativeForm, fields, values, ctx)
+  // A button field runs against a row, so it is live only on an update form.
+  // A create form has no record yet and the button renders disabled until one
+  // exists. Memoized so the field subtree does not re-render on every keystroke.
   const binding = useMemo(
     () => ({ table, ...(island.recordId === undefined ? {} : { recordId: island.recordId }) }),
     [table, island.recordId]
@@ -137,8 +150,13 @@ export function CreateUpdateForm(props: {
   const { island, values, state, ctx, onFieldChange } = props
   const { operation, fields } = island
   const autoSave = useAutoSave({ island, values, ctx, setState: ctx.setState })
+  // When auto-save is active the form persists edits in-place; the native
+  // POST/redirect path would conflict (full page reload on submit), so it is
+  // disabled and submission falls back to the JS mutation handler.
   const useNativeForm = operation === 'update' && !!island.recordId && !autoSave.enabled
 
+  // onSuccess.type: 'successPage' — replace the form with the success page once
+  // the submission has succeeded. A `reset` action returns to the empty form.
   if (state.successPageShown && island.successPage) {
     return (
       <CrudSuccessPage

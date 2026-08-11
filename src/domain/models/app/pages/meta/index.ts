@@ -14,6 +14,7 @@ import { OpenGraphSchema } from './open-graph'
 import { PreloadSchema } from './preload'
 import { TwitterCardSchema } from './twitter'
 
+// Re-export all section schemas and types
 export * from './analytics'
 export * from './custom-elements'
 export * from './dns-prefetch'
@@ -23,7 +24,15 @@ export * from './preload'
 export * from './structured-data'
 export * from './twitter'
 
+// ============================================================================
+// Meta Schema (Main Export)
+// ============================================================================
 
+/**
+ * Language code format
+ *
+ * ISO 639-1 language code with optional ISO 3166-1 country code.
+ */
 export const LanguageCodeSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
     message: () =>
@@ -34,6 +43,13 @@ export const LanguageCodeSchema = Schema.String.pipe(
   examples: ['en-US', 'fr-FR', 'es-ES', 'de-DE'],
 })
 
+/**
+ * Comprehensive page metadata
+ *
+ * Master orchestrator schema that combines all meta categories into a single configuration.
+ * Provides comprehensive SEO, social media, structured data, performance, and analytics
+ * capabilities for optimal web presence.
+ */
 export const MetaSchema = Schema.Struct({
   lang: Schema.optional(
     LanguageCodeSchema.annotations({
@@ -74,18 +90,6 @@ export const MetaSchema = Schema.Struct({
       description: 'Prevent indexing by search engines (shorthand for robots: noindex)',
     })
   ),
-  priority: Schema.optional(
-    Schema.Number.pipe(Schema.between(0, 1)).annotations({
-      description: 'Sitemap priority (0.0 to 1.0) for search engine crawling hints',
-    })
-  ),
-  changefreq: Schema.optional(
-    Schema.Literal('always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never').annotations(
-      {
-        description: 'Sitemap change frequency hint for search engines',
-      }
-    )
-  ),
   favicon: Schema.optional(FaviconSchema),
   favicons: Schema.optional(Schema.Union(FaviconSetSchema, FaviconsConfigSchema)),
   stylesheet: Schema.optional(
@@ -113,6 +117,7 @@ export const MetaSchema = Schema.Struct({
     Schema.Union(Schema.Record({ key: Schema.String, value: Schema.Unknown }), AnalyticsSchema)
   ),
   customElements: Schema.optional(CustomElementsSchema),
+  // Aliases for test compatibility
   twitterCard: Schema.optional(TwitterCardSchema),
   structuredData: Schema.optional(Schema.Unknown),
   'og:site_name': Schema.optional(
@@ -120,6 +125,7 @@ export const MetaSchema = Schema.Struct({
       description: 'OpenGraph site name (shorthand for openGraph.siteName)',
     })
   ),
+  // Internationalization for metadata
   i18n: Schema.optional(
     Schema.Record({
       key: LanguageCodeSchema,
@@ -145,5 +151,6 @@ export const MetaSchema = Schema.Struct({
     'Comprehensive page metadata including SEO, social media, structured data, performance, and analytics',
 })
 
+/** @public */
 export type LanguageCode = Schema.Schema.Type<typeof LanguageCodeSchema>
 export type Meta = Schema.Schema.Type<typeof MetaSchema>

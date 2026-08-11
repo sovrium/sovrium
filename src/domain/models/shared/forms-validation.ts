@@ -5,7 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Forms cross-validation
+ *
+ * Bundled into a single helper to keep the AppSchema `.pipe()` chain short
+ * (TypeScript's deep-instantiation depth limit is hit when too many
+ * `Schema.filter` calls stack on top of `Schema.Struct`).
+ *
+ * Each rule short-circuits with a string error message when violated;
+ * returns `true` when all rules pass.
+ */
 
+/**
+ * Compound condition shape used for cross-validation. Mirrors
+ * `VisibleWhenCondition` from `./visible-when.ts` but kept structurally
+ * compatible to avoid the schema-import cost in this file.
+ */
 type ConditionRuleShape =
   | {
       readonly field: string
@@ -15,6 +30,11 @@ type ConditionRuleShape =
   | { readonly and: ReadonlyArray<ConditionRuleShape> }
   | { readonly or: ReadonlyArray<ConditionRuleShape> }
 
+/**
+ * Per-field shape used for cross-validation. The discriminated `kind`
+ * preserves the runtime shape so we can lookup `column` / `name` without
+ * paying the cost of importing FormFieldSchema's full type tree here.
+ */
 interface FormFieldShape {
   readonly kind: 'table-field' | 'standalone' | 'calculation' | 'section' | 'signature'
   readonly column?: string
@@ -73,6 +93,14 @@ interface AppForFormsValidation {
   readonly automations?: ReadonlyArray<{ readonly name: string }>
 }
 
+/**
+ * Find the first duplicate value in an array using a key extractor.
+ * Returns [priorIndex, currentIndex, key] when a duplicate is found, or undefined.
+ *
+ * Uses a single reduce pass with an accumulator carrying the seen-map and an
+ * optional duplicate hit. Once a duplicate is found, subsequent iterations
+ * are no-ops (preserves first-duplicate semantics without early-exit loops).
+ */
 const findFirstDuplicate = <T, K>(
   items: ReadonlyArray<T>,
   keyOf: (item: T) => K
@@ -89,11 +117,16 @@ const findFirstDuplicate = <T, K>(
     if (prior !== undefined) {
       return { seen: acc.seen, hit: [prior, index, key] }
     }
+    // Build the next seen-map immutably: create a new Map from concatenated
+    // entries so no mutation method (.set) is invoked on a Map reference.
     const nextSeen: ReadonlyMap<K, number> = new Map<K, number>([...acc.seen, [key, index]])
     return { seen: nextSeen, hit: undefined }
   }, init).hit
 }
 
+/**
+ * Validate name uniqueness across forms[].
+ */
 const validateNameUniqueness = (forms: ReadonlyArray<FormShape>): string | undefined => {
   if (forms.length < 2) return undefined
   const dup = findFirstDuplicate(forms, (f) => f.name)
@@ -102,6 +135,9 @@ const validateNameUniqueness = (forms: ReadonlyArray<FormShape>): string | undef
   return `forms[].name '${name}' is duplicated at forms[${prior}] and forms[${index}]`
 }
 
+/**
+ * Validate id uniqueness across forms[].
+ */
 const validateIdUniqueness = (forms: ReadonlyArray<FormShape>): string | undefined => {
   if (forms.length < 2) return undefined
   const dup = findFirstDuplicate(forms, (f) => f.id)
@@ -110,10 +146,16 @@ const validateIdUniqueness = (forms: ReadonlyArray<FormShape>): string | undefin
   return `forms[].id ${id} is duplicated at forms[${prior}] (name '${forms[prior]?.name}') and forms[${index}] (name '${forms[index]?.name}')`
 }
 
+/**
+ * Validate path uniqueness across forms[] and across pages[].
+ */
 const validatePathUniqueness = (
   forms: ReadonlyArray<FormShape>,
   pages: ReadonlyArray<PageShape>
 ): string | undefined => {
+  // First: detect duplicate paths within forms[] (skip undefined paths).
+  // findFirstDuplicate compares keys with Map equality; mark forms with
+  // undefined paths using a unique symbol so they never collide.
   const dup = findFirstDuplicate(forms, (f): string | symbol => f.path ?? Symbol('no-path'))
   if (dup !== undefined) {
     const [prior, index, key] = dup
@@ -122,6 +164,9 @@ const validatePathUniqueness = (
     }
   }
 
+  // Then: detect form-vs-page path collisions. Page paths have already been
+  // validated for uniqueness at the page level by AppSchema; only form-vs-page
+  // collisions need checking here.
   return pages.reduce<string | undefined>((acc, page, pageIndex) => {
     if (acc !== undefined) return acc
     const formIndex = forms.findIndex((f) => f.path === page.path)
@@ -133,6 +178,9 @@ const validatePathUniqueness = (
   }, undefined)
 }
 
+/**
+ * Validate submitTo.table cross-references.
+ */
 const validateSubmitToTable = (
   forms: ReadonlyArray<FormShape>,
   tableNames: ReadonlySet<string>
@@ -146,6 +194,9 @@ const validateSubmitToTable = (
     return undefined
   }, undefined)
 
+/**
+ * Validate submitTo.automation cross-references.
+ */
 const validateSubmitToAutomation = (
   forms: ReadonlyArray<FormShape>,
   automationNames: ReadonlySet<string>
@@ -166,6 +217,10 @@ interface FormComponentLocator {
   readonly component: Record<string, unknown> & { readonly type: string }
 }
 
+/**
+ * Build a "mutually exclusive with inline X, Y, Z" suffix listing whichever
+ * of dataSource/fields/fieldGroups/wizard are present on the component.
+ */
 const inlineConflictsSuffix = (component: Record<string, unknown>): string | undefined => {
   const hasDataSource = component['dataSource'] !== undefined
   const hasFields = component['fields'] !== undefined
@@ -182,11 +237,20 @@ const inlineConflictsSuffix = (component: Record<string, unknown>): string | und
     .join(', ')
 }
 
+/**
+ * Shape of a wizard step on an inline `type: form` page component.
+ */
 interface WizardStepShape {
   readonly label: string
   readonly fields: ReadonlyArray<string>
 }
 
+/**
+ * Validate that every `wizard.steps[].fields[]` entry on an inline form
+ * component references a field declared in that component's own `fields[]`
+ * array. A step that lists a name not present on the form is a
+ * cross-validation error.
+ */
 const validateWizardStepFields = (pages: ReadonlyArray<PageShape>): string | undefined =>
   pages.reduce<string | undefined>((pageAcc, page, pageIndex) => {
     if (pageAcc !== undefined) return pageAcc
@@ -213,6 +277,9 @@ const validateWizardStepFields = (pages: ReadonlyArray<PageShape>): string | und
     }, undefined)
   }, undefined)
 
+/**
+ * Validate a single form component on a page.
+ */
 const validateFormComponent = (
   locator: FormComponentLocator,
   formNames: ReadonlySet<string>
@@ -229,6 +296,11 @@ const validateFormComponent = (
   return `pages[${pageIndex}] '${page.name}' components[${componentIndex}]: formRef '${formRef}' is mutually exclusive with inline ${conflicts}`
 }
 
+/**
+ * Validate page form components: `formRef` must reference an existing form,
+ * AND `formRef` is mutually exclusive with the inline `dataSource`/`fields`/
+ * `fieldGroups` definition.
+ */
 const validatePageFormRefs = (
   pages: ReadonlyArray<PageShape>,
   formNames: ReadonlySet<string>
@@ -242,6 +314,12 @@ const validatePageFormRefs = (
     }, undefined)
   }, undefined)
 
+/**
+ * Extract the submitter-facing identifier from a form field. Returns
+ * undefined for kinds that have no identifier (sections, calculations have
+ * no submitter input — calculations have a name but it's not tied to user
+ * input the same way).
+ */
 const fieldIdentifier = (field: Readonly<FormFieldShape>): string | undefined => {
   if (field.kind === 'table-field') return field.column
   if (field.kind === 'standalone' || field.kind === 'signature' || field.kind === 'calculation') {
@@ -250,6 +328,10 @@ const fieldIdentifier = (field: Readonly<FormFieldShape>): string | undefined =>
   return undefined
 }
 
+/**
+ * Validate that table-bound fields reference existing columns and that
+ * `kind: 'table-field'` is only used when `submitTo.table` is configured.
+ */
 const validateTableFieldColumns = (
   forms: ReadonlyArray<FormShape>,
   tables: ReadonlyArray<TableShape>
@@ -260,11 +342,15 @@ const validateTableFieldColumns = (
     return fields.reduce<string | undefined>((fieldAcc, field, fieldIndex) => {
       if (fieldAcc !== undefined) return fieldAcc
       if (field.kind !== 'table-field') return undefined
+      // `kind: 'table-field'` requires `submitTo.table`.
       if (form.submitTo.table === undefined) {
         return `forms[${formIndex}] '${form.name}' fields[${fieldIndex}]: kind 'table-field' requires submitTo.table to be set`
       }
+      // The referenced column must exist on the bound table.
       const table = tables.find((candidate) => candidate.name === form.submitTo.table)
       if (table === undefined) {
+        // submitTo.table existence is checked by validateSubmitToTable already;
+        // skip here so the more-specific table-not-found error wins first.
         return undefined
       }
       const columnExists =
@@ -277,6 +363,17 @@ const validateTableFieldColumns = (
     }, undefined)
   }, undefined)
 
+/**
+ * Validate that every `submitTo.mapping` target column exists on the bound
+ * `submitTo.table`. A typo such as `{ fullName: 'ghost_column' }` would
+ * otherwise flow through the form-submission program and crash at the SQL
+ * layer; catching it at app-load time gives the operator a precise error
+ * naming the form, the source field, and the missing target column.
+ *
+ * Skipped when `submitTo.table` is unset (mapping is meaningless without a
+ * table) or when the bound table itself does not exist (the more-specific
+ * `validateSubmitToTable` error wins first).
+ */
 const validateSubmitToMappingTargets = (
   forms: ReadonlyArray<FormShape>,
   tables: ReadonlyArray<TableShape>
@@ -299,11 +396,19 @@ const validateSubmitToMappingTargets = (
     )
   }, undefined)
 
+/**
+ * Validate that field identifiers (column for table-field, name for
+ * standalone/signature/calculation) are unique within a single form. This
+ * catches both same-kind duplicates ('comment' standalone twice) AND
+ * cross-kind collisions (table-field 'email' alongside standalone 'email').
+ */
 const validateFieldNameUniqueness = (forms: ReadonlyArray<FormShape>): string | undefined =>
   forms.reduce<string | undefined>((acc, form, formIndex) => {
     if (acc !== undefined) return acc
     const fields = form.fields ?? []
     if (fields.length < 2) return undefined
+    // findFirstDuplicate compares keys via Map equality. Use a unique symbol
+    // for fields that have no identifier (sections) so they never collide.
     const dup = findFirstDuplicate(fields, (f): string | symbol => {
       const id = fieldIdentifier(f)
       return id ?? Symbol('no-identifier')
@@ -316,12 +421,23 @@ const validateFieldNameUniqueness = (forms: ReadonlyArray<FormShape>): string | 
     return undefined
   }, undefined)
 
+/**
+ * Allowed prefix references in `defaultValue`. `$query.X`, `$user.X`,
+ * `$parent.X`, and `$now` resolve at submit time and are valid for any
+ * input type (the resolved value is then coerced).
+ */
 const isReferenceDefaultValue = (value: unknown): boolean => {
   if (typeof value !== 'string') return false
   if (value === '$now') return true
   return /^\$(query|user|parent)\./.test(value)
 }
 
+/**
+ * Validate that `defaultValue` matches the field's input type for kinds
+ * where we can statically determine the expected JS type. Only the
+ * standalone kind is checked here — table-field defaults are coerced
+ * against the table column's type at submission time.
+ */
 const validateDefaultValueTypes = (forms: ReadonlyArray<FormShape>): string | undefined =>
   forms.reduce<string | undefined>((acc, form, formIndex) => {
     if (acc !== undefined) return acc
@@ -330,6 +446,7 @@ const validateDefaultValueTypes = (forms: ReadonlyArray<FormShape>): string | un
       if (fieldAcc !== undefined) return fieldAcc
       if (field.kind !== 'standalone') return undefined
       if (field.defaultValue === undefined) return undefined
+      // Allow $-prefixed references; they resolve at submit time.
       if (isReferenceDefaultValue(field.defaultValue)) return undefined
       const expectedJsType = ((): string | undefined => {
         switch (field.inputType) {
@@ -349,6 +466,18 @@ const validateDefaultValueTypes = (forms: ReadonlyArray<FormShape>): string | un
     }, undefined)
   }, undefined)
 
+/**
+ * [internal ref] helpers — conditional-logic cross-validation.
+ *
+ * Walks every `visibleWhen` / `requiredWhen` / `disabledWhen` rule on every
+ * field of every form. Two checks per simple sub-rule:
+ *   - referenced `field` must exist in the same form (matched against the
+ *     field's submitter-facing identifier — `column` for table-bound,
+ *     `name` for standalone / signature / calculation).
+ *   - `operator` must be compatible with the referenced field's column
+ *     type when the form is bound to a table; ordered operators
+ *     (`gt`/`gte`/`lt`/`lte`) require a numeric or date column.
+ */
 
 const NUMERIC_DATE_TABLE_TYPES = new Set([
   'number',
@@ -361,6 +490,11 @@ const NUMERIC_DATE_TABLE_TYPES = new Set([
 
 const NUMERIC_DATE_STANDALONE_INPUTS = new Set(['number', 'date', 'datetime', 'rating'])
 
+/**
+ * Resolve the submitter-facing identifier of a field. Mirrors the helper
+ * inside `submit-form.ts` but kept inline here to avoid an application-
+ * layer import from the domain layer.
+ */
 const fieldSubmitIdentifier = (field: Readonly<FormFieldShape>): string | undefined => {
   if (field.kind === 'table-field') return field.column
   if (field.kind === 'standalone' || field.kind === 'signature' || field.kind === 'calculation') {
@@ -369,6 +503,11 @@ const fieldSubmitIdentifier = (field: Readonly<FormFieldShape>): string | undefi
   return undefined
 }
 
+/**
+ * Walk a (possibly compound) condition and yield every simple sub-rule.
+ * Implemented as a flat reduction so callers can feed each leaf rule to
+ * the validators below without re-implementing the recursion.
+ */
 const collectSimpleRules = (
   condition: Readonly<ConditionRuleShape>
 ): ReadonlyArray<{
@@ -389,6 +528,11 @@ const collectSimpleRules = (
   return [condition]
 }
 
+/**
+ * Resolve a table-bound field's column type via lookup against the bound
+ * table. Pulled out of `resolveFieldType` so the parent stays under the
+ * project's cyclomatic-complexity cap.
+ */
 const resolveTableBoundType = (
   form: Readonly<FormShape>,
   refField: Readonly<FormFieldShape>,
@@ -403,6 +547,12 @@ const resolveTableBoundType = (
   return column?.type
 }
 
+/**
+ * Resolve the column / standalone "type" string for a field reference
+ * inside a form. Returns `undefined` when the field is not declared on
+ * the form OR when the form is not bound to a table (table-bound fields
+ * inherit their type from the bound column).
+ */
 const resolveFieldType = (
   form: Readonly<FormShape>,
   fieldRef: string,
@@ -425,6 +575,10 @@ const resolveFieldType = (
 
 const ORDERED_OPERATORS = new Set(['gt', 'gte', 'lt', 'lte'])
 
+/**
+ * [internal ref]: every conditional rule must reference a field that exists
+ * on the same form.
+ */
 const validateConditionalFieldReferences = (forms: ReadonlyArray<FormShape>): string | undefined =>
   forms.reduce<string | undefined>((acc, form, formIndex) => {
     if (acc !== undefined) return acc
@@ -450,6 +604,11 @@ const validateConditionalFieldReferences = (forms: ReadonlyArray<FormShape>): st
     }, undefined)
   }, undefined)
 
+/**
+ * [internal ref]: ordered operators (`gt`/`gte`/`lt`/`lte`) require a numeric
+ * or date field. Run after [internal ref] so reference validity is already
+ * established for any leaf rule we inspect here.
+ */
 const validateConditionalOperatorTypes = (
   forms: ReadonlyArray<FormShape>,
   tables: ReadonlyArray<TableShape>
@@ -483,6 +642,13 @@ const validateConditionalOperatorTypes = (
     }, undefined)
   }, undefined)
 
+/**
+ * [internal ref]: `layout: 'multi-step'` requires `steps` to be non-empty.
+ * The schema's `Schema.Array(...).pipe(Schema.minItems(1))` already rejects
+ * an explicit empty array, but `steps[]` is `optional`, so a missing `steps`
+ * key alongside `layout: 'multi-step'` slips through; this rule closes that
+ * gap with a focused error message.
+ */
 const validateMultiStepRequiresSteps = (forms: ReadonlyArray<FormShape>): string | undefined =>
   forms.reduce<string | undefined>((acc, form, formIndex) => {
     if (acc !== undefined) return acc
@@ -494,6 +660,10 @@ const validateMultiStepRequiresSteps = (forms: ReadonlyArray<FormShape>): string
     return undefined
   }, undefined)
 
+/**
+ * [internal ref]: step ids must be unique within `steps`. Walks each form's
+ * `steps[]` and reports the first duplicate, naming both occurrences.
+ */
 const validateStepIdUniqueness = (forms: ReadonlyArray<FormShape>): string | undefined =>
   forms.reduce<string | undefined>((acc, form, formIndex) => {
     if (acc !== undefined) return acc
@@ -505,6 +675,12 @@ const validateStepIdUniqueness = (forms: ReadonlyArray<FormShape>): string | und
     return `forms[${formIndex}] '${form.name}' steps: duplicate step id '${id}' at steps[${prior}] and steps[${index}]`
   }, undefined)
 
+/**
+ * [internal ref]: every entry in `step.fields` must match a top-level form
+ * field's submitter-facing identifier (column for table-bound, name for
+ * standalone / signature / calculation). Reports the first unknown reference,
+ * naming the step id and the missing field.
+ */
 const validateStepFieldNames = (forms: ReadonlyArray<FormShape>): string | undefined =>
   forms.reduce<string | undefined>((acc, form, formIndex) => {
     if (acc !== undefined) return acc
@@ -522,6 +698,11 @@ const validateStepFieldNames = (forms: ReadonlyArray<FormShape>): string | undef
     }, undefined)
   }, undefined)
 
+/**
+ * [internal ref]: every `goToWhen.goTo` must reference an existing
+ * `step.id` in the same form. A self-reference is allowed (matches a
+ * declared id and is documented as a "no-op" pattern).
+ */
 const validateGoToWhenTargets = (forms: ReadonlyArray<FormShape>): string | undefined =>
   forms.reduce<string | undefined>((acc, form, formIndex) => {
     if (acc !== undefined) return acc
@@ -539,6 +720,12 @@ const validateGoToWhenTargets = (forms: ReadonlyArray<FormShape>): string | unde
     }, undefined)
   }, undefined)
 
+/**
+ * Run all forms cross-validation rules.
+ *
+ * Rules are evaluated in order via short-circuit reduce; the first rule that
+ * returns a string error wins. Returns `true` when all rules pass.
+ */
 export const validateAllFormsReferences = (app: AppForFormsValidation): string | true => {
   const forms = app.forms ?? []
   const pages = app.pages ?? []

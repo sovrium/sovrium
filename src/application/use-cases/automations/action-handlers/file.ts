@@ -26,6 +26,15 @@ import {
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
+/**
+ * `file:*` action handlers — read/write bucket files via the StorageService
+ * port. Binary data flows between steps via storage keys (small ones under
+ * `tmp/automations/`), not in-memory buffers, mirroring the `FileActionResult`
+ * contract: a `download` step writes the bytes to a fresh temp key that a
+ * later `upload` (or `code`) step references as `source`.
+ *
+ * Pure source resolution / MIME inference / CSV codec live in `file-support.ts`.
+ */
 
 const props = (action: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> =>
   (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -38,6 +47,9 @@ const errorOutcome = (message: string): ActionOutcome => ({
   output: { error: message },
 })
 
+// ---------------------------------------------------------------------------
+// upload
+// ---------------------------------------------------------------------------
 
 export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
   Effect.gen(function* () {
@@ -47,6 +59,11 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
     const explicitContentType = optionalString(p, 'contentType')
     if (!source) return { status: 'failure', error: 'file.upload requires a source' } as const
 
+    // Consume `resolveSource`'s SSRF block: a private/loopback/link-local
+    // `http(s)://` source fails BEFORE any fetch with `OutboundUrlBlockedError`.
+    // Surface it as an explicit `error` outcome (mirroring the `http.ts` /
+    // `webhook.ts` `invalid_outbound_url_${reason}` shape) and DO NOT proceed
+    // to store — the bytes were never fetched.
     const resolved = yield* Effect.either(resolveSource(source))
     if (resolved._tag === 'Left') {
       return errorOutcome(`invalid_outbound_url_${resolved.left.reason}`)
@@ -68,6 +85,9 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
     } as const
   })
 
+// ---------------------------------------------------------------------------
+// download
+// ---------------------------------------------------------------------------
 
 export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
   Effect.gen(function* () {
@@ -90,6 +110,9 @@ export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
     } as const
   })
 
+// ---------------------------------------------------------------------------
+// generateCsv
+// ---------------------------------------------------------------------------
 
 interface CsvColumn {
   readonly key: string
@@ -174,6 +197,9 @@ export const handleFileGenerateCsv: ActionHandler = (action, _app, _automation, 
     } as const
   })
 
+// ---------------------------------------------------------------------------
+// parseCsv
+// ---------------------------------------------------------------------------
 
 const parseWithColumnDefs = (
   rows: readonly string[],

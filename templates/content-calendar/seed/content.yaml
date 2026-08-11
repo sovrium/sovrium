@@ -1,0 +1,152 @@
+# Sample editorial pipeline.
+#
+# Two views read this table and they want opposite things from it, so the data
+# has to satisfy both:
+#
+#   - `/` is a month calendar keyed on `publish_date`. Every date is a relative
+#     token spread from three weeks back to five weeks out, so the previous,
+#     current and next month all carry entries whatever day the demo is opened.
+#     Pieces still at Idea deliberately have NO publish date — that is what an
+#     idea is — which also proves the calendar copes with rows it cannot place.
+#   - `/pipeline` is a kanban grouped on `status`. All five columns are
+#     populated; a board where every card sits in one column shows nothing about
+#     the board.
+#
+# `channels` is a multi-select, so it takes a YAML list. `content_type` is a
+# single-select and takes one string. `owner` (a `user` field) and `assets` (an
+# attachment field) are left unseeded on purpose: the first needs a real account
+# id that does not exist until someone signs up, and the second needs binary
+# files this repository does not ship.
+records:
+  # ── Published ───────────────────────────────────────────────────────
+  - key: year-in-review
+    fields:
+      title: What we shipped this year, and what we did not
+      content_type: Blog post
+      channels: [Website, LinkedIn, Email]
+      status: Published
+      publish_date: '{{today-19d}}'
+      campaign: '@campaigns.winter-retro'
+      brief: <p>Honest ledger, including the two things we cut. The cut list is the part people share.</p>
+
+  - key: migration-teardown
+    fields:
+      title: Migrating 40,000 rows off a spreadsheet
+      content_type: Blog post
+      channels: [Website, LinkedIn]
+      status: Published
+      publish_date: '{{today-12d}}'
+      campaign: '@campaigns.always-on'
+      brief: <p>A real migration, timed, with the two places it went wrong left in.</p>
+
+  - key: launch-announcement
+    fields:
+      title: The new workspace is live
+      content_type: Newsletter
+      channels: [Email, Website]
+      status: Published
+      publish_date: '{{today-5d}}'
+      campaign: '@campaigns.q-launch'
+      brief: <p>Short. Links to the install page and nothing else.</p>
+
+  # ── Scheduled ───────────────────────────────────────────────────────
+  - key: install-walkthrough
+    fields:
+      title: Install in four minutes (screen recording)
+      content_type: Video
+      channels: [YouTube, Website, LinkedIn]
+      status: Scheduled
+      publish_date: '{{today+2d}}'
+      campaign: '@campaigns.q-launch'
+      brief: <p>No narration for the first minute. Let the terminal do the talking.</p>
+
+  - key: conference-cfp-post
+    fields:
+      title: Speak at the annual conference — CFP is open
+      content_type: Social post
+      channels: [LinkedIn, X]
+      status: Scheduled
+      publish_date: '{{today+4d}}'
+      campaign: '@campaigns.conference-push'
+      brief: <p>Deadline in the first line. Nobody reads the second line.</p>
+
+  - key: weekly-tip-08
+    fields:
+      title: 'Weekly tip: saved views beat filters you retype'
+      content_type: Social post
+      channels: [LinkedIn, X]
+      status: Scheduled
+      publish_date: '{{today+9d}}'
+      campaign: '@campaigns.always-on'
+      brief: <p>One screenshot, one sentence, no link.</p>
+
+  # ── Review ──────────────────────────────────────────────────────────
+  - key: self-hosting-guide
+    fields:
+      title: Self-hosting without a platform team
+      content_type: Blog post
+      channels: [Website, LinkedIn, Email]
+      status: Review
+      publish_date: '{{today+16d}}'
+      campaign: '@campaigns.always-on'
+      brief: >-
+        <p>Second draft back from legal. The backup section still overclaims —
+        soften or cite.</p>
+
+  - key: conference-agenda
+    fields:
+      title: The full conference agenda
+      content_type: Newsletter
+      channels: [Email, Website]
+      status: Review
+      publish_date: '{{today+23d}}'
+      campaign: '@campaigns.conference-push'
+      brief: <p>Blocked on two unconfirmed speakers. Ship with placeholders if they slip past Friday.</p>
+
+  # ── Draft ───────────────────────────────────────────────────────────
+  - key: pricing-explainer
+    fields:
+      title: Why the engine is free and the hosting is not
+      content_type: Blog post
+      channels: [Website, LinkedIn]
+      status: Draft
+      publish_date: '{{today+30d}}'
+      campaign: '@campaigns.q-launch'
+      brief: <p>Half-written. Needs the licensing paragraph checked before it goes to review.</p>
+
+  - key: customer-story-cardinal
+    fields:
+      title: 'How Cardinal Freight replaced six spreadsheets'
+      content_type: Podcast
+      channels: [Website, YouTube]
+      status: Draft
+      publish_date: '{{today+37d}}'
+      campaign: '@campaigns.always-on'
+      brief: <p>Recorded, untranscribed. 52 minutes; the usable part starts at 08:10.</p>
+
+  # ── Idea (deliberately undated — see the note above) ────────────────
+  - key: idea-field-types-tour
+    fields:
+      title: A tour of all forty field types
+      content_type: Video
+      channels: [YouTube]
+      status: Idea
+      campaign: '@campaigns.always-on'
+      brief: <p>Probably too long to be one video. Consider a series.</p>
+
+  - key: idea-benchmark-post
+    fields:
+      title: Benchmarks against the hosted alternatives
+      content_type: Blog post
+      channels: [Website, X]
+      status: Idea
+      brief: <p>Only worth writing if the numbers are good AND reproducible. Park until both.</p>
+
+  - key: idea-office-hours-clip
+    fields:
+      title: Office-hours highlights, cut to 90 seconds
+      content_type: Social post
+      channels: [LinkedIn, Instagram]
+      status: Idea
+      campaign: '@campaigns.conference-push'
+      brief: <p>Needs someone to actually watch the recordings first.</p>

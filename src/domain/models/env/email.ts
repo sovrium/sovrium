@@ -7,6 +7,11 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Email (SMTP) environment configuration.
+ *
+ * Env vars: SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM, SMTP_FROM_NAME
+ */
 export const EmailEnvSchema = Schema.Struct({
   smtpHost: Schema.optional(
     Schema.String.pipe(

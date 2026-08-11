@@ -20,6 +20,19 @@ export interface KanbanDragHandlerParams {
   readonly tableName: string | undefined
 }
 
+/**
+ * Compute the next records array for a within-column reorder.
+ *
+ * Visual-only reorder. The collision detector resolves to the column
+ * droppable (not a card), so `over.id` doesn't carry a target card index —
+ * we infer direction from `event.delta.y` (downward → end, upward → start).
+ * Coarse but matches the spec contract (KANBAN-007 only asserts first/last
+ * swap when the user drags from first onto last) and avoids tracking
+ * per-card rects.
+ *
+ * Returns `undefined` when no reorder should happen (movement too small,
+ * record not found, or already in target position).
+ */
 interface ReorderInput {
   readonly localRecords: readonly TableRecord[]
   readonly groupByField: string
@@ -46,6 +59,10 @@ function reorderWithinColumn(input: ReorderInput): readonly TableRecord[] | unde
   return [...inColumnRecords, ...others]
 }
 
+/**
+ * Optimistically apply a cross-column move and fire `persistAction`. Reverts
+ * the local state when the API call fails.
+ */
 function moveAcrossColumns(
   params: KanbanDragHandlerParams,
   activeId: string,
@@ -80,6 +97,14 @@ function resolveTargetColumn(
   return String(found?.[groupByField] ?? '')
 }
 
+/**
+ * Build the drag-end handler for the kanban board.
+ *
+ * Extracted so the main island composition root stays small while keeping
+ * the closure-captured state (`localRecords`, `setLocalRecords`) accessible
+ * to all drag sub-operations (reorder within column, move across columns,
+ * persist via API).
+ */
 export function buildKanbanDragHandler(
   params: KanbanDragHandlerParams
 ): (event: DragEndEvent) => void {

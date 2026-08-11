@@ -14,6 +14,15 @@ import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
+/**
+ * Build SQL query to check record existence with optional deleted_at filter and owner_id check
+ * Admins bypass owner_id filtering to access all records
+ *
+ * owner_id filtering logic:
+ * - Records with owner_id = NULL are accessible to all users (unowned records)
+ * - Records with owner_id = <userId> are accessible only to that user (owned records)
+ * - Admins can access all records regardless of owner_id
+ */
 function buildRecordCheckQuery(params: {
   readonly tableName: string
   readonly recordId: string
@@ -23,6 +32,7 @@ function buildRecordCheckQuery(params: {
   readonly isAdmin: boolean
 }) {
   const { tableName, recordId, userId, hasDeletedAt, hasOwnerId, isAdmin } = params
+  // Admins bypass owner_id filtering
   const shouldFilterOwner = hasOwnerId && !isAdmin
 
   if (hasDeletedAt && shouldFilterOwner) {
@@ -37,6 +47,10 @@ function buildRecordCheckQuery(params: {
   return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
 
+/**
+ * Check if a record exists in the given table (with owner_id isolation for non-admins)
+ * Admins can access all records regardless of owner_id
+ */
 export function checkRecordExists(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
@@ -45,6 +59,7 @@ export function checkRecordExists(config: {
 }): Effect.Effect<boolean, DatabaseError> {
   const { session, tableName, recordId, isAdmin = false } = config
   return Effect.gen(function* () {
+    // Check which of deleted_at / owner_id exist (dialect-aware introspection)
     const columns = yield* Effect.tryPromise({
       try: () => getExistingColumnNames(db, tableName, ['deleted_at', 'owner_id']),
       catch: (error) => new DatabaseError('Failed to check table columns', error),
@@ -53,6 +68,7 @@ export function checkRecordExists(config: {
     const hasDeletedAt = columns.has('deleted_at')
     const hasOwnerId = columns.has('owner_id')
 
+    // Check if record exists (with owner_id check for multi-tenancy isolation, bypassed for admins)
     const query = buildRecordCheckQuery({
       tableName,
       recordId,
@@ -70,6 +86,9 @@ export function checkRecordExists(config: {
   })
 }
 
+/**
+ * Get user by ID
+ */
 export function getUserById(config: {
   readonly session: Readonly<Session>
   readonly userId: string

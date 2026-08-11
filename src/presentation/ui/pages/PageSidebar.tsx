@@ -12,6 +12,14 @@ type PageSidebarProps = {
   readonly sections: readonly ResolvedSidebarSection[]
 }
 
+/**
+ * Renders the page sidebar.
+ *
+ * Sections are pre-resolved at SSR time — the sidebar component is a
+ * thin renderer over the already-filtered entries. Active entries
+ * receive `data-active="true"` so spec selectors and downstream styling
+ * can target them.
+ */
 export function PageSidebar({ sections }: PageSidebarProps): Readonly<ReactElement> {
   return (
     <aside data-testid="page-sidebar">

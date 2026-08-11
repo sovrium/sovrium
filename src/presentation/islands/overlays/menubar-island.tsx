@@ -37,6 +37,12 @@ interface MenubarIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Menubar island — renders a horizontal menu bar with dropdown menus.
+ *
+ * Each top-level label opens a dropdown with items, shortcuts, and separators.
+ * Built using multiple Base UI Menu instances coordinated in a flex container.
+ */
 export default function MenubarIsland({
   menus = [],
   className,

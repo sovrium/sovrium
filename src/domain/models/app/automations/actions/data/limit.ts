@@ -9,15 +9,22 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Data Limit Action (type: data, operator: limit)
+ *
+ * Truncate an array to the first N items.
+ */
 export const DataLimitActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('data'),
   operator: Schema.Literal('limit'),
   props: Schema.Struct({
+    /** Template reference to the array of items */
     input: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Template reference to the array of items' })
     ),
 
+    /** Maximum number of items to keep (positive integer) */
     count: Schema.Number.pipe(
       Schema.int(),
       Schema.positive(),
@@ -32,4 +39,5 @@ export const DataLimitActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type DataLimitAction = Schema.Schema.Type<typeof DataLimitActionSchema>

@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Checkbox Field
+ *
+ * Boolean field that stores true/false values.
+ * Typically rendered as a checkbox in the UI.
+ * Supports optional default value and database indexing.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'is_active',
+ *   type: 'checkbox',
+ *   required: true,
+ *   default: false
+ * }
+ * ```
+ */
 export const CheckboxFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -30,4 +48,5 @@ export const CheckboxFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type CheckboxField = Schema.Schema.Type<typeof CheckboxFieldSchema>

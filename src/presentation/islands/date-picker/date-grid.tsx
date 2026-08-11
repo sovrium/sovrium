@@ -43,6 +43,16 @@ interface DerivedDayState {
   readonly inViewMonth: boolean
 }
 
+/**
+ * Derive the day-cell visual state for the prestyled-by-default recipe.
+ * Order of branches matters:
+ *   1. disabled (out-of-bounds) wins over everything else
+ *   2. range endpoints (start / end) win over range-middle
+ *   3. generic selected wins over outside
+ *   4. outside (back-filled previous/next month) wins over default
+ * Extracted so the DayCell render function stays under the sonarjs/cognitive
+ * complexity cap; the helper is pure and trivially testable.
+ */
 function deriveDayState({
   day,
   viewMonth,
@@ -76,6 +86,11 @@ function deriveRangeState(day: Date, rangeValue: DateRange): DayState {
   return 'range-middle'
 }
 
+/**
+ * Per-day grid cell. Owns its memoized `onClick` closure so the
+ * `<button>` `onClick` prop is a stable reference per render
+ * (eliminates `react-perf/jsx-no-new-function-as-prop` warnings).
+ */
 function DayCell({
   day,
   viewMonth,
@@ -126,6 +141,14 @@ interface DateGridProps {
   readonly onDayClick: (day: Date) => void
 }
 
+/**
+ * 7-column `<table role="grid">` with one `<td role="gridcell">` per day.
+ * The grid always starts on a Sunday and ends on a Saturday so each row
+ * is 7 days; we back-fill leading days from the previous month and trail
+ * with days from the next month, marking those out-of-month days as
+ * "muted" but still selectable when within bounds (matches
+ * react-day-picker's default).
+ */
 function useDayGrid(viewMonth: Date): readonly (readonly Date[])[] {
   return useMemo(() => {
     const year = viewMonth.getFullYear()
@@ -133,6 +156,8 @@ function useDayGrid(viewMonth: Date): readonly (readonly Date[])[] {
     const firstOfMonth = new Date(year, month, 1)
     const startOffset = firstOfMonth.getDay()
     const gridStart = new Date(year, month, 1 - startOffset)
+    // 6 rows × 7 cols matrix built functionally — `Array.from` with a
+    // mapping function keeps the immutable-data ESLint rule happy.
     return Array.from({ length: 6 }, (_, r) =>
       Array.from(
         { length: 7 },

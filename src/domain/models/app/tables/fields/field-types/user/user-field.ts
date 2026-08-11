@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * User Field
+ *
+ * Reference field that links to users from the authentication system.
+ * Stores user IDs and can be used for assignments, ownership, or collaboration.
+ * Supports single or multiple user selection via allowMultiple flag.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'assigned_to',
+ *   type: 'user',
+ *   required: true,
+ *   allowMultiple: false
+ * }
+ * ```
+ */
 export const UserFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -31,4 +49,5 @@ export const UserFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type UserField = Schema.Schema.Type<typeof UserFieldSchema>

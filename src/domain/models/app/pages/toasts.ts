@@ -7,6 +7,9 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Toast position on the page
+ */
 export const ToastPositionSchema = Schema.Literal(
   'top-right',
   'top-left',
@@ -19,8 +22,22 @@ export const ToastPositionSchema = Schema.Literal(
   description: 'Position of toast notifications on the page',
 })
 
+/**
+ * Page-level toast configuration
+ *
+ * Global toast settings for a page. Individual toasts can override duration.
+ *
+ * @example
+ * ```yaml
+ * toasts:
+ *   position: top-right
+ *   duration: 5000
+ * ```
+ */
 export const PageToastConfigSchema = Schema.Struct({
+  /** Default position for toasts on this page */
   position: Schema.optional(ToastPositionSchema),
+  /** Default auto-dismiss duration in milliseconds */
   duration: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -35,5 +52,7 @@ export const PageToastConfigSchema = Schema.Struct({
   description: 'Page-level toast notification configuration',
 })
 
+/** @public */
 export type ToastPosition = Schema.Schema.Type<typeof ToastPositionSchema>
+/** @public */
 export type PageToastConfig = Schema.Schema.Type<typeof PageToastConfigSchema>

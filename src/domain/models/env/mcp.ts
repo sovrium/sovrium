@@ -7,7 +7,29 @@
 
 import { Schema } from 'effect'
 
+/**
+ * MCP environment configuration.
+ *
+ * Mounts the MCP server route, picks transport, configures auth strategy and
+ * tokens, sets rate limits, and toggles audit + admin internals exposure.
+ *
+ * Following the env-var pattern established by DATABASE_URL, STORAGE_PROVIDER,
+ * AUTH_SECRET, and AI_PROVIDER: infrastructure concerns are operator
+ * config (env vars), schema-author concerns are app/business intent (declared
+ * in `app.tables[].aiAccess`, `app.automations[].aiAccess`, etc.).
+ *
+ * Default: MCP_ENABLED=false. Operator must explicitly opt in.
+ *
+ * Env vars:
+ *   MCP_ENABLED, MCP_TRANSPORT, MCP_MOUNT_PATH, MCP_AUTH_STRATEGY,
+ *   MCP_TOKEN_ADMIN, MCP_TOKEN_MEMBER, MCP_TOKEN_VIEWER,
+ *   MCP_RATE_LIMIT_PER_MINUTE, MCP_RATE_LIMIT_PER_DAY,
+ *   MCP_AUDIT_ENABLED, MCP_EXPOSE_INTERNALS, MCP_CONFIRM_DESTRUCTIVE
+ */
 
+// ---------------------------------------------------------------------------
+// Helper: BooleanFromString — env vars are always strings
+// ---------------------------------------------------------------------------
 
 const BooleanFromString = Schema.transform(
   Schema.Literal('true', 'false', 'TRUE', 'FALSE', '1', '0'),
@@ -19,6 +41,9 @@ const BooleanFromString = Schema.transform(
   }
 )
 
+// ---------------------------------------------------------------------------
+// Schema
+// ---------------------------------------------------------------------------
 
 export const McpTransportSchema = Schema.Literal('stdio', 'streamable-http')
 export type McpTransport = typeof McpTransportSchema.Type
@@ -131,6 +156,9 @@ export const McpEnvSchema = Schema.Struct({
 
 export type McpEnvConfig = Schema.Schema.Type<typeof McpEnvSchema>
 
+// ---------------------------------------------------------------------------
+// Defaults — applied after decode for fields the operator did not set
+// ---------------------------------------------------------------------------
 
 export const MCP_ENV_DEFAULTS = {
   enabled: false,
@@ -143,6 +171,9 @@ export const MCP_ENV_DEFAULTS = {
   confirmDestructive: true,
 } as const
 
+// ---------------------------------------------------------------------------
+// Resolve helper — applies defaults, returns a fully-populated config
+// ---------------------------------------------------------------------------
 
 export type ResolvedMcpEnvConfig = {
   readonly enabled: boolean
@@ -174,7 +205,29 @@ export const resolveMcpEnv = (parsed: McpEnvConfig): ResolvedMcpEnvConfig => ({
   confirmDestructive: parsed.confirmDestructive ?? MCP_ENV_DEFAULTS.confirmDestructive,
 })
 
+// ---------------------------------------------------------------------------
+// Validation — startup checks beyond decode (cross-field rules)
+// ---------------------------------------------------------------------------
 
+/**
+ * Cross-rule validation that cannot be expressed inside the decode schema:
+ * - token strategy requires at least one MCP_TOKEN_* set
+ * - oauth2 strategy requires app.auth wired (caller checks; we only enforce
+ *   that an authStrategy override of 'oauth2' is consistent with token vars
+ *   being potentially absent)
+ *
+ * Run at server startup *after* decode succeeds. Returns `undefined` when
+ * the config is valid, or a human-readable error message string when a
+ * required combination is missing. The caller decides how to surface the
+ * error (throwing at startup is the typical choice).
+ *
+ * The optional `context` argument allows the caller (route setup) to surface
+ * the app-level constraint that `oauth2` strategy can only run when Better
+ * Auth is wired (`app.auth` configured). When `authConfigured: false` and
+ * the strategy resolves to `oauth2`, validation fails with a startup error
+ * that mentions both `oauth2` and `app.auth` so operators / TDD specs can
+ * pattern-match on either token.
+ */
 export const validateMcpEnv = (
   config: ResolvedMcpEnvConfig,
   context?: { readonly authConfigured?: boolean }
@@ -194,6 +247,9 @@ export const validateMcpEnv = (
   return undefined
 }
 
+// ---------------------------------------------------------------------------
+// Parse from process.env
+// ---------------------------------------------------------------------------
 
 export const parseMcpEnvConfig = (env: NodeJS.ProcessEnv = process.env): McpEnvConfig =>
   Schema.decodeUnknownSync(McpEnvSchema)({

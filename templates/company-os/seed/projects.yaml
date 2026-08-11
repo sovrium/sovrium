@@ -1,0 +1,75 @@
+# Delivery projects on /delivery, each for a customer account.
+#
+# THE TWO `Deliver: …` NAMES ARE NOT A STYLE CHOICE
+#   `sovrium seed` writes through `createRecordProgram`, and record-trigger
+#   dispatch lives one layer up in the HTTP handler — so seeding fires NO
+#   automations. `create-project-on-won-deal` therefore never ran against the
+#   two Won deals in `deals.yaml`, and if their projects were absent (or named
+#   anything else) a visitor would read the automation as broken rather than as
+#   un-triggered.
+#
+#   So the artefact is seeded directly, in the exact shape the automation
+#   produces: `name: 'Deliver: {{deal.name}}'` and `client` = the deal's
+#   company. Drag a third deal to Won in the demo and the project that appears
+#   is indistinguishable from these two — which is the whole point of the page.
+#
+#   The one deliberate divergence is `status`. The automation creates `Planned`;
+#   these two are `Active`, because they were created weeks ago in the fiction
+#   and have since started. Seeding them `Planned` would also leave the
+#   "Active projects" KPI on the dashboard reading zero.
+#
+# All four statuses are used across the six rows.
+#
+# `owner` is a `user` field and is left unset throughout. A seed run happens
+# before anyone has signed in beyond the bootstrap admin, so there is no account
+# to point at; inventing one would either fail the write or link every project
+# to the operator who happened to run the seed. Assigning owners is the first
+# thing a demo visitor does by hand, and it should be.
+records:
+  - key: lumen-migration
+    fields:
+      name: 'Deliver: Lumen — spreadsheet migration'
+      client: '@companies.lumen'
+      status: Active
+      start_date: '{{today-7d}}'
+      end_date: '{{today+35d}}'
+
+  - key: helios-training
+    fields:
+      name: 'Deliver: Helios — staff training package'
+      client: '@companies.helios'
+      status: Active
+      start_date: '{{today-14d}}'
+      end_date: '{{today+21d}}'
+
+  - key: northwind-depot-pilot
+    fields:
+      name: Northwind — depot pilot
+      client: '@companies.northwind'
+      status: Planned
+      start_date: '{{today+30d}}'
+      end_date: '{{today+120d}}'
+
+  - key: atlas-discovery
+    fields:
+      name: Atlas — tracking discovery
+      client: '@companies.atlas'
+      status: On hold
+      start_date: '{{today-42d}}'
+      end_date: '{{today+14d}}'
+
+  - key: fernbank-audit
+    fields:
+      name: Fernbank — accessibility audit
+      client: '@companies.fernbank'
+      status: Done
+      start_date: '{{today-96d}}'
+      end_date: '{{today-38d}}'
+
+  - key: cardinal-onboarding
+    fields:
+      name: Cardinal — data onboarding
+      client: '@companies.cardinal'
+      status: Done
+      start_date: '{{today-210d}}'
+      end_date: '{{today-152d}}'

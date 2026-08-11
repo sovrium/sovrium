@@ -5,6 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Bootstrap Claim Route — `POST /api/admin/bootstrap/claim`
+ *
+ * Mounts ONLY when Sovrium is in "no-config" bootstrap mode:
+ *
+ *   - `process.env.AUTH_ADMIN_EMAIL` is not set (env-var bootstrap path
+ *     would already provision the first admin), AND
+ *   - the auth.user table is empty (some user already exists → the
+ *     bootstrap window has closed).
+ *
+ * The mode check happens at request time (not at boot) so the route
+ * naturally returns 404 once an admin has been provisioned, without
+ * requiring a server restart.
+ *
+ * Authentication: bearer token in `Authorization` header. The token
+ * was printed to stdout by `generateBootstrapTokenIfNeeded` at boot.
+ *
+ * Body: `{ email, password, name }`. Validated client-side via Zod is
+ * a Phase 3 concern; here we accept the request body as-is and let
+ * Better Auth's `createUser` API handle final validation.
+ */
 
 import { count } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
@@ -31,6 +52,9 @@ const isBootstrapMode = async (): Promise<boolean> => {
     const userCount = Number(rows[0]?.value ?? 0)
     return userCount === 0
   } catch {
+    // If the auth.user table can't be queried (e.g. DATABASE_URL unset
+    // during local dev), we conservatively report "not bootstrap mode"
+    // so the route returns 404 instead of leaking a 500.
     return false
   }
 }
@@ -42,6 +66,11 @@ const extractBearer = (header: string | undefined): string | undefined => {
 
 const isString = (v: unknown): v is string => typeof v === 'string' && v.length > 0
 
+/**
+ * Parse the request body. Returns `undefined` when the body is not
+ * valid JSON (extracted into a helper so the route handler can stay
+ * `const`-only — `let`-rebinding is forbidden by `functional/no-let`).
+ */
 const parseClaimBody = async (
   request: Readonly<Request>
 ): Promise<ClaimRequestBody | undefined> => {
@@ -59,6 +88,10 @@ interface ValidatedBody {
   readonly name: string
 }
 
+/**
+ * Run the bootstrap-token claim Effect program with the necessary
+ * Live layers + dynamic auth layer for the active app config.
+ */
 const runClaim = (validated: ValidatedBody, authConfig: NonNullable<App['auth']>) =>
   Effect.gen(function* () {
     const { createAuthLayer } = yield* Effect.promise(
@@ -72,6 +105,7 @@ const runClaim = (validated: ValidatedBody, authConfig: NonNullable<App['auth']>
     return yield* claimBootstrapToken(validated).pipe(Effect.provide(combined))
   })
 
+// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context type is mutable by library design
 const handleClaim = async (c: Context, app: App) => {
   if (!app.auth) {
     return c.json({ error: 'Bootstrap not available' }, 404)
@@ -120,5 +154,15 @@ const handleClaim = async (c: Context, app: App) => {
   return c.json({ success: true, userId: result.right.userId, email: result.right.email }, 200)
 }
 
+/**
+ * Mount `POST /api/admin/bootstrap/claim`. The route is ALWAYS present
+ * but returns 404 outside bootstrap mode — this keeps the API shape
+ * stable (no surprise route appearance after restart) while still
+ * matching the spec contract that expects 404 once an admin exists.
+ *
+ * @param honoApp the Hono instance to chain the route onto
+ * @param app the active App configuration; the route reads `app.auth`
+ *            to construct the Better Auth Effect Layer
+ */
 export const setupBootstrapRoutes = (honoApp: Readonly<Hono>, app: App): Readonly<Hono> =>
   honoApp.post('/api/admin/bootstrap/claim', (c) => handleClaim(c, app))

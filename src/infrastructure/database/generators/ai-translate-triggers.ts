@@ -17,10 +17,31 @@ import {
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+/**
+ * AI Translate field shape (narrowed from Fields union).
+ */
 type AiTranslateField = Extract<Fields[number], { readonly type: 'ai-translate' }>
 
+/**
+ * NOTIFY payload kind for ai-translate fields. The `AiComputeListener`
+ * discriminates on this value to choose the translation prompt path.
+ */
 const TRANSLATE_PAYLOAD_KIND = 'translate'
 
+/**
+ * Guard block for the translate function.
+ *
+ * Translate semantics differ from summary/categorize: a changed source must
+ * re-translate, so the guard does *not* blanket-preserve any existing non-NULL
+ * value on UPDATE. Instead:
+ *
+ * - INSERT: preserve an explicit non-empty user value.
+ * - UPDATE: if the source field(s) did not change, leave the row untouched
+ *   (no recompute, no AI NOTIFY — avoids wasteful provider calls when an
+ *   unrelated column is updated). If the user changed the translated column
+ *   directly in this same statement, honour that override.
+ * - Either op: NULL out the column when the source content is empty.
+ */
 const buildTranslateGuardSql = (fieldName: string, sourceFields: readonly string[]): string =>
   `  -- INSERT: honour an explicit non-empty user value.
   IF TG_OP = 'INSERT' THEN
@@ -45,6 +66,18 @@ const buildTranslateGuardSql = (fieldName: string, sourceFields: readonly string
     RETURN NEW;
   END IF;`
 
+/**
+ * Placeholder + NOTIFY block for translate fields.
+ *
+ * The deterministic synchronous placeholder is the trimmed source content
+ * itself — PostgreSQL triggers cannot make outbound HTTP calls, so the column
+ * is filled with the (untranslated) source text inside the INSERT transaction.
+ * The NOTIFY payload carries `kind: 'translate'`, the source text, and the
+ * target language so the `AiComputeListener` invokes the translation prompt
+ * path against the configured AI provider (observational — the trigger value
+ * is authoritative for the synchronous SELECT immediately after INSERT, like
+ * the categorize/summary patterns).
+ */
 const buildTranslateNotifySql = (
   field: AiTranslateField,
   sanitized: string,
@@ -82,6 +115,12 @@ const buildTranslateNotifySql = (
   RETURN NEW;`
 }
 
+/**
+ * Build the full set of SQL statements (function + drop + create trigger) for
+ * a single ai-translate field. The translate guard + placeholder + NOTIFY
+ * logic lives in the function body; the trigger scaffolding is shared via
+ * `buildAiComputeTriggerStatements`.
+ */
 const buildTranslateTriggerSql = (
   field: AiTranslateField,
   sanitized: string
@@ -101,6 +140,14 @@ ${buildTranslateNotifySql(field, sanitized, fieldName)}`
   })
 }
 
+/**
+ * Generate a BEFORE INSERT/UPDATE trigger that produces a deterministic
+ * placeholder (the trimmed source text) and emits a NOTIFY so the
+ * application-layer `AiComputeListener` can invoke the real AI provider for
+ * the canonical translation into the field's `targetLanguage`.
+ *
+ * Returns NULL when the single source field is empty / NULL (no NOTIFY).
+ */
 export const generateAiTranslateTriggers = (table: Table): readonly string[] => {
   const aiTranslateFields = table.fields.filter(
     (field): field is AiTranslateField => field.type === 'ai-translate'

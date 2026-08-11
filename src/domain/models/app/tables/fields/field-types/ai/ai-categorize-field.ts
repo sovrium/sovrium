@@ -8,6 +8,31 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * AI Categorize Field
+ *
+ * Automatically classifies records into exactly one category from a predefined list
+ * using AI analysis of source fields. Ideal for triage, routing, and priority
+ * assignment without manual labeling.
+ *
+ * Business Rules:
+ * - Output is always a single value from the `categories` list (never free-form)
+ * - Minimum 2 categories required; duplicates are rejected
+ * - Returns NULL when all source fields are empty or NULL
+ * - Falls back to NULL with error logged if AI returns value outside categories list
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 3,
+ *   name: 'department',
+ *   type: 'ai-categorize',
+ *   sourceFields: ['subject', 'description'],
+ *   categories: ['billing', 'technical', 'account', 'general'],
+ *   computeOn: 'create',
+ * }
+ * ```
+ */
 export const AiCategorizeFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -116,4 +141,5 @@ export const AiCategorizeFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AiCategorizeField = Schema.Schema.Type<typeof AiCategorizeFieldSchema>

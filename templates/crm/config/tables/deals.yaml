@@ -25,6 +25,7 @@ fields:
     name: value
     type: currency
     currency: USD
+    thousandsSeparator: comma
     precision: 0
   - id: 5
     name: probability

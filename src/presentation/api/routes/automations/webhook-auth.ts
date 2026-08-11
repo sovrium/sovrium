@@ -10,12 +10,30 @@ import { resolveEnvInString } from '@/application/use-cases/automations/resolve-
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/**
+ * Webhook authentication helpers.
+ *
+ * Each checker enforces a single auth scheme (hmac / apiKey / bearer / basic)
+ * with `crypto.timingSafeEqual` to defeat per-byte timing attacks. Secret
+ * values are resolved from `$env.X` references just before comparison so
+ * literal credentials never appear in the schema-decoded `App` object after
+ * a redaction pass.
+ *
+ * Extracted from `webhook-handler.ts` to keep the dispatch handler under
+ * the `max-lines` cap and to make the auth logic independently testable
+ * via unit tests when needed.
+ */
 
 type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
 export type AuthResult = { readonly ok: true } | { readonly ok: false }
 
+/**
+ * Constant-time string comparison. Mismatched-length inputs still execute
+ * a same-buffer compare to keep the cost roughly constant — an attacker
+ * cannot infer the expected secret length from response timing.
+ */
 const constantTimeEquals = (a: string, b: string): boolean => {
   const bufferA = Buffer.from(a, 'utf8')
   const bufferB = Buffer.from(b, 'utf8')
@@ -64,6 +82,12 @@ const checkBasic = (
 ): AuthResult => {
   const expectedUser = resolveSecret(auth.username, envLookup)
   const expectedPass = resolveSecret(auth.password, envLookup)
+  // Fail closed when the configured credentials are missing or resolve to
+  // empty strings (unset `$env.X` references with no default). Without this
+  // guard, an attacker presenting `Basic <base64-of-':'>` (suppliedUser='',
+  // suppliedPass='') would match an empty-vs-empty comparison and bypass
+  // authentication. Mirrors the empty-secret guards in `checkBearer`,
+  // `checkApiKey`, and `checkHmac`.
   if (expectedUser === '' || expectedPass === '') return { ok: false }
   const header = c.req.header('Authorization') ?? ''
   if (!header.startsWith('Basic ')) return { ok: false }
@@ -99,6 +123,10 @@ const checkHmac = (
   return constantTimeEquals(supplied, expected) ? { ok: true } : { ok: false }
 }
 
+/**
+ * Dispatch to the configured auth scheme. Returns `{ ok: true }` when no
+ * `auth` block is present (public webhook). Unknown auth types fail closed.
+ */
 export const runWebhookAuth = (
   c: Context,
   trigger: WebhookTrigger,

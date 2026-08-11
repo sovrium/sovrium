@@ -7,7 +7,14 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Agent MCP Configuration Schema
+ *
+ * Model Context Protocol client configuration for the agent.
+ * Defines which MCP tools the agent is allowed to invoke.
+ */
 export const AgentMcpSchema = Schema.Struct({
+  /** List of allowed MCP tool names the agent can invoke */
   allowedTools: Schema.optional(
     Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(
       Schema.annotations({ description: 'MCP tool names the agent is allowed to use' })
@@ -21,4 +28,5 @@ export const AgentMcpSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AgentMcp = typeof AgentMcpSchema.Type

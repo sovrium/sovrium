@@ -12,6 +12,12 @@ const OAuthCredentials = Schema.Struct({
   clientSecret: Schema.optional(Schema.String),
 })
 
+/**
+ * OAuth provider environment configuration.
+ *
+ * Env vars: {PROVIDER}_CLIENT_ID, {PROVIDER}_CLIENT_SECRET
+ * Providers: Google, GitHub, Microsoft, Slack, GitLab
+ */
 export const OAuthEnvSchema = Schema.Struct({
   google: Schema.optional(OAuthCredentials),
   github: Schema.optional(OAuthCredentials),

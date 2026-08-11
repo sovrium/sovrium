@@ -1,18 +1,61 @@
-# Default Sovrium theming.
+# CRM Workspace theming.
 #
-# `baseline: extend` inherits Sovrium's built-in design system — the achromatic
-# OKLCH neutral ramp (`--sv-*`) plus the self-hosted IBM Plex Sans / JetBrains
-# Mono type that IS the Sovrium visual identity. Colour is reserved for
-# consequence (see ADR-024), so a template that needs an accent declares its own
-# colour key rather than borrowing one from the engine.
+# `baseline: extend` keeps Sovrium's built-in design system — the OKLCH neutral
+# ramp and the self-hosted IBM Plex Sans / JetBrains Mono type that ships with
+# the platform. There is deliberately no `fonts` block: the workhorse and mono
+# families are already self-hosted, and pulling a family from a CDN would leak
+# the operator's IP and Referer to a third party, which
+# `docs/architecture/patterns/fonts.md` forbids outright. Distinctiveness here
+# comes from COLOUR, not from type.
 #
-# No `fonts` block: the workhorse and mono families ship self-hosted with the
-# platform. This template previously pulled Inter from the Google Fonts CDN,
-# which contradicted the no-CDN-ever rule in
-# `docs/architecture/patterns/fonts.md` — every such request leaks the
-# operator's IP and Referer to a third party, which an internal tool cannot
-# accept. Author a `fonts` block here only for a genuinely self-hosted family.
+# WHY THESE KEYS AND NOT OTHERS
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
+#   prestyled island already consumes, so declaring them repaints the grid, the
+#   kanban, the buttons and the badges with no class changes anywhere in this
+#   config. A non-role key such as `brand-accent` emits `--color-*` only and
+#   does nothing until something references it — which is why a template that
+#   declares six pretty colours and never cites them still renders achromatic.
+#
+#   Sovrium's own apps under `apps/` may NOT touch these keys without a
+#   BRAND.md permit, because repainting the role tokens there would silently
+#   reinstate the coloured ramp ADR-024 deleted from the Sovrium identity. That
+#   lock is repo-local and deliberately does not extend here: a template exists
+#   to look like the product a customer is building, not like sovrium.com.
+#
+#   The semantic trio is claimed on purpose. A sales pipeline is exactly the
+#   case where colour carries consequence — a Won deal reading green and a Lost
+#   one reading red is the information, not decoration.
 baseline: extend
+
+colors:
+  primary: '#4f46e5'
+  ring: '#6366f1'
+  background: '#ffffff'
+  foreground: '#0f172a'
+  card: '#ffffff'
+  popover: '#ffffff'
+  muted: '#f1f5f9'
+  border: '#e2e8f0'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+
+# Rendered only when the app declares `theme.colorScheme` or ships a
+# `theme-toggle`; the stylesheet carries it either way.
+darkColors:
+  primary: '#818cf8'
+  ring: '#6366f1'
+  background: '#0b1120'
+  foreground: '#e2e8f0'
+  card: '#111a2e'
+  popover: '#111a2e'
+  muted: '#1e293b'
+  border: '#243049'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
 
 borderRadius:
   sm: 0.25rem

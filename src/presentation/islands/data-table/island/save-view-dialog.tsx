@@ -9,13 +9,57 @@ import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useState } from 'react'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
+/**
+ * "Save view" Base UI Dialog (PG-03 / [internal ref]).
+ *
+ * Two related flows render through this dialog:
+ *
+ * 1. **Save new (fresh)**: the user has authored filters/sorts/grouping in the
+ *    toolbar and clicks `Save view` to persist them as a personal view. The
+ *    dialog prompts for a name, then commits via {@link SaveViewDialogProps.onSave}.
+ *
+ * 2. **Save as new (forked)**: the user is currently viewing a saved or
+ *    developer-configured view, has modified its state, and clicks the
+ *    `Save as new` button. The dialog opens with the same shape — `onSave`
+ *    serialises whatever state the orchestrator currently has and persists it
+ *    as a new view. The `baseViewId` (if any) is the caller's responsibility
+ *    to record into the payload.
+ *
+ * Mirrors `settings-dialog.tsx`'s Base UI Dialog pattern: a `<Dialog.Trigger>`
+ * button toggles the dialog, the body is portaled into a backdrop, and a
+ * `<form onSubmit>` lets pressing Enter inside the name `<input>` commit
+ * without a button click (the spec's `dialog.getByRole('button', /save/i).click()`
+ * still works because the submit button is the form's only `<button>`).
+ *
+ * Important — the toolbar trigger is rendered ELSEWHERE as a plain `<button>`
+ * (the schema toolbar already houses Filter/Sort/Group/Views/etc., and
+ * inserting a `<Dialog.Trigger>` there would re-shuffle keyboard-tab order).
+ * This component is a "controlled" Base UI Dialog (the `open` + `onOpenChange`
+ * props drive lifecycle), so the toolbar `Save view` button opens it via the
+ * orchestrator's `onOpenSaveDialog` callback.
+ */
 interface SaveViewDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
+  /**
+   * Commit handler. Resolves to nothing on success; rejects with `Error`
+   * (typically `CONFLICT`) on failure. The dialog stays open while the promise
+   * is pending so the user can see in-flight state and recover from a 409.
+   */
   readonly onSave: (name: string) => Promise<void>
+  /** Initial value of the name `<input>` (used by `Save as new` to suggest a copy name). */
   readonly initialName?: string
 }
 
+/**
+ * Local state machine for the Save-view dialog: name draft + pending + error.
+ *
+ * Extracted so {@link SaveViewDialog}'s render body stays under the islands'
+ * 60-line max-lines-per-function cap. The hook owns the three local states
+ * (name / pending / error) and exposes the three callbacks the dialog needs
+ * — name input change, open/close transition, submit. The dialog itself is
+ * a thin wrapper that wires these into {@link Dialog.Root} + {@link SaveViewForm}.
+ */
 function useSaveViewDialogState(
   initialName: string,
   onOpenChange: (open: boolean) => void,
@@ -30,6 +74,9 @@ function useSaveViewDialogState(
     []
   )
 
+  // Reset state on open so re-opening the dialog doesn't leak the previous
+  // name / error. We reset on the trailing edge of the open transition so the
+  // empty value is paint-stable.
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
@@ -56,6 +103,7 @@ function useSaveViewDialogState(
       setError(undefined)
       try {
         await onSave(trimmed)
+        // Defer close-and-reset to handleOpenChange.
         onOpenChange(false)
         setName('')
         setPending(false)
@@ -109,6 +157,11 @@ interface SaveViewFormProps {
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
 }
 
+/**
+ * Form body of the Save-view dialog. Extracted so {@link SaveViewDialog} stays
+ * under the islands' 60-line max-lines-per-function cap. The state machinery
+ * (name draft, pending, error) stays in the parent — this is a pure render.
+ */
 function SaveViewForm({ name, error, pending, onNameChange, onSubmit }: SaveViewFormProps) {
   return (
     <form

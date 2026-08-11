@@ -135,6 +135,11 @@ function useDatePickerCallbacks({
   return { toggleOpen, handleDayClick, handlePrevMonth, handleNextMonth }
 }
 
+/**
+ * Composition-root hook for the date-picker island. Owns all reactive
+ * state + callback memoization so the island component body stays under
+ * the per-function line-count limit.
+ */
 export function useDatePickerState({
   minDate,
   maxDate,

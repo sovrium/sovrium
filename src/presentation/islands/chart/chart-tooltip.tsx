@@ -7,6 +7,7 @@
 
 import type { ReactElement } from 'react'
 
+/** Active hover state — the data point currently under the cursor. */
 export interface TooltipState {
   readonly x: number
   readonly y: number
@@ -15,6 +16,10 @@ export interface TooltipState {
   readonly format?: string
 }
 
+/**
+ * Applies the chart's `tooltip.format` template, substituting `{label}` and
+ * `{value}` placeholders. With no template, falls back to `label: value`.
+ */
 function formatTooltipText(state: TooltipState): string {
   const value = String(state.value)
   if (state.format) {
@@ -23,10 +28,18 @@ function formatTooltipText(state: TooltipState): string {
   return `${state.label}: ${value}`
 }
 
+/** Approximate pixel width for the tooltip background rect. */
 function tooltipWidth(text: string): number {
   return Math.max(40, text.length * 6.5 + 12)
 }
 
+/**
+ * In-SVG chart tooltip. Rendered as an SVG `<g class="chart-tooltip">` so it
+ * needs no inline-style positioning (positioned via `x`/`y` attributes) and
+ * still resolves for spec locators (`[class*="tooltip"]`).
+ *
+ * Rendered only while a data point is hovered.
+ */
 export function ChartTooltip({
   state,
 }: {

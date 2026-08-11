@@ -10,11 +10,18 @@ import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 import { DestinationPropSchema } from './shared'
 
+/**
+ * File Generate CSV Action (type: file, operator: generateCsv)
+ *
+ * Generate a CSV file from an array of data objects.
+ * The generated file is available as the step output for subsequent actions.
+ */
 export const FileGenerateCsvActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('generateCsv'),
   props: Schema.Struct({
+    /** Template variable referencing an array of data objects */
     data: TemplateStringSchema.pipe(
       Schema.annotations({
         description:
@@ -22,15 +29,18 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
       })
     ),
 
+    /** Output filename */
     filename: TemplateStringSchema.pipe(
       Schema.annotations({
-        description: 'Output filename (e.g., "export-{{currentDateTime}}.csv")',
+        description: 'Output filename (e.g., "export-{{now}}.csv")',
       })
     ),
 
+    /** Column definitions for CSV output */
     columns: Schema.optional(
       Schema.Array(
         Schema.Struct({
+          /** Object key to extract as column value (alias of `field`) */
           key: Schema.optional(
             Schema.String.pipe(
               Schema.annotations({
@@ -38,6 +48,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
               })
             )
           ),
+          /** Object key to extract as column value */
           field: Schema.optional(
             Schema.String.pipe(
               Schema.annotations({
@@ -60,6 +71,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
       )
     ),
 
+    /** Field delimiter */
     delimiter: Schema.optional(
       Schema.Literal(',', ';', '\t', '|').pipe(
         Schema.annotations({
@@ -68,6 +80,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
       )
     ),
 
+    /** Include header row */
     includeHeaders: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotations({
@@ -76,6 +89,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
       )
     ),
 
+    /** Storage destination for generated file */
     destination: DestinationPropSchema,
   }),
 }).pipe(
@@ -86,4 +100,5 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileGenerateCsvAction = Schema.Schema.Type<typeof FileGenerateCsvActionSchema>

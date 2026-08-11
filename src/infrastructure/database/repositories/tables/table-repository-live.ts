@@ -19,8 +19,15 @@ import {
   computeAggregations,
   linkManyToMany,
   readManyToMany,
+  readRelatedLabels,
 } from '@/infrastructure/database/table-queries'
 
+/**
+ * Live implementation of TableRepository using table-queries infrastructure
+ *
+ * Delegates all operations to the existing database query functions.
+ * Session types are structurally compatible (UserSession ≅ Session).
+ */
 export const TableRepositoryLive = Layer.succeed(TableRepository, {
   listRecords,
   listTrash,
@@ -33,4 +40,5 @@ export const TableRepositoryLive = Layer.succeed(TableRepository, {
   computeAggregations,
   linkManyToMany,
   readManyToMany,
+  readRelatedLabels,
 })

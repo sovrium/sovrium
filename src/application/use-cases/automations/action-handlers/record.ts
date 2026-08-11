@@ -31,12 +31,28 @@ import { recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 
+/**
+ * Resolve the actor id a record write should be attributed to.
+ *
+ * When the action opts into `runAs: 'triggering-user'` AND the automation
+ * carries a triggering user (form submitter, record-event actor, authenticated
+ * webhook caller), the write — both its session and its authorship overrides —
+ * is attributed to that user. An absent/`'system'` `runAs`, or a user-less
+ * trigger (cron, `automation:call`), falls back to the durable system actor,
+ * byte-identical to the pre-runAs default. `actorId` is only ever a runtime
+ * trigger actor, never author-supplied config, so there is no spoofing surface.
+ */
 const resolveRunAsActor = (
   props: Readonly<Record<string, unknown>>,
   automation: AutomationContext
 ): string =>
   props['runAs'] === 'triggering-user' && automation.userId ? automation.userId : SYSTEM_USER_ID
 
+/**
+ * `record/create` handler — creates a row in the named table using the
+ * automation's guest session. Accepts `data` or `fields` as the payload key
+ * (the spec uses `data`; older shapes use `fields`).
+ */
 export const handleRecordCreate: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -47,6 +63,13 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: 'record.create requires a table name' } as const
     }
 
+    // Actor authority: the automation engine writes with a durable, non-null
+    // actor id (not the NULL-normalized guest id) so NOT-NULL authorship
+    // columns are satisfied. `runAs: 'triggering-user'` attributes
+    // the write to the triggering user when one exists; otherwise the system
+    // actor. The synthetic session drives the literal `created_by` infra
+    // injection; custom-named `created-by` fields (e.g. `author`) are stamped
+    // by name via the override map.
     const actorId = resolveRunAsActor(props, automation)
     const program = createRecordProgram({
       session: buildSyntheticSession(actorId),
@@ -80,6 +103,15 @@ const firstLeftMessage = <A>(
   return firstError ? errorMessageOf(firstError.left) : 'batch create failed'
 }
 
+/**
+ * `record/batchCreate` handler — creates many rows in the named table from a
+ * template-resolved array. Accepts `records` or `items` as the array key.
+ *
+ * The array prop is re-resolved from the RAW pre-substitution action against
+ * the run-context view, because the run loop's `resolveTriggerInValue` pass
+ * stringifies non-scalar leaves (`String([{…}])` → `"[object Object]"`); a
+ * whole-string `{{steps.parseCsv.data}}` must survive as the actual array.
+ */
 export const handleRecordBatchCreate: ActionHandler = (action, app, _automation, runContext) =>
   Effect.gen(function* () {
     const props = runContext
@@ -97,6 +129,7 @@ export const handleRecordBatchCreate: ActionHandler = (action, app, _automation,
     const items = Array.isArray(itemsRaw) ? (itemsRaw as ReadonlyArray<unknown>) : []
     const continueOnItemError = props['continueOnItemError'] === true
 
+    // System authority — same rationale as handleRecordCreate.
     const session = buildSystemSession()
     const authorship = buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
     const results = yield* Effect.forEach(items, (item) => {
@@ -126,6 +159,15 @@ interface FilterGroup {
   readonly conditions?: readonly FilterCondition[]
 }
 
+/**
+ * Extract a single record id from a foundational filter shape:
+ * `{ conditions: [{ field: 'id', operator: 'equals', value: <id> }] }`.
+ *
+ * Returns undefined if the filter is missing, has multiple conditions, or
+ * does not match the `id equals` shape. Future migration specs widen this
+ * to compile filters into a SQL WHERE clause; the foundation only handles
+ * the most common case used by record-event triggers (update by id).
+ */
 const isValidIdEqualsCondition = (condition: FilterCondition): boolean => {
   if (condition.field !== 'id') return false
   if (condition.operator !== 'equals') return false
@@ -144,6 +186,13 @@ const extractIdFromFilter = (filter: unknown): string | undefined => {
   return String(condition.value)
 }
 
+/**
+ * Translate the spec's filter shape (`{ conditions: [{ field, operator,
+ * value }] }`) into the repository's `QueryFilter` (`{ and: [...] }`). The
+ * two shapes carry the same information; the rename exists because the
+ * spec mirrors the records-API public contract while `QueryFilter` is the
+ * internal repository protocol.
+ */
 const toQueryFilter = (filter: unknown): QueryFilter | undefined => {
   if (!filter || typeof filter !== 'object') return undefined
   const { conditions } = filter as FilterGroup
@@ -157,6 +206,18 @@ const toQueryFilter = (filter: unknown): QueryFilter | undefined => {
   return and.length > 0 ? { and } : undefined
 }
 
+/**
+ * `record/update` handler — apply a filter, then update each matched row
+ * via the existing `updateRecordProgram` (which goes through the table
+ * repository's permission + audit pipeline).
+ *
+ * Wave-3 behaviour was limited to `{ field: 'id', operator: 'equals' }` —
+ * the canary case used by record-event triggers ("update the record that
+ * just changed"). Wave-4 widens it to any ConditionGroup the records-API
+ * accepts (`name equals`, `status not_equals`, etc.) so customer YAML can
+ * express the natural "update by business key" pattern. The fast-path for
+ * `id equals` is preserved so single-record updates skip the list query.
+ */
 export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -173,9 +234,18 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
       : yield* resolveIdsByFilter(tableName, props['filter'])
 
     if (idsToUpdate.length === 0) {
+      // No matches — succeed silently. A follow-up spec may surface this as
+      // a failure (or as `output: { matchedCount: 0 }`) but today the
+      // contract is "no-op when nothing matches", consistent with SQL UPDATE
+      // semantics.
       return { status: 'success' } as const
     }
 
+    // Actor authority: stamp `updated-by`-typed columns (literal + custom) with
+    // the durable actor so the update records WHO changed the row instead of
+    // silently wiping authorship to NULL under the guest id. `runAs:
+    // 'triggering-user'` re-stamps `updated_by` with the triggering
+    // user when one exists; otherwise the system actor (unchanged default).
     const actorId = resolveRunAsActor(props, automation)
     const session = buildSyntheticSession(actorId)
     const fieldsWithAuthorship = {
@@ -198,6 +268,26 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
     return { status: 'success' } as const
   })
 
+/**
+ * `record/upsert` handler — atomic create-or-update on a single record.
+ * Looks up an existing row by `props.id` (primary-key fast path) or by an
+ * `id equals` filter / arbitrary ConditionGroup. If exactly one match is
+ * found it is updated in place (preserving its id); otherwise a new row is
+ * created. `data` is required (the schema enforces it); a missing table is a
+ * runtime failure.
+ *
+ * Reuses `extractIdFromFilter` + `resolveIdsByFilter` so the lookup
+ * semantics are identical to `record/update`. When the filter matches >1
+ * row, all matches are updated (consistent with update's multi-row
+ * behaviour) — but the canonical upsert case is the single-row business-key
+ * match the specs exercise (upsert by email).
+ */
+/**
+ * Create branch of `record/upsert` — no existing match was found.
+ *
+ * Single-arg config so the helper stays within the `max-params` budget once the
+ * [internal ref] `actorId` is threaded alongside the table/data/overrides.
+ */
 const upsertCreate = (config: {
   readonly actorId: string
   readonly tableName: string
@@ -218,6 +308,12 @@ const upsertCreate = (config: {
       : ({ status: 'success', output: { operation: 'created' } } as const)
   })
 
+/**
+ * Update branch of `record/upsert` — one or more rows matched.
+ *
+ * Single-arg config so the helper stays within the `max-params` budget once the
+ * [internal ref] `actorId` is threaded alongside the table/matchedIds/data/overrides.
+ */
 const upsertUpdate = (config: {
   readonly actorId: string
   readonly tableName: string
@@ -257,6 +353,9 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
       ? [idFastPath]
       : yield* resolveIdsByFilter(tableName, props['filter'])
 
+    // Actor authority: `runAs: 'triggering-user'` attributes both
+    // branches — create-branch `created-by` and update-branch `updated-by` —
+    // to the triggering user when one exists, else the system actor.
     const actorId = resolveRunAsActor(props, automation)
 
     return matchedIds.length === 0
@@ -275,6 +374,20 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
         })
   })
 
+/**
+ * `record/delete` handler — apply a filter, then soft-delete each matched
+ * row via the existing `deleteRecordProgram` (which goes through the table
+ * repository's permission + cascade pipeline, so `deleted_at` is set rather
+ * than a hard row removal).
+ *
+ * Mirrors `handleRecordUpdate`: an `id equals` filter takes the fast path,
+ * any other ConditionGroup is resolved to ids via a list query. A filter
+ * that compiles to zero usable conditions is a runtime FAILURE (not a
+ * silent no-op) — deleting with an empty/all-matching filter would risk a
+ * mass-delete, so the handler refuses rather than degrade. The schema
+ * already requires a non-empty `filter` at decode time; this guard defends
+ * the code-action invoker path that bypasses schema validation.
+ */
 export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -299,9 +412,13 @@ export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
       : yield* resolveIdsByFilter(tableName, props['filter'])
 
     if (idsToDelete.length === 0) {
+      // Filter matched no live rows — succeed silently (consistent with SQL
+      // DELETE semantics: zero rows affected is not an error).
       return { status: 'success', output: { deletedCount: 0 } } as const
     }
 
+    // System authority — soft-delete stamps `deleted_by` with the durable
+    // system actor instead of NULL under the guest id.
     const session = buildSystemSession()
     const deletes = yield* Effect.either(
       Effect.forEach(idsToDelete, (recordId) => deleteRecordProgram(session, tableName, recordId), {
@@ -316,6 +433,14 @@ export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
     return { status: 'success', output: { deletedCount: idsToDelete.length } } as const
   })
 
+/**
+ * List records matching the action's filter and return their `id`s. Used
+ * by `handleRecordUpdate` when the filter isn't the foundation `id-equals`
+ * fast path. Accesses the table repository directly (rather than through
+ * `createListRecordsProgram`) because the handler doesn't have an `App` /
+ * `userRole` context — it operates with the guest session that the
+ * automation engine threads through every record action.
+ */
 const resolveIdsByFilter = (
   tableName: string,
   filter: unknown
@@ -330,12 +455,24 @@ const resolveIdsByFilter = (
     if (records._tag === 'Left') return [] as const
     return records.right.flatMap((row) => {
       const { id } = row as Record<string, unknown>
+      // Records can carry a numeric id (DB serial) or a string id (UUID).
+      // `updateRecordProgram` accepts either via `String(id)`.
       if (typeof id === 'string' && id !== '') return [id]
       if (typeof id === 'number' && Number.isFinite(id)) return [String(id)]
       return []
     })
   })
 
+/**
+ * Build the canonical `record/read` success output. Surfaces both
+ * `record` (first match or undefined) and `records` (the match array) so
+ * `{{getUser.record.email}}` works for the canary single-row case AND
+ * `{{listActive.records}}` survives when authors widen the filter to
+ * multi-row reads — same operator, no schema split. The webhook
+ * dispatcher serialises this object under the response's top-level
+ * `output` key, so any field on the row appears verbatim somewhere in
+ * the response JSON (the contract [internal ref] asserts against).
+ */
 const buildReadOutput = (records: readonly Readonly<Record<string, unknown>>[]): ActionOutcome => ({
   status: 'success',
   output: {
@@ -349,6 +486,13 @@ const failureFromError = (err: unknown): ActionOutcome => ({
   error: err instanceof Error ? err.message : String(err),
 })
 
+/**
+ * Primary-key fast path for `record/read`. Goes straight to `getRecord`
+ * (single SELECT by id) rather than walking `listRecords`. Returns a
+ * canonical `{ record, records }` output so downstream template
+ * substitution sees the same shape regardless of which lookup path the
+ * action took.
+ */
 const readByPrimaryKey = (
   tableName: string,
   recordId: string
@@ -361,6 +505,14 @@ const readByPrimaryKey = (
     return buildReadOutput(record ? [record] : [])
   })
 
+/**
+ * Filter path for `record/read`. Compiles the spec-shape filter into the
+ * repository's `QueryFilter` and dispatches to `listRecords`. A filter
+ * with zero usable conditions is a runtime failure — the schema rejects
+ * empty `conditions` arrays at decode time, but a code-action invoker
+ * (which bypasses schema validation) could still arrive here with an
+ * empty filter, and that should not silently degrade to "read everything".
+ */
 const readByFilter = (
   tableName: string,
   filter: unknown
@@ -381,6 +533,15 @@ const readByFilter = (
     return buildReadOutput(result.right)
   })
 
+/**
+ * `record/read` handler — fetch a single record by primary key (`props.id`)
+ * or by filter conditions (`props.filter`). The schema enforces "at least
+ * one of id/filter must be present" at decode time, so by the time this
+ * handler runs both fields cannot be simultaneously absent. The handler
+ * defends against that case anyway and returns a typed failure outcome —
+ * upstream tests pin the runtime contract for code-action invokers that
+ * skip schema validation.
+ */
 export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -392,6 +553,10 @@ export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
     const idValue = typeof idRaw === 'string' && idRaw !== '' ? idRaw : undefined
     if (idValue !== undefined) return yield* readByPrimaryKey(tableName, idValue)
     if (props['filter'] !== undefined) return yield* readByFilter(tableName, props['filter'])
+    // Schema-level enforcement should have rejected this configuration at
+    // decode time. The runtime guard exists so a code-action invoking
+    // `record.read` natively (skipping schema validation) still gets a
+    // clean failure rather than a NPE inside the repository.
     return {
       status: 'failure',
       error: 'record.read requires either props.id or props.filter',

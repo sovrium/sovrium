@@ -47,4 +47,5 @@ export const calendarFields = {
   calendarInteraction: Schema.optional(CalendarInteractionSchema),
 } as const
 
+// Re-export all sub-schemas
 export * from './schema'

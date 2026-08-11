@@ -15,17 +15,24 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Theme } from '@/domain/models/app/theme'
 import type { ReactElement } from 'react'
 
+/**
+ * Props for rendering a component reference error
+ */
 interface ComponentReferenceErrorProps {
   readonly refName: string
   readonly components: Components | undefined
 }
 
+/**
+ * Render an error message for missing component references
+ */
 export function renderComponentReferenceError({
   refName,
   components,
 }: ComponentReferenceErrorProps): ReactElement {
   return (
     <div
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR error fallback; rendered only when a component reference is missing
       style={{
         padding: '1rem',
         border: '2px dashed red',
@@ -40,6 +47,9 @@ export function renderComponentReferenceError({
   )
 }
 
+/**
+ * Extract reference name and vars from component reference
+ */
 export function extractComponentReference(
   component: SimpleComponentReference | ComponentReference
 ): {
@@ -55,6 +65,10 @@ export function extractComponentReference(
   return { refName, vars: variables ?? vars }
 }
 
+/**
+ * Props for component reference rendering
+ * @public
+ */
 export interface ComponentReferenceRenderProps {
   readonly component: Component
   readonly componentName: string

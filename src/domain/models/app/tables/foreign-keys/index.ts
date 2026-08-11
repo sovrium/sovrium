@@ -7,7 +7,28 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Foreign Key Constraint Schema
+ *
+ * Defines a composite foreign key constraint that references multiple columns
+ * in another table. Used for multi-column relationships where the uniqueness
+ * constraint spans multiple fields.
+ *
+ * @example Composite foreign key
+ * ```typescript
+ * {
+ *   name: 'fk_permissions_tenant_user',
+ *   fields: ['tenant_id', 'user_id'],
+ *   referencedTable: 'tenant_users',
+ *   referencedFields: ['tenant_id', 'user_id']
+ * }
+ * ```
+ */
 export const ForeignKeySchema = Schema.Struct({
+  /**
+   * Constraint name (used in PostgreSQL constraint naming)
+   * @example "fk_permissions_tenant_user"
+   */
   name: Schema.String.pipe(
     Schema.minLength(1),
     Schema.maxLength(63),
@@ -19,6 +40,10 @@ export const ForeignKeySchema = Schema.Struct({
     })
   ),
 
+  /**
+   * Local column names that form the foreign key
+   * @example ["tenant_id", "user_id"]
+   */
   fields: Schema.Array(Schema.String).pipe(
     Schema.minItems(1),
     Schema.annotations({
@@ -27,6 +52,10 @@ export const ForeignKeySchema = Schema.Struct({
     })
   ),
 
+  /**
+   * Referenced table name
+   * @example "tenant_users"
+   */
   referencedTable: Schema.String.pipe(
     Schema.minLength(1),
     Schema.annotations({
@@ -35,6 +64,10 @@ export const ForeignKeySchema = Schema.Struct({
     })
   ),
 
+  /**
+   * Referenced column names in the parent table
+   * @example ["tenant_id", "user_id"]
+   */
   referencedFields: Schema.Array(Schema.String).pipe(
     Schema.minItems(1),
     Schema.annotations({
@@ -43,6 +76,10 @@ export const ForeignKeySchema = Schema.Struct({
     })
   ),
 
+  /**
+   * Action to take on DELETE
+   * @default "restrict"
+   */
   onDelete: Schema.optional(
     Schema.Literal('cascade', 'set-null', 'restrict', 'no-action').pipe(
       Schema.annotations({
@@ -52,6 +89,10 @@ export const ForeignKeySchema = Schema.Struct({
     )
   ),
 
+  /**
+   * Action to take on UPDATE
+   * @default "no-action"
+   */
   onUpdate: Schema.optional(
     Schema.Literal('cascade', 'set-null', 'restrict', 'no-action').pipe(
       Schema.annotations({
@@ -67,4 +108,5 @@ export const ForeignKeySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type ForeignKey = Schema.Schema.Type<typeof ForeignKeySchema>

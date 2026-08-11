@@ -5,19 +5,43 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Dashboard "API" docs surface ([internal ref], Pass 2a item 2.3).
+ *
+ * An auto-generated, read-only reference for THIS app's REST API. The app's
+ * OpenAPI document lives at `/api/openapi.json` and a full interactive reference
+ * (Scalar) at `/api/scalar` — both admin-guarded. This page is the operator's
+ * entry point to them: the base URL, the auth scheme, a handful of example
+ * requests derived from the app's own tables, and a prominent button into the
+ * interactive Scalar reference.
+ *
+ * Composed from first-class native content component-types (Pass 3): the example
+ * requests render through `content/code` (monospace + copy affordance + language
+ * attribution) inside a `display/tabs` strip that offers the same call as HTTP,
+ * cURL, and JavaScript. The content is config-derived but static per render, so
+ * it server-renders inside the persistent dashboard shell. The example requests
+ * are derived from the live operator `App.tables`, so they always reflect the app
+ * the operator administers.
+ */
 
 import { homeCrumb, wrapInShell } from './dashboard-shell-surface'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
+/** Shell-wrap concerns for the standalone API docs surface. */
 export interface ApiDocsOptions {
+  /** F6 tier / F5 editing flag; threaded into the shell for signature parity. */
   readonly canEdit: boolean
+  /** Operator slug; seeds the shell sidebar brand label. */
   readonly appName?: string
+  /** Operator config version (`app.version`); seeds the sidebar version chip. */
   readonly appVersion?: string
+  /** Operator published config; seeds the read-through count badges. */
   readonly publishedSnapshot: Readonly<Record<string, unknown>>
 }
 
+/** A quiet section heading (the recurring "micro-label over a card" pattern). */
 function sectionLabel(content: string): Component {
   return {
     type: 'text',
@@ -27,6 +51,7 @@ function sectionLabel(content: string): Component {
   } as unknown as Component
 }
 
+/** A bordered card holding labelled content (separation by border, not depth). */
 function card(children: ReadonlyArray<Component>): Component {
   return {
     type: 'container',
@@ -38,6 +63,12 @@ function card(children: ReadonlyArray<Component>): Component {
   } as unknown as Component
 }
 
+/**
+ * A first-class `content/code` block. Renders a syntax-attributed `<pre><code>`
+ * with a copy-to-clipboard affordance — the native component-type, not a bespoke
+ * raw `text` element=`pre`. `language` drives the `language-X` / `data-language`
+ * attribution; `data-testid` is threaded through for the example-request assertion.
+ */
 function codeBlock(content: string, language: string, testid?: string): Component {
   return {
     type: 'code',
@@ -49,6 +80,7 @@ function codeBlock(content: string, language: string, testid?: string): Componen
   } as unknown as Component
 }
 
+/** A labelled key→value row (e.g. "Base URL" → the base URL note). */
 function keyValueRow(label: string, value: string): Component {
   return {
     type: 'container',
@@ -71,64 +103,87 @@ function keyValueRow(label: string, value: string): Component {
   } as unknown as Component
 }
 
+/** The page intro: a one-line plain-spoken description of what this page is. */
 function intro(): Component {
   return {
     type: 'text',
     element: 'p',
     props: { className: 'text-foreground-subtle max-w-2xl text-sm' },
     content:
-      'Votre application expose une API REST générée à partir de sa configuration. ' +
-      'Chaque table devient un jeu de points d’accès CRUD. Voici l’essentiel pour ' +
-      'commencer, et la référence interactive complète.',
+      'Your app exposes a REST API generated from its config. ' +
+      'Each table becomes a set of CRUD endpoints. Here are the essentials to ' +
+      'get started, plus the full interactive reference.',
   } as unknown as Component
 }
 
+/**
+ * The base-URL + auth-scheme card. The base URL is shown relative
+ * (`<adresse de l’instance>/api`) because this page server-renders — it cannot
+ * read `window.location` — and a relative form stays correct behind any
+ * reverse proxy / custom domain the operator runs the instance under.
+ */
 function endpointCard(): Component {
   return card([
-    sectionLabel('Accès'),
-    keyValueRow('URL de base', '<adresse de votre instance>/api'),
+    sectionLabel('Access'),
+    keyValueRow('Base URL', '<your instance address>/api'),
     keyValueRow(
-      'Authentification',
-      'Session Better Auth (cookie de connexion). Une requête envoyée depuis ce navigateur, ' +
-        'connecté en tant qu’administrateur, est authentifiée automatiquement.'
+      'Authentication',
+      'Better Auth session (login cookie). A request sent from this browser, ' +
+        'signed in as an administrator, is authenticated automatically.'
     ),
   ])
 }
 
+/** The app's first few tables; the source of every config-derived example. */
 function exampleTables(app: App): ReadonlyArray<{ readonly name: string }> {
   return (app.tables ?? []).slice(0, 4)
 }
 
+/** The first table's name (drives the create/cURL/JS examples), or a placeholder. */
 function firstTableName(app: App): string {
   return exampleTables(app)[0]?.name ?? '{table}'
 }
 
+/**
+ * The canonical HTTP example: one `GET .../records` line per the app's first
+ * tables PLUS a `POST .../records` create line, derived from the operator's OWN
+ * tables. Falls back to a generic example when the app declares no tables. This
+ * is the default-visible tab and carries the `api-docs-examples` testid.
+ */
 function httpExample(app: App): string {
   const tables = exampleTables(app)
   const lines =
     tables.length > 0
       ? tables
-          .map((table) => `GET  /api/tables/${table.name}/records      # Lister « ${table.name} »`)
+          .map((table) => `GET  /api/tables/${table.name}/records      # List “${table.name}”`)
           .join('\n')
-      : 'GET  /api/tables/{table}/records      # Lister les enregistrements d’une table'
-  const createExample = `POST /api/tables/${firstTableName(app)}/records      # Créer un enregistrement`
+      : 'GET  /api/tables/{table}/records      # List a table’s records'
+  const createExample = `POST /api/tables/${firstTableName(app)}/records      # Create a record`
   return `${lines}\n${createExample}`
 }
 
+/**
+ * The same list call rendered as a copy-pasteable cURL command against the
+ * operator's first table — the shell most operators reach for first.
+ */
 function curlExample(app: App): string {
   const table = firstTableName(app)
   return (
-    `# Lister « ${table} » (la session admin de ce navigateur authentifie l’appel)\n` +
-    `curl '<adresse de votre instance>/api/tables/${table}/records' \\\n` +
+    `# List “${table}” (this browser’s admin session authenticates the call)\n` +
+    `curl '<your instance address>/api/tables/${table}/records' \\\n` +
     `  --header 'Accept: application/json' \\\n` +
     `  --cookie "$SOVRIUM_SESSION"`
   )
 }
 
+/**
+ * The same list call as a browser-native `fetch` — runnable straight from the
+ * admin console (the session cookie rides along with `credentials: 'include'`).
+ */
 function jsExample(app: App): string {
   const table = firstTableName(app)
   return (
-    `// Lister « ${table} » depuis ce navigateur (le cookie de session est inclus)\n` +
+    `// List “${table}” from this browser (the session cookie is included)\n` +
     `const res = await fetch('/api/tables/${table}/records', {\n` +
     `  headers: { Accept: 'application/json' },\n` +
     `  credentials: 'include',\n` +
@@ -137,6 +192,7 @@ function jsExample(app: App): string {
   )
 }
 
+/** One tab in the examples strip: a labelled `tab-panel` hosting a `code` block. */
 function exampleTab(label: string, body: Component): Component {
   return {
     type: 'tab-panel',
@@ -145,13 +201,19 @@ function exampleTab(label: string, body: Component): Component {
   } as unknown as Component
 }
 
+/**
+ * The example-requests card. The same call is offered as HTTP / cURL / JavaScript
+ * through a `display/tabs` strip, each panel a first-class `content/code` block.
+ * The default (HTTP) tab carries the `api-docs-examples` testid and the
+ * config-derived GET/POST lines.
+ */
 function examplesCard(app: App): Component {
   return card([
-    sectionLabel('Exemples de requêtes'),
+    sectionLabel('Request examples'),
     {
       type: 'tabs',
       defaultTab: 'http',
-      props: { 'aria-label': 'Exemples de requêtes', className: 'flex flex-col gap-3' },
+      props: { 'aria-label': 'Request examples', className: 'flex flex-col gap-3' },
       children: [
         {
           type: 'tab-panel',
@@ -168,16 +230,23 @@ function examplesCard(app: App): Component {
       element: 'p',
       props: { className: 'text-foreground-subtle text-xs' },
       content:
-        'Le verbe et le chemin suffisent ; la référence interactive détaille les paramètres, ' +
-        'les corps de requête et les réponses pour chaque point d’accès.',
+        'The verb and path are enough; the interactive reference details the parameters, ' +
+        'request bodies, and responses for each endpoint.',
     } as unknown as Component,
   ])
 }
 
+/**
+ * The admin create-user cURL reference — the create-via-API path that replaces
+ * the in-dashboard create form dropped when the Users directory converted
+ * to a system-source data-table (see auth-endusers.md / data-users.spec.ts). A
+ * runnable `POST /api/auth/admin/create-user` carrying the email / password /
+ * role body an operator (or an MCP client) supplies to provision an account.
+ */
 function createUserExample(): string {
   return (
-    '# POST /api/auth/admin/create-user — créer un compte (remplace le formulaire retiré)\n' +
-    "curl -X POST '<adresse de votre instance>/api/auth/admin/create-user' \\\n" +
+    '# POST /api/auth/admin/create-user — create an account (replaces the removed form)\n' +
+    "curl -X POST '<your instance address>/api/auth/admin/create-user' \\\n" +
     "  --header 'Content-Type: application/json' \\\n" +
     '  --cookie "$SOVRIUM_SESSION" \\\n' +
     "  --data '{\n" +
@@ -188,32 +257,38 @@ function createUserExample(): string {
   )
 }
 
+/**
+ * The "Create user" card — a first-class `content/code` block (copy
+ * affordance, `data-testid="api-docs-create-user"`) documenting the admin
+ * create-user endpoint that superseded the dropped in-dashboard create form.
+ */
 function createUserCard(): Component {
   return card([
-    sectionLabel('Créer un utilisateur'),
+    sectionLabel('Create user'),
     {
       type: 'text',
       element: 'p',
       props: { className: 'text-foreground-subtle text-sm' },
       content:
-        'La création de compte n’a plus de formulaire dans le tableau de bord : ' +
-        'elle passe par l’API admin de Better Auth (ou le serveur MCP). Un mot de ' +
-        'passe fort est requis ; la personne le réinitialise ensuite.',
+        'Account creation no longer has a dashboard form: ' +
+        'it goes through Better Auth’s admin API (or the MCP server). A strong ' +
+        'password is required; the person resets it afterwards.',
     } as unknown as Component,
     codeBlock(createUserExample(), 'bash', 'api-docs-create-user'),
   ])
 }
 
+/** The prominent call-to-action: open the interactive Scalar reference. */
 function scalarCard(): Component {
   return card([
-    sectionLabel('Référence interactive'),
+    sectionLabel('Interactive reference'),
     {
       type: 'text',
       element: 'p',
       props: { className: 'text-foreground-subtle text-sm' },
       content:
-        'Parcourez chaque point d’accès, testez des requêtes et lisez les schémas dans ' +
-        'la référence interactive (Scalar).',
+        'Browse every endpoint, try requests, and read the schemas in ' +
+        'the interactive reference (Scalar).',
     } as unknown as Component,
     {
       type: 'link',
@@ -225,11 +300,12 @@ function scalarCard(): Component {
         className:
           'bg-primary text-primary-fg inline-flex w-fit items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90',
       },
-      content: 'Ouvrir la référence interactive',
+      content: 'Open the interactive reference',
     } as unknown as Component,
   ])
 }
 
+/** The page header: title + one-line intro. */
 function header(): Component {
   return {
     type: 'container',
@@ -247,6 +323,7 @@ function header(): Component {
   } as unknown as Component
 }
 
+/** The full API docs body: header + the four cards. */
 function apiDocsBody(app: App): ReadonlyArray<Component> {
   return [
     {
@@ -258,6 +335,15 @@ function apiDocsBody(app: App): ReadonlyArray<Component> {
   ]
 }
 
+/**
+ * Build the API docs page (`/_admin/api`), wrapped in the persistent 3-zone
+ * sidebar shell. The example requests are derived from `operatorApp.tables`, so
+ * the page always reflects the administered app.
+ *
+ * @param title - the page meta title
+ * @param operatorApp - the live operator app (source of the example tables)
+ * @param options - tier + shell concerns
+ */
 export function buildApiDocsPage(title: string, operatorApp: App, options: ApiDocsOptions): Page {
   const { canEdit, appName, appVersion, publishedSnapshot } = options
   return {

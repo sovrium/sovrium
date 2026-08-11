@@ -15,9 +15,17 @@ export interface OptionItem {
 export interface SelectIslandProps {
   readonly options?: readonly OptionItem[]
   readonly placeholder?: string
+  /**
+   * TODO(escp/select): `multiple` is plumbed end-to-end (schema → renderer
+   * → island) but is currently ignored here. Implementing it requires Base
+   * UI's `Select.Root` `multiple` prop AND a chip/tag display in the
+   * trigger. Out of scope for the F-2 page-level select work.
+   */
   readonly multiple?: boolean
   readonly searchable?: boolean
+  /** Placeholder shown inside the combobox search input (only used when `searchable: true`). */
   readonly searchPlaceholder?: string
+  /** Accept typed values not in the option list (combobox free-form input). */
   readonly allowCustomValue?: boolean
   readonly defaultValue?: string
   readonly disabled?: boolean

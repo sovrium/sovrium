@@ -1,18 +1,111 @@
-# Default Sovrium theming.
+# Project workspace theming.
 #
-# `baseline: extend` inherits Sovrium's built-in design system — the achromatic
-# OKLCH neutral ramp (`--sv-*`) plus the self-hosted IBM Plex Sans / JetBrains
-# Mono type that IS the Sovrium visual identity. Colour is reserved for
-# consequence (see ADR-024), so a template that needs an accent declares its own
-# colour key rather than borrowing one from the engine.
+# `baseline: extend` keeps Sovrium's built-in design system — the OKLCH neutral
+# ramp and the self-hosted IBM Plex Sans / JetBrains Mono type that ships with
+# the platform. There is deliberately no `fonts` block: the workhorse and mono
+# families are already self-hosted, and pulling a family from a CDN would leak
+# the operator's IP and Referer to a third party, which
+# `docs/architecture/patterns/fonts.md` forbids outright. This template used to
+# request Inter from Google Fonts, which achieved neither goal — the request
+# leaked, AND naming an unserved family locks the shipped face out of its own
+# stack, so the page silently fell to the OS default. Distinctiveness here comes
+# from COLOUR, not from type.
 #
-# No `fonts` block: the workhorse and mono families ship self-hosted with the
-# platform. This template previously pulled Inter from the Google Fonts CDN,
-# which contradicted the no-CDN-ever rule in
-# `docs/architecture/patterns/fonts.md` — every such request leaks the
-# operator's IP and Referer to a third party, which an internal tool cannot
-# accept. Author a `fonts` block here only for a genuinely self-hosted family.
+# WHY THESE KEYS AND NOT OTHERS
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
+#   prestyled island already consumes, so declaring them repaints the timeline,
+#   the kanban, the data-table, the KPI tiles and the chart with no class changes
+#   anywhere in this config. A non-role key such as `brand-blue` emits
+#   `--color-*` only and does nothing until something references it — which is
+#   how a template can declare a page of pretty colours and still render
+#   achromatic.
+#
+#   The map is NOT identity, and guessing the name is the trap: `muted` and
+#   `background-subtle` both land on `--sv-bg-subtle`, `card` is `--sv-bg-raised`,
+#   `popover` is `--sv-bg-overlay`, `ring` is `--sv-focus-ring`. The canonical
+#   spellings are used below rather than the aliases, so the file reads as the
+#   role it paints. `text` / `text-muted` / `background-alt` are NOT in the map
+#   and would be inert.
+#
+#   Sovrium's own apps under `apps/` may NOT touch these keys without a
+#   BRAND.md permit, because repainting the role tokens there would silently
+#   reinstate the coloured ramp ADR-024 deleted from the Sovrium identity. That
+#   lock is repo-local and deliberately does not extend here: a template exists
+#   to look like the product a customer is building, not like sovrium.com.
+#
+# WHY BLUE
+#   Hues are assigned centrally across the nineteen templates so the demo fleet
+#   stays distinguishable at a glance — indigo is the CRM, amber the landing
+#   page, teal the docs site. Blue is this one. It also happens to be the hue the
+#   `Active` project and `In progress` task chips already carry, so the accent
+#   and the record data agree instead of competing.
 baseline: extend
+
+colors:
+  # `primary-foreground` is text ON the filled primary, never a themeable
+  # surface — white is the only value that clears AA against blue-600, so it is
+  # a literal rather than a token reference.
+  primary: '#2563eb'
+  primary-hover: '#1d4ed8'
+  primary-foreground: '#ffffff'
+  primary-subtle: '#dbeafe'
+  ring: '#3b82f6'
+
+  background: '#ffffff'
+  background-subtle: '#f1f5f9'
+  background-raised: '#ffffff'
+  background-overlay: '#ffffff'
+
+  # Three text weights, not one. The islands read `--sv-fg-muted` for column
+  # headers and `--sv-fg-subtle` for timestamps; leaving them unset makes every
+  # data-table render its chrome at full body contrast and lose its hierarchy.
+  foreground: '#0f172a'
+  foreground-muted: '#475569'
+  foreground-subtle: '#64748b'
+
+  border: '#e2e8f0'
+
+  # The semantic four are claimed on purpose. A project portfolio is exactly the
+  # case where colour carries consequence — a Blocked task reading red and a Done
+  # one reading green is the information, not decoration.
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+  info: '#0369a1'
+
+# Rendered only when the app declares `theme.colorScheme` or ships a
+# `theme-toggle`; the stylesheet carries it either way. The compiled selector is
+# `html:is(.dark, [data-theme='dark'])`, which re-points BOTH channels — a dark
+# key left out here keeps its light value, which is the documented way to say
+# "this one does not change", not an oversight.
+darkColors:
+  # Primary inverts its relationship with its own foreground: a light blue fill
+  # needs DARK text on it, so `primary-foreground` cannot simply stay white.
+  primary: '#60a5fa'
+  primary-hover: '#93c5fd'
+  primary-foreground: '#0b1220'
+  primary-subtle: '#1e3a5f'
+  ring: '#3b82f6'
+
+  background: '#0b1220'
+  background-subtle: '#16202f'
+  background-raised: '#131c2b'
+  background-overlay: '#131c2b'
+
+  foreground: '#e2e8f0'
+  foreground-muted: '#94a3b8'
+  foreground-subtle: '#64748b'
+
+  border: '#22304a'
+
+  # Lifted a full step: the light-mode semantics are chosen for contrast against
+  # white and go muddy on a near-black page.
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
+  info: '#38bdf8'
 
 borderRadius:
   sm: 0.25rem

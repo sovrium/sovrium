@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Validate that all index fields exist in the table.
+ *
+ * @param indexes - Array of index definitions
+ * @param fieldNames - Set of valid field names
+ * @returns Validation error object if invalid, undefined if valid
+ */
 export const validateIndexes = (
   indexes: ReadonlyArray<{
     readonly name: string

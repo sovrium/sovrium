@@ -8,7 +8,16 @@
 import { Schema } from 'effect'
 import { HexColorSchema } from '@/domain/types/definitions'
 
+// ============================================================================
+// Favicon
+// ============================================================================
 
+/**
+ * Default favicon path
+ *
+ * Simple string pointing to the default favicon file.
+ * Supports 3 formats: .ico (legacy), .png (modern), .svg (scalable).
+ */
 export const FaviconSchema = Schema.String.pipe(
   Schema.pattern(/^\.\/.+\.(ico|png|svg)$/, {
     message: () =>
@@ -19,9 +28,22 @@ export const FaviconSchema = Schema.String.pipe(
   description: 'Default favicon path',
 })
 
+/** @public */
 export type Favicon = Schema.Schema.Type<typeof FaviconSchema>
 
+// ============================================================================
+// Favicon Set
+// ============================================================================
 
+/**
+ * Favicon relationship type
+ *
+ * 4 types of favicons for different contexts:
+ * - icon: Standard browser favicon (most common)
+ * - apple-touch-icon: iOS home screen icon
+ * - manifest: PWA manifest file reference
+ * - mask-icon: Safari pinned tab icon (monochrome SVG)
+ */
 export const FaviconRelSchema = Schema.Literal(
   'icon',
   'apple-touch-icon',
@@ -31,6 +53,11 @@ export const FaviconRelSchema = Schema.Literal(
   description: 'Favicon relationship type',
 })
 
+/**
+ * Favicon item in a multi-device favicon set
+ *
+ * Defines a single favicon for a specific device or context.
+ */
 export const FaviconItemSchema = Schema.Struct({
   rel: FaviconRelSchema,
   type: Schema.optional(
@@ -69,16 +96,29 @@ export const FaviconItemSchema = Schema.Struct({
   description: 'Favicon item',
 })
 
+/**
+ * Multiple favicon sizes and types for different devices
+ *
+ * Comprehensive favicon configuration for cross-device compatibility.
+ */
 export const FaviconSetSchema = Schema.Array(FaviconItemSchema).annotations({
   title: 'Favicon Set',
   description: 'Multiple favicon sizes and types for different devices',
 })
 
+/** @public */
 export type FaviconRel = Schema.Schema.Type<typeof FaviconRelSchema>
+/** @public */
 export type FaviconItem = Schema.Schema.Type<typeof FaviconItemSchema>
 export type FaviconSet = Schema.Schema.Type<typeof FaviconSetSchema>
 
+// ============================================================================
+// Favicons Config
+// ============================================================================
 
+/**
+ * Size specification for favicon
+ */
 export const FaviconSizeItemSchema = Schema.Struct({
   size: Schema.String.pipe(
     Schema.pattern(/^[0-9]+x[0-9]+$/, {
@@ -94,6 +134,11 @@ export const FaviconSizeItemSchema = Schema.Struct({
   description: 'Favicon size specification',
 })
 
+/**
+ * Helper configuration for favicons with named properties
+ *
+ * This is a convenience format that gets transformed into FaviconSet array.
+ */
 export const FaviconsConfigSchema = Schema.Struct({
   icon: Schema.optional(
     Schema.String.annotations({
@@ -115,5 +160,6 @@ export const FaviconsConfigSchema = Schema.Struct({
   description: 'Helper configuration for favicons with named properties',
 })
 
+/** @public */
 export type FaviconSizeItem = Schema.Schema.Type<typeof FaviconSizeItemSchema>
 export type FaviconsConfig = Schema.Schema.Type<typeof FaviconsConfigSchema>

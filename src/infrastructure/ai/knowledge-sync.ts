@@ -5,6 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Knowledge sync runner — embeds agent table-knowledge into
+ * `system.ai_embeddings` at server startup.
+ *
+ * Mirrors `runSyncAgentUsers` in `agent-user-sync.ts` and `AiComputeListener`:
+ * a best-effort startup task that never blocks the server. It bridges the
+ * Drizzle-backed user tables to the eco-routed `AiService` port (R3 — the
+ * provider is whatever `ECO_AI_PROVIDER_PRECEDENCE` resolves to) via
+ * parameterised `SELECT`s + the `AiEmbeddingRepository` port. Pure text
+ * chunking lives in the domain layer (`rag-chunking`).
+ */
 
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
@@ -23,32 +34,52 @@ import type { RagAgent } from './rag-agent-input'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 
+/** A record loaded from a knowledge table — `id` plus the requested fields. */
 interface KnowledgeRecord {
   readonly id: string
   readonly fields: Readonly<Record<string, string>>
 }
 
+/** One table-knowledge entry on an agent. */
 interface KnowledgeTableEntry {
   readonly table: string
   readonly fields: ReadonlyArray<string>
   readonly filter?: Readonly<Record<string, unknown>>
 }
 
+/** An agent's table-knowledge configuration. */
 interface AgentKnowledgeInput {
   readonly name: string
   readonly tables: ReadonlyArray<KnowledgeTableEntry>
 }
 
+/** Per-table chunk counts produced by a sync run. */
 export interface SyncKnowledgeStats {
   readonly tables: Readonly<Record<string, number>>
   readonly totalChunks: number
 }
 
+/**
+ * Quote a SQL identifier (table or column name). Knowledge table/field
+ * names are already schema-validated against `app.tables`, so this is a
+ * defence-in-depth measure, not the primary trust boundary.
+ */
 const quoteIdent = (name: string): string => `"${name.replace(/"/g, '""')}"`
 
+/**
+ * Run a portable read query and return the row objects. Postgres uses the
+ * bun-sql `db.execute(...)` path (rows array, or `{ rows }` on older drivers);
+ * SQLite uses the bun-sqlite `db.all(...)` path, which the PG-typed `db` facade
+ * does not expose but the bun-sqlite runtime client does. Centralizing the
+ * branch keeps the dialect seam in one place.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's native mutable `SQL` shape; wrapping in `Readonly<>` breaks the `db.execute`/`db.all` APIs which require `SQL`. Same rationale as the aggregation-helpers selectors.
 const runReadQuery = async (query: SQL): Promise<ReadonlyArray<Record<string, unknown>>> => {
   if (isSqliteRuntime()) {
+    // `db.all` exists on the bun-sqlite runtime client; the PG facade type omits
+    // it, so reach it through a structural cast at this dialect seam.
     const sqliteDb = db as unknown as {
+      // eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's native mutable `SQL` shape; the bun-sqlite `db.all` runtime signature takes `SQL`.
       all: (q: SQL) => ReadonlyArray<Record<string, unknown>>
     }
     return sqliteDb.all(query)
@@ -56,6 +87,11 @@ const runReadQuery = async (query: SQL): Promise<ReadonlyArray<Record<string, un
   return extractRows(await db.execute(query))
 }
 
+/**
+ * Load records for one knowledge-table entry. Selects `id` plus each
+ * configured field, applying the optional equality filter. Failures resolve
+ * to an empty list so a missing/renamed table never aborts the sync.
+ */
 const loadKnowledgeRecords = (input: {
   readonly table: string
   readonly fields: ReadonlyArray<string>
@@ -90,6 +126,7 @@ const loadKnowledgeRecords = (input: {
     catch: () => [],
   }).pipe(Effect.catchAll(() => Effect.succeed([] as ReadonlyArray<KnowledgeRecord>)))
 
+/** A chunk awaiting embedding, carrying its provenance. */
 interface PendingChunk {
   readonly table: string
   readonly recordId: string
@@ -97,6 +134,10 @@ interface PendingChunk {
   readonly content: string
 }
 
+/**
+ * Build the `NewEmbedding` row for one embedded table-knowledge chunk.
+ * Shared by the full-agent sync and the per-record re-embed paths.
+ */
 const toTableEmbeddingRow = (
   agentName: string,
   chunk: PendingChunk,
@@ -112,6 +153,10 @@ const toTableEmbeddingRow = (
   metadata: { table: chunk.table, recordId: chunk.recordId },
 })
 
+/**
+ * Flatten one knowledge-table entry's records into pending chunks: each
+ * record's configured text fields are concatenated then chunked.
+ */
 const recordsToChunks = (
   table: string,
   records: ReadonlyArray<KnowledgeRecord>,
@@ -131,6 +176,15 @@ const recordsToChunks = (
     }))
   })
 
+/**
+ * Embed a single agent's table-knowledge and persist it
+ *.
+ *
+ * Pre-clears the agent's existing embeddings (`source_id` prefixed
+ * `table-agent:<agent>:`) so re-running is idempotent — a rebuild replaces
+ * rather than duplicates. Each chunk is embedded via the eco-routed
+ * `AiService.embed`; a per-chunk provider failure is skipped, never fatal.
+ */
 const syncAgentKnowledge = (input: {
   readonly agent: AgentKnowledgeInput
   readonly chunkSettings: ChunkSettings
@@ -165,11 +219,17 @@ const syncAgentKnowledge = (input: {
     return { tables, totalChunks: rows.length } satisfies SyncKnowledgeStats
   })
 
+/**
+ * Run knowledge sync for a list of agents. Returns per-agent stats.
+ * Errors are swallowed — a sync failure must never block server startup.
+ */
 export const runSyncKnowledge = async (
   agents: ReadonlyArray<AgentKnowledgeInput>
 ): Promise<Readonly<Record<string, SyncKnowledgeStats>>> => {
   if (agents.length === 0) return {}
   const chunkSettings = resolveChunkSettings(process.env)
+  // `syncAgentKnowledge` has a `never` error channel — it swallows its own
+  // failures — so no per-agent `catchAll` is needed here.
   const program = Effect.forEach(agents, (agent) =>
     syncAgentKnowledge({ agent, chunkSettings }).pipe(
       Effect.map((stats) => [agent.name, stats] as const)
@@ -181,6 +241,11 @@ export const runSyncKnowledge = async (
   return Object.fromEntries(results)
 }
 
+/**
+ * Startup runner — mirrors `runSyncAgentUsers`. Extracts table-knowledge
+ * from `app.agents[]` and syncs it. Best-effort: a failure is logged but
+ * never thrown.
+ */
 export const runSyncKnowledgeAtStartup = async (input: {
   readonly agents: ReadonlyArray<RagAgent> | undefined
 }): Promise<void> => {
@@ -195,11 +260,17 @@ export const runSyncKnowledgeAtStartup = async (input: {
     })
     .filter((agent) => agent.tables.length > 0)
   if (agents.length === 0) return
+  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget background logging (promise result intentionally discarded)
   await runSyncKnowledge(agents).catch((error: unknown) => {
     logError('[ai-rag] knowledge sync failed', error)
   })
 }
 
+/**
+ * Build per-table change-tracking bindings from `app.agents[]` — one binding
+ * per `(agent, knowledge table)` pair. Consumed by `AiKnowledgeListener` to
+ * auto-embed records inserted/updated/deleted after startup.
+ */
 export const buildKnowledgeBindings = (
   agents: ReadonlyArray<RagAgent> | undefined
 ): ReadonlyArray<{
@@ -217,6 +288,10 @@ export const buildKnowledgeBindings = (
     }))
   )
 
+/**
+ * Load a single record (by id) from a knowledge table. Returns `undefined`
+ * when the record is missing or excluded by the entry's equality filter.
+ */
 const loadSingleRecord = async (input: {
   readonly table: string
   readonly fields: ReadonlyArray<string>
@@ -229,6 +304,12 @@ const loadSingleRecord = async (input: {
   return records.find((r) => r.id === input.recordId)
 }
 
+/**
+ * Re-embed a single knowledge record after an `INSERT`/`UPDATE`
+ *. Pre-clears that record's prior embeddings so
+ * an update replaces rather than duplicates. When the record no longer
+ * matches the entry's filter, its embeddings are simply removed.
+ */
 export const embedKnowledgeRecord = async (input: {
   readonly agentName: string
   readonly table: string
@@ -240,6 +321,7 @@ export const embedKnowledgeRecord = async (input: {
   const chunkSettings = resolveChunkSettings(process.env)
   const program = Effect.gen(function* () {
     const repo = yield* AiEmbeddingRepository
+    // Clear the record's prior embeddings (idempotent re-embed).
     yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.catchAll(() => Effect.void))
 
     const record = yield* Effect.promise(() =>
@@ -268,9 +350,14 @@ export const embedKnowledgeRecord = async (input: {
     )
     yield* repo.insertMany(rows).pipe(Effect.catchAll(() => Effect.void))
   }).pipe(Effect.provide(RagSyncLayer))
+  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)
 }
 
+/**
+ * Remove every embedding for a single knowledge record after a `DELETE`
+ *.
+ */
 export const removeKnowledgeRecordEmbeddings = async (input: {
   readonly agentName: string
   readonly table: string
@@ -281,5 +368,6 @@ export const removeKnowledgeRecordEmbeddings = async (input: {
     const repo = yield* AiEmbeddingRepository
     yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.catchAll(() => Effect.void))
   }).pipe(Effect.provide(RagSyncLayer))
+  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)
 }

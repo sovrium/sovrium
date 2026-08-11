@@ -10,16 +10,24 @@ import { join, relative } from 'node:path'
 import { Effect, Data } from 'effect'
 import type { Dirent } from 'node:fs'
 
+/**
+ * File copy error - infrastructure layer error
+ */
 export class FileCopyError extends Data.TaggedError('FileCopyError')<{
   readonly message: string
   readonly cause?: unknown
 }> {}
 
+/**
+ * Copy a single file from source to destination using Bun's native file API
+ */
 const copyFile = (
   sourcePath: string,
   destPath: string
 ): Effect.Effect<string, FileCopyError, never> =>
   Effect.gen(function* () {
+    // Read file using Bun's native file API (faster and more idiomatic)
+    // arrayBuffer() preserves binary content exactly
     const content = yield* Effect.tryPromise({
       try: () => Bun.file(sourcePath).arrayBuffer(),
       catch: (error) =>
@@ -29,6 +37,8 @@ const copyFile = (
         }),
     })
 
+    // Write file using Bun.write (faster than Node.js fs/promises)
+    // Bun.write handles ArrayBuffer, Buffer, string, etc.
     yield* Effect.tryPromise({
       try: () => Bun.write(destPath, content),
       catch: (error) =>
@@ -41,6 +51,9 @@ const copyFile = (
     return destPath
   })
 
+/**
+ * Create a directory at the destination
+ */
 const createDirectory = (destPath: string): Effect.Effect<void, FileCopyError, never> =>
   Effect.tryPromise({
     try: () => mkdir(destPath, { recursive: true }),
@@ -51,6 +64,9 @@ const createDirectory = (destPath: string): Effect.Effect<void, FileCopyError, n
       }),
   })
 
+/**
+ * Read directory entries
+ */
 const readDirectoryEntries = (
   sourcePath: string
 ): Effect.Effect<readonly Dirent[], FileCopyError, never> =>
@@ -63,10 +79,24 @@ const readDirectoryEntries = (
       }),
   })
 
+/**
+ * Recursively copy directory contents from source to destination
+ *
+ * This function:
+ * 1. Preserves directory structure
+ * 2. Handles binary files correctly (no corruption)
+ * 3. Skips the assets/ directory in destination (reserved for CSS)
+ * 4. Returns list of copied file paths (relative to destination)
+ *
+ * @param source - Source directory path
+ * @param destination - Destination directory path
+ * @returns Effect with list of copied file paths (relative to destination)
+ */
 export const copyDirectory = (
   source: string,
   destination: string
 ): Effect.Effect<readonly string[], FileCopyError, never> => {
+  // Recursive copy function that returns list of copied files
   const copyRecursive = (
     sourcePath: string,
     destPath: string
@@ -74,6 +104,7 @@ export const copyDirectory = (
     Effect.gen(function* () {
       const entries = yield* readDirectoryEntries(sourcePath)
 
+      // Process entries and collect copied files immutably
       const copiedFiles = yield* Effect.forEach(
         entries,
         (entry) =>
@@ -92,6 +123,7 @@ export const copyDirectory = (
               return [relativePath] as readonly string[]
             }
 
+            // Not a directory or file (e.g., symlink) - skip
             return [] as readonly string[]
           }),
         { concurrency: 'unbounded' }

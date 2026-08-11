@@ -8,6 +8,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AiChatIslandProps, ChatMessage, ChatStatus, ConversationMessageDto } from './types'
 
+/**
+ * Chat state hook for the `ai-chat` island.
+ *
+ * Owns the message list, the runtime status (idle / sending / error), the
+ * stable per-mount `sessionId`, and the network calls to the chat backend:
+ *  - `POST /api/ai/chat` for sending a turn. The non-streaming endpoint is
+ *    used (not `/stream`) because it handles agent binding and maps provider
+ *    failures onto HTTP error statuses — the assistant text is rendered
+ *    progressively client-side as a typing effect.
+ *  - `GET  /api/ai/conversations` + `/:sessionId` for history replay on mount.
+ *
+ * The hook keeps the implementation total: a failed turn never throws, it
+ * transitions to the `error` status and exposes a `retry()` callback that
+ * re-sends the last user message.
+ */
 
 interface UseChatResult {
   readonly messages: readonly ChatMessage[]
@@ -16,11 +31,23 @@ interface UseChatResult {
   readonly retry: () => void
 }
 
+/**
+ * Outcome of one chat turn dispatched to the backend.
+ *  - `ok`           — the assistant reply.
+ *  - `rate-limited` — the per-user quota was exceeded (HTTP 429); the message
+ *    is shown inline in the log so the user sees the cooldown notice.
+ *  - `error`        — any other failure; surfaced via the error banner + retry.
+ */
 type ChatTurnOutcome =
   | { readonly kind: 'ok'; readonly reply: string }
   | { readonly kind: 'rate-limited'; readonly message: string }
   | { readonly kind: 'error' }
 
+/**
+ * Send one chat turn to `POST /api/ai/chat`. Returns the assistant reply on a
+ * 200 response, a `rate-limited` outcome on HTTP 429, or `error` for any other
+ * failure status so the caller can surface the appropriate UI.
+ */
 async function sendChatTurn(args: {
   readonly message: string
   readonly sessionId: string
@@ -55,8 +82,14 @@ async function sendChatTurn(args: {
   return { kind: 'ok', reply: json.reply }
 }
 
+/**
+ * Render `text` progressively into `onDelta` as a lightweight typing effect,
+ * so the assistant message visibly streams in even though the non-streaming
+ * endpoint returns it in one shot.
+ */
 async function typeOut(text: string, onDelta: (partial: string) => void): Promise<void> {
   const STEP = 24
+  // eslint-disable-next-line functional/no-loop-statements -- progressive reveal pump
   for (let end = STEP; end < text.length; end += STEP) {
     onDelta(text.slice(0, end))
     await new Promise((resolve) => setTimeout(resolve, 12))
@@ -64,6 +97,7 @@ async function typeOut(text: string, onDelta: (partial: string) => void): Promis
   onDelta(text)
 }
 
+/** Load the most recent conversation's turns for history replay. */
 async function loadHistory(): Promise<readonly ChatMessage[]> {
   const listRes = await fetch('/api/ai/conversations')
   if (!listRes.ok) return []
@@ -86,12 +120,14 @@ async function loadHistory(): Promise<readonly ChatMessage[]> {
     }))
 }
 
+/** Update one message (by id) in a message list, immutably. */
 const patchMessage = (
   list: readonly ChatMessage[],
   id: string,
   content: string
 ): readonly ChatMessage[] => list.map((m) => (m.id === id ? { ...m, content } : m))
 
+/** Inputs for running one chat turn against the backend. */
 interface RunTurnContext {
   readonly text: string
   readonly sessionId: string
@@ -101,6 +137,11 @@ interface RunTurnContext {
   readonly setStatus: (status: ChatStatus) => void
 }
 
+/**
+ * Run one chat turn: append the user message + an empty assistant placeholder,
+ * dispatch to the backend, then either type out the reply, show the inline
+ * rate-limit notice, or drop the placeholder and surface the error state.
+ */
 async function runChatTurn(ctx: RunTurnContext): Promise<void> {
   ctx.setStatus('sending')
   const userId = crypto.randomUUID()
@@ -121,11 +162,14 @@ async function runChatTurn(ctx: RunTurnContext): Promise<void> {
       allowedTables: ctx.allowedTables,
     })
     if (outcome.kind === 'rate-limited') {
+      // The cooldown notice is shown inline in the log (not the error banner)
+      // so the user sees the rate-limit message in context.
       updateAssistant(outcome.message)
       ctx.setStatus('idle')
       return
     }
     if (outcome.kind === 'error') {
+      // Drop the empty assistant placeholder; surface the error banner.
       ctx.setMessages((prev) => prev.filter((m) => m.id !== assistantId))
       ctx.setStatus('error')
       return
@@ -144,6 +188,7 @@ export function useChat(props: AiChatIslandProps): UseChatResult {
   const sessionIdRef = useRef<string>(crypto.randomUUID())
   const lastMessageRef = useRef<string>('')
 
+  // History replay on mount when `showHistory` is enabled.
   useEffect(() => {
     if (props.showHistory !== true) return
     void loadHistory().then((history) => {
@@ -168,6 +213,7 @@ export function useChat(props: AiChatIslandProps): UseChatResult {
     (text: string): void => {
       const trimmed = text.trim()
       if (trimmed.length === 0) return
+      // eslint-disable-next-line functional/immutable-data -- React ref mutation is idiomatic
       lastMessageRef.current = trimmed
       void runTurn(trimmed)
     },

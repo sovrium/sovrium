@@ -12,6 +12,21 @@ import { i18nFields } from '../modules/i18n'
 import { responsiveFields } from '../modules/responsive'
 import { visibilityFields } from '../modules/visibility'
 
+/**
+ * `schema-ai-agent` component type — an AI-assisted app-config authoring surface.
+ *
+ * A conversational agent that proposes / edits a tenant app config from natural
+ * language ("add a contacts table with name and email"), emitting the same
+ * config-submission contract the JSON/YAML/form editors use. `agent` names an
+ * entry from `app.agents[]`; the agent is driven through the platform AI provider
+ * precedence resolver (env-controlled, eco-by-default), never a hard-coded cloud
+ * provider.
+ *
+ * Island deferred (red): the agentic editing island is a substantial later
+ * `src/presentation/islands/` build. Until it ships the dispatcher renders a
+ * safe `<div>` placeholder, so the type validates against AppSchema and renders
+ * without crashing (component-type-dispatcher fallback).
+ */
 export const SchemaAiAgentTypeLiteral = Schema.Literal('schema-ai-agent')
 
 export const schemaAiAgentFields = {
@@ -55,5 +70,13 @@ export const schemaAiAgentFields = {
       Schema.annotations({ description: 'Agent conversation container height in pixels' })
     )
   ),
+  /**
+   * Record-context submit fields (GAP-I2). Reuses the `InlinePrefillSchema`
+   * (`$record.<field>` token + `lockPrefill`). On a record-detail / collection
+   * page the editor SSR dispatcher resolves the tokens against the host record
+   * into a literal `submitContext` merged into the submit body — so an editor
+   * whose submit table has a required relationship FK carries the page record
+   * FK without overloading the format column.
+   */
   inlinePrefill: Schema.optional(InlinePrefillSchema),
 } as const

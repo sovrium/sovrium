@@ -15,6 +15,12 @@ import { renderRssFeed } from '@/presentation/rendering/render-rss-feed'
 import type { DataSourceDb } from '@/presentation/rendering/data-source-resolver'
 import type { Context } from 'effect'
 
+/**
+ * Creates a DataSourceDb adapter from the Effect DataSourceRepository.
+ *
+ * Bridges the Effect-based repository (infrastructure layer) to the
+ * plain async interface expected by the presentation rendering layer.
+ */
 function createDataSourceDbAdapter(repo: Context.Tag.Service<DataSourceRepository>): DataSourceDb {
   return {
     fetchRecords: (tableName, options) => Effect.runPromise(repo.fetchRecords(tableName, options)),
@@ -23,10 +29,32 @@ function createDataSourceDbAdapter(repo: Context.Tag.Service<DataSourceRepositor
       Effect.runPromise(repo.fetchSingleRecord(tableName, paramField, paramValue, fields)),
     fetchUserAssignments: (userId, tableSlug) =>
       Effect.runPromise(repo.fetchUserAssignments(userId, tableSlug)),
+    // Bug 2 / [internal ref]: overlay user_access roles onto the
+    // Better Auth session role so page access checks see the engineer role.
     fetchUserAccessRoles: (userId) => Effect.runPromise(repo.fetchUserAccessRoles(userId)),
   }
 }
 
+/**
+ * Live implementation of PageRenderer using React SSR
+ *
+ * This Layer provides production page rendering logic,
+ * wrapping the presentation layer rendering functions in an
+ * Effect Context service.
+ *
+ * Located in Infrastructure layer because Effect Layer "Live"
+ * implementations are adapters (ports/adapters pattern).
+ * Infrastructure adapters CAN depend on presentation utilities
+ * for rendering logic.
+ *
+ * @example
+ * ```typescript
+ * // Provide PageRendererLive to use cases
+ * const program = startServer(appConfig).pipe(
+ *   Effect.provide(PageRendererLive)
+ * )
+ * ```
+ */
 export const PageRendererLive = Layer.effect(
   PageRenderer,
   Effect.gen(function* () {

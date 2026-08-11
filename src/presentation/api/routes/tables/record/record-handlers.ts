@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Barrel re-export: record handlers split by concern (read, write, delete)
 export { handleListRecords, handleListTrash, handleGetRecord } from './record-read-handlers'
 export {
   handleCreateRecord,

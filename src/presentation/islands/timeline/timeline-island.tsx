@@ -22,7 +22,15 @@ import type { ReactElement } from 'react'
 
 interface TimelineIslandProps {
   readonly dataSource?: {
+    /** DB-table binding — ABSENT for a system-source binding. */
     readonly table?: string
+    /**
+     * System read-endpoint binding (CAP-1). Plots entries from a named read
+     * endpoint instead of a declared DB table. Mutually exclusive with `table`.
+     * A system source is READ-ONLY — the timeline is a non-interactive
+     * visualization (no drag-reschedule / resize), so writes are gated off
+     * intrinsically.
+     */
     readonly system?: SystemSource
     readonly view?: string
     readonly filter?: readonly DataFilter[]
@@ -33,10 +41,34 @@ interface TimelineIslandProps {
   readonly labelField?: string
   readonly groupBy?: string
   readonly colorField?: string
+  /**
+   * `optionValue → #RRGGBB` declared on the field `colorField` names, resolved
+   * server-side from `app.tables` (an island receives records, never the field
+   * schema). Absent when the field declares no option colours — bars then keep
+   * the built-in fallback palette.
+   */
+  readonly colorFieldColors?: Readonly<Record<string, string>>
   readonly defaultZoom?: TimelineConfig['defaultZoom']
   readonly emptyMessage?: string
 }
 
+/**
+ * data-timeline island — client-side data-bound timeline visualisation.
+ *
+ * The island contract:
+ * - Returns `TimelineMissingTable` if NEITHER a `dataSource.table` NOR a
+ *   `dataSource.system` read-endpoint binding is configured.
+ * - Returns `TimelineMissingStartField` if no `startField` is configured.
+ * - Returns `TimelineLoading` while the records query is in flight.
+ * - Returns `TimelineError` on fetch failure.
+ * - Returns `TimelineEmpty` when zero records come back.
+ * - Otherwise renders `TimelineView` — horizontal bars on a time axis, point
+ *   markers for records lacking an end date, optional swimlanes (`groupBy`)
+ *   and per-value bar colors (`colorField`).
+ *
+ * Every branch emits `data-component="data-timeline"` so spec assertions on
+ * the canonical attribute resolve in every state.
+ */
 export default function TimelineIsland({
   dataSource,
   startField,
@@ -44,6 +76,7 @@ export default function TimelineIsland({
   labelField,
   groupBy,
   colorField,
+  colorFieldColors,
   defaultZoom,
   emptyMessage,
 }: TimelineIslandProps): ReactElement {
@@ -72,6 +105,7 @@ export default function TimelineIsland({
     <TimelineView
       items={items}
       groupBy={groupBy}
+      colorFieldColors={colorFieldColors}
     />
   )
 }

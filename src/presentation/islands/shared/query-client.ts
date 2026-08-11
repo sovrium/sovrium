@@ -7,6 +7,13 @@
 
 import { QueryClient } from '@tanstack/react-query'
 
+/**
+ * Creates a QueryClient instance for an island root.
+ *
+ * Each island gets its own QueryClient to ensure isolation —
+ * cache invalidation in one island doesn't cause unnecessary
+ * refetches in unrelated islands.
+ */
 export function createIslandQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {

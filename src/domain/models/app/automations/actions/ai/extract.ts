@@ -9,29 +9,39 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * AI Extract Action (type: ai, operator: extract)
+ *
+ * Extract structured data from text using a language model.
+ * The output conforms to the provided JSON Schema shape.
+ */
 export const AiExtractActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('ai'),
   operator: Schema.Literal('extract'),
   props: Schema.Struct({
+    /** LLM provider */
     provider: Schema.Literal('openai', 'anthropic', 'ollama', 'custom').pipe(
       Schema.annotations({
         description: 'LLM provider: openai, anthropic, ollama (self-hosted), or custom',
       })
     ),
 
+    /** Model identifier */
     model: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Model name (e.g., "gpt-4o", "claude-sonnet-4-20250514")',
       })
     ),
 
+    /** Text to extract from */
     input: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Text input to extract data from (supports template variables)',
       })
     ),
 
+    /** JSON Schema describing the expected output shape */
     schema: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
       Schema.annotations({
         description:
@@ -39,6 +49,7 @@ export const AiExtractActionSchema = Schema.Struct({
       })
     ),
 
+    /** Instruction prepended to the extraction request */
     prompt: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -48,6 +59,7 @@ export const AiExtractActionSchema = Schema.Struct({
       )
     ),
 
+    /** System prompt */
     systemPrompt: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -56,6 +68,7 @@ export const AiExtractActionSchema = Schema.Struct({
       )
     ),
 
+    /** Sampling temperature */
     temperature: Schema.optional(
       Schema.Number.pipe(
         Schema.between(0, 2),
@@ -65,6 +78,7 @@ export const AiExtractActionSchema = Schema.Struct({
       )
     ),
 
+    /** Maximum tokens to generate */
     maxTokens: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -75,6 +89,7 @@ export const AiExtractActionSchema = Schema.Struct({
       )
     ),
 
+    /** Connection name for API authentication */
     connection: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^[a-z][a-z0-9-]*$/),
@@ -92,4 +107,5 @@ export const AiExtractActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AiExtractAction = Schema.Schema.Type<typeof AiExtractActionSchema>

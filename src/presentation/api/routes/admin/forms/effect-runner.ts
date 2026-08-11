@@ -8,6 +8,14 @@
 import { Effect } from 'effect'
 import { AdminFormsLayer } from '@/application/use-cases/admin/forms-overview'
 
+/**
+ * Provide AdminFormsLayer to an Effect program.
+ *
+ * Isolates the infrastructure import (the repository Live layer, bundled in
+ * `AdminFormsLayer`) so the admin/forms route handlers depend only on the
+ * application layer. This is the composition root for the five
+ * `GET|POST /api/admin/forms/*` endpoints.
+ */
 export function provideAdminFormsLive<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {

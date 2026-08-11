@@ -5,14 +5,31 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Shared per-kind AI chat-request builders for AI-compute refinement
+ * ([internal ref] Phase 2, design §4).
+ *
+ * SINGLE SOURCE OF TRUTH for prompt construction. Both refinement invocation
+ * paths converge here:
+ *   - Postgres: the NOTIFY listener (`ai-compute-listener.ts`) parses the
+ *     `pg_notify` payload and calls {@link buildAiComputeChatRequest}.
+ *   - SQLite: the post-write `Effect.tap` hook builds the same normalized input
+ *     from the field config and calls the same function.
+ *
+ * Pure functions only — no Effect, no I/O. The request shape mirrors the
+ * `AiService.chat` `ChatInput` subset the worker uses (messages + the optional
+ * model/temperature/maxTokens overrides).
+ */
 
 import type { AiComputeKind } from './baseline'
 
+/** A single chat message (OpenAI-compatible). */
 export interface AiComputeChatMessage {
   readonly role: 'system' | 'user' | 'assistant'
   readonly content: string
 }
 
+/** The chat request shape consumed by the worker (subset of `ChatInput`). */
 export interface AiComputeChatRequest {
   readonly messages: readonly AiComputeChatMessage[]
   readonly model?: string
@@ -20,6 +37,12 @@ export interface AiComputeChatRequest {
   readonly maxTokens?: number
 }
 
+/**
+ * The per-field config the request builders read. A normalized superset of the
+ * fields each AI-compute kind carries — only the keys relevant to a given kind
+ * are consulted. Both the NOTIFY payload (PG) and the schema field (SQLite)
+ * project onto this shape.
+ */
 export interface AiComputeRequestConfig {
   readonly prompt?: string | null
   readonly systemPrompt?: string | null
@@ -29,16 +52,21 @@ export interface AiComputeRequestConfig {
   readonly maxLength?: number | null
   readonly categories?: readonly string[]
   readonly targetLanguage?: string
+  /** Serialised JSON Schema describing the structure of extracted data (ai-extract). */
   readonly schema?: string
 }
 
+/** The normalized input the worker hands to the request builder. */
 export interface AiComputeRequestInput {
   readonly kind: AiComputeKind
+  /** Concatenated source content (already joined the same way as the baseline). */
   readonly source: string
+  /** The deterministic baseline value (carried through for categorize context). */
   readonly baselineValue?: string | undefined
   readonly config: AiComputeRequestConfig
 }
 
+/** ISO 639-1 (+region) → human language name (mirrors the listener map). */
 const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
   fr: 'French',
   es: 'Spanish',
@@ -58,6 +86,7 @@ const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
 const languageName = (code: string): string =>
   LANGUAGE_NAMES[code] ?? LANGUAGE_NAMES[code.split('-')[0] ?? code] ?? code
 
+/** Spread the optional model/temperature/maxTokens overrides (NULL → omit). */
 const overrides = (
   config: AiComputeRequestConfig,
   defaults: { readonly temperature?: number } = {}
@@ -174,6 +203,14 @@ const buildGenerateMessages = (input: AiComputeRequestInput): readonly AiCompute
   ]
 }
 
+/**
+ * Build the chat request for an AI-compute refinement. Returns `undefined` when
+ * the input is unusable (e.g. categorize without a category list) so the caller
+ * can short-circuit without invoking the provider.
+ *
+ * categorize + sentiment force `temperature: 0` (deterministic classification)
+ * unless the field overrides it; the other kinds pass overrides through verbatim.
+ */
 export const buildAiComputeChatRequest = (
   input: AiComputeRequestInput
 ): AiComputeChatRequest | undefined => {
@@ -204,6 +241,7 @@ export const buildAiComputeChatRequest = (
   }
 }
 
+/** The per-kind extra config keys (categories/tags/targetLanguage/schema). */
 const kindExtras = (
   kind: AiComputeKind,
   field: Readonly<Record<string, unknown>>
@@ -211,10 +249,17 @@ const kindExtras = (
   if (kind === 'ai-categorize') return { categories: field['categories'] as readonly string[] }
   if (kind === 'ai-tag') return { categories: field['tags'] as readonly string[] }
   if (kind === 'ai-translate') return { targetLanguage: field['targetLanguage'] as string }
+  // @effect-diagnostics effect/preferSchemaOverJson:off
   if (kind === 'ai-extract') return { schema: JSON.stringify(field['schema'] ?? {}) }
   return {}
 }
 
+/**
+ * Project a raw AI-compute field config (schema field on SQLite, NOTIFY payload
+ * on PG) onto the shared {@link AiComputeRequestConfig}. SINGLE projection so
+ * the SQLite enqueue and PG listener build identical requests. Optional keys are
+ * `undefined` (omitted) when absent.
+ */
 export const fieldToRequestConfig = (
   kind: AiComputeKind,
   field: Readonly<Record<string, unknown>>

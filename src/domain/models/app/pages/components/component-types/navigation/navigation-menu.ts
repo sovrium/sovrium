@@ -25,12 +25,25 @@ export const navigationMenuFields = {
       Schema.annotations({ description: 'Navigation items with optional sub-menus' })
     )
   ),
+  /**
+   * When true, a mega-menu trigger opens on pointer hover (in addition to
+   * click). Click always still opens/closes the menu; hover is purely additive.
+   * The pointer can travel from the trigger into the open panel without the menu
+   * closing. Applies to every mega-menu trigger in this navigation-menu.
+   */
   openOnHover: Schema.optional(
     Schema.Boolean.annotations({
       description:
         'Open a mega-menu trigger on pointer hover in addition to click (click still opens/closes; the pointer may travel from the trigger into the open panel without it closing). Applies to every mega-menu trigger in this navigation-menu.',
     })
   ),
+  /**
+   * Authored className for the navigation-menu trigger. When present, it
+   * OVERRIDES the platform default trigger recipe (`computeNavMenuTriggerClasses`)
+   * for both the hydrated island trigger AND the SSR placeholder trigger, so the
+   * two emit an identical class list and hydration does not reflow the header.
+   * When omitted, the default recipe is used unchanged (other apps unaffected).
+   */
   triggerClassName: Schema.optional(
     Schema.String.annotations({
       description:

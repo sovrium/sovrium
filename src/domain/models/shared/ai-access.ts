@@ -7,7 +7,32 @@
 
 import { Schema } from 'effect'
 
+// ---------------------------------------------------------------------------
+// Tool Annotations (MCP risk vocabulary)
+// ---------------------------------------------------------------------------
 
+/**
+ * Tool Annotations Schema
+ *
+ * Risk hints compiled into MCP tool definitions so AI clients (Claude Desktop,
+ * Claude Code, ChatGPT Dev Mode) can decide whether to auto-approve a tool call
+ * or require user confirmation.
+ *
+ * Maps directly to MCP spec annotations:
+ * - `readOnly` → `readOnlyHint`
+ * - `destructive` → `destructiveHint`
+ * - `idempotent` → `idempotentHint`
+ * - `openWorld` → `openWorldHint`
+ *
+ * @example
+ * ```yaml
+ * aiAccess:
+ *   annotations:
+ *     readOnly: false
+ *     destructive: false
+ *     idempotent: true
+ * ```
+ */
 export const ToolAnnotationsSchema = Schema.Struct({
   readOnly: Schema.optional(
     Schema.Boolean.pipe(
@@ -51,15 +76,36 @@ export const ToolAnnotationsSchema = Schema.Struct({
 
 export type ToolAnnotations = typeof ToolAnnotationsSchema.Type
 
+// ---------------------------------------------------------------------------
+// AI Access (per-entity exposure config)
+// ---------------------------------------------------------------------------
 
+/**
+ * Operation Schema — Which CRUD operations are exposed to MCP for an entity
+ */
 export const AiAccessOperationSchema = Schema.Literal('read', 'list', 'create', 'update', 'delete')
 
 export type AiAccessOperation = typeof AiAccessOperationSchema.Type
 
+/**
+ * Field Exposure Mode — Controls which fields appear in tool inputs/outputs
+ *
+ * - `'all'` — Every field is exposed (subject to RBAC field-level perms)
+ * - `'permissioned'` — Only fields the connecting role can read/write (default)
+ * - `'whitelist'` — Only fields explicitly listed in `whitelistFields`
+ */
 export const FieldExposureSchema = Schema.Literal('all', 'permissioned', 'whitelist')
 
+/** @public */
 export type FieldExposure = typeof FieldExposureSchema.Type
 
+/**
+ * AiAccess Config Schema (rich form)
+ *
+ * Object form for entities that need custom AI exposure config (description,
+ * operation subset, field exposure mode, etc.). Note: there is no `enabled`
+ * field — supplying any config object IS the enable signal.
+ */
 export const AiAccessConfigSchema = Schema.Struct({
   description: Schema.optional(
     Schema.String.pipe(
@@ -113,8 +159,46 @@ export const AiAccessConfigSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AiAccessConfig = typeof AiAccessConfigSchema.Type
 
+/**
+ * AiAccess Schema
+ *
+ * Reusable per-entity flag declaring that the entity is *eligible* for AI/MCP
+ * exposure. Whether the operator's running binary actually mounts the MCP
+ * server is controlled separately via the `MCP_ENABLED` environment variable —
+ * this flag is the schema author's declaration of intent.
+ *
+ * Two forms (mirroring the `PermissionValueSchema` shorthand pattern):
+ * - Boolean: `aiAccess: true` (enable with defaults) or `aiAccess: false` (disable explicitly)
+ * - Object: `aiAccess: { description: '...', operations: [...] }` (rich config; supplying config implies enable)
+ *
+ * Applied identically to:
+ * - tables (`app.tables[].aiAccess`)
+ * - automations (`app.automations[].aiAccess`, only manual-trigger)
+ * - action templates (`app.actions[].aiAccess`)
+ *
+ * @example Boolean shorthand (most common)
+ * ```yaml
+ * tables:
+ *   - name: contacts
+ *     aiAccess: true
+ * ```
+ *
+ * @example Rich config
+ * ```yaml
+ * tables:
+ *   - name: contacts
+ *     aiAccess:
+ *       operations: ['read', 'list', 'create', 'update']
+ *       description: Customer contacts. Use this when the user asks about people.
+ *       fieldExposure: permissioned
+ *       annotations:
+ *         readOnly: false
+ *         destructive: false
+ * ```
+ */
 export const AiAccessSchema = Schema.Union(Schema.Boolean, AiAccessConfigSchema).pipe(
   Schema.annotations({
     identifier: 'AiAccess',
@@ -131,8 +215,76 @@ export const AiAccessSchema = Schema.Union(Schema.Boolean, AiAccessConfigSchema)
 
 export type AiAccess = typeof AiAccessSchema.Type
 
+/**
+ * Helper: returns `true` if this aiAccess value declares the entity as enabled.
+ * - Boolean true → enabled
+ * - Boolean false → disabled
+ * - Any object → enabled (supplying config implies enable)
+ * - undefined → not declared
+ */
 export const isAiAccessEnabled = (access: AiAccess | undefined): boolean => {
   if (access === undefined) return false
   if (typeof access === 'boolean') return access
   return true
 }
+
+/**
+ * Helper: the author's `aiAccess.description` override, or `undefined` when the
+ * boolean form was used or the object declares no description. An empty string
+ * is treated as absent — a blank override must not blank out the tool's
+ * description on the wire.
+ */
+const describedBy = (access: AiAccess | undefined): string | undefined => {
+  if (access === undefined || typeof access === 'boolean') return undefined
+  const { description } = access
+  return description !== undefined && description.length > 0 ? description : undefined
+}
+
+/**
+ * The MCP tool description for one `(table, operation)` pair.
+ *
+ * CANONICAL. Two callers must agree on this string and previously did not:
+ * the wire-format compiler (`compileMcpTools`) prefixed an author override with
+ * `"{operation}: "`, while the admin MCP docs page's listing ignored the
+ * override entirely and always printed the default sentence. An operator read
+ * one description and their AI received another — the exact failure the listing
+ * module exists to prevent. Both now call this function, so the two cannot drift
+ * without the drift being a change to THIS line.
+ *
+ * The `{operation}: ` prefix is deliberate on the override path: one author
+ * description is shared by up to five tools (read/list/create/update/delete),
+ * so without it an AI client's tool picker shows five identically-described
+ * tools with no way to tell a read from a delete.
+ */
+export const buildTableToolDescription = (
+  tableName: string,
+  operation: AiAccessOperation,
+  access: AiAccess | undefined
+): string => {
+  const overridden = describedBy(access)
+  return overridden === undefined
+    ? `${operation} records in the ${tableName} table`
+    : `${operation}: ${overridden}`
+}
+
+/**
+ * The MCP tool description for an action template. CANONICAL — see
+ * {@link buildTableToolDescription} for why both callers share one function.
+ *
+ * No operation prefix here: an action template compiles to exactly ONE tool, so
+ * the author's description already names the tool unambiguously.
+ */
+export const buildActionToolDescription = (
+  templateName: string,
+  access: AiAccess | undefined
+): string => describedBy(access) ?? `Invoke the '${templateName}' action template`
+
+/**
+ * The MCP tool description for a manual-trigger automation. CANONICAL — see
+ * {@link buildTableToolDescription}. One automation compiles to one tool, so
+ * (like an action template) it carries no operation prefix.
+ */
+export const buildAutomationToolDescription = (
+  automationName: string,
+  access: AiAccess | undefined
+): string => describedBy(access) ?? `Run the '${automationName}' automation`

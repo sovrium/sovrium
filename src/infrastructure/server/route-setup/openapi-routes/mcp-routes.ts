@@ -13,9 +13,15 @@ import {
 } from '@/domain/models/api/ai/mcp'
 import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * Model Context Protocol (MCP) status routes — report the MCP server and
+ * client enablement and the discovered tool catalog. When a mode is disabled
+ * the route returns a `{ enabled: false, error }` envelope with status 404.
+ */
 
 const mcpDisabledResponse = (description: string) => jsonResponse(mcpDisabledSchema, description)
 
+/** MCP status route group. */
 export const mcpGroup: StaticGroupSpec = {
   tag: 'ai',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',

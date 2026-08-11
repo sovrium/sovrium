@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { ComponentPropsSchema } from '../../components/props'
 
+/**
+ * Component i18n (internationalization) schema
+ *
+ * Localized translations per language for a component. Each key is an
+ * ISO 639-1 language code (e.g., "en", "fr-FR") mapping to translated
+ * content and/or props overrides.
+ *
+ * @example
+ * ```yaml
+ * i18n:
+ *   fr:
+ *     content: Bienvenue
+ *     props:
+ *       className: text-lg font-bold
+ *   es:
+ *     content: Bienvenido
+ * ```
+ */
 export const ComponentI18nSchema = Schema.Record({
   key: Schema.String.pipe(
     Schema.pattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
@@ -30,4 +48,5 @@ export const ComponentI18nSchema = Schema.Record({
   })
 )
 
+/** @public */
 export type ComponentI18n = Schema.Schema.Type<typeof ComponentI18nSchema>

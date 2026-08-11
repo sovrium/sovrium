@@ -1,0 +1,104 @@
+# Blog theming — purple.
+#
+# This template previously shipped no `theme` block at all, so it rendered in
+# the achromatic OKLCH neutral baseline: correct, but indistinguishable from
+# every other themeless demo in the gallery. Purple is assigned centrally and
+# sits clear of the CRM's indigo, the landing page's amber and the docs site's
+# teal, so a visitor comparing four demos sees four products.
+#
+# WHY THESE KEY NAMES
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens every prestyled island consumes. Everything
+#   else emits `--color-*` and does nothing until something cites it — which is
+#   how a template can declare two dozen colours and still render grey.
+#
+#   The mapping is NOT identity, and the surprises are worth naming: `muted`
+#   maps to `bg-subtle`, `background-raised` to `bg-raised`,
+#   `background-overlay` to `bg-overlay`, `ring` to `focus-ring`, `success` to
+#   `success-solid`. And `foreground-muted`
+#   maps to `fg-muted`, which the baseline has already registered as
+#   `--color-muted-foreground` — so the `text-muted-foreground` utility class
+#   the index page uses picks this up without a second declaration.
+#
+#   Every page in this template styles through utility classes
+#   (`bg-background`, `text-foreground`, `text-primary`) rather than inline
+#   hexes, so declaring the role keys repaints the whole surface — the public
+#   index, the post pages, the data tables and the admin space — with no class
+#   changes anywhere in the config.
+#
+#   Sovrium's own apps under `apps/` may not touch these keys without a BRAND.md
+#   permit, because repainting the roles there would reinstate the coloured ramp
+#   ADR-024 deleted from the Sovrium identity. That lock is repo-local and does
+#   not extend here: a template exists to look like the product a customer is
+#   building, not like sovrium.com.
+#
+#
+# WHY `background-raised` / `background-overlay` AND NOT `card` / `popover`
+#   The two pairs map to the SAME role tokens (`--sv-bg-raised`,
+#   `--sv-bg-overlay`), so this is not a behaviour change — but `card`, `popover`
+#   and `muted` are listed in `COLORS_NEEDING_FOREGROUND`, which auto-derives a
+#   `<key>-foreground: #ffffff` companion whenever the base key is declared
+#   without one. On a white card that companion is white text on white. Worse,
+#   the derivation runs over the LIGHT block only and is never mirrored into
+#   `darkColors`, so it is a light-surface guess that silently persists into
+#   dark mode. The `background-*` spellings carry no such companion.
+#
+# WHY `primary-foreground` IS SPELLED OUT IN BOTH BLOCKS
+#   `primary` IS in `COLORS_NEEDING_FOREGROUND`, so omitting it derives
+#   `#ffffff` — correct here in light mode, and wrong in dark, where `primary`
+#   lightens and white-on-light is unreadable. The derived companion is not
+#   mirrored into `darkColors`, so the only way to get a legible on-primary ink
+#   in both schemes is to name it twice, which is what happens below.
+# NO `fonts` BLOCK, DELIBERATELY
+#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
+#   Naming any other family emits `font-family: X, …` with no matching
+#   `@font-face`, which drops the page onto the OS default AND pushes the
+#   shipped face out of its own stack. A reading surface is exactly where that
+#   hurts most, so this template inherits the served type as-is.
+baseline: extend
+
+colors:
+  primary: '#7c3aed'
+  primary-hover: '#6d28d9'
+  primary-foreground: '#ffffff'
+  primary-subtle: '#ede9fe'
+  ring: '#8b5cf6'
+  background: '#ffffff'
+  background-subtle: '#faf7ff'
+  foreground: '#1b1229'
+  foreground-muted: '#584a6b'
+  foreground-subtle: '#8878a0'
+  background-raised: '#ffffff'
+  background-overlay: '#ffffff'
+  border: '#e9e0f7'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+
+# Rendered only when the app declares `theme.colorScheme` or ships a
+# `theme-toggle`; the stylesheet carries it either way, under
+# `html:is(.dark, [data-theme='dark'])`.
+darkColors:
+  primary: '#a78bfa'
+  primary-hover: '#c4b5fd'
+  primary-foreground: '#1b1229'
+  primary-subtle: '#2e1065'
+  ring: '#8b5cf6'
+  background: '#100b18'
+  background-subtle: '#191122'
+  foreground: '#ece5f7'
+  foreground-muted: '#b7a8cd'
+  foreground-subtle: '#8b7ba3'
+  background-raised: '#191122'
+  background-overlay: '#191122'
+  border: '#2a1e3a'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
+
+borderRadius:
+  sm: 0.25rem
+  md: 0.5rem
+  lg: 0.75rem
+  full: 9999px

@@ -12,6 +12,7 @@ import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
+/** Admin storage and quota route group. */
 export const adminGroup: StaticGroupSpec = {
   tag: 'admin',
   tagDescription: 'Administrative storage and quota endpoints',

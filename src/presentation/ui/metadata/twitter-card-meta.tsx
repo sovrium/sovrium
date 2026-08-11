@@ -11,6 +11,9 @@ import { renderMetaTags } from './meta-utils'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 
+/**
+ * Twitter Card field mapping configuration
+ */
 const twitterCardFieldMapping = [
   { key: 'card', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.card },
   { key: 'title', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.title },
@@ -48,6 +51,13 @@ const twitterCardFieldMapping = [
   },
 ] as const
 
+/**
+ * Build Twitter Card field array from twitter card configuration
+ * Extracts all fields including app metadata for Twitter/X sharing
+ *
+ * @param twitterCard - Twitter card configuration
+ * @returns Array of field key-value pairs
+ */
 function buildTwitterCardFields(
   twitterCard: NonNullable<Page['meta']>['twitter']
 ): ReadonlyArray<{ readonly key: string; readonly value?: string | number }> {
@@ -57,6 +67,14 @@ function buildTwitterCardFields(
   }))
 }
 
+/**
+ * Render Twitter Card metadata tags
+ * Generates <meta name="twitter:*"> tags for Twitter/X sharing
+ * Supports both 'twitter' and 'twitterCard' field names for compatibility
+ *
+ * @param page - Page configuration
+ * @returns React fragment with Twitter meta tags
+ */
 export function TwitterCardMeta({
   page,
   lang,
@@ -66,11 +84,14 @@ export function TwitterCardMeta({
   readonly lang?: string
   readonly languages?: Languages
 }): Readonly<ReactElement | undefined> {
+  // Support both 'twitter' (canonical) and 'twitterCard' (test alias)
   const twitterCard = page.meta?.twitter ?? page.meta?.twitterCard
   if (!twitterCard) {
     return undefined
   }
 
+  // Resolve `$t:` translation patterns in the human-readable title/description
+  // (mirrors OpenGraphMeta). Without this, Twitter/X cards leak raw `$t:` tokens.
   const resolvedCard =
     lang && languages
       ? {

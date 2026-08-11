@@ -8,11 +8,19 @@
 import { findDuplicate } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 import { SPECIAL_FIELDS } from './table-formula-validation'
 
+/**
+ * Validate that view IDs are unique within a table.
+ *
+ * @param views - Array of views to validate
+ * @returns Error object if validation fails, undefined if valid
+ */
 const validateViewIds = (
   views: ReadonlyArray<{ readonly id: string | number }>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Convert all view IDs to strings for comparison (ViewId can be number or string)
   const viewIds = views.map((view) => String(view.id))
 
+  // Find duplicate view ID
   const duplicateId = findDuplicate(viewIds)
 
   if (duplicateId) {
@@ -25,6 +33,12 @@ const validateViewIds = (
   return undefined
 }
 
+/**
+ * Validate that only one view is marked as default within a table.
+ *
+ * @param views - Array of views to validate
+ * @returns Error object if validation fails, undefined if valid
+ */
 const validateDefaultViews = (
   views: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
@@ -40,16 +54,25 @@ const validateDefaultViews = (
   return undefined
 }
 
+/**
+ * Extract field references from a filter node recursively.
+ * Handles single conditions, AND groups, and OR groups.
+ *
+ * @param filterNode - The filter node to extract fields from
+ * @returns Array of field names referenced in the filter
+ */
 const extractFieldReferencesFromFilter = (
   filterNode:
     | { readonly field: string; readonly operator: string; readonly value: unknown }
     | { readonly and: ReadonlyArray<unknown> }
     | { readonly or: ReadonlyArray<unknown> }
 ): ReadonlyArray<string> => {
+  // Single condition - extract field name
   if ('field' in filterNode) {
     return [filterNode.field]
   }
 
+  // AND group - recursively extract from all conditions
   if ('and' in filterNode && Array.isArray(filterNode.and)) {
     return filterNode.and.flatMap((node) =>
       extractFieldReferencesFromFilter(
@@ -61,6 +84,7 @@ const extractFieldReferencesFromFilter = (
     )
   }
 
+  // OR group - recursively extract from all conditions
   if ('or' in filterNode && Array.isArray(filterNode.or)) {
     return filterNode.or.flatMap((node) =>
       extractFieldReferencesFromFilter(
@@ -75,6 +99,13 @@ const extractFieldReferencesFromFilter = (
   return []
 }
 
+/**
+ * Extract filter conditions from a filter node recursively.
+ * Returns array of conditions with field, operator, and value.
+ *
+ * @param filterNode - The filter node to extract conditions from
+ * @returns Array of filter conditions
+ */
 const extractFilterConditions = (
   filterNode:
     | { readonly field: string; readonly operator: string; readonly value: unknown }
@@ -85,10 +116,12 @@ const extractFilterConditions = (
   readonly operator: string
   readonly value: unknown
 }> => {
+  // Single condition - return as array
   if ('field' in filterNode) {
     return [filterNode]
   }
 
+  // AND group - recursively extract from all conditions
   if ('and' in filterNode && Array.isArray(filterNode.and)) {
     return filterNode.and.flatMap((node) =>
       extractFilterConditions(
@@ -100,6 +133,7 @@ const extractFilterConditions = (
     )
   }
 
+  // OR group - recursively extract from all conditions
   if ('or' in filterNode && Array.isArray(filterNode.or)) {
     return filterNode.or.flatMap((node) =>
       extractFilterConditions(
@@ -114,10 +148,24 @@ const extractFilterConditions = (
   return []
 }
 
+/**
+ * Operator compatibility rules for field types.
+ * Maps field types to their valid operators.
+ * Only enforces restrictions for specific field types (e.g., checkbox cannot use 'contains').
+ * Other operators are allowed by default to avoid breaking valid use cases.
+ */
 const FIELD_TYPE_OPERATORS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  // Checkbox: only boolean operators allowed
   ['checkbox', new Set(['equals', 'isTrue', 'isFalse'])],
 ])
 
+/**
+ * Validate that filter operators are compatible with field types.
+ *
+ * @param views - Array of views to validate
+ * @param fields - Array of fields in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 const validateFilterOperatorCompatibility = (
   views: ReadonlyArray<{
     readonly id: string | number
@@ -142,6 +190,7 @@ const validateFilterOperatorCompatibility = (
 
         const validOperators = FIELD_TYPE_OPERATORS.get(fieldType)
         if (!validOperators) {
+          // No restrictions defined for this field type
           return []
         }
 
@@ -164,6 +213,13 @@ const validateFilterOperatorCompatibility = (
   return undefined
 }
 
+/**
+ * Validate that view filters reference existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 const validateViewFilters = (
   views: ReadonlyArray<{
     readonly id: string | number
@@ -195,6 +251,13 @@ const validateViewFilters = (
   return undefined
 }
 
+/**
+ * Validate that view fields reference existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 const validateViewFields = (
   views: ReadonlyArray<{ readonly id: string | number; readonly fields?: ReadonlyArray<string> }>,
   fieldNames: ReadonlySet<string>
@@ -222,6 +285,13 @@ const validateViewFields = (
   return undefined
 }
 
+/**
+ * Validate that view groupBy references existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 const validateViewGroupBy = (
   views: ReadonlyArray<{
     readonly id: string | number
@@ -246,6 +316,13 @@ const validateViewGroupBy = (
   return undefined
 }
 
+/**
+ * Validate that view sorts reference existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 const validateViewSorts = (
   views: ReadonlyArray<{
     readonly id: string | number
@@ -279,6 +356,14 @@ const validateViewSorts = (
   return undefined
 }
 
+/**
+ * Validate views configuration (IDs, default views, field references, filter references).
+ *
+ * @param views - Array of views to validate
+ * @param fields - Array of fields in the table
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 export const validateViews = (
   views: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>,
   fields: ReadonlyArray<{ readonly name: string; readonly type: string }>,

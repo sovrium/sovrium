@@ -5,6 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * `automation-failure` trigger fan-out for the automation run loop.
+ *
+ * Extracted from `run-automation.ts` (P1.2 decomposition). When a run
+ * fails (or exhausts), every `automation-failure` automation whose filter
+ * matches is run with a `{ body: { automationName, runId, error, … } }`
+ * trigger envelope.
+ *
+ * `executeAutomationRun` and `resolveAutomationId` live in the orchestrator
+ * (`run-automation.ts`); they are injected here as a `runners` parameter so
+ * this module need not import the orchestrator (avoids an import cycle).
+ */
 
 import { Effect } from 'effect'
 import { defaultActionHandlers } from '../action-handlers'
@@ -13,6 +25,10 @@ import type { TriggerData } from '../resolve-trigger-data'
 import type { ExecutedStep, ResolvedRetryConfig, RunRequirements } from './types'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Input bag for the `automation-failure` dispatch. Shared with the
+ * orchestrator's post-run failure-effects helper.
+ */
 export interface DispatchFailureHandlersInput {
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
@@ -26,6 +42,14 @@ export interface DispatchFailureHandlersInput {
   readonly failedAt: string
 }
 
+/**
+ * Orchestrator-owned run primitives injected into the failure dispatch so
+ * this module need not import `run-automation.ts`. Both effects run inside
+ * the {@link RunRequirements} context the dispatch already provides — the
+ * `R` channel is widened to `RunRequirements` accordingly, and `E` is left
+ * `unknown` because the caller wraps `resolveAutomationId` in
+ * `Effect.orElseSucceed` (its error tag is irrelevant here).
+ */
 export interface FailureDispatchRunners {
   readonly resolveAutomationId: (
     name: string,
@@ -43,6 +67,7 @@ export interface FailureDispatchRunners {
   }) => Effect.Effect<unknown, never, RunRequirements>
 }
 
+/** Select the `automation-failure` handlers whose filter matches a failed run. */
 const matchingFailureHandlers = (
   app: App,
   failedAutomationName: string
@@ -53,6 +78,11 @@ const matchingFailureHandlers = (
     return filter === undefined || (filter as ReadonlyArray<string>).includes(failedAutomationName)
   })
 
+/**
+ * Build the `trigger.data` envelope for an `automation-failure` handler run.
+ * `attempt` = how many times the failing action ran (retryCount + 1, read
+ * from the last failing step's `output.retryCount`).
+ */
 const buildFailureTriggerData = (input: DispatchFailureHandlersInput): TriggerData => {
   const lastFailingStep = input.steps.findLast((s) => s.status === 'failure')
   const retryCount =
@@ -73,6 +103,15 @@ const buildFailureTriggerData = (input: DispatchFailureHandlersInput): TriggerDa
   }
 }
 
+/**
+ * Find every `automation-failure` automation whose filter matches a failed
+ * run, and run each with `{ trigger: { data: { automationName, runId,
+ * error, attempt, maxAttempts, startedAt, failedAt, triggerType } } }`.
+ * Errors are swallowed — a failing run must not be re-failed by a broken
+ * error handler, and an error handler's own failure does not cascade
+ * (it has an `automation-failure` trigger, so `executeAutomationRun`
+ * skips re-dispatch for it).
+ */
 export const dispatchFailureHandlers = (
   input: DispatchFailureHandlersInput,
   runners: FailureDispatchRunners

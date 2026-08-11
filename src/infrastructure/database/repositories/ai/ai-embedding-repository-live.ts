@@ -5,6 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * AI embedding repository — two dialect implementations of the
+ * `AiEmbeddingRepository` port:
+ *
+ *   - `AiEmbeddingRepositoryLive`   — Postgres (pgvector `<=>` cosine search).
+ * - `AiEmbeddingRepositorySqlite` — SQLite: vectors stored as a
+ *     `Float32Array` BLOB, cosine similarity computed in application code.
+ *
+ * Both return the same `EmbeddingSearchResult` shape and honour the same
+ * `minSimilarity` floor + `maxResults` cap (applied AFTER ranking) + optional
+ * `agentName` scope, so cross-dialect RAG parity holds. The dialect-gated Layer
+ * in `infrastructure/layers/ai-embedding-repository-layer.ts` picks the active
+ * implementation.
+ */
 
 import { and, eq, like, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
@@ -28,11 +42,25 @@ import type {
 } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { aiEmbeddings as aiEmbeddingsPg } from '@/infrastructure/database/drizzle/schema/ai'
 
+/** Wrap a DB promise, adapting failures to AiEmbeddingDatabaseError. */
 const wrap = makeDbWrap((cause) => new AiEmbeddingDatabaseError({ cause }))
 
+// ── Postgres (pgvector) implementation ───────────────────────────────────────
 
+/**
+ * Number of dimensions stored in the `system.ai_embeddings.embedding`
+ * column (declared `vector(1536)` by migration 0000). Query vectors are
+ * padded/truncated to this length so seeded short test vectors (e.g.
+ * `[0.1, 0.2, 0.3]`) still write into the fixed-width column.
+ */
 const EMBEDDING_DIMENSIONS = 1536
 
+/**
+ * Normalize an arbitrary-length embedding vector to the fixed column width.
+ * Short vectors (the E2E mock seeds 3-element vectors) are zero-padded;
+ * over-long vectors are truncated. This keeps the RAG pipeline tolerant of
+ * whatever the configured provider returns without a hard dimension check.
+ */
 const padVector = (embedding: ReadonlyArray<number>): ReadonlyArray<number> => {
   if (embedding.length === EMBEDDING_DIMENSIONS) return embedding
   if (embedding.length > EMBEDDING_DIMENSIONS) {
@@ -41,9 +69,18 @@ const padVector = (embedding: ReadonlyArray<number>): ReadonlyArray<number> => {
   return [...embedding, ...Array.from({ length: EMBEDDING_DIMENSIONS - embedding.length }, () => 0)]
 }
 
+/** Serialize a vector into the pgvector text literal `[v1,v2,...]`. */
 const toVectorLiteral = (embedding: ReadonlyArray<number>): string =>
   `[${padVector(embedding).join(',')}]`
 
+/**
+ * Insert ONE embedding chunk.
+ *
+ * Deliberately `db.execute` + a pgvector `::vector` cast rather than the
+ * dialect-portable `executeRawTyped`: this implementation is the POSTGRES arm
+ * (`AiEmbeddingRepositoryLive`), and pgvector has no SQLite equivalent. The
+ * SQLite arm below stores the vector as a `Float32Array` BLOB instead.
+ */
 const insertEmbeddingRow = (row: Readonly<NewEmbedding>): Promise<unknown> => {
   const metadata =
     row.metadata !== undefined ? sql`${JSON.stringify(row.metadata)}::jsonb` : sql`NULL`
@@ -61,6 +98,38 @@ const insertEmbeddingRow = (row: Readonly<NewEmbedding>): Promise<unknown> => {
   )
 }
 
+/**
+ * Persist a batch of embeddings, one statement per chunk.
+ *
+ * FAN-OUT WIDTH: `SHARED_POOL_FANOUT_CONCURRENCY`. Every statement runs on the
+ * `db` facade — the SHARED pool — and the width is INPUT-SIZE bounded: one
+ * INSERT per embedded chunk, so it grows with the size of the ingested document
+ * or table. A single large document can therefore produce a fan-out far wider
+ * than the ten default pool slots, which is the mechanism of the 2026-07-25
+ * production 504 incident. Knowledge sync is best-effort (every caller pipes
+ * `Effect.catchAll(() => Effect.void)`), but "best-effort" bounds the
+ * CONSEQUENCE of a failure, not the CONNECTIONS it holds while succeeding.
+ *
+ * ORDER: `Effect.all` preserves array order exactly as `Promise.all` did. Row
+ * order is not semantically load-bearing here — `chunk_index` carries the
+ * ordering — but nothing regresses.
+ *
+ * ERRORS: no per-row guard before or after, so one failing INSERT fails the
+ * whole call and surfaces the identical `AiEmbeddingDatabaseError` with the
+ * identical cause. `Effect.all` additionally stops issuing the remaining
+ * statements; that only reduces the partial write a failed sync leaves behind,
+ * and `deleteBySourceIdPrefix` + re-sync already own that cleanup.
+ *
+ * An empty `rows` needs no special case — `Effect.all([])` succeeds with `[]`,
+ * matching the previous early return.
+ *
+ * NOT collapsed into a multi-row `INSERT … VALUES (…), (…)`, which the SQLite
+ * arm effectively already does via `db.insert(...).values(values)`. There is no
+ * `ON CONFLICT` here so no duplicate-key hazard blocks it, but the pgvector text
+ * literal makes each row's bind payload large and the batching would need a
+ * chunk size chosen against the parameter limit. Worth doing; a separate change
+ * from stating a width.
+ */
 const insertManyEffect = (rows: ReadonlyArray<NewEmbedding>) =>
   Effect.all(
     rows.map((row) => wrap(() => insertEmbeddingRow(row))),
@@ -97,6 +166,8 @@ const searchImpl = async (input: {
       LIMIT ${input.maxResults}
     `
   )
+  // `db.execute` returns the rows array directly under bun-sql; older
+  // drivers wrap it as `{ rows }`. `extractRows` accepts both shapes.
   const rows = extractRows(result) as unknown as ReadonlyArray<SearchRow>
   return rows
     .map((r) => ({
@@ -109,9 +180,14 @@ const searchImpl = async (input: {
 }
 
 const deleteBySourceIdPrefixImpl = async (prefix: string): Promise<void> => {
+  // eslint-disable-next-line functional/no-expression-statements -- prefix delete of stale embeddings
   await db.execute(sql`DELETE FROM system.ai_embeddings WHERE source_id LIKE ${`${prefix}%`}`)
 }
 
+/**
+ * Live AI embedding repository — Drizzle + bun:sql against
+ * `system.ai_embeddings` (pgvector). Mirrors `AiMemoryRepositoryLive`.
+ */
 export const AiEmbeddingRepositoryLive = Layer.succeed(
   AiEmbeddingRepository,
   AiEmbeddingRepository.of({
@@ -121,7 +197,14 @@ export const AiEmbeddingRepositoryLive = Layer.succeed(
   })
 )
 
+// ── SQLite (BLOB + app-side cosine) implementation ──────────────────
 
+/**
+ * The SQLite `ai_embeddings` table cast to the Postgres-typed shape — the same
+ * seam `dialect-schema.ts` uses so the PG-typed `db` facade (`DrizzleDB`)
+ * accepts a `sqlite-core` table object. The runtime client is the bun-sqlite
+ * driver; this cast is type-only.
+ */
 const aiEmbeddingsSqliteTyped = aiEmbeddingsSqlite as unknown as typeof aiEmbeddingsPg
 
 const insertManySqliteImpl = async (rows: ReadonlyArray<NewEmbedding>): Promise<void> => {
@@ -133,9 +216,13 @@ const insertManySqliteImpl = async (rows: ReadonlyArray<NewEmbedding>): Promise<
     sourceRef: row.sourceRef,
     chunkIndex: row.chunkIndex,
     content: row.content,
+    // Serialize the vector to a Float32Array BLOB; bun:sqlite binds a
+    // Uint8Array as a BLOB literal. The PG-typed `embedding` column expects
+    // number[]; the runtime is bun-sqlite, so the BLOB is cast at this seam.
     embedding: serializeEmbedding(row.embedding) as unknown as ReadonlyArray<number>,
     metadata: row.metadata ?? undefined,
   }))
+  // eslint-disable-next-line functional/no-expression-statements -- batched embedding insert
   await db.insert(aiEmbeddingsSqliteTyped).values(values)
 }
 
@@ -153,6 +240,10 @@ const searchSqliteImpl = async (input: {
   readonly minSimilarity: number
   readonly maxResults: number
 }): Promise<ReadonlyArray<EmbeddingSearchResult>> => {
+  // Phase 2 acceleration: when `RAG_SQLITE_VEC=on` and the extension
+  // loaded, the sqlite-vec ANN (+ optional FTS5 hybrid) path serves the search
+  // with the IDENTICAL response contract. `undefined` means acceleration is off
+  // / unavailable → transparently fall back to the Phase 1 app-side cosine scan.
   const accelerated = searchSqliteVec({
     embedding: input.embedding,
     query: input.query ?? '',
@@ -191,11 +282,17 @@ const searchSqliteImpl = async (input: {
 }
 
 const deleteBySourceIdPrefixSqliteImpl = async (prefix: string): Promise<void> => {
+  // eslint-disable-next-line functional/no-expression-statements -- prefix delete of stale embeddings
   await db
     .delete(aiEmbeddingsSqliteTyped)
     .where(like(aiEmbeddingsSqliteTyped.sourceId, `${prefix}%`))
 }
 
+/**
+ * SQLite AI embedding repository — Drizzle + bun:sqlite against
+ * `system_ai_embeddings`, with vectors stored as Float32Array BLOBs and cosine
+ * similarity computed in application code.
+ */
 export const AiEmbeddingRepositorySqlite = Layer.succeed(
   AiEmbeddingRepository,
   AiEmbeddingRepository.of({

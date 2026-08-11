@@ -8,6 +8,22 @@
 import { Schema } from 'effect'
 import { createDatabaseIdentifierSchema } from '@/domain/validators/database-identifier'
 
+/**
+ * Field Name
+ *
+ * Internal identifier name used for database columns and programmatic references.
+ * Must follow database naming conventions: start with a letter, contain only lowercase
+ * letters, numbers, and underscores, maximum 63 characters (PostgreSQL limit).
+ * This name is used in SQL queries, API endpoints, and code generation.
+ * Choose descriptive names that clearly indicate the purpose (e.g., "email_address" not "ea").
+ *
+ * @example
+ * ```typescript
+ * 'email'
+ * 'user_status'
+ * 'created_at'
+ * ```
+ */
 export const FieldNameSchema = createDatabaseIdentifierSchema('field').pipe(
   Schema.annotations({
     title: 'Field Name',
@@ -17,4 +33,5 @@ export const FieldNameSchema = createDatabaseIdentifierSchema('field').pipe(
   })
 )
 
+/** @public */
 export type FieldName = Schema.Schema.Type<typeof FieldNameSchema>

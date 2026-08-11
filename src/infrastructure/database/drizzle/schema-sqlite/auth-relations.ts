@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Drizzle Relations for the Better Auth schema — sqlite-core mirror.
+//
+// `relations()` is dialect-agnostic; this file mirrors
+// `infrastructure/auth/better-auth/schema-relations.ts` exactly, only swapping
+// the table imports to the sqlite-core `auth-tables` mirror so the relational
+// query builder works against the SQLite tables.
 
 import { relations } from 'drizzle-orm'
 import {

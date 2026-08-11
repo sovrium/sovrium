@@ -43,4 +43,5 @@ export const LookupFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type LookupField = Schema.Schema.Type<typeof LookupFieldSchema>

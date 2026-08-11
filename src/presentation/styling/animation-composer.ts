@@ -8,6 +8,9 @@
 import { toKebabCase } from '@/presentation/utils/string-utils'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Additional style properties to apply when composing animation
+ */
 interface AnimationStyleOptions {
   readonly animationPlayState?: string
   readonly animationFillMode?: string
@@ -15,6 +18,9 @@ interface AnimationStyleOptions {
   readonly infinite?: boolean
 }
 
+/**
+ * Configuration for composing animations
+ */
 interface AnimationComposerConfig {
   readonly baseStyle?: Record<string, unknown>
   readonly componentType?: string
@@ -25,11 +31,17 @@ interface AnimationComposerConfig {
   readonly options?: AnimationStyleOptions
 }
 
+/**
+ * Animation timing configuration
+ */
 type AnimationTiming = {
   readonly duration: string
   readonly easing: string
 }
 
+/**
+ * Extract animation timing from config
+ */
 function extractAnimationTiming(
   animationConfig: unknown,
   defaultDuration: string,
@@ -48,6 +60,9 @@ function extractAnimationTiming(
   return { duration, easing }
 }
 
+/**
+ * Build animation style object
+ */
 function buildAnimationStyle(
   baseStyle: Record<string, unknown> | undefined,
   animationValue: string,
@@ -62,6 +77,28 @@ function buildAnimationStyle(
   }
 }
 
+/**
+ * Compose animation style for a given component type
+ *
+ * Extracts animation configuration from theme and composes it with base style.
+ * Follows functional programming principles: pure function, immutable operations.
+ *
+ * @param config - Configuration object for animation composition
+ * @returns New style object with animation composed
+ *
+ * @example
+ * ```typescript
+ * const style = composeAnimation({
+ *   baseStyle,
+ *   componentType: 'toast',
+ *   animationName: 'fadeOut',
+ *   theme,
+ *   defaultDuration: '300ms',
+ *   defaultEasing: 'ease-out'
+ * })
+ * // Returns: { ...baseStyle, animation: 'fade-out 300ms ease-out' }
+ * ```
+ */
 export function composeAnimation(config: AnimationComposerConfig): Record<string, unknown> {
   const animationConfig = config.theme?.animations?.[config.animationName]
   if (!animationConfig) {

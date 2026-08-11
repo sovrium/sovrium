@@ -8,6 +8,14 @@
 import { Effect } from 'effect'
 import { UsersOverviewLayer } from '@/application/use-cases/admin/users-overview'
 
+/**
+ * Provide UsersOverviewLayer to an Effect program.
+ *
+ * Isolates the infrastructure import (the repository Live layer, bundled in
+ * `UsersOverviewLayer`) so the users-overview route handler depends only on the
+ * application layer. This is the composition root for
+ * `GET /api/admin/users/overview`.
+ */
 export function provideUsersOverviewLive<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {

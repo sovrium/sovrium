@@ -34,6 +34,54 @@ Zero-config: embedded SQLite, local file storage, no env vars required to boot. 
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
 email, AI).
 
+Load the sample knowledge base — eight documents across four tags, written to be worth
+retrieving rather than to fill a grid:
+
+```bash
+sovrium seed app.yaml
+```
+
+## Turning MCP on
+
+There is **no top-level `mcp:` block** in a Sovrium config, and there is nothing you can
+put in `config/` to create one. Exposure is declared per table via `aiAccess` (see
+[`config/tables/`](./config/tables)), and the server itself is switched on by the operator
+through the environment:
+
+```bash
+MCP_ENABLED=true
+MCP_TRANSPORT=streamable-http   # or "stdio" for a client on the same machine
+MCP_AUTH_STRATEGY=oauth         # the LLM client signs in as a Sovrium user
+```
+
+The split is the point: the **schema author declares intent**, the **operator activates
+it**. A config file has no business switching on a network listener in someone else's
+deployment.
+
+### Tools this app exposes
+
+Derived from the `aiAccess` declarations in `config/tables/`, so this list moves when
+those do:
+
+| Tool                                  | Kind                              |
+| ------------------------------------- | --------------------------------- |
+| `mcp-server-example_documents_list`   | read-only, idempotent             |
+| `mcp-server-example_documents_get`    | read-only, idempotent             |
+| `mcp-server-example_documents_create` | write, requires the `editor` role |
+| `mcp-server-example_tags_list`        | read-only, idempotent             |
+| `mcp-server-example_tags_get`         | read-only, idempotent             |
+
+### Notes for schema authors
+
+- **Read-only by default.** A table opts _into_ writes by naming them in
+  `aiAccess.operations`; omit `create` / `update` / `delete` and it stays readable and
+  nothing else.
+- **Field exposure defaults to `permissioned`** — the model sees what its role may read.
+  Use `fieldExposure: whitelist` with `whitelistFields: [...]` when you want a narrower
+  projection than the role's read permission gives. `documents` does; `tags` does not.
+- **The `description` on each `aiAccess` block is the single biggest lever you have over
+  model behaviour.** Write it for the LLM, not for a human reading the config.
+
 ## Deploy
 
 The **Deploy on Scalingo** button above provisions the app with a PostgreSQL addon

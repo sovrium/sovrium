@@ -22,11 +22,11 @@ children:
         props:
           className: px-6 py-3 rounded-lg transition-colors font-semibold
           style:
-            backgroundColor: '#3b82f6'
+            backgroundColor: var(--color-primary)
             color: '#ffffff'
         interactions:
           hover:
-            backgroundColor: '#2563eb'
+            backgroundColor: var(--color-primary-hover)
         content: $ctaPrimary
       - type: button
         props:
@@ -34,7 +34,7 @@ children:
           style:
             borderWidth: 2px
             borderStyle: solid
-            borderColor: '#3b82f6'
-            color: '#3b82f6'
+            borderColor: var(--color-primary)
+            color: var(--color-primary)
             backgroundColor: transparent
         content: $ctaSecondary

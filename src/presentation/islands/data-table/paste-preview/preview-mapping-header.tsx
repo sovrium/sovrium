@@ -8,12 +8,23 @@
 import { SKIP_VALUE } from './skip-value'
 
 interface PreviewMappingHeaderProps {
+  /** Pasted column header labels, in order. */
   readonly headers: readonly string[]
+  /** Per-column target field (or {@link SKIP_VALUE}); index-aligned with headers. */
   readonly mappings: readonly string[]
+  /** Available table field names offered as mapping targets. */
   readonly tableFields: readonly string[]
+  /** Updates the target field for one column. */
   readonly onMappingChange: (columnIndex: number, value: string) => void
 }
 
+/**
+ * The `<thead>` of the paste-preview table.
+ *
+ * One column per pasted header: shows the raw header label, the resolved
+ * target field, and a native `<select>` for re-mapping (including a
+ * "Skip this column" choice).
+ */
 export function PreviewMappingHeader({
   headers,
   mappings,
@@ -38,6 +49,7 @@ export function PreviewMappingHeader({
                 <select
                   aria-label={`Map column ${header}`}
                   value={mapping}
+                  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-column change handler closes over columnIndex; React Compiler will memoize once enabled in Bun.
                   onChange={(event) => onMappingChange(columnIndex, event.currentTarget.value)}
                   className="border-border rounded border px-2 py-1 text-sm"
                 >

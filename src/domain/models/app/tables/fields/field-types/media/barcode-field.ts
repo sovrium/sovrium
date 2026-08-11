@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Barcode Field
+ *
+ * Stores barcode values with support for various barcode formats.
+ * Used for product identification, inventory tracking, and asset management.
+ * Can be configured to support specific barcode standards (e.g., EAN, UPC, QR Code).
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'product_barcode',
+ *   type: 'barcode',
+ *   required: true,
+ *   format: 'EAN-13'
+ * }
+ * ```
+ */
 export const BarcodeFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -37,4 +55,5 @@ export const BarcodeFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type BarcodeField = Schema.Schema.Type<typeof BarcodeFieldSchema>

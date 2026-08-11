@@ -7,7 +7,20 @@
 
 import { Schema } from 'effect'
 
+// ============================================================================
+// Custom Elements
+// ============================================================================
 
+/**
+ * Custom head element type
+ *
+ * 5 HTML elements allowed in <head>:
+ * - meta: Metadata (charset, viewport, theme-color, etc.)
+ * - link: External resources (stylesheets, preconnect, dns-prefetch)
+ * - script: JavaScript files or inline code
+ * - style: Inline CSS styles
+ * - base: Base URL for relative URLs
+ */
 export const CustomElementTypeSchema = Schema.Literal(
   'meta',
   'link',
@@ -19,6 +32,11 @@ export const CustomElementTypeSchema = Schema.Literal(
   description: 'HTML element type',
 })
 
+/**
+ * Custom head element
+ *
+ * Allows adding arbitrary HTML elements to the page <head> section.
+ */
 export const CustomElementSchema = Schema.Struct({
   type: CustomElementTypeSchema,
   attrs: Schema.optional(
@@ -44,11 +62,17 @@ export const CustomElementSchema = Schema.Struct({
   description: 'Custom head element',
 })
 
+/**
+ * Additional custom elements to add to the page head
+ *
+ * Array of custom HTML elements injected into the <head> section.
+ */
 export const CustomElementsSchema = Schema.Array(CustomElementSchema).annotations({
   title: 'Custom Head Elements',
   description: 'Additional custom elements to add to the page head',
 })
 
+/** @public */
 export type CustomElementType = Schema.Schema.Type<typeof CustomElementTypeSchema>
 export type CustomElement = Schema.Schema.Type<typeof CustomElementSchema>
 export type CustomElements = Schema.Schema.Type<typeof CustomElementsSchema>

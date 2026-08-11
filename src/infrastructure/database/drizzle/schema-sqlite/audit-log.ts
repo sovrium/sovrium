@@ -8,6 +8,39 @@
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
 import { users } from './auth-tables'
 
+/**
+ * Audit Log Table Schema — sqlite-core mirror of `schema/audit-log.ts`.
+ *
+ * Column-by-column parity with the pg-core sibling — same column names,
+ * same nullability, same FK behaviour. The SQLite-specific deltas:
+ *
+ *   - `id` default: pg uses `gen_random_uuid()` (DB-side); SQLite has no
+ *     equivalent server-side UUID function, so we fall back to an app-side
+ *     `crypto.randomUUID()` default via `$defaultFn`. The application-layer
+ *     `emitAuditEvent` already supplies the id explicitly, so the DB default
+ *     is the resilience-only fallback for raw SQL inserts (matches the
+ *     pattern in `activity-log.ts`).
+ *
+ *   - `created_at` storage: SQLite has no native `timestamp` type. We mirror
+ *     the activity-log pattern: `integer(... , { mode: 'timestamp_ms' })`
+ *     with a JS `new Date()` default. The Drizzle ORM hands callers `Date`
+ *     objects on both dialects so the read path is identical.
+ *
+ *   - `metadata` storage: SQLite has no `jsonb`. We use `text(..., { mode:
+ *     'json' })` which serialises/deserialises automatically via Drizzle,
+ *     matching the activity-log handling of jsonb-on-pg / text-json-on-sqlite.
+ *
+ *   - `actor_id` FK: SQLite supports `ON DELETE SET NULL` (with foreign-key
+ *     enforcement enabled — Sovrium's bun:sqlite setup turns FKs on via
+ *     PRAGMA at boot, per `db-bun.ts`). Same semantics as the pg sibling:
+ *     a hard-delete of the actor row null-ifies actor_id on every entry the
+ *     actor produced, so the audit entry survives the user erasure.
+ *
+ * Table name: plain `audit_log` (no `system_` prefix) — mirrors the
+ * pg-core sibling's placement in the `public` schema (which under SQLite
+ * becomes the unprefixed default). Using `sqliteTable` directly (not
+ * `systemTable`) reflects that.
+ */
 export const auditLog = sqliteTable(
   'audit_log',
   {
@@ -33,6 +66,10 @@ export const auditLog = sqliteTable(
     severity: text('severity').notNull(),
     result: text('result').notNull(),
 
+    // Transport ("canal") — sqlite-core mirror of the pg-core column. Closed
+    // enum config-file | env | api | mcp | restore, defaulting to `api` so any
+    // row that omits it (raw SQL / pre-taxonomy) carries a valid canal value
+    //.
     transport: text('transport').notNull().default('api'),
 
     metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),

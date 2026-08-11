@@ -9,11 +9,18 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * State List Action (type: state, operator: list)
+ *
+ * List keys in key-value state, optionally filtered by prefix.
+ * Returns an array of matching keys.
+ */
 export const StateListActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('state'),
   operator: Schema.Literal('list'),
   props: Schema.Struct({
+    /** Key prefix to filter by */
     prefix: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -22,6 +29,7 @@ export const StateListActionSchema = Schema.Struct({
       )
     ),
 
+    /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^[a-z][a-z0-9-]*$/),
@@ -32,6 +40,7 @@ export const StateListActionSchema = Schema.Struct({
       )
     ),
 
+    /** Maximum number of keys to return */
     limit: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -50,4 +59,5 @@ export const StateListActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type StateListAction = Schema.Schema.Type<typeof StateListActionSchema>

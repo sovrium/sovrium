@@ -9,6 +9,9 @@ import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
+/**
+ * Creates version badge component
+ */
 function createVersionBadge(version: string): Component {
   return {
     type: 'container',
@@ -29,6 +32,9 @@ function createVersionBadge(version: string): Component {
   }
 }
 
+/**
+ * Creates app content components (version badge, heading, description)
+ */
 function createHomePageContent(app: App): ReadonlyArray<Component | string> {
   return [
     ...(app.version ? [createVersionBadge(app.version)] : []),
@@ -57,6 +63,19 @@ function createHomePageContent(app: App): ReadonlyArray<Component | string> {
   ]
 }
 
+/**
+ * Creates a Page configuration for the default home page
+ *
+ * Renders:
+ * - Optional version badge
+ * - App name (H1 heading)
+ * - Optional app description
+ *
+ * Layout: Centered vertically and horizontally with max-width constraint
+ *
+ * @param app - Application data containing name, version, and description
+ * @returns Page configuration for DynamicPage rendering
+ */
 export function createDefaultHomePageConfig(app: App): Page {
   return {
     name: 'home',
@@ -102,6 +121,9 @@ export function createDefaultHomePageConfig(app: App): Page {
   }
 }
 
+/**
+ * Creates error page section with centered layout
+ */
 function createErrorSection(
   code: string,
   message: string,
@@ -151,6 +173,18 @@ function createErrorSection(
   ]
 }
 
+/**
+ * Creates a Page configuration for 404 Not Found error page
+ *
+ * Renders:
+ * - Large "404" heading
+ * - "Page not found" message
+ * - Link to return home
+ *
+ * Layout: Centered vertically and horizontally
+ *
+ * @returns Page configuration for DynamicPage rendering
+ */
 export function createNotFoundPageConfig(): Page {
   return {
     name: 'not_found',
@@ -159,12 +193,25 @@ export function createNotFoundPageConfig(): Page {
       lang: 'en-US',
       title: '404 - Not Found',
       description: 'Page not found',
+      // The not-found page must never be indexed.
       robots: 'noindex',
     },
     components: createErrorSection('404', 'Page not found'),
   }
 }
 
+/**
+ * Creates a Page configuration for 500 Internal Server Error page
+ *
+ * Renders:
+ * - Large "500" heading (red color)
+ * - "Internal Server Error" message
+ * - Link to return home
+ *
+ * Layout: Centered vertically and horizontally
+ *
+ * @returns Page configuration for DynamicPage rendering
+ */
 export function createErrorPageConfig(): Page {
   return {
     name: 'error',

@@ -31,6 +31,15 @@ import {
 } from '@/domain/models/api/auth/auth'
 import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * Authentication route group.
+ *
+ * These route definitions mirror Better Auth's runtime endpoints but use our
+ * Zod schemas with `.openapi('Name')` annotations, producing named
+ * `components/schemas` entries with `$ref` references instead of inline
+ * duplication. During the export merge, these definitions take precedence
+ * over Better Auth's auto-generated ones for overlapping paths.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 const authError = (description: string) => jsonResponse(betterAuthErrorSchema, description)
@@ -41,6 +50,7 @@ export const authGroup: StaticGroupSpec = {
   tag: 'auth',
   tagDescription: 'Authentication and session endpoints',
   routes: [
+    // --- Core auth ---
     {
       method: 'post',
       pathTemplate: '/api/auth/sign-up/email',
@@ -108,6 +118,7 @@ export const authGroup: StaticGroupSpec = {
         401: authError('Not authenticated'),
       },
     },
+    // --- Password management ---
     {
       method: 'post',
       pathTemplate: '/api/auth/request-password-reset',
@@ -144,6 +155,7 @@ export const authGroup: StaticGroupSpec = {
         401: authError('Not authenticated'),
       },
     },
+    // --- Email verification ---
     {
       method: 'post',
       pathTemplate: '/api/auth/verify-email',
@@ -166,6 +178,7 @@ export const authGroup: StaticGroupSpec = {
         401: authError('Not authenticated'),
       },
     },
+    // --- Admin ---
     {
       method: 'get',
       pathTemplate: '/api/auth/admin/list-users',

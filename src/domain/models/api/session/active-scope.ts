@@ -7,19 +7,31 @@
 
 import { z } from '@hono/zod-openapi'
 
+/**
+ * Active-scope session API contract schemas.
+ *
+ * Mirrors the runtime shapes in `src/presentation/api/routes/active-scope.ts`.
+ * Backs the OpenAPI documentation for the active-scope route group.
+ */
 
+/** Request body to set the active record for a scope table. */
 export const setActiveScopeRequestSchema = z.object({ recordId: z.string() })
 
+/** Response after setting the active scope. */
 export const activeScopeSetResponseSchema = z.object({
   tableSlug: z.string(),
   recordId: z.string(),
 })
 
+/** Response when reading the active scope — `recordId` is null when unset. */
 export const activeScopeGetResponseSchema = z.object({
   tableSlug: z.string(),
   recordId: z.string().nullable(),
 })
 
+/** @public */
 export type SetActiveScopeRequest = z.infer<typeof setActiveScopeRequestSchema>
+/** @public */
 export type ActiveScopeSetResponse = z.infer<typeof activeScopeSetResponseSchema>
+/** @public */
 export type ActiveScopeGetResponse = z.infer<typeof activeScopeGetResponseSchema>

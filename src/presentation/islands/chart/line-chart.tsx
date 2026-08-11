@@ -9,11 +9,13 @@ import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
 import { scalePoint, scaleLinear } from '@visx/scale'
 import { LinePath } from '@visx/shape'
+import { PRIMARY_SERIES_PAINT } from './chart-series-shared'
 import type { BarDatum } from './bar-chart'
 import type { ReactElement } from 'react'
 
 interface LineChartProps {
   readonly data: readonly BarDatum[]
+  /** Operator-set `<svg role="img">` name; falls back to the "Line chart" default. */
   readonly accessibleName?: string
 }
 
@@ -24,6 +26,8 @@ interface LineChartSvgProps extends LineChartProps {
 
 const MARGIN = { top: 16, right: 16, bottom: 40, left: 56 }
 
+/** Stable accessors for `LinePath` — declared at module scope to avoid
+ * re-allocating closures on every render (react-perf rule). */
 interface PlottedPoint {
   readonly key: string
   readonly x: number
@@ -32,6 +36,7 @@ interface PlottedPoint {
 const accessX = (p: PlottedPoint): number => p.x
 const accessY = (p: PlottedPoint): number => p.y
 
+/** Renders the X/Y axis baselines plus the X-axis tick labels. */
 function LineAxes({
   points,
   innerWidth,
@@ -73,6 +78,12 @@ function LineAxes({
   )
 }
 
+/**
+ * Renders a single-series line chart from an aggregated `{ key, value }`
+ * series. Emits a flat SVG (plain `<text>` axis labels) so spec strict-mode
+ * locators on `[data-component="chart"] svg` resolve cleanly.
+ */
+/** Projects the aggregated series onto scaled SVG coordinates. */
 function plotPoints(
   data: readonly BarDatum[],
   innerWidth: number,
@@ -117,7 +128,7 @@ function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps
           data={points}
           x={accessX}
           y={accessY}
-          stroke="#3b82f6"
+          stroke={PRIMARY_SERIES_PAINT}
           strokeWidth={2}
           fill="none"
         />
@@ -127,7 +138,7 @@ function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps
             cx={p.x}
             cy={p.y}
             r={3}
-            fill="#3b82f6"
+            fill={PRIMARY_SERIES_PAINT}
             data-point-key={p.key}
           />
         ))}

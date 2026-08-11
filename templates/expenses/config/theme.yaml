@@ -1,18 +1,117 @@
-# Default Sovrium theming.
+# Expense workspace theming.
 #
-# `baseline: extend` inherits Sovrium's built-in design system — the achromatic
-# OKLCH neutral ramp (`--sv-*`) plus the self-hosted IBM Plex Sans / JetBrains
-# Mono type that IS the Sovrium visual identity. Colour is reserved for
-# consequence (see ADR-024), so a template that needs an accent declares its own
-# colour key rather than borrowing one from the engine.
+# `baseline: extend` keeps Sovrium's built-in design system — the OKLCH neutral
+# ramp and the self-hosted IBM Plex Sans / JetBrains Mono type that ships with
+# the platform. There is deliberately no `fonts` block: the workhorse and mono
+# families are already self-hosted, and pulling a family from a CDN would leak
+# the operator's IP and Referer to a third party, which
+# `docs/architecture/patterns/fonts.md` forbids outright. This template used to
+# request Inter from Google Fonts, which achieved neither goal — the request
+# leaked, AND naming an unserved family locks the shipped face out of its own
+# stack, so the page silently fell to the OS default. Distinctiveness here comes
+# from COLOUR, not from type.
 #
-# No `fonts` block: the workhorse and mono families ship self-hosted with the
-# platform. This template previously pulled Inter from the Google Fonts CDN,
-# which contradicted the no-CDN-ever rule in
-# `docs/architecture/patterns/fonts.md` — every such request leaks the
-# operator's IP and Referer to a third party, which an internal tool cannot
-# accept. Author a `fonts` block here only for a genuinely self-hosted family.
+# WHY THESE KEYS AND NOT OTHERS
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
+#   prestyled island already consumes, so declaring them repaints the review
+#   dashboard's KPI tiles, the spend-by-category chart and both expense grids
+#   with no class changes anywhere in this config. A non-role key such as
+#   `brand-emerald` emits `--color-*` only and does nothing until something
+#   references it — which is how a template can declare a page of pretty colours
+#   and still render achromatic.
+#
+#   The map is NOT identity, and guessing the name is the trap: `muted` and
+#   `background-subtle` both land on `--sv-bg-subtle`, `card` is `--sv-bg-raised`,
+#   `popover` is `--sv-bg-overlay`, `ring` is `--sv-focus-ring`. The canonical
+#   spellings are used below rather than the aliases, so the file reads as the
+#   role it paints. `text` / `text-muted` / `background-alt` are NOT in the map
+#   and would be inert.
+#
+#   Sovrium's own apps under `apps/` may NOT touch these keys without a
+#   BRAND.md permit, because repainting the role tokens there would silently
+#   reinstate the coloured ramp ADR-024 deleted from the Sovrium identity. That
+#   lock is repo-local and deliberately does not extend here: a template exists
+#   to look like the product a customer is building, not like sovrium.com.
+#
+# WHY EMERALD, AND HOW IT AVOIDS COLLIDING WITH `success`
+#   Hues are assigned centrally across the nineteen templates so the demo fleet
+#   stays distinguishable at a glance; emerald is this one. Emerald is also the
+#   platform's default `success` green, so an unconsidered palette here would
+#   make "submit an expense" and "this was approved" indistinguishable — on the
+#   one screen where an approval state is the whole point. They are pulled apart
+#   deliberately: `primary` stays emerald-600 (#059669, blue-leaning) while
+#   `success` moves to green-700 (#15803d, a warmer, leafier green). The chip and
+#   the button are then two recognisably different greens rather than one green
+#   used for two meanings.
 baseline: extend
+
+colors:
+  # `primary-foreground` is text ON the filled primary, never a themeable
+  # surface — white is the only value that clears AA against emerald-600, so it
+  # is a literal rather than a token reference.
+  primary: '#059669'
+  primary-hover: '#047857'
+  primary-foreground: '#ffffff'
+  primary-subtle: '#d1fae5'
+  ring: '#10b981'
+
+  background: '#ffffff'
+  background-subtle: '#f2f6f4'
+  background-raised: '#ffffff'
+  background-overlay: '#ffffff'
+
+  # Three text weights, not one. The islands read `--sv-fg-muted` for column
+  # headers and `--sv-fg-subtle` for timestamps; leaving them unset makes a
+  # money grid render every column at the same weight, which is the fastest way
+  # to lose an amount in a wall of text.
+  foreground: '#0d1a15'
+  foreground-muted: '#48605a'
+  foreground-subtle: '#6d857e'
+
+  border: '#dfe8e4'
+
+  # The semantic four are claimed on purpose. An approval trail is exactly the
+  # case where colour carries consequence — a Reimbursed expense reading green
+  # and a Rejected one reading red is the information, not decoration.
+  success: '#15803d'
+  warning: '#b45309'
+  error: '#be123c'
+  info: '#0369a1'
+
+# Rendered only when the app declares `theme.colorScheme` or ships a
+# `theme-toggle`; the stylesheet carries it either way. The compiled selector is
+# `html:is(.dark, [data-theme='dark'])`, which re-points BOTH channels — a dark
+# key left out here keeps its light value, which is the documented way to say
+# "this one does not change", not an oversight.
+darkColors:
+  # Primary inverts its relationship with its own foreground: a light emerald
+  # fill needs DARK text on it, so `primary-foreground` cannot simply stay white.
+  primary: '#34d399'
+  primary-hover: '#6ee7b7'
+  primary-foreground: '#06231a'
+  primary-subtle: '#0b3d2c'
+  ring: '#10b981'
+
+  background: '#081712'
+  background-subtle: '#10231c'
+  background-raised: '#0d1e18'
+  background-overlay: '#0d1e18'
+
+  foreground: '#dff3ea'
+  foreground-muted: '#93b3a7'
+  foreground-subtle: '#6d8b80'
+
+  border: '#1e3b32'
+
+  # Lifted a full step: the light-mode semantics are chosen for contrast against
+  # white and go muddy on a near-black page. `success` keeps the warmer, yellower
+  # cast that separates it from `primary` in light mode.
+  success: '#4ade80'
+  warning: '#fbbf24'
+  error: '#fb7185'
+  info: '#38bdf8'
 
 borderRadius:
   sm: 0.25rem

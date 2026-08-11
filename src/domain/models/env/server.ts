@@ -7,6 +7,11 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Server environment configuration.
+ *
+ * Env vars: PORT, BASE_URL
+ */
 export const ServerEnvSchema = Schema.Struct({
   port: Schema.optional(
     Schema.NumberFromString.pipe(

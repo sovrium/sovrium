@@ -7,6 +7,17 @@
 
 import { Schema } from 'effect'
 
+/**
+ * View Fields Schema
+ *
+ * Array of field names to include in the view.
+ * Fields are included in the order specified.
+ *
+ * @example
+ * ```typescript
+ * ['name', 'email', 'created_at']
+ * ```
+ */
 export const ViewFieldsSchema = Schema.Array(Schema.String).pipe(
   Schema.annotations({
     title: 'View Fields',
@@ -14,4 +25,5 @@ export const ViewFieldsSchema = Schema.Array(Schema.String).pipe(
   })
 )
 
+/** @public */
 export type ViewFields = Schema.Schema.Type<typeof ViewFieldsSchema>

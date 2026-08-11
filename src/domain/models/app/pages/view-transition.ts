@@ -7,13 +7,35 @@
 
 import { Schema } from 'effect'
 
+/**
+ * View Transition configuration for page navigation animations.
+ *
+ * Defines how the page animates when navigating to/from it.
+ *
+ * @example
+ * ```typescript
+ * // Fade transition
+ * viewTransition: { type: 'fade' }
+ *
+ * // Slide with direction
+ * viewTransition: { type: 'slide', direction: 'left' }
+ *
+ * // Fade with custom duration
+ * viewTransition: { type: 'fade', duration: 500 }
+ *
+ * // Disable transitions
+ * viewTransition: { type: 'none' }
+ * ```
+ */
 export const ViewTransitionSchema = Schema.Struct({
+  /** Transition animation type */
   type: Schema.Literal('fade', 'slide', 'none').pipe(
     Schema.annotations({
       description: 'Transition animation type: fade, slide, or none',
     })
   ),
 
+  /** Slide direction (only applicable when type is 'slide') */
   direction: Schema.optional(
     Schema.Literal('left', 'right', 'up', 'down').pipe(
       Schema.annotations({
@@ -22,6 +44,7 @@ export const ViewTransitionSchema = Schema.Struct({
     )
   ),
 
+  /** Animation duration in milliseconds */
   duration: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -39,4 +62,5 @@ export const ViewTransitionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type ViewTransition = Schema.Schema.Type<typeof ViewTransitionSchema>

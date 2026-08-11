@@ -7,6 +7,13 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
+import {
+  CurrencyCodeSchema,
+  CurrencyNegativeFormatSchema,
+  CurrencyPrecisionSchema,
+  CurrencySymbolPositionSchema,
+  CurrencyThousandsSeparatorSchema,
+} from '../currency-display'
 
 export const FormulaFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
@@ -38,6 +45,33 @@ export const FormulaFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      /**
+       * The currency a monetary result is rendered in.
+       *
+       * A formula over money is still money, but the renderer took the SYMBOL
+       * from the field type rather than from a declared code, so a computed
+       * `unit_price * stock_on_hand` printed `$224,430.90` beside the `€28.63`
+       * it was multiplied from — and no valid config could correct it, because
+       * `sovrium validate` rejects undeclared keys.
+       *
+       * Explicit, never inferred. There is deliberately no "inherit the code
+       * from the field the formula references": a formula is an arbitrary
+       * expression that may touch several fields or none, so any such rule
+       * would have to pick one silently and would repoint the symbol the day
+       * somebody edits the expression. Undeclared means the existing USD
+       * defaults, exactly as before.
+       */
+      currency: Schema.optional(
+        CurrencyCodeSchema.annotations({
+          description:
+            'ISO 4217 code the computed amount is rendered in (e.g., USD, EUR, GBP). Applies when the value is displayed as currency; undeclared falls back to USD.',
+          examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
+        })
+      ),
+      precision: Schema.optional(CurrencyPrecisionSchema),
+      symbolPosition: Schema.optional(CurrencySymbolPositionSchema),
+      negativeFormat: Schema.optional(CurrencyNegativeFormatSchema),
+      thousandsSeparator: Schema.optional(CurrencyThousandsSeparatorSchema),
     })
   ),
   Schema.annotations({
@@ -51,8 +85,18 @@ export const FormulaFieldSchema = BaseFieldSchema.pipe(
         formula: 'price * quantity',
         resultType: 'number',
       },
+      {
+        id: 2,
+        name: 'stock_value',
+        type: 'formula',
+        formula: 'unit_price * stock_on_hand',
+        resultType: 'number',
+        format: 'currency',
+        currency: 'EUR',
+      },
     ],
   })
 )
 
+/** @public */
 export type FormulaField = Schema.Schema.Type<typeof FormulaFieldSchema>

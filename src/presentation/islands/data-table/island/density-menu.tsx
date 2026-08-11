@@ -10,6 +10,17 @@ import { useCallback } from 'react'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 import type { RowDensity } from '../../hooks/use-table-preferences'
 
+/**
+ * Dropdown density picker exposed in the data-table toolbar (PG-03 /
+ * [internal ref]).
+ *
+ * Renders a `<button name=/density/>` trigger and a `role="menu"` with three
+ * `role="menuitem"` options (Compact / Normal / Spacious) — matching the spec
+ * locator pattern `page.getByRole('menuitem', { name: /compact/i })`.
+ *
+ * Persistence is the caller's responsibility: `onSelect` fires on click and
+ * is wired by the orchestrator to the table-preferences PATCH.
+ */
 interface DensityMenuProps {
   readonly current: RowDensity
   readonly onSelect: (density: RowDensity) => void

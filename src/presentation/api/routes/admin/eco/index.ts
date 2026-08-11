@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Chain admin/eco routes onto a Hono app.
+ *
+ * Auth gating (admin + operator tier via `requireAdminTier()`) is wired
+ * upstream in `api-routes.ts` (authMiddleware → requireAdminTier on
+ * `/api/admin/eco/overview`).
+ */
 
 import { createHandleGetEcoOverview } from './overview'
 import type { App } from '@/domain/models/app'

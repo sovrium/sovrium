@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * GAP-13 email-resolution queries for the comment-posted trigger.
+ *
+ * Split from `comment-queries.ts` (which is at the 400-line cap) so the
+ * email-addressable `threadParticipants` derivation lives next to the other
+ * comment query helpers without breaching the size budget.
+ */
 
 import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
@@ -22,6 +29,15 @@ import type { DatabaseError } from '@/infrastructure/database'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
+/**
+ * Distinct EMAIL ADDRESSES of every comment author on a given record
+ * (excluding soft-deleted comments and guest authors). Powers GAP-13: the
+ * comment-posted trigger's `threadParticipants` must be email-addressable so
+ * `{{trigger.threadParticipants}}` is usable directly as an `email.send`
+ * `to`. JOINs `recordComments.userId` → `auth.user.email`; the resulting
+ * list is filtered to drop the newly-created comment's own author by the
+ * trigger so the notification fans out to the OTHER participants only.
+ */
 export function listCommentAuthorEmailsForRecord(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
@@ -49,6 +65,13 @@ export function listCommentAuthorEmailsForRecord(config: {
   })
 }
 
+/**
+ * Resolve a single user id to their email address (GAP-13 owner fallback).
+ * Used when a record's FIRST comment yields no prior-author thread
+ * participants — the trigger falls back to the record OWNER's email so a
+ * notify-thread automation still has a recipient. Returns `undefined` when
+ * the user row is missing.
+ */
 export function getUserEmailById(config: {
   readonly session: Readonly<Session>
   readonly userId: string
@@ -69,6 +92,15 @@ export function getUserEmailById(config: {
   })
 }
 
+/**
+ * Resolve a single user id to `{ id, email, name }` (GAP-20 record-event
+ * trigger USER-field hydration). Reuses the same `auth.user` lookup
+ * mechanism as `getUserEmailById`, just projecting the display `name`
+ * alongside the email so a record-event envelope can hydrate `user`-typed
+ * fields — `{{trigger.data.record.<userField>.email}}` / `.name` / `.id`
+ * resolve against the returned object instead of the bare id string.
+ * Returns `undefined` when the user row is missing or has no email.
+ */
 export function getUserMetadataById(config: {
   readonly session: Readonly<Session>
   readonly userId: string

@@ -9,17 +9,25 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * State Increment Action (type: state, operator: increment)
+ *
+ * Atomically increment a numeric value in key-value state.
+ * Creates the key with the increment amount if it does not exist.
+ */
 export const StateIncrementActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('state'),
   operator: Schema.Literal('increment'),
   props: Schema.Struct({
+    /** State key to increment */
     key: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'State key to increment (supports template variables)',
       })
     ),
 
+    /** Increment amount (default: 1) */
     amount: Schema.optional(
       Schema.Number.pipe(
         Schema.annotations({
@@ -28,6 +36,7 @@ export const StateIncrementActionSchema = Schema.Struct({
       )
     ),
 
+    /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
         Schema.pattern(/^[a-z][a-z0-9-]*$/),
@@ -46,4 +55,5 @@ export const StateIncrementActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type StateIncrementAction = Schema.Schema.Type<typeof StateIncrementActionSchema>

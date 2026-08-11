@@ -8,10 +8,19 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Error for cron scheduler operations
+ */
 export class CronSchedulerError extends Data.TaggedError('CronSchedulerError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * Cron Scheduler Port
+ *
+ * Provides cron-based job scheduling, cancellation, and listing.
+ * Implementation lives in infrastructure layer.
+ */
 export class CronScheduler extends Context.Tag('CronScheduler')<
   CronScheduler,
   {

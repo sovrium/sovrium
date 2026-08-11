@@ -11,6 +11,11 @@ interface LoadMoreButtonProps {
   readonly onClick: () => void
 }
 
+/**
+ * "Load More" button rendered below the gallery when
+ * `dataSource.pagination.style === 'loadMore'` and the current visible slice
+ * is smaller than the total available records.
+ */
 export function LoadMoreButton({ onClick }: LoadMoreButtonProps): ReactElement {
   return (
     <div className="flex w-full justify-center p-3">

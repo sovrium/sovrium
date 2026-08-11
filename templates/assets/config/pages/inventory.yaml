@@ -22,7 +22,7 @@ components:
         element: p
         props:
           className: text-sm mb-6
-        content: Everything the company owns, grouped by location. Scan the barcode column during the quarterly check.
+        content: Everything the company owns, grouped by category. Scan the barcode column during the quarterly check.
 
       - type: container
         props:
@@ -47,8 +47,15 @@ components:
             kpiAggregate:
               function: sum
               field: value
+            # `options.currency` is NOT inherited from the field it sums.
+            # `assets.value` declares `currency: EUR`, but kpi-compute.ts falls
+            # back to `format.options?.currency ?? 'USD'`, so omitting this
+            # renders the register total in dollars directly above a table of
+            # euros — confidently, and wrongly.
             kpiFormat:
               type: currency
+              options:
+                currency: EUR
 
       - type: container
         props:
@@ -112,8 +119,15 @@ components:
         search:
           enabled: true
           placeholder: Search assets...
+        # Groups by `category`, NOT by `location`, and the heading above says so.
+        # `groupBy` on a RELATIONSHIP field is a live platform defect: the island
+        # loads and counts the rows — the footer reads "1-14 of 14" — and then
+        # renders an empty body. It validates, it reports the right total, and it
+        # shows nothing, which is the worst of the three. Verified by swapping
+        # this one key: `location` → 0 rows, `category` → all 14, same data, same
+        # build. Put it back once grouping resolves a link column.
         groupBy:
-          field: location
+          field: category
         pagination:
           pageSize: 20
         emptyMessage: The register is empty — add the first asset above.

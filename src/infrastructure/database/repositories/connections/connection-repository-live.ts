@@ -19,8 +19,18 @@ import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 const connections = resolveDialectSchema(connectionsPg, connectionsSqlite)
 
+/** Wrap a DB promise, adapting failures to ConnectionDatabaseError. */
 const wrap = makeDbWrap((cause) => new ConnectionDatabaseError({ cause }))
 
+/**
+ * Connection Repository Implementation (Drizzle).
+ *
+ * `system.connections` stores the OAuth/API integration definitions
+ * (provider, client_id, scopes, etc.). The `credentials` jsonb column
+ * holds the public OAuth client config — NOT user secrets. Per-user
+ * access/refresh tokens live in `system.connection_tokens` (separate
+ * repository, encrypted at rest).
+ */
 export const ConnectionRepositoryLive = Layer.succeed(ConnectionRepository, {
   findById: (id) =>
     wrap(async () => {
@@ -58,6 +68,9 @@ export const ConnectionRepositoryLive = Layer.succeed(ConnectionRepository, {
 
   upsertByName: ({ name, provider, type, credentials, metadata, createdById }) =>
     wrap(async () => {
+      // Self-update on `name` is the PG idiom that forces RETURNING to
+      // fire on the conflicting row without changing meaningful state.
+      // Atomic against the connections_name_unique index (audit H3).
       const [row] = await db
         .insert(connections)
         .values({
@@ -84,6 +97,7 @@ export const ConnectionRepositoryLive = Layer.succeed(ConnectionRepository, {
 
   delete: (id) =>
     wrap(async () => {
+      // eslint-disable-next-line functional/no-expression-statements
       await db.delete(connections).where(eq(connections.id, id))
     }),
 })

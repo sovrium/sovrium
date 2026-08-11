@@ -8,12 +8,27 @@
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Component types and their corresponding theme color mapping
+ */
 const COMPONENT_COLOR_MAP: Record<string, keyof NonNullable<Theme['colors']>> = {
   header: 'primary',
   footer: 'secondary',
   hero: 'background',
 }
 
+/**
+ * Apply theme colors to section elements automatically
+ *
+ * Maps component types to theme colors:
+ * - header → theme.colors.primary
+ * - footer → theme.colors.secondary
+ * - hero → theme.colors.background
+ *
+ * @param type - Component type
+ * @param theme - Theme configuration
+ * @returns Style object with background color or undefined
+ */
 export function getSectionColorStyle(
   type: Component['type'],
   theme?: Theme

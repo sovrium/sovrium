@@ -5,11 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Field resolution pipeline shared by `form-renderer.tsx`. Walks each
+ * `Form['fields']` entry and produces the `ResolvedFormField` shape
+ * consumed by the per-field React components in
+ * `./form-field-elements.tsx`. Sliced out of `form-renderer.tsx` so the
+ * orchestration file (FormHead / FormBody / FormPage) stays under the
+ * project's max-lines cap.
+ */
 
-import {
-  optionLabel,
-  optionValue,
-} from '@/domain/models/app/tables/fields/field-types/validation-utils'
+import { optionLabel, optionValue } from '@/domain/utils/select-option'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import type { ResolvedFormField } from './form-field-elements'
 import type { App } from '@/domain/models/app'
@@ -20,6 +25,16 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Table } from '@/domain/models/app/tables'
 import type { SelectOption } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 
+/**
+ * Resolve the active language for `$t:` resolution.
+ *
+ * The requested language (e.g. `?lang=fr`) wins when it is one of the
+ * app's `supported` codes. Otherwise the renderer immediately collapses to
+ * `fallback ?? default` so an unsupported `?lang=de`
+ * resolves against the catalog rather than emitting raw `$t:` literals.
+ * The downstream `resolveTranslationPattern` still applies its own
+ * active → fallback → literal chain for missing keys.
+ */
 function resolveActiveLang(languages: Languages, requestedLang: string | undefined): string {
   if (requestedLang === undefined || requestedLang === '') {
     return languages.default
@@ -32,11 +47,25 @@ function resolveActiveLang(languages: Languages, requestedLang: string | undefin
   return languages.fallback ?? languages.default
 }
 
+/**
+ * Resolve the document `lang` attribute. Falls back to `'en'` when no
+ * `languages` block is configured; otherwise reuses the same active-language
+ * resolution as `$t:` (requested wins when supported, else fallback ?? default).
+ */
 export function resolveDocumentLang(languages: Languages | undefined, activeLang?: string): string {
   if (!languages) return 'en'
   return resolveActiveLang(languages, activeLang)
 }
 
+/**
+ * Resolve a `$t:key` literal (or pass-through plain string) using the
+ * app's `languages` configuration. When `languages` is undefined, returns
+ * the input unchanged.
+ *
+ * `activeLang`, when supplied, selects the catalog language (typically the
+ * `?lang=` query parameter). It falls back to `languages.default` when
+ * omitted, preserving the legacy single-language behaviour.
+ */
 function resolveText(
   value: string | undefined,
   languages: Languages | undefined,
@@ -49,6 +78,14 @@ function resolveText(
   return resolveTranslationPattern(value, lang, languages)
 }
 
+/**
+ * Map a table-bound field kind onto an HTML input element type.
+ *
+ * Attachment columns (`single-attachment` / `multiple-attachments`)
+ * project onto a `<input type="file">` element; the inline runtime
+ * upgrades them with multipart upload, dropzone, file chips, and
+ * validation.
+ */
 const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   email: 'email',
   number: 'number',
@@ -60,8 +97,19 @@ const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   checkbox: 'checkbox',
   'single-attachment': 'file',
   'multiple-attachments': 'file-multi',
+  // Selection columns expose a fixed `options[]` list; route them through
+  // the same `<select>` element used by standalone select fields so the
+  // standalone-form path renders true HTML `<option>` children (rather
+  // than a plain text input) — matching the inline page-component form
+  // path which already handles `single-select`/`multi-select` natively.
   'single-select': 'select',
   'multi-select': 'select',
+  // Bug 4 / [internal ref]: user-typed columns FK to
+  // `auth_user.id`. They render as a picker (combobox over the user
+  // directory) carrying the `data-field-type="user"` / `data-allow-multiple`
+  // markers the spec asserts. The UserInput SSR component (in
+  // form-field-elements.tsx) emits the picker; the inline runtime
+  // upgrades it with a fetch-backed combobox.
   user: 'user',
 }
 
@@ -69,6 +117,15 @@ function inputTypeForTableField(tableField: { readonly type: string }): string {
   return TABLE_FIELD_INPUT_TYPE_MAP[tableField.type] ?? 'text'
 }
 
+/**
+ * Pull `options[]` off a selection-type column (`single-select` /
+ * `multi-select`) so the form renderer can emit `<option>` children.
+ * Tables accept either the bare-`string[]` or `{ value, label? }[]` form —
+ * normalize both via the shared `optionValue` / `optionLabel` helpers to the
+ * renderer shape, and resolve each label's `$t:` token against the active
+ * locale. The stored `value` is never localized — only the
+ * display label is — so switching languages never rewrites data.
+ */
 function readColumnOptions(
   column: Readonly<{ readonly type?: string; readonly options?: unknown }> | undefined,
   languages: Languages | undefined,
@@ -84,6 +141,9 @@ function readColumnOptions(
   })
 }
 
+/**
+ * Map a standalone field's `inputType` onto an HTML input element type.
+ */
 function inputTypeForStandalone(inputType: string): string {
   switch (inputType) {
     case 'long-text':
@@ -138,6 +198,9 @@ const resolveStandaloneField = (
       ? {
           options: field.options.map((option) => ({
             value: option.value,
+            // Resolve the option label's `$t:` token against the active locale
+            // ([internal ref] parity for standalone select fields); the stored
+            // `value` is never localized.
             label: resolveText(option.label ?? option.value, languages, option.value, activeLang),
           })),
         }
@@ -149,6 +212,11 @@ const resolveStandaloneField = (
   }
 }
 
+/**
+ * Pull attachment-related props off a table column. Falls back to
+ * undefined for each prop when the column is missing or doesn't declare
+ * the prop.
+ */
 interface ColumnAttachmentProps {
   readonly accept?: string
   readonly maxFileSize?: number
@@ -172,6 +240,10 @@ function readColumnAttachmentProps(
   }
 }
 
+/**
+ * Build the optional file-upload prop overlay for a table-bound field.
+ * Form-level overrides win; column-level constraints fall through.
+ */
 function fileUploadOverlay(
   field: Readonly<TableBoundField>,
   column: Readonly<{ readonly type?: string }> | undefined
@@ -188,6 +260,12 @@ function fileUploadOverlay(
   }
 }
 
+/**
+ * Bug 4 / [internal ref]: surface `user.allowMultiple` so the picker can
+ * render the right widget (single-select vs multi-select). Returns `undefined`
+ * for non-`user` columns so the spread in `resolveTableField` omits the field
+ * entirely. Extracted to keep `resolveTableField` under the complexity cap.
+ */
 const readUserAllowMultiple = (
   column: Readonly<Table['fields'][number]> | undefined
 ): boolean | undefined => {
@@ -220,6 +298,12 @@ const resolveTableField = (
   }
 }
 
+/**
+ * Resolve a single FormField definition into the shape the renderer
+ * needs. Sections and calculations are skipped (return `undefined`) —
+ * they are not user-input fields and the foundation tier does not render
+ * them.
+ */
 function resolveField(
   field: Readonly<FormField>,
   table: Readonly<Table> | undefined,
@@ -232,6 +316,13 @@ function resolveField(
   return resolveTableField(field, table, languages, activeLang)
 }
 
+/**
+ * Resolve fields and look up the bound table for `kind: 'table-field'`.
+ * Returns the rendered-shape fields ready for the React tree.
+ *
+ * `activeLang`, when supplied, threads the `?lang=` query parameter into
+ * `$t:` resolution for each field's label/placeholder/helpText.
+ */
 export function resolveAllFields(
   app: Readonly<App>,
   form: Readonly<Form>,

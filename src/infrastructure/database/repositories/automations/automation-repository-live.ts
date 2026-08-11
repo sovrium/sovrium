@@ -17,13 +17,28 @@ import { automationDefinitions as automationDefinitionsPg } from '@/infrastructu
 import { automationDefinitions as automationDefinitionsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
+/**
+ * Dialect-aware schema object for `system.automation_definitions`. See
+ * `resolveDialectSchema` for the why and the rules — every PG-typed Drizzle
+ * import in this directory follows the same pattern.
+ */
 const automationDefinitions = resolveDialectSchema(
   automationDefinitionsPg,
   automationDefinitionsSqlite
 )
 
+/** Wrap a DB promise, adapting failures to AutomationDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationDatabaseError({ cause }))
 
+/**
+ * Automation Repository Implementation (Drizzle).
+ *
+ * Backs `system.automation_definitions` — the catalogue of automations the
+ * runtime knows about. Currently the only writer; the runtime lazily
+ * upserts a row on first webhook trigger via `findByName` then `create` if
+ * absent (see `run-automation.ts`). All FK-bearing tables (`automation_runs`,
+ * `automation_state`, `automation_run_steps`, etc.) join back here by `id`.
+ */
 export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
   findById: (id) =>
     wrap(async () => {
@@ -77,6 +92,7 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
 
   delete: (id) =>
     wrap(async () => {
+      // eslint-disable-next-line functional/no-expression-statements
       await db.delete(automationDefinitions).where(eq(automationDefinitions.id, id))
     }),
 })

@@ -9,10 +9,23 @@ import { z } from '@hono/zod-openapi'
 import { paginationSchema } from '../_shared/common'
 import { formNameSchema } from './forms'
 
+/**
+ * Submission lifecycle status — mirrors the form_submissions ledger column.
+ *
+ * - received: just created, dual-write in progress
+ * - processing: bound table written, automation invocation pending
+ * - done: bound table + automation both succeeded
+ * - failed: ledger row preserved with status_reason; submission writes may still
+ * have committed (non-rollback contract)
+ * - spam: caught by honeypot or rate limiter; never reached automation/table
+ */
 export const submissionStatusSchema = z
   .enum(['received', 'processing', 'done', 'failed', 'spam'])
   .describe('Submission lifecycle state')
 
+/**
+ * File metadata embedded in submission data for attachment fields.
+ */
 export const submissionFileMetadataSchema = z
   .object({
     url: z.string().describe('Storage URL (signed when bucket is private)'),
@@ -22,6 +35,12 @@ export const submissionFileMetadataSchema = z
   })
   .openapi('SubmissionFileMetadata')
 
+/**
+ * Submitter context recorded on every ledger row.
+ *
+ *, the IP is HASHED (SHA-256 with per-app salt) before
+ * persistence; the raw IP is never stored or returned.
+ */
 export const submissionMetaSchema = z
   .object({
     submittedAt: z.iso.datetime().describe('ISO 8601 submission timestamp'),
@@ -34,12 +53,27 @@ export const submissionMetaSchema = z
   })
   .openapi('SubmissionMeta')
 
+/**
+ * Body of `POST /api/forms/{name}/submissions`.
+ *
+ * The shape of `data` is dynamic (depends on the form's fields[]), so the API
+ * schema accepts an opaque record. Server-side validation against the form's
+ * Effect Schema enforces field types, required-ness, and conditional rules.
+ *
+ * `files` is a separate map keyed by field name, populated from the multipart
+ * upload boundary; the API schema accepts file metadata only (the actual
+ * upload bytes go through the bucket service).
+ */
 export const createSubmissionRequestSchema = z
   .object({
     data: z.record(z.string(), z.unknown()).describe('Submitted field values keyed by field name'),
   })
   .openapi('CreateSubmissionRequest')
 
+/**
+ * Response for `POST /api/forms/{name}/submissions` (success) and
+ * `GET /api/forms/{name}/submissions/{id}`.
+ */
 export const submissionResponseSchema = z
   .object({
     id: z.uuid().describe('Submission ledger row id (UUID)'),
@@ -69,6 +103,9 @@ export const submissionResponseSchema = z
   })
   .openapi('SubmissionResponse')
 
+/**
+ * Compact submission item for list endpoints.
+ */
 export const submissionSummarySchema = z
   .object({
     id: z.uuid(),
@@ -79,6 +116,9 @@ export const submissionSummarySchema = z
   })
   .openapi('SubmissionSummary')
 
+/**
+ * Response for `GET /admin/forms/{name}/submissions`.
+ */
 export const listSubmissionsResponseSchema = z
   .object({
     items: z.array(submissionSummarySchema),
@@ -86,6 +126,12 @@ export const listSubmissionsResponseSchema = z
   })
   .openapi('ListSubmissionsResponse')
 
+/**
+ * Query parameters for `GET /admin/forms/{name}/submissions/export`.
+ *
+ * For result sets larger than 1000 rows, the endpoint returns 202 + a job id
+ * instead of streaming directly (AC 122).
+ */
 export const exportSubmissionsRequestSchema = z
   .object({
     format: z.enum(['csv', 'json', 'xlsx']).default('csv').describe('Export file format'),
@@ -101,11 +147,22 @@ export const exportSubmissionsRequestSchema = z
   })
   .openapi('ExportSubmissionsRequest')
 
+/**
+ * TypeScript types inferred from the schemas.
+ * @public
+ */
 export type SubmissionStatus = z.infer<typeof submissionStatusSchema>
+/** @public */
 export type SubmissionFileMetadata = z.infer<typeof submissionFileMetadataSchema>
+/** @public */
 export type SubmissionMeta = z.infer<typeof submissionMetaSchema>
+/** @public */
 export type CreateSubmissionRequest = z.infer<typeof createSubmissionRequestSchema>
+/** @public */
 export type SubmissionResponse = z.infer<typeof submissionResponseSchema>
+/** @public */
 export type SubmissionSummary = z.infer<typeof submissionSummarySchema>
+/** @public */
 export type ListSubmissionsResponse = z.infer<typeof listSubmissionsResponseSchema>
+/** @public */
 export type ExportSubmissionsRequest = z.infer<typeof exportSubmissionsRequestSchema>

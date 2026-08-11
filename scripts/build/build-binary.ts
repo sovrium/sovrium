@@ -5,12 +5,28 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Build Binary Script - Compiles Sovrium CLI into a standalone executable
+ *
+ * Uses `bun build --compile` to produce a self-contained binary that embeds
+ * the Bun runtime, all JS code, and static assets.
+ *
+ * Usage:
+ *   bun run scripts/build/build-binary.ts                      # Build for current platform
+ *   bun run scripts/build/build-binary.ts --target linux-x64   # Cross-compile for Linux x64
+ *   bun run scripts/build/build-binary.ts --all                # Build all 4 targets
+ *
+ * Targets: linux-x64, linux-arm64, darwin-x64, darwin-arm64
+ */
 
 import { readFileSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 
+// ---------------------------------------------------------------------------
+// Types & constants
+// ---------------------------------------------------------------------------
 
 interface Target {
   readonly name: string
@@ -26,6 +42,9 @@ const TARGETS: readonly Target[] = [
   { name: 'windows-x64', bunTarget: 'bun-windows-x64', outfile: 'sovrium-windows-x64.exe' },
 ]
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function run(cmd: readonly string[], label: string): void {
   console.log(`\n\u25b8 ${label}`)
@@ -78,6 +97,7 @@ function parseCliArgs(): { readonly targets: readonly Target[] } {
     return { targets: [match] }
   }
 
+  // Default: build for current platform, output as 'sovrium' (no platform suffix)
   return { targets: [{ ...getCurrentTarget(), outfile: 'sovrium' }] }
 }
 
@@ -89,6 +109,9 @@ function formatSize(bytes: number): string {
   return `${bytes} B`
 }
 
+// ---------------------------------------------------------------------------
+// Build steps
+// ---------------------------------------------------------------------------
 
 function compileBinary(target: Target, version: string): void {
   const outPath = join(PROJECT_ROOT, target.outfile)
@@ -108,6 +131,7 @@ function compileBinary(target: Target, version: string): void {
 
   run(cmd, `Compile binary for ${target.name}`)
 
+  // Verify output
   if (!existsSync(outPath)) {
     console.error(`\u2717 Binary not found at ${outPath}`)
     process.exit(1)
@@ -122,6 +146,9 @@ function compileBinary(target: Target, version: string): void {
   console.log(`  \u2713 ${target.outfile} (${formatSize(stats.size)})`)
 }
 
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 
 console.log('Sovrium Binary Builder')
 console.log('======================')
@@ -132,24 +159,41 @@ const version = getVersion()
 console.log(`Version: ${version}`)
 console.log(`Targets: ${targets.map((t) => t.name).join(', ')}`)
 
+// Refresh embedded CSS assets (candidate list + upstream stylesheets) so the
+// compiled binary can compile theme-aware CSS without native addons. The
+// compiled binary cannot load @tailwindcss/oxide / lightningcss .node files
+// from its virtual filesystem — see scripts/build/generate-css-assets.ts and issue #19.
 run(['bun', 'run', 'scripts/build/generate-css-assets.ts'], 'Generate embedded CSS assets')
 
+// Refresh the embedded static-asset manifest (drizzle migrations, init
+// templates) so `with { type: 'file' }` imports embed the current files
+// into the binary — see scripts/build/generate-embedded-static-assets.ts.
 run(
   ['bun', 'run', 'scripts/build/generate-embedded-static-assets.ts'],
   'Generate embedded static-asset manifest'
 )
 
+// Pre-build the client/island/script runtime assets into dist/ and emit the
+// manifest of `with { type: 'file' }` imports so the compiled binary serves
+// them via Bun.file() — see scripts/build/generate-embedded-runtime-assets.ts.
 run(['bun', 'run', 'scripts/build/build-runtime-assets.ts'], 'Build client/island runtime assets')
 run(
   ['bun', 'run', 'scripts/build/generate-embedded-runtime-assets.ts'],
   'Generate embedded runtime-asset manifest'
 )
 
+// Embed the TypeScript standard-library `.d.ts` corpus so the runTypescript
+// validator's in-binary CompilerHost can resolve `Record<K, V>`, `Promise<T>`,
+// `Map`/`Set` etc. when checking user `execute()` bodies. v0.5.x/v0.6.x
+// binaries shipped without this and rejected every automation referencing a
+// standard-library generic at boot — see
+// `src/infrastructure/automations/typescript-validator/layer.ts`.
 run(
   ['bun', 'run', 'scripts/build/generate-embedded-ts-lib-types.ts'],
   'Generate embedded TypeScript lib.*.d.ts manifest'
 )
 
+// Compile each target
 for (const target of targets) {
   compileBinary(target, version)
 }

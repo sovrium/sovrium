@@ -1,0 +1,33 @@
+name: assistant
+path: /assistant
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Assistant
+  description: Query and edit the catalog in plain language
+components:
+  - $ref: ./_nav.yaml
+  - type: container
+    element: section
+    props:
+      className: max-w-3xl mx-auto px-6 py-8
+    children:
+      - type: text
+        element: h1
+        props:
+          className: text-2xl font-bold mb-1
+        content: Assistant
+      - type: text
+        element: p
+        props:
+          className: text-sm mb-6
+        content: >-
+          Ask for a product, record a movement, or have the catalog reviewed for
+          items below their reorder point.
+
+      - type: ai-chat
+        agent: catalog-assistant
+        placeholder: e.g. "Which products are below their reorder point?"
+        showHistory: true
+        chatHeight: 520

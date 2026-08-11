@@ -8,11 +8,22 @@
 import { Schema } from 'effect'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Automation Return Action (type: automation, operator: return)
+ *
+ * Sends output data back to a calling automation when a sub-workflow
+ * completes. The returned data becomes available in the parent
+ * automation as `{{steps.{callStepName}.result.*}}`.
+ *
+ * This action only works in automations with an `automation-call` trigger.
+ * Using it with other trigger types produces a validation warning.
+ */
 export const AutomationReturnActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('automation'),
   operator: Schema.Literal('return'),
   props: Schema.Struct({
+    /** Key-value data to return to the calling automation */
     data: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
       Schema.annotations({
         description:
@@ -29,4 +40,5 @@ export const AutomationReturnActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AutomationReturnAction = Schema.Schema.Type<typeof AutomationReturnActionSchema>

@@ -9,6 +9,22 @@ import { Effect } from 'effect'
 import { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { EnvVar } from '@/domain/models/app/env'
 
+/**
+ * Validate that every env var declared with `required: true` is either:
+ * - present in the OS environment (`process.env[key]`), OR
+ * - has a `default` value defined in the app schema.
+ *
+ * Returns an Effect that fails with {@link MissingRequiredEnvVarError} listing
+ * every missing required key. Otherwise it succeeds with `void`.
+ *
+ * Pure function: takes the env-var declarations and a snapshot of `process.env`
+ * (so it stays trivially testable without touching the global).
+ *
+ * Resolution order at runtime:
+ * 1. `process.env[key]` (set by deployment platform)
+ * 2. `default` value from schema (fallback)
+ * 3. `undefined` — fails fast at startup if `required: true`
+ */
 export const validateRequiredEnvVars = (
   envVars: ReadonlyArray<EnvVar> | undefined,
   processEnv: Readonly<Record<string, string | undefined>>

@@ -12,6 +12,8 @@ export const SingleAttachmentFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('single-attachment'),
+      /** Storage bucket name for this field's files. References a bucket defined in app.buckets.
+       *  When omitted, uses the implicit 'default' bucket. */
       bucket: Schema.optional(
         Schema.String.pipe(
           Schema.annotations({
@@ -50,7 +52,7 @@ export const SingleAttachmentFieldSchema = BaseFieldSchema.pipe(
   Schema.annotations({
     title: 'Single Attachment Field',
     description:
-      'Stores a single file attachment. Storage backend configured globally via environment variables (see US-STORAGE-STORAGE-CONFIGURATION).',
+      'Stores a single file attachment. The storage backend is configured globally through STORAGE_* environment variables, not per field.',
     examples: [
       {
         id: 1,
@@ -62,4 +64,5 @@ export const SingleAttachmentFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type SingleAttachmentField = Schema.Schema.Type<typeof SingleAttachmentFieldSchema>

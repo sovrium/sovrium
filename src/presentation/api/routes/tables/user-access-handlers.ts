@@ -17,6 +17,29 @@ import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/**
+ * HTTP handlers for the multi-tenant `user_access` junction (Z-2).
+ *
+ * The DDL for the table is created at startup by `schema-initializer.ts`
+ * whenever `auth.scopeTables` is configured. These handlers are mounted at
+ * `/api/tables/user_access/records` BEFORE `validateTable` middleware so
+ * the table-name lookup against `app.tables[]` does not reject the request
+ * (user_access is an engine-managed junction, not a user-defined table).
+ *
+ * Insert-time validation enforces:
+ *
+ *   * `table_slug` ∈ `auth.scopeTables`
+ *   * `role` ∈ `auth.roles[].name`
+ *   * `record_ids` is non-empty
+ *
+ * Audit columns (`created_at`, `created_by`) are auto-populated.
+ *
+ * Implementation note (R-1 follow-up): all DB access flows through the
+ * `UserAccessRepository` Effect port. The previous implementation read
+ * `process.env.DATABASE_URL` and used `bun:sql` directly, breaking the
+ * "presentation routes go through Effect Layer / Repository Tag" pattern
+ * established everywhere else in src/presentation/.
+ */
 
 interface UserAccessFieldsResponse {
   readonly id: string
@@ -52,6 +75,14 @@ interface ContextLike {
   readonly json: (body: unknown, status?: number) => Response
 }
 
+/**
+ * 404 response for apps that have not enabled `auth.scopeTables`.
+ *
+ * The DDL is only created when scopeTables is configured (per
+ * schema-initializer step 11.5), so requests against this junction must
+ * also be rejected at the API layer rather than 500-ing on a missing
+ * relation.
+ */
 const respondNotFound = (c: ContextLike) =>
   c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
@@ -108,6 +139,14 @@ const extractFields = (body: unknown): Record<string, unknown> => {
   return obj
 }
 
+/**
+ * POST /api/tables/user_access/records
+ *
+ * Body shape (matches the canonical record envelope):
+ *   { fields: { user_id, table_slug, record_ids, role } }
+ *
+ * Returns 201 with `{ id, fields: {...} }` on success.
+ */
 export async function handleCreateUserAccessRecord(c: Context, app: App): Promise<Response> {
   const session = getSessionContext(c)
 
@@ -133,6 +172,7 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
     return respondValidationError(c, validation.message, validation.field)
   }
 
+  // After validation, fields are guaranteed to be the right types.
   const validated = fields as unknown as ValidatedRow
   const result = await runUserAccessProgram(
     Effect.gen(function* () {
@@ -155,6 +195,11 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
   return c.json(toFieldsResponse(result.right), 201)
 }
 
+/**
+ * GET /api/tables/user_access/records?user_id=...
+ *
+ * Returns `{ records: [{ id, fields: {...} }] }`.
+ */
 export async function handleListUserAccessRecords(c: Context, app: App): Promise<Response> {
   const session = getSessionContext(c)
 

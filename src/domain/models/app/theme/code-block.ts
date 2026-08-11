@@ -7,7 +7,33 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Code-block theme configuration (single Shiki theme selector).
+ *
+ * Selects the syntax-highlighting theme applied to fenced code blocks in
+ * markdown pages. The named theme drives the class/CSS-variable output emitted
+ * by the Shiki highlighter — colors are delivered through the CSS system (not
+ * inline `style`), so the output survives the canonical HTML sanitizer.
+ *
+ * Single-token by design: the docs-chrome plan deliberately keeps the
+ * branding surface minimal — one themeable code-block token rather than a
+ * large palette of code-specific tokens.
+ *
+ * @example
+ * ```typescript
+ * // Use a named Shiki theme for all fenced code blocks
+ * const theme = {
+ *   codeBlock: { theme: 'github-dark' }
+ * }
+ *
+ * // Light theme
+ * const theme = {
+ *   codeBlock: { theme: 'github-light' }
+ * }
+ * ```
+ */
 export const CodeBlockConfigSchema = Schema.Struct({
+  /** Named Shiki theme applied to fenced code blocks */
   theme: Schema.optional(
     Schema.String.pipe(
       Schema.minLength(1),
@@ -26,4 +52,11 @@ export const CodeBlockConfigSchema = Schema.Struct({
   })
 )
 
+/**
+ * @public Forward-prep: paired with `CodeBlockConfigSchema` to match the
+ * sibling theme-module pattern (`ShadowsConfig`, `BorderRadiusConfig`,
+ * `BreakpointsConfig`). Awaiting adoption by the Shiki code-block CSS
+ * generator — the consumer that will turn the `theme.codeBlock.theme`
+ * selector into emitted highlight styles.
+ */
 export type CodeBlockConfig = Schema.Schema.Type<typeof CodeBlockConfigSchema>

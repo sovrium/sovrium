@@ -5,18 +5,41 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React form event-handler pattern. */
 
 import { useState, type ReactElement } from 'react'
 import { computeCommentFormClasses } from '../recipes/specialty-islands-default-classes'
 
+/**
+ * Authenticated comment form.
+ *
+ * - Plain `<textarea>` (no Tiptap dependency in v1 — keeps the bundle smaller
+ *   and lets the client-side validation regex on `value.trim()` work without
+ *   a serialized HTML round-trip).
+ * - 10 000 character limit (matches the API contract in
+ *   `validateCreateCommentBody`).
+ * - Empty + whitespace-only submissions are blocked client-side with a
+ * "Comment cannot be empty" message.
+ */
 interface CommentThreadFormProps {
   readonly placeholder: string
   readonly onSubmit: (content: string) => Promise<void>
   readonly isSubmitting: boolean
+  /**
+   * When `'reply'`, the form swaps its `aria-label` to "Reply" and exposes
+   * an optional Cancel button. The submit
+   * button label flips to "Submit reply" so the regression-step
+   * `getByRole('button', { name: /submit|post/i })` still matches.
+   */
   readonly variant?: 'comment' | 'reply'
   readonly onCancel?: () => void
 }
 
+/**
+ * The form's action row: the submit button plus an optional Cancel button
+ * (reply variant only). Extracted to keep `CommentThreadForm` under the
+ * component-size limit.
+ */
 function CommentFormActions({
   isReply,
   isSubmitting,

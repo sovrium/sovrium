@@ -10,6 +10,11 @@ import { ActivityRepository } from '@/application/ports/repositories/analytics/a
 import { getRecordHistory } from '@/infrastructure/database/table-queries/query-helpers/activity-queries'
 import { checkRecordExists } from '@/infrastructure/database/table-queries/query-helpers/record-validation-queries'
 
+/**
+ * Live implementation of ActivityRepository using activity-queries infrastructure
+ *
+ * Maps port method names to infrastructure function names.
+ */
 export const ActivityRepositoryLive = Layer.succeed(ActivityRepository, {
   getRecordHistory,
   checkRecordExists,

@@ -34,4 +34,5 @@ export const StatusFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type StatusField = Schema.Schema.Type<typeof StatusFieldSchema>

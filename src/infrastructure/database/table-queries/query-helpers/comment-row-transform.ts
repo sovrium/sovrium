@@ -16,6 +16,9 @@ import type { UserMetadataWithOptionalImage } from '@/application/ports/models/u
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
+/**
+ * Comment query result type
+ */
 export type CommentQueryRow = {
   readonly id: string
   readonly tableId: string
@@ -28,10 +31,20 @@ export type CommentQueryRow = {
   readonly userName: string | null
   readonly userEmail: string | null
   readonly userImage: string | null
+  /**
+   * Guest identity. Non-null only for
+   * unauthenticated guest submissions to a `guestComments: true` table; the
+   * read path surfaces `guestName` so the thread can attribute the comment to
+   * the guest. `guestEmail` is selected for gravatar resolution but never
+   * serialized to the public wire.
+   */
   readonly guestName: string | null
   readonly guestEmail: string | null
 }
 
+/**
+ * Transform comment query result to domain model
+ */
 export function transformCommentRow(row: {
   readonly id: string
   readonly tableId: string
@@ -74,6 +87,13 @@ export function transformCommentRow(row: {
   }
 }
 
+/**
+ * Comment select fields with user join.
+ *
+ * Built lazily because `authUsersTable()` returns the dialect-correct mirror at
+ * call time — a module-scope object would freeze the wrong dialect under
+ * SQLite ([[project-sqlite-default-database]]).
+ */
 export const buildCommentSelectFields = () => {
   const users = authUsersTable()
   return {

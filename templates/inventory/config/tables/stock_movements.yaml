@@ -1,0 +1,73 @@
+# Stock movements — the append-only ledger behind every stock figure.
+#
+# `products.movement_count` counts these rows and `products.units_moved` rolls
+# up their `quantity`, so this table is what makes those two computed columns
+# mean something.
+id: 4
+name: stock_movements
+fields:
+  - id: 1
+    name: reference
+    type: single-line-text
+    required: true
+  - id: 2
+    name: product
+    type: relationship
+    relatedTable: products
+    relationType: many-to-one
+    displayField: name
+  - id: 3
+    name: warehouse
+    type: relationship
+    relatedTable: warehouses
+    relationType: many-to-one
+    displayField: name
+  - id: 4
+    name: direction
+    type: single-select
+    options:
+      - Inbound
+      - Outbound
+      - Adjustment
+    default: Inbound
+  - id: 5
+    name: quantity
+    type: integer
+    default: 0
+  - id: 6
+    name: unit_cost
+    type: currency
+    currency: EUR
+    precision: 2
+  - id: 7
+    name: moved_on
+    type: date
+  - id: 8
+    name: note
+    type: long-text
+  - id: 9
+    name: created_at
+    type: created-at
+  - id: 10
+    name: created_by
+    type: created-by
+
+aiAccess:
+  description: >-
+    Stock in and out. Use this when the user asks about receipts, shipments,
+    adjustments, or stock history for a product.
+  operations:
+    - read
+    - list
+    - create
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+  delete:
+    - admin

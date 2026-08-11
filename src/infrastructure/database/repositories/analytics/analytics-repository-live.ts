@@ -26,8 +26,16 @@ import type { AnalyticsQueryParams } from '@/application/ports/repositories/anal
 
 const analyticsEvents = resolveDialectSchema(analyticsEventsPg, analyticsEventsSqlite)
 
+/** Wrap a DB promise, adapting failures to AnalyticsDatabaseError. */
 const wrap = makeDbWrap((error) => new AnalyticsDatabaseError({ cause: error }))
 
+/**
+ * Build the common WHERE clause for page-view analytics queries.
+ *
+ * Matches both the specified appName AND 'default' to support
+ * direct SQL inserts (which use the schema default 'default').
+ * Also filters to page_view event type only.
+ */
 const pageViewWhereClause = (params: AnalyticsQueryParams) =>
   and(
     inArray(analyticsEvents.appName, [params.appName, 'default']),
@@ -35,6 +43,10 @@ const pageViewWhereClause = (params: AnalyticsQueryParams) =>
     between(analyticsEvents.timestamp, params.from, params.to)
   )
 
+/**
+ * Narrow the API-supplied granularity string to the closed enum the dialect
+ * helpers accept. Defaults to `'day'` for any unrecognised input.
+ */
 const narrowGranularity = (granularity: string): 'hour' | 'day' | 'week' | 'month' => {
   if (
     granularity === 'hour' ||
@@ -47,6 +59,9 @@ const narrowGranularity = (granularity: string): 'hour' | 'day' | 'week' | 'mont
   return 'day'
 }
 
+/**
+ * Compute percentage breakdown from count results
+ */
 const computePercentages = (
   rows: readonly { readonly name: string | null; readonly count: number }[]
 ): readonly { readonly name: string; readonly count: number; readonly percentage: number }[] => {
@@ -59,9 +74,27 @@ const computePercentages = (
   }))
 }
 
+/**
+ * Analytics Repository Implementation
+ *
+ * Uses the unified analytics_events table with JSONB properties.
+ * Page-view-specific fields are stored in properties JSONB column.
+ * All queries are parameterized (SQL injection safe).
+ */
 export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
   recordEvent: (input) =>
     wrap(async () => {
+      // Drizzle query-builder INSERT — works under both Postgres (via the
+      // bun-sql driver) and SQLite (via the bun-sqlite driver). The raw
+      // `db.execute(sql\`INSERT INTO …\`)` path is Postgres-only (see
+      // `db-bun.ts`: SQLite drizzle clients do not expose `.execute()`), so
+      // we use `.insert(table).values(...)` which the dialect-resolved
+      // `analyticsEvents` table targets correctly on both engines.
+      // `properties` is wrapped in `jsonbLiteral` so Postgres parses
+      // the JSON as a jsonb OBJECT (not string) — `->>` extraction
+      // requires this. See `recordPageView` for full rationale.
+      // @effect-diagnostics effect/preferSchemaOverJson:off
+      // eslint-disable-next-line functional/no-expression-statements
       await db.insert(analyticsEvents).values({
         appName: input.appName,
         eventType: input.eventType,
@@ -93,11 +126,22 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         screenWidth: input.screenWidth,
         screenHeight: input.screenHeight,
       }
+      // Wrap `properties` in `jsonbLiteral` so Postgres parses the JSON
+      // as a jsonb OBJECT (not a jsonb STRING). drizzle-orm + bun-sql
+      // would otherwise TEXT-bind the stringified object, producing a
+      // jsonb-encoded string for which `properties->>'path'` returns
+      // NULL. `jsonbLiteral` is dialect-aware: on SQLite it emits a
+      // plain single-quoted JSON string literal (the `properties`
+      // column is `text` on SQLite, so no `::jsonb` cast).
+      // @effect-diagnostics effect/preferSchemaOverJson:off
+      // eslint-disable-next-line functional/no-expression-statements
       await db.insert(analyticsEvents).values({
         appName: input.appName,
         eventType: 'page_view',
         visitorHash: input.visitorHash,
         sessionHash: input.sessionHash,
+        // drizzle accepts an SQL fragment as a column value; this routes
+        // around the TEXT-bind preprocessing that breaks jsonb storage.
         properties: jsonbLiteral(properties) as never,
       })
     }),
@@ -180,8 +224,11 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .where(
           and(
             pageViewWhereClause(params),
+            // Exclude UTM campaign traffic (belongs in /api/analytics/campaigns)
             or(
+              // Include rows with referrer_domain set
               sql`${refDomain} IS NOT NULL`,
+              // Include direct traffic (NULL referrer AND NULL campaign)
               and(sql`${refDomain} IS NULL`, sql`${utmCampaign} IS NULL`)
             )
           )
@@ -190,6 +237,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .orderBy(sql`count(*) DESC`)
 
       return rows.map((row) => ({
+        // eslint-disable-next-line unicorn/no-null -- null represents direct traffic (no referrer)
         domain: row.domain ?? null,
         pageViews: row.pageViews,
         uniqueVisitors: row.uniqueVisitors,
@@ -203,6 +251,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       const browserExpr = jsonExtractPath(analyticsEvents.properties, 'browserName')
       const osExpr = jsonExtractPath(analyticsEvents.properties, 'osName')
 
+      // Device type breakdown
       const deviceRows = await db
         .select({
           name: sql<string | null>`${deviceExpr}`.as('name'),
@@ -213,6 +262,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .groupBy(deviceExpr)
         .orderBy(sql`count(*) DESC`)
 
+      // Browser breakdown
       const browserRows = await db
         .select({
           name: sql<string | null>`${browserExpr}`.as('name'),
@@ -223,6 +273,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .groupBy(browserExpr)
         .orderBy(sql`count(*) DESC`)
 
+      // OS breakdown
       const osRows = await db
         .select({
           name: sql<string | null>`${osExpr}`.as('name'),
@@ -257,6 +308,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .where(
           and(
             pageViewWhereClause(params),
+            // Only include rows that have at least one UTM parameter
             sql`(${sourceExpr} IS NOT NULL OR ${mediumExpr} IS NOT NULL OR ${campaignExpr} IS NOT NULL)`
           )
         )
@@ -264,8 +316,11 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .orderBy(sql`count(*) DESC`)
 
       return rows.map((row) => ({
+        // eslint-disable-next-line unicorn/no-null -- null represents missing UTM parameter
         source: row.source ?? null,
+        // eslint-disable-next-line unicorn/no-null -- null represents missing UTM parameter
         medium: row.medium ?? null,
+        // eslint-disable-next-line unicorn/no-null -- null represents missing UTM parameter
         campaign: row.campaign ?? null,
         pageViews: row.pageViews,
         uniqueVisitors: row.uniqueVisitors,
@@ -278,6 +333,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .delete(analyticsEvents)
         .where(
           and(
+            // Delete records for this app OR records with the default app name
             or(eq(analyticsEvents.appName, appName), eq(analyticsEvents.appName, 'default')),
             lt(analyticsEvents.timestamp, cutoff)
           )

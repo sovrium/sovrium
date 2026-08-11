@@ -12,11 +12,17 @@ import type { ReactElement } from 'react'
 
 interface ListIslandProps {
   readonly dataSource?: ListRecordsDataSource
+  /**
+   * Declarative item template (title / subtitle / image / badge / metadata) —
+   * the config (not a table field schema) drives each rendered `<li>`. Carried
+   * from `listDisplay.itemTemplate`.
+   */
   readonly itemTemplate?: ItemTemplate
   readonly emptyMessage?: string
   readonly 'data-testid'?: string
 }
 
+/** Missing-binding fallback — neither `table` nor `system` configured. */
 function ListMissing(): ReactElement {
   return (
     <div className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm">
@@ -25,6 +31,11 @@ function ListMissing(): ReactElement {
   )
 }
 
+/**
+ * Loading skeleton — VISIBLE pulse rows so the host has a non-zero box while the
+ * fetch is in flight. Rows are `<div>` (not `<li>`) so `#id li` stays zero until
+ * the real itemTemplate items render.
+ */
 function ListLoading(): ReactElement {
   return (
     <div
@@ -53,6 +64,16 @@ function ListError({ error }: { readonly error: unknown }): ReactElement {
   )
 }
 
+/**
+ * list island — client-side data-bound list (CAP-1 system-source rows binding).
+ *
+ * Renders `listDisplay.itemTemplate` items from EITHER a DB table
+ * (`dataSource.table` → `/api/tables/:t/records`) OR a named system read endpoint
+ * (`dataSource.system` → the shared system-source fetch). A system source is a
+ * READ source: the island offers NO create/edit/delete affordances and no saved
+ * views — it renders items only. The `data-component="list"` marker lives on the
+ * SSR host wrapper (single match); this island root never re-emits it.
+ */
 export default function ListIsland({
   dataSource,
   itemTemplate,

@@ -8,6 +8,32 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Single Line Text Field
+ *
+ * Short text input limited to a single line. Ideal for names, titles, labels,
+ * and brief identifiers. Text is stored as-is without formatting. Required flag
+ * makes the field mandatory. Unique constraint ensures no duplicate values across
+ * records. Indexing improves search and filter performance on this field.
+ *
+ * Business Rules:
+ * - Single-line constraint prevents multi-line input, ensuring consistent formatting and UI display
+ * - Text is stored without formatting, preserving raw input for maximum flexibility
+ * - Constant value 'single-line-text' ensures type safety and enables discriminated unions
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'title',
+ *   type: 'single-line-text',
+ *   required: true,
+ *   unique: false,
+ *   indexed: true,
+ *   default: 'Untitled'
+ * }
+ * ```
+ */
 export const SingleLineTextFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -50,4 +76,5 @@ export const SingleLineTextFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type SingleLineTextField = Schema.Schema.Type<typeof SingleLineTextFieldSchema>

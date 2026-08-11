@@ -18,4 +18,5 @@ export const KPIThresholdSchema = Schema.Struct({
     'Conditional color threshold — applied when the metric value meets or exceeds the boundary',
 })
 
+/** @public */
 export type KPIThreshold = Schema.Schema.Type<typeof KPIThresholdSchema>

@@ -5,9 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Generate junction table name for many-to-many relationship
+ * Format: {table1}_{table2} (source table first, related table second)
+ */
 export const generateJunctionTableName = (sourceTable: string, relatedTable: string): string =>
   `${sourceTable}_${relatedTable}`
 
+/**
+ * Common irregular plural to singular mappings for table naming
+ * Used by toSingular() to handle irregular English plurals
+ */
 const IRREGULAR_PLURALS: Readonly<Record<string, string>> = {
   people: 'person',
   children: 'child',
@@ -29,9 +37,21 @@ const IRREGULAR_PLURALS: Readonly<Record<string, string>> = {
   media: 'medium',
 }
 
+/**
+ * Convert table name to singular form for junction table column naming
+ * Uses irregular plural mapping with fallback to 's' removal heuristic
+ */
 export const toSingular = (tableName: string): string =>
   IRREGULAR_PLURALS[tableName] ?? (tableName.endsWith('s') ? tableName.slice(0, -1) : tableName)
 
+/**
+ * Generate CREATE TABLE statement for junction table (many-to-many relationship)
+ *
+ * Junction tables have:
+ * - Two foreign key columns: {sourceTable}_id, {relatedTable}_id (singular form)
+ * - Composite primary key on both columns
+ * - Foreign key constraints to both tables
+ */
 export const generateJunctionTableDDL = (
   sourceTable: string,
   relatedTable: string,
@@ -41,6 +61,7 @@ export const generateJunctionTableDDL = (
   const sourceColumnName = `${toSingular(sourceTable)}_id`
   const relatedColumnName = `${toSingular(relatedTable)}_id`
 
+  // Determine actual table names (base tables if using views)
   const sourceTableName =
     tableUsesView?.get(sourceTable) === true ? `${sourceTable}_base` : sourceTable
   const relatedTableName =

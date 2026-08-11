@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Auth Ban User Action (type: auth, operator: banUser)
+ *
+ * Ban a user account with optional reason.
+ */
 export const AuthBanUserActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('auth'),
@@ -29,4 +34,5 @@ export const AuthBanUserActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AuthBanUserAction = Schema.Schema.Type<typeof AuthBanUserActionSchema>

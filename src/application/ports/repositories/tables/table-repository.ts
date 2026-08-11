@@ -15,21 +15,37 @@ import type {
 import type { App } from '@/domain/models/app'
 import type { Effect } from 'effect'
 
+/**
+ * A single filter leaf clause (`field <operator> value`).
+ */
 export interface QueryFilterLeaf {
   readonly field: string
   readonly operator: string
   readonly value: unknown
 }
 
+/**
+ * Nestable filter node (GAP-3 composite row-level predicates): a leaf, an
+ * `and` group, or an `or` group. The SQL WHERE builder walks this tree,
+ * emitting `( … AND … )` / `( … OR … )` groups. Single-clause filters use a
+ * bare leaf — fully backward compatible with the pre-GAP-3 flat shape.
+ */
 export type QueryFilterNode =
   | QueryFilterLeaf
   | { readonly and: readonly QueryFilterNode[] }
   | { readonly or: readonly QueryFilterNode[] }
 
+/**
+ * Query filter for record listing. Each top-level `and` entry may be a flat
+ * leaf clause OR a nested AND/OR group (composite row-level predicates).
+ */
 export interface QueryFilter {
   readonly and?: readonly QueryFilterNode[]
 }
 
+/**
+ * Aggregation query configuration
+ */
 export interface AggregateQuery {
   readonly count?: boolean
   readonly sum?: readonly string[]
@@ -38,6 +54,9 @@ export interface AggregateQuery {
   readonly max?: readonly string[]
 }
 
+/**
+ * Aggregation result from database
+ */
 export interface AggregationResult {
   readonly count?: string
   readonly sum?: Record<string, number>
@@ -46,13 +65,26 @@ export interface AggregationResult {
   readonly max?: Record<string, number>
 }
 
+/**
+ * Table Repository port for CRUD operations
+ *
+ * Defines the contract between the Application layer and database infrastructure.
+ * Live implementation delegates to table-queries infrastructure functions.
+ *
+ * @example
+ * ```typescript
+ * const program = Effect.gen(function* () {
+ *   const repo = yield* TableRepository
+ *   const records = yield* repo.listRecords({ session, tableName: 'users' })
+ * })
+ * ```
+ */
 export class TableRepository extends Context.Tag('TableRepository')<
   TableRepository,
   {
     readonly listRecords: (config: {
       readonly session: Readonly<UserSession>
       readonly tableName: string
-      readonly table?: { readonly permissions?: { readonly organizationScoped?: boolean } }
       readonly filter?: QueryFilter
       readonly includeDeleted?: boolean
       readonly sort?: string
@@ -127,6 +159,11 @@ export class TableRepository extends Context.Tag('TableRepository')<
       readonly aggregate: AggregateQuery
     }) => Effect.Effect<AggregationResult, DatabaseError>
 
+    /**
+     * [internal ref]: write the junction rows for a record's `many-to-many` fields.
+     * Each link writes the source→related row and, when `hasReciprocal`, the
+     * mirror row so the reciprocal side sees the link. Idempotent.
+     */
     readonly linkManyToMany: (input: {
       readonly sourceTable: string
       readonly sourceId: string | number
@@ -137,10 +174,35 @@ export class TableRepository extends Context.Tag('TableRepository')<
       }[]
     }) => Effect.Effect<void, DatabaseError>
 
+    /**
+     * [internal ref]: resolve `many-to-many` field values from junction tables for a
+     * set of source records. Returns `recordId -> fieldName -> relatedIds`.
+     */
     readonly readManyToMany: (input: {
       readonly sourceTable: string
       readonly sourceIds: readonly (string | number)[]
       readonly fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
     }) => Effect.Effect<Record<string, Record<string, readonly (string | number)[]>>, DatabaseError>
+
+    /**
+     * Resolve the human label behind a relationship's stored key, for every
+     * related table a listed page of records points at.
+     *
+     * A relationship column holds an identifier; a field declaring
+     * `displayField` has named the column that identifies the related row to a
+     * person. This reads that column WITHOUT touching the stored key, so
+     * filters, editors and the write path keep seeing the identifier they store
+     * while a read surface can show the name.
+     *
+     * Returns `"<relatedTable>.<displayField>" -> id -> label`. A referenced row
+     * that no longer exists, or whose display column is empty, has no entry.
+     */
+    readonly readRelatedLabels: (
+      requests: readonly {
+        readonly relatedTable: string
+        readonly displayField: string
+        readonly ids: readonly (string | number)[]
+      }[]
+    ) => Effect.Effect<Record<string, Record<string, string>>, DatabaseError>
   }
 >() {}

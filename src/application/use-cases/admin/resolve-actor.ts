@@ -5,6 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Resolve a user session to the canonical audit-log `Actor` block.
+ *
+ * Reads role + email from the auth repository and returns the
+ * `{ id, type, role, email? }` shape used by every audit-log emit. The
+ * `type` is always `'user'` for session-backed callers; system / api-token
+ * / automation actors construct their own Actor blocks.
+ *
+ * @public
+ */
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -14,6 +24,9 @@ import type { Actor } from '@/domain/models/api/admin/_shared/actor'
 
 const DEFAULT_ROLE = 'member'
 
+/**
+ * Resolve `userId` → canonical `Actor` block, suitable for emit.
+ */
 export async function resolveActor(userId: string): Promise<Actor> {
   const program = Effect.gen(function* () {
     const repo = yield* AuthRepository
@@ -26,6 +39,12 @@ export async function resolveActor(userId: string): Promise<Actor> {
 
   const { role, email } = await Effect.runPromise(program)
 
+  // The audit-log Actor schema's `role` is the closed enum
+  // `admin | operator | system`, while Sovrium roles are an open set, so a
+  // coercion is unavoidable. It lives in the domain
+  // (`coerceHumanActorRole`) rather than here so that EVERY human emit site
+  // shares one mapping — see that function for why `system` is unreachable
+  // for a session-backed caller.
   return {
     id: userId,
     type: 'user',

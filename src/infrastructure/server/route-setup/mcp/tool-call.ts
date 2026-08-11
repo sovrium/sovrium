@@ -5,6 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * MCP `tools/call` dispatcher.
+ *
+ * Translates a JSON-RPC `tools/call` request into the same application-layer
+ * programs that the HTTP record handlers run, so RBAC, field-level read /
+ * write permissions, Z-3 row-level enforcement, and soft-delete semantics
+ * all flow through one authorization pipeline.
+ *
+ * Tool naming convention compiled by `mcp-routes.ts#compileMcpTools`:
+ *   `{appName}_{tableName}_{operation}` where operation ∈ {read, list, create, update, delete}
+ *
+ * Error model — JSON-RPC 2.0 error codes mapped to authorization outcomes:
+ *   -32601 method not found  → unknown tool name
+ *   -32602 invalid params    → field-level write permission denied; bad shape
+ *   -32603 internal error    → role/operation gate denied (RBAC); runtime fault
+ */
 
 import { Effect } from 'effect'
 import { type Context } from 'hono'
@@ -21,8 +37,8 @@ import {
   updateRecordProgram,
 } from '@/application/use-cases/tables/programs'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { hasPermission } from '@/domain/models/app/tables/permissions'
 import { isAiAccessEnabled } from '@/domain/models/shared/ai-access'
+import { hasPermission } from '@/domain/models/shared/permissions'
 import {
   evaluateRecordAgainstPredicate,
   isPredicateGroup,
@@ -65,17 +81,33 @@ interface ResolvedTool {
   readonly operation: AiAccessOperation
 }
 
+/**
+ * Entry point for the MCP `tools/call` handler. Returns a Hono Response
+ * carrying a JSON-RPC envelope (success or error). Never throws — every
+ * authorization or runtime fault collapses to a structured -32603 error so
+ * the client always sees a parseable JSON-RPC body.
+ */
 export async function handleToolsCall(
   c: Readonly<Context>,
   app: App,
   caller: McpCaller,
   envelope: CallEnvelope
 ): Promise<Response> {
+  // M-8: Manual-trigger automation tools take precedence over the
+  // table-record dispatcher because the `_automation_` infix is
+  // unambiguous (table tools end in one of the 5 CRUD operation
+  // suffixes; automation tools live under a dedicated infix).
   const automation = resolveAutomationTool(app, envelope.toolName)
   if (automation !== undefined) {
     return handleAutomationCall({ c, app, caller, automation, envelope })
   }
 
+  // M-9: Action-template tools share the same infix-based separation as
+  // automation tools. The `_action_` infix is unambiguous against table
+  // tools (which always end in a CRUD operation suffix), so the order of
+  // these two prefix probes is incidental — kept symmetric with M-8 so
+  // each dispatcher's resolver has the first chance to claim a tool name
+  // it owns.
   const template = resolveActionTemplateTool(app, envelope.toolName)
   if (template !== undefined) {
     return handleActionCall({ c, app, caller, template, envelope })
@@ -94,6 +126,12 @@ export async function handleToolsCall(
   return executeTool({ c, app, caller, envelope, resolved })
 }
 
+/**
+ * Map a tool name like `crm_contacts_list` back to the source table +
+ * operation. The split is deterministic because the operation is always the
+ * trailing token (one of read/list/create/update/delete) and the appName
+ * prefix matches `app.name`.
+ */
 function resolveTool(app: App, toolName: string): ResolvedTool | undefined {
   const prefix = `${app.name}_`
   if (!toolName.startsWith(prefix)) return undefined
@@ -121,6 +159,12 @@ function isOperationAllowedByAiAccess(
   return access.operations.includes(operation)
 }
 
+/**
+ * RBAC role-gate at the operation level. Mirrors `filterToolsForRole` in
+ * `mcp-routes.ts` (which hides destructive tools from viewers in
+ * `tools/list`) but enforced again at `tools/call` time so a viewer who
+ * crafts the tool name by hand still gets a -32603 instead of a 200.
+ */
 function checkOperationGate(
   _table: Table,
   operation: AiAccessOperation,
@@ -141,6 +185,13 @@ interface ExecuteToolInput {
   readonly resolved: ResolvedTool
 }
 
+/**
+ * Dispatch the resolved (table, operation) pair to the matching application
+ * program. Each branch wraps the program in `provideTableLive` and converts
+ * thrown / Either errors into JSON-RPC -32603. Authorization-time errors
+ * (field-write violation, scoped-row-out-of-bounds, soft-deleted) bubble
+ * up as -32602 / -32603 per the user-story spec.
+ */
 async function executeTool(input: ExecuteToolInput): Promise<Response> {
   const { c, app, caller, envelope, resolved } = input
   const { operation, table } = resolved
@@ -200,6 +251,10 @@ async function executeList(input: ExecBranchInput): Promise<Response> {
     }),
     formatSuccess: (out) => {
       const records = (out as { records?: ReadonlyArray<Record<string, unknown>> }).records ?? []
+      // M-10: Apply schema-author-declared field-exposure whitelist on top
+      // of the per-role RBAC filter that already ran in `processRecords`.
+      // Pass-through for `'all'` and `'permissioned'` modes — RBAC is the
+      // only narrowing in those modes.
       return applyMcpFieldExposureToRecords(records, table)
     },
   })
@@ -226,6 +281,8 @@ async function executeRead(input: ExecBranchInput): Promise<Response> {
     formatSuccess: (out) => {
       const record = out as Record<string, unknown>
       if (!recordPassesReadPredicate(table, record, userCtx)) return undefined
+      // M-10: Strip non-whitelisted fields from both the nested `fields`
+      // object and the root flat-spread aliases when whitelist mode is on.
       return applyMcpFieldExposureToRecord(record, table)
     },
     notFoundResult: undefined,
@@ -317,6 +374,14 @@ async function executeDelete(input: ExecBranchInput): Promise<Response> {
   })
 }
 
+/**
+ * Walk the requested fields and return the first field name the role lacks
+ * write permission on (per `table.permissions.fields[].write`). Returns
+ * `undefined` when every requested field is writable. Mirrors the
+ * `validateFieldWritePermissions` helper in `presentation/api/utils/field-permission-validator`
+ * but inlined here because `infrastructure-server` cannot import from
+ * `presentation-api-util` per the layer boundary rules.
+ */
 function findFirstFieldWriteViolation(
   table: Table,
   role: McpCaller['role'],
@@ -330,6 +395,12 @@ function findFirstFieldWriteViolation(
   })
 }
 
+/**
+ * When `aiAccess.fieldExposure: 'whitelist'` is set, reject any payload that
+ * references a field outside `aiAccess.whitelistFields`. Returns the first
+ * non-whitelisted field name, or `undefined` when the table has no whitelist
+ * declared (other exposure modes pass through unchanged).
+ */
 function findFirstWhitelistViolation(
   table: Table,
   fields: Readonly<Record<string, unknown>>
@@ -341,6 +412,12 @@ function findFirstWhitelistViolation(
   return Object.keys(fields).find((fieldName) => !allowed.has(fieldName))
 }
 
+/**
+ * Extract the JSON-RPC params payload as a plain field map. Accepts either
+ * `{ data: { ... } }` (canonical shape advertised in the input schema) or
+ * a flat `{ field: value, ... }` shape (more ergonomic for AI-generated
+ * payloads). The flat shape strips the `id` key (used as the path param).
+ */
 function extractFields(args: Readonly<Record<string, unknown>>): Record<string, unknown> {
   const { data } = args
   if (isPlainObject(data)) {
@@ -357,8 +434,17 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return !Array.isArray(value)
 }
 
+/**
+ * Build a synthetic UserSession suitable for the application-layer
+ * programs. With static-token strategy `userId` is `undefined`; the
+ * authorship helpers tolerate this and fall back to `null` for
+ * created_by / updated_by columns. The four `null`s are required by
+ * the Better Auth-shaped UserSession contract — the fields are not
+ * meaningful for an MCP-issued session but the typed shape demands them.
+ */
 function synthesizeSession(userId: string | undefined): UserSession {
   const now = new Date()
+  /* eslint-disable unicorn/no-null -- UserSession fields are typed string | null */
   return {
     id: 'mcp-session',
     userId: userId ?? '',
@@ -371,8 +457,22 @@ function synthesizeSession(userId: string | undefined): UserSession {
     impersonatedBy: null,
     activeOrganizationId: null,
   }
+  /* eslint-enable unicorn/no-null */
 }
 
+/**
+ * Build the Z-3 read-side filter for list queries. Returns:
+ *   - `undefined`  → no row-level predicate (or admin bypass) — list everything
+ *   - `'empty'`    → predicate resolves to "match nothing" (e.g. user has no
+ *                    user_access rows for the scope) — caller short-circuits
+ *   - `'reject'`   → predicate could not be projected — same short-circuit
+ *   - `{ and }`    → AND clause to merge with the request filter
+ */
+/**
+ * Project a single-triple read predicate to a filter result. An empty `in`
+ * resolves to the whole-predicate `'empty'` short-circuit (no rows). Split
+ * out of `buildReadListFilter` to keep that function under the complexity cap.
+ */
 function projectSingleTripleReadFilter(
   predicate: Parameters<typeof projectPredicateToFilter>[0],
   ctx: CurrentUserContext
@@ -392,6 +492,9 @@ function buildReadListFilter(
   if (!rlp?.read?.when) return undefined
   if (!ctx || ctx.isUnrestricted) return undefined
 
+  // GAP-3: a composite group projects to a nested AND/OR filter node. An
+  // empty `in` inside the tree is scoped to its branch (rendered as
+  // `IN (NULL)`), so no whole-predicate `'empty'` short-circuit applies.
   if (isPredicateGroup(rlp.read.when)) {
     const node = projectWhenToFilter(rlp.read.when, ctx)
     return node ? { and: [node] } : 'reject'
@@ -400,6 +503,10 @@ function buildReadListFilter(
   return projectSingleTripleReadFilter(rlp.read.when, ctx)
 }
 
+/**
+ * Apply the row-level read predicate to a single fetched record. Returns
+ * true when the record is in scope for the caller, false otherwise.
+ */
 function recordPassesReadPredicate(
   table: Table,
   record: Readonly<Record<string, unknown>>,
@@ -411,6 +518,12 @@ function recordPassesReadPredicate(
   return evaluateRecordAgainstPredicate(record, predicate, ctx)
 }
 
+/**
+ * Resolve a `CurrentUserContext` from the OAuth-authenticated caller. Returns
+ * `undefined` when no userId is available (static-token strategy) — Z-3
+ * filtering is skipped in that case, matching the user-story decision that
+ * static tokens are operator-issued and have no per-user identity.
+ */
 async function resolveUserContextOrUndefined(
   caller: McpCaller,
   table: Table,

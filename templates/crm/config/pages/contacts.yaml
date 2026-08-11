@@ -88,6 +88,15 @@ components:
         search:
           enabled: true
           placeholder: Search contacts...
+        # `toolbar.viewSwitcher` renders one button per entry of `views`. With
+        # `views` omitted it falls back to ['grid'] — a one-button switcher that
+        # does nothing. Declaring the set is what makes the tab real, and
+        # listing `kanban` requires `kanbanGroupBy`.
+        views:
+          - grid
+          - kanban
+        kanbanGroupBy:
+          field: status
         toolbar:
           search: true
           filters: true

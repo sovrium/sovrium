@@ -5,11 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/no-expression-statements */
 
 import { sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { logInfo } from '@/infrastructure/logging/logger'
 
+/**
+ * PostgreSQL Full-Text Search manager.
+ *
+ * Uses tsvector/GIN indexes for fast full-text search across dynamically
+ * created user tables. The search-index content rows are stored in
+ * `system.search_index`, defined in `drizzle/schema/search.ts` and owned by
+ * the migration system (`drizzle/0011_*`).
+ *
+ * `ensureSearchIndex` remains a defensive idempotent guard so search keeps
+ * working even if migrations have not yet been applied; it targets the
+ * qualified `system.search_index` table and is a no-op once the migration
+ * has run.
+ */
 
 export const ensureSearchIndex = async (): Promise<void> => {
   await db.execute(sql`
@@ -84,6 +98,10 @@ export const ftsSearch = async (
 }
 
 export const ftsReindex = async (tableName: string, _fieldName?: string): Promise<void> => {
+  // Full reindex: would read all records from the table,
+  // extract searchable fields, and upsert into search index.
+  // This is a placeholder — actual implementation depends on
+  // dynamic table schema resolution.
   logInfo(`[search] reindex requested for table ${tableName}`)
 }
 
@@ -92,5 +110,6 @@ export const ftsCreateIndex = async (
   fieldName: string,
   indexType: string
 ): Promise<void> => {
+  // Stub: would create a search index for a specific field
   logInfo(`[search] createIndex table=${tableName} field=${fieldName} type=${indexType}`)
 }

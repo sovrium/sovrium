@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { hasReadPermissionForRoles } from '@/application/use-cases/tables/permissions/permissions'
 import {
   createListRecordsProgram,
   createListTrashProgram,
@@ -16,6 +15,7 @@ import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
 } from '@/domain/models/api/tables/tables'
+import { hasReadPermissionForRoles } from '@/domain/validators/permission-evaluators'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
@@ -30,9 +30,11 @@ import {
 import { validateSortPermission } from '../validation/sort-validation'
 import { validateTimezoneParam } from '../validation/timezone-validation'
 import { parseFilter } from './list-records-filter'
+import { buildSearchFilter } from './list-records-search'
 import { resolveGuardForTable, type RowLevelGuardContext } from './row-level-guard'
 import {
   buildListFilter,
+  mergeFilters,
   checkGetReadGate,
   checkListReadGate,
   EMPTY_LIST_RESPONSE,
@@ -40,10 +42,14 @@ import {
   NOT_FOUND_RESPONSE,
   type FilterStructure,
 } from './row-level-read-helpers'
-import type { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
 import type { App, Table } from '@/domain/models/app'
+import type { hasReadPermission } from '@/domain/validators/permission-evaluators'
 import type { Context } from 'hono'
 
+/**
+ * Check read permission for a table based on user role.
+ * Returns 404 (S1 anti-enumeration) if permission denied, undefined otherwise.
+ */
 function checkReadPermission(
   table: Parameters<typeof hasReadPermission>[0],
   effectiveRoles: readonly string[],
@@ -71,6 +77,10 @@ type ListRecordsValidationInput = {
   readonly groupBy: string | undefined
 }
 
+/**
+ * Run list-records query parameter validations in order.
+ * Returns the first error response, or undefined if all validations pass.
+ */
 function validateListRecordsParams(input: ListRecordsValidationInput) {
   const access = {
     app: input.app,
@@ -114,6 +124,10 @@ type ViewConfig = {
   readonly query?: string
 }
 
+/**
+ * Normalize view filter configuration to the { and: [...] } shape.
+ * Supports both single-condition shape and { and: [...] } shape.
+ */
 function normalizeViewFilter(rawFilters: unknown): FilterStructure {
   if (!rawFilters) return undefined
   const f = rawFilters as {
@@ -130,11 +144,24 @@ function normalizeViewFilter(rawFilters: unknown): FilterStructure {
   return undefined
 }
 
+/**
+ * Convert view sorts array to comma-separated sort string (e.g., "title:asc,status:desc").
+ */
 function normalizeViewSort(sorts: readonly ViewSort[] | undefined): string | undefined {
   if (!sorts || sorts.length === 0) return undefined
   return sorts.map((s) => `${s.field}:${s.direction}`).join(',')
 }
 
+/**
+ * Resolve a saved view (by id or name) from the table configuration.
+ *
+ * Returns:
+ * - `{ error: false, view: undefined }` when no ?view= query param is present,
+ *   or when the table has no views configured (view is silently ignored).
+ * - `{ error: false, view: { filter, sort } }` when the view is found.
+ * - `{ error: true, response }` with HTTP 404 when a view name is given but
+ * not found in the table (spec [internal ref]).
+ */
 function resolveView(
   c: Context,
   table: { readonly views?: unknown } | undefined
@@ -177,6 +204,9 @@ type ParsedRequestFilter =
   | { readonly ok: true; readonly value: FilterStructure }
   | { readonly ok: false; readonly response: Response }
 
+/**
+ * Parse filter from request and normalize error response to a single shape.
+ */
 function parseRequestFilter(
   c: Context,
   app: App,
@@ -215,6 +245,12 @@ interface PrepareListInput {
   readonly guard: RowLevelGuardContext | undefined
 }
 
+/**
+ * Resolve the request-level inputs (view, filter, params) and merge them
+ * with the row-level read predicate. Returns either a short-circuit
+ * response (empty list / view-not-found / invalid filter) or the merged
+ * inputs ready for query execution.
+ */
 function prepareListRequest(input: PrepareListInput): ListRequestPrep | ListRequestReady {
   const { c, app, tableName, userRole, table, guard } = input
   const viewResult = resolveView(c, table)
@@ -223,7 +259,11 @@ function prepareListRequest(input: PrepareListInput): ListRequestPrep | ListRequ
   const filterResult = parseRequestFilter(c, app, tableName, userRole)
   if (!filterResult.ok) return { type: 'response', response: filterResult.response }
 
-  const finalFilter = buildListFilter(table, guard, viewResult.view?.filter, filterResult.value)
+  const filterWithSearch = mergeFilters(
+    filterResult.value,
+    buildSearchFilter({ c, app, tableName, userRole, table })
+  )
+  const finalFilter = buildListFilter(table, guard, viewResult.view?.filter, filterWithSearch)
   if (finalFilter === 'empty' || finalFilter === 'reject') {
     return { type: 'response', response: EMPTY_LIST_RESPONSE(c) }
   }
@@ -234,6 +274,7 @@ function prepareListRequest(input: PrepareListInput): ListRequestPrep | ListRequ
 }
 
 export async function handleListRecords(c: Context, app: App) {
+  // deleted=true means "list only deleted records" (trash view with deletedBy included).
   if (c.req.query('deleted') === 'true') {
     return handleListTrash(c, app)
   }
@@ -287,10 +328,12 @@ export async function handleListTrash(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
 
+  // Check table-level read permission (group-aware, most-permissive-wins)
   const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
   const permissionError = checkReadPermission(table, effectiveRoles, c, app.tables)
   if (permissionError) return permissionError
 
+  // Parse filter parameter
   const filter = parseFilter(c, app, tableName, userRole)
   if (filter.error) {
     return (
@@ -302,11 +345,14 @@ export async function handleListTrash(c: Context, app: App) {
     )
   }
 
+  // Parse query parameters (sort, limit, offset)
   const { sort, limit, offset } = parseListRecordsParams(c)
 
+  // Validate sort permission
   const sortError = validateSortPermission({ sort, app, tableName, userRole, c })
   if (sortError) return sortError
 
+  // Validate filter permission
   const filterError = validateFilterParam(filter.value, { app, tableName, userRole, c })
   if (filterError) return filterError
 
@@ -376,4 +422,6 @@ export async function handleGetRecord(c: Context, app: App) {
   }
 }
 
+// retrigger
 
+// retrigger

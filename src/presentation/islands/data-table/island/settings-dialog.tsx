@@ -9,6 +9,18 @@ import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useState } from 'react'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
+/**
+ * Settings dialog for the data-table island (PG-03 / [internal ref]).
+ *
+ * Houses the "Reset to defaults" action that clears every user preference for
+ * the bound table (column widths, density, default view, column order).
+ *
+ * The reset action is a two-step gesture: clicking "Reset to defaults" inside
+ * the settings dialog opens a second confirmation dialog with explicit
+ * Confirm / Cancel buttons, so the spec's interaction chain
+ * `Settings button → Reset to defaults button → Confirm button in dialog`
+ * always resolves three distinct DOM elements.
+ */
 interface SettingsDialogProps {
   readonly onReset: () => void
 }

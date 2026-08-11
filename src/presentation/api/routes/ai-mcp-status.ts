@@ -25,6 +25,45 @@ import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context, Hono } from 'hono'
 
+/**
+ * AI MCP cross-cutting status routes (X-1) and MCP client agent surface (X-2).
+ *
+ * Routes registered here:
+ *
+ *   GET  /api/ai/mcp/server/status   — JSON body when MCP server is enabled
+ *                                      (MCP_SERVER_ENABLED or MCP_ENABLED), 404
+ *                                      when both are unset / disabled.
+ *   GET  /api/ai/mcp/client/status   — JSON body when MCP_CLIENT_SERVERS is
+ *                                      set, 404 otherwise. Includes per-server
+ *                                      `authType` (bearer | header | none).
+ *   GET  /api/ai/mcp/client/tools    — JSON body listing the discovered tool
+ *                                      catalog from the configured external
+ *                                      MCP servers, 404 when MCP client mode
+ *                                      is disabled.
+ *   POST /api/agents/:name/chat      — Per-agent chat endpoint. Forwards the
+ *                                      message to the configured AI provider
+ *                                      with the agent's MCP tool catalog
+ *                                      (filtered by `mcp.allowedTools` when
+ *                                      declared) so the LLM can decide whether
+ *                                      to invoke external MCP tools. Returns a
+ *                                      `{ reply: string }` envelope. Tolerant
+ *                                      of unreachable MCP servers — the LLM
+ *                                      sees the tool definitions but the
+ *                                      runtime falls back to text replies when
+ *                                      tool execution fails (`MCP_CLIENT_TIMEOUT`
+ *                                      bounds individual tool calls).
+ *
+ * Default-off semantics: every status route is always REGISTERED but reports
+ * 404 with a JSON envelope when the relevant env vars are unset, so callers
+ * can distinguish "feature disabled" from "route does not exist". This matches
+ * the M-1 keystone behaviour for `/mcp` (route never mounted when
+ * `MCP_ENABLED=false`) — discovery vs. activation are kept separate.
+ *
+ * Token confidentiality: the status endpoints surface `authType` and (where
+ * applicable) `headerName`, but never the token value itself. Auth tokens are
+ * read from env vars and only used inside the network layer when the platform
+ * actually contacts the external MCP server.
+ */
 
 interface ServerStatusBody {
   readonly enabled: true
@@ -90,6 +129,10 @@ const handleClientTools = (c: Readonly<Context>): Response => {
   }
   const body: ClientToolsBody = {
     enabled: true,
+    // The discovered tool catalog is server-agnostic in this stub: every
+    // configured external server is assumed to expose the default catalog
+    // until real `tools/list` discovery is wired in. The agent-level filter
+    // applied in `handleAgentChat` narrows this further per agent.
     tools: DEFAULT_MCP_CLIENT_TOOL_CATALOG,
   }
   return c.json(body, 200)
@@ -119,6 +162,9 @@ const buildOpenAiTools = (
 ): ReadonlyArray<OpenAiToolDefinition> =>
   catalog.map((tool) => ({
     type: 'function' as const,
+    // Top-level `name`/`description` so the AI mock helper (which inspects
+    // `tools[i].name` directly) can assert against the catalog. Real OpenAI
+    // wire format also nests them under `function`.
     name: tool.name,
     description: tool.description,
     function: {
@@ -156,6 +202,10 @@ const callAiProvider = async (options: AiProviderCallOptions): Promise<string> =
     { role: 'user' as const, content: options.userMessage },
   ]
 
+  // Surface the configured external MCP servers in a header so downstream
+  // proxies / loggers can correlate AI calls with the active MCP catalog
+  // without inspecting request bodies. Token values stay inside the auth
+  // table held in `servers`; only URLs are surfaced here.
   const mcpServerHeader = options.servers.map((server) => server.url).join(',')
   const response = await fetch(`${options.baseUrl}/chat/completions`, {
     method: 'POST',
@@ -210,6 +260,14 @@ interface AiEnv {
   readonly model: string
 }
 
+/**
+ * Resolve the chat backend config from the environment for `agent`. Delegates
+ * the provider-aware `{ baseUrl, apiKey }` resolution (Ollama-out-of-the-box) to
+ * the shared {@link resolveAgentChatBackend}, then resolves the model: the
+ * agent's pin, else `AI_MODEL`, else the provider's default
+ * ({@link defaultModelForProvider}). Returns the shared helper's friendly
+ * `{ error }` unchanged when a required value is absent.
+ */
 const readAiEnv = (env: NodeJS.ProcessEnv, agent: Agent): AiEnv | { readonly error: string } => {
   const backend = resolveAgentChatBackend(env)
   if ('error' in backend) return backend
@@ -244,11 +302,21 @@ const generateAgentReply = async (
     })
     return reply.length > 0 ? reply : FALLBACK_REPLY
   } catch (error) {
+    // The AI provider itself is the only synchronous dependency here; MCP
+    // server unavailability surfaces later when the LLM actually requests a
+    // tool call. Either way the agent still owes the caller a JSON reply
+    // so the UI can render a graceful fallback.
     const detail = error instanceof Error ? error.message : 'unknown error'
     return `Agent could not reach the AI provider: ${detail}`
   }
 }
 
+/**
+ * Resolved chat pre-flight: the agent + backend config, or a short-circuit
+ * `Response` when the request must be rejected (unknown agent → 404, inert app
+ * → 503, unresolvable backend → 503). Keeps {@link handleAgentChat} below the
+ * per-function complexity ceiling by hoisting the guard chain out of it.
+ */
 type ChatPreflight =
   | { readonly ok: true; readonly agent: Agent; readonly aiEnv: AiEnv }
   | { readonly ok: false; readonly response: Response }
@@ -265,6 +333,12 @@ const resolveChatPreflight = (c: Readonly<Context>, app: App | undefined): ChatP
       response: c.json({ error: `Agent '${agentName}' is not declared in the app schema.` }, 404),
     }
   }
+  // [internal ref]: with no AI provider configured at all, the declared agent is
+  // INERT — discoverable but not runnable. Degrade gracefully with 503 rather
+  // than letting `readAiEnv` default to a local Ollama and either hang on an
+  // unreachable daemon or return a 200 fallback reply. The loud-fail path for
+  // an explicitly-misconfigured provider is enforced at startup, so a booted
+  // server with an unset `AI_PROVIDER` is unambiguously the inert case.
   if (!isAiProviderConfigured(process.env)) {
     return {
       ok: false,
@@ -295,8 +369,13 @@ const handleAgentChat =
     }
     const reply = await generateAgentReply(process.env, agent, message, aiEnv)
 
+    // Persist the turn to durable conversation history, tagging the
+    // conversation with the agent name so agent-bound threads are
+    // distinguished from generic chat turns. Best-effort:
+    // a persistence failure never breaks the chat turn.
     const session = getSessionContext(c as unknown as Context)
     const userId = session?.userId ?? 'anonymous'
+    // eslint-disable-next-line functional/no-expression-statements -- best-effort durable-persistence side effect
     await persistAgentTurnDurably({
       userId,
       sessionId: sessionId ?? 'default',
@@ -312,6 +391,18 @@ const handleAgentChat =
     return c.json(responseBody, 200)
   }
 
+/**
+ * Chain AI MCP cross-cutting routes onto a Hono app.
+ *
+ * Always registered: when the relevant env vars are unset, handlers return
+ * 404 so the API shape stays stable across configurations. The MCP server
+ * route itself (`/mcp`) is mounted separately by `setupMcpRoutes` and is
+ * gated by `MCP_ENABLED`.
+ *
+ * @param app — Optional app schema. When present, the agent chat handler
+ *   resolves agent definitions (system prompt, model, `mcp.allowedTools`)
+ *   from `app.agents`. When absent, chat requests for any agent return 404.
+ */
 export function chainAiMcpStatusRoutes<T extends Hono>(honoApp: T, app?: App): T {
   return honoApp
     .get('/api/ai/mcp/server/status', (c) => handleServerStatus(c as unknown as Readonly<Context>))

@@ -8,6 +8,15 @@
 import { type AggregateFunction, reduceAggregate } from '../shared/aggregate-functions'
 import type { TableRecord } from '../shared/types'
 
+/**
+ * Client-side aggregation for chart components.
+ *
+ * When a chart declares `chartAggregate`, records are grouped by the
+ * `groupBy` field (optionally bucketed by a date interval) and a numeric
+ * aggregate function is applied. The result is a `{ key, value }` series
+ * ready for the bar/line canvases — the `groupBy` field becomes the X-axis
+ * and the aggregated number becomes the Y-axis.
+ */
 
 export type DateInterval = 'day' | 'week' | 'month' | 'quarter' | 'year'
 
@@ -23,6 +32,10 @@ export interface AggregatedDatum {
   readonly value: number
 }
 
+/**
+ * Buckets a raw date value into a stable key for the requested interval.
+ * Invalid dates fall back to the raw string so they still group together.
+ */
 function bucketDate(raw: unknown, interval: DateInterval): string {
   const date = new Date(String(raw))
   if (Number.isNaN(date.getTime())) return String(raw)
@@ -36,6 +49,7 @@ function bucketDate(raw: unknown, interval: DateInterval): string {
   if (interval === 'quarter') return `${String(year)}-Q${String(Math.ceil(month / 3))}`
   if (interval === 'month') return `${String(year)}-${pad(month)}`
   if (interval === 'week') {
+    // ISO-ish week bucket: anchor on the Thursday of the date's week.
     const anchor = new Date(Date.UTC(year, date.getUTCMonth(), day))
     const dayOfWeek = (anchor.getUTCDay() + 6) % 7
     anchor.setUTCDate(anchor.getUTCDate() - dayOfWeek)
@@ -43,19 +57,28 @@ function bucketDate(raw: unknown, interval: DateInterval): string {
       anchor.getUTCDate()
     )}`
   }
+  // day (default)
   return `${String(year)}-${pad(month)}-${pad(day)}`
 }
 
+/** Resolves the X-axis grouping key for a single record. */
 function groupKey(record: TableRecord, config: ChartAggregateConfig): string | undefined {
   const raw = record[config.groupBy]
   if (raw === undefined || raw === null) return undefined
   return config.interval ? bucketDate(raw, config.interval) : String(raw)
 }
 
+/**
+ * Aggregates records into a `{ key, value }` series per `chartAggregate`.
+ *
+ * `count` ignores `field` entirely; every other function coerces the
+ * `field` value to a number and skips non-finite entries.
+ */
 export function aggregateRecords(
   records: readonly TableRecord[],
   config: ChartAggregateConfig
 ): readonly AggregatedDatum[] {
+  // Group raw numeric values (or `1`s for count) by their X-axis key.
   const buckets = records.reduce<Readonly<Record<string, readonly number[]>>>((acc, record) => {
     const key = groupKey(record, config)
     if (key === undefined) return acc

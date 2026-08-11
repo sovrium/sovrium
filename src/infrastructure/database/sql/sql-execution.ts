@@ -8,16 +8,25 @@
 import { Data, Effect } from 'effect'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
+/**
+ * Type definition for a database transaction that can execute raw SQL
+ */
 export interface TransactionLike {
   readonly unsafe: (sql: string) => Promise<readonly unknown[]>
 }
 
+/**
+ * Error type for SQL execution failures
+ */
 export class SQLExecutionError extends Data.TaggedError('SQLExecutionError')<{
   readonly message: string
   readonly sql?: string
   readonly cause?: unknown
 }> {}
 
+/**
+ * Type definition for information_schema.columns row
+ */
 export interface ColumnInfo {
   readonly column_name: string
   readonly data_type: string
@@ -25,23 +34,44 @@ export interface ColumnInfo {
   readonly column_default: string | null
 }
 
+/**
+ * Type definition for table existence query result
+ */
 interface TableExistsResult {
   readonly exists: boolean
 }
 
+/**
+ * Type definition for table name query result
+ */
 interface TableNameResult {
   readonly tablename: string
 }
 
+/**
+ * Type definition for view name query result
+ */
 interface ViewNameResult {
   readonly viewname: string
 }
 
+/**
+ * Type definition for materialized view name query result
+ */
 interface MatViewNameResult {
   readonly matviewname: string
 }
 
+// ============================================================================
+// SQL Statement Execution Helpers
+// ============================================================================
 
+/**
+ * Execute a single SQL statement within an Effect context
+ *
+ * SECURITY NOTE: This function uses tx.unsafe() which is intentional for DDL execution.
+ * See schema-initializer.ts for detailed security rationale.
+ */
 export const executeSQL = (
   tx: TransactionLike,
   sql: string
@@ -56,6 +86,11 @@ export const executeSQL = (
       }),
   })
 
+/**
+ * Execute multiple SQL statements sequentially
+ * Use this when statements must be executed in order (e.g., DDL that depends on previous statements)
+ */
+/* eslint-disable functional/no-loop-statements */
 export const executeSQLStatements = (
   tx: TransactionLike,
   statements: readonly string[]
@@ -67,7 +102,15 @@ export const executeSQLStatements = (
           yield* executeSQL(tx, sql)
         }
       })
+/* eslint-enable functional/no-loop-statements */
 
+/**
+ * Execute multiple SQL statements in parallel
+ * Use this when statements are independent (e.g., DROP VIEW statements, index creation)
+ *
+ * Note: PostgreSQL allows concurrent DDL operations within a transaction,
+ * but some operations may still serialize at the database level.
+ */
 export const executeSQLStatementsParallel = (
   tx: TransactionLike,
   statements: readonly string[]
@@ -79,13 +122,26 @@ export const executeSQLStatementsParallel = (
         { concurrency: 'unbounded' }
       ).pipe(Effect.asVoid)
 
+// ============================================================================
+// Information Schema Query Helpers
+// ============================================================================
 
+/**
+ * Check if a table exists in the database
+ *
+ * SECURITY NOTE: String interpolation is used for tableName.
+ * This is SAFE because:
+ * 1. tableName comes from validated Effect Schema (Table.name field)
+ * 2. Table names are defined in schema configuration, not user input
+ * 3. The App schema is validated before reaching this code
+ * 4. information_schema queries are read-only (no data modification risk)
+ */
 export const tableExists = (
   tx: TransactionLike,
   tableName: string
 ): Effect.Effect<boolean, SQLExecutionError> =>
   isSqliteRuntime()
-    ?
+    ? // SQLite — sqlite_master catalogs every table; COUNT(*) > 0 mirrors EXISTS.
       executeSQL(
         tx,
         `
@@ -109,12 +165,19 @@ export const tableExists = (
   `
       ).pipe(Effect.map((result) => (result as readonly TableExistsResult[])[0]?.exists ?? false))
 
+/** Shape of one entry in the column map returned by `getExistingColumns`. */
 type ExistingColumnEntry = {
   dataType: string
   isNullable: string
   columnDefault: string | null
 }
 
+/**
+ * SQLite arm of `getExistingColumns` — `pragma_table_info` reports per-column
+ * name/type/notnull/default. `is_nullable` is normalized to the Postgres-shaped
+ * `'YES'`/`'NO'` string so downstream consumers (migration helpers) need no
+ * per-dialect branch.
+ */
 const getExistingColumnsSqlite = (
   tx: TransactionLike,
   tableName: string
@@ -144,6 +207,7 @@ const getExistingColumnsSqlite = (
     })
   )
 
+/** PostgreSQL arm of `getExistingColumns` — queries `information_schema`. */
 const getExistingColumnsPostgres = (
   tx: TransactionLike,
   tableName: string
@@ -172,6 +236,12 @@ const getExistingColumnsPostgres = (
     })
   )
 
+/**
+ * Get existing columns from a table
+ *
+ * SECURITY NOTE: String interpolation is used for tableName.
+ * This is SAFE because tableName comes from validated schema configuration.
+ */
 export const getExistingColumns = (
   tx: TransactionLike,
   tableName: string
@@ -180,11 +250,18 @@ export const getExistingColumns = (
     ? getExistingColumnsSqlite(tx, tableName)
     : getExistingColumnsPostgres(tx, tableName)
 
+/**
+ * Get all existing table names in the public schema
+ *
+ * SECURITY NOTE: This query is read-only and uses pg_tables system catalog.
+ * No user input is involved.
+ */
 export const getExistingTableNames = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
   isSqliteRuntime()
-    ?
+    ? // SQLite — sqlite_master lists tables; exclude the internal sqlite_*
+      // bookkeeping tables (sqlite_sequence etc.) to match pg_tables' scope.
       executeSQL(
         tx,
         `
@@ -207,11 +284,17 @@ export const getExistingTableNames = (
         Effect.map((result) => (result as readonly TableNameResult[]).map((row) => row.tablename))
       )
 
+/**
+ * Get all existing view names in the public schema
+ *
+ * SECURITY NOTE: This query is read-only and uses pg_views system catalog.
+ * No user input is involved.
+ */
 export const getExistingViews = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
   isSqliteRuntime()
-    ?
+    ? // SQLite — views live in sqlite_master alongside tables, keyed by type.
       executeSQL(
         tx,
         `
@@ -233,11 +316,18 @@ export const getExistingViews = (
         Effect.map((result) => (result as readonly ViewNameResult[]).map((row) => row.viewname))
       )
 
+/**
+ * Get all existing materialized view names in the public schema
+ *
+ * SECURITY NOTE: This query is read-only and uses pg_matviews system catalog.
+ * No user input is involved.
+ */
 export const getExistingMaterializedViews = (
   tx: TransactionLike
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
   isSqliteRuntime()
-    ?
+    ? // SQLite has no materialized views — always report none. Materialized
+      // views are a Postgres-only feature that degrades in Phase 6.
       Effect.succeed([])
     : executeSQL(
         tx,

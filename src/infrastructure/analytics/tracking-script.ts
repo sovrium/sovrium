@@ -5,6 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Minimal first-party analytics tracking script (~1KB minified)
+ *
+ * Features:
+ * - Sends page path, title, referrer, screen size via navigator.sendBeacon
+ * - Extracts UTM params from URL on load
+ * - Listens for history.pushState / popstate for SPA navigation
+ * - Respects navigator.doNotTrack if configured
+ * - No cookies, no external dependencies
+ *
+ * Template variables replaced at serve time:
+ * - __ENDPOINT__ — collection API URL (e.g., /api/analytics/collect)
+ * - __APP_NAME__ — application name for multi-tenant support
+ * - __RESPECT_DNT__ — whether to respect Do Not Track header ("true" or "false")
+ */
 export function generateTrackingScript(
   endpoint: string,
   appName: string,

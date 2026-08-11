@@ -5,6 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Canonical `.env.example` content.
+ *
+ * Single source of truth for the env-var reference, used both by
+ * `sovrium init` (scaffolds this into new projects) and the repo-root
+ * `.env.example`. Keep them in sync by sourcing both from this constant.
+ *
+ * Principles:
+ *   - EVERY variable is optional — Sovrium runs zero-config. The defaults
+ *     shown are the eco-aligned, frugal-by-default settings; operators
+ *     override to opt OUT, never in.
+ *   - Only IMPLEMENTED variables appear here (the documented-but-deferred
+ *     ECO_* rows are intentionally omitted).
+ *   - Storage is spelled `STORAGE_S3_*`. The bare `S3_*` aliases were removed;
+ * `[internal ref]` pins that they never come back.
+ */
 export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # Copy to .env and uncomment what you need. Every variable is OPTIONAL:
 # \`sovrium start app.yaml\` runs zero-config with embedded SQLite, local file

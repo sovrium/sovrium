@@ -1,18 +1,89 @@
-# Default Sovrium theming.
+# Events theming — magenta.
 #
-# `baseline: extend` inherits Sovrium's built-in design system — the achromatic
-# OKLCH neutral ramp (`--sv-*`) plus the self-hosted IBM Plex Sans / JetBrains
-# Mono type that IS the Sovrium visual identity. Colour is reserved for
-# consequence (see ADR-024), so a template that needs an accent declares its own
-# colour key rather than borrowing one from the engine.
+# This is the only template in the gallery with a public front door: `/` and
+# `/register` are reachable without signing in, so the palette is doing marketing
+# work the internal tools' palettes are not. Magenta earns its place there —
+# it reads as an invitation rather than as software, and it is far enough from
+# the CRM's indigo that nobody mistakes the two for one product with two skins.
 #
-# No `fonts` block: the workhorse and mono families ship self-hosted with the
-# platform. This template previously pulled Inter from the Google Fonts CDN,
-# which contradicted the no-CDN-ever rule in
-# `docs/architecture/patterns/fonts.md` — every such request leaks the
-# operator's IP and Referer to a third party, which an internal tool cannot
-# accept. Author a `fonts` block here only for a genuinely self-hosted family.
+# WHY THESE KEY NAMES AND NOT PRETTIER ONES
+#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
+#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
+#   prestyled island already reads, so declaring them repaints the public event
+#   list, the registration form, the calendar and the grid with no class changes
+#   anywhere in this config. A non-role key such as `magenta-500` would emit
+#   `--color-*` only and paint nothing until something cited it — and this
+#   template cites no colour by name, because it carries no inline styles.
+#
+#   The mapping is NOT identity, which is the part that bites: `ring` →
+#   `focus-ring` and `success` → `success-solid`. `foreground-muted` and
+#   `foreground-subtle` are role keys; `text-secondary` and `text-muted` are not.
+#
+#   TWO KEYS FOR ONE ROLE. `muted` and `background-subtle` both map to
+#   `--sv-bg-subtle`; so do `card`/`background-raised` (→ `--sv-bg-raised`) and
+#   `popover`/`background-overlay` (→ `--sv-bg-overlay`). Declaring both names of
+#   a pair is a silent collision resolved by key order, so this file uses the
+#   `background-*` spelling throughout and never the aliases. That also dodges a
+#   trap: `muted`, `card` and `popover` sit in COLORS_NEEDING_FOREGROUND, which
+#   auto-derives a `#ffffff` companion — invisible on the pale surface it is
+#   meant to sit on, and NOT mirrored into `darkColors`, since it is a guess
+#   made for the light surface only. Name `primary-foreground` explicitly if a
+#   companion is ever genuinely needed.
+#
+#   `ring` is worth spending a thought on here and not elsewhere: the public
+#   `/register` form is the one surface in this template a stranger will tab
+#   through, and `--sv-focus-ring` is what they will see when they do.
+#
+# NO `fonts` BLOCK, ON PURPOSE
+#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
+#   Naming any other family emits `font-family: X, …` with no matching
+#   `@font-face`, which drops the page onto the OS default AND locks the shipped
+#   face out of its own stack. Distinctiveness comes from COLOUR, not type.
+#
+#   The status `color:` hexes in config/tables/events.yaml stay as they are:
+#   those are record data, not chrome, and ADR-024 A7 keeps that channel
+#   coloured on purpose — Sold out reading amber is the information.
 baseline: extend
+
+colors:
+  primary: '#a81b76'
+  primary-hover: '#86145d'
+  primary-subtle: '#fbe4f2'
+  ring: '#d33d9d'
+  background: '#fffcfe'
+  background-subtle: '#fdf1f8'
+  foreground: '#1d0e18'
+  foreground-muted: '#5c3c50'
+  foreground-subtle: '#8d6a7f'
+  background-raised: '#ffffff'
+  border: '#f2dbe8'
+  success: '#047857'
+  warning: '#b45309'
+  error: '#be123c'
+
+# Emitted into the stylesheet unconditionally under
+# `html:is(.dark, [data-theme='dark'])`; it renders once the app declares
+# `theme.colorScheme` or ships a `theme-toggle`, neither of which this template
+# does yet. `primary-foreground` is deliberately NOT declared in either block:
+# the light path derives `#ffffff` for text on the fill, and the dark path
+# inherits the platform's dark companion, which is the dark neutral a pale pink
+# fill needs. Declaring white here would put white on `#f07bc4`.
+darkColors:
+  primary: '#f07bc4'
+  primary-hover: '#f7a5d7'
+  primary-subtle: '#3d0a2a'
+  ring: '#e05bb0'
+  background: '#160a11'
+  background-subtle: '#21101a'
+  foreground: '#f8ebf3'
+  foreground-muted: '#d1b0c3'
+  foreground-subtle: '#a5859a'
+  background-raised: '#1e0e18'
+  border: '#33192a'
+  success: '#34d399'
+  warning: '#fbbf24'
+  error: '#fb7185'
 
 borderRadius:
   sm: 0.25rem

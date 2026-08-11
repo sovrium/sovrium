@@ -7,13 +7,30 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
+import { ARRAY_ITEM_TYPE_NAMES, isSupportedArrayItemType } from './array-item-type'
 
 export const ArrayFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('array'),
       itemType: Schema.optional(
-        Schema.String.pipe(Schema.annotations({ description: 'Type of items in the array' }))
+        Schema.String.pipe(
+          // Annotated BEFORE the filter: Effect's JSON Schema generator reads
+          // the innermost node, so a description piped after a refinement never
+          // reaches the published schema config authors write against.
+          Schema.annotations({
+            description: `Type of items in the array. One of: ${ARRAY_ITEM_TYPE_NAMES.join(', ')}.`,
+          }),
+          // Refused HERE, at config validation, rather than by the database.
+          // The generator appends `[]` to this value and hands the result to
+          // `CREATE TABLE`, so an unrecognised spelling used to surface as a
+          // startup DDL failure that stopped the server from booting at all.
+          Schema.filter(
+            (value) =>
+              isSupportedArrayItemType(value) ||
+              `Invalid itemType '${value}'. An array field's itemType must name a supported element type: ${ARRAY_ITEM_TYPE_NAMES.join(', ')}.`
+          )
+        )
       ),
       maxItems: Schema.optional(
         Schema.Int.pipe(
@@ -30,4 +47,5 @@ export const ArrayFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type ArrayField = Schema.Schema.Type<typeof ArrayFieldSchema>

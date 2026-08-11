@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveRecordColor } from '@/domain/utils/record-color'
 import {
   buildTimelineLanes,
   computeTimelineBounds,
@@ -12,8 +13,14 @@ import {
   type TimelineBounds,
   type TimelineItem,
 } from './timeline-compute'
+import type { OptionChipColors } from '@/domain/utils/option-chip-color'
 import type { ReactElement } from 'react'
 
+/**
+ * Fallback palette for a `colorField` whose options declare no colour of their
+ * own. Unchanged from the ordinal version it replaces, so an app that never
+ * declared colours keeps the same seven hues — only their ASSIGNMENT changed.
+ */
 const COLOR_PALETTE = [
   '#3b82f6',
   '#22c55e',
@@ -24,24 +31,43 @@ const COLOR_PALETTE = [
   '#ec4899',
 ] as const
 
-function buildColorMap(items: readonly TimelineItem[]): ReadonlyMap<string, string> {
-  const distinct = items.reduce<readonly string[]>((acc, item) => {
-    if (item.colorValue === undefined || acc.includes(item.colorValue)) return acc
-    return [...acc, item.colorValue]
-  }, [])
+/** The fill every bar painted before `colorField` existed; still the no-colorField default. */
+const DEFAULT_BAR_FILL = '#3b82f6'
+
+/**
+ * Resolve each distinct `colorField` value to its painted fill/foreground/border.
+ *
+ * Previously this assigned palette entries by FIRST-APPEARANCE ORDER over the
+ * items actually rendered, which made a bar's colour a function of the record
+ * SET: deleting an unrelated row shifted every value after it by one hue. Each
+ * value is now resolved independently — the author's declared option colour
+ * when there is one, otherwise a hash of the value — so nothing on screen can
+ * move a colour that is not its own.
+ */
+function buildColorMap(
+  items: readonly TimelineItem[],
+  optionColors: Readonly<Record<string, string>> | undefined
+): ReadonlyMap<string, OptionChipColors> {
+  const distinct = new Set(
+    items.flatMap((item) => (item.colorValue === undefined ? [] : [item.colorValue]))
+  )
   return new Map(
-    distinct.map((value, index) => [value, COLOR_PALETTE[index % COLOR_PALETTE.length] as string])
+    Array.from(distinct).flatMap((value) => {
+      const colors = resolveRecordColor(value, optionColors, COLOR_PALETTE)
+      return colors ? [[value, colors] as const] : []
+    })
   )
 }
 
+/** Renders a single horizontal bar positioned on the time axis. */
 function TimelineBar({
   item,
   bounds,
-  color,
+  colors,
 }: {
   readonly item: TimelineItem
   readonly bounds: TimelineBounds
-  readonly color: string | undefined
+  readonly colors: OptionChipColors | undefined
 }): ReactElement {
   const left = toPercent(item.start, bounds)
   const right = toPercent(item.end ?? item.start, bounds)
@@ -53,11 +79,14 @@ function TimelineBar({
         data-testid="timeline-bar"
         data-timeline-item={item.id}
         {...(item.colorValue !== undefined ? { 'data-color-status': item.colorValue } : {})}
+        // eslint-disable-next-line no-restricted-syntax -- text-white is the label tone for the no-colorField default fill only; a bar carrying a resolved colour overrides it with an inline foreground derived to meet AA against THAT fill ([internal ref] A7 ruling 3), because a fixed tone cannot be legible over both a pale and a dark declared hue
         className="absolute flex h-7 items-center overflow-hidden rounded px-2 text-xs font-medium text-white"
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-bar time-axis position + color are genuinely dynamic; React Compiler not yet enabled in Bun
         style={{
           left: `${String(left)}%`,
           width: `${String(width)}%`,
-          backgroundColor: color ?? '#3b82f6',
+          backgroundColor: colors?.fill ?? DEFAULT_BAR_FILL,
+          ...(colors ? { color: colors.foreground } : {}),
         }}
         title={item.label}
       >
@@ -67,14 +96,15 @@ function TimelineBar({
   )
 }
 
+/** Renders a single point/diamond marker positioned on the time axis. */
 function TimelinePoint({
   item,
   bounds,
-  color,
+  colors,
 }: {
   readonly item: TimelineItem
   readonly bounds: TimelineBounds
-  readonly color: string | undefined
+  readonly colors: OptionChipColors | undefined
 }): ReactElement {
   const left = toPercent(item.start, bounds)
 
@@ -85,12 +115,14 @@ function TimelinePoint({
         data-timeline-item={item.id}
         {...(item.colorValue !== undefined ? { 'data-color-status': item.colorValue } : {})}
         className="absolute top-1 flex items-center gap-2"
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-point time-axis position is genuinely dynamic; React Compiler not yet enabled in Bun
         style={{ left: `${String(left)}%` }}
         title={item.label}
       >
         <span
           className="inline-block h-4 w-4 rotate-45"
-          style={{ backgroundColor: color ?? '#3b82f6' }}
+          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-point diamond colour is genuinely dynamic; React Compiler not yet enabled in Bun
+          style={{ backgroundColor: colors?.fill ?? DEFAULT_BAR_FILL }}
           aria-hidden="true"
         />
         <span className="text-foreground text-xs font-medium">{item.label}</span>
@@ -99,6 +131,7 @@ function TimelinePoint({
   )
 }
 
+/** Renders the ordered rows (bars + points) for one swimlane. */
 function TimelineRows({
   items,
   bounds,
@@ -106,25 +139,25 @@ function TimelineRows({
 }: {
   readonly items: readonly TimelineItem[]
   readonly bounds: TimelineBounds
-  readonly colorMap: ReadonlyMap<string, string>
+  readonly colorMap: ReadonlyMap<string, OptionChipColors>
 }): ReactElement {
   return (
     <div className="space-y-1">
       {items.map((item) => {
-        const color = item.colorValue !== undefined ? colorMap.get(item.colorValue) : undefined
+        const colors = item.colorValue !== undefined ? colorMap.get(item.colorValue) : undefined
         return item.kind === 'point' ? (
           <TimelinePoint
             key={item.id}
             item={item}
             bounds={bounds}
-            color={color}
+            colors={colors}
           />
         ) : (
           <TimelineBar
             key={item.id}
             item={item}
             bounds={bounds}
-            color={color}
+            colors={colors}
           />
         )
       })}
@@ -132,10 +165,12 @@ function TimelineRows({
   )
 }
 
+/** Formats an epoch-ms timestamp as a short axis tick label (e.g. "Apr 1"). */
 function formatAxisTick(ms: number): string {
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+/** Builds the time-axis tick labels (start, mid, end of the bounds window). */
 function TimeAxis({ bounds }: { readonly bounds: TimelineBounds }): ReactElement {
   const mid = bounds.min + (bounds.max - bounds.min) / 2
 
@@ -151,16 +186,23 @@ function TimeAxis({ bounds }: { readonly bounds: TimelineBounds }): ReactElement
   )
 }
 
+/**
+ * Renders the populated data-timeline: a time axis plus one or more
+ * swimlanes of horizontal bars / point markers.
+ */
 export function TimelineView({
   items,
   groupBy,
+  colorFieldColors,
 }: {
   readonly items: readonly TimelineItem[]
   readonly groupBy: string | undefined
+  /** `optionValue → #RRGGBB` declared on the `colorField`; absent when it declares none. */
+  readonly colorFieldColors?: Readonly<Record<string, string>>
 }): ReactElement {
   const bounds = computeTimelineBounds(items)
   const lanes = buildTimelineLanes(items, groupBy)
-  const colorMap = buildColorMap(items)
+  const colorMap = buildColorMap(items, colorFieldColors)
   const showLaneHeaders = Boolean(groupBy)
 
   return (

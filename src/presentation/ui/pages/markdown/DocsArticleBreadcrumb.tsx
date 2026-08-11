@@ -9,27 +9,57 @@ import { type ReactElement } from 'react'
 import type { CollectionNavEntry } from '@/presentation/rendering/content-dir-lister'
 import type { DocsRootCrumb } from '@/presentation/ui/pages/markdown/DocsRootCrumb'
 
+/**
+ * The docs-article breadcrumb (`<nav aria-label="Breadcrumb">`).
+ *
+ * Root crumb (position 1):
+ *   - `rootCrumb` PRESENT (a ZONED Sovrium-docs collection) → the active zone tab
+ *     (label linking to the zone's landing article), UNLESS it self-links this
+ *     very page (the zone's first article) — the SELF-LINK collapse then drops the
+ *     root crumb so no breadcrumb link points back at the current page.
+ *   - `rootCrumb` ABSENT (non-zoned / generic docs) → the historical language-home
+ *     "Home" link (graceful degradation).
+ *
+ * Section crumb: the middle section crumb is DROPPED when its label equals the
+ * resolved zone-tab name (the REDUNDANCY collapse — so it never reads
+ * "Tables / Tables / Field Types").
+ *
+ * It is a `<nav>` + `<ol>`, never a heading, so the single-`<h1>` document-outline
+ * invariant is preserved.
+ */
 interface DocsArticleBreadcrumbProps {
+  /** The current (active) collection entry being rendered. */
   readonly current: CollectionNavEntry
+  /** The resolved zone-tab root crumb, or `undefined` for non-zoned collections. */
   readonly rootCrumb: DocsRootCrumb | undefined
+  /** Breadcrumb "Home" label for the non-zoned fallback. */
   readonly homeLabel: string
 }
 
 const crumbLinkClass =
   'text-foreground-subtle hover:text-foreground transition-colors duration-150 no-underline'
 
+/**
+ * Derive the language-home href (`/en/`, `/fr/`, …) from the current entry's
+ * resolved href (`/en/license` → `/en/`). Returns `/` when the href has no
+ * leading language segment.
+ */
 const deriveHomeHref = (href: string): string => {
   const match = href.match(/^\/([^/]+)\//)
   return match ? `/${match[1]}/` : '/'
 }
 
+/** Build the leading crumbs (root + optional section) in order, keyed for React. */
 const buildLeadingCrumbs = (
   current: CollectionNavEntry,
   rootCrumb: DocsRootCrumb | undefined,
   homeLabel: string
 ): readonly { readonly key: string; readonly node: ReactElement }[] => {
   const sectionLabel = current.groupLabel
+  // The zone root self-links this page when it IS the zone's first article; drop
+  // it so no crumb links back to the current page.
   const rootSelfLinks = rootCrumb !== undefined && rootCrumb.href === current.href
+  // Drop the middle section crumb when it duplicates the zone-tab name.
   const sectionRedundant =
     rootCrumb !== undefined && sectionLabel !== undefined && sectionLabel === rootCrumb.name
 

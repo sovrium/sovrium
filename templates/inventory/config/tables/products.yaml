@@ -1,0 +1,225 @@
+# Products — the flagship grid.
+#
+# This is the table the workspace is built around, and it is deliberately wide:
+# it is the reference surface for Sovrium's field-type range. Hide what you do
+# not need with the grid's "Hide fields" control rather than deleting columns —
+# a hidden field keeps its data.
+id: 3
+name: products
+fields:
+  # ── Identity ────────────────────────────────────────────────────────
+  - id: 1
+    name: name
+    type: single-line-text
+    required: true
+  - id: 2
+    name: sku
+    type: single-line-text
+  - id: 3
+    name: barcode
+    type: barcode
+    format: EAN-13
+
+  # ── Media ───────────────────────────────────────────────────────────
+  - id: 4
+    name: photo
+    type: single-attachment
+    allowedFileTypes:
+      - image/png
+      - image/jpeg
+      - image/webp
+    maxFileSize: 5242880
+  - id: 5
+    name: gallery
+    type: multiple-attachments
+    maxFiles: 8
+
+  # ── Description ─────────────────────────────────────────────────────
+  - id: 6
+    name: description
+    type: long-text
+  - id: 7
+    name: spec_notes
+    type: rich-text
+
+  # ── Classification ──────────────────────────────────────────────────
+  - id: 8
+    name: category
+    type: single-select
+    options:
+      - Hardware
+      - Accessories
+      - Consumables
+      - Packaging
+      - Spare parts
+  - id: 9
+    name: tags
+    type: multi-select
+    options:
+      - bestseller
+      - clearance
+      - fragile
+      - heavy
+      - seasonal
+    maxSelections: 3
+  - id: 10
+    name: status
+    type: status
+    options:
+      - value: Draft
+        color: '#6B7280'
+      - value: Active
+        color: '#16A34A'
+      - value: Low stock
+        color: '#F59E0B'
+      - value: Out of stock
+        color: '#DC2626'
+      - value: Discontinued
+        color: '#7C3AED'
+    default: Draft
+  - id: 11
+    name: swatch
+    type: color
+    default: '#3B82F6'
+
+  # ── Money and measures ──────────────────────────────────────────────
+  - id: 12
+    name: unit_price
+    type: currency
+    currency: EUR
+    precision: 2
+  - id: 13
+    name: margin
+    type: percentage
+    precision: 0
+    min: 0
+    max: 100
+  - id: 14
+    name: weight_kg
+    type: decimal
+    precision: 3
+    min: 0
+
+  # ── Stock ───────────────────────────────────────────────────────────
+  - id: 15
+    name: stock_on_hand
+    type: integer
+    min: 0
+    default: 0
+  - id: 16
+    name: reorder_point
+    type: integer
+    min: 0
+    default: 10
+  - id: 17
+    name: stock_level
+    type: progress
+    color: '#16A34A'
+    default: 0
+  - id: 18
+    name: quality_rating
+    type: rating
+    max: 5
+    style: stars
+  - id: 19
+    name: discontinued
+    type: checkbox
+    default: false
+
+  # ── Dates ───────────────────────────────────────────────────────────
+  - id: 20
+    name: launch_date
+    type: date
+  - id: 21
+    name: lead_time
+    type: duration
+    displayFormat: h:mm
+
+  # ── Relations and computed ──────────────────────────────────────────
+  - id: 22
+    name: supplier
+    type: relationship
+    relatedTable: suppliers
+    relationType: many-to-one
+    displayField: name
+  - id: 23
+    name: supplier_name
+    type: lookup
+    relationshipField: supplier
+    relatedField: name
+  # The child's foreign key is inferred: stock_movements has exactly one
+  # relationship back to products, so the count and rollup below resolve without
+  # an explicit `foreignKey`. Name one only when the child points back more than
+  # once — validation will tell you, and name the candidates.
+  - id: 24
+    name: movements
+    type: relationship
+    relatedTable: stock_movements
+    relationType: one-to-many
+  - id: 25
+    name: movement_count
+    type: count
+    relationshipField: movements
+  - id: 26
+    name: units_moved
+    type: rollup
+    relationshipField: movements
+    relatedField: quantity
+    aggregation: SUM
+  # Priced in the same currency as `unit_price` it multiplies. Declared, never
+  # inherited: a formula is an arbitrary expression that may touch several
+  # fields, so nothing can pick the code for it without guessing.
+  - id: 27
+    name: stock_value
+    type: formula
+    formula: unit_price * stock_on_hand
+    resultType: number
+    format: currency
+    currency: EUR
+    precision: 2
+
+  # ── Ownership and audit ─────────────────────────────────────────────
+  - id: 28
+    name: owner
+    type: user
+    allowMultiple: false
+  - id: 29
+    name: created_at
+    type: created-at
+  - id: 30
+    name: created_by
+    type: created-by
+  - id: 31
+    name: updated_at
+    type: updated-at
+  - id: 32
+    name: updated_by
+    type: updated-by
+  - id: 33
+    name: archived_at
+    type: deleted-at
+  - id: 34
+    name: archived_by
+    type: deleted-by
+
+aiAccess:
+  description: >-
+    The product catalog. Use this when the user asks about products, SKUs,
+    prices, stock levels, categories, or suppliers of a product.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

@@ -12,8 +12,33 @@ import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Names of the auth lifecycle events that an `auth` trigger can subscribe
+ * to. Mirrors the union in `src/domain/models/app/automations/trigger/auth.ts`
+ * verbatim — kept here as a value-level allow-list so we can index into it
+ * without reaching into the trigger-schema module.
+ */
 export type AuthTriggerEvent = 'signUp' | 'signIn' | 'signOut' | 'passwordReset' | 'emailVerified'
 
+/**
+ * Inputs to the auth-event trigger.
+ *
+ * `user` is the freshly created / authenticated / reset / verified user
+ * row, surfaced to actions via `{{trigger.data.user.X}}`. Specs reference
+ * `user.id` and `user.email` most commonly — both are guaranteed present
+ * in Better Auth's `User` shape so the dispatch never templates the empty
+ * string for those leaves. The whole record is passed through unchanged so
+ * downstream actions can read custom fields too.
+ *
+ * `processEnv` is captured at the hook boundary and threaded through to
+ * `executeAutomationRun` so action handlers can resolve `$env.VAR_NAME`
+ * references and secrets get redacted from run-history. Mirrors the
+ * pattern used by `triggerRecordEventAutomations`.
+ *
+ * `userId` is surfaced to the engine for run-history attribution (the
+ * "who triggered this" column). For auth events that's always the same
+ * user as `user.id`.
+ */
 export interface TriggerAuthEventInput {
   readonly app: App
   readonly event: AuthTriggerEvent
@@ -22,6 +47,16 @@ export interface TriggerAuthEventInput {
   readonly userId?: string
 }
 
+/**
+ * Filter app.automations down to auth-triggered automations whose trigger
+ * config subscribes to the given lifecycle event. Disabled automations are
+ * excluded so an admin can pause a misbehaving workflow without uninstall.
+ *
+ * Mirrors `findMatchingRecordAutomations` in `trigger-record-event.ts`. The
+ * predicate is intentionally narrow — there is no `watchFields` /
+ * `condition` analogue on the auth-trigger schema yet, so this filter only
+ * needs the `(type, event)` tuple match.
+ */
 const findMatchingAuthAutomations = (
   app: App,
   event: AuthTriggerEvent
@@ -34,6 +69,21 @@ const findMatchingAuthAutomations = (
     return true
   })
 
+/**
+ * Fire all auth-triggered automations matching the given lifecycle event.
+ *
+ * The Better Auth `databaseHooks` block in
+ * `src/infrastructure/auth/better-auth/auth.ts:buildDatabaseHooks` calls
+ * this from a plain-async context via
+ * `Effect.runPromise(provideAutomationRuntime(triggerAuthEventAutomations({...})))`
+ * — the Effect requirements are resolved at the infrastructure boundary so
+ * the use case stays free of the dependency graph itself, matching the
+ * pattern used by `triggerRecordEventAutomations`.
+ *
+ * Errors are absorbed at the boundary: a sign-up endpoint must not return
+ * 500 because an automation crashed. The run row records the failure for
+ * operator diagnosis.
+ */
 export const triggerAuthEventAutomations = (
   input: TriggerAuthEventInput
 ): Effect.Effect<void, never, ExecuteAutomationRunRequirements> =>

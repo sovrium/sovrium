@@ -9,6 +9,12 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * HTTP DELETE Action (type: http, operator: delete)
+ *
+ * Convenience operator for DELETE requests. Supports an optional body
+ * since some APIs accept a body with DELETE requests (e.g., bulk deletion payloads).
+ */
 export const HttpDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('http'),
@@ -62,4 +68,5 @@ export const HttpDeleteActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type HttpDeleteAction = Schema.Schema.Type<typeof HttpDeleteActionSchema>

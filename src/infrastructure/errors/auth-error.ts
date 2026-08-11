@@ -7,5 +7,10 @@
 
 import { createTaggedError } from '@/domain/errors/create-tagged-error'
 
+/**
+ * Auth Error
+ *
+ * Tagged error for authentication failures.
+ */
 export const AuthError = createTaggedError('AuthError')
 export type AuthError = InstanceType<typeof AuthError>

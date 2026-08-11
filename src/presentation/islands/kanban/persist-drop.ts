@@ -14,6 +14,33 @@ export interface DragPersistContext {
   readonly tableName: string
 }
 
+/**
+ * Persist a cross-column drop by issuing the configured CRUD update.
+ *
+ * There is nothing to dispatch on: `drag.persistAction` is typed as
+ * `CrudActionSchema`, not the generic `Action` union, so every non-crud variant
+ * is refused at config-validation time rather than accepted and ignored here.
+ * (An earlier revision of this comment described the pre-narrowing world and
+ * listed four ignored variants; the union had eight members, the narrowing had
+ * already landed, and neither fact was checked by anything. See
+ * `kanban/schema.ts` — `persistAction`.)
+ *
+ * The single guard below is therefore a residual-gap filter, not a dispatch.
+ * Three gaps survive the narrowing because a union cannot express them, and
+ * they are the reason a config can still validate and do nothing:
+ *   - `operation` must be `update`; a `crud` action with `create` / `delete`
+ *     falls through to `{ ok: true }`.
+ *   - the PATCH body is hardcoded to the groupBy field, so a configured crud
+ *     payload is ignored.
+ *   - within-column reorders never reach this function; only cross-column
+ *     moves persist.
+ *
+ * The `complexity` suppression below is 11 against a threshold of 10, spent on
+ * that four-condition guard plus the fetch / toast / catch branches — NOT on
+ * dispatching across action variants, which is what its previous rationale
+ * claimed.
+ */
+// eslint-disable-next-line complexity -- see the note above: the 11 is the residual-gap guard plus fetch/toast/catch, not an action-type dispatch.
 export async function persistKanbanDrop(
   ctx: DragPersistContext,
   recordId: string,

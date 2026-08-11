@@ -57,8 +57,23 @@ components:
                   message: Request submitted — an admin has been asked to approve it
                   variant: success
 
+      # `labelField` and `endDateField` are NOT optional in practice here, they
+      # just look it. Without `labelField` the event label falls back to the
+      # table's first field, which for `time_off_requests` is `employee` — a
+      # relationship, which renders as an empty string, so every event on the
+      # month view came out as a blank coloured block. `type` is the useful
+      # label: what kind of leave this is. Without `endDateField` a five-day
+      # holiday draws as a single pip on its start date, which is the opposite
+      # of what a time-off calendar is for.
+      #
+      # `colorField: status` paints each event with the option colour declared
+      # on the `status` field, so Pending / Approved / Rejected are legible at a
+      # glance without opening anything.
       - type: calendar
         dataSource:
           table: time_off_requests
         dateField: start_date
+        endDateField: end_date
+        labelField: type
+        colorField: status
         defaultView: month

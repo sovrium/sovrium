@@ -5,6 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Automation Approval Repository Implementation (Drizzle) — [internal ref].
+ *
+ * Owns the `system.automation_approval_requests` table for automation-step
+ * approvals: insert a `pending` row (`approval/request` action handler), load a
+ * pending row by id, and mark it `approved` / `rejected` (run-scoped resolution
+ * endpoint).
+ *
+ * Dialect-resolved (`resolveDialectSchema`) so both Postgres and SQLite share
+ * the same query path. Every method surfaces a typed
+ * `AutomationApprovalDatabaseError` on failure (via `makeDbWrap`).
+ */
 
 import { eq } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
@@ -21,6 +33,7 @@ import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 const automationApprovalRequests = resolveDialectSchema(approvalsPg, approvalsSqlite)
 
+/** Wrap a DB promise, adapting failures to AutomationApprovalDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationApprovalDatabaseError({ cause }))
 
 export const AutomationApprovalRepositoryLive = Layer.succeed(AutomationApprovalRepository, {

@@ -5,6 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Code-sandbox action invokers for the automation run loop.
+ *
+ * Extracted from `run-automation.ts` (P1.2 decomposition). These build the
+ * `context.actions.ref(...)` (template) and `context.actions.<type>.<op>(...)`
+ * (native) proxy methods threaded into the code action's sandbox runtime
+ * context. They are mutually recursive (a dispatched action's own sandbox
+ * gets fresh invokers) and share one cycle-detection `invocationStack`.
+ */
 
 import { Effect } from 'effect'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
@@ -13,6 +22,15 @@ import { applyTemplateVars } from '../expand-action-refs'
 import { findTemplate, resolveActionPropsForDispatch } from './prop-substitution'
 import type { RunAccumulator, StepContext } from './types'
 
+/**
+ * Shared "dispatch one action via the handler registry, return its
+ * outcome.output as a Promise" helper. Used by BOTH the template
+ * invoker (`context.actions.ref(...)`) AND the native-action invoker
+ * (`context.actions.<type>.<op>(...)`). Threads the same
+ * `invocationStack` through both invokers in the sub-runContext so
+ * cross-cutting cycle detection works regardless of whether each level
+ * is template- or native-flavoured.
+ */
 interface DispatchActionInput {
   readonly action: Readonly<Record<string, unknown>>
   readonly resolvedProps: Record<string, unknown>
@@ -45,12 +63,32 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
   )
   return Effect.runPromise(provideAutomationRuntime(program)).then((outcome) => {
     if (outcome.status === 'failure') {
+      // eslint-disable-next-line functional/no-throw-statements -- inside .then; throw-as-rejection is the unicorn-preferred form
       throw new Error(outcome.error ?? `${failureLabel} failed`)
     }
     return outcome.output
   })
 }
 
+/**
+ * Build a template-invocation dispatcher for the code sandbox's
+ * `context.actions.ref('<name>', vars)` proxy method. Looks up the
+ * named template in `app.actions[]`, applies caller-supplied `vars`
+ * over declared `variables` defaults, dispatches the resulting concrete
+ * action through the shared {@link dispatchActionAsPromise} helper,
+ * and resolves with the handler's `outcome.output`.
+ *
+ * The proxy semantics intentionally do NOT reach sibling steps: prior
+ * step outputs flow into `code` actions only via the explicit
+ * `inputData` template-resolution surface (`{{steps.X.Y}}` → resolved
+ * before the sandbox sees it). This keeps the code action a pure
+ * function of its declared inputs.
+ *
+ * Cycle detection: an `invocationStack` tracks templates currently
+ * mid-invocation; calling a template already on the stack rejects with
+ * a path-listing error so transitive recursion (template A's code
+ * calls B which calls A) cannot run away.
+ */
 export const buildTemplateInvoker = (
   ctx: StepContext,
   acc: RunAccumulator,
@@ -83,6 +121,20 @@ export const buildTemplateInvoker = (
   }
 }
 
+/**
+ * Build a native-action dispatcher for the code sandbox's
+ * `context.actions.<actionType>.<operator>(props)` proxy. Synthesises
+ * a concrete action object on the fly (no template required), resolves
+ * env templates in props, and dispatches through the shared
+ * {@link dispatchActionAsPromise} helper.
+ *
+ * Native dispatch never grows the cycle-detection stack on its own —
+ * a native call is a single handler invocation that does not recurse
+ * into the template registry. The stack is still THREADED through so
+ * if a native action's handler is itself a `code` action whose body
+ * invokes a template, the outer invocation stack remains visible to
+ * the template invoker.
+ */
 export const buildNativeActionInvoker = (
   ctx: StepContext,
   acc: RunAccumulator,

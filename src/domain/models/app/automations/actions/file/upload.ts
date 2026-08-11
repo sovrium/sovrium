@@ -9,17 +9,25 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * File Upload Action (type: file, operator: upload)
+ *
+ * Upload a file to storage from binary data, URL, or previous step output.
+ * The uploaded file is available as the step output for subsequent actions.
+ */
 export const FileUploadActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('file'),
   operator: Schema.Literal('upload'),
   props: Schema.Struct({
+    /** Source data for the upload */
     source: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Previous step result key, URL, or base64 data',
       })
     ),
 
+    /** Storage key destination */
     path: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -28,6 +36,7 @@ export const FileUploadActionSchema = Schema.Struct({
       )
     ),
 
+    /** MIME type */
     contentType: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -44,4 +53,5 @@ export const FileUploadActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FileUploadAction = Schema.Schema.Type<typeof FileUploadActionSchema>

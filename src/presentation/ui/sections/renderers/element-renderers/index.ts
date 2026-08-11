@@ -5,7 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Element renderers barrel export
+ *
+ * This module exports all element renderer functions organized by category:
+ * - HTML element renderers (structural elements, headings, text)
+ * - Text content renderers (paragraph, code, pre)
+ * - Media renderers (image, video, audio, iframe)
+ * - Interactive renderers (button, link, form, input, icon)
+ * - Specialized renderers (alert, list, language-switcher)
+ */
 
+// HTML element renderers
 export {
   renderHTMLElement,
   renderHeading,
@@ -14,8 +25,10 @@ export {
 } from './html-element-renderer'
 export type { ElementProps, HTMLElementConfig, StatusBadgeConfig } from './html-element-renderer'
 
+// Text content renderers
 export { renderParagraph, renderCode, renderPre, renderBlockquote } from './text-content-renderers'
 
+// Media renderers
 export {
   renderImage,
   renderAvatar,
@@ -26,6 +39,7 @@ export {
   renderIframe,
 } from './media-renderers'
 
+// Interactive renderers
 export {
   renderButton,
   renderLink,
@@ -38,6 +52,7 @@ export {
   renderPageSearch,
 } from './interactive-renderers'
 
+// Form-control renderers (time-picker, number-input, date-picker, file-upload island)
 export {
   renderFileUploadIsland,
   renderTimePicker,
@@ -45,6 +60,7 @@ export {
   renderDatePickerIsland,
 } from './form-control-renderers'
 
+// Field-composer + textarea renderers
 export {
   renderField,
   renderTextarea,
@@ -53,6 +69,7 @@ export {
   type RenderTextareaConfig,
 } from './field-renderer'
 
+// Re-export specialized renderers for backward compatibility
 export {
   renderLanguageSwitcher,
   renderAlert,

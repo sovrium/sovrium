@@ -1,0 +1,69 @@
+# Sample activity log — one row per seeded lead, in the exact shape recipe 2
+# writes.
+#
+# WHY THIS FILE HAS TO EXIST AT ALL
+#   `sovrium seed` writes through `createRecordProgram`, the same application
+#   use-case the records API calls. Record-trigger dispatch does NOT live there —
+#   it lives in the HTTP handler (`src/presentation/api/routes/tables/record/`),
+#   one layer up. So seeding `leads` does not fire `log-new-lead`, and a demo
+#   seeded without this file shows eight leads beside an empty activity log,
+#   which reads as a broken recipe rather than as a bypassed trigger.
+#
+#   These rows are therefore written by hand to match
+#   `config/automations/log-new-lead.yaml` character for character:
+#
+#     event:   'Lead created: {{trigger.data.record.name}}'
+#     details: 'Source: {{…source}} — email {{…email}}'
+#
+#   Compare the two files side by side; the correspondence is the demonstration.
+#   POST a lead to the webhook on a running instance and the ninth row the
+#   automation appends is indistinguishable from these eight.
+#
+# WHY ONLY RECIPE 2 APPEARS HERE
+#   It is the only recipe that writes to this table. Recipes 3 and 4 send email
+#   and write nothing; recipe 1 creates a lead, which is what recipe 2 then logs.
+#   Inventing "digest sent" or "automation failed" rows would show the reader a
+#   behaviour this configuration does not have.
+#
+# `created_at` is a `created-at` field, engine-stamped on insert, so it is absent
+# here — see the note in leads.yaml.
+records:
+  - key: log-nadia
+    fields:
+      event: 'Lead created: Nadia Okonkwo'
+      details: 'Source: Webhook — email nadia.okonkwo@brightpath.example'
+
+  - key: log-liam
+    fields:
+      event: 'Lead created: Liam Carver'
+      details: 'Source: Webhook — email liam.carver@northgate-supply.example'
+
+  - key: log-sofia
+    fields:
+      event: 'Lead created: Sofia Ricci'
+      details: 'Source: Website — email sofia.ricci@atelier-ricci.example'
+
+  - key: log-dev
+    fields:
+      event: 'Lead created: Dev Patel'
+      details: 'Source: Referral — email dev.patel@meridian-labs.example'
+
+  - key: log-hannah
+    fields:
+      event: 'Lead created: Hannah Bloom'
+      details: 'Source: Website — email hannah.bloom@bloomfield.example'
+
+  - key: log-yusuf
+    fields:
+      event: 'Lead created: Yusuf Demir'
+      details: 'Source: Import — email yusuf.demir@karadeniz-freight.example'
+
+  - key: log-elena
+    fields:
+      event: 'Lead created: Elena Varga'
+      details: 'Source: Import — email elena.varga@varga-consulting.example'
+
+  - key: log-theo
+    fields:
+      event: 'Lead created: Théo Mercier'
+      details: 'Source: Referral — email theo.mercier@mercier-atelier.example'

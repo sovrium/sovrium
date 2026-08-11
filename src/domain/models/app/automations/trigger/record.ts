@@ -8,6 +8,11 @@
 import { Schema } from 'effect'
 import { ConditionGroupSchema } from '../conditions'
 
+/**
+ * Record Trigger
+ *
+ * Triggered by record CRUD operations on a specific table.
+ */
 export const RecordTriggerSchema = Schema.Struct({
   type: Schema.Literal('record'),
   table: Schema.String.pipe(
@@ -33,4 +38,5 @@ export const RecordTriggerSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordTrigger = Schema.Schema.Type<typeof RecordTriggerSchema>

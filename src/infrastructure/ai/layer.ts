@@ -7,4 +7,12 @@
 
 import { AiServiceLive } from './ai-service-live'
 
+/**
+ * AiLive — merged Layer exposing all AI infrastructure adapters.
+ *
+ * Mirrors `StorageLive` in `src/infrastructure/storage/layer.ts`. Currently
+ * provides only `AiServiceLive`; a future `EmbeddingServiceLive` will be
+ * merged here once its driver spec lands (see audit § P0 — Skip / out-of-
+ * scope for v1: embedding service is deferred).
+ */
 export const AiLive = AiServiceLive

@@ -7,6 +7,24 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Form Name
+ *
+ * Kebab-case, URL-safe identifier for a top-level form. Used as the canonical
+ * reference target for `formRef` on page components and for `form` on the form
+ * automation trigger.
+ *
+ * - Must start with a lowercase letter
+ * - May contain lowercase letters, digits, and hyphens
+ * - 1–64 characters
+ *
+ * @example
+ * ```typescript
+ * "contact"
+ * "support-request"
+ * "lead-capture-2026"
+ * ```
+ */
 export const FormNameSchema = Schema.String.pipe(
   Schema.minLength(1),
   Schema.maxLength(64),
@@ -22,4 +40,5 @@ export const FormNameSchema = Schema.String.pipe(
   })
 )
 
+/** @public */
 export type FormName = Schema.Schema.Type<typeof FormNameSchema>

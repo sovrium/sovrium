@@ -8,6 +8,10 @@
 import { Schema } from 'effect'
 import { ActionSchema } from '../../action'
 
+/**
+ * Action field for components that trigger user actions (onClick/onSubmit).
+ * Only for buttons, links, forms, menu items — NOT for layout or display components.
+ */
 export const actionFields = {
   action: Schema.optional(ActionSchema),
 } as const

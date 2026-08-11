@@ -24,8 +24,16 @@ components:
           className: text-sm mb-6
         content: Every piece with a publish date, laid out on the month. Consistency beats intensity.
 
+      # `labelField` is optional in the schema but required in practice: without
+      # it every piece renders as an unlabelled block, so the month shows that
+      # something ships on the 12th but not what. `colorField` points at the
+      # workflow status, whose option colours are record data — the one channel
+      # ADR-024 A7 keeps coloured — so the calendar and the pipeline board tell
+      # the same colour story about the same piece.
       - type: calendar
         dataSource:
           table: content
+        labelField: title
+        colorField: status
         dateField: publish_date
         defaultView: month

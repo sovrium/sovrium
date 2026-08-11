@@ -19,6 +19,7 @@ import {
 } from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
+/** Base UI dismissal reasons blocked for alert-dialogs (confirmation must be explicit). */
 const ALERT_DIALOG_BLOCKED_REASONS = new Set([
   'escape-key',
   'close-watcher',
@@ -26,15 +27,48 @@ const ALERT_DIALOG_BLOCKED_REASONS = new Set([
   'focus-out',
 ])
 
+/**
+ * Wires the `data-click-modal="<id>"` attribute emitted by the interaction
+ * props builder to re-open this dialog after dismissal. The legacy openModal
+ * handler in `PageBodyScripts` only toggles `display` on the placeholder div,
+ * which has no effect on a hydrated Base UI portal — so the island owns the
+ * external-trigger contract for itself.
+ */
+/**
+ * Whether the page declares an external trigger (`data-click-modal="<id>"`,
+ * emitted by `interactions.click.modal`) pointing at this dialog. A
+ * trigger-controlled dialog mounts CLOSED (GAP-2); a standalone dialog with no
+ * trigger keeps the open-by-default behaviour. Runs client-side only (mount).
+ */
 function hasExternalTrigger(id: string | undefined): boolean {
   if (!id || typeof document === 'undefined') return false
   return document.querySelector(`[data-click-modal="${id}"]`) !== null
 }
 
+/**
+ * Initial open state (GAP-2): a TRIGGER-controlled dialog mounts CLOSED so its
+ * backdrop never intercepts clicks on (and its focus-trap never hides from the
+ * accessibility tree) sibling elements on load; its `data-click-modal` trigger
+ * (`useExternalOpenTrigger`) opens it on activation. This applies to plain
+ * dialogs AND alert-dialogs alike: a confirmation alert-dialog wired to an
+ * external trigger (e.g. a "Destroy" button) must mount closed, otherwise it
+ * pops open on load and traps focus, hiding the sibling action buttons from the
+ * accessibility tree. A STANDALONE dialog/alert-dialog — no trigger element
+ * points at its id — keeps the open-by-default behaviour relied on by the
+ * standalone-hydration and dialog-theming specs.
+ */
 function computeInitialOpen(_isAlertDialog: boolean, id: string | undefined): boolean {
   return !hasExternalTrigger(id)
 }
 
+/**
+ * Consume the one-shot handoff flag the inline `clickScript` sets in
+ * `window.__sovriumOpenModals` on a pre-hydration trigger click (see
+ * PageBodyScripts). Returns true (and clears the flag) when a click for `id`
+ * landed before this lazy island hydrated, so the closed-on-mount dialog still
+ * opens. `Reflect.deleteProperty` mutates this transient client-side window
+ * registry (not domain state) exactly once.
+ */
 function consumePendingOpen(id: string): boolean {
   const pending = (window as unknown as { __sovriumOpenModals?: Record<string, boolean> })
     .__sovriumOpenModals
@@ -46,7 +80,10 @@ function consumePendingOpen(id: string): boolean {
 function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean) => void): void {
   useEffect(() => {
     if (!id) return
+    // Replay a trigger click that landed BEFORE this (lazy) island hydrated.
     if (consumePendingOpen(id)) setOpen(true)
+    // Re-check on the next frame to close the narrow race where the click (and
+    // its flag write) lands between this effect's read and listener attach.
     const raf = requestAnimationFrame(() => {
       if (consumePendingOpen(id)) setOpen(true)
     })
@@ -55,6 +92,8 @@ function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean)
       const trigger = target?.closest(`[data-click-modal="${id}"]`)
       if (trigger) setOpen(true)
     }
+    // Capture phase: fire before the bubble-phase clickScript and any
+    // stopPropagation, so a trigger click reliably opens a hydrated dialog.
     document.addEventListener('click', handler, true)
     return () => {
       cancelAnimationFrame(raf)
@@ -63,6 +102,12 @@ function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean)
   }, [id, setOpen])
 }
 
+/**
+ * Build the `onOpenChange` handler for the dialog. For alert dialogs, Escape /
+ * outside-press / focus-out dismissals are BLOCKED — confirmation must be
+ * explicit (Cancel / Confirm button). Regular dialogs dismiss freely. Extracted
+ * to a hook so the island component stays under its line cap.
+ */
 function useDismissalGuard(
   isAlertDialog: boolean,
   setOpen: (open: boolean) => void
@@ -91,7 +136,14 @@ interface DialogIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  /** Serialized children HTML from SSR (rendered inside the popup body) */
   readonly childrenHtml?: string
+  /**
+   * Automation action dispatched when the confirm button is pressed.
+   * When present and `type: 'automation'`, confirming POSTs the action to the
+   * form-action endpoint BEFORE closing the dialog so the gated automation
+   * actually fires. Absent ⇒ confirm only closes.
+   */
   readonly action?: DialogConfirmAction
 }
 
@@ -106,6 +158,7 @@ function DialogActions({
   readonly cancelLabel: string
   readonly confirmLabel?: string
   readonly variant: 'default' | 'destructive'
+  /** Fired when the confirm button is pressed, BEFORE the dialog closes. */
   readonly onConfirm?: () => void
 }): ReactElement {
   const confirmColorClass =
@@ -143,6 +196,11 @@ function DialogActions({
   )
 }
 
+/**
+ * Renders SSR placeholder HTML once on initial paint while the island hydrates.
+ * Isolated so the per-call object literal in `dangerouslySetInnerHTML` lives in
+ * a tiny dedicated component, not in the parent island body.
+ */
 function SSRSkeletonDiv({
   html,
   className,
@@ -153,6 +211,7 @@ function SSRSkeletonDiv({
   return (
     <div
       className={className}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves SSR skeleton HTML; helper invoked once on first paint
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )
@@ -218,6 +277,12 @@ function DialogPopupBody({
   )
 }
 
+/**
+ * Dialog island — wraps Base UI Dialog for modal dialogs and alert dialogs.
+ *
+ * Provides focus trapping, escape-to-close, backdrop click dismissal,
+ * and animated enter/exit transitions out of the box.
+ */
 export default function DialogIsland({
   title,
   description,
@@ -235,6 +300,8 @@ export default function DialogIsland({
 
   useExternalOpenTrigger(id, setOpen)
 
+  // Dispatch the confirm button's configured automation action before
+  // the Base UI `Dialog.Close` collapses the dialog. No action ⇒ confirm closes.
   const handleConfirm = useCallback((): void => dispatchConfirmAction(action), [action])
   const handleOpenChange = useDismissalGuard(isAlertDialog, setOpen)
 

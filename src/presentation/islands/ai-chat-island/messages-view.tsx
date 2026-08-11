@@ -13,6 +13,15 @@ import {
 import type { ChatMessage, ChatStatus } from './types'
 import type { ReactElement } from 'react'
 
+/**
+ * Scrollable message log for the `ai-chat` island.
+ *
+ * Renders each turn with a role-distinguishing `data-message-role` attribute
+ *, a loading indicator while the AI is responding
+ *, and auto-scrolls to the latest message on update
+ *. Long messages wrap via `break-words`
+ *.
+ */
 
 interface MessagesViewProps {
   readonly messages: readonly ChatMessage[]
@@ -23,6 +32,7 @@ interface MessagesViewProps {
 export function MessagesView({ messages, status, chatHeight }: MessagesViewProps): ReactElement {
   const endRef = useRef<HTMLDivElement>(null)
 
+  // Keep the latest message in view on every update.
   useEffect(() => {
     const node = endRef.current
     if (node !== null) node.scrollIntoView({ block: 'end' })
@@ -36,6 +46,7 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
       aria-label="Chat messages"
       aria-live="polite"
       className={`chat-messages ${computeAiChatMessageListClasses()}`}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one height-merge per render in a leaf island component
       style={{ minHeight: `${chatHeight}px` }}
     >
       {messages.map((message, index) => (

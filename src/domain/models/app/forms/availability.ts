@@ -7,7 +7,17 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Form Availability
+ *
+ * Controls when a form accepts submissions. All fields are optional — by
+ * default a form is always open and unlimited.
+ *
+ * Cross-field rule: when both `opensAt` and `closesAt` are set, `opensAt`
+ * must be strictly before `closesAt`.
+ */
 export const FormAvailabilitySchema = Schema.Struct({
+  /** ISO 8601 timestamp at which the form starts accepting submissions. */
   opensAt: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({
@@ -15,6 +25,7 @@ export const FormAvailabilitySchema = Schema.Struct({
       })
     )
   ),
+  /** ISO 8601 timestamp at which the form stops accepting submissions. */
   closesAt: Schema.optional(
     Schema.String.pipe(
       Schema.annotations({
@@ -22,6 +33,10 @@ export const FormAvailabilitySchema = Schema.Struct({
       })
     )
   ),
+  /**
+   * Hard cap on the number of submissions accepted. The (count + 1)-th
+   * submission is rejected with a clear "form closed" message.
+   */
   maxSubmissions: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -31,6 +46,11 @@ export const FormAvailabilitySchema = Schema.Struct({
       })
     )
   ),
+  /**
+   * Optional custom UI rendered when the form is closed (before `opensAt`,
+   * after `closesAt`, or past `maxSubmissions`). When omitted the renderer
+   * falls back to the form title + default boilerplate copy.
+   */
   closedPage: Schema.optional(
     Schema.Struct({
       type: Schema.optional(Schema.Literal('page')),
@@ -67,4 +87,5 @@ export const FormAvailabilitySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type FormAvailability = Schema.Schema.Type<typeof FormAvailabilitySchema>

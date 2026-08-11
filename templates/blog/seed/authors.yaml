@@ -1,0 +1,35 @@
+# Public bylines. Three is the smallest roster that makes the Author column on
+# the index worth having: one author and the column is noise, two and you cannot
+# tell sorting from coincidence.
+#
+# No `avatar`: it is a `single-attachment`, which would need a real image under
+# `seed/assets/` uploaded into the `default` bucket. The demo reads fine without
+# one, and shipping three stock portraits to make a column non-empty is not a
+# trade worth making.
+records:
+  - key: mireille
+    fields:
+      name: Mireille Baptiste
+      slug: mireille-baptiste
+      bio: >-
+        Writes about the unglamorous half of running software — migrations,
+        backups, and the paperwork nobody demos. Ran platform teams for eleven
+        years before deciding she preferred writing about it.
+
+  - key: tomas
+    fields:
+      name: Tomás Delgado
+      slug: tomas-delgado
+      bio: >-
+        Former agency developer, now independent. Interested in the tools small
+        teams reach for when they cannot afford a platform team, and in why so
+        many of them stop fitting at exactly the same size.
+
+  - key: aoife
+    fields:
+      name: Aoife Nwachukwu
+      slug: aoife-nwachukwu
+      bio: >-
+        Designer and reluctant sysadmin. Writes mostly about the seam where
+        design decisions turn into operational ones, which is earlier than most
+        teams expect.

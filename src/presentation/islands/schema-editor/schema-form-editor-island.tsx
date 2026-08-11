@@ -8,6 +8,21 @@
 import { useCallback, useState, type ChangeEvent, type ReactElement } from 'react'
 import { submitSchemaConfig } from './schema-config-submit'
 
+/**
+ * `schema-form-editor` island (platform B10) — a structured, no-code app-config
+ * builder.
+ *
+ * Renders the configured `sections` (subset of the app schema: tables, fields,
+ * pages, …) as labeled text groups so a non-developer can author a tenant app
+ * without writing JSON/YAML. On Submit it serializes the per-section form state
+ * to a config string and POSTs it to the records API for `submitToTable`,
+ * writing `{ [configField]: <serialized config>, [formatField]: 'form' }`.
+ *
+ * The serialization here is intentionally minimal (a JSON map of section →
+ * value); a richer structured-model serializer is a future enhancement. The
+ * platform contract this island satisfies is "build a config in a guided form,
+ * submit it, and persist a row tagged 'form'".
+ */
 export interface SchemaFormEditorProps {
   readonly submitToTable?: string
   readonly configField?: string
@@ -16,12 +31,16 @@ export interface SchemaFormEditorProps {
   readonly readOnly?: boolean
   readonly id?: string
   readonly className?: string
+  /** GAP-I2: resolved `inlinePrefill` record-context merged into the submit body. */
   readonly submitContext?: Readonly<Record<string, unknown>>
 }
 
 const DEFAULT_SECTIONS = ['tables', 'fields', 'pages'] as const
 
 function serializeConfig(sections: readonly string[], values: Record<string, string>): string {
+  // An empty form still yields a valid (empty-string-valued) config so the
+  // operator can submit a scaffold; section keys are always present for shape
+  // stability.
   const config = sections.reduce<Record<string, string>>(
     (acc, section) => ({ ...acc, [section]: values[section] ?? '' }),
     {}

@@ -8,6 +8,26 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 
+/**
+ * Comment count island — fetches the total comment count for a record
+ * from the existing comments API (`GET /api/tables/:tableName/records/
+ * :recordId/comments?limit=0`) and renders the user-facing label.
+ *
+ * Props (from SSR `data-island-props` JSON):
+ * - `tableName` — table identifier (name OR id; the API resolves both)
+ * - `recordId`  — record identifier
+ * - `format`    — display template, e.g. "{count} comments"
+ * - `emptyText` — copy when count === 0
+ * - `emptyTextWasCustomized` — true when the page author explicitly set
+ *   `emptyText`. When false the renderer falls back to substituting `0`
+ *   into the default format (so "0 comments" appears on first paint).
+ *
+ * When `tableName` or `recordId` is missing the island shows the
+ * already-rendered SSR label (it cannot fetch a count without both).
+ *
+ * @see [internal ref] … 035 in
+ * `[internal ref]`
+ */
 interface CommentCountIslandProps {
   readonly tableName?: string
   readonly recordId?: string
@@ -50,6 +70,7 @@ export default function CommentCountIsland({
 }: CommentCountIslandProps): ReactElement {
   const enabled = Boolean(tableName && recordId)
   const { data } = useQuery<CommentsListResponse>({
+    // Stable key shape — see TanStack Query best practices for query-key conventions.
     queryKey: ['comment-count', tableName, recordId],
     enabled,
     queryFn: async () => {
@@ -58,6 +79,8 @@ export default function CommentCountIsland({
         { credentials: 'include' }
       )
       if (!response.ok) {
+        // Permission denial / not found surfaces as zero; matches the
+        // anti-enumeration 404 contract on the comments list endpoint.
         return { comments: [], pagination: { total: 0, limit: 1, offset: 0, hasMore: false } }
       }
       return (await response.json()) as CommentsListResponse

@@ -8,6 +8,24 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Duration Field
+ *
+ * Stores time duration values (e.g., hours, minutes, seconds).
+ * Used for tracking elapsed time, work hours, or time intervals.
+ * Supports custom display formats for presenting duration values.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'work_hours',
+ *   type: 'duration',
+ *   required: true,
+ *   format: 'h:mm'
+ * }
+ * ```
+ */
 export const DurationFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({

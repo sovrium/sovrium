@@ -7,10 +7,18 @@
 
 import { findDuplicate } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 
+/**
+ * Validate that field permissions reference existing fields and don't have duplicates.
+ *
+ * @param fieldPermissions - Array of field permissions to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
 export const validateFieldPermissions = (
   fieldPermissions: ReadonlyArray<{ readonly field: string }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Check for duplicate field permissions
   const fieldPermissionNames = fieldPermissions.map((fp) => fp.field)
   const duplicateField = findDuplicate(fieldPermissionNames)
 
@@ -21,6 +29,7 @@ export const validateFieldPermissions = (
     }
   }
 
+  // Check for non-existent field references
   const invalidFieldPermission = fieldPermissions.find(
     (fieldPermission) => !fieldNames.has(fieldPermission.field)
   )
@@ -35,6 +44,18 @@ export const validateFieldPermissions = (
   return undefined
 }
 
+/**
+ * Validate table permissions including field permissions.
+ *
+ * With the simplified 3-format permission system ('all', 'authenticated', role array),
+ * table-level CRUD permissions are validated by the schema itself.
+ * This function handles cross-field validation (field permissions referencing table fields).
+ *
+ * @param permissions - Table permissions to validate
+ * @param _fields - Table fields (unused, kept for interface compatibility)
+ * @param fieldNames - Set of valid field names
+ * @returns Validation error object if invalid, undefined if valid
+ */
 export const validateTablePermissions = (
   permissions: {
     readonly fields?: ReadonlyArray<{
@@ -44,6 +65,7 @@ export const validateTablePermissions = (
   _fields: ReadonlyArray<{ readonly name: string; readonly type: string }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Validate field permissions reference existing fields
   if (permissions.fields) {
     const fieldPermissionsError = validateFieldPermissions(permissions.fields, fieldNames)
     if (fieldPermissionsError) {

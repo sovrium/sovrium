@@ -7,12 +7,26 @@
 
 import { z } from 'zod'
 
+// ---------------------------------------------------------------------------
+// Search engine enum (mirrors Effect Schema SearchEngineSchema)
+// ---------------------------------------------------------------------------
 
 export const searchEngineEnum = z
   .enum(['client', 'fts', 'trigram', 'hybrid'])
   .describe('Search backend engine used for the query')
 
+// ---------------------------------------------------------------------------
+// Search request schema
+// ---------------------------------------------------------------------------
 
+/**
+ * Search request schema for the search API endpoint.
+ *
+ * Used for:
+ * - OpenAPI documentation generation
+ * - Runtime API request validation via @hono/zod-validator
+ * - Hono RPC client type inference
+ */
 export const searchRequestSchema = z.object({
   query: z.string().min(1).describe('Search query string'),
   table: z.string().min(1).describe('Table name to search'),
@@ -27,7 +41,13 @@ export const searchRequestSchema = z.object({
   highlight: z.boolean().optional().describe('Return highlight snippets for matched terms'),
 })
 
+// ---------------------------------------------------------------------------
+// Search result item schema
+// ---------------------------------------------------------------------------
 
+/**
+ * A single search result with optional relevance score and highlights.
+ */
 export const searchResultItemSchema = z.object({
   id: z.string().describe('Record primary key'),
   score: z.number().optional().describe('Relevance score (FTS/hybrid engine only)'),
@@ -38,7 +58,18 @@ export const searchResultItemSchema = z.object({
   record: z.record(z.string(), z.unknown()).describe('Full or partial record data'),
 })
 
+// ---------------------------------------------------------------------------
+// Search response schema
+// ---------------------------------------------------------------------------
 
+/**
+ * Search response schema for the search API endpoint.
+ *
+ * Used for:
+ * - OpenAPI documentation generation
+ * - Runtime API response validation
+ * - Hono RPC client type inference
+ */
 export const searchResponseSchema = z.object({
   results: z.array(searchResultItemSchema).describe('Matching records'),
   total: z.number().int().min(0).describe('Total number of matching records'),
@@ -46,6 +77,9 @@ export const searchResponseSchema = z.object({
   engine: searchEngineEnum.describe('Engine that was used for the query'),
 })
 
+// ---------------------------------------------------------------------------
+// Type exports
+// ---------------------------------------------------------------------------
 
 export type SearchRequest = z.infer<typeof searchRequestSchema>
 export type SearchResultItem = z.infer<typeof searchResultItemSchema>

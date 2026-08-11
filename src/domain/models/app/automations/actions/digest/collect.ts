@@ -9,11 +9,19 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Digest Collect Action (type: digest, operator: collect)
+ *
+ * Collect an item into a digest bucket. Items accumulate until the
+ * bucket is released (via digest/release). Useful for batching
+ * notifications, aggregating events, or building summary digests.
+ */
 export const DigestCollectActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('digest'),
   operator: Schema.Literal('collect'),
   props: Schema.Struct({
+    /** Digest bucket identifier */
     digestKey: TemplateStringSchema.pipe(
       Schema.annotations({
         description:
@@ -21,12 +29,14 @@ export const DigestCollectActionSchema = Schema.Struct({
       })
     ),
 
+    /** Item to add to the digest */
     item: TemplateStringSchema.pipe(
       Schema.annotations({
         description: 'Item to collect into the digest bucket (supports template variables)',
       })
     ),
 
+    /** Deduplication key to prevent duplicate items */
     deduplicateBy: Schema.optional(
       TemplateStringSchema.pipe(
         Schema.annotations({
@@ -44,4 +54,5 @@ export const DigestCollectActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type DigestCollectAction = Schema.Schema.Type<typeof DigestCollectActionSchema>

@@ -9,15 +9,24 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Batch Upsert Action (type: record, operator: batchUpsert)
+ *
+ * Insert or update multiple records in a single operation using a match field.
+ * For each item, if a record matching the `matchField` value exists it is
+ * updated; otherwise a new record is created.
+ */
 export const RecordBatchUpsertActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
   operator: Schema.Literal('batchUpsert'),
   props: Schema.Struct({
+    /** Target table name */
     table: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Table to upsert records in' })
     ),
 
+    /** Template variable referencing an array of record data objects */
     items: TemplateStringSchema.pipe(
       Schema.annotations({
         description:
@@ -25,6 +34,7 @@ export const RecordBatchUpsertActionSchema = Schema.Struct({
       })
     ),
 
+    /** Field used to match existing records for upsert logic */
     matchField: Schema.String.pipe(
       Schema.minLength(1),
       Schema.annotations({
@@ -33,7 +43,9 @@ export const RecordBatchUpsertActionSchema = Schema.Struct({
       })
     ),
 
+    /** Maximum records per batch operation */
 
+    /** Continue processing remaining records if one fails */
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotations({
@@ -50,4 +62,5 @@ export const RecordBatchUpsertActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordBatchUpsertAction = Schema.Schema.Type<typeof RecordBatchUpsertActionSchema>

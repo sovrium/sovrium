@@ -23,11 +23,25 @@ import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
 import { useAuthFormState } from './auth-form-state'
 import { type AuthState, type ToastConfig } from './auth-form-submit'
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface AuthFormIslandProps {
   readonly method: AuthMethod
   readonly fields?: readonly AuthFormField[]
+  /**
+   * Server-resolved submit-button label (already localized through page
+   * `meta.lang` + app `languages`). When present, it replaces the hardcoded
+   * built-in `authSubmitLabel(method)` so the hydrated island button text is
+   * byte-identical to the SSR skeleton.
+   */
   readonly submitLabel?: string
+  /**
+   * Server-resolved in-flight (pending) submit-button label, threaded the same
+   * way as `submitLabel` so a localized console (e.g. the French dashboard)
+   * shows a localized pending label instead of a hardcoded `Loading...`.
+   */
   readonly pendingLabel?: string
   readonly redirectUrl?: string
   readonly successToast?: ToastConfig
@@ -38,6 +52,9 @@ interface AuthFormIslandProps {
   readonly initialValues?: Record<string, string>
 }
 
+// ---------------------------------------------------------------------------
+// Feedback sub-component
+// ---------------------------------------------------------------------------
 
 function AuthFormFeedback({ state }: { readonly state: AuthState }) {
   if (state.error) {
@@ -65,6 +82,10 @@ function AuthFormFeedback({ state }: { readonly state: AuthState }) {
       </div>
     )
   }
+  // No result yet — an empty, hidden slot. `hidden` keeps it out of layout so it
+  // reserves no phantom gap in the form's flex stack, and matches the SSR
+  // skeleton's `<div data-error hidden />` byte-for-byte (the styled banner only
+  // ever appears post-submit, client-side, so hydration never sees a mismatch).
   return (
     <div
       data-error=""
@@ -73,6 +94,9 @@ function AuthFormFeedback({ state }: { readonly state: AuthState }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export default function AuthFormIsland(props: AuthFormIslandProps) {
   const { method, redirectUrl, successToast, errorToast, className, initialValues } = props

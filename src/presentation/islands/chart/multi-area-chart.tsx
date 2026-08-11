@@ -28,9 +28,11 @@ interface MultiAreaChartProps {
   readonly series: readonly ChartSeriesConfig[]
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
+  /** Operator-set `<svg role="img">` name; falls back to the "Area chart" default. */
   readonly accessibleName?: string
 }
 
+/** A single plotted vertex for one area series. */
 interface PlottedPoint {
   readonly key: string
   readonly x: number
@@ -40,6 +42,7 @@ interface PlottedPoint {
 const accessX = (p: PlottedPoint): number => p.x
 const accessY = (p: PlottedPoint): number => p.y
 
+/** Builds the plotted points for one series across the shared X keys. */
 function plotSeries(args: {
   readonly records: readonly TableRecord[]
   readonly keys: readonly string[]
@@ -66,6 +69,7 @@ interface MultiAreaSvgProps {
   readonly accessibleName?: string
 }
 
+/** The measured inner viewport, shared X keys, visible series, and X/Y scales. */
 interface AreaLayout {
   readonly innerWidth: number
   readonly innerHeight: number
@@ -75,6 +79,7 @@ interface AreaLayout {
   readonly yScale: ReturnType<typeof scaleLinear<number>>
 }
 
+/** Builds the point (X) and linear (Y) scales for the chart's inner area. */
 function buildAreaLayout(args: MultiAreaSvgProps): AreaLayout {
   const { width, height, records, xField, series, hidden } = args
   const innerWidth = Math.max(0, width - CHART_MARGIN.left - CHART_MARGIN.right)
@@ -136,6 +141,13 @@ function MultiAreaSvg(props: MultiAreaSvgProps): ReactElement {
   )
 }
 
+/**
+ * Multi-series area chart with an interactive legend.
+ *
+ * Each `series` entry renders its own filled `<AreaClosed>` path; the
+ * `fillOpacity` series property drives the `fill-opacity` SVG attribute. The
+ * legend lists every series label and clicking an item toggles visibility.
+ */
 export function MultiAreaChart({
   records,
   xField,

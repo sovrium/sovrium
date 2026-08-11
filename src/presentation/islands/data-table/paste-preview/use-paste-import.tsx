@@ -12,14 +12,35 @@ import { usePasteState } from './use-paste-state'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
 interface UsePasteImportParams {
+  /** Container the paste interaction is scoped to (the data-table island root). */
   readonly containerRef: React.RefObject<HTMLDivElement | null>
+  /** Target table name for the batch create. */
   readonly tableName: string
+  /** Table field names offered as column mapping targets. */
   readonly tableFields: readonly string[]
+  /** Field metadata (types) used to flag type-mismatched preview cells. */
   readonly fieldMeta?: FieldMetaMap
+  /** Called after a successful batch create so the table can refresh. */
   readonly onImported?: () => void
+  /**
+   * Whether paste-import is active. Defaults to `true`. A system-source
+   * data-table (read endpoint, no DB table to write to) passes `false` so the
+   * Ctrl/Cmd+V import flow is never wired.
+   */
   readonly enabled?: boolean
 }
 
+/**
+ * Wires Ctrl/Cmd+V paste-from-spreadsheet behaviour into the data-table.
+ *
+ * When the table is focused and the user presses Ctrl/Cmd+V, the clipboard's
+ * TSV payload is parsed and shown in a preview dialog with a per-column
+ * field-mapping `<select>`; cells incompatible with their mapped field type
+ * are flagged in red. Confirming batch-creates the records and shows a toast
+ * with the created count plus an Undo action; cancelling discards them.
+ *
+ * Returns the dialog + toast JSX to render alongside the table.
+ */
 export function usePasteImport({
   containerRef,
   tableName,

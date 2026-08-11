@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Aggregation helpers for the records list API.
+ *
+ * Handles both the shortcut `field:op,field:op` query form (which produces
+ * flat scalar results) and the JSON form (per-field records). Also provides
+ * in-memory grouped aggregations for the `?groupBy=field` parameter.
+ */
 
 export interface AggregateConfig {
   readonly count?: boolean
@@ -51,6 +58,10 @@ function pickFlatValue(rec: Record<string, number> | undefined, field: string): 
   return rec && rec[field] !== undefined ? rec[field] : undefined
 }
 
+/**
+ * Reshape aggregation output for the shortcut form with a single aggregated
+ * field: flatten `sum: { amount: 600 }` to `sum: 600`.
+ */
 export function reshapeShortcutAggregations(
   raw: RawAggregations,
   aggregate: AggregateConfig
@@ -91,6 +102,9 @@ function applyNumericOp(values: readonly number[], op: NumericOp): number {
   return Math.max(...values)
 }
 
+/**
+ * Compute a numeric aggregation for each of the requested fields.
+ */
 export function aggregateNumeric(
   records: readonly Readonly<Record<string, unknown>>[],
   fields: readonly string[],
@@ -129,20 +143,65 @@ function toGroupName(record: Readonly<Record<string, unknown>>, groupBy: string)
   return raw === null || raw === undefined ? '' : String(raw)
 }
 
-export function computeGroupedAggregations(
-  records: readonly Readonly<Record<string, unknown>>[],
-  groupBy: string,
-  aggregate: AggregateConfig
-): readonly { readonly name: string; readonly aggregations: AggregationOutput }[] {
-  const groupNames = records.reduce<readonly string[]>((acc, r) => {
-    const name = toGroupName(r, groupBy)
-    return acc.includes(name) ? acc : [...acc, name]
-  }, [])
+/**
+ * One partition of the view: the ancestor values that name it, and its numbers.
+ *
+ * `path` carries the value at every level from the outermost down to this one,
+ * so `["EMEA","Prospect"]` is a DIFFERENT partition from `["AMER","Prospect"]`.
+ * That is the whole reason the path exists: once a grid groups more than one
+ * level deep a group's own value stops being a key, and a count attributed to
+ * "the Prospect group" no longer says which one it describes.
+ */
+export interface GroupPartition {
+  /** This partition's own value — the last entry of {@link GroupPartition.path}. */
+  readonly name: string
+  /** Ancestor values, outermost first, ending in this partition's own. */
+  readonly path: readonly string[]
+  readonly count: number
+  /** Present only when the request also carried `?aggregate=`. */
+  readonly aggregations?: AggregationOutput
+}
 
-  return groupNames.map((name) => {
-    const groupRecords = records.filter((r) => toGroupName(r, groupBy) === name)
-    const raw = buildRawAggregationsForGroup(groupRecords, aggregate)
-    const reshaped = aggregate.shortcut ? reshapeShortcutAggregations(raw, aggregate) : raw
-    return { name, aggregations: reshaped }
+/** The path a record belongs to at one depth, as a comparable key. */
+function pathKeyOf(record: Readonly<Record<string, unknown>>, levels: readonly string[]): string {
+  return JSON.stringify(levels.map((field) => toGroupName(record, field)))
+}
+
+/**
+ * Partition records by EVERY prefix of the grouping levels, in first-seen order.
+ *
+ * One level in, this returns exactly what the single-field partition always
+ * returned. Two levels in it returns the level-1 partitions AND the level-2
+ * ones, because a nested grid renders a header — and so needs a count and a
+ * total — at every depth, not only the innermost. Answering only the deepest
+ * would destroy the parent-versus-child comparison that is the reason to nest.
+ *
+ * Runs over the whole filtered result set rather than one page, so a group that
+ * spills past a page boundary still reports its view-wide numbers.
+ */
+export function computeGroupPartitions(
+  records: readonly Readonly<Record<string, unknown>>[],
+  levels: readonly string[],
+  aggregate?: AggregateConfig
+): readonly GroupPartition[] {
+  return levels.flatMap((_field, index) => {
+    const prefix = levels.slice(0, index + 1)
+    const keys = records.reduce<readonly string[]>((acc, record) => {
+      const key = pathKeyOf(record, prefix)
+      return acc.includes(key) ? acc : [...acc, key]
+    }, [])
+    return keys.map((key) => {
+      const path = JSON.parse(key) as readonly string[]
+      const partition = records.filter((record) => pathKeyOf(record, prefix) === key)
+      const raw = aggregate ? buildRawAggregationsForGroup(partition, aggregate) : undefined
+      return {
+        name: path[path.length - 1] ?? '',
+        path,
+        count: partition.length,
+        ...(raw && aggregate
+          ? { aggregations: aggregate.shortcut ? reshapeShortcutAggregations(raw, aggregate) : raw }
+          : {}),
+      }
+    })
   })
 }

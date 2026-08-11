@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines-per-function, complexity, react-perf/jsx-no-new-function-as-prop -- comment-thread-island composes 6 conditional UI states (loading, error, empty, list, form, pagination) into a single component; per-handler arrow props are conventional React pattern. */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactElement } from 'react'
@@ -15,6 +16,21 @@ import { CommentThreadForm } from './comment-thread-form'
 import { CommentThreadItem } from './comment-thread-item'
 import type { CommentsListResponse, CommentThreadIslandProps } from './comment-thread-types'
 
+/**
+ * Comment-thread island.
+ *
+ * Hydrates the SSR `<section data-component="comments">` placeholder with:
+ * - paged comment list (TanStack Query)
+ * - authenticated comment form (POST /comments)
+ * - per-comment edit / delete (PATCH / DELETE) by author or admin
+ * - "Load more" pagination OR numbered pagination (per `paginationStyle`)
+ * - sort dropdown (newest first / oldest first)
+ *
+ * Requires `tableName` AND `recordId` at SSR time — the placeholder only
+ * emits the `data-island` marker when both are resolvable.
+ *
+ * Specs covered (subset): [internal ref] … 029.
+ */
 
 interface CommentListProps {
   readonly comments: CommentsListResponse['comments']
@@ -73,6 +89,8 @@ function renderItem(
 
 function CommentList(props: CommentListProps): ReactElement {
   const { comments, threading } = props
+  // When threading is off OR no parentCommentId exists, render flat (preserves
+  // pre-PG-02 behavior — [internal ref]).
   if (!threading) {
     return <ul className="grid gap-2">{comments.map((c) => renderItem(c, props))}</ul>
   }

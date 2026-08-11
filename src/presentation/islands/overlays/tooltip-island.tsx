@@ -20,6 +20,14 @@ interface TooltipIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Tooltip island — wraps Base UI Tooltip for hover/focus info popups.
+ *
+ * Shows a short text when the user hovers or focuses the trigger element.
+ * Supports configurable side positioning and open delay. The trigger element's
+ * id (`triggerId`) is placed on the Tooltip.Trigger so the hover target matches
+ * the schema-authored child id; the serialized child HTML provides the label.
+ */
 export default function TooltipIsland({
   tooltipContent = '',
   floatingSide = 'top',
@@ -30,6 +38,9 @@ export default function TooltipIsland({
   id,
   'data-testid': testId,
 }: TooltipIslandProps): ReactElement {
+  // When the trigger child HTML carries its own id, keep the outer Trigger id
+  // distinct (the container id) to avoid a duplicate-id collision; otherwise
+  // fall back to the trigger id so the hover target is still addressable.
   const triggerElementId = childrenHtml ? id : (triggerId ?? id)
   return (
     <Tooltip.Provider
@@ -43,6 +54,7 @@ export default function TooltipIsland({
           data-testid={testId}
         >
           {childrenHtml ? (
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves SSR trigger HTML on initial paint
             <span dangerouslySetInnerHTML={{ __html: childrenHtml }} />
           ) : (
             <span>?</span>

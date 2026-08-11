@@ -5,14 +5,42 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Prestyled-by-default class computer for the `button` component.
+ *
+ * Every variant × size × state combination produces a Tailwind className string
+ * with inline OKLCH var-fallback expressions so a schema author who writes the
+ * bare `{ type: 'button', text: 'Save' }` gets a complete, opinionated button —
+ * focus ring, hover lift, accent border — with zero theme-layer dependency.
+ *
+ * The recipe mirrors the `uiKitButton` fixture in
+ * `[internal ref]` (which the fixture used to
+ * paint manually onto a `<span>`). Moving the recipe here makes the default
+ * design land in the PRODUCTION renderer — the fixture's `uiKitButton` is now
+ * a thin wrapper around the schema, not the source of styling.
+ *
+ * Layout / spacing classes (`h-9 px-4 py-2`) stay as raw Tailwind utilities;
+ * only color / radius / shadow / motion / focus classes go through
+ * {@link withVarFallback} so `app.theme.*` overrides still win at the CSS
+ * cascade layer (var lookups resolve `--sv-*` first, fall back to the inline
+ * OKLCH literal).
+ */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
 
+/**
+ * Schema-aligned variant vocabulary. Maps 1:1 to `ButtonVariantSchema` in
+ * `src/domain/models/app/pages/components/shared-schemas.ts`. The two
+ * fixture-vocabulary aliases (`primary` / `base`) are NOT accepted here —
+ * the dispatcher in `interactive-components.ts` always passes schema values.
+ */
 export type ButtonVariant =
   'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link' | 'fab'
 
+/** Schema-aligned size vocabulary (`ComponentSizeSchema`). */
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
+/** Visual state computed by the dispatcher from `loading` + `props.disabled`. */
 export type ButtonState = 'default' | 'disabled' | 'loading'
 
 export interface ButtonDefaultClassesInput {
@@ -21,6 +49,13 @@ export interface ButtonDefaultClassesInput {
   readonly state?: ButtonState
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Per-variant color stack — flat record keeps cyclomatic complexity at 1.
+//
+// `link` and `fab` get bespoke recipes; the other five variants ("filled" /
+// "outlined" / "subtle") share the elevation + motion baseline added by
+// {@link computeButtonDefaultClasses}.
+// ──────────────────────────────────────────────────────────────────────────────
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   default: [
@@ -72,6 +107,10 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   ].join(' '),
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Layout / spacing — pure Tailwind utilities, no var-fallbacks.
+// `fab` is fixed-circular; `link` collapses padding for inline-text feel.
+// ──────────────────────────────────────────────────────────────────────────────
 
 const SIZE_CLASS_DEFAULT: Record<ButtonSize, string> = {
   sm: 'h-7 px-2.5 py-1 text-xs',
@@ -122,6 +161,10 @@ const radiusClass = (variant: ButtonVariant): string =>
     ? `rounded-[${v('sv-radius-full', T.radiusFull)}]`
     : `rounded-[${v('sv-radius-md', T.radiusMd)}]`
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Variant-specific composers (one per family) — keep the top-level entrypoint's
+// cyclomatic complexity at 2 (link branch + default branch).
+// ──────────────────────────────────────────────────────────────────────────────
 
 const linkClasses = (size: ButtonSize, state: ButtonState): string =>
   [
@@ -148,6 +191,13 @@ const filledClasses = (variant: ButtonVariant, size: ButtonSize, state: ButtonSt
     .filter(Boolean)
     .join(' ')
 
+/**
+ * Compute the full default className for a button.
+ *
+ * Composition order: layout → variant → elevation → motion → focus → state.
+ * Author-supplied `props.className` is appended later by the dispatcher and
+ * wins at the cascade because Tailwind v4 emits utilities in source order.
+ */
 export const computeButtonDefaultClasses = (input: ButtonDefaultClassesInput = {}): string => {
   const variant = input.variant ?? 'default'
   const size = input.size ?? 'md'

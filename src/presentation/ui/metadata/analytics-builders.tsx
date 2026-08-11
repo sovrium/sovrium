@@ -9,6 +9,9 @@ import { type ReactElement } from 'react'
 import { renderScriptTag } from '@/presentation/scripts/script-renderers'
 import type { Analytics } from '@/domain/models/app/pages/meta'
 
+/**
+ * Build DNS prefetch link for analytics provider
+ */
 export function buildDnsPrefetchLink(
   provider: Analytics['providers'][number],
   providerIndex: number,
@@ -28,6 +31,9 @@ export function buildDnsPrefetchLink(
   )
 }
 
+/**
+ * Build external scripts for analytics provider
+ */
 export function buildExternalScripts(
   provider: Analytics['providers'][number],
   providerIndex: number,
@@ -47,6 +53,18 @@ export function buildExternalScripts(
   )
 }
 
+/**
+ * Build initialization script for analytics provider
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Analytics provider initialization code from configuration
+ * - Source: Validated Analytics schema (page.meta.analytics.providers[].initScript)
+ * - Risk: Low - content is from server configuration, not user input
+ * - Validation: Schema validation ensures string type
+ * - Purpose: Execute analytics provider setup (e.g., Google Analytics, Plausible)
+ * - CSP: Inline script - consider using nonce for stricter CSP
+ * - Best Practice: Use external scripts with SRI when possible
+ */
 export function buildInitScript(
   provider: Analytics['providers'][number],
   providerIndex: number,
@@ -60,6 +78,7 @@ export function buildInitScript(
     <script
       key={`init-${providerIndex}`}
       data-testid={`analytics-${provider.name}`}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
         __html: provider.initScript,
       }}
@@ -68,6 +87,17 @@ export function buildInitScript(
   )
 }
 
+/**
+ * Build marker script for analytics provider (when no scripts exist)
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Static comment marker with provider name
+ * - Source: provider.name from validated Analytics schema
+ * - Risk: None - contains only static comment text
+ * - Validation: provider.name is validated as string by schema
+ * - Purpose: Testing/debugging marker when provider has no actual scripts
+ * - XSS Protection: Comment syntax prevents code execution
+ */
 export function buildMarkerScript(
   provider: Analytics['providers'][number],
   providerIndex: number,
@@ -83,6 +113,7 @@ export function buildMarkerScript(
     <script
       key={`marker-${providerIndex}`}
       data-testid={`analytics-${provider.name}`}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
         __html: `/* ${provider.name} analytics marker */`,
       }}
@@ -91,6 +122,18 @@ export function buildMarkerScript(
   )
 }
 
+/**
+ * Build config data script for analytics provider
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: JSON configuration data (JSON.stringify)
+ * - Source: provider.config from validated Analytics schema
+ * - Risk: None - JSON data cannot execute as code
+ * - Validation: Schema validation ensures object type
+ * - Purpose: Store analytics configuration as JSON for client-side access
+ * - XSS Protection: type="application/json" prevents script execution
+ * - Format: Safe serialization via JSON.stringify
+ */
 export function buildConfigScript(
   provider: Analytics['providers'][number],
   providerIndex: number,
@@ -105,6 +148,7 @@ export function buildConfigScript(
       key={`config-${providerIndex}`}
       data-testid={`analytics-${provider.name}-config`}
       type="application/json"
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
         __html: JSON.stringify(provider.config),
       }}
@@ -113,6 +157,9 @@ export function buildConfigScript(
   )
 }
 
+/**
+ * Build all elements for a single analytics provider
+ */
 export function buildProviderElements(
   provider: Analytics['providers'][number],
   providerIndex: number

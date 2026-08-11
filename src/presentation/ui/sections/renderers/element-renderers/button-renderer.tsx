@@ -26,6 +26,12 @@ import type { ElementProps } from './html-element-renderer'
 import type { Tables } from '@/domain/models/app/tables'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
+/**
+ * Render an action-bearing button: strips the synthetic `label` / `_record` /
+ * `_dataSourceBound` props, resolves the visible content (content → children →
+ * label fallback), and merges the action's data attributes onto the element.
+ * Shared by the automation / auth / fetch renderers so each stays a one-liner.
+ */
 function renderActionButton(
   props: ElementProps,
   content: string | undefined,
@@ -41,6 +47,11 @@ function renderActionButton(
     ...restProps
   } = props as Record<string, unknown>
   const buttonContent = content || (children.length > 0 ? children : undefined) || label
+  // When a destructive `confirm` prompt gates this button (overlaid onto the
+  // element props as `data-confirm` by the schema-fallback layer), expose the
+  // button's visible label as `data-confirm-label` so the client confirm-gate
+  // re-uses it as the in-dialog confirm affordance — the standalone-button
+  // analog of the data-table per-row `action-cell.tsx` confirm.
   const confirmLabelSource = content ?? label
   const confirmLabel =
     typeof restProps['data-confirm'] === 'string' && typeof confirmLabelSource === 'string'
@@ -68,6 +79,10 @@ type RenderButtonOptions = {
   readonly loading?: boolean
 }
 
+/**
+ * Renders an auth-action button (e.g. logout) with data attributes for
+ * client-side handling.
+ */
 function renderAuthButton(
   props: ElementProps,
   content: string | undefined,
@@ -77,6 +92,9 @@ function renderAuthButton(
   return renderActionButton(props, content, children, buildAuthDataAttributes(action))
 }
 
+/**
+ * Renders a fetch action button with data attributes for client-side handling
+ */
 function renderFetchButton(
   props: ElementProps,
   content: string | undefined,
@@ -86,6 +104,9 @@ function renderFetchButton(
   return renderActionButton(props, content, children, buildFetchDataAttributes(action))
 }
 
+/**
+ * Renders an automation action button with data attributes for client-side handling
+ */
 function renderAutomationButton(opts: {
   readonly props: ElementProps
   readonly content: string | undefined
@@ -134,6 +155,9 @@ const LoadingSpinner = (
   </svg>
 )
 
+/**
+ * Renders a disabled button with a spinner for loading state
+ */
 function renderLoadingButton(
   buttonProps: Record<string, unknown>,
   buttonContent: React.ReactNode
@@ -149,6 +173,10 @@ function renderLoadingButton(
   )
 }
 
+/**
+ * Renders button element with click interactions
+ */
+// eslint-disable-next-line complexity -- dispatches across 7 action types (crud-delete/automation/auth/fetch/navigate/loading/default); each branch is a one-liner. Threshold is 10; renderButton exceeds it after the GAP-H2 'auth' branch was added.
 export function renderButton({
   props,
   content,
@@ -191,9 +219,11 @@ export function renderButton({
     | undefined
   const clickInteraction = interactionsTyped?.click
 
+  // Extract label from props as fallback button text
   const label = (props.label ?? props['data-label']) as string | undefined
   const { label: _label, 'data-label': _dataLabel, ...restProps } = props as Record<string, unknown>
 
+  // Store interaction data in data attributes for client-side JavaScript handler
   const buttonProps = clickInteraction
     ? { ...restProps, ...buildClickDataAttributes(clickInteraction) }
     : restProps

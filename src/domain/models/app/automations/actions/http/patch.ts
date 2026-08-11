@@ -9,6 +9,13 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * HTTP PATCH Action (type: http, operator: patch)
+ *
+ * Convenience operator for PATCH requests. Defaults Content-Type to
+ * application/json when a body is provided. PATCH semantics signal
+ * partial resource update.
+ */
 export const HttpPatchActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('http'),
@@ -63,4 +70,5 @@ export const HttpPatchActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type HttpPatchAction = Schema.Schema.Type<typeof HttpPatchActionSchema>

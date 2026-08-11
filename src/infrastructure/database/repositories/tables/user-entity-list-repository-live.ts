@@ -29,8 +29,16 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 const userFavorites = resolveDialectSchema(userFavoritesPg, userFavoritesSqlite)
 const userRecentItems = resolveDialectSchema(userRecentItemsPg, userRecentItemsSqlite)
 
+/** Wrap a DB promise, adapting failures to UserEntityListDatabaseError. */
 const wrap = makeDbWrap((error) => new UserEntityListDatabaseError({ cause: error }))
 
+/**
+ * User Entity List Repository Implementation
+ *
+ * Uses the Drizzle ORM query builder for type-safe, SQL-injection-proof queries
+ * against `system.user_favorites` / `system.user_recent_items`. The recent-item
+ * prune is the one raw-SQL path (dialect-specific `OFFSET` semantics).
+ */
 export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListRepository, {
   listFavorites: (userId) =>
     wrap(() =>
@@ -68,6 +76,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       db
         .update(userFavorites)
         .set({
+          // eslint-disable-next-line unicorn/no-null -- nullable column requires SQL NULL
           deletedAt: null,
           tableId: tableName,
           createdAt: new Date(),
@@ -152,9 +161,15 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
 
   pruneRecent: (userId, maxItems) =>
     wrap(async () => {
+      // Prune rows beyond the per-user cap so the table never grows unbounded.
+      // Routed through `executeRaw` so the raw DELETE runs on either dialect
+      // (the SQLite client has no `.execute()`). `OFFSET` without a `LIMIT` is a
+      // PostgreSQL extension — SQLite requires an explicit `LIMIT` before `OFFSET`,
+      // where `LIMIT -1` means "no upper bound".
       const offsetClause = isSqliteRuntime()
         ? sql`LIMIT -1 OFFSET ${maxItems}`
         : sql`OFFSET ${maxItems}`
+      // eslint-disable-next-line functional/no-expression-statements -- DB side effect: raw prune DELETE
       await executeRaw(
         db,
         sql`DELETE FROM ${userRecentItems} WHERE id IN (
@@ -167,6 +182,9 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
     }),
 
   recordStillExists: (entity) =>
+    // Never fails: any DB failure resolves to `false` so a dead/unreadable
+    // record is hidden rather than throwing. Pages and entities without a known
+    // table are always-present (there is no row to probe).
     Effect.promise(async () => {
       if (entity.entityType !== 'record' || entity.tableId === null) return true
       const physicalName = sanitizeTableName(entity.tableId)

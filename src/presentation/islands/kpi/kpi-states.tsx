@@ -7,6 +7,10 @@
 
 import type { ReactElement } from 'react'
 
+/**
+ * Non-card KPI render states. Every state emits `data-component="kpi"` so
+ * spec assertions on the canonical KPI attribute resolve in every branch.
+ */
 
 export function KpiLoading(): ReactElement {
   return (
@@ -30,6 +34,10 @@ export function KpiError({
   readonly error: unknown
   readonly label?: string
 }): ReactElement {
+  // GAP-I1: preserve the server-known label even in the error branch, so a
+  // genuine fetch failure degrades the value region without dropping the card's
+  // identity. The label paints above the error message rather than being
+  // replaced by raw error text.
   return (
     <div
       className="border-error-border bg-error-bg rounded border p-3 text-sm"

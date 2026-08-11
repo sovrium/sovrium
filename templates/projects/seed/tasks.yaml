@@ -1,0 +1,177 @@
+# Sample task list, linked to projects by their file-local key.
+#
+# Every one of the four statuses carries several cards, so the kanban board on
+# /board reads as a working board rather than a single loaded column, and the
+# "Tasks by status" bar chart on the dashboard has four bars.
+#
+# `estimate` is a `duration` field, which stores a COUNT OF SECONDS — the
+# `displayFormat: 'h:mm'` on the field is presentation only. 14400 is four
+# hours. Writing `4:00` here would store a string in an integer column.
+#
+# `due_date` straddles `{{today}}` on purpose: the calendar view needs work in
+# both directions of the current month, and a few overdue cards are what make
+# the relative-date footer on a kanban card ("3 days ago") worth rendering.
+#
+# `assignee` is deliberately unseeded — see the note in `projects.yaml`.
+records:
+  - key: atlas-cart-api
+    fields:
+      title: Rewrite the cart API against the new schema
+      project: '@projects.atlas-replatform'
+      status: In progress
+      priority: High
+      due_date: '{{today+4d}}'
+      estimate: 57600
+
+  - key: atlas-checkout-ui
+    fields:
+      title: Rebuild checkout UI on the shared component set
+      project: '@projects.atlas-replatform'
+      status: In progress
+      priority: High
+      due_date: '{{today+11d}}'
+      estimate: 86400
+
+  - key: atlas-payment-vendor
+    fields:
+      title: Payment vendor has not returned the sandbox keys
+      project: '@projects.atlas-replatform'
+      status: Blocked
+      priority: High
+      due_date: '{{today-2d}}'
+      estimate: 7200
+
+  - key: atlas-legacy-cutover
+    fields:
+      title: Plan the legacy cutover window
+      project: '@projects.atlas-replatform'
+      status: To do
+      priority: Medium
+      due_date: '{{today+26d}}'
+      estimate: 10800
+
+  - key: atlas-schema-review
+    fields:
+      title: Schema review with the data team
+      project: '@projects.atlas-replatform'
+      status: Done
+      priority: Medium
+      due_date: '{{today-19d}}'
+      estimate: 5400
+
+  - key: nomad-design-system
+    fields:
+      title: Port the design system to the mobile shell
+      project: '@projects.nomad-mobile'
+      status: In progress
+      priority: Medium
+      due_date: '{{today+18d}}'
+      estimate: 72000
+
+  - key: nomad-offline-sync
+    fields:
+      title: Offline sync strategy — write up the options
+      project: '@projects.nomad-mobile'
+      status: To do
+      priority: High
+      due_date: '{{today+32d}}'
+      estimate: 21600
+
+  - key: nomad-store-listing
+    fields:
+      title: Draft the store listing copy
+      project: '@projects.nomad-mobile'
+      status: To do
+      priority: Low
+      due_date: '{{today+60d}}'
+      estimate: 7200
+
+  - key: ledger-column-mapping
+    fields:
+      title: Map the legacy chart of accounts
+      project: '@projects.ledger-migration'
+      status: Done
+      priority: High
+      due_date: '{{today-41d}}'
+      estimate: 43200
+
+  - key: ledger-dry-run
+    fields:
+      title: Dry-run the migration against a restored backup
+      project: '@projects.ledger-migration'
+      status: In progress
+      priority: High
+      due_date: '{{today+2d}}'
+      estimate: 28800
+
+  - key: ledger-signoff
+    fields:
+      title: Finance sign-off on the reconciliation report
+      project: '@projects.ledger-migration'
+      status: To do
+      priority: High
+      due_date: '{{today+8d}}'
+      estimate: 3600
+
+  - key: beacon-hosting-choice
+    fields:
+      title: Decide where the analytics instance lives
+      project: '@projects.beacon-analytics'
+      status: To do
+      priority: Medium
+      due_date: '{{today+24d}}'
+      estimate: 5400
+
+  - key: beacon-tracking-plan
+    fields:
+      title: Write the event tracking plan
+      project: '@projects.beacon-analytics'
+      status: To do
+      priority: Low
+      due_date: '{{today+45d}}'
+      estimate: 14400
+
+  - key: harbor-dpa-templates
+    fields:
+      title: Collect DPAs from every sub-processor
+      project: '@projects.harbor-compliance'
+      status: Blocked
+      priority: Medium
+      due_date: '{{today-7d}}'
+      estimate: 18000
+
+  - key: harbor-retention-policy
+    fields:
+      title: Agree the data retention windows
+      project: '@projects.harbor-compliance'
+      status: To do
+      priority: Medium
+      due_date: '{{today+19d}}'
+      estimate: 10800
+
+  - key: harbor-privacy-page
+    fields:
+      title: Publish the updated privacy notice
+      project: '@projects.harbor-compliance'
+      status: Done
+      priority: Low
+      due_date: '{{today-15d}}'
+      estimate: 7200
+
+  - key: quarry-stock-feed
+    fields:
+      title: Nightly stock feed into the warehouse table
+      project: '@projects.quarry-warehouse'
+      status: Done
+      priority: High
+      due_date: '{{today-48d}}'
+      estimate: 36000
+
+  - key: quarry-handover
+    fields:
+      title: Hand over the runbook to operations
+      project: '@projects.quarry-warehouse'
+      status: Done
+      priority: Medium
+      due_date: '{{today-25d}}'
+      estimate: 5400

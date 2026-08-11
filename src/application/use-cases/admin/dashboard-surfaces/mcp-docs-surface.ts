@@ -5,6 +5,35 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Dashboard "MCP" docs surface.
+ *
+ * The operator-facing reference for connecting an external AI (Claude, Cursor…)
+ * to THIS instance over MCP. Fully static, server-rendered config — the live
+ * `admin-mcp-connect` credential-issuance island was RETIRED in the [internal ref]
+ * dogfood pass (accepted loss: the live-origin fill-in, one-click credential
+ * copy, and live status pill). Four parts:
+ *
+ *  1. A static MCP endpoint reference — a first-class `content/code` block naming
+ *     the config-derived `/mcp` mount path with a placeholder origin (SSR cannot
+ *     resolve `window.location`).
+ *  2. An "Issue a credential" card — a `content/code` curl documenting the
+ *     RFC-7591 dynamic client-registration endpoint (`POST /api/auth/oauth2/register`,
+ *     open registration — no session cookie). The response returns the operator's
+ *     `client_id` / `client_secret` to paste into the AI client.
+ *  3. A static "reference configuration" card — the MCP client config SHAPE
+ *     rendered as a first-class `content/code` (JSON) block, so the operator
+ *     understands the structure they paste into Claude / Cursor.
+ *  4. The available-tools list — server-rendered from the live operator config
+ *     ({@link listMcpTools}): one row per table/operation, action template, and
+ *     manual automation that opts into `aiAccess`. The tool names mirror exactly
+ *     what the server advertises over `tools/list`. When the app exposes no
+ *     tools, an honest guidance state explains how to expose one.
+ *
+ * Reachable at `/_admin/mcp` (a Developers nav entry).
+ *
+ * Wrapped in the persistent 3-zone shell so the sidebar + breadcrumb persist.
+ */
 
 import {
   listMcpTools,
@@ -16,13 +45,19 @@ import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
+/** Shell-wrap concerns for the standalone MCP docs surface. */
 export interface McpDocsOptions {
+  /** F6 tier / F5 editing flag; threaded into the shell for signature parity. */
   readonly canEdit: boolean
+  /** Operator slug; seeds the shell sidebar brand label. */
   readonly appName?: string
+  /** Operator config version (`app.version`); seeds the sidebar version chip. */
   readonly appVersion?: string
+  /** Operator published config; seeds the read-through count badges. */
   readonly publishedSnapshot: Readonly<Record<string, unknown>>
 }
 
+/** The page header: title + a one-line plain-spoken intro. */
 function header(): Component {
   return {
     type: 'container',
@@ -40,16 +75,23 @@ function header(): Component {
         element: 'p',
         props: { className: 'text-foreground-subtle max-w-2xl text-sm' },
         content:
-          'Connectez votre IA (Claude, Cursor…) à cette instance via MCP. Émettez un ' +
-          'identifiant, collez la configuration dans votre client, et votre IA accède aux ' +
-          'outils ci-dessous — lecture et écriture de données, actions et automatisations.',
+          'Connect your AI (Claude, Cursor…) to this instance over MCP. Issue a ' +
+          'credential, paste the config into your client, and your AI reaches the ' +
+          'tools below — reading and writing data, actions, and automations.',
       },
     ],
   } as unknown as Component
 }
 
-const MCP_ENDPOINT_PLACEHOLDER = '<adresse de votre instance>/mcp'
+/**
+ * The config-derived `/mcp` mount URL, shown with a placeholder origin because
+ * this page server-renders and cannot resolve `window.location`. Reused by both
+ * the endpoint reference block and {@link REFERENCE_WIRING} so the static docs
+ * agree on the mount literal.
+ */
+const MCP_ENDPOINT_PLACEHOLDER = '<your instance address>/mcp'
 
+/** A quiet uppercase micro-label used as a section heading. */
 function sectionLabel(content: string): Component {
   return {
     type: 'text',
@@ -59,6 +101,7 @@ function sectionLabel(content: string): Component {
   } as unknown as Component
 }
 
+/** A bordered card holding labelled content (separation by border, not depth). */
 function card(children: ReadonlyArray<Component>): Component {
   return {
     type: 'container',
@@ -70,16 +113,23 @@ function card(children: ReadonlyArray<Component>): Component {
   } as unknown as Component
 }
 
+/**
+ * The static MCP endpoint reference card: the config-derived `/mcp` mount path
+ * rendered as a first-class `content/code` block with a placeholder origin. The
+ * durable, always-correct part is the path; the operator substitutes their own
+ * instance address (SSR cannot resolve `window.location`, and a placeholder stays
+ * correct behind any reverse proxy / custom domain).
+ */
 function endpointCard(): Component {
   return card([
-    sectionLabel('Point d’accès MCP'),
+    sectionLabel('MCP endpoint'),
     {
       type: 'text',
       element: 'p',
       props: { className: 'text-foreground-subtle text-sm' },
       content:
-        'Votre serveur MCP est monté à ce chemin. Remplacez le libellé par l’adresse ' +
-        'réelle de votre instance dans la configuration de votre client IA.',
+        'Your MCP server is mounted at this path. Replace the label with your instance’s ' +
+        'real address in your AI client’s config.',
     } as unknown as Component,
     {
       type: 'code',
@@ -89,30 +139,44 @@ function endpointCard(): Component {
   ])
 }
 
+/**
+ * The RFC-7591 dynamic client-registration curl. The request body mirrors the
+ * retired island's `issueMcpCredential` (`client_name` / `redirect_uris` /
+ * `grant_types` / `token_endpoint_auth_method`). No `--cookie` — RFC 7591 dynamic
+ * client registration is open. The response returns the operator's `client_id` /
+ * `client_secret` to paste into the AI client.
+ */
 function registerExample(): string {
   return (
-    '# POST /api/auth/oauth2/register — émettre un identifiant MCP (RFC 7591, inscription ouverte)\n' +
-    "curl -X POST '<adresse de votre instance>/api/auth/oauth2/register' \\\n" +
+    '# POST /api/auth/oauth2/register — issue an MCP credential (RFC 7591, open registration)\n' +
+    "curl -X POST '<your instance address>/api/auth/oauth2/register' \\\n" +
     "  --header 'Content-Type: application/json' \\\n" +
     "  --data '{\n" +
     '    "client_name": "Sovrium MCP — Claude",\n' +
-    '    "redirect_uris": ["<adresse de votre instance>/oauth/callback"],\n' +
+    '    "redirect_uris": ["<your instance address>/oauth/callback"],\n' +
     '    "grant_types": ["authorization_code", "refresh_token"],\n' +
     '    "token_endpoint_auth_method": "client_secret_post"\n' +
     "  }'"
   )
 }
 
+/**
+ * The "Issue a credential" card — a first-class `content/code` curl block
+ * (copy affordance, `data-testid="mcp-connect-register"`) documenting the RFC-7591
+ * dynamic client-registration endpoint the removed island used to POST to. The
+ * operator now runs it as a curl (accepted loss: no in-panel button, no one-click
+ * reveal); the endpoint is open per RFC 7591, so no session cookie is sent.
+ */
 function registerCard(): Component {
   return card([
-    sectionLabel('Émettre un identifiant'),
+    sectionLabel('Issue a credential'),
     {
       type: 'text',
       element: 'p',
       props: { className: 'text-foreground-subtle text-sm' },
       content:
-        'Enregistrez un client MCP pour obtenir un identifiant. La réponse renvoie un ' +
-        '« client_id » et un « client_secret » à coller dans votre client IA.',
+        'Register an MCP client to obtain a credential. The response returns a ' +
+        '“client_id” and a “client_secret” to paste into your AI client.',
     } as unknown as Component,
     {
       type: 'code',
@@ -122,6 +186,13 @@ function registerCard(): Component {
   ])
 }
 
+/**
+ * The MCP client config SHAPE the operator pastes into Claude / Cursor. Shown
+ * with a placeholder endpoint ({@link MCP_ENDPOINT_PLACEHOLDER}) because this page
+ * server-renders and cannot resolve `window.location`. Mirrors the `mcpServers`
+ * shape an MCP client expects, so the reference and the endpoint block agree on
+ * the mount literal.
+ */
 const REFERENCE_WIRING = JSON.stringify(
   {
     mcpServers: {
@@ -131,20 +202,26 @@ const REFERENCE_WIRING = JSON.stringify(
       },
     },
   },
+  // eslint-disable-next-line unicorn/no-null -- JSON.stringify's replacer arg requires `null` (not `undefined`) to take the indent
   null,
   2
 )
 
+/**
+ * The static reference-configuration card: the MCP client config shape rendered
+ * as a first-class `content/code` (JSON) block (monospace + JSON attribution +
+ * copy affordance), framed as the structure to paste into the AI client.
+ */
 function referenceConfigCard(): Component {
   return card([
-    sectionLabel('Configuration de référence'),
+    sectionLabel('Reference configuration'),
     {
       type: 'text',
       element: 'p',
       props: { className: 'text-foreground-subtle text-sm' },
       content:
-        'La forme de la configuration MCP à coller dans votre client, avec le point ' +
-        'd’accès à renseigner par l’adresse de votre instance.',
+        'The shape of the MCP config to paste into your client, with the ' +
+        'endpoint set to your instance address.',
     } as unknown as Component,
     {
       type: 'code',
@@ -154,14 +231,17 @@ function referenceConfigCard(): Component {
   ])
 }
 
+/** The French heading per tool category, grouping the tools list. */
 const CATEGORY_LABELS: Readonly<Record<McpToolCategory, string>> = {
-  table: 'Données',
+  table: 'Data',
   action: 'Actions',
-  automation: 'Automatisations',
+  automation: 'Automations',
 }
 
+/** The category render order (data first, then side-effecting entities). */
 const CATEGORY_ORDER: ReadonlyArray<McpToolCategory> = ['table', 'action', 'automation']
 
+/** One tool row: the monospace tool name + its French description. */
 function toolRow(tool: McpToolListing): Component {
   return {
     type: 'container',
@@ -186,6 +266,7 @@ function toolRow(tool: McpToolListing): Component {
   } as unknown as Component
 }
 
+/** One category group: a sub-heading + the tools in that category. */
 function categoryGroup(category: McpToolCategory, tools: ReadonlyArray<McpToolListing>): Component {
   return {
     type: 'container',
@@ -210,6 +291,11 @@ function categoryGroup(category: McpToolCategory, tools: ReadonlyArray<McpToolLi
   } as unknown as Component
 }
 
+/**
+ * The honest empty state when the config exposes no MCP tools yet. Per the brand
+ * voice, the chrome line states what is true + the next action; a Source Serif 4
+ * italic grace note (once per surface) softens it.
+ */
 function noToolsState(): Component {
   return {
     type: 'container',
@@ -223,26 +309,27 @@ function noToolsState(): Component {
         type: 'text',
         element: 'p',
         props: { className: 'text-foreground text-sm font-medium' },
-        content: 'Aucun outil exposé pour le moment',
+        content: 'No tools exposed yet',
       },
       {
         type: 'text',
         element: 'p',
         props: { className: 'text-foreground-subtle max-w-xl text-sm leading-relaxed' },
         content:
-          'Ajoutez « aiAccess » à une table, une action ou une automatisation manuelle dans ' +
-          'la configuration de votre application pour l’exposer ici comme outil MCP.',
+          'Add “aiAccess” to a table, an action, or a manual automation in ' +
+          'your app config to expose it here as an MCP tool.',
       },
       {
         type: 'text',
         element: 'p',
         props: { className: 'text-foreground-subtle max-w-xl text-sm italic' },
-        content: 'Vous décidez de ce que votre IA peut faire — rien n’est exposé par défaut.',
+        content: 'You decide what your AI can do — nothing is exposed by default.',
       },
     ],
   } as unknown as Component
 }
 
+/** The available-tools section: the grouped tool list, or the empty-state guidance. */
 function toolsSection(app: App): Component {
   const tools = listMcpTools(app)
   if (tools.length === 0) {
@@ -250,11 +337,11 @@ function toolsSection(app: App): Component {
       type: 'container',
       element: 'section',
       props: {
-        'aria-label': 'Outils MCP disponibles',
+        'aria-label': 'Available MCP tools',
         'data-testid': 'mcp-tools-section',
         className: 'flex flex-col gap-3',
       },
-      children: [sectionLabel('Outils disponibles'), noToolsState()],
+      children: [sectionLabel('Available tools'), noToolsState()],
     } as unknown as Component
   }
   const groups = CATEGORY_ORDER.flatMap((category) => {
@@ -265,14 +352,18 @@ function toolsSection(app: App): Component {
     type: 'container',
     element: 'section',
     props: {
-      'aria-label': 'Outils MCP disponibles',
+      'aria-label': 'Available MCP tools',
       'data-testid': 'mcp-tools-section',
       className: 'flex flex-col gap-4',
     },
-    children: [sectionLabel('Outils disponibles'), ...groups],
+    children: [sectionLabel('Available tools'), ...groups],
   } as unknown as Component
 }
 
+/**
+ * The full MCP docs body: header + static endpoint reference + RFC-7591 register
+ * curl + reference config + tools list.
+ */
 function mcpDocsBody(app: App): ReadonlyArray<Component> {
   return [
     {
@@ -290,6 +381,15 @@ function mcpDocsBody(app: App): ReadonlyArray<Component> {
   ]
 }
 
+/**
+ * Build the MCP docs page (`/_admin/mcp`), wrapped in the persistent 3-zone
+ * sidebar shell. The available-tools list is derived from `operatorApp` so it
+ * always reflects the administered app's exposed `aiAccess` surface.
+ *
+ * @param title - the page meta title
+ * @param operatorApp - the live operator app (source of the exposed tool catalog)
+ * @param options - tier + shell concerns
+ */
 export function buildMcpDocsPage(title: string, operatorApp: App, options: McpDocsOptions): Page {
   const { canEdit, appName, appVersion, publishedSnapshot } = options
   return {

@@ -5,6 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Component props re-export for sections
+ *
+ * The `props` property in ComponentSchema uses ComponentPropsSchema from the
+ * shared components module. This file provides a section-local re-export
+ * for schema path consistency.
+ *
+ * @see {@link ComponentPropsSchema} from `../../components/props`
+ */
 export {
   ComponentPropsSchema,
   ComponentPropValueSchema,

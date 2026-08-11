@@ -10,12 +10,20 @@ import { text, timestamp, integer, index, customType } from 'drizzle-orm/pg-core
 import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
 
+/**
+ * Custom bytea column type for PostgreSQL binary storage.
+ */
 const bytea = customType<{ data: Buffer }>({
   dataType() {
     return 'bytea'
   },
 })
 
+/**
+ * File Storage Metadata Table
+ *
+ * Metadata for files across all storage backends (S3, local, bytea).
+ */
 export const fileStorageMetadata = systemSchema.table(
   'file_storage_metadata',
   {
@@ -41,6 +49,12 @@ export const fileStorageMetadata = systemSchema.table(
   ]
 )
 
+/**
+ * File Storage Bytea Table
+ *
+ * PostgreSQL bytea content storage (fallback when S3/local not configured).
+ * References file_storage_metadata for metadata.
+ */
 export const fileStorageBytea = systemSchema.table('file_storage_bytea', {
   id: text('id')
     .primaryKey()
@@ -52,6 +66,7 @@ export const fileStorageBytea = systemSchema.table('file_storage_bytea', {
   content: bytea('content').notNull(),
 })
 
+// Type inference
 export type FileStorageMetadataRow = typeof fileStorageMetadata.$inferSelect
 export type NewFileStorageMetadata = typeof fileStorageMetadata.$inferInsert
 export type FileStorageByteaRow = typeof fileStorageBytea.$inferSelect

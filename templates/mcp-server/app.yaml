@@ -11,8 +11,11 @@ description: A headless Sovrium app that exposes tables to an LLM client via MCP
 #   MCP_TRANSPORT=streamable-http
 #   MCP_AUTH_STRATEGY=oauth
 #
-# Schema author declares intent; operator activates. See config/mcp.yaml for the
-# operator-facing manifest of what tools this app will expose once MCP_ENABLED=true.
+# Schema author declares intent; operator activates. README.md ("Turning MCP on") lists the
+# tools this exposes once MCP_ENABLED=true — and why there is nothing to add under config/.
+#
+# Sample data lives in seed/ and loads with `sovrium seed app.yaml`. There are no pages, so
+# the REST API and the MCP tools are the only way to see it.
 
 auth:
   $ref: ./config/auth.yaml

@@ -7,6 +7,9 @@
 
 import { type ReactElement } from 'react'
 
+/**
+ * Component meta property type for structured data
+ */
 export type ComponentMeta = {
   readonly title?: string
   readonly description?: string
@@ -19,6 +22,13 @@ export type ComponentMeta = {
   }
 }
 
+/**
+ * Creates an offers object for Schema.org
+ *
+ * @param price - Product price
+ * @param currency - Currency code
+ * @returns Offers object or empty object
+ */
 function createOffer(price?: string, currency?: string): Record<string, unknown> {
   return price && currency
     ? {
@@ -31,6 +41,14 @@ function createOffer(price?: string, currency?: string): Record<string, unknown>
     : {}
 }
 
+/**
+ * Maps component meta field to Schema.org property
+ *
+ * @param fieldName - Schema.org field name
+ * @param meta - Component meta configuration
+ * @param fields - Enabled fields list
+ * @returns Field object or empty object
+ */
 function mapMetaField(
   fieldName: string,
   meta: ComponentMeta,
@@ -48,6 +66,12 @@ function mapMetaField(
   return {}
 }
 
+/**
+ * Generates Schema.org structured data JSON-LD from component meta
+ *
+ * @param meta - Component meta configuration
+ * @returns JSON-LD object following Schema.org format
+ */
 function generateStructuredData(meta: ComponentMeta): Record<string, unknown> {
   const { structuredData } = meta
 
@@ -55,6 +79,7 @@ function generateStructuredData(meta: ComponentMeta): Record<string, unknown> {
     return {}
   }
 
+  // Build JSON-LD immutably using functional composition
   const baseJsonLd = {
     '@context': 'https://schema.org',
     '@type': structuredData.type,
@@ -67,6 +92,22 @@ function generateStructuredData(meta: ComponentMeta): Record<string, unknown> {
   return mappedFields.reduce((acc, field) => ({ ...acc, ...field }), baseJsonLd)
 }
 
+/**
+ * Renders structured data script from component meta
+ *
+ * SECURITY: Safe use of dangerouslySetInnerHTML
+ * - Content: Schema.org JSON-LD from component metadata (JSON.stringify)
+ * - Source: Validated component meta configuration (component.meta.structuredData)
+ * - Risk: None - JSON data cannot execute as code
+ * - Validation: Schema validation ensures correct structure
+ * - Purpose: Generate rich search results from component content (SEO)
+ * - XSS Protection: type="application/ld+json" prevents script execution
+ * - Format: Safe serialization via JSON.stringify with formatting
+ *
+ * @param props - Component props
+ * @param props.meta - Component meta configuration
+ * @returns Script element with JSON-LD structured data, or null if no structured data
+ */
 export function StructuredDataFromComponent({
   meta,
 }: {
@@ -85,6 +126,7 @@ export function StructuredDataFromComponent({
   return (
     <script
       type="application/ld+json"
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
         __html: JSON.stringify(jsonLd, undefined, 2),
       }}

@@ -20,6 +20,7 @@ import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
+/** Analytics route group. */
 export const analyticsGroup: StaticGroupSpec = {
   tag: 'analytics',
   tagDescription: 'Analytics collection and reporting endpoints',

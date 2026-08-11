@@ -15,8 +15,16 @@ import {
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
+/**
+ * AI Categorize field shape (narrowed from Fields union).
+ */
 type AiCategorizeField = Extract<Fields[number], { readonly type: 'ai-categorize' }>
 
+/**
+ * Preserve-then-empty-guard block for the PL/pgSQL classification function.
+ * Returns PL/pgSQL that short-circuits when a value is already set or when
+ * the source content is empty.
+ */
 const buildGuardSql = (
   fieldName: string
 ): string => `  -- Preserve explicit non-NULL values (user override)
@@ -32,6 +40,11 @@ const buildGuardSql = (
 
   lower_content := lower(source_content);`
 
+/**
+ * Category-selection heuristics executed in PL/pgSQL order:
+ *   1) exact keyword match, 2) billing vocabulary, 3) technical vocabulary,
+ *   4) fallback to first configured category.
+ */
 const CATEGORY_SELECTION_SQL = `  -- 1) Try to match a category by exact keyword appearance in content
   FOREACH category IN ARRAY categories LOOP
     IF position(lower(category) in lower_content) > 0 THEN
@@ -69,6 +82,11 @@ const CATEGORY_SELECTION_SQL = `  -- 1) Try to match a category by exact keyword
     chosen := categories[1];
   END IF;`
 
+/**
+ * NOTIFY emission block: assigns the chosen category and emits a JSON payload
+ * on the `sovrium_ai_compute` channel so the application layer can observe
+ * classifications (and optionally invoke the real AI provider).
+ */
 const buildNotifySql = (sanitized: string, fieldName: string): string =>
   `  NEW.${fieldName} = chosen;
 
@@ -87,6 +105,14 @@ const buildNotifySql = (sanitized: string, fieldName: string): string =>
 
   RETURN NEW;`
 
+/**
+ * Build the full set of SQL statements (function + drop + create trigger) for a
+ * single ai-categorize field via the shared
+ * {@link buildAiComputeTriggerStatements} scaffold. Categorize keeps its legacy
+ * `category` function-name slug (the trigger stays `..._ai_categorize`) and
+ * declares the `categories` vocabulary plus `chosen`/`lower_content`/`category`
+ * scratch locals on top of the common ones.
+ */
 const buildCategorizeTriggerSql = (
   field: AiCategorizeField,
   sanitized: string
@@ -115,6 +141,23 @@ ${buildNotifySql(sanitized, fieldName)}`
   })
 }
 
+/**
+ * Generate a BEFORE INSERT/UPDATE trigger that classifies a record's
+ * ai-categorize field into one of the configured categories.
+ *
+ * Classification logic (executed server-side in PL/pgSQL):
+ * 1. If the record already has a non-NULL value, keep it (user override).
+ * 2. If all source fields are NULL or empty, leave the field NULL.
+ * 3. Otherwise, pick a category from the configured list based on deterministic
+ *    keyword matching against the concatenated source content. Falls back to the
+ *    first category if no keyword matches.
+ * 4. Emits pg_notify on the 'sovrium_ai_compute' channel so the application
+ *    layer can log the compute event (and optionally invoke the real AI provider).
+ *
+ * Runtime Note: PostgreSQL triggers cannot make HTTP calls synchronously.
+ * The deterministic category-picking keeps the INSERT synchronous while the
+ * NOTIFY gives the application layer a hook for any side-effect logging.
+ */
 export const generateAiCategorizeTriggers = (table: Table): readonly string[] => {
   const aiCategorizeFields = table.fields.filter(
     (field): field is AiCategorizeField => field.type === 'ai-categorize'

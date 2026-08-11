@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable functional/prefer-immutable-types */
 import Anthropic from '@anthropic-ai/sdk'
 import type { AiEnvConfig } from '@/domain/models/env/ai/ai'
 
+/** @public */
 export const createAnthropicClient = (config: AiEnvConfig): Anthropic =>
   new Anthropic({
     apiKey: config.apiKey,

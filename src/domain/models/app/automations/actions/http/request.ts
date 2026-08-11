@@ -9,6 +9,12 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * HTTP Action (type: http, operator: request)
+ *
+ * Send HTTP requests to external services.
+ * This is the primary integration mechanism — no pre-integrated apps.
+ */
 export const HttpRequestActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('http'),
@@ -17,6 +23,11 @@ export const HttpRequestActionSchema = Schema.Struct({
     url: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Request URL (supports template variables)' })
     ),
+    // Accepts a literal HTTP verb OR a template string (`{{…}}` /
+    // `$env.…`) so operators can drive the method off trigger data
+    //. Plain free-form strings
+    // are rejected at decode time so a typo like `'PSOT'` still fails
+    // before a request is dispatched.
     method: Schema.Union(
       Schema.Literal('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'),
       Schema.String.pipe(Schema.filter((s) => s.includes('{{') || s.includes('$env')))
@@ -66,4 +77,5 @@ export const HttpRequestActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type HttpRequestAction = Schema.Schema.Type<typeof HttpRequestActionSchema>

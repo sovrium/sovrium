@@ -9,10 +9,28 @@ import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useState } from 'react'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
+/**
+ * Delete-view confirmation Dialog (PG-03 / [internal ref]).
+ *
+ * Two-step deletion gesture that mirrors the `Reset to defaults` confirmation
+ * in `settings-dialog.tsx`:
+ *
+ *  1. The Views dropdown's `Delete view` button calls the orchestrator's
+ *     handler, which opens this dialog with the target view's name.
+ *  2. The user clicks `Confirm` (or `Delete`), which fires `onConfirm` and
+ *     dismisses the dialog. Clicking `Cancel` closes without deleting.
+ *
+ * The spec asserts the dialog body contains either "are you sure" or "cannot
+ * be undone" wording — we use both for clarity.
+ */
 interface DeleteViewConfirmDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly viewName: string
+  /**
+   * Commit handler. Resolves on success; rejects on failure. The dialog
+   * displays the error inline and stays open so the user can retry or cancel.
+   */
   readonly onConfirm: () => Promise<void>
 }
 
@@ -77,6 +95,12 @@ interface DeleteViewBodyProps {
   readonly onConfirm: () => void
 }
 
+/**
+ * Confirmation body of the Delete-view dialog. Extracted so
+ * {@link DeleteViewConfirmDialog} stays under the islands' 60-line
+ * max-lines-per-function cap. State (pending, error) stays in the parent —
+ * this is a pure render.
+ */
 function DeleteViewBody({ viewName, error, pending, onConfirm }: DeleteViewBodyProps) {
   return (
     <div className="bg-background-overlay border-border w-full max-w-sm rounded-lg border p-6 shadow-xl">

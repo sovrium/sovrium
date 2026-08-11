@@ -1,0 +1,76 @@
+# Order lines — one row per product on an order.
+#
+# The join between `orders` and `products`. `line_total` is computed in the
+# database, so it can never drift from quantity x price.
+id: 6
+name: order_lines
+fields:
+  - id: 1
+    name: label
+    type: single-line-text
+    required: true
+  - id: 2
+    name: sales_order
+    type: relationship
+    relatedTable: orders
+    relationType: many-to-one
+    displayField: customer_name
+  - id: 3
+    name: product
+    type: relationship
+    relatedTable: products
+    relationType: many-to-one
+    displayField: name
+  - id: 4
+    name: product_sku
+    type: lookup
+    relationshipField: product
+    relatedField: sku
+  - id: 5
+    name: quantity
+    type: integer
+    min: 1
+    default: 1
+  - id: 6
+    name: unit_price
+    type: currency
+    currency: EUR
+    precision: 2
+  # `currency` is declared, never inherited from the fields the formula
+  # multiplies. `format: currency` alone falls back to USD, which rendered
+  # `$5,560.00` in the same row as the `€139.00` unit price it was computed
+  # from — the kind of wrong that looks authoritative. Keep this in step with
+  # `unit_price` above; `products.stock_value` carries the same pairing.
+  - id: 7
+    name: line_total
+    type: formula
+    formula: quantity * unit_price
+    resultType: number
+    format: currency
+    currency: EUR
+    precision: 2
+  - id: 8
+    name: created_at
+    type: created-at
+
+aiAccess:
+  description: >-
+    Individual products on an order. Use this when the user asks what is on an
+    order, or how many units of a product were sold.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
+
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

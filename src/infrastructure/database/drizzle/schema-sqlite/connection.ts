@@ -9,7 +9,16 @@ import { text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { users } from './auth-tables'
 import { systemTable } from './table-helpers'
 
+/**
+ * Connection tables — sqlite-core mirror of `schema/connection.ts`.
+ */
 
+/**
+ * Connections Table
+ *
+ * Stores OAuth2/API key credentials for external service integrations.
+ * Used by automations to connect to third-party APIs.
+ */
 export const connections = systemTable(
   'connections',
   {
@@ -32,10 +41,19 @@ export const connections = systemTable(
   },
   (table) => [
     index('connections_provider_idx').on(table.provider),
+    // Audit H3: name must be unique so resolveConnectionId can collapse
+    // its read-then-write pattern into ON CONFLICT DO UPDATE without
+    // racing against concurrent first-authorize requests for the same
+    // connection name.
     uniqueIndex('connections_name_unique').on(table.name),
   ]
 )
 
+/**
+ * Connection Tokens Table
+ *
+ * Per-user OAuth tokens for connected services.
+ */
 export const connectionTokens = systemTable(
   'connection_tokens',
   {
@@ -62,10 +80,15 @@ export const connectionTokens = systemTable(
   (table) => [
     index('connection_tokens_connectionId_idx').on(table.connectionId),
     index('connection_tokens_userId_idx').on(table.userId),
+    // Audit H3: each (connection, user) pair must hold exactly one token
+    // row so upsertForUser can use INSERT ... ON CONFLICT DO UPDATE
+    // instead of read-then-write (which raced when two callbacks for the
+    // same user landed concurrently).
     uniqueIndex('connection_tokens_connection_user_unique').on(table.connectionId, table.userId),
   ]
 )
 
+// Type inference
 export type Connection = typeof connections.$inferSelect
 export type NewConnection = typeof connections.$inferInsert
 export type ConnectionToken = typeof connectionTokens.$inferSelect

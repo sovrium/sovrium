@@ -7,6 +7,20 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Action Template Variables Schema
+ *
+ * Variable declarations with default values for action templates.
+ * When an action template is referenced via $ref, variables can be
+ * overridden using $vars at the call site.
+ *
+ * @example
+ * ```yaml
+ * variables:
+ *   recipientEmail: admin@example.com
+ *   subject: Default Subject
+ * ```
+ */
 export const ActionTemplateVariablesSchema = Schema.Record({
   key: Schema.String,
   value: Schema.Unknown,
@@ -18,4 +32,5 @@ export const ActionTemplateVariablesSchema = Schema.Record({
   })
 )
 
+/** @public */
 export type ActionTemplateVariables = Schema.Schema.Type<typeof ActionTemplateVariablesSchema>

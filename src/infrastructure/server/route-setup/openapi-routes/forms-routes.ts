@@ -10,6 +10,11 @@ import { errorResponseSchema } from '@/domain/models/api/_shared/error'
 import { createSubmissionRequestSchema, submissionResponseSchema } from '@/domain/models/api/forms'
 import { type ResourceGroupSpec, type RouteSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * Form routes — resource-scoped to `app.forms`. Each configured form expands
+ * into a concrete copy of every route below, tagged `Form: <name>`. The form
+ * rendering routes return HTML; only the submission route returns JSON.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 const htmlResponse = (description: string) => ({
@@ -84,6 +89,7 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/** Form route group — resource-scoped to the configured forms. */
 export const formGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Form',
   genericTag: 'forms',

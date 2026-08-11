@@ -33,6 +33,14 @@ import {
 } from '@/domain/models/api/tables/tables'
 import { type ResourceGroupSpec, type RouteSpec, jsonResponse } from './_shared/route-spec'
 
+/**
+ * Record CRUD, trash, history, and comment routes.
+ *
+ * Resource-scoped to `app.tables`: each configured table expands into a
+ * concrete copy of every route below, tagged `Table: <name>`. The table id is
+ * baked into the concrete path, so `request.params` here omits it — see the
+ * `*OnlyParamSchema` schemas in `domain/models/api/tables/params.ts`.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
@@ -225,6 +233,9 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/**
+ * Record route group — resource-scoped to the configured tables.
+ */
 export const recordsGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Table',
   genericTag: 'records',

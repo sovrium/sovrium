@@ -17,6 +17,18 @@ export const drawerFields = {
   ...coreFields,
   ...visibilityFields,
   ...i18nFields,
+  /**
+   * Component identifier — referenced by an `onRowClick.action: 'openDrawer'`
+   * dispatch (PG-04 quick-edit drawer pattern). Authors set `id` at the
+   * top level (sibling of `type` / `props`) so the cross-component reference
+   * reads naturally:
+   *
+   *   { type: 'data-table', onRowClick: { action: 'openDrawer', component: 'record-detail' } }
+   *   { type: 'drawer', id: 'record-detail', children: [...] }
+   *
+   * The render-time `resolveOpenDrawerDispatches` pass tags any drawer
+   * referenced this way so the hydrated island defaults to `open=false`.
+   */
   id: Schema.optional(
     Schema.String.annotations({
       description:

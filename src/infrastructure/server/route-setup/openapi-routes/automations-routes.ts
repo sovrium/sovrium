@@ -22,6 +22,11 @@ import {
   jsonResponse,
 } from './_shared/route-spec'
 
+/**
+ * Automation routes — split into a per-automation group (triggers + named run
+ * history, resource-scoped to `app.automations`, tagged `Automation: <name>`)
+ * and a static run-management group keyed by run id.
+ */
 
 const errorResponse = (description: string) => jsonResponse(errorResponseSchema, description)
 
@@ -110,6 +115,7 @@ const routes: readonly RouteSpec[] = [
   },
 ]
 
+/** Per-automation route group — resource-scoped to the configured automations. */
 export const automationGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Automation',
   genericTag: 'automations',
@@ -121,6 +127,7 @@ export const automationGroupSpec: ResourceGroupSpec = {
   routes,
 }
 
+/** Automation collection and run-management routes — not scoped to one automation. */
 export const automationCollectionGroup: StaticGroupSpec = {
   tag: 'automations',
   tagDescription: 'Automation trigger and run endpoints',

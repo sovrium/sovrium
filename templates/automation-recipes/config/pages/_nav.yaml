@@ -34,6 +34,20 @@ children:
       - type: button
         props:
           className: px-3 py-1.5 rounded-md border text-sm font-medium
+          # The `button` component paints its own filled-primary variant, and the
+          # classes appended above do not undo it. That was survivable while
+          # `primary` was the platform's neutral near-black; once config/theme.yaml
+          # declared an accent it made Sign out the loudest, most saturated element
+          # on every page — louder than whatever the page was actually asking the
+          # operator to do. Signing out is an escape hatch, not a call to action.
+          #
+          # Inline `style` beats the injected variant classes and needs no Tailwind
+          # candidate to exist (the CSS compiler does not scan templates/ for class
+          # names, so an unemitted utility would silently render as nothing).
+          style:
+            backgroundColor: transparent
+            color: var(--color-foreground-muted)
+            borderColor: var(--color-border)
         content: Sign out
         action:
           type: auth

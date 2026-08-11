@@ -7,6 +7,12 @@
 
 import { Data } from 'effect'
 
+/**
+ * Error during schema initialization
+ *
+ * This error is thrown when database schema initialization fails,
+ * indicating that table creation or migration failed.
+ */
 export class SchemaInitializationError extends Data.TaggedError('SchemaInitializationError')<{
   readonly message: string
   readonly cause?: unknown

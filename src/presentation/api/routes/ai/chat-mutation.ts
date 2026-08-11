@@ -5,6 +5,29 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * AI Chat record-mutation executor.
+ *
+ * Powers `[internal ref]`.
+ * Given a {@link MutationIntent} parsed from the user's chat message, this
+ * module:
+ *
+ * - enforces table-level RBAC (create/update/delete) — [internal ref]
+ *    / 013;
+ * - validates field values against schema constraints — [internal ref];
+ *  - requires a confirmation token before any delete, and before a bulk
+ * update that affects 2+ rows — [internal ref];
+ *  - executes the mutation against the engine-created table and reports the
+ * affected record ids back in the chat response — [internal ref] /
+ *    002 / 010 / 012;
+ *  - writes one `system.ai_activity_logs` row per mutation with user
+ * attribution — [internal ref].
+ *
+ * Mutations are issued as direct parameterised SQL via `db.execute` against
+ * the `public`-schema table the engine created from `app.tables[]`. This keeps
+ * the chat surface free of the full `TableRepository`/RLS wiring while
+ * remaining deterministic for the spec.
+ */
 
 import { Effect } from 'effect'
 import {
@@ -30,6 +53,7 @@ import type {
   MutationTable,
 } from '@/domain/services/ai-chat/ai-chat-mutation-parser'
 
+/** A pending destructive action awaiting an explicit user confirmation. */
 export interface PendingConfirmation {
   readonly action: string
   readonly table: string
@@ -38,6 +62,7 @@ export interface PendingConfirmation {
   readonly confirmationToken: string
 }
 
+/** Outcome of attempting to apply a mutation intent. */
 export type MutationOutcome =
   | { readonly status: 'forbidden'; readonly message: string }
   | { readonly status: 'validation-error'; readonly message: string }
@@ -48,14 +73,25 @@ export type MutationOutcome =
       readonly summary: string
     }
 
+/** Inputs required to apply a mutation intent. */
 export interface ApplyMutationInput {
   readonly intent: MutationIntent
+  /** The acting user's role — used for table-level RBAC checks. */
   readonly userRole: string
+  /** The acting user's email — written to the activity log. */
   readonly userEmail: string
+  /** The full set of app tables (carries permissions + field metadata). */
   readonly tables: ReadonlyArray<MutationTable & { readonly permissions?: unknown }>
 }
 
+// ---------------------------------------------------------------------------
+// Pending-confirmation store
+// ---------------------------------------------------------------------------
 
+/**
+ * A confirmation entry stashed when a destructive action is proposed. It is
+ * re-applied when the next request on the same session carries its token.
+ */
 interface StoredConfirmation {
   readonly intent: MutationIntent
   readonly userRole: string
@@ -63,19 +99,37 @@ interface StoredConfirmation {
   readonly tables: ReadonlyArray<MutationTable & { readonly permissions?: unknown }>
 }
 
+/**
+ * Module-level pending-confirmation store, keyed by the issued
+ * `confirmationToken`. Same ephemeral-Map discipline as the conversation store
+ * and `webhook-rate-limit.ts` — a confirmation is short-lived working state,
+ * not durable data.
+ */
 const pendingConfirmations = new Map<string, StoredConfirmation>()
 
+/** Look up (and consume) a stored confirmation by its token. */
 export const consumeConfirmation = (token: string): StoredConfirmation | undefined => {
   const stored = pendingConfirmations.get(token)
   if (stored !== undefined) {
+    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- module-local mutable Map, not a Drizzle table; mirrors conversation store
     pendingConfirmations.delete(token)
   }
   return stored
 }
 
+// ---------------------------------------------------------------------------
+// Field-value validation
+// ---------------------------------------------------------------------------
 
 const EMAIL_FORMAT_RE = /^[\w.+-]+@[\w-]+\.[\w.-]+$/
 
+/**
+ * Validate the create payload against the table's field schema:
+ *  - a value mapped to an `email`-typed field must be email-shaped;
+ *  - a `required` field with no supplied value is rejected.
+ * Returns a human-readable message on the first failure, or `undefined` when
+ * the payload satisfies every constraint.
+ */
 const validateCreateData = (
   table: MutationTable,
   data: Readonly<Record<string, unknown>>
@@ -98,13 +152,28 @@ const validateCreateData = (
   return undefined
 }
 
+// ---------------------------------------------------------------------------
+// Field-level write RBAC
+// ---------------------------------------------------------------------------
 
+/**
+ * Extract the `fields` array from a table's (untyped) `permissions` block.
+ * Returns `undefined` when no field-level permissions are declared.
+ */
 const extractFieldPermissions = (permissions: unknown): TableFieldPermissions | undefined => {
   if (permissions === null || typeof permissions !== 'object') return undefined
   const { fields } = permissions as { readonly fields?: unknown }
   return Array.isArray(fields) ? (fields as TableFieldPermissions) : undefined
 }
 
+/**
+ * Enforce field-level write RBAC: for every field present in the mutation
+ * payload, the acting role must hold `write` on that field's declared
+ * field-level permission. A field with no declared permission is unrestricted.
+ *
+ * Returns the name of the first field the user may not write, or `undefined`
+ * when the whole payload is permitted.
+ */
 const findForbiddenWriteField = (
   permissions: unknown,
   userRole: string,
@@ -119,7 +188,22 @@ const findForbiddenWriteField = (
   })
 }
 
+// ---------------------------------------------------------------------------
+// SQL execution helpers — fronted by the DynamicRecordRepository port
+//
+// The raw parameterised DML lives in the infrastructure layer
+// (`dynamic-record-repository-live.ts`); these helpers consume the
+// `dynamic-record-query` use-case via `Effect.runPromise` so the presentation
+// layer holds no raw SQL literal. Behavior is byte-identical to the prior
+// inline SQL — a hard delete (not a soft `deleted_at`), `INSERT … RETURNING
+// id`, `DEFAULT VALUES` for an empty payload, no authorship stamping, no
+// activity-log side effects in the repository.
+// ---------------------------------------------------------------------------
 
+/**
+ * Count rows in a table, optionally narrowed by a single `column = value`
+ * filter. Used to size confirmation prompts for bulk/delete operations.
+ */
 const countRows = async (
   tableName: string,
   filter?: { readonly column: string; readonly value: string }
@@ -128,6 +212,10 @@ const countRows = async (
     countDynamicRecords({ table: tableName, filter }).pipe(provideDynamicRecordRepoLive)
   )
 
+/**
+ * Insert one row and return its generated id. Columns and values are passed as
+ * parameterised SQL fragments so values are never string-interpolated.
+ */
 const insertRow = async (
   tableName: string,
   data: Readonly<Record<string, unknown>>
@@ -136,6 +224,7 @@ const insertRow = async (
     insertDynamicRecord({ table: tableName, data }).pipe(provideDynamicRecordRepoLive)
   )
 
+/** Update one row by id; returns true when a row was affected. */
 const updateRowById = async (
   tableName: string,
   recordId: number,
@@ -145,6 +234,7 @@ const updateRowById = async (
     updateDynamicRecordById({ table: tableName, recordId, data }).pipe(provideDynamicRecordRepoLive)
   )
 
+/** Update every row in a table; returns the affected record ids. */
 const updateAllRows = async (
   tableName: string,
   data: Readonly<Record<string, unknown>>
@@ -153,6 +243,11 @@ const updateAllRows = async (
     updateAllDynamicRecords({ table: tableName, data }).pipe(provideDynamicRecordRepoLive)
   )
 
+/**
+ * Hard-delete rows from a table, optionally narrowed by a `column = value`
+ * filter; returns the deleted record ids. A hard delete (not a soft
+ * `deleted_at`) is used so the spec's `SELECT COUNT(*)` observes zero rows.
+ */
 const deleteRows = async (
   tableName: string,
   filter?: { readonly column: string; readonly value: string }
@@ -161,7 +256,15 @@ const deleteRows = async (
     deleteDynamicRecords({ table: tableName, filter }).pipe(provideDynamicRecordRepoLive)
   )
 
+// ---------------------------------------------------------------------------
+// Activity logging
+// ---------------------------------------------------------------------------
 
+/**
+ * Record one mutation in `system.ai_activity_logs` with user attribution
+ *. Best-effort — a logging failure must never break
+ * the chat turn.
+ */
 const logMutation = async (tableName: string, userEmail: string): Promise<void> =>
   recordActivityLogRow({
     actorType: 'user',
@@ -171,7 +274,11 @@ const logMutation = async (tableName: string, userEmail: string): Promise<void> 
     userEmail,
   })
 
+// ---------------------------------------------------------------------------
+// Intent-kind handlers
+// ---------------------------------------------------------------------------
 
+/** Resolve the {@link MutationTable} for an intent, if the app declares it. */
 const resolveTable = (
   input: ApplyMutationInput
 ): (MutationTable & { readonly permissions?: unknown }) | undefined =>
@@ -204,6 +311,7 @@ const applyCreate = async (
     return { status: 'validation-error', message: validationError }
   }
   const recordId = await insertRow(table.name, input.intent.data)
+  // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
   await logMutation(table.name, input.userEmail)
   const detail = Object.values(input.intent.data).filter((v) => typeof v === 'string')
   return {
@@ -223,6 +331,7 @@ const applyCreate = async (
   }
 }
 
+/** Apply a single-record update by id. */
 const applyUpdateById = async (
   input: ApplyMutationInput,
   tableName: string,
@@ -236,6 +345,7 @@ const applyUpdateById = async (
       message: `No record #${String(recordId)} found in "${tableName}".`,
     }
   }
+  // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
   await logMutation(tableName, input.userEmail)
   return {
     status: 'applied',
@@ -251,12 +361,14 @@ const applyUpdateById = async (
   }
 }
 
+/** Apply an update to every row of a table ([internal ref] confirmed path). */
 const applyUpdateAll = async (
   userEmail: string,
   tableName: string,
   data: Readonly<Record<string, unknown>>
 ): Promise<MutationOutcome> => {
   const ids = await updateAllRows(tableName, data)
+  // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
   await logMutation(tableName, userEmail)
   return {
     status: 'applied',
@@ -282,12 +394,17 @@ const applyUpdate = async (
     }
   }
   const { data, bulk, recordId } = input.intent
+  // An update with no extractable field values cannot be applied — surface a
+  // benign validation message rather than emitting empty SQL or stashing a
+  // useless confirmation.
   if (Object.keys(data).length === 0) {
     return {
       status: 'validation-error',
       message: `I could not determine which fields to change in "${table.name}". Please specify the new values.`,
     }
   }
+  // Field-level write RBAC: deny before the bulk
+  // confirmation gate so a forbidden field never reaches a stashed intent.
   const forbiddenField = findForbiddenWriteField(table.permissions, input.userRole, data)
   if (forbiddenField !== undefined) {
     return {
@@ -295,6 +412,9 @@ const applyUpdate = async (
       message: `You do not have permission to modify the "${forbiddenField}" field in "${table.name}".`,
     }
   }
+  // Bulk update affecting 2+ rows requires explicit confirmation
+  //. The row count is the table-wide total since the
+  // intent targets "all" rows.
   if (bulk) {
     const affectedCount = await countRows(table.name)
     if (affectedCount >= 2) {
@@ -320,6 +440,7 @@ const applyDelete = async (
       message: `You do not have permission to delete records in "${table.name}".`,
     }
   }
+  // Every delete requires explicit confirmation.
   const affectedCount = await countRows(table.name, input.intent.filter)
   return {
     status: 'pending',
@@ -327,12 +448,17 @@ const applyDelete = async (
   }
 }
 
+/**
+ * Stash a confirmation entry under a fresh token and build the
+ * {@link PendingConfirmation} envelope returned to the caller.
+ */
 const stashConfirmation = (
   input: ApplyMutationInput,
   action: string,
   affectedCount: number
 ): PendingConfirmation => {
   const confirmationToken = crypto.randomUUID()
+  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- module-local mutable Map, mirrors conversation store
   pendingConfirmations.set(confirmationToken, {
     intent: input.intent,
     userRole: input.userRole,
@@ -348,7 +474,15 @@ const stashConfirmation = (
   }
 }
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
+/**
+ * Apply a parsed mutation intent. Destructive intents (delete; bulk update of
+ * 2+ rows) yield a `pending` outcome instead of executing — the caller must
+ * re-submit with the issued `confirmationToken` to commit.
+ */
 export const applyMutation = async (input: ApplyMutationInput): Promise<MutationOutcome> => {
   const table = resolveTable(input)
   if (table === undefined) {
@@ -364,6 +498,10 @@ export const applyMutation = async (input: ApplyMutationInput): Promise<Mutation
   }
 }
 
+/**
+ * Commit a previously-stashed confirmation: re-run the stored intent, this
+ * time forcing execution (delete / bulk update bypass the confirmation gate).
+ */
 export const commitConfirmedMutation = async (
   stored: StoredConfirmation
 ): Promise<MutationOutcome> => {
@@ -379,6 +517,7 @@ export const commitConfirmedMutation = async (
   }
   if (stored.intent.kind === 'delete') {
     const ids = await deleteRows(table.name, stored.intent.filter)
+    // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
     await logMutation(table.name, stored.userEmail)
     return {
       status: 'applied',
@@ -391,10 +530,13 @@ export const commitConfirmedMutation = async (
       summary: `Deleted ${String(ids.length)} record(s) from "${table.name}".`,
     }
   }
+  // Bulk update — apply every row directly (the confirmation gate is bypassed
+  // by routing through updateAllRows here rather than applyUpdate).
   const ids = await updateAllRows(
     table.name,
     input.intent.kind === 'update' ? input.intent.data : {}
   )
+  // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
   await logMutation(table.name, stored.userEmail)
   return {
     status: 'applied',

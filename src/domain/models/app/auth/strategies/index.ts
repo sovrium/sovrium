@@ -8,6 +8,17 @@
 import { Schema } from 'effect'
 import { OAuthProviderSchema } from './oauth/providers'
 
+/**
+ * Email and Password Strategy Schema
+ *
+ * Traditional credential-based authentication.
+ *
+ * @example
+ * ```typescript
+ * { type: 'emailAndPassword' }
+ * { type: 'emailAndPassword', minPasswordLength: 12, requireEmailVerification: true }
+ * ```
+ */
 export const EmailAndPasswordStrategySchema = Schema.Struct({
   type: Schema.Literal('emailAndPassword'),
   minPasswordLength: Schema.optional(
@@ -45,8 +56,20 @@ export const EmailAndPasswordStrategySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type EmailAndPasswordStrategy = Schema.Schema.Type<typeof EmailAndPasswordStrategySchema>
 
+/**
+ * Magic Link Strategy Schema
+ *
+ * Passwordless authentication via email link.
+ *
+ * @example
+ * ```typescript
+ * { type: 'magicLink' }
+ * { type: 'magicLink', expirationMinutes: 30 }
+ * ```
+ */
 export const MagicLinkStrategySchema = Schema.Struct({
   type: Schema.Literal('magicLink'),
   expirationMinutes: Schema.optional(
@@ -66,8 +89,20 @@ export const MagicLinkStrategySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type MagicLinkStrategy = Schema.Schema.Type<typeof MagicLinkStrategySchema>
 
+/**
+ * OAuth Strategy Schema
+ *
+ * Social login with OAuth providers.
+ * Credentials are loaded from environment variables.
+ *
+ * @example
+ * ```typescript
+ * { type: 'oauth', providers: ['google', 'github'] }
+ * ```
+ */
 export const OAuthStrategySchema = Schema.Struct({
   type: Schema.Literal('oauth'),
   providers: Schema.NonEmptyArray(OAuthProviderSchema).pipe(
@@ -83,8 +118,22 @@ export const OAuthStrategySchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type OAuthStrategy = Schema.Schema.Type<typeof OAuthStrategySchema>
 
+/**
+ * Auth Strategy Schema
+ *
+ * Discriminated union of all supported authentication strategy types.
+ * The `type` field determines which strategy configuration applies.
+ *
+ * @example
+ * ```typescript
+ * { type: 'emailAndPassword', minPasswordLength: 12 }
+ * { type: 'magicLink' }
+ * { type: 'oauth', providers: ['google', 'github'] }
+ * ```
+ */
 export const AuthStrategySchema = Schema.Union(
   EmailAndPasswordStrategySchema,
   MagicLinkStrategySchema,
@@ -104,6 +153,22 @@ export const AuthStrategySchema = Schema.Union(
 
 export type AuthStrategy = Schema.Schema.Type<typeof AuthStrategySchema>
 
+/**
+ * Auth Strategies Array Schema
+ *
+ * Non-empty array of authentication strategies.
+ * At least one strategy must be defined.
+ *
+ * Validates:
+ * - At least one strategy is present
+ * - No duplicate strategy types
+ *
+ * @example
+ * ```typescript
+ * [{ type: 'emailAndPassword' }]
+ * [{ type: 'emailAndPassword', minPasswordLength: 12 }, { type: 'oauth', providers: ['google'] }]
+ * ```
+ */
 export const AuthStrategiesSchema = Schema.NonEmptyArray(AuthStrategySchema).pipe(
   Schema.filter((strategies) => {
     const types = strategies.map((s) => s.type)
@@ -126,4 +191,5 @@ export const AuthStrategiesSchema = Schema.NonEmptyArray(AuthStrategySchema).pip
   })
 )
 
+/** @public */
 export type AuthStrategies = Schema.Schema.Type<typeof AuthStrategiesSchema>

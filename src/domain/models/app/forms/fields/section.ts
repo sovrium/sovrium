@@ -8,10 +8,17 @@
 import { Schema } from 'effect'
 import { VisibleWhenSchema } from '../../../shared/visible-when'
 
+/**
+ * Section field — visual divider with an optional label and description.
+ * Renders no input; used to break long forms into themed groups.
+ */
 export const SectionFieldSchema = Schema.Struct({
   kind: Schema.Literal('section'),
+  /** Section heading. */
   heading: Schema.optional(Schema.String),
+  /** Section description / intro paragraph. */
   description: Schema.optional(Schema.String),
+  /** Visibility rule for the entire section. */
   visibleWhen: Schema.optional(VisibleWhenSchema),
 }).annotations({
   identifier: 'SectionField',
@@ -19,4 +26,5 @@ export const SectionFieldSchema = Schema.Struct({
   description: 'Visual section divider with an optional heading and description',
 })
 
+/** @public */
 export type SectionField = Schema.Schema.Type<typeof SectionFieldSchema>

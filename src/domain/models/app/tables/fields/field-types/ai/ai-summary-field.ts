@@ -8,6 +8,33 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * AI Summary Field
+ *
+ * Automatically summarizes content from source fields into concise text
+ * using AI. Supports configurable max length and custom prompts to control
+ * summarization style.
+ *
+ * Business Rules:
+ * - Output is PostgreSQL TEXT
+ * - Respects `maxLength` constraint; truncates AI output if exceeded
+ * - Defaults to no length limit when `maxLength` is omitted
+ * - Skips NULL source fields gracefully (summarizes non-NULL fields only)
+ * - Returns NULL when all source fields are empty or NULL
+ * - Does not auto-compute when `computeOn` is `manual`
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 4,
+ *   name: 'ticket_summary',
+ *   type: 'ai-summary',
+ *   sourceFields: ['subject', 'description', 'customer_notes'],
+ *   maxLength: 200,
+ *   computeOn: 'both',
+ * }
+ * ```
+ */
 export const AiSummaryFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -114,4 +141,5 @@ export const AiSummaryFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type AiSummaryField = Schema.Schema.Type<typeof AiSummaryFieldSchema>

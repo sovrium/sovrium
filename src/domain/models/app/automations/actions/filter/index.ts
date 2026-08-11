@@ -8,6 +8,7 @@
 import { FilterContinueActionSchema } from './continue'
 
 export const FilterActionSchema = FilterContinueActionSchema
+/** @public */
 export type FilterAction = typeof FilterActionSchema.Type
 
 export * from './continue'

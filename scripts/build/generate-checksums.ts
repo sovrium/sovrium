@@ -5,6 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Generate SHA256 checksums for binary release archives.
+ *
+ * Scans the current directory (or a specified directory) for .tar.gz files
+ * matching the sovrium-* pattern and produces a checksums file.
+ *
+ * Usage:
+ *   bun run scripts/build/generate-checksums.ts                     # Current directory
+ *   bun run scripts/build/generate-checksums.ts --dir ./release      # Specific directory
+ *   bun run scripts/build/generate-checksums.ts --output checksums.txt
+ */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

@@ -13,6 +13,21 @@ import { useChat } from './use-chat'
 import type { AiChatIslandProps } from './types'
 import type { ReactElement } from 'react'
 
+/**
+ * Interactive `ai-chat` island.
+ *
+ * Mounted by the island client into the SSR placeholder emitted by
+ * `ai-chat-component.tsx`. The placeholder's `<div data-island="ai-chat">`
+ * already carries `data-component="ai-chat"` and the author-declared `data-*`
+ * attributes, so this component renders ONLY the inner chat surface (message
+ * log + error banner + input row) — duplicating `data-component` here would
+ * nest two markers and break strict-mode locator assertions.
+ *
+ * Wires the message log and the chat backend (`POST /api/ai/chat`) into a
+ * working chat surface: progressively-revealed responses, a loading indicator,
+ * an error banner with a retry button, an optional attachment button, and
+ * conversation-history replay when `showHistory` is enabled.
+ */
 
 const DEFAULT_CHAT_HEIGHT_PX = 400
 

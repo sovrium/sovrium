@@ -10,21 +10,30 @@ import { ConditionGroupSchema } from '../../conditions'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Record Batch Delete Action (type: record, operator: batchDelete)
+ *
+ * Delete multiple records matching a filter condition.
+ * Optional `limit` prevents accidental mass deletion.
+ */
 export const RecordBatchDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('record'),
   operator: Schema.Literal('batchDelete'),
   props: Schema.Struct({
+    /** Target table name */
     table: TemplateStringSchema.pipe(
       Schema.annotations({ description: 'Table to delete records from' })
     ),
 
+    /** Filter condition to match records for deletion */
     filter: ConditionGroupSchema.pipe(
       Schema.annotations({
         description: 'Condition to match records for deletion',
       })
     ),
 
+    /** Maximum records to delete (safety limit) */
     limit: Schema.optional(
       Schema.Number.pipe(
         Schema.int(),
@@ -43,4 +52,5 @@ export const RecordBatchDeleteActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type RecordBatchDeleteAction = Schema.Schema.Type<typeof RecordBatchDeleteActionSchema>

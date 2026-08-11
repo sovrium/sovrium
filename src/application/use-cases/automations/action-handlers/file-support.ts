@@ -14,7 +14,15 @@ import {
   type OutboundUrlReason,
 } from '@/infrastructure/utils/validate-outbound-url'
 
+/**
+ * Shared helpers for the `file:*` action handlers — MIME inference,
+ * temp-key minting, source resolution (`data:` URI / HTTP URL / storage
+ * key), and tiny pure CSV read/write.
+ */
 
+// ---------------------------------------------------------------------------
+// MIME helpers
+// ---------------------------------------------------------------------------
 
 const MIME_BY_EXT: Readonly<Record<string, string>> = {
   pdf: 'application/pdf',
@@ -52,6 +60,16 @@ export const extOf = (key: string | undefined): string => {
 export const tempKey = (suffix: string): string =>
   `${TEMP_STORAGE_PREFIX}${globalThis.crypto.randomUUID()}${suffix}`
 
+/**
+ * Store a `file:*` action's output bytes, returning `false` when the write
+ * failed so callers can shape their own `error` outcome.
+ *
+ * This is the single write path for every file action, and therefore the one
+ * place temp-storage reclamation hooks in: when the artifact lands under
+ * `TEMP_STORAGE_PREFIX`, aged temp files are swept as part of the same step.
+ * That is the whole trigger model — there is no scheduler — so any future
+ * temp write must go through here to keep `tmp/automations/` bounded.
+ */
 export const uploadArtifact = (
   storage: Effect.Effect.Success<typeof StorageService>,
   key: string,
@@ -67,12 +85,25 @@ export const uploadArtifact = (
     return true
   })
 
+// ---------------------------------------------------------------------------
+// Source resolution: data: URI | http(s) URL | storage key
+// ---------------------------------------------------------------------------
 
 export interface ResolvedSource {
   readonly bytes: Uint8Array
+  /** MIME type detected from the source itself (data URI / HTTP header). */
   readonly detectedMime?: string
 }
 
+/**
+ * Tagged failure raised when an `http(s)://` `source` is rejected by the
+ * outbound-URL SSRF guard BEFORE any fetch (loopback / link-local / RFC1918 /
+ * unsupported-protocol). The tag lets `handleFileUpload` `Effect.either` this
+ * specific failure and map it to an explicit `error` outcome — rather than the
+ * old behaviour where a network failure degraded to empty bytes and silently
+ * stored a benign-looking empty file. `reason` mirrors the `http.ts` /
+ * `webhook.ts` siblings' `invalid_outbound_url_${reason}` message shape.
+ */
 export class OutboundUrlBlockedError extends Data.TaggedError('OutboundUrlBlockedError')<{
   readonly reason: OutboundUrlReason
 }> {}
@@ -87,6 +118,14 @@ const parseDataUri = (source: string): ResolvedSource | undefined => {
   return mime ? { bytes, detectedMime: mime } : { bytes }
 }
 
+/**
+ * Fetch an ALREADY-VALIDATED remote source over HTTP(S). The SSRF guard runs
+ * in `fetchSource` before this is reached. Network/decode failures of a
+ * permitted target are swallowed into an empty result (the handler then
+ * surfaces a generic `error` outcome), so the promise never rejects. SSRF
+ * blocks are NOT handled here — they short-circuit in `fetchSource` with a
+ * tagged `OutboundUrlBlockedError` so they can never degrade to empty bytes.
+ */
 const fetchRemote = async (source: string): Promise<ResolvedSource> => {
   try {
     const response = await fetch(source)
@@ -101,6 +140,14 @@ const fetchRemote = async (source: string): Promise<ResolvedSource> => {
   }
 }
 
+/**
+ * Resolve an `http(s)://` source: reject private/loopback/link-local targets
+ * via the always-on outbound-URL SSRF guard (relaxed only under the explicit
+ * `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` opt-out) BEFORE fetching, then fetch the
+ * permitted URL. A block surfaces as `OutboundUrlBlockedError` on the effect's
+ * error channel — never as empty bytes — so the upload handler can map it to an
+ * explicit `error` outcome instead of silently storing an empty file.
+ */
 const fetchSource = (
   source: string
 ): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, never> => {
@@ -124,6 +171,9 @@ export const resolveSource = (
   })
 }
 
+// ---------------------------------------------------------------------------
+// Tiny pure CSV codec — the automation specs use simple, well-formed CSV.
+// ---------------------------------------------------------------------------
 
 export const csvCell = (value: unknown): string => {
   const str = value === undefined || value === null ? '' : String(value)

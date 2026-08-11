@@ -7,8 +7,47 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
+import {
+  CurrencyCodeSchema,
+  CurrencyNegativeFormatSchema,
+  CurrencyPrecisionSchema,
+  CurrencySymbolPositionSchema,
+  CurrencyThousandsSeparatorSchema,
+} from '../currency-display'
 import { validateMinMaxRange } from '../validation-utils'
 
+/**
+ * Currency Field
+ *
+ * Specialized numeric field for storing monetary values with currency information.
+ * Automatically formats values with currency symbols and stores precise decimal amounts.
+ * Supports configurable currency codes (USD, EUR, GBP, etc.) and precision (typically 2
+ * decimal places). Can be marked as required, unique, or indexed. Stored using DECIMAL
+ * database type to prevent rounding errors in financial calculations.
+ *
+ * Business Rules:
+ * - Currency code must be valid ISO 4217 three-letter code (USD, EUR, GBP, etc.)
+ * - Precision defaults to 2 decimal places (standard for most currencies)
+ * - DECIMAL storage ensures exact monetary amounts without floating-point errors
+ * - Min/max validation optional - useful for enforcing business rules (e.g., price >= 0)
+ * - Currency code stored with value to support multi-currency applications
+ * - Indexing recommended for fields used in financial reports and sorting
+ * - Constant value 'currency' ensures type safety and enables discriminated unions
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'price',
+ *   type: 'currency',
+ *   required: true,
+ *   currency: 'USD',
+ *   precision: 2,
+ *   min: 0,
+ *   default: 0.00
+ * }
+ * ```
+ */
 export const CurrencyFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
@@ -17,23 +56,8 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
           description: "Constant value 'currency' for type discrimination in discriminated unions",
         })
       ),
-      currency: Schema.String.pipe(
-        Schema.length(3),
-        Schema.pattern(/^[A-Z]{3}$/),
-        Schema.annotations({
-          description: 'ISO 4217 three-letter currency code (e.g., USD, EUR, GBP)',
-          examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
-        })
-      ),
-      precision: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(0),
-          Schema.lessThanOrEqualTo(10),
-          Schema.annotations({
-            description: 'Number of decimal places (0-10, default: 2 for most currencies)',
-          })
-        )
-      ),
+      currency: CurrencyCodeSchema,
+      precision: Schema.optional(CurrencyPrecisionSchema),
       min: Schema.optional(
         Schema.Number.pipe(
           Schema.annotations({
@@ -48,30 +72,9 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
-      symbolPosition: Schema.optional(
-        Schema.Literal('before', 'after').pipe(
-          Schema.annotations({
-            description: 'Position of currency symbol relative to the amount',
-            examples: ['before', 'after'],
-          })
-        )
-      ),
-      negativeFormat: Schema.optional(
-        Schema.Literal('minus', 'parentheses').pipe(
-          Schema.annotations({
-            description: 'Format for displaying negative amounts',
-            examples: ['minus', 'parentheses'],
-          })
-        )
-      ),
-      thousandsSeparator: Schema.optional(
-        Schema.Literal('comma', 'period', 'space', 'none').pipe(
-          Schema.annotations({
-            description: 'Character used to separate thousands',
-            examples: ['comma', 'period', 'space', 'none'],
-          })
-        )
-      ),
+      symbolPosition: Schema.optional(CurrencySymbolPositionSchema),
+      negativeFormat: Schema.optional(CurrencyNegativeFormatSchema),
+      thousandsSeparator: Schema.optional(CurrencyThousandsSeparatorSchema),
       default: Schema.optional(
         Schema.Number.pipe(
           Schema.annotations({

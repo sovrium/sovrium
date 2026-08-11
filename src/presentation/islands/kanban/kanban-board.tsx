@@ -19,14 +19,24 @@ interface KanbanBoardProps {
   readonly emptyColumnMessage: string | undefined
   readonly draggableEnabled: boolean
   readonly onDragEnd: (event: DragEndEvent) => void
+  /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
+  readonly colorFieldColors: Readonly<Record<string, string>> | undefined
 }
 
+/**
+ * Renders the kanban board's `<DndContext>` shell and column list.
+ *
+ * Extracted from `KanbanIsland` so the composition root stays a thin
+ * wrapper around state hooks; this component owns the dnd-kit sensors
+ * and the column iteration only.
+ */
 export function KanbanBoard({
   columns,
   card,
   emptyColumnMessage,
   draggableEnabled,
   onDragEnd,
+  colorFieldColors,
 }: KanbanBoardProps): ReactElement {
   const sensors = useKanbanSensors()
   return (
@@ -35,7 +45,13 @@ export function KanbanBoard({
       collisionDetection={kanbanCollisionDetection}
       onDragEnd={onDragEnd}
     >
-      {}
+      {/*
+       * The `data-component="kanban"` marker lives on the SSR island wrapper
+       * (island-data-components.tsx) — the single, always-present component
+       * element. The mounted board must NOT duplicate it, or `[data-component=
+       * "kanban"]` resolves to two nodes and any non-`.first()` board-level
+       * assertion (e.g. toContainText) trips Playwright's strict mode.
+       */}
       <div className="flex w-full gap-4 overflow-x-auto p-2">
         {columns.map((column) => (
           <KanbanColumn
@@ -44,6 +60,7 @@ export function KanbanBoard({
             emptyMessage={emptyColumnMessage}
             card={card}
             draggableEnabled={draggableEnabled}
+            colorFieldColors={colorFieldColors}
           />
         ))}
       </div>

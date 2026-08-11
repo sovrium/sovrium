@@ -7,6 +7,11 @@
 
 import type { ReactElement } from 'react'
 
+/**
+ * Non-chart timeline render states. Every state emits
+ * `data-component="data-timeline"` so spec assertions on the canonical
+ * timeline attribute resolve in every branch.
+ */
 
 export function TimelineLoading(): ReactElement {
   return (

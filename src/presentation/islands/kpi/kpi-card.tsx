@@ -9,6 +9,9 @@ import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
 import { KpiSparkline } from './kpi-sparkline'
 import type { ReactElement } from 'react'
 
+/**
+ * Trend comparison configuration surfaced beneath the KPI value.
+ */
 export interface KpiTrendConfig {
   readonly comparisonPeriod?: string
   readonly direction?: 'up' | 'down' | 'flat'
@@ -21,10 +24,20 @@ interface KpiCardProps {
   readonly value: string
   readonly icon?: string
   readonly trend?: KpiTrendConfig
+  /** Conditional color name resolved from `thresholds` — applied to the value. */
   readonly thresholdColor?: string
+  /** Sparkline series — when present, a mini line chart is rendered. */
   readonly sparklineSeries?: readonly number[]
 }
 
+/**
+ * Canonical role-token text class for a resolved threshold color name.
+ *
+ * The semantic name (`red`/`green`/`yellow`) maps to the matching role token
+ * (`error`/`success`/`warning`); `blue` is the brand `primary`, `gray` the
+ * muted foreground. The rendered value also carries a `data-threshold`
+ * attribute, which is the stable hook specs assert on.
+ */
 const THRESHOLD_COLOR_CLASS: Record<string, string> = {
   red: 'text-error-fg',
   green: 'text-success-fg',
@@ -46,6 +59,7 @@ const TREND_DIRECTION_ARROW: Record<NonNullable<KpiTrendConfig['direction']>, st
   flat: '→',
 }
 
+/** Renders the trend indicator (arrow + percentage change). */
 function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
   const colorClass = TREND_COLOR_CLASS[trend.color ?? 'gray']
   const arrow = TREND_DIRECTION_ARROW[trend.direction ?? 'flat']
@@ -61,6 +75,13 @@ function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
   )
 }
 
+/**
+ * KPI card — renders the computed metric as a card with an optional label,
+ * Lucide icon, and trend indicator.
+ *
+ * Carries `data-component="kpi"` so spec assertions on the canonical KPI
+ * attribute resolve; the formatted value lives under `data-role="kpi-value"`.
+ */
 export function KpiCard({
   label,
   value,

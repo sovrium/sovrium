@@ -13,6 +13,12 @@ export interface ActiveFilter {
   readonly value: string
 }
 
+/**
+ * Visible-column id helpers used by the columns menu, the export menu, and
+ * the export-selected button. Kept out of the JSX-bearing files so that the
+ * `react-refresh/only-export-components` rule (which forbids mixing helper
+ * exports with component exports) stays satisfied.
+ */
 
 export function getVisibleColumnIds(
   table: ReturnType<typeof useReactTable<TableRecord>>

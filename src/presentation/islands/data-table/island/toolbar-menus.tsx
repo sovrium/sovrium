@@ -27,6 +27,13 @@ import type { TableRecord } from '../../shared/types'
 import type { Column, useReactTable } from '@tanstack/react-table'
 import type { CSSProperties } from 'react'
 
+/**
+ * Build the drag-transform style for a sortable column row. Returned from a
+ * plain function (not an inline object literal) so react-perf's
+ * `jsx-no-new-object-as-prop` does not flag the `style` prop — manual
+ * memoization (`useMemo`) is discouraged project-wide (React 19 Compiler is
+ * unavailable under Bun, but the lint rule still warns on it).
+ */
 function toSortableStyle(
   transform: Parameters<typeof CSS.Transform.toString>[0],
   transition: string | undefined,
@@ -39,6 +46,11 @@ function toSortableStyle(
   }
 }
 
+/**
+ * Build the drag-end reorder handler for the columns menu. Returned from a
+ * plain factory so react-perf does not flag the `onDragEnd` prop as a
+ * newly-created function (see {@link toSortableStyle} rationale).
+ */
 function makeColumnDragEndHandler(
   items: readonly string[],
   table: ReturnType<typeof useReactTable<TableRecord>>
@@ -53,11 +65,25 @@ function makeColumnDragEndHandler(
   }
 }
 
+/** Copy a readonly id list into the mutable array `SortableContext` expects. */
 function toMutableIds(ids: readonly string[]): string[] {
   return [...ids]
 }
 
+// ---------------------------------------------------------------------------
+// ColumnsMenu — toggle visibility + drag-reorder
+// ---------------------------------------------------------------------------
 
+/**
+ * Single column row inside the columns menu. Combines:
+ * - A drag handle (`data-testid="drag-handle-<field>"`) wired to @dnd-kit's
+ *   `useSortable` so the parent `SortableContext` can reorder.
+ * - A `role="switch"` checkbox bound to TanStack Table's visibility handler.
+ *
+ * The row wrapper exposes `data-field="<field>"` so specs can locate items
+ * via either `[data-testid="column-item-<field>"]` or the data-attribute
+ * fallback the spec encodes as `panel.locator('[data-field="X"]')`.
+ */
 function SortableColumnRow({ column }: { readonly column: Column<TableRecord, unknown> }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: column.id,
@@ -86,7 +112,11 @@ function SortableColumnRow({ column }: { readonly column: Column<TableRecord, un
         ::
       </span>
       <label className="flex flex-1 cursor-pointer items-center gap-2">
-        {}
+        {/* `role="switch"` semantics mirror the toggle UX (binary on/off
+            column visibility) and let test specs locate each toggle via
+            getByRole('switch', { name: 'phone' }). The native `<input
+            type="checkbox">` continues to drive the actual state via
+            TanStack Table's getToggleVisibilityHandler. */}
         <input
           type="checkbox"
           role="switch"
@@ -101,6 +131,12 @@ function SortableColumnRow({ column }: { readonly column: Column<TableRecord, un
   )
 }
 
+/**
+ * Compute the ordered list of column IDs the menu renders. `table.getAllColumns()`
+ * returns the original column-def order; if the user has reordered via drag,
+ * honour the explicit `columnOrder` state and append any unknown IDs (e.g.
+ * newly-declared columns) at the end. `select` is excluded from the menu.
+ */
 function resolveOrderedColumns(table: ReturnType<typeof useReactTable<TableRecord>>): {
   readonly orderedIds: readonly string[]
   readonly orderedColumns: ReadonlyArray<Column<TableRecord, unknown>>
@@ -127,6 +163,9 @@ export function ColumnsMenu({
 }: {
   readonly table: ReturnType<typeof useReactTable<TableRecord>>
 }) {
+  // Sensors mirror the kanban-island defaults: MouseSensor with no distance
+  // constraint (Playwright's `dragTo` generates a single mousemove >> 5px so
+  // drag activation still fires reliably) + KeyboardSensor for a11y.
   const sensors = useSensors(
     useSensor(MouseSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -164,6 +203,9 @@ export function ColumnsMenu({
   )
 }
 
+// ---------------------------------------------------------------------------
+// ExportMenu (CSV/JSON dropdown)
+// ---------------------------------------------------------------------------
 
 export function ExportMenu({
   tableName,

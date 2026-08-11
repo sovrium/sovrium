@@ -6,25 +6,140 @@
  */
 
 import { Schema } from 'effect'
+import {
+  FILTER_OPERATOR_VOCABULARY,
+  isVocabularyTerm,
+  unknownTermRefusal,
+} from '../closed-vocabulary'
 
+/**
+ * View Filter Condition Schema
+ *
+ * A single filter condition for filtering records.
+ *
+ * `operator` is a CLOSED vocabulary. It used to be a bare `Schema.String`, and
+ * `generateSqlCondition` answers an operator it does not recognise with
+ * `field = value` rather than an error — so `{ operator: 'gt' }` decoded, booted
+ * and then silently selected equality. `gt` is not a hypothetical typo: it is a
+ * real operator in the page/data-source filter vocabulary, so an author moving a
+ * filter between the two surfaces wrote it in good faith and got the wrong rows.
+ *
+ * The refusal is attached to the STRUCT, not to `operator`, so the message can
+ * name the `field` the condition came from — a config with filters on six
+ * columns is otherwise unnavigable from a path like `tables[0].views[0]`.
+ *
+ * This schema is shared by FOUR config surfaces — table `views[].filters` and
+ * the `filters` block of the `rollup`, `lookup` and `count` field types — all of
+ * which compile through `generateSqlCondition`. One refusal binds all four; that
+ * is intended, not incidental.
+ *
+ * @example
+ * ```typescript
+ * { field: 'status', operator: 'equals', value: 'active' }
+ * { field: 'age', operator: 'greaterThan', value: 18 }
+ * ```
+ */
 export const ViewFilterConditionSchema = Schema.Struct({
   field: Schema.String,
   operator: Schema.String,
   value: Schema.Unknown,
 }).pipe(
+  // ANNOTATIONS FIRST, REFINEMENT SECOND — the order is load-bearing, not
+  // stylistic. `JSONSchema.make` renders a struct refinement from its `from`
+  // side and DROPS annotations piped after the `Schema.filter`, so writing them
+  // below would silently strip this node's title and description out of the
+  // published `app.json` every author's editor reads. Measured: it deleted five
+  // `Filter Condition` blocks from the snapshot.
   Schema.annotations({
     title: 'Filter Condition',
-    description: 'A single filter condition specifying field, operator, and value.',
-  })
+    description:
+      'A single filter condition specifying field, operator, and value. `operator` must be one of: ' +
+      `${FILTER_OPERATOR_VOCABULARY.terms.join(', ')}.`,
+  }),
+  Schema.filter((condition) =>
+    isVocabularyTerm(FILTER_OPERATOR_VOCABULARY, condition.operator)
+      ? undefined
+      : unknownTermRefusal({
+          kind: 'filter operator',
+          value: condition.operator,
+          subject: `field "${condition.field}"`,
+          vocabulary: FILTER_OPERATOR_VOCABULARY,
+        })
+  )
 )
 
 export type ViewFilterCondition = Schema.Schema.Type<typeof ViewFilterConditionSchema>
 
+/**
+ * View Filter Node
+ *
+ * Recursive type for filter expressions. Can be either:
+ * - A condition: `{ field, operator, value }`
+ * - An AND group: `{ and: [...] }`
+ * - An OR group: `{ or: [...] }`
+ */
 export type ViewFilterNode =
   | ViewFilterCondition
   | { readonly and: ReadonlyArray<ViewFilterNode> }
   | { readonly or: ReadonlyArray<ViewFilterNode> }
 
+/**
+ * View Filter Node Schema
+ *
+ * Recursive schema for nested filter expressions.
+ * Uses a simple `{ and: [...] }` or `{ or: [...] }` format.
+ *
+ * @example Simple condition
+ * ```typescript
+ * { field: 'status', operator: 'equals', value: 'active' }
+ * ```
+ *
+ * @example AND group
+ * ```typescript
+ * {
+ *   and: [
+ *     { field: 'status', operator: 'equals', value: 'active' },
+ *     { field: 'archived', operator: 'equals', value: false }
+ *   ]
+ * }
+ * ```
+ *
+ * @example Nested groups (Prisma/MongoDB style)
+ * ```typescript
+ * // (status = 'active') AND ((priority = 'high') OR (priority = 'urgent'))
+ * {
+ *   and: [
+ *     { field: 'status', operator: 'equals', value: 'active' },
+ *     {
+ *       or: [
+ *         { field: 'priority', operator: 'equals', value: 'high' },
+ *         { field: 'priority', operator: 'equals', value: 'urgent' }
+ *       ]
+ *     }
+ *   ]
+ * }
+ * ```
+ *
+ * @example Complex nested logic
+ * ```typescript
+ * {
+ *   or: [
+ *     {
+ *       and: [
+ *         { field: 'type', operator: 'equals', value: 'task' },
+ *         { field: 'status', operator: 'equals', value: 'completed' }
+ *       ]
+ *     },
+ *     {
+ *       and: [
+ *         { field: 'type', operator: 'equals', value: 'bug' },
+ *         { field: 'severity', operator: 'equals', value: 'critical' }
+ *       ]
+ *     }
+ *   ]
+ * }
+ * ```
+ */
 export const ViewFilterNodeSchema: Schema.Schema<ViewFilterNode> = Schema.Union(
   ViewFilterConditionSchema,
   Schema.Struct({
@@ -41,6 +156,41 @@ export const ViewFilterNodeSchema: Schema.Schema<ViewFilterNode> = Schema.Union(
   })
 )
 
+/**
+ * View Filters Schema
+ *
+ * Root filter configuration for views. Can be a single condition or a logical group.
+ *
+ * @example Single condition (implicit)
+ * ```typescript
+ * { field: 'status', operator: 'equals', value: 'active' }
+ * ```
+ *
+ * @example Multiple conditions with AND
+ * ```typescript
+ * {
+ *   and: [
+ *     { field: 'status', operator: 'equals', value: 'active' },
+ *     { field: 'archived', operator: 'equals', value: false }
+ *   ]
+ * }
+ * ```
+ *
+ * @example Complex nested filters
+ * ```typescript
+ * {
+ *   and: [
+ *     { field: 'status', operator: 'equals', value: 'active' },
+ *     {
+ *       or: [
+ *         { field: 'priority', operator: 'equals', value: 'high' },
+ *         { field: 'priority', operator: 'equals', value: 'urgent' }
+ *       ]
+ *     }
+ *   ]
+ * }
+ * ```
+ */
 export const ViewFiltersSchema = ViewFilterNodeSchema.pipe(
   Schema.annotations({
     title: 'View Filters',
@@ -48,4 +198,5 @@ export const ViewFiltersSchema = ViewFilterNodeSchema.pipe(
   })
 )
 
+/** @public */
 export type ViewFilters = Schema.Schema.Type<typeof ViewFiltersSchema>

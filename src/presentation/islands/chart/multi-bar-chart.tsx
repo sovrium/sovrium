@@ -27,15 +27,18 @@ interface MultiBarChartProps {
   readonly series: readonly ChartSeriesConfig[]
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
+  /** Operator-set `<svg role="img">` name; falls back to the "Bar chart" default. */
   readonly accessibleName?: string
 }
 
+/** True when every visible series shares a single stack group. */
 function isStacked(series: readonly ChartSeriesConfig[]): boolean {
   return (
     series.length > 0 && series.every((s) => s.stack !== undefined && s.stack === series[0]?.stack)
   )
 }
 
+/** Sum of all series values for one x-key (stacked column total). */
 function stackedTotal(
   record: TableRecord | undefined,
   series: readonly ChartSeriesConfig[]
@@ -44,6 +47,7 @@ function stackedTotal(
   return series.reduce((sum, s) => sum + numericValue(record[s.field]), 0)
 }
 
+/** A single rendered bar rect — pre-computed geometry plus fill color. */
 interface BarSpec {
   readonly id: string
   readonly x: number
@@ -54,6 +58,7 @@ interface BarSpec {
   readonly field: string
 }
 
+/** Per-column geometry shared across every series bar in that column. */
 interface ColumnGeometry {
   readonly base: number
   readonly groupWidth: number
@@ -61,11 +66,13 @@ interface ColumnGeometry {
   readonly yScale: ReturnType<typeof scaleLinear<number>>
 }
 
+/** Accumulator threaded through one column's series reduction. */
 interface ColumnAccumulator {
   readonly bars: readonly BarSpec[]
   readonly cumulative: number
 }
 
+/** Computes one series bar (stacked atop `cumulative`, or grouped side-by-side). */
 function barFor(args: {
   readonly key: string
   readonly series: ChartSeriesConfig
@@ -87,6 +94,7 @@ function barFor(args: {
   return { ...common, x: base + index * groupWidth, y, height: innerHeight - y }
 }
 
+/** Builds every bar rect for the chart (grouped or stacked layout). */
 function buildBars(args: {
   readonly records: readonly TableRecord[]
   readonly keys: readonly string[]
@@ -135,6 +143,7 @@ interface MultiBarSvgProps {
   readonly accessibleName?: string
 }
 
+/** Computes the Y-axis maximum for grouped or stacked layout. */
 function computeMaxY(args: {
   readonly records: readonly TableRecord[]
   readonly keys: readonly string[]
@@ -155,6 +164,7 @@ function computeMaxY(args: {
   }, 0)
 }
 
+/** Resolved scales and bar geometry for one render pass. */
 interface BarLayout {
   readonly keys: readonly string[]
   readonly xScale: ReturnType<typeof scaleBand<string>>
@@ -163,6 +173,7 @@ interface BarLayout {
   readonly bars: readonly BarSpec[]
 }
 
+/** Builds the X/Y scales and bar rects for the visible series. */
 function buildLayout(args: {
   readonly width: number
   readonly height: number
@@ -249,6 +260,14 @@ function MultiBarSvg({
   )
 }
 
+/**
+ * Multi-series bar chart with an interactive legend.
+ *
+ * Each `series` entry contributes its own coloured bar per X-axis tick.
+ * Series sharing the same `stack` group name stack vertically; otherwise
+ * bars render grouped side-by-side. The legend lists every series label and
+ * clicking an item toggles that series' visibility.
+ */
 export function MultiBarChart({
   records,
   xField,

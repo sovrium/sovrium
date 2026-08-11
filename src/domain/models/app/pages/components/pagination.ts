@@ -7,7 +7,19 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Data table pagination with UI-specific options.
+ *
+ * @example
+ * ```yaml
+ * pagination:
+ *   pageSize: 25
+ *   pageSizeOptions: [10, 25, 50]
+ *   position: bottom
+ * ```
+ */
 export const DataTablePaginationSchema = Schema.Struct({
+  /** Default rows per page */
   pageSize: Schema.optional(
     Schema.Number.pipe(
       Schema.int(),
@@ -18,6 +30,7 @@ export const DataTablePaginationSchema = Schema.Struct({
       })
     )
   ),
+  /** Dropdown options for page size */
   pageSizeOptions: Schema.optional(
     Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))).pipe(
       Schema.minItems(1),
@@ -27,11 +40,13 @@ export const DataTablePaginationSchema = Schema.Struct({
       })
     )
   ),
+  /** Position of pagination controls */
   position: Schema.optional(
     Schema.Literal('top', 'bottom', 'both').annotations({
       description: 'Position of pagination controls (default: bottom)',
     })
   ),
+  /** Enable server-side pagination */
   serverSide: Schema.optional(
     Schema.Boolean.annotations({
       description: 'Enable server-side pagination (default: false)',

@@ -40,13 +40,20 @@ interface NavItem {
 
 interface NavMenuIslandProps {
   readonly navItems?: readonly NavItem[]
+  /** Open every mega-menu trigger on pointer hover (in addition to click). */
   readonly openOnHover?: boolean
+  /** Authored trigger className that overrides the default trigger recipe. */
   readonly triggerClassName?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
 }
 
+/**
+ * A single mega-menu child row (`Menu.LinkItem`). Threads the authored
+ * `target`/`rel` onto the anchor alongside the label,
+ * optional badge, and description.
+ */
 function NavDropdownChild({ child }: { readonly child: NavChild }): ReactElement {
   return (
     <Menu.LinkItem
@@ -71,6 +78,22 @@ function NavDropdownChild({ child }: { readonly child: NavChild }): ReactElement
   )
 }
 
+/**
+ * [internal ref] (round-4) wiring:
+ * - [internal ref]: `openOnHover` opens the mega-menu on pointer hover; a
+ *    `closeDelay` lets the pointer travel from the trigger into the open panel.
+ * - [internal ref]: each child's `target`/`rel` are threaded onto its
+ *    `Menu.LinkItem` anchor (and the plain-link leaf branch below).
+ * - [internal ref]: `computeNavMenuTriggerClasses(triggerClassName)` applies
+ *    the authored override so the trigger matches the SSR placeholder byte-for-byte.
+ * - [internal ref]: the recipe emits a leading `group` so the shared
+ *    `NavChevronDown`'s `group-data-[popup-open]:rotate-180` flips on open.
+ *
+ * `closeDelay` is intentionally ~150ms when `openOnHover` is on: it keeps the
+ * menu open while the pointer crosses the gap from the trigger to the panel
+ * (the spec hovers the trigger, then hovers a panel item, expecting it to stay
+ * open). Base UI's default `closeDelay` is 0, which would snap the menu shut.
+ */
 function NavDropdown({
   item,
   index,
@@ -103,6 +126,12 @@ function NavDropdown({
           side="bottom"
           align="start"
           sideOffset={4}
+          // z-[above the sticky header]: Base UI's Positioner is `z-auto` and,
+          // because Floating UI gives it a `transform`, it forms a stacking
+          // context that traps the popup's own `z-50` — so the popup paints
+          // BELOW a `sticky z-40` header. Lifting the Positioner above the
+          // header (z-50 > z-40) hoists the whole popup subtree over it
+          //.
           className="z-50"
         >
           <Menu.Popup className={cn(computeMenuPopupClasses(), 'w-80 p-2')}>
@@ -119,6 +148,18 @@ function NavDropdown({
   )
 }
 
+/**
+ * Navigation menu island — renders a mega-menu style navigation.
+ *
+ * Top-level items with no children render as direct links.
+ * Items with children open a dropdown panel showing label + description.
+ * Built using Base UI Menu for each dropdown section.
+ *
+ * The wrapper is a `div` (NOT `<nav>`): the island mounts INSIDE the SSR
+ * host marker, and the standard header composition embeds the component in
+ * an authored `<nav>` — a nested `<nav>` here would double the navigation
+ * landmark count. Menus carry their own ARIA roles.
+ */
 export default function NavMenuIsland({
   navItems = [],
   openOnHover,

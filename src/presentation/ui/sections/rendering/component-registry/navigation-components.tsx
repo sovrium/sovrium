@@ -16,7 +16,7 @@ import {
   computePaginationEllipsisClasses,
   computePaginationListClasses,
 } from '../../renderers/element-renderers/recipes/navigation-default-classes'
-import type { ComponentRenderer } from '../component-dispatch-config'
+import type { ComponentRenderer, DispatchableComponentType } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
 interface BreadcrumbItem {
@@ -25,6 +25,10 @@ interface BreadcrumbItem {
   readonly icon?: string
 }
 
+/**
+ * Renders the label content for a single crumb — either bare text or an
+ * icon-prefixed inline-flex group when the schema supplied an icon name.
+ */
 function renderBreadcrumbLabel(item: BreadcrumbItem): ReactElement | string {
   if (!item.icon) return item.label
   const iconEl = renderIcon({ name: item.icon, size: 16, 'aria-hidden': 'true' }, [])
@@ -36,6 +40,10 @@ function renderBreadcrumbLabel(item: BreadcrumbItem): ReactElement | string {
   )
 }
 
+/**
+ * Renders one crumb entry: a current-page `<span>` (carrying
+ * `aria-current="page"`) or a hyperlink anchor for prior segments.
+ */
 function renderBreadcrumbEntry(item: BreadcrumbItem, isCurrent: boolean): ReactElement {
   const labelContent = renderBreadcrumbLabel(item)
   const crumbClasses = computeBreadcrumbItemClasses({
@@ -61,6 +69,16 @@ function renderBreadcrumbEntry(item: BreadcrumbItem, isCurrent: boolean): ReactE
   )
 }
 
+/**
+ * Renders the breadcrumb trail described by the page schema.
+ *
+ * Schema fields consumed:
+ * - `breadcrumbItems[]` — ordered list of segments (label/href/icon)
+ * - `separator` — character rendered between items (default '/')
+ *
+ * The last item in the list is treated as the current page and rendered as
+ * plain text (no link), matching the WAI-ARIA breadcrumb pattern.
+ */
 function renderBreadcrumb({
   elementPropsWithSpacing,
   component,
@@ -105,6 +123,13 @@ function renderBreadcrumb({
   )
 }
 
+/**
+ * Renders a button-group container that wraps its children buttons.
+ *
+ * Uses the WAI-ARIA `role="group"` pattern with an accessible label from
+ * `props.label`. Children buttons are rendered tightly together via flex +
+ * negative-margin so adjacent borders merge into a single visual rule.
+ */
 function renderButtonGroup({
   elementProps,
   renderedChildren,
@@ -121,6 +146,12 @@ function renderButtonGroup({
     ...rest
   } = elementProps as Record<string, unknown>
   const cn = className as string | undefined
+  // [internal ref] (prestyled-by-default): the button-group container ships a
+  // surface chrome (rounded + subtle shadow) from
+  // `computeButtonGroupClasses` AHEAD of the segmented-control rhythm
+  // (`-space-x-px isolate`) so the bare `{ type: 'button-group' }`
+  // renders as one cohesive shape. The author-supplied className appends
+  // LAST so it wins at the cascade.
   const containerDefaults = `inline-flex isolate -space-x-px ${computeButtonGroupClasses()}`
   const containerClass = cn ? `${containerDefaults} ${cn}` : containerDefaults
   return (
@@ -136,6 +167,13 @@ function renderButtonGroup({
   )
 }
 
+/**
+ * Computes the page-number sequence shown by the pagination control.
+ *
+ * Always pins the first and last page; surfaces `siblingCount` neighbours on
+ * each side of `currentPage`. Inserts an ellipsis sentinel between any pinned
+ * boundary and the sibling window when the gap is larger than one page.
+ */
 export function paginationPages(
   totalPages: number,
   currentPage: number,
@@ -161,6 +199,7 @@ export function paginationPages(
   })
 }
 
+/** Renders a single page-number list item or an ellipsis sentinel. */
 function renderPaginationEntry(
   entry: number | 'ellipsis',
   index: number,
@@ -192,6 +231,13 @@ function renderPaginationEntry(
   )
 }
 
+/**
+ * Renders a pagination navigation control (server-rendered).
+ *
+ * The current page is marked with `aria-current="page"` so assistive tech and
+ * the spec's `expect(...).toHaveAttribute('aria-current', 'page')` both work.
+ * Ellipsis gaps are rendered as `<span>...</span>` for visual continuity.
+ */
 function renderPagination({
   elementProps,
   component,
@@ -247,7 +293,10 @@ function renderPagination({
   )
 }
 
-export const navigationComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
+/**
+ * Navigation-related page components rendered server-side (no hydration).
+ */
+export const navigationComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   breadcrumb: renderBreadcrumb,
   'button-group': renderButtonGroup,
   pagination: renderPagination,

@@ -9,6 +9,19 @@ import { type ReactElement } from 'react'
 import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
 import type { ElementProps } from './html-element-renderer'
 
+/**
+ * Renders icon using Lucide React icons
+ *
+ * Props extracted from elementProps:
+ * - name: kebab-case Lucide icon name (e.g. 'check-circle', 'arrow-right')
+ * - color: SVG stroke color (default: 'currentColor')
+ * - size: SVG width/height in pixels (default: 24)
+ * - strokeWidth: SVG stroke-width (default: 2)
+ * - ariaLabel: accessible label; if provided, sets role="img" instead of aria-hidden
+ * - className: CSS classes forwarded to the SVG
+ *
+ * Falls back to an empty SVG with data-testid for unknown icon names.
+ */
 export function renderIcon(
   props: ElementProps,
   _children: readonly React.ReactNode[]
@@ -19,6 +32,7 @@ export function renderIcon(
   const iconStrokeWidth = props.strokeWidth as number | undefined
   const ariaLabel = props.ariaLabel as string | undefined
 
+  // Build props to forward to the SVG — strip out icon-specific props and their data-* conversions
   const {
     name: _name,
     color: _color,
@@ -54,6 +68,7 @@ export function renderIcon(
     ) as ReactElement
   }
 
+  // Fallback: render empty SVG placeholder for unknown icons
   return (
     <svg
       {...(restProps as React.SVGProps<SVGSVGElement>)}

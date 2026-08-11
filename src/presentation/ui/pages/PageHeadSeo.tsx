@@ -10,18 +10,51 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDirSeoMeta } from '@/domain/utils/content-dir/content-dir-seo-meta'
 
+/**
+ * SEO `<head>` helpers extracted from `PageHead.tsx` so the head composer stays
+ * under its max-lines cap. Covers hreflang alternate-link rendering (generic
+ * route-pattern + content-directory) and the content-directory Open Graph
+ * merge.
+ */
 
+/**
+ * Resolve the base ORIGIN used to make generic hreflang alternates absolute.
+ *
+ * Google/Lighthouse reject relative hreflang alternates and require the hreflang
+ * host to match the canonical host, so the alternates must be absolute and
+ * origin-consistent with the page's canonical. Fallback chain (origin only —
+ * never grafts the canonical's path):
+ *  1. the ORIGIN of an absolute `page.meta.canonical` (e.g.
+ *     `https://example.com/products` → `https://example.com`);
+ *  2. else `BASE_URL` (trailing slash trimmed);
+ *  3. else `''` — relative, preserving the prior single-origin-unknown behaviour.
+ *
+ * The `new URL(...)` parse is guarded so a relative/malformed/absent canonical
+ * falls through to the env/relative fallback instead of throwing during SSR.
+ */
 const resolveHreflangOrigin = (canonical: string | undefined): string => {
   if (canonical && /^https?:\/\//i.test(canonical)) {
     try {
       return new URL(canonical).origin
     } catch {
+      // Malformed absolute URL — fall through to env/relative.
     }
   }
   const baseUrl = Bun.env.BASE_URL
   return baseUrl ? baseUrl.replace(/\/$/, '') : ''
 }
 
+/**
+ * Renders hreflang alternate links for multi-language SEO.
+ * Generates <link rel="alternate" hreflang="..."> tags for each supported language.
+ *
+ * Uses dual-pattern approach:
+ * - hreflang attribute: Full locale (e.g., 'en-US', 'fr-FR') for SEO standards
+ * - href attribute: ABSOLUTE URL sharing the canonical's origin, short-code path
+ *   segment (e.g. `https://example.com/en/products/`) for routing
+ *
+ * Includes x-default link pointing to the default language for undefined locales.
+ */
 function HreflangLinks({
   page,
   languages,
@@ -39,6 +72,9 @@ function HreflangLinks({
   return (
     <>
       {languages.supported.map((lang) => {
+        // Use full locale for hreflang attribute (e.g., 'en-US', 'fr-FR')
+        // Use short code for the URL path segment (e.g., '/en/', '/fr/'), made
+        // absolute with the resolved origin for host-consistency with canonical.
         const hreflang = lang.locale || lang.code
         return (
           <link
@@ -59,6 +95,16 @@ function HreflangLinks({
   )
 }
 
+/**
+ * Renders hreflang alternate links for a content-directory page
+ *.
+ *
+ * Unlike the generic {@link HreflangLinks} (which keys off the static route
+ * pattern and uses the longer `locale`), these alternates are pre-resolved per
+ * file by the markdown resolver: the `:lang` segment is substituted with each
+ * configured language `code` and the slug is already concrete. The hreflang
+ * value is the language `code` (e.g. `en`, `fr`) — the URL-prefix segment.
+ */
 function ContentDirHreflangLinks({
   alternates,
 }: {
@@ -79,6 +125,14 @@ function ContentDirHreflangLinks({
   )
 }
 
+/**
+ * Renders the hreflang alternates for a page, choosing the right source:
+ *  - a contentDir page uses its pre-resolved per-file `alternates`
+ *;
+ *  - any other page falls back to the generic route-pattern block. The generic
+ *    block is suppressed for contentDir pages because it would emit broken
+ *    `:lang`/`:slug` URLs for the dynamic template path.
+ */
 export function HreflangSection({
   page,
   languages,

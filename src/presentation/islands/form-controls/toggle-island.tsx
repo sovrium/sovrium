@@ -20,6 +20,14 @@ interface ToggleIslandProps {
   readonly 'data-testid'?: string
 }
 
+/**
+ * Toggle island — wraps Base UI Toggle for pressable on/off buttons.
+ *
+ * Renders a button with a pressed/unpressed visual state. Default styling
+ * lives in `toggle-default-classes.ts` (prestyled-by-default);
+ * author `className` composes AFTER and wins on conflict via Tailwind v4
+ * source-order precedence.
+ */
 export default function ToggleIsland({
   pressed = false,
   disabled = false,

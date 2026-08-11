@@ -15,18 +15,47 @@ import {
   type ConnectionUserSummary,
 } from '@/application/ports/repositories/connections/connection-token-repository'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
-import { decryptToken, encryptToken } from '@/infrastructure/crypto/token-encrypt'
+import {
+  currentTokenKeyId,
+  decryptToken,
+  encryptToken,
+  envelopeKeyId,
+} from '@/infrastructure/crypto/token-encrypt'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { connectionTokens as connectionTokensPg } from '@/infrastructure/database/drizzle/schema/connection'
 import { connectionTokens as connectionTokensSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/connection'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { isEncryptionKeyMismatch } from '@/infrastructure/errors/encryption-key-mismatch-error'
 import { isProduction } from '@/infrastructure/utils/env'
 
 const connectionTokens = resolveDialectSchema(connectionTokensPg, connectionTokensSqlite)
 
+/** Wrap a DB promise, adapting failures to ConnectionTokenDatabaseError. */
 const wrap = makeDbWrap((cause) => new ConnectionTokenDatabaseError({ cause }))
 
+/**
+ * Connection Token Repository Implementation (Drizzle).
+ *
+ * Encrypts on write, decrypts on read. The `access_token` and
+ * `refresh_token` columns store base64-JSON envelopes (`v1:{...}`)
+ * produced by `crypto/token-encrypt.ts`. Callers above the repo see
+ * plaintext via the `ConnectionTokenPlaintext` shape.
+ *
+ * Upsert is a single INSERT ... ON CONFLICT DO UPDATE keyed on the
+ * `(connection_id, user_id)` unique index (audit H3). Two concurrent
+ * OAuth callbacks for the same user resolve to exactly one row.
+ */
+/**
+ * Defense-in-depth guard: refuse to persist a sentinel-shaped
+ * access token when running in production. Returns the error to fail
+ * with, or `undefined` to proceed. Pure; takes the production check as
+ * an injected predicate so unit tests can drive both branches without
+ * touching `process.env`.
+ *
+ * @internal — exported for unit tests; production callers go through
+ * `upsertForUser` which composes this guard into the Effect.
+ */
 export const checkSentinelGuard = (
   input: Readonly<{
     connectionId: string
@@ -61,6 +90,54 @@ const decodeRow = (row: Record<string, unknown>): ConnectionTokenPlaintext => {
   }
 }
 
+/**
+ * Is this stored envelope unreadable under the key this process holds?
+ *
+ * Two envelope shapes, two honest answers:
+ *
+ *   - `v2:` declares a key fingerprint, so comparing it answers the question
+ *     with no cryptography at all — a string scan per row rather than a cipher.
+ *   - `v1:` predates the fingerprint and declares nothing. The only truthful
+ *     test is to try: one AES-GCM open against an already-derived key. Skipping
+ *     these would stay silent for precisely the population most at risk — an
+ *     install that upgraded and then changed its key — while calling them all
+ *     foreign would cry wolf on every install that has ever upgraded.
+ *
+ * A row that fails for any reason OTHER than the key (a truncated or hand-edited
+ * envelope) is not counted: the warning names a cause, and naming the wrong one
+ * sends the operator to re-authorize users whose tokens were never the problem.
+ */
+const isUnreadableUnderCurrentKey = (envelope: string, currentKeyId: string): boolean => {
+  const declared = envelopeKeyId(envelope)
+  if (declared !== undefined) return declared !== currentKeyId
+  try {
+    // eslint-disable-next-line functional/no-expression-statements -- probe: the return value is irrelevant, only whether it throws
+    decryptToken(envelope)
+    return false
+  } catch (error) {
+    return isEncryptionKeyMismatch(error)
+  }
+}
+
+/**
+ * Count stored token rows that this deployment's key cannot read.
+ *
+ * Best-effort by construction: a failure here must never keep a server down, so
+ * it resolves to `0`. Feeds the boot ⚠ described in [internal ref].
+ */
+export const countTokensEncryptedWithAnotherKey = async (): Promise<number> => {
+  try {
+    const rows = await db
+      .select({ accessToken: connectionTokens.accessToken })
+      .from(connectionTokens)
+    const current = currentTokenKeyId()
+    return rows.filter((row) => isUnreadableUnderCurrentKey(String(row.accessToken), current))
+      .length
+  } catch {
+    return 0
+  }
+}
+
 export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenRepository, {
   findForUser: ({ connectionId, userId }) =>
     wrap(async () => {
@@ -76,6 +153,16 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
 
   upsertForUser: ({ connectionId, userId, accessToken, refreshToken, expiresAt }) =>
     Effect.gen(function* () {
+      // Defense-in-depth: refuse to persist a sentinel-shaped
+      // access token in production. The seeder no-ops at NODE_ENV ===
+      // 'production' (see runSeedTestConnectionTokens), but if NODE_ENV is
+      // unset (a fail-open scenario in some deployment platforms), the
+      // seeder would still run. This repository-side check is the second
+      // line of defense — even with a misconfigured environment, a
+      // sentinel cannot reach the production database via this method.
+      // Real OAuth providers never hand back tokens ending in
+      // '.signature-placeholder', so a true positive only occurs when
+      // someone has tried to inject a test sentinel.
       const guardError = checkSentinelGuard({
         connectionId,
         userId,
@@ -83,6 +170,11 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
         isProductionEnv: isProduction,
       })
       if (guardError !== undefined) {
+        // @effect-diagnostics effect/unnecessaryFailYieldableError:off
+        // We use `Effect.fail(...)` here to match the convention used
+        // throughout `application/use-cases/tables/programs.ts` and
+        // `comment-programs.ts` (10+ sites). Switching just this one to
+        // `yield* guardError` would be a stylistic outlier.
         return yield* Effect.fail(guardError)
       }
 
@@ -97,6 +189,9 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
           ...(expiresAt !== undefined ? { expiresAt } : {}),
         }
 
+        // Single statement, atomic against the
+        // (connection_id, user_id) unique index. updatedAt is bumped via
+        // the schema's $onUpdate so we don't need to set it explicitly.
         const [row] = await db
           .insert(connectionTokens)
           .values({ connectionId, userId, ...valuesForWrite })
@@ -106,6 +201,7 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
           })
           .returning()
         if (row === undefined) {
+          // eslint-disable-next-line functional/no-throw-statements -- defensive; INSERT...RETURNING never returns zero rows for a successful write
           throw new Error('connection_tokens upsert returned no row')
         }
         return decodeRow(row as Record<string, unknown>)
@@ -125,6 +221,9 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
 
   deleteForConnection: (connectionId) =>
     wrap(async () => {
+      // Delete every operator's token row for this connection so an
+      // `app`-scoped (shared) connection returns to the unconnected state
+      // (`tokenCount === 0`). Parameter-bound on `connection_id` (S3).
       const deleted = await db
         .delete(connectionTokens)
         .where(eq(connectionTokens.connectionId, connectionId))
@@ -147,6 +246,12 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
         .select()
         .from(connectionTokens)
         .where(eq(connectionTokens.connectionId, connectionId))
+      // Token-content filtering (sentinel detection, etc.) lives in the
+      // injection path (`auth-headers.ts`); the listing endpoint
+      // returns a row for every (connection_id, user_id) tuple that
+      // exists in the database, leaving role-based exclusion (admins
+      // don't authorize per-user-scope connections) to the API
+      // handler — see `users-handler.ts` for that layer.
       const summaries: readonly ConnectionUserSummary[] = rows.map((row) => {
         const r = row as Record<string, unknown>
         const expires = r['expiresAt']

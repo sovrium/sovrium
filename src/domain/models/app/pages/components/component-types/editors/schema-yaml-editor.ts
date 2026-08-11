@@ -12,6 +12,19 @@ import { i18nFields } from '../modules/i18n'
 import { responsiveFields } from '../modules/responsive'
 import { visibilityFields } from '../modules/visibility'
 
+/**
+ * `schema-yaml-editor` component type — a CodeMirror-backed YAML config editor.
+ *
+ * YAML is a first-class Sovrium config authoring format (`app.yaml` parsed via
+ * `Bun.YAML`), so this editor sits alongside `schema-json-editor` and shares the
+ * same config-submission contract — the `format: 'yaml'` discriminant is the only
+ * difference. Uses the `@codemirror/lang-yaml` syntax mode (already installed).
+ *
+ * Island deferred (red): the CodeMirror YAML island is a later
+ * `src/presentation/islands/` build; until then the dispatcher renders a safe
+ * `<div>` placeholder (component-type-dispatcher fallback) so the type validates
+ * against AppSchema and renders without crashing.
+ */
 export const SchemaYamlEditorTypeLiteral = Schema.Literal('schema-yaml-editor')
 
 export const schemaYamlEditorFields = {
@@ -53,5 +66,13 @@ export const schemaYamlEditorFields = {
   lineNumbers: Schema.optional(
     Schema.Boolean.annotations({ description: 'Whether to show the line-number gutter' })
   ),
+  /**
+   * Record-context submit fields (GAP-I2). Reuses the `InlinePrefillSchema`
+   * (`$record.<field>` token + `lockPrefill`). On a record-detail / collection
+   * page the editor SSR dispatcher resolves the tokens against the host record
+   * into a literal `submitContext` merged into the submit body — so an editor
+   * whose submit table has a required relationship FK carries the page record
+   * FK without overloading the format column.
+   */
   inlinePrefill: Schema.optional(InlinePrefillSchema),
 } as const

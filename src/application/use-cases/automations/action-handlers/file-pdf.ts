@@ -5,14 +5,32 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Minimal, dependency-free PDF writer for the `file/generatePdf` action.
+ *
+ * A full HTML-to-PDF engine (headless Chromium / wkhtmltopdf) is a heavy
+ * native dependency; the automation `generatePdf` action only needs to
+ * produce a *valid* single-page PDF whose visible text is the rendered
+ * template. We flatten the HTML to plain text via the canonical
+ * parser-based `htmlToTextLines` stripper and emit a hand-rolled PDF 1.4
+ * document — one page, one Helvetica text block — with a correct
+ * cross-reference table so any conformant reader (and the spec's `%PDF`
+ * magic-byte assertion) accepts it.
+ */
 
 import { htmlToTextLines } from '@/domain/utils/html-sanitization'
 
+/**
+ * Zero-pad a byte offset to PDF's 10-character `xref` entry width.
+ * Hoisted to module scope so it isn't reallocated on every render.
+ */
 const padXrefOffset = (n: number): string => n.toString().padStart(10, '0')
 
+/** Escape the characters that are special inside a PDF literal string. */
 const escapePdfText = (text: string): string =>
   text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
 
+/** Build the page content stream — a stack of text lines at 12pt Helvetica. */
 const buildContentStream = (lines: readonly string[]): string => {
   const visible = lines.length > 0 ? lines : ['']
   const textOps = visible
@@ -24,6 +42,10 @@ const buildContentStream = (lines: readonly string[]): string => {
   return `BT\n/F1 12 Tf\n${textOps}\nET`
 }
 
+/**
+ * Render an HTML template to a minimal valid PDF document.
+ * The returned bytes begin with the `%PDF` magic header.
+ */
 export const renderHtmlToPdf = (html: string): Uint8Array => {
   const content = buildContentStream(htmlToTextLines(html))
   const contentBytes = new TextEncoder().encode(content)
@@ -38,6 +60,7 @@ export const renderHtmlToPdf = (html: string): Uint8Array => {
   ]
 
   const header = '%PDF-1.4\n'
+  // Assemble bodies and track each object's byte offset for the xref table.
   const assembled = objects.reduce<{ body: string; offsets: number[] }>(
     (state, obj, index) => {
       const objNumber = index + 1

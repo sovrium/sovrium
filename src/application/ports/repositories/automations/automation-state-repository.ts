@@ -8,15 +8,33 @@
 import { Context, Data } from 'effect'
 import type { Effect } from 'effect'
 
+/**
+ * Database error for automation state operations.
+ */
 export class AutomationStateDatabaseError extends Data.TaggedError('AutomationStateDatabaseError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * One row of `system.automation_state` as returned by `list`.
+ */
 export interface AutomationStateEntry {
   readonly key: string
   readonly value: unknown
 }
 
+/**
+ * Automation State Repository Port.
+ *
+ * Backs the `state:*` action operators (set, get, list, delete, increment).
+ * All methods are scoped by `automationId` (FK to `system.automation_definitions.id`)
+ * — the unique index on `(automation_id, key)` enforces upsert semantics.
+ *
+ * `ttlMs`, when provided to `set`, is added to `now()` to compute the
+ * absolute `ttl` timestamp stored in the column. `get` filters out rows
+ * whose `ttl` is in the past (lazy expiration); a background sweep is out
+ * of scope for now.
+ */
 export class AutomationStateRepository extends Context.Tag('AutomationStateRepository')<
   AutomationStateRepository,
   {

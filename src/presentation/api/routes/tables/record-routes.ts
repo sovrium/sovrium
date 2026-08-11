@@ -50,7 +50,12 @@ const validationErrorHook = (result: { success: boolean }, c: Context) => {
   }
 }
 
+/* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
+// A single fluent Hono chain — splitting it breaks Hono's RPC client type
+// inference (the chain's structure is load-bearing for the generated
+// `ClientRequest` types), so the max-lines cap is waived here.
+// eslint-disable-next-line max-lines-per-function -- fluent RPC chain, see above
 export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return honoApp
     .get('/api/tables/:tableId/records', zValidator('query', listRecordsQuerySchema), (c) =>
@@ -110,3 +115,4 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
     )
 }
 
+/* eslint-enable drizzle/enforce-delete-with-where */

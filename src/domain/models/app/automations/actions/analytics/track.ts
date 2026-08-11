@@ -9,6 +9,11 @@ import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
+/**
+ * Analytics Action (type: analytics, operator: track)
+ *
+ * Track custom events and metrics in the built-in analytics system.
+ */
 export const AnalyticsTrackActionSchema = Schema.Struct({
   ...ActionBaseFields,
   type: Schema.Literal('analytics'),
@@ -32,4 +37,5 @@ export const AnalyticsTrackActionSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AnalyticsTrackAction = Schema.Schema.Type<typeof AnalyticsTrackActionSchema>

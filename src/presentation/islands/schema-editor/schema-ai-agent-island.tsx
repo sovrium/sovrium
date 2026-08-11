@@ -15,6 +15,20 @@ import {
 } from 'react'
 import { submitSchemaConfig } from './schema-config-submit'
 
+/**
+ * `schema-ai-agent` island (platform B10) — an AI-assisted app-config authoring
+ * surface.
+ *
+ * The operator describes a config change in natural language ("add a contacts
+ * table with name and email"); on Send the described prompt is persisted to the
+ * records API for `submitToTable`, writing
+ * `{ [configField]: <prompt>, [formatField]: 'ai' }`.
+ *
+ * Real LLM generation (routing the prompt through the platform AI provider
+ * precedence resolver, R3, to mutate the live config) is a future enhancement.
+ * The platform contract this island satisfies today is "describe a change, Send,
+ * and persist the described config tagged 'ai'".
+ */
 export interface SchemaAiAgentProps {
   readonly submitToTable?: string
   readonly configField?: string
@@ -23,6 +37,7 @@ export interface SchemaAiAgentProps {
   readonly chatHeight?: number
   readonly id?: string
   readonly className?: string
+  /** GAP-I2: resolved `inlinePrefill` record-context merged into the submit body. */
   readonly submitContext?: Readonly<Record<string, unknown>>
 }
 

@@ -12,6 +12,17 @@ import { BatchRepositoryLive } from './repositories/tables/batch-repository-live
 import { DataSourceRepositoryLive } from './repositories/tables/data-source-repository-live'
 import { TableRepositoryLive } from './repositories/tables/table-repository-live'
 
+/**
+ * Composite layer providing all table-related repository implementations
+ *
+ * Import this single layer in presentation routes to satisfy
+ * all table, batch, comment, and activity repository requirements.
+ *
+ * @example
+ * ```typescript
+ * runEffect(c, program.pipe(Effect.provide(TableLive)), schema)
+ * ```
+ */
 export const TableLive = Layer.mergeAll(
   TableRepositoryLive,
   BatchRepositoryLive,

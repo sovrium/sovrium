@@ -16,15 +16,55 @@ import {
 import { wrapDatabaseError } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
 
+/**
+ * [internal ref]: writing and reading a native `many-to-many` relationship field.
+ *
+ * A many-to-many field creates no column on the base table — the link lives in
+ * an auto-generated junction table `<sourceTable>_<relatedTable>` with INTEGER
+ * columns `<singular(sourceTable)>_id` and `<singular(relatedTable)>_id`
+ * (see `sql-junction-tables.ts`). The record-create pipeline therefore has to
+ * split a many-to-many field out of the base INSERT and write the junction
+ * rows separately, and the read pipeline has to resolve the field's value back
+ * from the junction (there is no base column to `SELECT *`).
+ */
 
+/**
+ * Width of the per-field fan-out in {@link readManyToMany}.
+ *
+ * Unlike the batch helpers (whose fan-outs ride a transaction's single reserved
+ * connection), this one runs on the SHARED connection pool — `readFieldRows`
+ * executes against the `db` facade, not a `tx`. And it sits on the record-LIST
+ * hot path (`application/use-cases/tables/programs.ts` →
+ * `enrichRecordsWithManyToMany`), so several requests fan out at once.
+ *
+ * The width is config-bounded (one query per many-to-many FIELD on the table;
+ * `sourceIds` is already collapsed into a single `IN (...)` per field), but
+ * "config-bounded" is exactly what the 2026-07-25 pool-exhaustion incident
+ * proved is not a safety argument on the shared pool: there, the widening
+ * dimension was also just configuration. A table with several many-to-many
+ * fields, listed concurrently, would otherwise take an arbitrary share of
+ * `DEFAULT_DATABASE_POOL_MAX` (10).
+ *
+ * Two matches the DB-bound precedent in
+ * `infrastructure/database/repositories/tables/tables-overview-repository-live.ts`
+ * and `infrastructure/database/views/view-generators.ts`, leaving eight of the
+ * ten default pool slots for the rest of the process.
+ */
 const READ_FIELD_FANOUT_CONCURRENCY = 2
 
+/** Junction column values are declared `INTEGER`; coerce numeric-looking ids. */
 const coerceId = (value: string | number): string | number =>
   typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value
 
+/** A single many-to-many field's write intent for one source record. */
 export interface ManyToManyLink {
   readonly relatedTable: string
   readonly relatedIds: readonly (string | number)[]
+  /**
+   * Whether the related table declares a reciprocal many-to-many field back to
+   * the source table. When true, the mirror junction `<relatedTable>_<sourceTable>`
+   * exists and must also receive the row so the reciprocal side sees the link.
+   */
   readonly hasReciprocal: boolean
 }
 
@@ -34,6 +74,7 @@ export interface LinkManyToManyInput {
   readonly links: readonly ManyToManyLink[]
 }
 
+/** A single INSERT into the junction that pairs `aTable` (aId) with `bTable` (bId). */
 const junctionInsert = (
   aTable: string,
   bTable: string,
@@ -45,9 +86,12 @@ const junctionInsert = (
   const junction = generateJunctionTableName(aTable, bTable)
   const aCol = `${toSingular(aTable)}_id`
   const bCol = `${toSingular(bTable)}_id`
+  // Composite primary key (aCol, bCol) makes ON CONFLICT DO NOTHING idempotent
+  // on both dialects — re-linking an existing pair is a no-op, not an error.
   return sql`INSERT INTO ${sql.identifier(junction)} (${sql.identifier(aCol)}, ${sql.identifier(bCol)}) VALUES (${coerceId(aId)}, ${coerceId(bId)}) ON CONFLICT DO NOTHING`
 }
 
+/** Every junction INSERT for a source record (own junction + reciprocal mirror). */
 const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>[] =>
   input.links.flatMap((link) =>
     link.relatedIds.flatMap((relatedId) => {
@@ -58,10 +102,17 @@ const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>
     })
   )
 
+/**
+ * Write the junction rows for a record's many-to-many fields. Runs in one
+ * transaction, sequentially (SQLite drives a single connection per tx). A no-op
+ * when there are no links.
+ */
 export const linkManyToMany = (input: LinkManyToManyInput): Effect.Effect<void, DatabaseError> => {
   const statements = buildLinkStatements(input)
   if (statements.length === 0) return Effect.void
   return Effect.tryPromise({
+    // Chain the INSERTs sequentially (SQLite drives a single connection per tx)
+    // as a promise fold — no imperative statements.
     try: () =>
       db.transaction((tx) =>
         statements.reduce<Promise<unknown>>(
@@ -73,6 +124,7 @@ export const linkManyToMany = (input: LinkManyToManyInput): Effect.Effect<void, 
   })
 }
 
+/** A many-to-many field to resolve for a set of source records. */
 export interface ManyToManyReadField {
   readonly fieldName: string
   readonly relatedTable: string
@@ -84,8 +136,10 @@ export interface ReadManyToManyInput {
   readonly fields: readonly ManyToManyReadField[]
 }
 
+/** Resolved links: `recordId -> fieldName -> relatedIds`. */
 export type ManyToManyResult = Record<string, Record<string, readonly (string | number)[]>>
 
+/** SELECT the junction rows for one field across all source records. */
 const readFieldRows = (
   sourceTable: string,
   sourceIds: readonly (string | number)[],
@@ -106,6 +160,7 @@ const readFieldRows = (
   )
 }
 
+/** Fold junction rows for one field into the `recordId -> relatedIds` shape. */
 const foldFieldRows = (
   rows: ReadonlyArray<Record<string, unknown>>
 ): Record<string, readonly (string | number)[]> =>
@@ -115,6 +170,16 @@ const foldFieldRows = (
     return { ...acc, [src]: [...(acc[src] ?? []), rel] }
   }, {})
 
+/**
+ * Resolve every many-to-many field's value for the given source records from
+ * their junction tables. Returns `recordId -> fieldName -> relatedIds`; a record
+ * with no links for a field is simply absent (callers default to `[]`).
+ *
+ * The per-field fan-out is bounded at {@link READ_FIELD_FANOUT_CONCURRENCY} —
+ * these queries run on the SHARED pool, on the record-list hot path. Order is
+ * preserved (`Effect.all`, like `Promise.all`), which the fold below relies on
+ * only for determinism, not correctness (each field writes a distinct key).
+ */
 export const readManyToMany = (
   input: ReadManyToManyInput
 ): Effect.Effect<ManyToManyResult, DatabaseError> => {

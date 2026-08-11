@@ -23,6 +23,28 @@ import type { RunAutomationResult } from '@/application/use-cases/automations/ru
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/**
+ * Webhook trigger handler (T-1 / [internal ref]).
+ *
+ * Single Hono dispatcher mounted for every supported HTTP method. The
+ * handler:
+ *   1. Resolves the automation by name and rejects disabled / non-webhook
+ *      automations with 404 (no information leakage).
+ *   2. Gates by allowed HTTP method (`405 method_not_allowed`).
+ *   3. Runs the configured auth scheme (delegates to `webhook-auth.ts`).
+ *   4. Enforces optional per-IP rate limiting (delegates to
+ *      `webhook-rate-limit.ts`).
+ *   5. Validates body / query against optional JSON-Schema-like shapes
+ *      (delegates to `webhook-validation.ts`).
+ *   6. Builds the public `trigger.data` (method/path/body/headers/query/ip)
+ *      and dispatches to the existing `runWebhookAutomation` Effect program.
+ *   7. Returns 202 Accepted on `respondImmediately: true`, otherwise
+ *      synthesises a response from `trigger.response` (status / headers /
+ *      body) with `{{run.id}}` and `{{trigger.data.X}}` template support.
+ *
+ * Protocol concerns (auth, rate-limit, schema validation, HTTP shape) live
+ * here; execution concerns stay in `application/use-cases/automations/*`.
+ */
 
 type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
@@ -71,6 +93,7 @@ const generateRunId = (): string => {
   return `run-${String(Date.now())}-${String(Math.random()).slice(2, 10)}`
 }
 
+// ── Gate stages ──────────────────────────────────────────────────────────────
 
 interface GateContext {
   readonly name: string
@@ -119,6 +142,11 @@ const runRateLimitGate = (
     : undefined
 }
 
+/**
+ * Synchronous lookup + method gate. Returns either the resolved trigger
+ * context or a 4xx response — extracted so {@link runWebhookGates} stays
+ * inside the `max-statements` budget.
+ */
 const lookupAndMethodGate = (
   c: Context,
   app: App
@@ -160,6 +188,11 @@ const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
   const queryRecord = queryToRecord(c)
   const validationError = validateBodyAndQuery({ trigger, body, queryRecord }, c)
   if (validationError !== undefined) return { status: 'reject', response: validationError }
+  // Deduplication gate. [internal ref]: when the trigger declares
+  // `deduplicationKey`, a second request that resolves to a key seen within
+  // `deduplicationWindow` seconds is dropped silently (200 OK, no run row,
+  // no side effects). Order matters — auth + rate-limit + schema validation
+  // all run BEFORE dedup so a malformed duplicate doesn't poison the cache.
   if (trigger.deduplicationKey !== undefined) {
     const triggerDataForDedup = {
       method,
@@ -193,6 +226,7 @@ const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
   ip: getRequestClientIp(c),
 })
 
+// ── Response building ────────────────────────────────────────────────────────
 
 interface BuildResponseInput {
   readonly trigger: WebhookTrigger
@@ -200,6 +234,22 @@ interface BuildResponseInput {
   readonly triggerData: TriggerData
 }
 
+/**
+ * Default sync-webhook body shape. Mirrors the manual-trigger response built
+ * by `triggerResultBody` in `routes/automations/index.ts` — both endpoints
+ * return the same `RunAutomationResult` and must surface the same fields.
+ *
+ * Extracted from {@link buildSyncResponse} so the latter stays under the
+ * project's complexity cap.
+ */
+/**
+ * Map the engine's internal status to the public webhook-response status.
+ * `'success'`/`'completed-with-errors'` are happy-path completions (the
+ * latter records that some action failed but declared `continueOnError`);
+ * `'failure'`/`'exhausted'`/`'timed-out'` collapse to `'failed'` so the
+ * sync response stays binary-shaped. Callers wanting the richer status
+ * label should read it off the runs API.
+ */
 const toWebhookResponseStatus = (
   status: RunAutomationResult['status']
 ):
@@ -213,6 +263,8 @@ const toWebhookResponseStatus = (
   if (status === 'completed-with-errors') return 'completed-with-errors'
   if (status === 'skipped') return 'skipped'
   if (status === 'cancelled') return 'cancelled'
+  // A paused approval run is NOT a failure — surface the non-terminal
+  // status verbatim so the response stays 200 and the caller sees the pause.
   if (status === 'waiting-approval') return 'waiting-approval'
   return 'failed'
 }
@@ -225,6 +277,13 @@ const defaultSyncBody = (result: RunAutomationResult) => ({
   ...(result.error !== undefined ? { error: result.error } : {}),
 })
 
+/**
+ * Translate a `webhook/response` action's `responseOverride` payload
+ * (carried in `RunAutomationResult.responseOverride` — see A-10) into
+ * the (status, body, headers) tuple the dispatcher returns. Templates
+ * were already substituted in the action's props at dispatch time — this
+ * helper just unwraps and types the values.
+ */
 const responseFromAction = (actionResponse: Readonly<Record<string, unknown>>) => {
   const status =
     typeof actionResponse['status'] === 'number' ? (actionResponse['status'] as number) : 200
@@ -238,10 +297,19 @@ const responseFromAction = (actionResponse: Readonly<Record<string, unknown>>) =
 
 const buildSyncResponse = (input: BuildResponseInput) => {
   const { trigger, result, triggerData } = input
+  // A `webhook/response` action — when present — takes precedence over both
+  // the trigger-level `response` config and the default sync body. The
+  // handler has already substituted templates in its props (the run loop
+  // does that before dispatch), so we just unwrap the override here.
   if (result.responseOverride !== undefined) return responseFromAction(result.responseOverride)
   const cfg = trigger.response
   const status = cfg?.status ?? cfg?.statusCode ?? 200
   const context = { run: { id: result.runId }, trigger: { data: triggerData } }
+  // Default response surfaces `lastOutput` under `output` so code-action
+  // results (and any future handlers that return data) are reachable from
+  // the synchronous webhook response. When the operator configured a
+  // `trigger.response.body`, we honour that instead — they explicitly
+  // shaped the response.
   const body =
     cfg?.body !== undefined ? resolveTriggerInValue(cfg.body, context) : defaultSyncBody(result)
   const headers =
@@ -251,6 +319,7 @@ const buildSyncResponse = (input: BuildResponseInput) => {
   return { status, body, headers }
 }
 
+// ── Dispatchers ──────────────────────────────────────────────────────────────
 
 interface DispatchInput {
   readonly name: string
@@ -260,8 +329,17 @@ interface DispatchInput {
 }
 
 const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response> => {
+  // The scheduler persists the run row synchronously at queue time and
+  // exposes the resulting DB-generated UUID via the `onPersisted` callback.
+  // We park here on a Promise that resolves the moment that callback fires
+  // so the 202 response carries the SAME id the cancel endpoint can find
+  //. Fallback to a synthetic id if the engine
+  // never invokes the callback (e.g. an unexpected rejection before
+  // persistQueuedRun runs).
+  // eslint-disable-next-line functional/no-let -- captured-by-closure pattern for resolver
   let resolveRunId: ((id: string) => void) | undefined
   const runIdPromise = new Promise<string>((resolve) => {
+    // eslint-disable-next-line functional/no-expression-statements
     resolveRunId = resolve
   })
 
@@ -274,17 +352,24 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
     onPersisted: (id) => {
       if (resolveRunId !== undefined) {
         resolveRunId(id)
+        // eslint-disable-next-line functional/no-expression-statements -- captured-by-closure reset to prevent re-resolving the same promise
         resolveRunId = undefined
       }
     },
   })
+  // Fire-and-forget. The caller already received a 202 — log-only if the
+  // background run rejects so operators can still detect dispatch crashes.
   Effect.runPromise(Effect.either(provideAutomationLive(program))).then(
     (res) => {
       if (res._tag === 'Left') {
         logError('[automation] async webhook run failed', res.left)
       }
+      // If persistQueuedRun never fired the callback (engine errored
+      // before queueing), unblock the response with a synthetic id so
+      // the 202 still returns.
       if (resolveRunId !== undefined) {
         resolveRunId(generateRunId())
+        // eslint-disable-next-line functional/no-expression-statements -- captured-by-closure reset to prevent re-resolving the same promise
         resolveRunId = undefined
       }
     },
@@ -292,11 +377,14 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
       logError('[automation] async webhook run rejected', err)
       if (resolveRunId !== undefined) {
         resolveRunId(generateRunId())
+        // eslint-disable-next-line functional/no-expression-statements -- captured-by-closure reset to prevent re-resolving the same promise
         resolveRunId = undefined
       }
     }
   )
   const runId = await runIdPromise
+  // Surface as BOTH `id` (matching the sync response shape used by
+  // [internal ref]) AND `runId` (matching [internal ref]).
   return c.json({ id: runId, runId }, 202)
 }
 
@@ -313,6 +401,11 @@ const dispatchSync = async (
   })
   const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
   if (result._tag === 'Left') {
+    // The pre-dispatch gate already filtered AutomationNotFound /
+    // AutomationNotWebhookTriggered with 404 — by the time we reach here, a
+    // Left can only come from the lazy registry seed (`AutomationRegistrySeedError`).
+    // Surface that as 500 so operator dashboards / oncall paging treat it as
+    // an outage rather than a missing automation.
     if (result.left._tag === 'AutomationRegistrySeedError') {
       logError('[automation] webhook dispatch failed: registry seed error', result.left)
       return c.json({ error: 'internal_error' }, 500)
@@ -328,12 +421,28 @@ const dispatchSync = async (
     result: result.right,
     triggerData: input.triggerData,
   })
+  // When the run failed and the operator did not configure a custom
+  // `trigger.response.status`, escalate the HTTP status to 500. A failing
+  // action (e.g. code action timeout, undeclared package access, sandbox
+  // violation, record-create with missing data) means the side effects
+  // the caller expected did not happen — returning 200 would mislead the
+  // caller into thinking the work was committed. The 500 surface lets
+  // monitoring / on-call see automation health via standard HTTP metrics.
+  //
+  // Operator override: when `trigger.response.status` is set explicitly,
+  // we honour that — they have shaped the response and accept the
+  // semantic of 200 even on partial failure.
   const cfg = input.trigger.response
   const operatorOverrodeStatus = cfg?.status !== undefined || cfg?.statusCode !== undefined
   const finalStatus = result.right.status === 'failure' && !operatorOverrodeStatus ? 500 : status
   return c.json(respBody as Record<string, unknown>, finalStatus as 200, headers)
 }
 
+/**
+ * Dispatch a webhook request. Mounted by `chainAutomationRoutes` for every
+ * supported HTTP method — the handler does the per-trigger filtering inside
+ * so a single 405 response can advertise the configured `allowed` list.
+ */
 export async function handleWebhookRequest(c: Context, app: App): Promise<Response> {
   const gate = await runWebhookGates(c, app)
   if (gate.status === 'reject') return gate.response

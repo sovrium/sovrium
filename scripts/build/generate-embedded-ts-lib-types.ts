@@ -5,6 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Codegen: embed the TypeScript standard-library `.d.ts` corpus into the
+ * compiled binary.
+ *
+ * The in-binary `ts.CompilerHost` used by the runTypescript validator
+ * (`src/infrastructure/automations/typescript-validator/layer.ts`) needs to
+ * resolve `lib.es5.d.ts`, `lib.es2015.collection.d.ts`, etc. when type-checking
+ * user `execute()` bodies. Source mode reads them from
+ * `node_modules/typescript/lib/`; the standalone binary has no `node_modules/`
+ * on disk, so every automation referencing `Record<K, V>` / `Partial<T>` /
+ * `Promise<T>` / `Map`/`Set` failed at boot in v0.5.x/v0.6.x.
+ *
+ * Each `with { type: 'file' }` import below forces Bun to embed the file into
+ * the compiled binary; the import resolves to the real on-disk path in dev and
+ * to a `/$bunfs/...` path in the binary. `readFileSync()`/`Bun.file()` reads
+ * either, so one mechanism covers both modes.
+ *
+ * Regenerate after a TypeScript bump:
+ *   bun run scripts/build/generate-embedded-ts-lib-types.ts
+ * (also run automatically by `build:binary`).
+ */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -20,8 +41,15 @@ const OUT_FILE = join(
   'typescript-validator',
   'embedded-ts-lib-types.generated.ts'
 )
+// Import paths in the generated file are relative to its own directory
+// (src/infrastructure/automations/typescript-validator/ → repo root is four levels up).
 const REL_ROOT = '../../../..'
 
+/**
+ * Extract the resolved `typescript` version from `bun.lock`. The lockfile uses
+ * the canonical `"typescript": ["typescript@X.Y.Z", …]` shape — match that
+ * (anchored at the package-name key so we don't pick up `@typescript-eslint/*`).
+ */
 const resolveTypescriptVersion = (): string => {
   const lockBody = readFileSync(BUN_LOCK, 'utf8')
   const match = lockBody.match(/"typescript":\s*\[\s*"typescript@([0-9]+\.[0-9]+\.[0-9]+)"/)
@@ -39,6 +67,11 @@ interface ImportLine {
   readonly importPath: string
 }
 
+// Collect every `lib.*.d.ts` file shipped with the TypeScript package. We
+// embed ALL of them (rather than a hand-picked subset) because tsc chains
+// libs via `/// <reference lib="..."/>` directives and a missing file would
+// surface as a confusing `Cannot find global type 'X'` at boot. The full
+// corpus is ~3.9 MB and adds negligible size to a ~120 MB binary.
 const libFiles = readdirSync(TS_LIB_DIR)
   .filter((f) => f.startsWith('lib.') && f.endsWith('.d.ts'))
   .toSorted()
@@ -53,6 +86,9 @@ const imports: readonly ImportLine[] = libFiles.map((f, idx) => ({
   importPath: `${REL_ROOT}/node_modules/typescript/lib/${f}`,
 }))
 
+// Emit single-quoted keys to match Prettier's `singleQuote: true` project
+// setting — keeps the generator's output passing `bun format --check` so the
+// quality pipeline doesn't flag the generated file after every regeneration.
 const entries = libFiles.map((f, idx) => `  '${f}': _l${idx},`).join('\n')
 
 const header = `/**

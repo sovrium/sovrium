@@ -9,6 +9,12 @@ import { yaml } from '@codemirror/lang-yaml'
 import SchemaConfigEditor, { type SchemaConfigEditorProps } from './schema-config-editor'
 import type { ReactElement } from 'react'
 
+/**
+ * `schema-yaml-editor` island (platform B10) — a CodeMirror YAML config editor.
+ *
+ * Delegates to the shared {@link SchemaConfigEditor} core with the
+ * `@codemirror/lang-yaml` syntax mode and the `yaml` format discriminant.
+ */
 export default function SchemaYamlEditorIsland(props: SchemaConfigEditorProps): ReactElement {
   return (
     <SchemaConfigEditor

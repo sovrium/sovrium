@@ -9,6 +9,9 @@ import { Schema } from 'effect'
 import { CryptoHashActionSchema } from './hash'
 import { CryptoHmacActionSchema } from './hmac'
 
+/**
+ * Crypto Action — union of all cryptographic operators
+ */
 export const CryptoActionSchema = Schema.Union(CryptoHashActionSchema, CryptoHmacActionSchema).pipe(
   Schema.annotations({
     identifier: 'CryptoAction',
@@ -17,6 +20,7 @@ export const CryptoActionSchema = Schema.Union(CryptoHashActionSchema, CryptoHma
   })
 )
 
+/** @public */
 export type CryptoAction = Schema.Schema.Type<typeof CryptoActionSchema>
 
 export * from './hash'

@@ -1,0 +1,47 @@
+# Sample projects for the headless task API.
+#
+# `key` is file-local — it exists so `tasks.yaml` can name a project before this
+# row has a database id, and it is never written to a column.
+#
+# `created_by` is absent on purpose. It is a `created-by` field: the engine
+# stamps it from the authenticated actor on insert, so a seeded value would be
+# discarded. `sovrium seed` runs under a system session, which is visible in the
+# response — `GET /api/tables/projects/records` reports `"createdBy": "system"`
+# on every row here, and a real user id on anything created through the API.
+# That difference is the point, not a gap: it tells a reader at a glance which
+# rows are demo data.
+#
+# All four `status` options are represented. A headless template's only shop
+# window is a JSON response, so a reader running
+# `GET /api/tables/projects/records` should see the whole enum in one page
+# rather than four rows of "Active".
+records:
+  - key: atlas
+    fields:
+      name: Atlas — warehouse rewrite
+      description: Replace the hand-rolled stock ledger with the new inventory service. Blocked on the vendor's sandbox credentials.
+      status: Active
+
+  - key: beacon
+    fields:
+      name: Beacon — customer portal
+      description: Self-service invoices and delivery tracking. Design is signed off; build starts once Atlas frees up two engineers.
+      status: Planning
+
+  - key: relay
+    fields:
+      name: Relay — carrier integrations
+      description: Three carriers behind one internal API. Two shipped, the third is waiting on a rate-card format we cannot parse yet.
+      status: Active
+
+  - key: harbour
+    fields:
+      name: Harbour — 2025 stock audit
+      description: Reconciled every warehouse against the ledger and closed out the variances. Report signed 14 March.
+      status: Completed
+
+  - key: kestrel
+    fields:
+      name: Kestrel — mobile scanner pilot
+      description: Handheld scanning trial, parked after the hardware supplier discontinued the model mid-pilot.
+      status: Archived

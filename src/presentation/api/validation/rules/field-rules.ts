@@ -10,9 +10,10 @@ import { StorageService } from '@/application/ports/services/storage-service'
 import { isAdminEquivalent } from '@/domain/models/app'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
-import { hasPermission } from '@/domain/models/app/tables/permissions'
+import { hasPermission } from '@/domain/models/shared/permissions'
 import { inferMimeFromKey } from '@/domain/utils/mime-types'
 import { findColumnFormatViolations } from '@/domain/validators/column-formats'
+import { findMissingRequiredFieldNames } from '@/domain/validators/required-fields'
 import {
   FieldValidationError,
   FieldPermissionError,
@@ -22,9 +23,9 @@ import {
 import type { FieldErrorDetail } from '../../middleware/validation'
 import type { FormatConstrainedFieldType } from '@/domain/validators/column-formats'
 
-const hasUserDefault = (field: { readonly type: string }): boolean =>
-  'default' in field && (field as { readonly default?: unknown }).default !== undefined
-
+/**
+ * Validate that 'id' field is not in the request (readonly)
+ */
 export function validateReadonlyIdField(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldValidationError, never> {
@@ -34,6 +35,21 @@ export function validateReadonlyIdField(
   return Effect.void
 }
 
+/**
+ * Reject direct writes to system-managed / computed field TYPES.
+ *
+ * Read-only-ness is TYPE-driven, NOT `default`-driven (GAP-10): a user-declared
+ * `default` is an OVERRIDABLE fallback (the DB column gets a `DEFAULT` clause),
+ * so a field merely carrying a `default` stays writable — supplying a value
+ * overrides the default, omitting it applies the default. Only computed/
+ * system-managed field TYPES (`formula`, `rollup`, `count`, `lookup`,
+ * `autonumber`, `created-at`/`updated-at`/`created-by`/`updated-by`/
+ * `deleted-at`/`deleted-by`) are genuinely readonly — they are DB-computed
+ * (GENERATED ALWAYS / trigger / view) or platform-populated, so a direct write
+ * would otherwise crash at the INSERT (500). Catch it here with a clean 4xx.
+ *
+ * Source of truth: {@link isReadonlyComputedFieldType}.
+ */
 export function validateReadonlyComputedFields(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldValidationError, ValidationContext> {
@@ -44,6 +60,9 @@ export function validateReadonlyComputedFields(
     const readonlyComputedFields =
       table?.fields?.filter((f) => isReadonlyComputedFieldType(f.type)) ?? []
 
+    // EVERY computed column the request tried to write, in table
+    // field-declaration order — not just the first one found
+    //.
     const attempted = readonlyComputedFields
       .filter((f) => f.name in fields)
       .map((f) => ({ field: f.name, message: `Cannot write to readonly field '${f.name}'` }))
@@ -57,6 +76,24 @@ export function validateReadonlyComputedFields(
   })
 }
 
+/**
+ * Every required text field that is PRESENT but empty, in table
+ * field-declaration order.
+ *
+ * The missing-field check in {@link validateRequiredFields} tests key presence
+ * only (`!(field.name in fields)`), and `{ code: '' }` has the key — so without
+ * this branch an empty string silently satisfies `required`. Whitespace is
+ * trimmed first: '   ' supplies no value either.
+ *
+ * Emptiness is the WHOLE rule. AppSchema declares no minimum length for text
+ * fields, so `required` can only ever mean "a value must be supplied", never
+ * "a value must be N characters" — and the platform must not invent a boundary
+ * the operator never configured. A one-character product code, initial, or
+ * label is ordinary business data. The message
+ * names the declared constraint, and matches the wording the client-side gate
+ * already uses (`validateCrudInputs` in crud-form-island/submit-pipeline.ts),
+ * so the two halves of the same rule read identically to the user.
+ */
 const findBlankRequiredFields = <
   F extends { readonly name: string; readonly type: string; readonly required?: boolean },
 >(
@@ -74,6 +111,9 @@ const findBlankRequiredFields = <
     )
     .map((field) => ({ field: field.name, message: 'This field is required' }))
 
+/**
+ * Validate required fields are present
+ */
 export function validateRequiredFields(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldValidationError, ValidationContext> {
@@ -83,26 +123,19 @@ export function validateRequiredFields(
 
     if (!table) return
 
-    const primaryKeyFields = new Set(
-      table.primaryKey?.fields ?? (table.primaryKey?.field ? [table.primaryKey.field] : [])
-    )
+    // The rule itself (key presence, primary-key and `default` exemptions) is
+    // the single shared one — the upsert route asks the same question of the
+    // same config and must get the same answer. Only the error ENVELOPE differs
+    // between the routes, and that stays here.
+    const missingRequiredFields = findMissingRequiredFieldNames(table, fields).map((name) => ({
+      field: name,
+      message: `Missing required field '${name}'`,
+    }))
 
-    const autoInjectedFields = new Set<string>([])
-
-    const missingRequiredFields = table.fields
-      .filter(
-        (field) =>
-          field.required &&
-          !(field.name in fields) &&
-          !primaryKeyFields.has(field.name) &&
-          !autoInjectedFields.has(field.name) &&
-          !hasUserDefault(field)
-      )
-      .map((field) => ({
-        field: field.name,
-        message: `Missing required field '${field.name}'`,
-      }))
-
+    // The complete list was always computed here; only the envelope discarded
+    // it. The top-level `message` stays the generic 'Missing required fields'
+    // ([internal ref] pins it), while `errors` names each one
+    //.
     const firstMissing = missingRequiredFields[0]
     if (firstMissing) {
       return yield* Effect.fail(
@@ -125,6 +158,9 @@ export function validateRequiredFields(
   })
 }
 
+/**
+ * Check if a field permission restricts writing based on user role
+ */
 function hasWriteRoleRestriction(
   fieldPermission: { write?: 'all' | 'authenticated' | readonly string[] } | null | undefined,
   userRole: string
@@ -134,6 +170,10 @@ function hasWriteRoleRestriction(
   return !hasPermission(writePermission, userRole)
 }
 
+/**
+ * Filter fields based on write permissions
+ * Returns only fields the user is allowed to write
+ */
 export function filterAllowedFields(
   fields: Record<string, unknown>
 ): Effect.Effect<
@@ -145,8 +185,17 @@ export function filterAllowedFields(
     const ctx = yield* ValidationContext
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
 
+    // Admin-equivalent roles (the app's resolved top role + the built-in `admin`
+    // when it is not out-ranked) are unrestricted: they bypass field-level WRITE
+    // permissions. A field marked `write: ['engineer']` restricts LOWER roles —
+    // the engineer/admin OWNS every field. Uses the same canonical
+    // `isAdminEquivalent` predicate as the read-side (`filterReadableFields`) and
+    // row-level (`row-level-guard` isUnrestricted) bypass, so an engineer/admin
+    // writing an engineer-only field via the records-API no longer 404s — and a
+    // role bypasses writes exactly when it bypasses reads and row-level access.
     const isUnrestricted = isAdminEquivalent(ctx.userRole, ctx.app)
 
+    // Get forbidden fields based on field-level permissions (functional filter pattern)
     const forbiddenFields: readonly string[] = isUnrestricted
       ? []
       : Object.keys(fields).filter((fieldName) => {
@@ -157,6 +206,13 @@ export function filterAllowedFields(
           return hasWriteRoleRestriction(fieldPermission, ctx.userRole)
         })
 
+    // Filter out forbidden fields. Reservation is TYPE-driven, never NAME-driven:
+    // the genuinely readonly fields (`id`, and the computed/system-managed field
+    // TYPES) are rejected LOUDLY upstream by `validateReadonlyIdField` /
+    // `validateReadonlyComputedFields`. A name-based strip here would instead drop
+    // the column silently and still report 201/200 — which is data loss, not
+    // protection. Tenant isolation is by SCHEMA (`auth.*` / `system.*`), so an
+    // app-declared column may use any name.
     const allowedData = Object.fromEntries(
       Object.entries(fields).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
     )
@@ -165,11 +221,33 @@ export function filterAllowedFields(
   })
 }
 
+/**
+ * Developer-facing copy for each format violation, keyed by column type. The
+ * `url` wording is spec-pinned byte-for-byte by [internal ref] /
+ * -024 / -025; `email` mirrors its shape. Copy lives HERE rather than in the
+ * shared domain rule because the public-form path phrases the same violation for
+ * a stranger filling in a contact form, not for an API client.
+ */
 const FORMAT_MESSAGES: Readonly<Record<FormatConstrainedFieldType, (field: string) => string>> = {
   url: (field) => `Invalid URL format for field '${field}'`,
   email: (field) => `Invalid email format for field '${field}'`,
 }
 
+/**
+ * Validate format-carrying column types (`email`, `url`) on the records path.
+ *
+ * The rule itself is {@link findColumnFormatViolations} in
+ * `domain/validators/column-formats.ts`, shared with the form-submission path.
+ * This function previously validated `url` and NOT `email`, while the forms path
+ * validated `email` and NOT `url` — so `POST /api/tables/:id/records` with
+ * `{ email: 'not-an-email' }` returned 201 and persisted the value (verified by
+ * execution). Neither type compiles to a CHECK constraint, so nothing
+ * downstream refused it.
+ *
+ * Every offender is reported, in table field-declaration order:
+ * [internal ref] pins the absence of the row, not merely the
+ * presence of an error, and CREATE-024 pins that all offenders are named.
+ */
 export function validateFieldFormats(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldFormatError, ValidationContext> {
@@ -192,6 +270,9 @@ export function validateFieldFormats(
   })
 }
 
+/**
+ * Check if a MIME type is permitted by the allowedFileTypes list
+ */
 function isMimeTypeAllowed(mimeType: string, allowedFileTypes: readonly string[]): boolean {
   return allowedFileTypes.some((allowed) =>
     allowed.endsWith('/*') ? mimeType.startsWith(allowed.slice(0, -1)) : mimeType === allowed
@@ -211,6 +292,10 @@ const isAttachmentField = (f: {
 }): f is AttachmentField & { readonly type: 'single-attachment' | 'multiple-attachments' } =>
   f.type === 'single-attachment' || f.type === 'multiple-attachments'
 
+/**
+ * Extract attachment storage keys from a record's field value, normalising
+ * single vs multiple-attachment shape into a flat readonly string array.
+ */
 const extractAttachmentKeys = (field: AttachmentField, value: unknown): readonly string[] => {
   if (field.type === 'multiple-attachments') {
     return Array.isArray(value) ? value.filter((k): k is string => typeof k === 'string') : []
@@ -244,6 +329,10 @@ const validateAllowedTypes = (
   )
 }
 
+/**
+ * Download each storage key (treating download failures as zero-byte files
+ * — preserves original behaviour) and reject when any exceeds maxFileSize.
+ */
 const validateMaxFileSize = (
   field: AttachmentField,
   keys: readonly string[]
@@ -273,6 +362,7 @@ const validateMaxFileSize = (
   })
 }
 
+/** Run all attachment-field validations for a single field. */
 const validateOneAttachmentField = (
   field: AttachmentField,
   fields: Record<string, unknown>
@@ -286,6 +376,11 @@ const validateOneAttachmentField = (
   return validateMaxFileSize(field, keys)
 }
 
+/**
+ * Validate attachment field type constraints (allowedFileTypes, maxFileSize)
+ * Infers MIME type from the storage key's filename extension and checks against field restrictions.
+ * For maxFileSize, downloads the file from StorageService to check the actual byte size.
+ */
 export function validateAttachmentConstraints(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldValidationError, ValidationContext | StorageService> {
@@ -300,12 +395,32 @@ export function validateAttachmentConstraints(
   })
 }
 
+/**
+ * Strip UUID prefix from a storage key to recover the original filename.
+ * Key format: '<uuid>-<original-filename>'
+ */
 function stripUuidPrefix(key: string): string {
   return (
     key.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i)?.[1] ?? key
   )
 }
 
+/**
+ * Enrich single-attachment fields that have storeMetadata: true.
+ * Replaces the raw storage key string with a metadata object
+ * { filename, mimeType, size, url } by downloading the file.
+ * Called as the final step of record creation validation.
+ *
+ * The `url` names the bucket the COLUMN declares. This is the write
+ * path, so the value PERSISTS: the read enricher deliberately leaves a
+ * `storeMetadata` object untouched ([internal ref] rule 2 — it carries no `key`), and
+ * the API echoes whatever was stored here. Rows written before this fix are
+ * repaired by the boot-time step in `attachment-url-backfill.ts`.
+ *
+ * The fallback is `'default'`, matching the read path, and deliberately NOT
+ * `buckets[0].name` — see `resolveFieldBucket`'s own doc comment for why the
+ * two fallbacks must not be unified.
+ */
 export function enrichAttachmentMetadata(
   fields: Record<string, unknown>
 ): Effect.Effect<Record<string, unknown>, never, ValidationContext | StorageService> {
@@ -349,6 +464,11 @@ export function enrichAttachmentMetadata(
   })
 }
 
+/**
+ * Decode a base64 string to a Uint8Array. Falls back to UTF-8 encoding when
+ * the payload is not valid base64, so a spec author who passes plain text
+ * (`content: 'base64data'`) still gets bytes persisted rather than a 400.
+ */
 const decodeContent = (content: string): Uint8Array => {
   try {
     return Uint8Array.from(Buffer.from(content, 'base64'))
@@ -357,6 +477,12 @@ const decodeContent = (content: string): Uint8Array => {
   }
 }
 
+/**
+ * Recognise the inline-content payload shape used by record-create requests
+ * for `'attachment'` JSONB columns (`{ name, content }` — optional `mimeType`).
+ * Keys-only references (already-uploaded files) and metadata objects without
+ * `content` pass through untouched.
+ */
 const isInlineAttachmentPayload = (
   value: unknown
 ): value is {
@@ -370,6 +496,11 @@ const isInlineAttachmentPayload = (
   typeof (value as { name?: unknown }).name === 'string' &&
   typeof (value as { content?: unknown }).content === 'string'
 
+/**
+ * Upload one inline attachment payload to the configured StorageService and
+ * return the canonical key-plus-metadata JSONB shape that the read path
+ * enriches with a signed URL.
+ */
 const uploadInlinePayload = (payload: {
   readonly name: string
   readonly content: string
@@ -389,10 +520,25 @@ const uploadInlinePayload = (payload: {
     const bytes = decodeContent(payload.content)
     const mimeType = payload.mimeType ?? inferMimeFromKey(payload.name)
     const key = `${crypto.randomUUID()}-${payload.name}`
+    // Upload failures collapse to the same metadata object — the read path's
+    // signed-URL serve will surface a 404 to the client, which is the correct
+    // observable behaviour for a missing file.
     yield* storage.upload(key, bytes, mimeType).pipe(Effect.catchAll(() => Effect.void))
     return { key, name: payload.name, mimeType, size: bytes.length }
   })
 
+/**
+ * Persist inline `{ name, content }` attachment payloads from a record-create
+ * request to storage and replace them with the canonical
+ * `{ key, name, mimeType, size }` JSONB shape that the read path enriches
+ * with a signed (or direct) URL.
+ *
+ * Targets `'attachment'` JSONB columns specifically — the legacy
+ * `single-attachment` storage-key contract (and its `storeMetadata: true`
+ * download-enrichment path in {@link enrichAttachmentMetadata}) are
+ * intentionally left untouched so neither code path masks the other.
+ * Plain string keys (already-uploaded references) pass through unchanged.
+ */
 export function uploadInlineAttachmentContent(
   fields: Record<string, unknown>
 ): Effect.Effect<Record<string, unknown>, never, ValidationContext | StorageService> {
@@ -416,6 +562,9 @@ export function uploadInlineAttachmentContent(
   })
 }
 
+/**
+ * Validate field write permissions - fails if any forbidden fields found
+ */
 export function validateFieldWritePermissions(
   forbiddenFields: readonly string[]
 ): Effect.Effect<void, FieldPermissionError, never> {

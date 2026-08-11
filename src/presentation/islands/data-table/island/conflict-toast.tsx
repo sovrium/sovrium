@@ -5,6 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Conflict toast for the realtime data-table island.
+ *
+ * Rendered when a concurrent edit overwrites a field
+ * the current user could already see. The toast is an `alert` so assistive
+ * tech announces it immediately; its text names every overwritten field and
+ * the user whose write won, then explains the data has been reconciled to the
+ * server's authoritative state (server-wins — [internal ref]).
+ */
 
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { ReactElement } from 'react'
@@ -14,8 +23,14 @@ interface ConflictToastProps {
   readonly onDismiss: () => void
 }
 
+/**
+ * Direct database writes (and SSE change events that do not attribute a
+ * writer) have no identifiable author — the toast falls back to a generic
+ * label so the message still reads naturally.
+ */
 const OVERWRITING_USER = 'another user'
 
+/** Join field names into a readable, comma-separated clause. */
 function formatFields(fields: readonly string[]): string {
   return fields.join(', ')
 }

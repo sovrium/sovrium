@@ -15,6 +15,9 @@ export const ContentSchema = Schema.Union(
     'Text content for text components, or structured content object (e.g., { button: { text, animation } })',
 })
 
+/**
+ * Content field for components that display text or structured content.
+ */
 export const contentFields = {
   content: Schema.optional(ContentSchema),
 } as const

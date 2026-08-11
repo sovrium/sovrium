@@ -7,6 +7,11 @@
 
 import { Schema } from 'effect'
 
+/**
+ * Auth Trigger
+ *
+ * Triggered by authentication events.
+ */
 export const AuthTriggerSchema = Schema.Struct({
   type: Schema.Literal('auth'),
   events: Schema.Array(
@@ -23,4 +28,5 @@ export const AuthTriggerSchema = Schema.Struct({
   })
 )
 
+/** @public */
 export type AuthTrigger = Schema.Schema.Type<typeof AuthTriggerSchema>

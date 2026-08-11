@@ -5,6 +5,42 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Real-time presence-awareness endpoint — Wave-6.
+ *
+ * Served at `GET /api/realtime/presence?pagePath=/tasks`.
+ *
+ * Drives `[internal ref]`
+ *.
+ *
+ * When a user opens a page configured with `presence: true`, the
+ * presence-indicator island opens an SSE connection here. The handler:
+ *
+ *  1. Resolves the user's display name + avatar from the Better Auth `user`
+ * table.
+ *  2. Registers a presence entry on the page-path channel and broadcasts a
+ * `join` event to other connections.
+ *  3. Streams an immediate `presence-sync` snapshot so the joining user sees
+ * every colleague already on the page.
+ *  4. Streams live `join` / `leave` events from the presence channel.
+ *  5. On disconnect (clean close, lifetime timeout, OR client navigation),
+ * deregisters the entry and broadcasts a `leave` event.
+ * The 60s stale-cleanup timer reaps entries whose
+ *     connection dropped without a clean close.
+ *
+ * Presence is scoped strictly per `pagePath`: the channel
+ * key is derived solely from the page path, so a `/tasks` subscriber never
+ * receives `/projects` presence events.
+ *
+ * The SSE lifecycle (preamble → drain → heartbeat → lifetime ceiling) is
+ * delegated to the shared `runEffectSse` bridge; this file only owns the
+ * presence-specific side effects (`joinPresence` / `touchPresence` /
+ * `leavePresence`) and the channel-listener source.
+ *
+ * Auth: the route is mounted with `authMiddleware` (no `requireAuth` chained)
+ * so the handler can return a JSON 401 itself rather than the generic
+ * middleware envelope.
+ */
 
 import { Effect, Stream } from 'effect'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
@@ -22,6 +58,14 @@ import type { RealtimePresenceEntry } from '@/domain/models/api/realtime/realtim
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/**
+ * Handle `GET /api/realtime/presence`.
+ *
+ * Requires an authenticated session (401 otherwise) and a `pagePath` query
+ * param identifying the page-path presence channel to join. The channel is
+ * namespaced by `app.name` to prevent cross-tenant leakage when more than
+ * one app shares a process.
+ */
 export async function handlePresence(c: Context, app: App): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
@@ -36,6 +80,7 @@ export async function handlePresence(c: Context, app: App): Promise<Response> {
     )
   }
 
+  // Arm the stale-cleanup timer on the first presence connection.
   startPresenceReaper()
 
   const userMeta = await resolvePresenceUser(session.userId)
@@ -47,13 +92,27 @@ export async function handlePresence(c: Context, app: App): Promise<Response> {
     ...(userMeta.avatarUrl !== undefined ? { avatarUrl: userMeta.avatarUrl } : {}),
   }
 
+  // Each connection (browser tab) gets a distinct presence entry so closing
+  // one tab does not evict another tab of the same user.
   const connectionId = crypto.randomUUID()
 
+  // Register the entry + broadcast `join` to other connections, then surface
+  // the resulting snapshot in the preamble so the joining user sees every
+  // colleague already on the page. `leavePresence` is fired by the bridge's
+  // `onTerminate` callback for ALL termination reasons (clean close, lifetime
+  // timeout, client navigation/abort). The channel is namespaced by `app.name`
+  // (per main's tenant-namespacing refactor) so two apps holding presence on
+  // the same page path never observe each other's join/leave traffic.
   const appId = app.name
   const snapshot = joinPresence({ appId, connectionId, pagePath, entry })
 
+  // Stream.async lifts the channel-manager's listener-callback shape into an
+  // Effect.Stream. The returned cleanup Effect unsubscribes the listener
+  // when the stream is interrupted (which the bridge does on lifetime /
+  // abort / drain failure via `Effect.race`'s interruption).
   const source = Stream.async<Record<string, unknown>>((emit) => {
     const unsubscribe = addChannelListener(presenceChannel(appId, pagePath), (event) => {
+      // eslint-disable-next-line functional/no-expression-statements -- emit is the Stream.async side-effect API
       void emit.single(event)
     })
     return Effect.sync(() => unsubscribe())

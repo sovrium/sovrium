@@ -1,0 +1,105 @@
+# Sample event schedule.
+#
+# `key` is file-local — it exists so registrations.yaml can name an event before
+# either row has a database id. It is never written to a column.
+#
+# Every date is relative, which is the only reason this data set is worth
+# regenerating rather than snapshotting: the demo fleet re-seeds nightly, and a
+# calendar whose events all happened last spring shows an empty month view
+# forever. The spread below is deliberate — three past, one today, five future,
+# straddling roughly nine weeks — so `/calendar` has something in the previous,
+# current and next month whatever day of the month it is opened on.
+#
+# Statuses are spread across all four options for the same reason: a status
+# column where every row says Open demonstrates nothing about the status column.
+records:
+  - key: winter-summit
+    fields:
+      name: Winter Product Summit
+      description: >-
+        A half-day of product talks and a long lunch. Two tracks, one hallway,
+        no slides after 4pm.
+      event_date: '{{today-24d}}'
+      location: Salle Wagram, Paris
+      capacity: 180
+      status: Sold out
+
+  - key: onboarding-clinic-jan
+    fields:
+      name: Onboarding Clinic
+      description: >-
+        Bring your half-finished setup and leave with it working. One engineer
+        per three attendees.
+      event_date: '{{today-11d}}'
+      location: Online
+      capacity: 40
+      status: Open
+
+  - key: partner-breakfast
+    fields:
+      name: Partner Breakfast
+      description: An hour with the integration partners, before anyone opens a laptop.
+      event_date: '{{today-4d}}'
+      location: Le Comptoir, Lyon
+      capacity: 25
+      status: Open
+
+  - key: office-hours-today
+    fields:
+      name: Open Office Hours
+      description: Drop in with a question. No agenda, no recording.
+      event_date: '{{today}}'
+      location: Online
+      capacity: 60
+      status: Open
+
+  - key: migration-workshop
+    fields:
+      name: Migration Workshop
+      description: >-
+        Move a real spreadsheet stack onto a real database, in one sitting.
+        Bring the spreadsheet.
+      event_date: '{{today+6d}}'
+      location: Station F, Paris
+      capacity: 90
+      status: Open
+
+  - key: design-review-jam
+    fields:
+      name: Design Review Jam
+      description: Six teams, six surfaces, one afternoon of honest critique.
+      event_date: '{{today+13d}}'
+      location: Atelier Nord, Lille
+      capacity: 45
+      status: Sold out
+
+  - key: community-meetup-spring
+    fields:
+      name: Spring Community Meetup
+      description: >-
+        Lightning talks from whoever signs up on the night, then drinks. The
+        talks are five minutes and the timer is not negotiable.
+      event_date: '{{today+27d}}'
+      location: La Halle, Nantes
+      capacity: 120
+      status: Open
+
+  - key: annual-conference
+    fields:
+      name: Annual Conference
+      description: >-
+        The one that takes a year to plan. Keynote, four tracks, and a party
+        nobody remembers scheduling.
+      event_date: '{{today+41d}}'
+      location: Palais des Congrès, Bordeaux
+      capacity: 600
+      status: Draft
+
+  - key: regional-roadshow-north
+    fields:
+      name: Regional Roadshow — North
+      description: Cancelled after the venue double-booked. Rescheduling for the autumn.
+      event_date: '{{today+55d}}'
+      location: Espace Vauban, Lille
+      capacity: 70
+      status: Cancelled

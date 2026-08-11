@@ -98,6 +98,16 @@ components:
         groupBy:
           field: status
           direction: asc
+        # `toolbar.viewSwitcher` renders one button per entry of `views`. With
+        # `views` omitted it falls back to ['grid'] — a one-button switcher that
+        # does nothing. Declaring the set is what makes the tab real, and
+        # listing `kanban` requires `kanbanGroupBy` (independent of the row
+        # `groupBy` above: a grid grouped by status can still board by status).
+        views:
+          - grid
+          - kanban
+        kanbanGroupBy:
+          field: status
         toolbar:
           search: true
           filters: true

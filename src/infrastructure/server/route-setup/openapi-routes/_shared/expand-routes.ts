@@ -14,6 +14,17 @@ import {
 } from './route-spec'
 import type { App } from '@/domain/models/app'
 
+/**
+ * Re-attach the resource path parameter to a route's `request` for fallback
+ * (app-absent) mode.
+ *
+ * In config-driven mode the resource id is baked into the concrete path
+ * (`/api/tables/contacts/records`), so a {@link RouteSpec} declares its
+ * `request.params` WITHOUT it. The app-absent fallback keeps the generic
+ * `{tableId}`-style placeholder in the path, so the params schema must declare
+ * that parameter again — otherwise `createRoute` emits a doc whose declared
+ * params do not match the path.
+ */
 function addPathParam(request: RouteSpec['request'], paramName: string): RouteSpec['request'] {
   const pathParam = { [paramName]: z.string().describe(`${paramName} identifier`) }
   const existingParams = request?.params as z.ZodObject<z.ZodRawShape> | undefined
@@ -23,6 +34,19 @@ function addPathParam(request: RouteSpec['request'], paramName: string): RouteSp
   } as RouteSpec['request']
 }
 
+/**
+ * Register every route of a resource-scoped group on the OpenAPI app.
+ *
+ * Config-driven mode (`config` present, collection non-empty): emits one
+ * concrete route per configured resource × `RouteSpec`, each under a
+ * per-resource tag (`Table: contacts`) with a `__ResourceName`-suffixed
+ * operationId.
+ *
+ * Fallback mode (no `config`, or an empty collection): emits one generic
+ * route per `RouteSpec` using the group's generic placeholder and tag — this
+ * keeps the schema valid for a future static `export:openapi` and for apps
+ * that have not configured any resource of this kind.
+ */
 export function expandRoutesPerResource(
   openApiApp: OpenAPIHono,
   group: ResourceGroupSpec,
@@ -70,6 +94,11 @@ export function expandRoutesPerResource(
   })
 }
 
+/**
+ * Register every route of a static (non-resource-scoped) group under a single
+ * fixed tag. Used for groups like health, auth, and account that have no
+ * per-resource expansion.
+ */
 export function registerStaticRoutes(openApiApp: OpenAPIHono, group: StaticGroupSpec): void {
   group.routes.forEach((spec) =>
     openApiApp.openapi(

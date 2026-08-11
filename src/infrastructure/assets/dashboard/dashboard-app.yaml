@@ -8,7 +8,7 @@
 #
 # Tier 0 scope (this file): the minimal shell skeleton the system-config-mount
 # specs assert — a `main` landmark plus the three named sidebar `navigation`
-# landmarks (Données & Logique / Plateforme / Opérations). The full shell
+# landmarks (Data & Logic / Platform / Operations). The full shell
 # (count badges, ⌘K palette, breadcrumb, split-pane Config tab, per-domain
 # surfaces) is layered on in Tier 1+ and is intentionally absent here.
 name: sovrium-admin-dashboard
@@ -32,7 +32,7 @@ pages:
             element: aside
             props:
               className: w-64 shrink-0 border-r border-border bg-background-raised p-4 flex flex-col gap-6
-              aria-label: Navigation du tableau de bord
+              aria-label: Dashboard navigation
             children:
               - type: text
                 element: h1
@@ -43,35 +43,35 @@ pages:
                 element: nav
                 props:
                   className: flex flex-col gap-1
-                  aria-label: Données & Logique
+                  aria-label: Data & Logic
                 children:
                   - type: text
                     element: p
                     props:
                       className: text-xs font-medium uppercase tracking-wide text-muted-foreground
-                    content: Données & Logique
+                    content: Data & Logic
               - type: container
                 element: nav
                 props:
                   className: flex flex-col gap-1
-                  aria-label: Plateforme
+                  aria-label: Platform
                 children:
                   - type: text
                     element: p
                     props:
                       className: text-xs font-medium uppercase tracking-wide text-muted-foreground
-                    content: Plateforme
+                    content: Platform
               - type: container
                 element: nav
                 props:
                   className: flex flex-col gap-1
-                  aria-label: Opérations
+                  aria-label: Operations
                 children:
                   - type: text
                     element: p
                     props:
                       className: text-xs font-medium uppercase tracking-wide text-muted-foreground
-                    content: Opérations
+                    content: Operations
           # Main content region. The page renderer already wraps every page in a
           # single `<main id="main-content">` landmark (PageMain), so this region
           # uses a plain `div` — a second `element: main` would create a duplicate
@@ -85,12 +85,12 @@ pages:
                 element: h2
                 props:
                   className: text-2xl font-semibold mb-2
-                content: Tableau de bord
+                content: Dashboard
               - type: text
                 element: p
                 props:
                   className: text-muted-foreground
-                content: Administrez votre application Sovrium.
+                content: Administer your Sovrium app.
 
   # Public operator sign-in surface (US-ADMIN-DASHBOARD-LOGIN). The ONLY
   # unguarded page under `/_admin` — the auth seam exempts `/_admin/login`
@@ -103,7 +103,7 @@ pages:
     name: dashboard-login
     path: /login
     meta:
-      title: Sovrium — Connexion
+      title: Sovrium — Sign in
       noindex: true
     components:
       # The page renderer already wraps every page in a single `<main
@@ -126,12 +126,12 @@ pages:
                   className: inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
               - type: text
                 element: h1
-                content: Connexion à la console
+                content: Sign in to the console
                 props:
                   className: text-2xl font-bold tracking-tight leading-tight text-foreground
               - type: text
                 element: p
-                content: Connectez-vous pour administrer votre application Sovrium.
+                content: Sign in to administer your Sovrium app.
                 props:
                   className: text-sm leading-relaxed text-muted-foreground max-w-sm
           - type: card
@@ -145,25 +145,24 @@ pages:
                   type: auth
                   method: login
                   strategy: email
-                  # French voice (login.md Implementation Note + US-ADMIN-DASHBOARD-
-                  # LOGIN AC-006): the dashboard's chrome is French, so the sign-in
-                  # form's field labels and submit button are French. This is a
-                  # per-form i18n config of the SHARED `auth-form` island — the
-                  # business-app logins (apps/cloud, apps/website) keep their English
-                  # defaults because they declare no override (cloud) or `$t:` keys
-                  # (website). `fields[]` overrides target a field by `name` and
-                  # replace its visible label; the email/password input types are
-                  # unchanged.
-                  submitLabel: Se connecter
-                  # In-flight label (French console) — threaded to the shared
-                  # auth-form island like submitLabel so the pending button never
-                  # falls back to a hardcoded English "Loading...".
-                  pendingLabel: Connexion…
+                  # The console speaks English, and so does its sign-in form.
+                  # "Sign in" is stated explicitly rather than left to the shared
+                  # `auth-form` island's default so it stays paired with the
+                  # operator menu's "Sign out" — one concept, one word, and the
+                  # pair should never drift apart. This is a per-form i18n config
+                  # of that SHARED island: `fields[]` overrides target a field by
+                  # `name` and replace its visible label; the email/password input
+                  # types are unchanged.
+                  submitLabel: Sign in
+                  # In-flight label — threaded to the shared auth-form island like
+                  # submitLabel so the pending button never falls back to a
+                  # hardcoded "Loading...".
+                  pendingLabel: Signing in…
                   fields:
                     - name: email
-                      label: Adresse e-mail
+                      label: Email address
                     - name: password
-                      label: Mot de passe
+                      label: Password
                   onSuccess:
                     navigate: /_admin
               # Recovery entry point (US-ADMIN-DASHBOARD-PASSWORD-RESET). A `link`
@@ -174,10 +173,10 @@ pages:
                 props:
                   href: /_admin/forgot-password
                   className: text-sm text-center mt-4 text-muted-foreground
-                content: Mot de passe oublié ?
+                content: Forgot your password?
           - type: text
             element: p
-            content: La configuration vit dans le code. Ici, vous observez ce qui tourne.
+            content: Configuration lives in code. Here, you observe what runs.
             props:
               className: text-foreground-subtle font-serif text-sm italic
 
@@ -190,7 +189,7 @@ pages:
     name: dashboard-forgot-password
     path: /forgot-password
     meta:
-      title: Sovrium — Mot de passe oublié
+      title: Sovrium — Forgot password
       noindex: true
     components:
       - type: container
@@ -209,12 +208,12 @@ pages:
                   className: inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
               - type: text
                 element: h1
-                content: Mot de passe oublié
+                content: Forgot password
                 props:
                   className: text-2xl font-bold tracking-tight leading-tight text-foreground
               - type: text
                 element: p
-                content: Saisissez votre adresse e-mail. Nous vous enverrons un lien pour définir un nouveau mot de passe.
+                content: Enter your email address. We’ll send you a link to set a new password.
                 props:
                   className: text-sm leading-relaxed text-muted-foreground max-w-sm
           # `stripAuthActionsIfUnconfigured` drops TOP-LEVEL auth-action components
@@ -231,26 +230,26 @@ pages:
                   type: auth
                   method: resetPassword
                   strategy: email
-                  submitLabel: Envoyer le lien
-                  pendingLabel: Envoi…
+                  submitLabel: Send the link
+                  pendingLabel: Sending…
                   fields:
                     - name: email
-                      label: Adresse e-mail
+                      label: Email address
                   onSuccess:
                     # Conditional phrasing, deliberately: the endpoint always answers
                     # 200 so it never confirms whether an address has an account. The
                     # banner must not assert one exists.
                     toast:
-                      message: Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé.
+                      message: If an account exists for that address, a reset link has been sent.
                       variant: success
               - type: link
                 props:
                   href: /_admin/login
                   className: text-sm text-center mt-4 text-muted-foreground
-                content: Retour à la connexion
+                content: Back to sign in
           - type: text
             element: p
-            content: Le lien expire après une heure. Vous pouvez en redemander un à tout moment.
+            content: The link expires after one hour. You can request another at any time.
             props:
               className: text-foreground-subtle font-serif text-sm italic
 
@@ -262,7 +261,7 @@ pages:
     name: dashboard-reset-password
     path: /reset-password
     meta:
-      title: Sovrium — Nouveau mot de passe
+      title: Sovrium — New password
       noindex: true
     components:
       - type: container
@@ -281,7 +280,7 @@ pages:
                   className: inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-base font-semibold
               - type: text
                 element: h1
-                content: Nouveau mot de passe
+                content: New password
                 props:
                   className: text-2xl font-bold tracking-tight leading-tight text-foreground
               - type: text
@@ -290,7 +289,7 @@ pages:
                 # OPERATOR's password policy (`resolvePasswordPolicy`, default 8 but
                 # overridable per app), and this config ships in every binary — a
                 # hardcoded number would be wrong on any app with a stricter policy.
-                content: Choisissez un nouveau mot de passe. Il remplacera l'ancien immédiatement.
+                content: Choose a new password. It replaces the old one immediately.
                 props:
                   className: text-sm leading-relaxed text-muted-foreground max-w-sm
           - type: card
@@ -304,23 +303,23 @@ pages:
                   type: auth
                   method: setNewPassword
                   strategy: email
-                  submitLabel: Enregistrer le mot de passe
-                  pendingLabel: Enregistrement…
+                  submitLabel: Save the password
+                  pendingLabel: Saving…
                   fields:
                     - name: password
-                      label: Nouveau mot de passe
+                      label: New password
                   onSuccess:
                     navigate: /_admin/login
                     toast:
-                      message: Mot de passe mis à jour. Vous pouvez vous connecter.
+                      message: Password updated. You can sign in.
                       variant: success
               - type: link
                 props:
                   href: /_admin/login
                   className: text-sm text-center mt-4 text-muted-foreground
-                content: Retour à la connexion
+                content: Back to sign in
           - type: text
             element: p
-            content: Ce lien ne fonctionne qu'une fois. Demandez-en un nouveau si besoin.
+            content: This link works only once. Request a new one if you need it.
             props:
               className: text-foreground-subtle font-serif text-sm italic

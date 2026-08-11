@@ -1,0 +1,84 @@
+# Support tickets on /support, each linked to a CRM contact — the join that
+# makes this template an "OS" rather than four unrelated apps bolted together.
+#
+# Both select fields are spread deliberately. `status` uses all four options,
+# weighted towards New and Open because a queue is mostly live work. `priority`
+# uses all four too, with a single Urgent: a queue where everything is urgent
+# has no priority field, it has a decoration.
+#
+# One Resolved ticket is included on purpose — `notify-contact-on-resolved-ticket`
+# fires on the transition INTO Resolved, not on rows that arrive that way, so
+# seeding one is safe and gives a visitor a resolved example to compare against
+# without any mail being sent.
+#
+# `assignee` is a `user` field, left unset: no user account exists at seed time.
+records:
+  - key: northwind-login-loop
+    fields:
+      subject: Depot staff stuck in a sign-in loop on shared tablets
+      contact: '@contacts.dana-whitmore'
+      status: Open
+      priority: Urgent
+
+  - key: northwind-export-slow
+    fields:
+      subject: Weekly manifest export takes over ten minutes
+      contact: '@contacts.paul-eriksen'
+      status: Open
+      priority: High
+
+  - key: helios-report-numbers
+    fields:
+      subject: Monthly report totals do not match the dashboard
+      contact: '@contacts.yasmin-okoro'
+      status: New
+      priority: High
+
+  - key: helios-training-access
+    fields:
+      subject: Two attendees could not access the training materials
+      contact: '@contacts.rob-castellan'
+      status: Resolved
+      priority: Normal
+
+  - key: lumen-import-encoding
+    fields:
+      subject: Accented characters mangled in the imported contact list
+      contact: '@contacts.ines-moreau'
+      status: Open
+      priority: Normal
+
+  - key: cardinal-sso-question
+    fields:
+      subject: Question — does SSO support our identity provider?
+      contact: '@contacts.tobias-krause'
+      status: New
+      priority: Low
+
+  - key: fernbank-print-layout
+    fields:
+      subject: Printed parent letters cut off the right margin
+      contact: '@contacts.gwen-fairlie'
+      status: New
+      priority: Normal
+
+  - key: atlas-webhook-retries
+    fields:
+      subject: Tracking webhook retries firing twice per event
+      contact: '@contacts.samir-bhatt'
+      status: Open
+      priority: High
+
+  - key: atlas-old-invoice
+    fields:
+      subject: Copy of an invoice from March
+      contact: '@contacts.lena-vasquez'
+      status: Closed
+      priority: Low
+
+  - key: northwind-feature-request
+    fields:
+      subject: Feature request — bulk reassign shipments between depots
+      contact: '@contacts.dana-whitmore'
+      status: Closed
+      priority: Low

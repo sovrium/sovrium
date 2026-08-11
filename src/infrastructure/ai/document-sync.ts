@@ -5,6 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Document knowledge sync — discovers, parses, chunks and embeds document
+ * files from `AI_KNOWLEDGE_DIR` into `system.ai_embeddings`
+ *.
+ *
+ * Mirrors the table-knowledge pipeline in `knowledge-sync.ts`:
+ *  - `discoverDocuments()` reads `AI_KNOWLEDGE_DIR` (default `./knowledge`),
+ *    keeps `.pdf` / `.md` / `.txt`, and logs a warning for unsupported
+ * extensions (`.xlsx`, `.docx`...) — [internal ref].
+ *  - `syncAgentDocuments()` parses each file to text (`document-parser`),
+ *    chunks it with the shared `chunkText`, embeds every chunk via the
+ *    eco-routed `AiService`, and persists rows with `source_type:'document'`.
+ *  - `runSyncDocumentsAtStartup()` is the best-effort startup runner — a
+ *    failure is logged but never blocks the server.
+ *
+ * Re-running is idempotent: a document's embeddings are pre-cleared by
+ * `source_id` prefix before re-embedding, so a content change (detected on
+ * the next sync / rebuild) replaces rather than duplicates — [internal ref].
+ */
 
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -21,22 +40,34 @@ import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 
+/** Default knowledge directory when `AI_KNOWLEDGE_DIR` is unset. */
 const DEFAULT_KNOWLEDGE_DIR = './knowledge'
 
+/** One discovered knowledge document — its relative path within the dir. */
 export interface DiscoveredDocument {
   readonly path: string
 }
 
+/** Per-document chunk counts produced by a document sync run. */
 export interface SyncDocumentStats {
   readonly documents: Readonly<Record<string, number>>
   readonly totalChunks: number
 }
 
+/** Resolve the knowledge directory from an env snapshot. */
 export const resolveKnowledgeDir = (env: Readonly<Record<string, string | undefined>>): string => {
   const raw = env['AI_KNOWLEDGE_DIR']
   return raw !== undefined && raw.trim().length > 0 ? raw.trim() : DEFAULT_KNOWLEDGE_DIR
 }
 
+/**
+ * Discover knowledge documents in `AI_KNOWLEDGE_DIR`.
+ *
+ * Recursively walks the directory, keeping only files with a supported
+ * extension. Unsupported files (`.xlsx`, `.docx`, ...) are skipped and logged
+ * with a warning. A missing directory yields an empty
+ * list — document knowledge is optional.
+ */
 export const discoverDocuments = async (
   dir: string
 ): Promise<ReadonlyArray<DiscoveredDocument>> => {
@@ -60,12 +91,17 @@ export const discoverDocuments = async (
   return paths.toSorted().map((path) => ({ path }))
 }
 
+/** A document chunk awaiting embedding, carrying its provenance. */
 interface PendingDocumentChunk {
   readonly path: string
   readonly chunkIndex: number
   readonly content: string
 }
 
+/**
+ * Read + parse a single document file into pending chunks. A read/parse
+ * failure yields no chunks so one bad file never aborts the sync.
+ */
 const documentToChunks = async (input: {
   readonly dir: string
   readonly path: string
@@ -88,8 +124,17 @@ const documentToChunks = async (input: {
   }
 }
 
+/**
+ * The `source_id` prefix for a document's embeddings. Pre-clearing by this
+ * prefix makes re-embedding idempotent.
+ */
 const documentSourceId = (path: string): string => `document-agent::${path}`
 
+/**
+ * Embed every discovered document and persist the chunks. Returns per-document
+ * chunk counts. Pre-clears each document's prior embeddings so a re-sync
+ * replaces rather than duplicates.
+ */
 const syncDocuments = (input: {
   readonly dir: string
   readonly documents: ReadonlyArray<DiscoveredDocument>
@@ -106,6 +151,7 @@ const syncDocuments = (input: {
           chunkSettings: input.chunkSettings,
         })
       ).pipe(
+        // Re-embed is idempotent: drop the document's prior chunks first.
         Effect.tap(() =>
           repo
             .deleteBySourceIdPrefix(documentSourceId(doc.path))
@@ -116,6 +162,8 @@ const syncDocuments = (input: {
     const pending = pendingGroups.flat()
 
     const rows = yield* embedChunksToRows(pending, (chunk, embedding): NewEmbedding => ({
+      // Document knowledge is global — no owning agent → SQL NULL.
+      // eslint-disable-next-line unicorn/no-null -- SQL NULL for nullable agent_name column
       agentName: null,
       sourceType: 'document',
       sourceId: documentSourceId(chunk.path),
@@ -131,6 +179,11 @@ const syncDocuments = (input: {
     return { documents, totalChunks: rows.length } satisfies SyncDocumentStats
   })
 
+/**
+ * Discover and embed every document in the knowledge directory. Returns
+ * per-document chunk counts. Errors are swallowed — a sync failure must never
+ * block server startup.
+ */
 export const runSyncDocuments = async (
   env: Readonly<Record<string, string | undefined>>
 ): Promise<SyncDocumentStats> => {
@@ -147,7 +200,12 @@ export const runSyncDocuments = async (
   }))
 }
 
+/**
+ * Startup runner — discovers and embeds document knowledge. Best-effort: a
+ * failure is logged but never thrown.
+ */
 export const runSyncDocumentsAtStartup = async (): Promise<void> => {
+  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort document sync
   await runSyncDocuments(process.env).catch((error: unknown) => {
     logError('[ai-rag] document sync failed', error)
   })

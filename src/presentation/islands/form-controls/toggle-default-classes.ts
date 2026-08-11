@@ -5,6 +5,36 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Prestyled-by-default class computer for the `toggle`, `toggle-group`, and
+ * `switch` components.
+ *
+ * Schema authors who write the bare `{ type: 'toggle' }`, `{ type: 'switch' }`,
+ * or `{ type: 'toggle-group', options: [...] }` get a complete, opinionated
+ * pressable surface — rounded button, focus ring, primary-subtle pressed state,
+ * smooth thumb animation on the switch — with zero theme-layer dependency.
+ *
+ * The recipe mirrors the buttons + inputs + selects slices (commits 02b2f35f3 +
+ * 571ae53ce + 5527660bc): layout / spacing classes stay as raw Tailwind utilities;
+ * only color / radius / shadow / motion / focus classes go through
+ * {@link withVarFallback} so `app.theme.*` overrides still win at the CSS cascade
+ * layer (var lookups resolve `--sv-*` first, fall back to the inline OKLCH
+ * literal).
+ *
+ * Base UI exposes interactive state via data attributes (`data-[pressed]`,
+ * `data-[disabled]`, `data-[checked]`). Rather than branching on a `state` enum
+ * at call time, the recipe bakes the data-attr Tailwind variants directly into
+ * the returned class string so a single className covers every interactive state
+ * the primitive can enter. The `variant` and `size` axes — schema-level fields
+ * authors can set — remain parameters because they pick a different shape, not
+ * a different runtime state.
+ *
+ * Helper file lives in `src/presentation/islands/` (alongside the islands that
+ * consume it) because toggle/switch wiring runs inside the client island, not in
+ * the server-side dispatcher — the layer-boundaries ESLint rule disallows
+ * `ui/sections/` imports from `islands/`. Mirrors the location chosen for
+ * `select-default-classes.ts`.
+ */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
 import {
@@ -13,6 +43,9 @@ import {
   RADIUS_MD,
 } from '../recipes/shared-tokens-default-classes'
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Shared building blocks
+// ──────────────────────────────────────────────────────────────────────────────
 
 type ToggleVariant = 'default' | 'outline'
 type ComponentSize = 'sm' | 'md' | 'lg'
@@ -20,6 +53,9 @@ type SwitchState = 'default' | 'checked' | 'disabled'
 
 const DISABLED = 'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50'
 
+// ──────────────────────────────────────────────────────────────────────────────
+// TOGGLE (single pressable button)
+// ──────────────────────────────────────────────────────────────────────────────
 
 const TOGGLE_LAYOUT = 'inline-flex items-center justify-center font-medium'
 
@@ -46,6 +82,12 @@ const TOGGLE_VARIANT_OUTLINE = [
   `data-[pressed]:text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
 ].join(' ')
 
+/**
+ * Compute the default className for a single Base UI Toggle button. Composes
+ * layout → radius → size → variant surface → motion → focus → data-state.
+ * `variant === 'outline'` switches to a bordered-card recipe; otherwise the
+ * default fills with the muted body-subtle surface.
+ */
 export const computeToggleClasses = ({
   variant = 'default',
   size = 'md',
@@ -63,11 +105,20 @@ export const computeToggleClasses = ({
     DISABLED,
   ].join(' ')
 
+// ──────────────────────────────────────────────────────────────────────────────
+// TOGGLE-GROUP (wrapper + child items)
+// ──────────────────────────────────────────────────────────────────────────────
 
 const TOGGLE_GROUP_LAYOUT = 'inline-flex'
 
 const TOGGLE_GROUP_SURFACE = ['border', `border-[${v('sv-border', T.border)}]`].join(' ')
 
+/**
+ * Compute the default className for the Base UI ToggleGroup wrapper — the
+ * rounded container that holds child Toggle items. Mirrors the toggle outline
+ * variant border so the group reads as a single cohesive surface, with item
+ * dividers handled by `computeToggleGroupItemClasses` (border-r per item).
+ */
 export const computeToggleGroupClasses = (): string =>
   [TOGGLE_GROUP_LAYOUT, RADIUS_MD, TOGGLE_GROUP_SURFACE, 'overflow-hidden'].join(' ')
 
@@ -84,6 +135,12 @@ const TOGGLE_GROUP_ITEM_DIVIDER = [
   `border-[${v('sv-border', T.border)}]`,
 ].join(' ')
 
+/**
+ * Compute the default className for an individual item inside a ToggleGroup.
+ * Items share a horizontal layout with right-border dividers (last item drops
+ * its divider); pressed state lights up with the primary-subtle background so
+ * selection is unambiguous against the muted default tone.
+ */
 export const computeToggleGroupItemClasses = (): string =>
   [
     TOGGLE_GROUP_ITEM_LAYOUT,
@@ -94,6 +151,9 @@ export const computeToggleGroupItemClasses = (): string =>
     DISABLED,
   ].join(' ')
 
+// ──────────────────────────────────────────────────────────────────────────────
+// SWITCH (track + thumb)
+// ──────────────────────────────────────────────────────────────────────────────
 
 const SWITCH_TRACK_LAYOUT = 'relative inline-flex shrink-0 items-center border-2 border-transparent'
 
@@ -108,10 +168,21 @@ const SWITCH_TRACK_SURFACE = [
   'data-[checked]:bg-primary',
 ].join(' ')
 
+/**
+ * Compute the default className for the Switch track (the outer rounded pill).
+ * Off state uses the muted body-subtle surface; checked state fills with the
+ * canonical `bg-primary` role utility (always minted by the default theme layer,
+ * resolving `--color-primary` which the author `theme.colors.primary` bridge
+ * recolors) so the on/off cue is unmistakable and the checked track is
+ * addressable as `.bg-primary`. Size axis matches the toggle's size scale so a
+ * `size: 'lg'` switch lines up visually with a `size: 'lg'` toggle in the same
+ * form row.
+ */
 export const computeSwitchTrackClasses = ({
   size = 'md',
 }: {
   size?: ComponentSize
+  /** Reserved for future use — Base UI handles state via data attributes baked into the returned class string. */
   state?: SwitchState
 } = {}): string =>
   [
@@ -136,10 +207,17 @@ const SWITCH_THUMB_SURFACE = `bg-[${v('sv-bg-raised', T.bgRaised)}]`
 
 const SWITCH_THUMB_SHADOW = `shadow-[${v('sv-shadow-sm', T.shadowSm)}]`
 
+/**
+ * Compute the default className for the Switch thumb (the circle that slides
+ * inside the track). Size + translate distance scale together so the thumb
+ * lands flush against the opposite edge of the track at every size. Transform
+ * motion uses the same 150ms ease as colour transitions for a coherent feel.
+ */
 export const computeSwitchThumbClasses = ({
   size = 'md',
 }: {
   size?: ComponentSize
+  /** Reserved for future use — checked state is expressed via data-[checked]: variants in the size map. */
   state?: SwitchState
 } = {}): string =>
   [

@@ -22,6 +22,10 @@ function resolveStepFields(island: CrudFormIslandProps, step: number): readonly 
   return island.fields.filter((f) => names.has(f.name))
 }
 
+/**
+ * Step progress indicator. Renders every step's label so the user sees the
+ * wizard's overall shape; the current step is marked `aria-current="step"`.
+ */
 function WizardProgress(props: {
   readonly steps: readonly WizardStep[]
   readonly current: number
@@ -83,6 +87,14 @@ function WizardNav(props: {
   )
 }
 
+/**
+ * Wizard step-navigation handlers.
+ *
+ * `onNext` validates the current step's required fields before advancing —
+ * a step with a missing required field blocks advancement and surfaces an
+ * inline field error. `onBack` clears any pending field error so the prior
+ * step renders clean. `onSubmit` only triggers a create on the final step.
+ */
 function useWizardNavigation(args: {
   readonly stepFields: readonly FieldDef[]
   readonly values: Record<string, string>
@@ -95,6 +107,7 @@ function useWizardNavigation(args: {
   const onSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault()
+      // On a `resetOnSuccess` wizard, afterReset returns to step 1.
       if (isLastStep) void submitCrudForm({ ...ctx, afterReset: () => setStep(0) })
     },
     [isLastStep, ctx, setStep]
@@ -122,6 +135,13 @@ function useWizardNavigation(args: {
   return { onSubmit, onBack, onNext }
 }
 
+/**
+ * Multi-step wizard form for create operations.
+ *
+ * Renders only the fields assigned to the current step. `visibleWhen`
+ * conditions that reference fields from other steps still evaluate correctly
+ * because all step values are tracked in a single shared state object.
+ */
 export function WizardCreateForm(props: {
   readonly island: CrudFormIslandProps
   readonly values: Record<string, string>

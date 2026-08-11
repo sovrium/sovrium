@@ -8,7 +8,7 @@ children:
     props:
       className: w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4
       style:
-        backgroundColor: '#3b82f6'
+        backgroundColor: var(--color-primary)
         color: '#ffffff'
         width: 4rem
         height: 4rem

@@ -15,6 +15,8 @@ interface ChartLegendProps {
   readonly onToggle: (field: string) => void
 }
 
+/** A single legend entry — a series label, a colour swatch, and a click
+ * target that toggles that series' visibility. */
 function LegendItem({
   config,
   index,
@@ -41,6 +43,7 @@ function LegendItem({
         <span
           className="inline-block size-3 rounded-sm"
           data-legend-swatch={config.field}
+          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-series swatch colour is dynamic; React Compiler not yet enabled in Bun
           style={{ backgroundColor: color }}
           aria-hidden="true"
         />
@@ -50,6 +53,12 @@ function LegendItem({
   )
 }
 
+/**
+ * Interactive chart legend. Each item shows a series label and a colour
+ * swatch; clicking an item toggles that series' visibility on the chart.
+ *
+ * The `chart-legend` class lets spec locators (`[class*="legend"]`) resolve.
+ */
 export function ChartLegend({ series, hidden, onToggle }: ChartLegendProps): ReactElement {
   return (
     <ul

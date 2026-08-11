@@ -20,6 +20,7 @@ import {
   analyticsCollectSchema,
   analyticsQuerySchema,
 } from '@/domain/models/api/analytics/analytics'
+import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { matchesAnyGlobPattern } from '@/domain/utils/matching/glob-matcher'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
@@ -29,6 +30,9 @@ import { getSessionContext, requestLogAttributes } from '@/presentation/api/util
 import { provideAnalyticsLive } from './analytics/effect-runner'
 import type { Context, Hono } from 'hono'
 
+/**
+ * Parse and validate analytics query parameters from request
+ */
 function parseAnalyticsQuery(
   c: Context,
   appName: string
@@ -52,6 +56,10 @@ function parseAnalyticsQuery(
   const parsed = analyticsQuerySchema.safeParse({ from: fromStr, to: toStr, granularity })
   if (!parsed.success) return undefined
 
+  // Round `to` up to the end of its second so that the query range captures
+  // all events within the same wall-clock second.  Without this, sub-second
+  // differences between the client timestamp and server-side NOW() can exclude
+  // rows that logically fall within the requested window.
   const toDate = new Date(parsed.data.to)
   const toEndOfSecond = new Date(Math.ceil(toDate.getTime() / 1000) * 1000 + 999)
 
@@ -63,6 +71,9 @@ function parseAnalyticsQuery(
   }
 }
 
+/**
+ * Per-app analytics configuration forwarded from route registration.
+ */
 interface AnalyticsRouteConfig {
   readonly appName: string
   readonly retentionDays?: number
@@ -70,17 +81,28 @@ interface AnalyticsRouteConfig {
   readonly respectDoNotTrack?: boolean
 }
 
+/**
+ * Handle POST /api/analytics/collect — public endpoint, no auth required
+ *
+ * Records a page view with privacy-safe visitor hashing.
+ * Also triggers retention cleanup (fire-and-forget) to purge stale records.
+ * Returns 204 No Content for fastest response.
+ */
 async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<Response> {
   const { appName, retentionDays, excludedPaths, respectDoNotTrack } = config
   const body = c.req.valid('json' as never)
   const pagePath = (body as { readonly p: string }).p
 
+  // Check if path is excluded - return 204 without recording
   if (matchesAnyGlobPattern(excludedPaths, pagePath)) {
+    // eslint-disable-next-line unicorn/no-null
     return c.body(null, 204)
   }
 
+  // Check Do Not Track header when respectDoNotTrack is enabled
   const dntHeader = c.req.header('DNT')
   if (respectDoNotTrack && dntHeader === '1') {
+    // eslint-disable-next-line unicorn/no-null
     return c.body(null, 204)
   }
 
@@ -88,6 +110,8 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
   const userAgent = c.req.header('user-agent') ?? ''
   const acceptLanguage = c.req.header('accept-language') ?? ''
 
+  // Fire-and-forget: record page view and purge stale data asynchronously
+  // eslint-disable-next-line functional/no-expression-statements
   void Effect.runPromise(
     Effect.all(
       [
@@ -116,25 +140,42 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
     )
   )
 
+  // eslint-disable-next-line unicorn/no-null
   return c.body(null, 204)
 }
 
+/**
+ * Return a 404 access-denied response for non-admin analytics access.
+ *
+ * Analytics endpoints are admin-only. Per security rule S1 (anti-enumeration),
+ * authenticated-but-unauthorized callers receive 404 (not 403) so they cannot
+ * infer the existence of analytics data.
+ */
 function analyticsAccessDenied(c: Context): Response {
   return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
 }
 
+/**
+ * Resolve the caller's session and verify they have the admin role.
+ *
+ * Returns `undefined` (caller should treat as success/continue) when the
+ * caller is an admin, otherwise returns the appropriate error Response.
+ */
 async function requireAdminSession(c: Context): Promise<Response | undefined> {
   const session = getSessionContext(c)
   if (!session) {
     return unauthorized(c)
   }
   const role = await getUserRole(session.userId)
-  if (role !== 'admin') {
+  if (!isAdminRole(role)) {
     return analyticsAccessDenied(c)
   }
   return undefined
 }
 
+/**
+ * Handle GET /api/analytics/overview — requires admin role
+ */
 async function handleOverview(c: Context, appName: string): Promise<Response> {
   const denied = await requireAdminSession(c)
   if (denied) {
@@ -174,6 +215,9 @@ async function handleOverview(c: Context, appName: string): Promise<Response> {
   return c.json(result.right, 200)
 }
 
+/**
+ * Handle GET /api/analytics/pages — requires admin role
+ */
 async function handlePages(c: Context, appName: string): Promise<Response> {
   const denied = await requireAdminSession(c)
   if (denied) {
@@ -209,6 +253,9 @@ async function handlePages(c: Context, appName: string): Promise<Response> {
   return c.json(result.right, 200)
 }
 
+/**
+ * Handle GET /api/analytics/referrers — requires admin role
+ */
 async function handleReferrers(c: Context, appName: string): Promise<Response> {
   const denied = await requireAdminSession(c)
   if (denied) {
@@ -247,6 +294,9 @@ async function handleReferrers(c: Context, appName: string): Promise<Response> {
   return c.json(result.right, 200)
 }
 
+/**
+ * Handle GET /api/analytics/devices — requires admin role
+ */
 async function handleDevices(c: Context, appName: string): Promise<Response> {
   const denied = await requireAdminSession(c)
   if (denied) {
@@ -285,6 +335,13 @@ async function handleDevices(c: Context, appName: string): Promise<Response> {
   return c.json(result.right, 200)
 }
 
+/**
+ * Validate the limit/offset pair from /api/analytics/events.
+ *
+ * Returns either parsed numeric values or a tagged error indicating
+ * which parameter failed validation. Defaults are applied when
+ * query params are absent.
+ */
 function validatePagination(
   limitStr: string | undefined,
   offsetStr: string | undefined
@@ -303,6 +360,12 @@ function validatePagination(
   return { _tag: 'ok', limit, offset }
 }
 
+/**
+ * Parse and validate /api/analytics/events query parameters.
+ *
+ * Returns either the parsed parameters or a tagged error indicating
+ * which parameter failed validation.
+ */
 function parseEventsQuery(c: Context):
   | {
       readonly _tag: 'ok'
@@ -331,6 +394,12 @@ function parseEventsQuery(c: Context):
   }
 }
 
+/**
+ * Handle GET /api/analytics/events — requires admin role
+ *
+ * Returns analytics events with optional filtering by eventType and eventName.
+ * Supports cursor-based pagination.
+ */
 async function handleEvents(c: Context, appName: string): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
@@ -338,7 +407,7 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
   }
 
   const role = await getUserRole(session.userId)
-  if (role !== 'admin') {
+  if (!isAdminRole(role)) {
     return unauthorized(c)
   }
 
@@ -388,6 +457,9 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
   return c.json({ events, pagination: result.right.pagination }, 200)
 }
 
+/**
+ * Handle GET /api/analytics/campaigns — requires admin role
+ */
 async function handleCampaigns(c: Context, appName: string): Promise<Response> {
   const denied = await requireAdminSession(c)
   if (denied) {
@@ -426,6 +498,21 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
   return c.json(result.right, 200)
 }
 
+/**
+ * Chain analytics routes onto a Hono app
+ *
+ * Provides:
+ * - POST /api/analytics/collect - Record page view (public, no auth)
+ * - GET /api/analytics/overview - Summary + time series (admin only)
+ * - GET /api/analytics/pages - Top pages (admin only)
+ * - GET /api/analytics/referrers - Top referrers (admin only)
+ * - GET /api/analytics/devices - Device breakdown (admin only)
+ * - GET /api/analytics/campaigns - UTM campaigns (admin only)
+ *
+ * @param honoApp - Hono instance to chain routes onto
+ * @param config - Per-app analytics configuration (appName, retention, exclusions, DNT)
+ * @returns Hono app with analytics routes chained
+ */
 export function chainAnalyticsRoutes<T extends Hono>(honoApp: T, config: AnalyticsRouteConfig): T {
   const { appName } = config
   return honoApp

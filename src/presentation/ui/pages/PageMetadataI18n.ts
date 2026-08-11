@@ -10,6 +10,13 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Meta } from '@/domain/models/app/pages/meta'
 
+/**
+ * Resolve a `$frontmatter.<key>` reference against the rendered markdown's
+ * frontmatter. Non-reference values pass through unchanged; a missing key (or
+ * absent frontmatter) resolves to an empty string so the literal token never
+ * leaks into the client-side `data-page-meta` block. Runs BEFORE `$t:`
+ * resolution (mirrors the SSR `<title>` resolution in `PageMetadata.ts`).
+ */
 function resolveFrontmatterPattern(
   value: string,
   frontmatter: Readonly<Record<string, string>> | undefined
@@ -19,6 +26,12 @@ function resolveFrontmatterPattern(
   return frontmatter?.[value.slice(prefix.length)] ?? ''
 }
 
+/**
+ * Pre-resolve `$frontmatter.*` references in the meta's text fields so the
+ * downstream `$t:` resolution (and the client-side language switcher) see
+ * concrete values, not unresolved frontmatter tokens. Returns `meta` unchanged
+ * when no frontmatter is available (backward-compatible for non-markdown pages).
+ */
 function resolveFrontmatterInMeta(
   meta: Meta,
   frontmatter: Readonly<Record<string, string>> | undefined
@@ -34,6 +47,9 @@ function resolveFrontmatterInMeta(
   }
 }
 
+/**
+ * Resolves i18n metadata for a single language
+ */
 function resolveMetaI18n(
   meta: Meta,
   langCode: string,
@@ -62,6 +78,9 @@ function resolveMetaI18n(
   }
 }
 
+/**
+ * Merges existing i18n with generated i18n
+ */
 function mergeI18n(
   generatedI18n: Record<
     string,
@@ -90,6 +109,9 @@ function mergeI18n(
   )
 }
 
+/**
+ * Resolves base meta fields with translation patterns
+ */
 function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages): Meta {
   const metaRecord = meta as Record<string, unknown>
   const ogSiteName = metaRecord['og:site_name']
@@ -105,6 +127,7 @@ function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages):
     }),
   }
 
+  // Resolve og:site_name if present (either as direct property or in openGraph object)
   if (typeof ogSiteName === 'string') {
     return {
       ...resolvedMeta,
@@ -125,6 +148,21 @@ function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages):
   return resolvedMeta
 }
 
+/**
+ * Builds i18n metadata structure for client-side language switching
+ *
+ * Resolves translation patterns ($t:...) for all supported languages
+ * and constructs a complete i18n structure that the client can use
+ * to update meta tags when switching languages.
+ *
+ * CRITICAL: All $t: tokens in base meta fields are resolved to ensure
+ * no translation tokens appear in the serialized HTML output.
+ *
+ * @param page - Page configuration
+ * @param languages - Languages configuration
+ * @param frontmatter - Optional rendered-markdown frontmatter for `$frontmatter.*`
+ * @returns Page meta with i18n structure populated and all $t: tokens resolved
+ */
 export function buildPageMetadataI18n(
   page: Page,
   languages: Languages | undefined,
@@ -134,9 +172,12 @@ export function buildPageMetadataI18n(
     return (page.meta || {}) as Meta | Record<string, never>
   }
 
+  // Pre-resolve `$frontmatter.*` so neither the generated i18n block nor the
+  // client-side language switcher leak unresolved frontmatter tokens.
   const meta = resolveFrontmatterInMeta(page.meta, frontmatter)
   const currentLang = meta.lang || languages.default
 
+  // Build i18n structure for all supported languages
   const generatedI18n = languages.supported.reduce(
     (acc, lang) => ({
       ...acc,
@@ -148,6 +189,7 @@ export function buildPageMetadataI18n(
     >
   )
 
+  // Merge existing meta.i18n with generated i18n (existing takes precedence)
   const existingI18n = (meta as Record<string, unknown>).i18n as
     | Record<
         string,
@@ -157,8 +199,10 @@ export function buildPageMetadataI18n(
 
   const i18n = mergeI18n(generatedI18n, existingI18n)
 
+  // Resolve all $t: tokens in base meta fields for current language
   const resolvedMeta = resolveBaseMeta(meta, currentLang, languages)
 
+  // Return resolved meta with i18n structure
   return {
     ...resolvedMeta,
     i18n,

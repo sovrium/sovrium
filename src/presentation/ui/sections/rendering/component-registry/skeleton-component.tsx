@@ -5,6 +5,29 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * SSR renderer for the `skeleton` page component.
+ *
+ * Renders a loading-placeholder block sized by the author-declared
+ * `skeletonWidth` / `skeletonHeight` CSS lengths. The `skeletonVariant`
+ * controls the shape:
+ *  - `text` (default): slightly-rounded bar.
+ *  - `circular`: a full circle (avatar placeholder).
+ *  - `rectangular`: a square-cornered block (card/image placeholder).
+ *
+ * `animate` (default `true`) applies Tailwind's `animate-pulse` so the
+ * placeholder visibly shimmers; setting it `false` renders a static block.
+ * The author-declared `props.id` is placed on the element so layout
+ * assertions can resolve and measure it via `#id`.
+ *
+ * Pure SSR component — no interactivity, no island required.
+ *
+ * Visual tone ([internal ref], prestyled-by-default) comes from
+ * {@link computeSkeletonClasses} — a Tailwind recipe with inline OKLCH
+ * var-fallbacks so a schema author who writes the bare `{ type: 'skeleton' }`
+ * gets a complete, opinionated placeholder (bg-subtle fill, variant-aware
+ * radius, animate-pulse shimmer) with zero theme-layer dependency.
+ */
 
 import {
   computeSkeletonClasses,
@@ -30,6 +53,7 @@ interface SkeletonFields {
   readonly id: string | undefined
 }
 
+/** Resolve the skeleton fields from the component definition + raw props. */
 function resolveSkeletonFields(
   component: Component | undefined,
   rawProps: Record<string, unknown> | undefined
@@ -45,6 +69,9 @@ function resolveSkeletonFields(
   }
 }
 
+/**
+ * Skeleton component renderer.
+ */
 export const skeletonComponent: ComponentRenderer = ({ component, rawProps }) => {
   const f = resolveSkeletonFields(component, rawProps)
   const className = computeSkeletonClasses({ variant: f.variant, animate: f.animate })
@@ -57,6 +84,7 @@ export const skeletonComponent: ComponentRenderer = ({ component, rawProps }) =>
       data-animate={f.animate ? 'true' : 'false'}
       aria-hidden="true"
       className={className}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call sizing in a stateless SSR renderer; rendered once on the server
       style={{ width: f.width, height: f.height }}
     />
   )

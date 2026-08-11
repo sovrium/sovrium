@@ -8,6 +8,25 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
+/**
+ * Date Field
+ *
+ * Stores date and optionally time values.
+ * Supports custom date formats, timezone configuration, and time inclusion.
+ * Can be marked as required, unique, or indexed for efficient date-based queries.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'due_date',
+ *   type: 'date',
+ *   required: true,
+ *   format: 'YYYY-MM-DD',
+ *   includeTime: false
+ * }
+ * ```
+ */
 export const DateFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({

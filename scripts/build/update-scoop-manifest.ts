@@ -5,6 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Update Scoop Manifest - Generates a Scoop manifest from template + release checksums
+ *
+ * Fetches SHA256 checksum from a GitHub Release and produces a ready-to-commit
+ * sovrium.json file for the sovrium/scoop-bucket repository.
+ *
+ * Usage:
+ *   bun run scripts/build/update-scoop-manifest.ts --version 0.3.0
+ *   bun run scripts/build/update-scoop-manifest.ts --version 0.3.0 --output sovrium.json
+ *   bun run scripts/build/update-scoop-manifest.ts --version 0.3.0 --dry-run
+ */
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -53,6 +64,7 @@ async function main(): Promise<void> {
     .replaceAll('{{VERSION}}', version)
     .replaceAll('{{SHA256_WINDOWS_X64}}', windowsX64)
 
+  // Never print, write, or commit a manifest pinning an unresolved checksum.
   assertNoUnresolvedChecksums(manifest, `Scoop manifest v${version}`)
 
   if (dryRun) {

@@ -11,11 +11,23 @@ import type { ReactElement } from 'react'
 
 interface RecordFieldSystemIslandProps {
   readonly dataSource?: RecordDataSource
+  /** The bound record id (route param value) injected into the endpoint slot. */
   readonly recordId?: string
+  /** The record field name to render (`props.field` — an endpoint envelope key). */
   readonly field?: string
   readonly 'data-testid'?: string
 }
 
+/**
+ * record-field-system island — a record-field that SELF-binds to a system DETAIL
+ * endpoint (CAP-2). It fetches ONE record from `dataSource.system.endpoint` (the
+ * bound `recordId` injected into the `:param` slot) via the shared single-record
+ * detail fetch, then renders `field` from the resolved record as read-only text.
+ *
+ * A system source is a READ source: no edit affordances. The `data-component`
+ * marker lives on the SSR host wrapper (single match); this island root only
+ * renders the field value, mounted INTO that host.
+ */
 export default function RecordFieldSystemIsland({
   dataSource,
   recordId,

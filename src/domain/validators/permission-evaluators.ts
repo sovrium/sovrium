@@ -5,12 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  classifyPermissionRung,
+  toPermissionValue,
+} from '@/domain/models/shared/permission-evaluation'
 import { checkPermissionWithAdminOverride, isAdminRole } from '@/domain/models/shared/permissions'
 import type {
   TableFieldPermissions,
   TablePermissions,
 } from '@/domain/models/app/tables/permissions'
 
+/**
+ * Evaluate table-level permissions for a user
+ */
 export function evaluateTablePermissions(
   tablePermissions: TablePermissions | undefined,
   userRole: string,
@@ -20,10 +27,14 @@ export function evaluateTablePermissions(
     read: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.read, userRole),
     create: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.create, userRole),
     update: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.update, userRole),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
     delete: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.delete, userRole),
   }
 }
 
+/**
+ * Evaluate field-level permissions for a user
+ */
 export function evaluateFieldPermissions(
   fieldPerms: TableFieldPermissions | undefined,
   userRole: string,
@@ -41,6 +52,9 @@ export function evaluateFieldPermissions(
   )
 }
 
+/**
+ * Resolve effective permissions considering inheritance
+ */
 function getEffectivePermissions(
   table: Readonly<{ name: string; permissions?: unknown }> | undefined,
   allTables: readonly Readonly<{ name: string; permissions?: unknown }>[] | undefined
@@ -66,6 +80,9 @@ function getEffectivePermissions(
   }
 }
 
+/**
+ * Check if inheritance resolution failed
+ */
 function inheritanceFailed(
   table: Readonly<{ permissions?: Readonly<{ inherit?: string }> }> | undefined,
   allTables: readonly unknown[] | undefined,
@@ -74,10 +91,16 @@ function inheritanceFailed(
   return Boolean(allTables && table?.permissions?.inherit && !effectivePermissions)
 }
 
+/**
+ * Check if circular inheritance exists
+ */
 function hasCircularInheritance(tableName: string, visited: ReadonlySet<string>): boolean {
   return visited.has(tableName)
 }
 
+/**
+ * Find parent table by name
+ */
 function findParentTable(
   parentName: string | undefined,
   allTables: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
@@ -86,6 +109,9 @@ function findParentTable(
   return allTables.find((t) => t.name === parentName)
 }
 
+/**
+ * Merge a single permission property with override support
+ */
 function mergePermission<T>(
   overrideValue: T | undefined,
   currentValue: T | undefined,
@@ -94,6 +120,9 @@ function mergePermission<T>(
   return overrideValue ?? currentValue ?? parentValue
 }
 
+/**
+ * Merge parent and current permissions with override support
+ */
 function mergePermissions(
   permissions: TablePermissions,
   parentPermissions: TablePermissions
@@ -105,11 +134,62 @@ function mergePermissions(
     comment: mergePermission(override?.comment, comment, parentPermissions.comment),
     create: mergePermission(override?.create, create, parentPermissions.create),
     update: mergePermission(override?.update, update, parentPermissions.update),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
     delete: mergePermission(override?.delete, deletePerms, parentPermissions.delete),
     fields: fields ?? parentPermissions.fields,
   }
 }
 
+/**
+ * The two most permissive rungs of the permission ladder: `'all'` (everyone)
+ * and `'authenticated'` (any signed-in caller). Neither names a role, so both
+ * admit every role — viewer included. `hasReadPermission` has always honoured
+ * them; the write evaluators below honour them through this predicate.
+ */
+function isOpenPermissionLiteral(permission: unknown): boolean {
+  const rung = classifyPermissionRung(toPermissionValue(permission))
+  return rung === 'everyone' || rung === 'any-session'
+}
+
+/**
+ * The five keys that make a `permissions` block GATING.
+ *
+ * `fields`, `inherit` and `override` are deliberately absent: they configure
+ * how a grant is scoped or resolved, they are not grants themselves.
+ */
+const PERMISSION_OPERATION_KEYS = ['read', 'create', 'update', 'delete', 'comment'] as const
+
+/**
+ * Whether a resolved `permissions` block leaves an omitted operation OPEN.
+ *
+ * A block that declares at least one operation is the author saying "gate this
+ * table", so every operation it does NOT name is denied to non-admins — the
+ * contract the published schema has always advertised. A block that names no
+ * operation at all grants nothing and gates nothing, so it behaves exactly as
+ * an absent block and the documented allow-non-viewer default stands.
+ *
+ * That distinction is why the test is per-OPERATION-KEY rather than "does a
+ * block exist": `permissions: { fields: [{ field: 'salary', read: ['admin'] }] }`
+ * restricts one column's visibility. Reading it as a table-wide gate would
+ * revoke the author's own access to the other columns — a worse surprise than
+ * the one this default exists to remove.
+ */
+function omittedOperationIsOpen(effectivePermissions: unknown): boolean {
+  if (effectivePermissions === undefined || effectivePermissions === null) return true
+  const block = effectivePermissions as Readonly<Record<string, unknown>>
+  return !PERMISSION_OPERATION_KEYS.some((operation) => block[operation] !== undefined)
+}
+
+/**
+ * Check if user has role-based create permission for a table
+ * Returns true if permission granted, false if denied
+ *
+ * Permission logic:
+ * - Viewers: denied by default (tables must explicitly grant viewer create access)
+ * - Other roles: allowed by default (unless table restricts with role-based permissions)
+ *
+ * Supports permission inheritance via the `inherit` field.
+ */
 export function hasCreatePermission(
   table:
     | Readonly<{
@@ -124,28 +204,59 @@ export function hasCreatePermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
+  // Admin override: admins always have create access
   if (isAdminRole(userRole)) return true
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
     Readonly<{ create?: unknown }> | undefined
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
-  if (userRole === 'viewer') return false
 
   const createPermission = effectivePerms?.create
-  if (!createPermission || !Array.isArray(createPermission)) return true
-  return createPermission.includes(userRole)
+
+  // A table declaring `create: 'all'` opens create to every role, viewer
+  // included — the literals are honoured on writes exactly as on reads.
+  if (isOpenPermissionLiteral(createPermission)) return true
+
+  // A declared allowlist is authoritative, and it is consulted BEFORE the
+  // viewer default — the order `update` has always had. Naming a role in an
+  // allowlist is the plainest statement of intent the permission format
+  // allows, so `create: ['viewer']` grants, exactly as `update: ['viewer']`
+  // and `delete: ['viewer']` already do.
+  if (Array.isArray(createPermission)) {
+    return createPermission.includes(userRole)
+  }
+
+  // Nothing declared for this role: the viewer default still denies. This
+  // branch MOVED rather than disappeared — removing it would drop a table with
+  // no `permissions` key through to `omittedOperationIsOpen`, which is `true`,
+  // silently granting every viewer create access product-wide.
+  if (userRole === 'viewer') return false
+
+  return omittedOperationIsOpen(effectivePerms)
 }
 
+/**
+ * Whether the table declares an admin-scoped delete override
+ * (`permissions.override.admin.delete`). When present, delete is restricted
+ * to admins only — non-admin roles are denied regardless of the base
+ * `delete` permission.
+ */
 function hasAdminScopedDeleteOverride(
   table:
     | Readonly<{ permissions?: Readonly<{ override?: { admin?: { delete?: unknown } } }> }>
     | undefined
 ): boolean {
   const adminOverride = table?.permissions?.override?.admin
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- `delete` is a property on the override config object, not a Drizzle query.
   return adminOverride?.delete !== undefined
 }
 
+/**
+ * Check if user has delete permission for the table
+ *
+ * Supports permission inheritance via the `inherit` field.
+ */
 export function hasDeletePermission(
   table:
     | Readonly<{
@@ -160,8 +271,10 @@ export function hasDeletePermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
+  // Admin override: admins always have delete access
   if (isAdminRole(userRole)) return true
 
+  // Admin-scoped override restricts delete to admins (already granted above).
   if (hasAdminScopedDeleteOverride(table)) return false
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
@@ -169,16 +282,34 @@ export function hasDeletePermission(
 
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
   const deletePermission = effectivePerms?.delete
+
+  // `delete: 'all'` / `'authenticated'` admits a viewer. The viewer rule below
+  // is deliberately NOT the create/update one: a viewer named in an explicit
+  // delete allowlist keeps its grant.
+  if (isOpenPermissionLiteral(deletePermission)) return true
 
   if (userRole === 'viewer') {
     return Array.isArray(deletePermission) && deletePermission.includes(userRole)
   }
 
-  if (!deletePermission || !Array.isArray(deletePermission)) return true
+  if (!deletePermission || !Array.isArray(deletePermission)) {
+    return omittedOperationIsOpen(effectivePerms)
+  }
   return deletePermission.includes(userRole)
 }
 
+/**
+ * Check if user has update permission for a table
+ * Returns true if permission granted, false if denied
+ *
+ * Note: When no explicit permissions are defined:
+ * - Admins and members: allowed by default
+ * - Viewers: denied by default (tables must explicitly grant viewer update access)
+ *
+ * Supports permission inheritance via the `inherit` field.
+ */
 export function hasUpdatePermission(
   table:
     | Readonly<{
@@ -193,6 +324,7 @@ export function hasUpdatePermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
+  // Admin override: admins always have update access
   if (isAdminRole(userRole)) return true
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
@@ -202,15 +334,28 @@ export function hasUpdatePermission(
 
   const updatePermission = effectivePerms?.update
 
+  // `update: 'all'` / `'authenticated'` admits a viewer.
+  if (isOpenPermissionLiteral(updatePermission)) return true
+
   if (Array.isArray(updatePermission)) {
     return updatePermission.includes(userRole)
   }
 
   if (userRole === 'viewer') return false
 
-  return true
+  return omittedOperationIsOpen(effectivePerms)
 }
 
+/**
+ * Check if user has read permission for a table
+ * Returns true if permission granted, false if denied
+ *
+ * Note: When no explicit permissions are defined:
+ * - Admins and members: allowed by default
+ * - Viewers: denied by default (tables must explicitly grant viewer access)
+ *
+ * Supports permission inheritance via the `inherit` field.
+ */
 export function hasReadPermission(
   table:
     | Readonly<{
@@ -221,6 +366,7 @@ export function hasReadPermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
+  // Admin override: admins always have read access
   if (isAdminRole(userRole)) return true
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
@@ -234,14 +380,34 @@ export function hasReadPermission(
     return readPermission.includes(userRole)
   }
 
-  if (readPermission === 'all') return true
-  if (readPermission === 'authenticated') return true
+  if (isOpenPermissionLiteral(readPermission)) return true
 
   if (userRole === 'viewer') return false
 
-  return true
+  return omittedOperationIsOpen(effectivePerms)
 }
 
+/**
+ * Check if a user may comment on records in a table.
+ *
+ * Comment-ability follows `permissions.comment`, NOT read. The rule:
+ *
+ * - When a `permissions.comment` grant is declared it is authoritative — the
+ *   user's role must be in it (admin override applies). Read access alone does
+ * NOT confer comment access ([internal ref] decision 2).
+ * - When no `comment` grant is declared, a `comments` block still marks the
+ * table as a commentable surface (backward compatible — pre-[internal ref] comment
+ *   specs use a `comments` block and stay read-gated).
+ * - A table that declares an explicit `permissions` block but neither a
+ *   `comment` grant nor a `comments` block is NON-commentable — a "post-it"
+ * such as Sovrium Partner's anonymized `pains` ([internal ref] decision 1). A table
+ *   with no `permissions` block at all stays commentable (the documented
+ *   fully-open default), so the original bare-table comment specs keep passing.
+ *
+ * Returns true when commenting is permitted; callers translate false to a 404
+ * (S1 anti-enumeration — a non-commentable surface must not be discoverable via
+ * the comment endpoint).
+ */
 export function hasCommentPermission(
   table: Readonly<{ name: string; comments?: unknown; permissions?: TablePermissions }> | undefined,
   userRole: string,
@@ -252,20 +418,43 @@ export function hasCommentPermission(
   const effectivePerms = getEffectivePermissions(table, allTables) as
     Readonly<{ comment?: unknown }> | undefined
 
+  // Inheritance declared but unresolved → deny (mirrors the read/create paths).
   if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
+  // A declared comment grant is authoritative — enforce it (admin override).
   const commentGrant = effectivePerms?.comment
   if (commentGrant !== undefined) return evaluateCommentGrant(commentGrant, userRole)
 
+  // No comment grant, but a `comments` block still marks a commentable surface.
   if (table.comments !== undefined && table.comments !== null) return true
 
-  return effectivePerms === undefined || effectivePerms === null
+  // No comment grant and no `comments` block: non-commentable ONLY when the
+  // table declares a GATING `permissions` block (a "post-it"). A block that
+  // names no operation — absent, `{}`, or `fields`-only — leaves the table
+  // commentable, the same omitted-operation default the four evaluators above
+  // apply. One default across all five is the point.
+  return omittedOperationIsOpen(effectivePerms)
 }
 
+/**
+ * Evaluate a declared `permissions.comment` grant for a role (admin override
+ * applies; `'all'`/`'authenticated'`/role-array are the 3 permission formats).
+ */
 function evaluateCommentGrant(commentGrant: unknown, userRole: string): boolean {
   return checkPermissionWithAdminOverride(isAdminRole(userRole), commentGrant, userRole)
 }
 
+/**
+ * Group-aware read permission check (most-permissive-wins).
+ *
+ * Returns true when ANY of the user's effective roles is granted read
+ * access. `effectiveRoles` is the user's global role plus a `group:<name>`
+ * entry for every group they belong to (see `buildEffectiveRoles`).
+ *
+ * Used so a table permission of `read: ['admin', 'group:finance']` is
+ * satisfied either by the `admin` role or by membership in the `finance`
+ * group — the combining rule for multi-group RBAC.
+ */
 export function hasReadPermissionForRoles(
   table: Parameters<typeof hasReadPermission>[0],
   effectiveRoles: readonly string[],
@@ -274,6 +463,12 @@ export function hasReadPermissionForRoles(
   return effectiveRoles.some((role) => hasReadPermission(table, role, allTables))
 }
 
+/**
+ * Group-aware create permission check (most-permissive-wins).
+ *
+ * Returns true when ANY of the user's effective roles is granted create
+ * access. See `hasReadPermissionForRoles` for the effective-roles contract.
+ */
 export function hasCreatePermissionForRoles(
   table: Parameters<typeof hasCreatePermission>[0],
   effectiveRoles: readonly string[],
@@ -282,6 +477,9 @@ export function hasCreatePermissionForRoles(
   return effectiveRoles.some((role) => hasCreatePermission(table, role, allTables))
 }
 
+/**
+ * Group-aware update permission check (most-permissive-wins).
+ */
 export function hasUpdatePermissionForRoles(
   table: Parameters<typeof hasUpdatePermission>[0],
   effectiveRoles: readonly string[],
@@ -290,6 +488,9 @@ export function hasUpdatePermissionForRoles(
   return effectiveRoles.some((role) => hasUpdatePermission(table, role, allTables))
 }
 
+/**
+ * Group-aware delete permission check (most-permissive-wins).
+ */
 export function hasDeletePermissionForRoles(
   table: Parameters<typeof hasDeletePermission>[0],
   effectiveRoles: readonly string[],
@@ -298,6 +499,18 @@ export function hasDeletePermissionForRoles(
   return effectiveRoles.some((role) => hasDeletePermission(table, role, allTables))
 }
 
+/**
+ * Resolve inherited permissions for a table
+ *
+ * Recursively resolves permissions by following the inheritance chain.
+ * Handles circular inheritance detection and merges override permissions.
+ *
+ * @param table - The table to resolve permissions for
+ * @param allTables - All tables in the app (for parent lookup)
+ * @param visited - Set of visited table names (for circular detection)
+ * @returns Resolved permissions or undefined if inheritance chain is invalid
+ * @throws Error if circular inheritance detected or parent table not found
+ */
 export function resolveInheritedPermissions(
   table: Readonly<{ name: string; permissions?: TablePermissions }> | undefined,
   allTables: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
@@ -307,19 +520,25 @@ export function resolveInheritedPermissions(
 
   const { permissions } = table
 
+  // If no inheritance, return current permissions
   if (!permissions.inherit) {
     return permissions
   }
 
+  // Circular inheritance detection
   if (hasCircularInheritance(table.name, visited)) {
+    // Return undefined to indicate error (caught by callers)
     return undefined
   }
 
+  // Find parent table
   const parentTable = findParentTable(permissions.inherit, allTables)
   if (!parentTable) {
+    // Return undefined to indicate error (caught by callers)
     return undefined
   }
 
+  // Recursively resolve parent permissions
   const parentPermissions = resolveInheritedPermissions(
     parentTable,
     allTables,
@@ -328,5 +547,6 @@ export function resolveInheritedPermissions(
 
   if (!parentPermissions) return permissions
 
+  // Merge parent permissions with current permissions (current takes precedence)
   return mergePermissions(permissions, parentPermissions)
 }

@@ -5,6 +5,33 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Inline runtime for the SSR guest comment form (PG-02). Mirrors the
+ * `favorites-button` and `reorderable-list` inline-runtime patterns —
+ * a server-authored constant string dropped into an inline `<script>`
+ * so the form works without shipping the React island bundle. Trusted
+ * by construction: no untrusted interpolation; per-form context
+ * (table name, record ID) travels in `data-*` attributes on the form.
+ *
+ * Behaviour (drives `guest-comments.spec.ts`):
+ * - [internal ref]: client-side `name` required check;
+ *    renders inline "Name is required" message inside the form.
+ * - [internal ref]: client-side `email` required check
+ *    when `data-comments-guest-email-required="true"`; renders inline
+ *    "Email is required" message.
+ * - [internal ref]: client-side `email` format check;
+ *    renders inline "Enter a valid email" message when the value does
+ *    not match the canonical `/.+@.+\..+/` shape.
+ * - [internal ref]: on a successful submit, append the
+ *    posted comment's author name + content to the SSR comments section
+ *    so the assertion `page.getByText('Jane Doe')` resolves without a
+ *    hydration island roundtrip.
+ *
+ * Synchronous XHR is used for the POST so the click handler blocks
+ * until the response is committed — Playwright's `getByText` is
+ * auto-retrying, but the synchronous flow keeps the wire-shape echo
+ * deterministic from the click point.
+ */
 export const GUEST_COMMENT_FORM_RUNTIME = `(function () {
   function clearErrors(form) {
     var existing = form.querySelectorAll('[data-comments-error]');

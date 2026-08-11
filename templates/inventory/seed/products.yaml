@@ -1,0 +1,321 @@
+# Sample catalog — the flagship grid.
+#
+# `key` is file-local — it exists so movements and order lines can name a
+# product before any row has a database id. It is never written to a column.
+#
+# This table is the reference surface for Sovrium's field-type range, so the
+# seed data is chosen to make each column mean something rather than merely be
+# non-null:
+#
+#   - `status` spreads across all five options, `category` across all five, and
+#     `tags` (maxSelections: 3) across the range without ever exceeding three.
+#   - `stock_on_hand` sits BELOW `reorder_point` on exactly the rows whose
+#     status says Low stock or Out of stock. The flag-low-stock automation and
+#     the stock page both read that relationship; data where the two disagree
+#     would make the demo look broken to anyone who checks.
+#   - `stock_level` is a `progress` field (0–100). It is filled as stock against
+#     a comfortable ceiling, so the bars are readable at a glance and the empty
+#     ones are empty for a reason.
+#   - `lead_time` is a `duration`, stored in SECONDS regardless of the `h:mm`
+#     display format. 604800 renders as 168:00 — one week.
+#   - `swatch` is a `color` field. The hexes are QUOTED: unquoted, YAML reads a
+#     leading `#` as the start of a comment and the value silently becomes null.
+#
+# Left unseeded on purpose: `photo` and `gallery` (attachments need binary files
+# this repository does not ship), `owner` (a `user` field needs an account id
+# that does not exist until someone signs up), and every computed column —
+# `supplier_name`, `movement_count`, `units_moved` and `stock_value` derive
+# themselves, and the audit columns are written by the engine.
+records:
+  # ── Active ──────────────────────────────────────────────────────────
+  - key: rack-shelf-1200
+    fields:
+      name: Heavy-duty rack shelf 1200mm
+      sku: HW-RACK-1200
+      barcode: '4007651001376'
+      description: >-
+        Galvanised steel shelf for standard pallet racking. Sold singly; the
+        uprights are a separate line.
+      spec_notes: <p>Load rating <strong>720 kg</strong> UDL. Powder-coated after cutting, so cut edges do not rust.</p>
+      category: Hardware
+      tags: [bestseller, heavy]
+      status: Active
+      swatch: '#7b5223'
+      unit_price: 148.50
+      margin: 34
+      weight_kg: 18.400
+      stock_on_hand: 240
+      reorder_point: 60
+      stock_level: 80
+      quality_rating: 5
+      discontinued: false
+      launch_date: '{{today-720d}}'
+      lead_time: 1209600
+      supplier: '@suppliers.acme-components'
+
+  - key: rack-upright-2400
+    fields:
+      name: Rack upright 2400mm
+      sku: HW-UPR-2400
+      barcode: '4007651002748'
+      description: Standard upright, pre-drilled at 50mm centres.
+      spec_notes: <p>Pairs with any 1200mm or 900mm shelf. Base plate included; anchors are not.</p>
+      category: Hardware
+      tags: [heavy]
+      status: Active
+      swatch: '#5f3f1a'
+      unit_price: 96.00
+      margin: 31
+      weight_kg: 12.750
+      stock_on_hand: 155
+      reorder_point: 40
+      stock_level: 62
+      quality_rating: 4
+      discontinued: false
+      launch_date: '{{today-720d}}'
+      lead_time: 1209600
+      supplier: '@suppliers.acme-components'
+
+  - key: barcode-scanner-2d
+    fields:
+      name: 2D barcode scanner (corded)
+      sku: AC-SCAN-2D
+      barcode: '4007651004117'
+      description: >-
+        Reads 1D and 2D symbologies. Corded on purpose — the cordless model
+        spends half its life on a charger nobody remembers to use.
+      spec_notes: <p>USB-HID out of the box, no driver. Configurable by scanning the codes in the manual.</p>
+      category: Accessories
+      tags: [bestseller, fragile]
+      status: Active
+      swatch: '#41505f'
+      unit_price: 189.90
+      margin: 42
+      weight_kg: 0.310
+      stock_on_hand: 78
+      reorder_point: 25
+      stock_level: 65
+      quality_rating: 5
+      discontinued: false
+      launch_date: '{{today-395d}}'
+      lead_time: 604800
+      supplier: '@suppliers.kessler-elektronik'
+
+  - key: label-roll-100x150
+    fields:
+      name: Thermal label roll 100×150mm
+      sku: CN-LBL-100150
+      barcode: '4007651005480'
+      description: 500 labels per roll, direct thermal, permanent adhesive.
+      spec_notes: <p>Direct thermal — no ribbon. Fades in sunlight; not for outdoor storage.</p>
+      category: Consumables
+      tags: [bestseller]
+      status: Active
+      swatch: '#e6d8c4'
+      unit_price: 11.20
+      margin: 55
+      weight_kg: 0.680
+      stock_on_hand: 1420
+      reorder_point: 400
+      stock_level: 88
+      quality_rating: 4
+      discontinued: false
+      launch_date: '{{today-980d}}'
+      lead_time: 172800
+      supplier: '@suppliers.valmont-consumables'
+
+  - key: carton-400
+    fields:
+      name: Double-wall carton 400×300×300
+      sku: PK-CTN-400
+      barcode: '4007651006852'
+      description: Double-wall, FSC-certified board. Sold in bundles of 25.
+      spec_notes: <p>Bundle of 25, flat-packed. Stacking limit 8 bundles.</p>
+      category: Packaging
+      tags: [bestseller, clearance]
+      status: Active
+      swatch: '#a06f31'
+      unit_price: 42.00
+      margin: 28
+      weight_kg: 7.900
+      stock_on_hand: 610
+      reorder_point: 150
+      stock_level: 76
+      quality_rating: 4
+      discontinued: false
+      launch_date: '{{today-1250d}}'
+      lead_time: 432000
+      supplier: '@suppliers.nordpack'
+
+  # ── Low stock ───────────────────────────────────────────────────────
+  - key: void-fill-paper
+    fields:
+      name: Void-fill kraft paper, 380mm
+      sku: PK-VOID-380
+      barcode: '4007651008221'
+      description: 70gsm kraft on a 450m roll, for a hand or bench dispenser.
+      spec_notes: <p>Recyclable kerbside, unlike the air pillows it replaced.</p>
+      category: Packaging
+      tags: [seasonal]
+      status: Low stock
+      swatch: '#c4b39c'
+      unit_price: 58.75
+      margin: 26
+      weight_kg: 14.200
+      stock_on_hand: 34
+      reorder_point: 120
+      stock_level: 12
+      quality_rating: 3
+      discontinued: false
+      launch_date: '{{today-610d}}'
+      lead_time: 432000
+      supplier: '@suppliers.nordpack'
+
+  - key: printhead-203dpi
+    fields:
+      name: Printhead 203dpi (spare)
+      sku: SP-PH-203
+      barcode: '4007651009594'
+      description: >-
+        Consumable in all but name — expect one per printer per 18 months of
+        two-shift use.
+      spec_notes: <p>Handle by the housing only. A fingerprint on the elements is a dead printhead.</p>
+      category: Spare parts
+      tags: [fragile]
+      status: Low stock
+      swatch: '#6b8199'
+      unit_price: 214.00
+      margin: 22
+      weight_kg: 0.120
+      stock_on_hand: 3
+      reorder_point: 8
+      stock_level: 15
+      quality_rating: 4
+      discontinued: false
+      launch_date: '{{today-455d}}'
+      lead_time: 1814400
+      supplier: '@suppliers.kessler-elektronik'
+
+  # ── Out of stock ────────────────────────────────────────────────────
+  - key: pallet-wrap-500
+    fields:
+      name: Pallet wrap 500mm, 23µm
+      sku: CN-WRAP-500
+      barcode: '4007651010965'
+      description: Hand-application stretch film. Six rolls per case.
+      spec_notes: <p>23µm is the thin one. The 30µm case is a separate SKU and they get confused constantly.</p>
+      category: Consumables
+      tags: [bestseller, clearance]
+      status: Out of stock
+      swatch: '#dde3e9'
+      unit_price: 34.90
+      margin: 48
+      weight_kg: 16.500
+      stock_on_hand: 0
+      reorder_point: 60
+      stock_level: 0
+      quality_rating: 3
+      discontinued: false
+      launch_date: '{{today-1400d}}'
+      lead_time: 259200
+      supplier: '@suppliers.valmont-consumables'
+
+  - key: cotton-tote-natural
+    fields:
+      name: Cotton tote, natural, unprinted
+      sku: AC-TOTE-NAT
+      barcode: '4007651012334'
+      description: >-
+        140gsm organic cotton, long handles. Bought for the conference and
+        gone within a day.
+      spec_notes: <p>Unprinted on purpose — printing is a separate order with a four-week lead time.</p>
+      category: Accessories
+      tags: [seasonal]
+      status: Out of stock
+      swatch: '#f2e5d1'
+      unit_price: 6.40
+      margin: 60
+      weight_kg: 0.140
+      stock_on_hand: 0
+      reorder_point: 200
+      stock_level: 0
+      quality_rating: 4
+      discontinued: false
+      launch_date: '{{today-120d}}'
+      lead_time: 2419200
+      supplier: '@suppliers.lisbon-textiles'
+
+  # ── Draft ───────────────────────────────────────────────────────────
+  - key: shelf-divider-kit
+    fields:
+      name: Shelf divider kit (prototype)
+      sku: HW-DIV-KIT
+      barcode: '4007651013706'
+      description: >-
+        Not launched. Two sample sets in from Acme; the clip design still
+        works loose under load.
+      spec_notes: >-
+        <p>Sample 2 failed the drop test. Waiting on a revised clip before this
+        gets a price or a launch date.</p>
+      category: Hardware
+      tags: [fragile]
+      status: Draft
+      swatch: '#8b7660'
+      unit_price: 0
+      margin: 0
+      weight_kg: 1.850
+      stock_on_hand: 2
+      reorder_point: 0
+      stock_level: 0
+      quality_rating: 2
+      discontinued: false
+      lead_time: 1814400
+      supplier: '@suppliers.acme-components'
+
+  - key: linen-dust-cover
+    fields:
+      name: Linen dust cover, 1200mm
+      sku: AC-DUST-1200
+      barcode: '4007651015076'
+      description: In development with Lisbon Textiles. Sizing not final.
+      spec_notes: <p>Three widths under consideration. Do not quote until the range is fixed.</p>
+      category: Accessories
+      tags: []
+      status: Draft
+      swatch: '#e2e8ee'
+      unit_price: 0
+      margin: 0
+      weight_kg: 0.420
+      stock_on_hand: 0
+      reorder_point: 0
+      stock_level: 0
+      quality_rating: 3
+      discontinued: false
+      lead_time: 3024000
+      supplier: '@suppliers.lisbon-textiles'
+
+  # ── Discontinued ────────────────────────────────────────────────────
+  - key: scanner-1d-legacy
+    fields:
+      name: 1D barcode scanner (legacy)
+      sku: AC-SCAN-1D
+      barcode: '4007651016448'
+      description: >-
+        Superseded by the 2D model. Kept in the catalog only because three
+        customers still reorder it.
+      spec_notes: <p>Cannot read QR or DataMatrix. Anyone asking for it should be sold the 2D model instead.</p>
+      category: Accessories
+      tags: [clearance]
+      status: Discontinued
+      swatch: '#7a8794'
+      unit_price: 74.00
+      margin: 12
+      weight_kg: 0.290
+      stock_on_hand: 11
+      reorder_point: 0
+      stock_level: 8
+      quality_rating: 2
+      discontinued: true
+      launch_date: '{{today-2400d}}'
+      lead_time: 604800
+      supplier: '@suppliers.kessler-elektronik'

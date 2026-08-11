@@ -7,6 +7,7 @@
 
 import type { ReactElement } from 'react'
 
+/** Chevron-down icon used by select/combobox triggers. */
 export function ChevronDown(): ReactElement {
   return (
     <svg
@@ -26,6 +27,7 @@ export function ChevronDown(): ReactElement {
   )
 }
 
+/** Check-mark icon used by select-option indicators. */
 export function CheckMark(): ReactElement {
   return (
     <svg

@@ -13,6 +13,11 @@ import type { KanbanColumnData } from './group-records'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
 
+/**
+ * Column header: the optional colored status accent dot, the column label, and
+ * the record-count badge. Extracted so {@link KanbanColumn} stays within the
+ * per-function line budget.
+ */
 function ColumnHeader({ column }: { readonly column: KanbanColumnData }): ReactElement {
   return (
     <div className="border-border flex items-center justify-between border-b pb-2">
@@ -21,6 +26,7 @@ function ColumnHeader({ column }: { readonly column: KanbanColumnData }): ReactE
           <span
             className="inline-block size-3 shrink-0 rounded-full"
             data-column-accent
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-column accent colour is dynamic config data; React Compiler not yet enabled in Bun
             style={{ backgroundColor: column.color }}
             aria-hidden="true"
           />
@@ -42,12 +48,18 @@ export function KanbanColumn({
   emptyMessage,
   card,
   draggableEnabled,
+  colorFieldColors,
 }: {
   readonly column: KanbanColumnData
   readonly emptyMessage?: string
   readonly card?: KanbanCard
   readonly draggableEnabled: boolean
+  /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
+  readonly colorFieldColors?: Readonly<Record<string, string>>
 }): ReactElement {
+  // Make the column itself a droppable target so dragging onto an empty
+  // column (or onto its background, not over a card) still resolves to a
+  // valid drop target.
   const { setNodeRef, isOver } = useDroppable({ id: columnDropId(column.value) })
 
   const recordIds = column.records.map((r) => String(r['id'] ?? ''))
@@ -77,6 +89,7 @@ export function KanbanColumn({
                 record={record}
                 card={card}
                 draggableEnabled={draggableEnabled}
+                colorFieldColors={colorFieldColors}
               />
             ))
           )}

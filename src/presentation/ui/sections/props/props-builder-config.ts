@@ -9,6 +9,10 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Interactions } from '@/domain/models/app/pages/components/interactions/interactions'
 import type { Theme } from '@/domain/models/app/theme'
 
+/**
+ * Configuration for building test IDs
+ * Replaces 5 parameters with a single config object
+ */
 export interface TestIdConfig {
   readonly type: Component['type']
   readonly componentName?: string
@@ -17,6 +21,10 @@ export interface TestIdConfig {
   readonly childIndex?: number
 }
 
+/**
+ * Configuration for building element props
+ * Replaces 12 parameters with a single config object
+ */
 export interface ElementPropsConfig {
   readonly type: Component['type']
   readonly substitutedProps: Record<string, unknown> | undefined

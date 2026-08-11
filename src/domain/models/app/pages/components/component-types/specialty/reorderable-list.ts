@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { ActionSchema } from '../../action'
+import { ToastActionSchema } from '../../action'
 import { actionFields } from '../modules/action'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
@@ -24,5 +24,20 @@ export const reorderableListFields = {
       description: 'Enable drag-and-drop reordering of list items',
     })
   ),
-  onReorder: Schema.optional(ActionSchema),
+  /**
+   * Action fired once a reorder settles.
+   *
+   * Narrowed to `toast`, the ONLY variant the renderer implements: it emits
+   * `data-on-reorder-toast-{message,variant}` attributes for a
+   * `{ type: 'toast' }` action and nothing at all for anything else
+   * (`reorderableListComponent` in
+   * `src/presentation/ui/sections/rendering/component-registry/reorderable-list-component.tsx`).
+   * The full `ActionSchema` used to be accepted here, so the other seven
+   * variants validated and then silently emitted no attributes.
+   *
+   * Known residual gap (NOT fixed by this narrowing): `ToastAction.duration`
+   * is still dropped — no `data-on-reorder-toast-duration` is emitted and the
+   * toast never auto-dismisses.
+   */
+  onReorder: Schema.optional(ToastActionSchema),
 } as const

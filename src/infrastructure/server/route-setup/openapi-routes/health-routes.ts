@@ -8,6 +8,7 @@
 import { healthResponseSchema } from '@/domain/models/api/health/health'
 import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
+/** Health check route group. */
 export const healthGroup: StaticGroupSpec = {
   tag: 'infrastructure',
   tagDescription: 'Infrastructure endpoints (health, metrics)',

@@ -9,12 +9,31 @@ import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 import { createOptionsSchema } from '../validation-utils'
 
+/**
+ * Single Select Field
+ *
+ * Allows selection of one option from a predefined list.
+ * Commonly used for categories, statuses, or any enumerated values.
+ * Supports optional default value selection.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'category',
+ *   type: 'single-select',
+ *   options: ['Electronics', 'Clothing', 'Food'],
+ *   default: 'Electronics'
+ * }
+ * ```
+ */
 export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('single-select'),
       options: createOptionsSchema('single-select'),
       default: Schema.optional(Schema.String),
+      /** Behavioral conditions that dynamically change field properties based on selected value */
       conditions: Schema.optional(
         Schema.Array(
           Schema.Struct({
@@ -54,4 +73,5 @@ export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
   })
 )
 
+/** @public */
 export type SingleSelectField = Schema.Schema.Type<typeof SingleSelectFieldSchema>

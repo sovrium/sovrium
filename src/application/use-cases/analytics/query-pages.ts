@@ -23,6 +23,9 @@ export interface TopPagesResult {
   readonly total: number
 }
 
+/**
+ * Query top pages ranked by page views.
+ */
 export const queryPages = (
   input: QueryPagesInput
 ): Effect.Effect<TopPagesResult, AnalyticsDatabaseError, AnalyticsRepository> =>
@@ -33,7 +36,7 @@ export const queryPages = (
       appName: input.appName,
       from: input.from,
       to: input.to,
-      granularity: 'day',
+      granularity: 'day', // Not used for top pages, but required by interface
     })
 
     return { pages, total: pages.length }

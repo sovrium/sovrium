@@ -1,0 +1,43 @@
+# Customer accounts — the root of the CRM half of this template. Contacts,
+# deals and projects all hang off these six rows, so they are seeded first and
+# every other file references them by key.
+#
+# Six industries are available and five are used. Leaving one option unclaimed
+# is deliberate: a demo where every select option has a row cannot show what an
+# empty filter looks like.
+records:
+  - key: northwind
+    fields:
+      name: Northwind Logistics
+      industry: Retail
+      website: https://northwind.example.com
+
+  - key: helios
+    fields:
+      name: Helios Health Group
+      industry: Healthcare
+      website: https://helios-health.example.com
+
+  - key: lumen
+    fields:
+      name: Lumen Analytics
+      industry: Technology
+      website: https://lumen.example.com
+
+  - key: cardinal
+    fields:
+      name: Cardinal Mutual
+      industry: Finance
+      website: https://cardinal-mutual.example.com
+
+  - key: fernbank
+    fields:
+      name: Fernbank Academy Trust
+      industry: Education
+      website: https://fernbank.example.org
+
+  - key: atlas
+    fields:
+      name: Atlas Freight
+      industry: Retail
+      website: https://atlasfreight.example.com

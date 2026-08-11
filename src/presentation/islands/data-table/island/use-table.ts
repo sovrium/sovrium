@@ -11,8 +11,6 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
-  getGroupedRowModel,
-  getExpandedRowModel,
   type ColumnDef,
   type ColumnFiltersState,
   type ColumnOrderState,
@@ -23,29 +21,8 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table'
-import { useMemo } from 'react'
 import type { TableRecord } from '../../shared/types'
-import type {
-  DataTableGroupBy,
-  DataTableSelection,
-} from '@/domain/models/app/pages/components/data-table'
-
-function buildGroupingState(groupByConfig: DataTableGroupBy | undefined) {
-  if (!groupByConfig) {
-    return { rowModels: undefined, groupingState: undefined } as const
-  }
-  return {
-    rowModels: {
-      getGroupedRowModel: getGroupedRowModel(),
-      getExpandedRowModel: getExpandedRowModel(),
-    },
-    groupingState: {
-      grouping: [groupByConfig.field] as ReadonlyArray<string>,
-      expanded:
-        groupByConfig.collapsed === true ? ({} as Record<string, boolean>) : (true as const),
-    },
-  } as const
-}
+import type { DataTableSelection } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
 
 interface UseDataTableInstanceParams {
   readonly records: readonly TableRecord[]
@@ -67,14 +44,15 @@ interface UseDataTableInstanceParams {
   readonly columnSizing: ColumnSizingState
   readonly setColumnSizing: OnChangeFn<ColumnSizingState>
   readonly selectionConfig: DataTableSelection | undefined
-  readonly groupByConfig: DataTableGroupBy | undefined
   readonly totalRecords: number
 }
 
-function buildTableState(
-  params: UseDataTableInstanceParams,
-  groupingState: ReturnType<typeof buildGroupingState>['groupingState']
-) {
+/**
+ * Assemble the controlled `state` block for the TanStack Table instance.
+ * Extracted as a pure helper so `useDataTableInstance` stays under the
+ * function-size limit.
+ */
+function buildTableState(params: UseDataTableInstanceParams) {
   return {
     sorting: params.sorting,
     columnFilters: params.columnFilters,
@@ -84,25 +62,24 @@ function buildTableState(
     columnVisibility: params.columnVisibility,
     columnOrder: params.columnOrder,
     columnSizing: params.columnSizing,
-    ...(groupingState && {
-      grouping: groupingState.grouping as string[],
-      expanded: groupingState.expanded,
-    }),
   }
 }
 
-function buildTableOptions(
-  params: UseDataTableInstanceParams,
-  groupingState: ReturnType<typeof buildGroupingState>['groupingState'],
-  rowModels: ReturnType<typeof buildGroupingState>['rowModels']
-) {
+/**
+ * Assemble the full `useReactTable` options object. Pure (no hooks) so the
+ * `useDataTableInstance` hook body stays a thin `useReactTable(...)` call
+ * under the function-size limit.
+ */
+function buildTableOptions(params: UseDataTableInstanceParams) {
   const { records, allColumns, selectionConfig, totalRecords, pagination } = params
   const selectionEnabled =
     selectionConfig?.mode === 'single' || selectionConfig?.mode === 'multiple'
   return {
+    // TanStack Table v8 requires mutable TData[]; the caller passes a memoized
+    // mutable copy so we can hand it directly to `data:` here.
     data: records as TableRecord[],
     columns: [...allColumns],
-    state: buildTableState(params, groupingState),
+    state: buildTableState(params),
     onSortingChange: params.setSorting,
     onColumnFiltersChange: params.setColumnFilters,
     onGlobalFilterChange: params.setGlobalFilter,
@@ -111,15 +88,23 @@ function buildTableOptions(
     onColumnVisibilityChange: params.setColumnVisibility,
     onColumnOrderChange: params.setColumnOrder,
     onColumnSizingChange: params.setColumnSizing,
+    // Column resize: live update during drag.
+    // TanStack Table emits `columnSizing` change events on each pointer move;
+    // the orchestrator debounces the PATCH to the user-preferences endpoint
+    // so a single drag does not produce dozens of writes.
     enableColumnResizing: true,
     columnResizeMode: 'onChange' as const,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    ...(rowModels ?? {}),
     enableRowSelection: selectionEnabled,
     enableMultiRowSelection: selectionConfig?.mode === 'multiple',
+    // Always sort ASC on the first click, regardless of column type. TanStack's
+    // default is DESC-first for numeric/date columns, which contradicts the
+    // user-expectation set by every common data grid (Linear, Notion, Airtable
+    // and [internal ref] specs) — first click should always yield
+    // the smallest values at the top.
     sortDescFirst: false,
     manualPagination: true,
     manualSorting: true,
@@ -127,20 +112,19 @@ function buildTableOptions(
   }
 }
 
+/**
+ * Wire the TanStack Table instance for the data-table island.
+ *
+ * Centralises the option assembly — controlled state, row models, manual
+ * pagination/sorting flags — so the orchestrator can remain a thin coordinator
+ * over UI sub-components.
+ *
+ * Grouping is deliberately NOT among those row models. The grid partitions its
+ * own rows (`group-order.ts`), which is what lets a level group by a field the
+ * grid does not show as a column: TanStack can only group a declared column, and
+ * a grouping field is not required to be one — the group header is what carries
+ * its value to the reader.
+ */
 export function useDataTableInstance(params: UseDataTableInstanceParams) {
-  const { groupByConfig } = params
-
-  const groupingKey = groupByConfig?.field ?? ''
-  const collapsedDefault = groupByConfig?.collapsed === true
-  const { rowModels, groupingState } = useMemo(
-    () =>
-      buildGroupingState(
-        groupingKey === ''
-          ? undefined
-          : { field: groupingKey, ...(collapsedDefault && { collapsed: true }) }
-      ),
-    [groupingKey, collapsedDefault]
-  )
-
-  return useReactTable(buildTableOptions(params, groupingState, rowModels))
+  return useReactTable(buildTableOptions(params))
 }

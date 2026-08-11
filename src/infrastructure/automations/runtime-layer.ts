@@ -7,7 +7,6 @@
 
 import { Effect, Layer } from 'effect'
 import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
-import { PackageResolverLive } from '@/infrastructure/automations/package-resolver'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { AutomationApprovalRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-approval-repository-live'
@@ -21,6 +20,41 @@ import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transform-live'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 
+/**
+ * Combined infrastructure layer required by the automation engine
+ * (`executeAutomationRun` and its callers — `runWebhookAutomation`,
+ * `runManualAutomation`, `runCronAutomation`, `triggerRecordEventAutomations`).
+ *
+ * Provides:
+ * - `TableRepository` (via `TableLive`) for record-creating actions.
+ * - `AutomationRepository` (via `AutomationRepositoryLive`) so the run loop
+ *   can lazily seed `system.automation_definitions` on first trigger and
+ *   resolve the `automation_id` FK that downstream tables (state, runs,
+ *   digest, etc.) depend on.
+ * - `AutomationStateRepository` (via `AutomationStateRepositoryLive`) for
+ *   the `state:*` action operators (set, get, list, delete, increment).
+ * - `AutomationDigestRepository` (via `AutomationDigestRepositoryLive`) for
+ *   the `digest:*` action operators (collect, release).
+ * - `ConnectionRepository` + `ConnectionTokenRepository` for the
+ *   `http/request` handler's `connection: <name>` injection (oauth2 token
+ *   lookup; static auth types do not need DB access).
+ * - `ImageTransformService` (via `ImageTransformServiceLive`) for the
+ *   `file/transformImage` handler's composed sharp pipeline (resize / crop
+ *   + optional format conversion).
+ * - `AutomationApprovalRepository` (via `AutomationApprovalRepositoryLive`) for
+ *   the `approval/request` handler's pending-row INSERT.
+ * - `AuthRepository` (via `AuthRepositoryLive`) for the `auth/*` handlers
+ *   (`assignRole`, `banUser`, `unbanUser` and their user-existence guard).
+ *
+ * Lives in `infrastructure/automations/` (not in the presentation route
+ * folder) so non-route entry points — the live cron scheduler in
+ * `infrastructure/scheduling/` and any future background worker — can
+ * provide the same runtime without crossing layer boundaries.
+ *
+ * When future migration specs add handlers that depend on additional
+ * repositories, extend this merged layer rather than spreading
+ * infrastructure imports across each entry point.
+ */
 export const AutomationRuntimeLayer = Layer.mergeAll(
   TableLive,
   AutomationRepositoryLive,
@@ -31,13 +65,20 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   AutomationDigestRepositoryLive,
   ConnectionRepositoryLive,
   ConnectionTokenRepositoryLive,
-  PackageResolverLive,
   AiServiceLive,
   StorageServiceLive,
   ImageTransformServiceLive,
   AnalyticsRepositoryLive
 )
 
+/**
+ * Provide the automation runtime's required infrastructure layers.
+ *
+ * Used by route handlers (webhook/manual triggers), the live cron
+ * scheduler, and other background dispatchers so they can run an
+ * `executeAutomationRun`-shaped Effect program against the production
+ * dependency graph.
+ */
 export function provideAutomationRuntime<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, never> {

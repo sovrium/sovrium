@@ -12,6 +12,23 @@ import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideActivityLive } from './effect-runner'
 import type { Context } from 'hono'
 
+/**
+ * GET /api/activity/:activityId handler
+ *
+ * Fetches activity log details by ID with user metadata.
+ *
+ * **Authentication**: Requires authenticated session
+ * **Authorization**: All authenticated users can view activity logs
+ *
+ * **Response Structure**:
+ * - 200: Activity details with user metadata
+ * - 400: Invalid activity ID format
+ * - 401: Unauthorized (no session)
+ * - 404: Activity not found
+ *
+ * @param c - Hono context
+ * @returns JSON response with activity details or error
+ */
 export async function getActivityByIdHandler(c: Context) {
   const activityId = c.req.param('activityId')!
 
@@ -22,6 +39,7 @@ export async function getActivityByIdHandler(c: Context) {
   if (result._tag === 'Left') {
     const error = result.left
 
+    // Handle specific error types
     if (error._tag === 'InvalidActivityIdError') {
       return c.json(
         {
@@ -44,6 +62,7 @@ export async function getActivityByIdHandler(c: Context) {
       )
     }
 
+    // Database error
     logError('[activity] get-by-id handler failed', error)
     return c.json(
       {
