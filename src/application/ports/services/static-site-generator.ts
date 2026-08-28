@@ -64,7 +64,7 @@ export interface SSGGenerationError {
  * })
  * ```
  */
-export class StaticSiteGenerator extends Context.Tag('StaticSiteGenerator')<
+export class StaticSiteGenerator extends Context.Service<
   StaticSiteGenerator,
   {
     /**
@@ -79,4 +79,4 @@ export class StaticSiteGenerator extends Context.Tag('StaticSiteGenerator')<
       options: Readonly<SSGOptions>
     ) => Effect.Effect<SSGResult, SSGGenerationError>
   }
->() {}
+>()('StaticSiteGenerator') {}

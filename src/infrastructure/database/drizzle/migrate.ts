@@ -18,6 +18,18 @@ import { materializeMigrations } from '@/infrastructure/assets/embedded-static-a
 import { adminSearchFtsBootStatements } from '@/infrastructure/database/lookup/admin-search-fts-ddl'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { isCompiled } from '@/infrastructure/utils/package-paths'
+import {
+  detectPostgresAccountCollisions,
+  detectSqliteAccountCollisions,
+  formatAccountCollisionMessage,
+  type AccountCollisionRow,
+} from './account-issuer-preflight'
+import {
+  detectPostgresOauthClientIdCollisions,
+  detectSqliteOauthClientIdCollisions,
+  formatOauthClientIdCollisionMessage,
+  type OauthClientIdCollisionRow,
+} from './oauth-client-id-preflight'
 import * as schema from './schema'
 import * as schemaSqlite from './schema-sqlite'
 import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
@@ -93,6 +105,95 @@ export class MigrationError extends Data.TaggedError('MigrationError')<{
 }> {}
 
 /**
+ * Refuse the upgrade if the account table holds rows the new UNIQUE
+ * (issuer, account_id) index would reject.
+ *
+ * Turns an opaque `UNIQUE constraint failed` into an actionable message naming
+ * the offending rows. A no-op once the column exists, and on a fresh install.
+ */
+const guardAccountIdentity = (
+  collisions: readonly AccountCollisionRow[]
+): Effect.Effect<void, MigrationError> =>
+  collisions.length > 0
+    ? Effect.fail(new MigrationError({ message: formatAccountCollisionMessage(collisions) }))
+    : Effect.void
+
+/**
+ * Refuse the upgrade if the OAuth client table holds rows the new UNIQUE
+ * `client_id` constraint would reject.
+ *
+ * Same contract as {@link guardAccountIdentity}: name the offending rows rather
+ * than emit a bare `duplicate key` error, and never de-duplicate. A no-op once
+ * the constraint exists, and on a fresh install.
+ */
+const guardOauthClientIdentity = (
+  collisions: readonly OauthClientIdCollisionRow[]
+): Effect.Effect<void, MigrationError> =>
+  collisions.length > 0
+    ? Effect.fail(new MigrationError({ message: formatOauthClientIdCollisionMessage(collisions) }))
+    : Effect.void
+
+/** Wrap a pre-flight probe failure as a migration failure. */
+const preflightFailed = (error: unknown) =>
+  new MigrationError({
+    message: `Account identity pre-flight check failed: ${String(error)}`,
+    cause: error,
+  })
+
+/** Wrap an OAuth-client pre-flight probe failure as a migration failure. */
+const oauthPreflightFailed = (error: unknown) =>
+  new MigrationError({
+    message: `OAuth client identity pre-flight check failed: ${String(error)}`,
+    cause: error,
+  })
+
+/**
+ * Every identity pre-flight probe, run before the PostgreSQL migration set.
+ *
+ * All probes run before ANY migration DDL, so an operator holding more than one
+ * kind of duplicate is refused on the first one found and fixes them one at a
+ * time. The order between probes is arbitrary — what matters is that both come
+ * before the migrator, since a refusal after partial DDL would not be the clean
+ * "nothing has been changed" the messages promise.
+ */
+const postgresPreflight = (
+  query: (sql: string) => Promise<unknown>
+): Effect.Effect<void, MigrationError> =>
+  Effect.gen(function* () {
+    yield* guardAccountIdentity(
+      yield* Effect.tryPromise({
+        try: () => detectPostgresAccountCollisions(query),
+        catch: preflightFailed,
+      })
+    )
+    yield* guardOauthClientIdentity(
+      yield* Effect.tryPromise({
+        try: () => detectPostgresOauthClientIdCollisions(query),
+        catch: oauthPreflightFailed,
+      })
+    )
+  })
+
+/** The SQLite counterpart of {@link postgresPreflight}; `bun:sqlite` is synchronous. */
+const sqlitePreflight = (
+  query: (sql: string) => readonly unknown[]
+): Effect.Effect<void, MigrationError> =>
+  Effect.gen(function* () {
+    yield* guardAccountIdentity(
+      yield* Effect.try({
+        try: () => detectSqliteAccountCollisions(query),
+        catch: preflightFailed,
+      })
+    )
+    yield* guardOauthClientIdentity(
+      yield* Effect.try({
+        try: () => detectSqliteOauthClientIdCollisions(query),
+        catch: oauthPreflightFailed,
+      })
+    )
+  })
+
+/**
  * Apply the PostgreSQL migration set (`drizzle/`).
  *
  * Enables `pgvector` before migrating — migration 0000 creates a `vector(1536)`
@@ -128,6 +229,8 @@ const runPostgresMigrations = (
           cause: error,
         }),
     })
+
+    yield* postgresPreflight((sql) => client.unsafe(sql))
 
     const migrationsFolder = yield* resolveMigrationsFolder('pg')
     yield* Effect.tryPromise({
@@ -180,6 +283,8 @@ const runSqliteMigrations = (
     })
 
     const db = drizzleSqlite({ client, schema: schemaSqlite })
+
+    yield* sqlitePreflight((sql) => client.query(sql).all())
 
     const migrationsFolder = yield* resolveMigrationsFolder('sqlite')
     yield* Effect.try({

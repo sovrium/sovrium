@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { validateFilterFieldPermissions } from '@/presentation/api/utils/filter-field-validator'
-import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 /**
@@ -29,87 +27,36 @@ export type ParseFilterResult =
   { success: true; filter: FilterParameter } | { success: false; error: Response }
 
 /**
- * Build a canonical 404 response for a forbidden filter field. Per S1
- * anti-enumeration, the field name is omitted so the field-permission
- * boundary cannot be probed by filtering. The `_forbiddenField` parameter
- * is retained for call-site readability.
- */
-const forbiddenFilterResponse = (c: Context, _forbiddenField: string): Response =>
-  c.json(
-    {
-      success: false,
-      message: 'Resource not found',
-      code: 'NOT_FOUND',
-    },
-    404
-  )
-
-/**
- * Validate that the user can filter by every field referenced in `filter`.
- * Returns `undefined` when allowed, or a 404 response when any field is
- * forbidden (S1 anti-enumeration).
- */
-const checkFilterFieldPermissions = (config: {
-  filter: unknown
-  app: App
-  tableName: string
-  userRole: string
-  c: Context
-}): Response | undefined => {
-  const { filter, app, tableName, userRole, c } = config
-  // filter has been parsed via the FilterParameter shape upstream; the
-  // permission validator's local `Filter` interface is structurally identical.
-  const forbiddenFields = validateFilterFieldPermissions(
-    app,
-    tableName,
-    userRole,
-    filter as Parameters<typeof validateFilterFieldPermissions>[3]
-  )
-  if (forbiddenFields.length === 0 || forbiddenFields[0] === undefined) return undefined
-  return forbiddenFilterResponse(c, forbiddenFields[0])
-}
-
-/**
- * Parse and validate filter parameter from query string
+ * Parse the `?filter=` query parameter into a filter structure.
  *
- * Handles JSON parsing and field-level permission validation
- * for filter parameters.
+ * SHAPE ONLY — this parser deliberately performs no field-permission check.
+ * Both of its output shapes (parsed JSON, and the `field:value` shorthand) flow
+ * into `parseFilter`, which runs the single recursive check for every filter
+ * entry point. Re-checking here duplicated the rule, and the duplicate was the
+ * weaker of the two: it read only flat leaves, so a nested group escaped it.
  *
  * @param config - Configuration object with filter details
  * @returns ParseFilterResult indicating success with filter or failure with error response
  */
 export function parseFilterParameter(config: {
   filterParam: string | undefined
-  app: App
-  tableName: string
-  userRole: string
   c: Context
 }): ParseFilterResult {
-  const { filterParam, app, tableName, userRole, c } = config
+  const { filterParam, c } = config
 
   if (!filterParam) {
     return { success: true, filter: undefined }
   }
 
   try {
-    const filter = JSON.parse(filterParam)
-    const denied = checkFilterFieldPermissions({ filter, app, tableName, userRole, c })
-    if (denied) return { success: false, error: denied }
-    return { success: true, filter }
+    return { success: true, filter: JSON.parse(filterParam) }
   } catch {
     // Try field:value simple equality format (e.g., "priority:high")
     const colonIdx = filterParam.indexOf(':')
     if (colonIdx > 0) {
       const field = filterParam.substring(0, colonIdx)
       const value = filterParam.substring(colonIdx + 1)
-      const filter = { and: [{ field, operator: 'equals', value }] }
-
-      // Apply the same field-level permission check as the JSON branch.
-      // Without this, a user with read access to ?filter={"and":[...]} blocked
-      // by role could bypass the check via ?filter=hiddenField:value.
-      const denied = checkFilterFieldPermissions({ filter, app, tableName, userRole, c })
-      if (denied) return { success: false, error: denied }
-      return { success: true, filter }
+      return { success: true, filter: { and: [{ field, operator: 'equals', value }] } }
     }
 
     return {

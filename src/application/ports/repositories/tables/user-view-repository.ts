@@ -132,7 +132,7 @@ export class UserViewDbError extends Data.TaggedError('UserViewDbError')<{
  * endpoint is callable by any authenticated user) and leaves table-level
  * permission enforcement to the use-case orchestrator.
  */
-export class UserViewRepository extends Context.Tag('UserViewRepository')<
+export class UserViewRepository extends Context.Service<
   UserViewRepository,
   {
     /** List the caller's saved views for `tableName`, ordered oldest-first. */
@@ -187,4 +187,4 @@ export class UserViewRepository extends Context.Tag('UserViewRepository')<
       input: GetSharedViewRow
     ) => Effect.Effect<UserViewResponse, UserViewDbError | UserViewNotFoundError>
   }
->() {}
+>()('UserViewRepository') {}

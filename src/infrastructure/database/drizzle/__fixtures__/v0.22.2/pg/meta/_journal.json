@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1780433687471,
+      "tag": "0000_icy_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781817113872,
+      "tag": "0001_glossy_squadron_supreme",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782052015495,
+      "tag": "0002_bitter_calypso",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782288757280,
+      "tag": "0003_magenta_the_anarchist",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784019579977,
+      "tag": "0004_absurd_zaran",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785070242478,
+      "tag": "0005_greedy_smasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785533567630,
+      "tag": "0006_material_lizard",
+      "breakpoints": true
+    }
+  ]
+}

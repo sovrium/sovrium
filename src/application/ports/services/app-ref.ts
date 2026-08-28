@@ -32,7 +32,7 @@ import type { App } from '@/domain/models/app'
  * The post-swap callback chain (re-registering dynamic routes, etc.) is
  * the responsibility of the `swapApp` use case, not of this port.
  */
-export class AppRef extends Context.Tag('AppRef')<
+export class AppRef extends Context.Service<
   AppRef,
   {
     /** Read the currently-active App snapshot. Always succeeds. */
@@ -44,4 +44,4 @@ export class AppRef extends Context.Tag('AppRef')<
      */
     readonly swap: (newApp: App) => Effect.Effect<void>
   }
->() {}
+>()('AppRef') {}

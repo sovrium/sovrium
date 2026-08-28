@@ -56,7 +56,7 @@ export const handleAnalyticsTrack: ActionHandler = (action, app, _automation) =>
     const properties = recordProp(props, 'properties')
 
     const repo = yield* AnalyticsRepository
-    const result = yield* Effect.either(
+    const result = yield* Effect.result(
       repo.recordEvent({
         appName: app.name,
         eventType: 'track',
@@ -66,10 +66,10 @@ export const handleAnalyticsTrack: ActionHandler = (action, app, _automation) =>
         ...(properties !== undefined ? { properties } : {}),
       })
     )
-    if (result._tag === 'Left') {
+    if (result._tag === 'Failure') {
       return {
         status: 'failure',
-        error: `analytics.track failed: ${String(result.left.cause)}`,
+        error: `analytics.track failed: ${String(result.failure.cause)}`,
       } as const satisfies ActionOutcome
     }
     return {

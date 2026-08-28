@@ -12,6 +12,7 @@ import {
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
+import { itemLoopOutcome } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
@@ -21,7 +22,13 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * for each item, runs the nested `props.actions` sub-sequence with the
  * current item exposed as `{{loop.item}}` / `{{loop.item.<field>}}` and the
  * zero-based position as `{{loop.index}}`. Per-item outputs are collected
- * into `steps.<name>.results[]`.
+ * into `steps.<name>.results[]`; a failed item contributes `{ error }` in its
+ * position so the array stays aligned with the declared order.
+ *
+ * `props.continueOnItemError` decides what a failing item does to the rest:
+ * absent or `false` stops the loop there and fails the step, `true` attempts
+ * every item and reports the count in `output.failed`. See {@link foldIteration}
+ * for why the rule is shared with `record/batch*` by wording rather than by code.
  *
  * Why this resolves templates itself instead of relying on the run loop's
  * `resolveTriggerInValue` (cf. `data.ts`): that resolver runs BEFORE the
@@ -75,11 +82,90 @@ const maxIterationsOf = (props: Readonly<Record<string, unknown>>): number => {
   return DEFAULT_MAX_ITERATIONS
 }
 
-const ok = (output: Record<string, unknown>): ActionOutcome =>
+const ok = (output: Readonly<Record<string, unknown>>): ActionOutcome =>
   ({ status: 'success', output }) as const satisfies ActionOutcome
 
 const fail = (message: string): ActionOutcome =>
   ({ status: 'failure', error: message }) as const satisfies ActionOutcome
+
+/** What happened to one loop item. */
+type IterationOutcome =
+  | { readonly kind: 'ok'; readonly output: unknown }
+  | { readonly kind: 'failed'; readonly error: string }
+
+/** Running state across the iteration sequence. */
+interface LoopTally {
+  readonly results: readonly unknown[]
+  readonly failed: number
+  readonly firstError: string | undefined
+  readonly stopped: boolean
+}
+
+const EMPTY_TALLY: LoopTally = {
+  results: [],
+  failed: 0,
+  firstError: undefined,
+  stopped: false,
+}
+
+/**
+ * Fold one item's outcome into the tally, halting the sequence when an item
+ * failed and the author did not opt into `continueOnItemError`.
+ *
+ * The rule is the one the three `record/batch*` operators share — "Continue
+ * processing remaining items if one fails (default: false)", byte-identical
+ * wording across all four schemas — so the DEFAULT stops at the first failing
+ * item rather than attempting the rest and reporting afterwards
+ *.
+ *
+ * Why this does not reuse `record-batch.ts`'s `runBatchItems`: that loop is an
+ * `Effect` fold over `TableRepository`-requiring per-item Effects, tallying a
+ * created/updated/failed vocabulary and deliberately DISCARDING each item's
+ * output. A loop item is a promise-returning sub-sequence dispatched through
+ * `invokeNativeAction` over any action type, and its output is the whole point
+ * — `results[]` is a documented template surface. Sharing the loop would mean
+ * generalising over both the effect requirement and the result vocabulary to
+ * save four lines; sharing the RULE, which is what actually drifted, is what
+ * this comment is for.
+ */
+const foldIteration = (
+  tally: LoopTally,
+  outcome: IterationOutcome,
+  continueOnItemError: boolean
+): LoopTally =>
+  outcome.kind === 'ok'
+    ? { ...tally, results: [...tally.results, outcome.output ?? {}] }
+    : {
+        results: [...tally.results, { error: outcome.error }],
+        failed: tally.failed + 1,
+        firstError: tally.firstError ?? outcome.error,
+        stopped: !continueOnItemError,
+      }
+
+/**
+ * Turn the tally into the step outcome. A loop with failures fails the STEP
+ * (and so the run) unless the author opted into `continueOnItemError`; the
+ * per-item results ride along either way so run-history records what did land.
+ *
+ * The RULE lives in `itemLoopOutcome` (`./shared`), shared with the four
+ * `record/batch*` operators — this is the `LoopTally`-shaped adapter onto it,
+ * and the only thing it adds is the loop's own output vocabulary
+ * (`results`/`iterations`/`failed`) and fallback message. Note that the fold
+ * ABOVE stays separate on purpose (see `foldIteration`); only the outcome rule
+ * is shared, because only the outcome rule was duplicated.
+ */
+const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutcome =>
+  itemLoopOutcome({
+    failed: tally.failed,
+    firstError: tally.firstError,
+    output: {
+      results: tally.results,
+      iterations: tally.results.length,
+      failed: tally.failed,
+    },
+    continueOnItemError,
+    fallbackError: 'loop.each: an item failed',
+  })
 
 /**
  * Run the nested action sub-sequence for one loop item. Each action's props
@@ -110,6 +196,25 @@ const runIteration = (input: {
   )
 }
 
+/**
+ * Run one item's sub-sequence and reduce a rejection to a value. A nested
+ * action that fails rejects the promise (`buildNativeActionInvoker` throws on
+ * a failure outcome); catching it here is what lets the caller DECIDE whether
+ * to continue rather than having the whole chain unwound for it.
+ */
+const runIterationSafely = (input: {
+  readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
+  readonly itemContext: Readonly<Record<string, unknown>>
+  readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
+}): Promise<IterationOutcome> =>
+  runIteration(input).then(
+    (output): IterationOutcome => ({ kind: 'ok', output }),
+    (cause: unknown): IterationOutcome => ({
+      kind: 'failed',
+      error: cause instanceof Error ? cause.message : String(cause),
+    })
+  )
+
 /** Run all iterations sequentially (one Promise chain) so step order and a
  *  failing item surface deterministically. */
 const runAllIterations = (input: {
@@ -118,15 +223,17 @@ const runAllIterations = (input: {
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
   readonly base: Readonly<Record<string, unknown>>
   readonly invoke: NonNullable<ActionRunContext['invokeNativeAction']>
-}): Promise<readonly unknown[]> => {
-  const { items, limit, actions, base, invoke } = input
+  readonly continueOnItemError: boolean
+}): Promise<LoopTally> => {
+  const { items, limit, actions, base, invoke, continueOnItemError } = input
   const indices = Array.from({ length: limit }, (_v, i) => i)
-  return indices.reduce<Promise<readonly unknown[]>>(async (prev, i) => {
-    const collected = await prev
+  return indices.reduce<Promise<LoopTally>>(async (prev, i) => {
+    const tally = await prev
+    if (tally.stopped) return tally
     const itemContext = { ...base, loop: { item: items[i], index: i } }
-    const result = await runIteration({ actions, itemContext, invoke })
-    return [...collected, result ?? {}]
-  }, Promise.resolve<readonly unknown[]>([]))
+    const outcome = await runIterationSafely({ actions, itemContext, invoke })
+    return foldIteration(tally, outcome, continueOnItemError)
+  }, Promise.resolve(EMPTY_TALLY))
 }
 
 export const handleLoopEach: ActionHandler = (_action, _app, _automation, runContext) =>
@@ -140,9 +247,12 @@ export const handleLoopEach: ActionHandler = (_action, _app, _automation, runCon
     const items = asArray(resolveRunContextValue(props['items'], base))
     const actions = asActionList(props['actions'])
     const limit = Math.min(items.length, maxIterationsOf(props))
+    const continueOnItemError = props['continueOnItemError'] === true
 
     return yield* Effect.tryPromise({
-      try: () => runAllIterations({ items, limit, actions, base, invoke }),
+      // A per-item rejection is now caught inside the sequence, so this catch
+      // only fires for a defect in the iteration machinery itself.
+      try: () => runAllIterations({ items, limit, actions, base, invoke, continueOnItemError }),
       catch: (cause) =>
         new LoopIterationError({
           message: cause instanceof Error ? cause.message : String(cause),
@@ -150,7 +260,7 @@ export const handleLoopEach: ActionHandler = (_action, _app, _automation, runCon
         }),
     }).pipe(
       Effect.match({
-        onSuccess: (results) => ok({ results, iterations: results.length }),
+        onSuccess: (tally) => loopOutcome(tally, continueOnItemError),
         onFailure: (error) => fail(error.message),
       })
     )

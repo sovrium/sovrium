@@ -21,7 +21,7 @@ export class CronSchedulerError extends Data.TaggedError('CronSchedulerError')<{
  * Provides cron-based job scheduling, cancellation, and listing.
  * Implementation lives in infrastructure layer.
  */
-export class CronScheduler extends Context.Tag('CronScheduler')<
+export class CronScheduler extends Context.Service<
   CronScheduler,
   {
     readonly schedule: (
@@ -33,6 +33,6 @@ export class CronScheduler extends Context.Tag('CronScheduler')<
       }
     ) => Effect.Effect<string, CronSchedulerError>
     readonly cancel: (jobId: string) => Effect.Effect<void, CronSchedulerError>
-    readonly listJobs: () => Effect.Effect<readonly Record<string, unknown>[], CronSchedulerError>
+    readonly listJobs: Effect.Effect<readonly Record<string, unknown>[], CronSchedulerError>
   }
->() {}
+>()('CronScheduler') {}

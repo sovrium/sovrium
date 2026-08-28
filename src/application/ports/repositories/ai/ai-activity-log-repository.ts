@@ -47,10 +47,10 @@ export class AiActivityLogDatabaseError extends Data.TaggedError('AiActivityLogD
  * Implementation lives in the infrastructure layer
  * (`ai-activity-log-repository-live.ts`).
  */
-export class AiActivityLogRepository extends Context.Tag('AiActivityLogRepository')<
+export class AiActivityLogRepository extends Context.Service<
   AiActivityLogRepository,
   {
     /** Append one row to `system.ai_activity_logs`. */
     readonly append: (row: AiActivityLogRow) => Effect.Effect<void, AiActivityLogDatabaseError>
   }
->() {}
+>()('AiActivityLogRepository') {}

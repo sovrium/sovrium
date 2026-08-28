@@ -63,7 +63,7 @@ export const persistQueuedRun = (input: {
 }): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
-    const result = yield* Effect.either(
+    const result = yield* Effect.result(
       repo.create({
         automationId: input.automationId,
         status: 'queued',
@@ -72,11 +72,11 @@ export const persistQueuedRun = (input: {
         ...runActorOverlay(input.userId),
       })
     )
-    if (result._tag === 'Left') {
-      logError('[automation] failed to persist queued run row', result.left)
+    if (result._tag === 'Failure') {
+      logError('[automation] failed to persist queued run row', result.failure)
       return undefined
     }
-    return result.right.id
+    return result.success.id
   })
 
 /**
@@ -89,9 +89,9 @@ export const markRunRunning = (
 ): Effect.Effect<void, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
-    const result = yield* Effect.either(repo.updateStatus({ id: runId, status: 'running' }))
-    if (result._tag === 'Left') {
-      logError('[automation] failed to mark run as running', result.left)
+    const result = yield* Effect.result(repo.updateStatus({ id: runId, status: 'running' }))
+    if (result._tag === 'Failure') {
+      logError('[automation] failed to mark run as running', result.failure)
     }
   })
 
@@ -169,7 +169,7 @@ type FinaliseRunInput = {
 const finaliseRunFallback = (input: FinaliseRunInput) =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
-    const fallback = yield* Effect.either(
+    const fallback = yield* Effect.result(
       repo.create({
         automationId: input.automationId,
         status: toApiStatus(input.engineStatus),
@@ -182,11 +182,11 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
         steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt),
       })
     )
-    if (fallback._tag === 'Left') {
-      logError('[automation] failed to finalise run (fallback insert)', fallback.left)
+    if (fallback._tag === 'Failure') {
+      logError('[automation] failed to finalise run (fallback insert)', fallback.failure)
       return undefined
     }
-    return fallback.right.id
+    return fallback.success.id
   })
 
 export const finaliseRun = (
@@ -194,7 +194,7 @@ export const finaliseRun = (
 ): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
-    const finalised = yield* Effect.either(
+    const finalised = yield* Effect.result(
       repo.finaliseRun({
         id: input.runId,
         status: toApiStatus(input.engineStatus),
@@ -204,10 +204,10 @@ export const finaliseRun = (
         steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt),
       })
     )
-    if (finalised._tag === 'Left' || finalised.right === undefined) {
+    if (finalised._tag === 'Failure' || finalised.success === undefined) {
       logError(
         '[automation] failed to finalise run on existing row; falling back to insert',
-        finalised._tag === 'Left' ? finalised.left : 'row missing'
+        finalised._tag === 'Failure' ? finalised.failure : 'row missing'
       )
       return yield* finaliseRunFallback(input)
     }

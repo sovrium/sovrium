@@ -217,17 +217,17 @@ const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurn
     triggerData: { body: { message } },
     userId,
   })
-  const outcome = await Effect.runPromise(Effect.either(provideAutomationRuntime(program)))
-  if (outcome._tag === 'Left') {
-    logError(`[ai] automation "${name}" run failed (engine error)`, outcome.left)
-    return errorToResult(outcome.left, name)
+  const outcome = await Effect.runPromise(Effect.result(provideAutomationRuntime(program)))
+  if (outcome._tag === 'Failure') {
+    logError(`[ai] automation "${name}" run failed (engine error)`, outcome.failure)
+    return errorToResult(outcome.failure, name)
   }
 
-  const status = toActionStatus(outcome.right.status)
+  const status = toActionStatus(outcome.success.status)
   if (status === 'failed') {
     logError(
-      `[ai] automation "${name}" run failed (runId=${outcome.right.runId})`,
-      outcome.right.error ?? '(no error captured)'
+      `[ai] automation "${name}" run failed (runId=${outcome.success.runId})`,
+      outcome.success.error ?? '(no error captured)'
     )
   }
   const reply = composeTriggerReply(aiReply, name, status)
@@ -235,10 +235,10 @@ const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurn
     type: 'automation',
     name,
     status,
-    runId: outcome.right.runId,
+    runId: outcome.success.runId,
     description: `Automation "${name}" ${status}.`,
   }
-  return { kind: 'triggered', action, reply, status, runId: outcome.right.runId }
+  return { kind: 'triggered', action, reply, status, runId: outcome.success.runId }
 }
 
 export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<TriggerTurnResult> => {

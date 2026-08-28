@@ -70,8 +70,8 @@ import { DataFilterSchema, DataSortSchema } from '../../data-source'
 export const SelectOptionSourceSchema = Schema.Struct({
   /** Table to read the option rows from (cross-validated against `app.tables`). */
   table: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Table to read option rows from (validated against app.tables)',
       examples: ['categories', 'countries'],
     })
@@ -85,8 +85,8 @@ export const SelectOptionSourceSchema = Schema.Struct({
    * worse than a boot error naming the missing property.
    */
   displayField: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: "Row field supplying each option's display label (validated against the table)",
       examples: ['name', 'title'],
     })
@@ -97,8 +97,8 @@ export const SelectOptionSourceSchema = Schema.Struct({
    */
   valueField: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           "Row field supplying each option's submitted value (validated against the table; default: 'id')",
         examples: ['id', 'slug'],
@@ -114,7 +114,7 @@ export const SelectOptionSourceSchema = Schema.Struct({
    * rather than a silently-unmatched literal string.
    */
   filter: Schema.optional(
-    Schema.Array(DataFilterSchema).annotations({
+    Schema.Array(DataFilterSchema).annotate({
       description: 'Filter conditions (AND logic) narrowing the option rows',
     })
   ),
@@ -125,24 +125,22 @@ export const SelectOptionSourceSchema = Schema.Struct({
    * returns, which is neither stable across engines nor reproducible in a test.
    */
   sort: Schema.optional(
-    Schema.Array(DataSortSchema).annotations({
+    Schema.Array(DataSortSchema).annotate({
       description: 'Sort rules applied in order (omit at the cost of a non-deterministic order)',
     })
   ),
   /** Maximum number of options to resolve (default 100, hard max 1000). */
   limit: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.lessThanOrEqualTo(1000),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1000)),
+      Schema.annotate({
         description:
           'Maximum number of options to resolve. Default 100, hard max 1000 — the list is server-rendered into the page.',
         examples: [50, 200],
       })
     )
   ),
-}).annotations({
+}).annotate({
   identifier: 'SelectOptionSource',
   title: 'Select Option Source',
   description:

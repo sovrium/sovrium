@@ -24,6 +24,7 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { parseMutationIntent } from '@/domain/services/ai-chat/ai-chat-mutation-parser'
 import { provideAuthRepoLive } from '@/presentation/api/routes/ai/effect-runner'
 import {
@@ -93,9 +94,9 @@ export const resolveUserEmail = async (userId: string): Promise<string> => {
   })
   // Defensive: the chat route is `requireAuth`-gated, so a lookup miss / DB
   // error falls back to the raw user id rather than failing the chat turn.
-  const result = await Effect.runPromise(program.pipe(provideAuthRepoLive, Effect.either))
-  if (result._tag === 'Left') return userId
-  return result.right ?? userId
+  const result = await Effect.runPromise(program.pipe(provideAuthRepoLive, Effect.result))
+  if (result._tag === 'Failure') return userId
+  return result.success ?? userId
 }
 
 /** Affirmative / negative confirmation-reply detection. */
@@ -149,10 +150,24 @@ export const evaluateMutationTurn = async (
   const intent = parseMutationIntent(input.message, tables)
   if (intent === undefined) return { kind: 'none' }
 
-  const userEmail = await resolveUserEmail(input.userId)
+  // Group memberships are resolved HERE, on the intent path, because the gap
+  // they close is a whole-path omission and not a confirmation-replay concern
+  //. A `group:<name>` grant could never match the bare `userRole`
+  // this path used to pass, so every group grant was inert on the FIRST
+  // request as much as on a replay — the AI door and the records-API door
+  // disagreeing about who may open the same operation.
+  //
+  // The confirmation branch above deliberately does NOT re-resolve them: a
+  // stashed confirmation commits on the identity captured when it was issued,
+  // bounded by `AI_CONFIRMATION_TTL_MS`.
+  const [userEmail, userGroups] = await Promise.all([
+    resolveUserEmail(input.userId),
+    getUserGroups(input.userId),
+  ])
   const outcome = await applyMutation({
     intent,
     userRole: input.userRole,
+    userGroups,
     userEmail,
     tables,
   })

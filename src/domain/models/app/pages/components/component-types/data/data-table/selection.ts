@@ -19,16 +19,16 @@ import { Schema } from 'effect'
  */
 export const DataTableSelectionSchema = Schema.Struct({
   /** Selection mode */
-  mode: Schema.Literal('none', 'single', 'multiple').annotations({
+  mode: Schema.Literals(['none', 'single', 'multiple']).annotate({
     description: 'Row selection mode (default: none)',
   }),
   /** Show checkbox column (default: true when mode is multiple) */
   showCheckboxes: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Show checkbox column (default: true when mode is multiple)',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Data Table Selection',
   description: 'Row selection configuration',
 })

@@ -182,10 +182,14 @@ const expectationFor = (field: SeedField, value: unknown): string | undefined =>
 /**
  * A number handed to a field whose declared options are all strings.
  *
- * This is a type observation, not a pattern guess: `size: 201-1000` unquoted is
- * valid YAML for the NUMBER 201, so the seed file looks right and the value is
- * wrong. Naming the type mismatch is what turns the option list from a hint
- * into an answer.
+ * This is a type observation, not a pattern guess: `size: 201` unquoted is valid
+ * YAML for the NUMBER 201, so a file that reads like it names a size band
+ * carries a value no string option can ever match. Naming the type mismatch is
+ * what turns the option list from a hint into an answer.
+ *
+ * Note where the boundary actually falls, because it is easy to state backwards:
+ * a mid-token hyphen DISQUALIFIES YAML 1.2 numeric resolution, so an unquoted
+ * `size: 201-1000` is already the string '201-1000' and needs no hint at all.
  */
 const coercionHint = (field: SeedField, value: unknown): string | undefined =>
   typeof value === 'number' && optionValues(field).length > 0

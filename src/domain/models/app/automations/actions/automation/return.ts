@@ -24,15 +24,15 @@ export const AutomationReturnActionSchema = Schema.Struct({
   operator: Schema.Literal('return'),
   props: Schema.Struct({
     /** Key-value data to return to the calling automation */
-    data: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({
+    data: Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({
         description:
           'Key-value pairs returned to the calling automation (supports template variables). Accessible as steps.{name}.result.* in the parent.',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AutomationReturnAction',
     title: 'Automation Return Action',
     description:

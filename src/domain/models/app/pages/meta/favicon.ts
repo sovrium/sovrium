@@ -19,11 +19,13 @@ import { HexColorSchema } from '@/domain/types/definitions'
  * Supports 3 formats: .ico (legacy), .png (modern), .svg (scalable).
  */
 export const FaviconSchema = Schema.String.pipe(
-  Schema.pattern(/^\.\/.+\.(ico|png|svg)$/, {
-    message: () =>
-      'Favicon must be a relative path starting with ./ and ending with .ico, .png, or .svg (e.g., ./public/favicon.ico)',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^\.\/.+\.(ico|png|svg)$/, {
+      message:
+        'Favicon must be a relative path starting with ./ and ending with .ico, .png, or .svg (e.g., ./public/favicon.ico)',
+    })
+  )
+).annotate({
   title: 'Favicon',
   description: 'Default favicon path',
 })
@@ -44,12 +46,12 @@ export type Favicon = Schema.Schema.Type<typeof FaviconSchema>
  * - manifest: PWA manifest file reference
  * - mask-icon: Safari pinned tab icon (monochrome SVG)
  */
-export const FaviconRelSchema = Schema.Literal(
+export const FaviconRelSchema = Schema.Literals([
   'icon',
   'apple-touch-icon',
   'manifest',
-  'mask-icon'
-).annotations({
+  'mask-icon',
+]).annotate({
   description: 'Favicon relationship type',
 })
 
@@ -62,37 +64,43 @@ export const FaviconItemSchema = Schema.Struct({
   rel: FaviconRelSchema,
   type: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^image\//, {
-        message: () => 'MIME type must start with image/ (e.g., image/png, image/x-icon)',
-      })
-    ).annotations({
+      Schema.check(
+        Schema.isPattern(/^image\//, {
+          message: 'MIME type must start with image/ (e.g., image/png, image/x-icon)',
+        })
+      )
+    ).annotate({
       description: 'MIME type',
       examples: ['image/png', 'image/x-icon', 'image/svg+xml'],
     })
   ),
   sizes: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^[0-9]+x[0-9]+$/, {
-        message: () => 'Sizes must be in format WIDTHxHEIGHT (e.g., 16x16, 32x32, 180x180)',
-      })
-    ).annotations({
+      Schema.check(
+        Schema.isPattern(/^[0-9]+x[0-9]+$/, {
+          message: 'Sizes must be in format WIDTHxHEIGHT (e.g., 16x16, 32x32, 180x180)',
+        })
+      )
+    ).annotate({
       description: 'Icon dimensions',
       examples: ['16x16', '32x32', '180x180', '192x192'],
     })
   ),
   href: Schema.String.pipe(
-    Schema.pattern(/^\.\//, {
-      message: () => 'Favicon path must be relative starting with ./',
-    })
-  ).annotations({
+    Schema.check(
+      Schema.isPattern(/^\.\//, {
+        message: 'Favicon path must be relative starting with ./',
+      })
+    )
+  ).annotate({
     description: 'Path to the favicon file',
   }),
   color: Schema.optional(
-    HexColorSchema.annotations({
+    HexColorSchema.annotate({
       description: 'Color for mask-icon (Safari pinned tab)',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Favicon item',
 })
 
@@ -101,7 +109,7 @@ export const FaviconItemSchema = Schema.Struct({
  *
  * Comprehensive favicon configuration for cross-device compatibility.
  */
-export const FaviconSetSchema = Schema.Array(FaviconItemSchema).annotations({
+export const FaviconSetSchema = Schema.Array(FaviconItemSchema).annotate({
   title: 'Favicon Set',
   description: 'Multiple favicon sizes and types for different devices',
 })
@@ -121,16 +129,18 @@ export type FaviconSet = Schema.Schema.Type<typeof FaviconSetSchema>
  */
 export const FaviconSizeItemSchema = Schema.Struct({
   size: Schema.String.pipe(
-    Schema.pattern(/^[0-9]+x[0-9]+$/, {
-      message: () => 'Size must be in format WIDTHxHEIGHT (e.g., 16x16, 32x32)',
-    })
-  ).annotations({
+    Schema.check(
+      Schema.isPattern(/^[0-9]+x[0-9]+$/, {
+        message: 'Size must be in format WIDTHxHEIGHT (e.g., 16x16, 32x32)',
+      })
+    )
+  ).annotate({
     description: 'Icon dimensions (e.g., 32x32, 16x16)',
   }),
-  href: Schema.String.annotations({
+  href: Schema.String.annotate({
     description: 'Path to the favicon file',
   }),
-}).annotations({
+}).annotate({
   description: 'Favicon size specification',
 })
 
@@ -141,21 +151,21 @@ export const FaviconSizeItemSchema = Schema.Struct({
  */
 export const FaviconsConfigSchema = Schema.Struct({
   icon: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Default icon (SVG or ICO)',
     })
   ),
   appleTouchIcon: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'iOS home screen icon',
     })
   ),
   sizes: Schema.optional(
-    Schema.Array(FaviconSizeItemSchema).annotations({
+    Schema.Array(FaviconSizeItemSchema).annotate({
       description: 'Size-specific favicons',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Favicons Configuration',
   description: 'Helper configuration for favicons with named properties',
 })

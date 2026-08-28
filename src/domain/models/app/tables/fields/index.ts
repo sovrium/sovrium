@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Schema, SchemaGetter } from 'effect'
 import {
   AiCategorizeFieldSchema,
   AiExtractFieldSchema,
@@ -103,60 +103,58 @@ const autoGenerateFieldIds = (
  */
 const FieldUnionSchema = Schema.Union(
   // Text field types (individual schemas)
-  SingleLineTextFieldSchema,
-  LongTextFieldSchema,
-  PhoneNumberFieldSchema,
-  EmailFieldSchema,
-  UrlFieldSchema,
-  // Number field types (individual schemas)
-  IntegerFieldSchema,
-  DecimalFieldSchema,
-  CurrencyFieldSchema,
-  PercentageFieldSchema,
-  // Date/time field types
-  DateFieldSchema,
-  DateTimeFieldSchema,
-  TimeFieldSchema,
-  CheckboxFieldSchema,
-  SingleSelectFieldSchema,
-  MultiSelectFieldSchema,
-  RelationshipFieldSchema,
-  SingleAttachmentFieldSchema,
-  MultipleAttachmentsFieldSchema,
-  FormulaFieldSchema,
-  RollupFieldSchema,
-  LookupFieldSchema,
-  CountFieldSchema,
-  UserFieldSchema,
-  CreatedAtFieldSchema,
-  CreatedByFieldSchema,
-  UpdatedAtFieldSchema,
-  UpdatedByFieldSchema,
-  DeletedAtFieldSchema,
-  DeletedByFieldSchema,
-  RatingFieldSchema,
-  DurationFieldSchema,
-  RichTextFieldSchema,
-  StatusFieldSchema,
-  ButtonFieldSchema,
-  AutonumberFieldSchema,
-  BarcodeFieldSchema,
-  ColorFieldSchema,
-  ProgressFieldSchema,
-  GeolocationFieldSchema,
-  JsonFieldSchema,
-  ArrayFieldSchema,
-  CodeFieldSchema,
-  // AI field types
-  AiCategorizeFieldSchema,
-  AiExtractFieldSchema,
-  AiGenerateFieldSchema,
-  AiSentimentFieldSchema,
-  AiSummaryFieldSchema,
-  AiTagFieldSchema,
-  AiTranslateFieldSchema,
-  // Unknown field type (catch-all for invalid types that will fail during SQL generation)
-  UnknownFieldSchema
+  [
+    SingleLineTextFieldSchema,
+    LongTextFieldSchema,
+    PhoneNumberFieldSchema,
+    EmailFieldSchema,
+    UrlFieldSchema,
+    IntegerFieldSchema,
+    DecimalFieldSchema,
+    CurrencyFieldSchema,
+    PercentageFieldSchema,
+    DateFieldSchema,
+    DateTimeFieldSchema,
+    TimeFieldSchema,
+    CheckboxFieldSchema,
+    SingleSelectFieldSchema,
+    MultiSelectFieldSchema,
+    RelationshipFieldSchema,
+    SingleAttachmentFieldSchema,
+    MultipleAttachmentsFieldSchema,
+    FormulaFieldSchema,
+    RollupFieldSchema,
+    LookupFieldSchema,
+    CountFieldSchema,
+    UserFieldSchema,
+    CreatedAtFieldSchema,
+    CreatedByFieldSchema,
+    UpdatedAtFieldSchema,
+    UpdatedByFieldSchema,
+    DeletedAtFieldSchema,
+    DeletedByFieldSchema,
+    RatingFieldSchema,
+    DurationFieldSchema,
+    RichTextFieldSchema,
+    StatusFieldSchema,
+    ButtonFieldSchema,
+    AutonumberFieldSchema,
+    BarcodeFieldSchema,
+    ColorFieldSchema,
+    ProgressFieldSchema,
+    GeolocationFieldSchema,
+    JsonFieldSchema,
+    ArrayFieldSchema,
+    CodeFieldSchema,
+    AiCategorizeFieldSchema,
+    AiExtractFieldSchema,
+    AiGenerateFieldSchema,
+    AiSentimentFieldSchema,
+    AiSummaryFieldSchema,
+    AiTagFieldSchema,
+    AiTranslateFieldSchema,
+    UnknownFieldSchema,
+  ]
 )
 
 /**
@@ -173,68 +171,84 @@ const FieldUnionSchema = Schema.Union(
  * @see [internal ref] for full specification
  */
 export const FieldsSchema = Schema.Array(FieldUnionSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({ title: 'Table Fields' }),
-  Schema.transform(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({ title: 'Table Fields' }),
+  // EFFECT 4: see the sibling note in `tables/index.ts` — `Schema.transform`
+  // becomes `Schema.decodeTo` + a `SchemaTransformation`.
+  Schema.decodeTo(
     Schema.Array(
-      FieldUnionSchema.pipe(Schema.annotations({ identifier: 'FieldWithRequiredId' }))
-    ).pipe(Schema.minItems(1)),
+      FieldUnionSchema.pipe(Schema.annotate({ identifier: 'FieldWithRequiredId' }))
+    ).pipe(Schema.check(Schema.isMinLength(1))),
     {
-      strict: true,
-      decode: (fields) =>
-        autoGenerateFieldIds(fields as ReadonlyArray<Record<string, unknown>>) as ReadonlyArray<
-          Schema.Schema.Type<typeof FieldUnionSchema>
-        >,
-      encode: (fields) => fields,
+      decode: SchemaGetter.transform(
+        (fields) =>
+          autoGenerateFieldIds(fields as ReadonlyArray<Record<string, unknown>>) as ReadonlyArray<
+            Schema.Schema.Type<typeof FieldUnionSchema>
+          >
+      ),
+      // v3 spelled the identity encode `(x) => x` under `strict: true`. v4 has
+      // no `strict` on the transform; the equivalent escape hatch is
+      // `passthrough({ strict: false })` — the two sides differ only in whether
+      // `id` is required, and the auto-generation above is precisely what makes
+      // that true, so the identity is sound in both directions.
+      encode: SchemaGetter.passthrough({ strict: false }),
     }
   ),
-  Schema.filter((fields) => {
-    const ids = fields.map((field) => field.id)
-    const uniqueIds = new Set(ids)
-    return ids.length === uniqueIds.size || 'Field IDs must be unique within the table'
-  }),
-  Schema.filter((fields) => {
-    const names = fields.map((field) => field.name)
-    const uniqueNames = new Set(names)
-    return names.length === uniqueNames.size || 'Field names must be unique within the table'
-  }),
-  Schema.filter((fields) => {
-    // Validate count fields reference existing relationship-type fields
-    const countFields = fields.filter((field) => field.type === 'count')
+  Schema.check(
+    Schema.makeFilter((fields) => {
+      const ids = fields.map((field) => field.id)
+      const uniqueIds = new Set(ids)
+      return ids.length === uniqueIds.size || 'Field IDs must be unique within the table'
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((fields) => {
+      const names = fields.map((field) => field.name)
+      const uniqueNames = new Set(names)
+      return names.length === uniqueNames.size || 'Field names must be unique within the table'
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((fields) => {
+      // Validate count fields reference existing relationship-type fields
+      const countFields = fields.filter((field) => field.type === 'count')
 
-    const invalidResult = countFields
-      .map((countField) => {
-        const { relationshipField } = countField as { relationshipField: string }
-        return validateComputedFieldRelationship({
-          fields,
-          computedFieldName: countField.name,
-          computedFieldType: 'count',
-          relationshipField,
+      const invalidResult = countFields
+        .map((countField) => {
+          const { relationshipField } = countField as { relationshipField: string }
+          return validateComputedFieldRelationship({
+            fields,
+            computedFieldName: countField.name,
+            computedFieldType: 'count',
+            relationshipField,
+          })
         })
-      })
-      .find((result) => result !== true)
+        .find((result) => result !== true)
 
-    return invalidResult !== undefined ? invalidResult : true
-  }),
-  Schema.filter((fields) => {
-    // Validate rollup fields reference existing relationship-type fields
-    const rollupFields = fields.filter((field) => field.type === 'rollup')
+      return invalidResult !== undefined ? invalidResult : true
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((fields) => {
+      // Validate rollup fields reference existing relationship-type fields
+      const rollupFields = fields.filter((field) => field.type === 'rollup')
 
-    const invalidResult = rollupFields
-      .map((rollupField) => {
-        const { relationshipField } = rollupField as { relationshipField: string }
-        return validateComputedFieldRelationship({
-          fields,
-          computedFieldName: rollupField.name,
-          computedFieldType: 'rollup',
-          relationshipField,
+      const invalidResult = rollupFields
+        .map((rollupField) => {
+          const { relationshipField } = rollupField as { relationshipField: string }
+          return validateComputedFieldRelationship({
+            fields,
+            computedFieldName: rollupField.name,
+            computedFieldType: 'rollup',
+            relationshipField,
+          })
         })
-      })
-      .find((result) => result !== true)
+        .find((result) => result !== true)
 
-    return invalidResult !== undefined ? invalidResult : true
-  }),
-  Schema.annotations({
+      return invalidResult !== undefined ? invalidResult : true
+    })
+  ),
+  Schema.annotate({
     title: 'Table Fields',
     description:
       'Collection of all supported field types. Each field defines a column in the database table with specific validation and behavior.',

@@ -20,11 +20,10 @@
  *   where `totals` is the right-edge snapshot (current state) and `series`
  *   is the time-bucketed history.
  *
- * The legacy `/quota` route is **kept for one release cycle** to avoid
- * breaking external monitoring scripts; new dashboard code consumes
- * `/overview` and the migration is documented in the user story. After the
- * deprecation window, `/quota` is removed in a separate sibling commit
- * (out of scope for this story).
+ * The deprecation window has elapsed and the legacy `/quota` route is
+ * **removed**: it now answers 404. External monitoring scripts read
+ * `totals.totalBytes` here instead, which preserves the retired
+ * `quota.totalBytes` semantics exactly.
  *
  * Source story: [internal ref]
  *
@@ -54,10 +53,33 @@ export const bucketsOverviewQuerySchema = z.object({
  *
  * Each point reports two scalars accumulated within its interval:
  *
- * - `uploads` — count of files uploaded during the bucket's interval (the
- *   number of `bucket.file.uploaded` audit-log entries that fell inside
- *   this bucket).
- * - `bytes` — sum of byte sizes uploaded during the bucket's interval.
+ * - `uploads` — count of stored files whose `created_at` falls inside this
+ *   bucket.
+ * - `bytes` — sum of those files' byte sizes.
+ *
+ * **Source: `system.file_storage_metadata`, NOT the audit log.** An earlier
+ * revision of this doc named the audit log's `bucket.file.uploaded` entries as
+ * the source. It cannot be: those entries carry no byte size (the emit passes
+ * no `metadata`), and the public upload route
+ * (`POST /api/buckets/:name/files`) emits no audit entry at all — so an
+ * audit-derived series would report no bytes and systematically under-count
+ * uploads. The storage catalog carries `size` (int NOT NULL) and `created_at`
+ * (timestamptz NOT NULL) for every file, written by every provider (s3 / local
+ * / bytea) on every upload path, and is the same source the file-browser
+ * endpoint reads.
+ *
+ * The `totals` block reads the storage BACKEND instead (`StorageService.list`
+ * / `.getTotalBytes()`). The two describe the same corpus, so summing this
+ * series over the whole window must equal `totals.files` / `totals.totalBytes`
+ * — a catalog row with no backing object, or an object with no catalog row,
+ * breaks that identity.
+ *
+ * **Deletions are not history.** Catalog rows are hard-deleted with the file
+ * (there is no soft-delete column), so a point counts files created in its
+ * interval **that are still stored**. Deleting a file retroactively lowers the
+ * bucket it was uploaded into. Stating this is the honest reading; a series
+ * that claimed to be an immutable upload ledger would need an event source that
+ * outlives the file, which Sovrium does not keep today.
  *
  * **Empty buckets are emitted with zeros, not omitted** — operators expect
  * a contiguous series for chart rendering; sparse arrays force frontends
@@ -75,12 +97,14 @@ export const bucketsOverviewSeriesPointSchema = z
       .number()
       .int()
       .nonnegative()
-      .describe('Count of files uploaded during this bucket interval.'),
+      .describe(
+        'Count of stored files created during this bucket interval. Read from the storage catalog, so deleting a file lowers the interval it was uploaded into.'
+      ),
     bytes: z
       .number()
       .int()
       .nonnegative()
-      .describe('Sum of file sizes (bytes) uploaded during this bucket interval.'),
+      .describe('Sum of the byte sizes of the files counted by `uploads` for this interval.'),
   })
   .openapi('BucketsOverviewSeriesPoint')
 
@@ -119,18 +143,22 @@ export const bucketsOverviewTotalsSchema = z
       .number()
       .int()
       .nonnegative()
-      .describe('Total number of live (non-deleted) buckets currently configured.'),
+      .describe(
+        'Number of live (non-deleted) buckets the app declares in `app.buckets`, or 1 for the virtual `default` bucket when it declares none. Zero when no storage provider resolves — a declaration that cannot store a byte is not a bucket.'
+      ),
     files: z
       .number()
       .int()
       .nonnegative()
-      .describe('Total number of stored files across every live bucket.'),
+      .describe(
+        'Total number of stored files across every live bucket. A GLOBAL figure, never the per-bucket figure multiplied by the bucket count: Sovrium stores every upload under a flat `<uuid>-<filename>` key with no bucket component, so there is no per-bucket attribution to sum over.'
+      ),
     totalBytes: z
       .number()
       .int()
       .nonnegative()
       .describe(
-        "Sum of stored file sizes in bytes across every live bucket. Identical semantics to today's `/api/admin/buckets/quota.totalBytes` (preserved for migration parity)."
+        'Sum of stored file sizes in bytes across every live bucket. Identical semantics to the retired `/api/admin/buckets/quota.totalBytes` (preserved for migration parity).'
       ),
     by_provider: bucketsOverviewByProviderSchema.describe(
       'Per-provider bucket-count breakdown. The sum of `by_provider.{s3,local,bytea}` always equals `totals.buckets`.'

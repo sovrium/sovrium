@@ -94,7 +94,7 @@ function convertToTimezone(date: Readonly<Date>, timezone: string): Readonly<Dat
  * Format date part based on date format setting
  */
 function formatDatePart(year: number, month: number, day: number, dateFormat: string): string {
-  const formatMap: Record<string, string> = {
+  const formatMap: Readonly<Record<string, string>> = {
     US: `${month}/${day}/${year}`,
     European: `${day}/${month}/${year}`,
     ISO: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,

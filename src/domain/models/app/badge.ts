@@ -37,7 +37,7 @@ import { Schema } from 'effect'
  * ```
  */
 export const BadgeSchema = Schema.Boolean.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Built with Sovrium Badge',
     description:
       'Controls the "Built with Sovrium" badge rendered bottom-right on all pages. Shown by default (omitted or true); set to false to remove it — removal is free forever, one config line, never license-gated.',

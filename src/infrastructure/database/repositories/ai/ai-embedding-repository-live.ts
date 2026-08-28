@@ -36,6 +36,7 @@ import {
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import { searchSqliteVec } from '@/infrastructure/database/sql/sqlite-vec-search'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type {
   EmbeddingSearchResult,
   NewEmbedding,
@@ -107,7 +108,7 @@ const insertEmbeddingRow = (row: Readonly<NewEmbedding>): Promise<unknown> => {
  * or table. A single large document can therefore produce a fan-out far wider
  * than the ten default pool slots, which is the mechanism of the 2026-07-25
  * production 504 incident. Knowledge sync is best-effort (every caller pipes
- * `Effect.catchAll(() => Effect.void)`), but "best-effort" bounds the
+ * `Effect.catch(() => Effect.void)`), but "best-effort" bounds the
  * CONSEQUENCE of a failure, not the CONNECTIONS it holds while succeeding.
  *
  * ORDER: `Effect.all` preserves array order exactly as `Promise.all` did. Row
@@ -300,4 +301,24 @@ export const AiEmbeddingRepositorySqlite = Layer.succeed(
     search: (input) => wrap(() => searchSqliteImpl(input)),
     deleteBySourceIdPrefix: (prefix) => wrap(() => deleteBySourceIdPrefixSqliteImpl(prefix)),
   })
+)
+
+/**
+ * The active-dialect AI embedding repository.
+ *
+ * Resolved per process via `isSqliteRuntime()` — the same dispatch `db-bun.ts`
+ * uses to build the Drizzle client. EVERY consumer should provide this rather
+ * than one of the two implementations above: providing `AiEmbeddingRepositoryLive`
+ * directly means pgvector `<=>` SQL on an engine that has no pgvector, and a
+ * caller that tolerates search failures turns that into a silent empty result.
+ *
+ * It lives beside the implementations, not in `infrastructure/layers/`, because
+ * the application layer is allowed to name a `*-repository-live` Layer at a
+ * composition seam but not an `infrastructure/layers/` module
+ * (`APPLICATION_INFRASTRUCTURE_ALLOWLIST` in `[internal ref]`).
+ * `infrastructure/layers/ai-embedding-repository-layer.ts` re-exports this, so
+ * existing importers are unaffected and there is still exactly one definition.
+ */
+export const AiEmbeddingRepositoryActive: Layer.Layer<AiEmbeddingRepository> = Layer.suspend(() =>
+  isSqliteRuntime() ? AiEmbeddingRepositorySqlite : AiEmbeddingRepositoryLive
 )

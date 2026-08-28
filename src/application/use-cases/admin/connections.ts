@@ -35,6 +35,7 @@ import {
   ConnectionRepository,
 } from '@/application/ports/repositories/connections/connection-repository'
 import {
+  type ConnectionAppTokenSummary,
   type ConnectionTokenDatabaseError,
   ConnectionTokenRepository,
   type ConnectionUserSummary,
@@ -79,24 +80,35 @@ function expiryToIso(raw: Readonly<Date> | string | null | undefined): string | 
  */
 function buildConnectionItem(
   row: Readonly<Record<string, unknown>>,
-  tokens: readonly ConnectionUserSummary[]
+  tokens: readonly ConnectionUserSummary[],
+  appToken: Readonly<ConnectionAppTokenSummary> | undefined
   // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
 ): ConnectionListItem {
-  const soonestMs = soonestExpiryMs(tokens.map((t) => t.expiresAt))
+  // The count is the UNION of the two stores, derived from which rows actually
+  // exist rather than from the connection's declared `scope`. That matters:
+  // these rows are read from `system.connections`, which is also populated by
+  // paths that have no `app.connections[]` entry at all, so a scope-driven
+  // count would report every such connection as unconnected. "One shared
+  // credential counts as one."
+  const soonestMs = soonestExpiryMs([
+    ...tokens.map((t) => t.expiresAt),
+    ...(appToken === undefined ? [] : [appToken.expiresAt]),
+  ])
   const type = String(row['type'])
   const status = deriveConnectionStatus(soonestMs)
+  const tokenCount = tokens.length + (appToken === undefined ? 0 : 1)
   return {
     id: String(row['id']),
     name: String(row['name']),
     provider: String(row['provider']),
     type,
-    tokenCount: tokens.length,
+    tokenCount,
     expiresAt: soonestMs === null ? null : new Date(soonestMs).toISOString(),
     status,
     // Server-computed display hint so the dashboard data-table can gate its
     // connect/reconnect/disconnect buttons with a single-field `visibleWhen`
     // (the compound rule — type + tokenCount + status — stays here, not config).
-    rowAction: deriveConnectionRowAction(type, tokens.length, status),
+    rowAction: deriveConnectionRowAction(type, tokenCount, status),
     createdAt: toIso(row['createdAt'] as Date | string),
   }
 }
@@ -134,35 +146,34 @@ export type ConnectionsListOutcome =
  * the per-connection token summary, projects to the allow-list, and validates
  * against the `.strict()` list schema.
  */
-export const BuildConnectionsList = (): Effect.Effect<
+export const BuildConnectionsList: Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
   ConnectionRepository | ConnectionTokenRepository
-> =>
-  Effect.gen(function* () {
-    const connRepo = yield* ConnectionRepository
-    const tokenRepo = yield* ConnectionTokenRepository
+> = Effect.gen(function* () {
+  const connRepo = yield* ConnectionRepository
+  const tokenRepo = yield* ConnectionTokenRepository
 
-    const rows = yield* connRepo.list()
+  const rows = yield* connRepo.list
 
-    const connections = yield* Effect.all(
-      rows.map((row) =>
-        Effect.gen(function* () {
-          const tokens = yield* tokenRepo.listUsersForConnection({
-            connectionId: String(row['id']),
-          })
-          return buildConnectionItem(row, tokens)
-        })
-      )
+  const connections = yield* Effect.all(
+    rows.map((row) =>
+      Effect.gen(function* () {
+        const connectionId = String(row['id'])
+        const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
+        const appToken = yield* tokenRepo.findAppSummary({ connectionId })
+        return buildConnectionItem(row, tokens, appToken)
+      })
     )
+  )
 
-    const body = { connections }
-    const parsed = connectionsListResponseSchema.safeParse(body)
-    if (!parsed.success) {
-      return { _tag: 'ValidationFailed', error: parsed.error } as const
-    }
-    return { _tag: 'Ok', body: { connections: parsed.data.connections } }
-  })
+  const body = { connections }
+  const parsed = connectionsListResponseSchema.safeParse(body)
+  if (!parsed.success) {
+    return { _tag: 'ValidationFailed', error: parsed.error } as const
+  }
+  return { _tag: 'Ok', body: { connections: parsed.data.connections } }
+})
 
 // ─── Detail use case ──────────────────────────────────────────────────────────
 
@@ -205,9 +216,14 @@ export const BuildConnectionDetail = (
       return { _tag: 'NotFound' } as const
     }
 
-    const summaries = yield* tokenRepo.listUsersForConnection({ connectionId: String(row['id']) })
+    const connectionId = String(row['id'])
+    const summaries = yield* tokenRepo.listUsersForConnection({ connectionId })
+    const appToken = yield* tokenRepo.findAppSummary({ connectionId })
     const body = {
-      connection: buildConnectionItem(row, summaries),
+      // The `tokens` roster stays per-user only: the shared credential has no
+      // user, and inventing one would put a userId in the roster that names
+      // nobody. It still contributes to the header's `tokenCount`/`status`.
+      connection: buildConnectionItem(row, summaries, appToken),
       tokens: summaries.map((summary) => buildUserToken(summary)),
     }
 

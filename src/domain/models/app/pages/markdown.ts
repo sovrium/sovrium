@@ -15,21 +15,20 @@ import { Schema } from 'effect'
 const MarkdownTocSchema = Schema.Struct({
   /** Maximum heading depth to include in the TOC */
   maxDepth: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.between(1, 6),
-      Schema.annotations({ description: 'Maximum heading depth to include (1-6)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 6 })),
+      Schema.annotate({ description: 'Maximum heading depth to include (1-6)' })
     )
   ),
 
   /** Position of the TOC relative to the content */
   position: Schema.optional(
-    Schema.Literal('top', 'sidebar').pipe(
-      Schema.annotations({ description: 'TOC placement: inline at top or in a sidebar' })
+    Schema.Literals(['top', 'sidebar']).pipe(
+      Schema.annotate({ description: 'TOC placement: inline at top or in a sidebar' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'MarkdownToc',
     title: 'Table of Contents',
     description: 'Configuration for automatic table of contents generation',
@@ -62,21 +61,21 @@ const MarkdownTocSchema = Schema.Struct({
 export const MarkdownSchema = Schema.Struct({
   /** Inline markdown content string */
   content: Schema.optional(
-    Schema.String.pipe(Schema.annotations({ description: 'Inline markdown content' }))
+    Schema.String.pipe(Schema.annotate({ description: 'Inline markdown content' }))
   ),
 
   /** Path to a markdown file relative to the project root */
   file: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Path to a markdown file (e.g., content/docs.md)' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Path to a markdown file (e.g., content/docs.md)' })
     )
   ),
 
   /** Layout mode for rendering the markdown content */
   layout: Schema.optional(
-    Schema.Literal('prose', 'docs', 'full', 'none').pipe(
-      Schema.annotations({
+    Schema.Literals(['prose', 'docs', 'full', 'none']).pipe(
+      Schema.annotate({
         description:
           'Layout mode: prose (article-width), docs (with sidebar), full (full-width), none (no wrapper)',
       })
@@ -86,7 +85,7 @@ export const MarkdownSchema = Schema.Struct({
   /** Table of contents configuration */
   toc: Schema.optional(MarkdownTocSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Markdown',
     title: 'Markdown Page Mode',
     description: 'Markdown-driven content configuration for a page',

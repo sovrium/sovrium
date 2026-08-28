@@ -63,7 +63,9 @@ function actionTypeAttr(action: ActionColumnItem): string {
  *
  * The OBJECT form (separate title / dialog role / type-to-confirm input gated on
  * `$session.email` / label overrides) renders the shared `ObjectConfirmDialog`;
- * the legacy STRING form keeps the byte-identical inline alertdialog below.
+ * the legacy STRING form keeps the byte-identical inline alertdialog below. Both
+ * take their dismissal text from `labels.cancel` — server-resolved against the
+ * app language, so neither falls back to the shared component's English constant.
  */
 function ConfirmDialog({
   action,
@@ -85,6 +87,7 @@ function ConfirmDialog({
         confirmDataActionType={actionTypeAttr(action)}
         record={record}
         fallbackConfirmLabel={action.label}
+        fallbackCancelLabel={labels.cancel}
         onConfirm={() => {
           onCancel()
           void onConfirm(action, record)

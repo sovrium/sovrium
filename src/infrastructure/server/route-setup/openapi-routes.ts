@@ -10,6 +10,7 @@ import { type Hono } from 'hono'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { logError } from '@/infrastructure/logging/logger'
 import { getOpenAPIDocument } from '@/infrastructure/server/route-setup/openapi-schema'
+import { resolveRequestBaseUrl } from './resolve-base-url'
 import type { App } from '@/domain/models/app'
 
 type GuardContext = Parameters<Parameters<Hono['use']>[1]>[0]
@@ -112,7 +113,16 @@ export function setupOpenApiRoutes(honoApp: Readonly<Hono>, app?: App): Readonly
     .use('/api/scalar', adminGuard)
     .get('/api/openapi.json', (c) => {
       const openApiDoc = getOpenAPIDocument(app)
-      return c.json(openApiDoc)
+      // The advertised server is resolved PER REQUEST and applied on a shallow
+      // copy — never written into the document itself. `getOpenAPIDocument` is
+      // memoized per `App` in a `WeakMap`, and that reference identity is a
+      // contract (`openapi-schema.test.ts`); folding a per-request origin into
+      // the builder would defeat the cache and rebuild the whole schema on every
+      // hit. A single entry, because the document names ONE instance: this one.
+      return c.json({
+        ...openApiDoc,
+        servers: [{ url: resolveRequestBaseUrl(c), description: 'This instance' }],
+      })
     })
     .get('/api/auth/openapi.json', async (c) => {
       const authOpenApiDoc = await authInstance.api.generateOpenAPISchema()

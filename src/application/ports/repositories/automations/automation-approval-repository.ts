@@ -50,7 +50,7 @@ export class AutomationApprovalDatabaseError extends Data.TaggedError(
   readonly cause: unknown
 }> {}
 
-export class AutomationApprovalRepository extends Context.Tag('AutomationApprovalRepository')<
+export class AutomationApprovalRepository extends Context.Service<
   AutomationApprovalRepository,
   {
     /**
@@ -85,4 +85,4 @@ export class AutomationApprovalRepository extends Context.Tag('AutomationApprova
       readonly status: string
     }) => Effect.Effect<string | undefined, AutomationApprovalDatabaseError>
   }
->() {}
+>()('AutomationApprovalRepository') {}

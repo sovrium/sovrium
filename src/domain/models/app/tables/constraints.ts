@@ -27,9 +27,8 @@ export const CheckConstraintSchema = Schema.Struct({
    * Constraint name (must be unique within the table)
    */
   name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.pattern(/^[a-z][a-z0-9_]*$/),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1), Schema.isPattern(/^[a-z][a-z0-9_]*$/)),
+    Schema.annotate({
       title: 'Constraint Name',
       description:
         'Unique name for the CHECK constraint (lowercase, alphanumeric with underscores)',
@@ -41,8 +40,8 @@ export const CheckConstraintSchema = Schema.Struct({
    * SQL check expression
    */
   check: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Check Expression',
       description: 'PostgreSQL boolean expression that must evaluate to TRUE for valid data',
       examples: [
@@ -78,7 +77,7 @@ export type CheckConstraint = Schema.Schema.Type<typeof CheckConstraintSchema>
  * ```
  */
 export const CheckConstraintsSchema = Schema.Array(CheckConstraintSchema).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Check Constraints',
     description:
       'Table-level CHECK constraints for enforcing complex business rules beyond field-level validation',

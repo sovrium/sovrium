@@ -45,8 +45,8 @@ export const DelayQueueActionSchema = Schema.Struct({
      * Examples: "500ms", "2s", "1m"
      */
     interval: Schema.String.pipe(
-      Schema.pattern(/^\d+\s*(ms|s|m|h)$/),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h)$/)),
+      Schema.annotate({
         description:
           'Minimum delay between processing each queued item. Format: number + unit (ms, s, m, h)',
         examples: ['500ms', '2s', '1m', '30s'],
@@ -59,10 +59,9 @@ export const DelayQueueActionSchema = Schema.Struct({
      * unlimited when omitted.
      */
     maxQueueSize: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.positive(),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+        Schema.annotate({
           description: 'Max items in queue before rejecting new entries (default: unlimited)',
           examples: [100, 1000, 10_000],
         })
@@ -70,7 +69,7 @@ export const DelayQueueActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DelayQueueAction',
     title: 'Delay Queue Action',
     description:

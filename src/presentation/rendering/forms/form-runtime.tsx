@@ -71,6 +71,7 @@
  * the runtime script.
  */
 
+import { serializeJsonForScript } from '@/domain/utils/json-script-serialization'
 import { FORM_RUNTIME_FILE_HANDLERS_SCRIPT } from './form-runtime-file-handlers'
 import { resolveOnErrorText, resolveOnSuccessText } from './form-runtime-i18n'
 import { FORM_RUNTIME_MULTI_STEP_SCRIPT } from './form-runtime-multi-step'
@@ -134,6 +135,13 @@ export function buildFormRuntimeConfig(
  * The string is intentionally compact — it ships verbatim on every form
  * page, gzipped to ~1.5 KB. Code style matches the project's no-semi
  * Prettier config so future edits don't introduce noise.
+ *
+ * Because the string ships to the browser verbatim, its inline comments
+ * describe behavior only and carry no internal spec ids — those belong in
+ * TypeScript comments like this one, which the build strips. The mapping
+ * lives here instead: the `$record.<column>` interpolation covered below
+ * is specified by [internal ref], and the "unresolved refs collapse to the
+ * empty string" rule by [internal ref].
  */
 export const FORM_RUNTIME_SCRIPT = `(function () {
   var configEl = document.querySelector('script[data-form-config]')
@@ -268,8 +276,8 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
   // ---- onSuccess interpolation ----------------------------------------------
   // Substitutes the submit-time template variables against the submission
   // response: \`$submission.id\` (ledger row), \`$record.id\` (bound row), and
-  // \`$record.<column>\` (any submitter-supplied bound-table column — APP-FORMS-169).
-  // Unresolved refs collapse to '' (never the literal token — APP-FORMS-068).
+  // \`$record.<column>\` (any submitter-supplied bound-table column).
+  // Unresolved refs collapse to '' (never the literal token).
   // When \`encode\` is set (URL contexts) each substituted VALUE is
   // percent-encoded so a value like an email's \`@\` rides safely in a query
   // string; the surrounding template text is left untouched.
@@ -434,8 +442,8 @@ ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
     applyOnSuccess({
       submissionId: result.body.submissionId || '',
       linkedRecordId: result.body.linkedRecordId || '',
-      // APP-FORMS-169: submitter-supplied bound-table columns for
-      // $record.<column> interpolation. Absent on table-less forms.
+      // Submitter-supplied bound-table columns, for $record.<column>
+      // interpolation. Absent on table-less forms.
       record: result.body.record || {},
     })
   }
@@ -503,7 +511,11 @@ export function FormRuntimeMount({
   readonly languages?: Languages
   readonly activeLang?: string
 }) {
-  const configJson = JSON.stringify(buildFormRuntimeConfig(form, languages, activeLang))
+  // `serializeJsonForScript`, never a bare `JSON.stringify`: a `</script>`
+  // sequence in any config string (a form label, a placeholder, a translated
+  // message) would otherwise close this block early and turn the remainder
+  // into live markup.
+  const configJson = serializeJsonForScript(buildFormRuntimeConfig(form, languages, activeLang))
   return (
     <>
       <script

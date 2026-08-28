@@ -35,21 +35,21 @@ export const AutomationFailureTriggerSchema = Schema.Struct({
   automations: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description: 'Automation name to watch for failures (kebab-case)',
         })
       )
     ).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'List of automation names to watch. If omitted, triggers on any automation failure.',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AutomationFailureTrigger',
     title: 'Automation Failure Trigger',
     description:

@@ -23,16 +23,19 @@
  *   - a **KPI strip** — three sibling system-source `kpi` cards over the
  *     users-overview endpoint (`totals.users` / `active_24h` / `new_in_period`);
  *   - a **system-source** `data-table` (a read endpoint, not a DB table —
- *     read-only) with a client-side `search`, `emptyMessage` / `noMatchMessage`;
+ *     read-only) with a SERVER-side `search` — the grid forwards its box as
+ *     `?q=` over `email` + `name`, and the response's `appliedQuery` tells it
+ *     the narrowing already ran so it must not repeat it in memory — plus
+ *     `emptyMessage` / `noMatchMessage`;
  *   - **valueLabels** to localize the raw `banned` boolean cell at render time
- *     (`false` → "actif", `true` → "banni"); the `role` cell renders raw;
+ *     (`false` → "active", `true` → "banned"); the `role` cell renders raw;
  *   - the row gestures rewired onto config `fetch` actions (CAP-3): **editSelect**
  *     for "Change role" (POST `/api/auth/admin/set-role`), **visibleWhen +
- *     object confirm** for the destructive "Bannir", **visibleWhen** for "Lever le
- *     bannissement" (POST `unban-user`) — all with `responseEnvelope: better-auth`
+ *     object confirm** for the destructive "Ban", **visibleWhen** for "Lift ban"
+ *     (POST `unban-user`) — all with `responseEnvelope: better-auth`
  *     (the always-200, enumeration-safe envelope read as success/error) +
  *     `onSuccess.refetch` to refresh the grid;
- *   - a **CSV export** — the toolbar `export` affordance ("Exporter") navigates
+ *   - a **CSV export** — the toolbar `export` affordance ("Export") navigates
  *     the browser (`mode: navigate`) to the system endpoint's `?format=csv`.
  *
  * The directory LOAD read is the admin-tier `GET /api/admin/users` (custom-role
@@ -41,10 +44,11 @@
  * DATA console (config code-only, [internal ref]).
  */
 
-import { BUILT_IN_ROLES } from '@/domain/models/app/auth/roles'
+import { assignableRoleNames } from '@/domain/models/app/auth/roles'
 import { homeCrumb, wrapInShell } from './dashboard-shell-surface'
 import { dataPageIntro } from './data-object-rail'
 import type { DataShellOptions } from './data-landing-surface'
+import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -52,29 +56,26 @@ import type { Component } from '@/domain/models/app/pages/components'
 const USERS_GRID_ID = 'admin-users-grid'
 
 /**
- * The per-row action column. Each gesture is a config `fetch` operate action
- * dispatched through the shared action-executor (CAP-3), re-homed verbatim from
- * the retired `admin-users-directory-data.ts` helper:
- *   - "Change role" — an `editSelect` (inline `<select>` named "Role" +
- *     "Enregistrer" commit) whose picked value overrides `$record.role`, POSTing
- *     `/api/auth/admin/set-role` under the Better-Auth envelope; `onSuccess.refetch`
- *     refreshes the grid so the role cell reflects the pick.
- *   - "Bannir" — gated on `banned === false`, carrying an object `confirm`
- *     (an `alertdialog` named by its `title`) before POSTing `ban-user`.
- *   - "Lift ban" — gated on `banned === true`, POSTing `unban-user`.
- * The Better-Auth admin plugin returns an always-200 enumeration-safe envelope,
- * so each action declares `responseEnvelope: 'better-auth'` (success is read from
- * the body, not the HTTP status).
+ * The always-visible directory columns — the READ half of the surface, painted
+ * for every caller who reaches the console ([internal ref]: it is a read-only
+ * operational data console before it is anything else).
  */
-const USERS_COLUMNS = [
+const USERS_READ_COLUMNS = [
   { field: 'email', label: 'Email' },
+  // The account display name — one of the two `?q=` search keys, so it has to be
+  // VISIBLE. A row that matches on a field the operator cannot see is a quieter
+  // version of the bug this column exists to fix: a result with no legible reason
+  // why it matched. Email stays the leading column — it is the directory's
+  // primary key in practice and is always present, whereas `name` is coalesced
+  // to '' for an account created without one.
+  { field: 'name', label: 'Name' },
   { field: 'role', label: 'Role' },
   {
     field: 'banned',
     label: 'Status',
     // Render-only localization of the raw `banned` boolean — the endpoint returns
     // the raw boolean, so the relabel is client-side (never a server mutation).
-    valueLabels: { false: 'actif', true: 'banni' },
+    valueLabels: { false: 'active', true: 'banned' },
     cellStyle: [
       {
         when: { eq: false },
@@ -86,72 +87,112 @@ const USERS_COLUMNS = [
       },
     ],
   },
-  {
+] as const
+
+/**
+ * The per-row action column. Each gesture is a config `fetch` operate action
+ * dispatched through the shared action-executor (CAP-3), re-homed verbatim from
+ * the retired `admin-users-directory-data.ts` helper:
+ *   - "Change role" — an `editSelect` (inline `<select>` named "Role" +
+ *     "Save" commit) whose picked value overrides `$record.role`, POSTing
+ *     `/api/auth/admin/set-role` under the Better-Auth envelope; `onSuccess.refetch`
+ *     refreshes the grid so the role cell reflects the pick.
+ *   - "Ban" — gated on `banned === false`, carrying an object `confirm`
+ *     (an `alertdialog` named by its `title`) before POSTing `ban-user`.
+ *   - "Lift ban" — gated on `banned === true`, POSTing `unban-user`.
+ * The Better-Auth admin plugin returns an always-200 enumeration-safe envelope,
+ * so each action declares `responseEnvelope: 'better-auth'` (success is read from
+ * the body, not the HTTP status).
+ *
+ * Painted ONLY for a caller who is admin-EQUIVALENT for this app
+ * (`ConsolePosture.canAdministerAccounts`). Every endpoint below lives on
+ * `/api/auth/admin/*`, which 404s an admin-TIER-but-not-equivalent operator, so
+ * rendering these for an `admin-viewer` would paint three controls their own
+ * backend refuses.
+ *
+ * ROLE PICKER — the option set is `assignableRoleNames(app)`, the SAME set the
+ * set-role write boundary accepts (`validateAssignableRole`,
+ * `admin-role-guards.ts`) and the same set that boundary already enumerates back
+ * to the caller in its own 400 message. Making the affordance and the permission
+ * one set is the only arrangement under which they cannot disagree.
+ *
+ * It previously read `BUILT_IN_ROLES` — safe, because those three are assignable
+ * in every app, but it purchased that safety by hiding every role an app
+ * actually declares. On partner the picker offered `admin` / `member` / `viewer`
+ * while the app declares `engineer` / `customer-admin` / `customer-member`: ZERO
+ * overlap. The operator could not express `customer-member`, their own default
+ * role, and was offered three roles the app never assigns. A picker NARROWER
+ * than the write boundary hides legitimate roles; a picker WIDER offers a value
+ * guaranteed to 400.
+ */
+const changeRoleAction = (app: Readonly<App>) =>
+  ({
+    label: 'Change role',
+    editSelect: {
+      field: 'role',
+      label: 'Role',
+      saveLabel: 'Save',
+      options: [...assignableRoleNames(app)].toSorted().map((value) => ({ value })),
+    },
+    action: {
+      type: 'fetch',
+      url: '/api/auth/admin/set-role',
+      method: 'POST',
+      body: { userId: '$record.id', role: '$record.role' },
+      responseEnvelope: 'better-auth',
+      onSuccess: { type: 'toast', message: 'Role updated', refetch: USERS_GRID_ID },
+    },
+  }) as const
+
+const BAN_ACTION = {
+  label: 'Ban',
+  visibleWhen: { field: 'banned', eq: false },
+  confirm: {
+    title: 'Confirm ban',
+    message: 'This account loses access immediately. You can lift the ban later.',
+    role: 'alertdialog',
+    confirmLabel: 'Confirm ban',
+    cancelLabel: 'Cancel',
+  },
+  action: {
+    type: 'fetch',
+    url: '/api/auth/admin/ban-user',
+    method: 'POST',
+    body: { userId: '$record.id' },
+    responseEnvelope: 'better-auth',
+    onSuccess: { type: 'toast', message: 'Account banned', refetch: USERS_GRID_ID },
+  },
+} as const
+
+const LIFT_BAN_ACTION = {
+  label: 'Lift ban',
+  visibleWhen: { field: 'banned', eq: true },
+  action: {
+    type: 'fetch',
+    url: '/api/auth/admin/unban-user',
+    method: 'POST',
+    body: { userId: '$record.id' },
+    responseEnvelope: 'better-auth',
+    onSuccess: { type: 'toast', message: 'Ban lifted', refetch: USERS_GRID_ID },
+  },
+} as const
+
+const usersActionColumn = (app: Readonly<App>) =>
+  ({
     type: 'actions',
     label: 'Actions',
-    actions: [
-      {
-        label: 'Change role',
-        editSelect: {
-          field: 'role',
-          label: 'Role',
-          saveLabel: 'Save',
-          // Derived from BUILT_IN_ROLES, never hand-listed. These three are
-          // assignable in EVERY app, so the picker can never offer a role the
-          // set-role write boundary will reject with a 400.
-          //
-          // It previously read `['member', 'editor', 'admin']` — `editor` is not
-          // a built-in and is only assignable in an app that happens to declare
-          // it, while the genuine built-in `viewer` was missing. Better Auth
-          // stored the bad value verbatim, so the console quietly produced users
-          // matching no permission rule. Custom and admin-tier roles are still
-          // assignable through the admin API and the CLI; this inline picker
-          // deliberately covers only the always-valid built-ins.
-          options: BUILT_IN_ROLES.map((value) => ({ value })),
-        },
-        action: {
-          type: 'fetch',
-          url: '/api/auth/admin/set-role',
-          method: 'POST',
-          body: { userId: '$record.id', role: '$record.role' },
-          responseEnvelope: 'better-auth',
-          onSuccess: { type: 'toast', message: 'Role updated', refetch: USERS_GRID_ID },
-        },
-      },
-      {
-        label: 'Ban',
-        visibleWhen: { field: 'banned', eq: false },
-        confirm: {
-          title: 'Confirm ban',
-          message: 'This account loses access immediately. You can lift the ban later.',
-          role: 'alertdialog',
-          confirmLabel: 'Confirm ban',
-          cancelLabel: 'Cancel',
-        },
-        action: {
-          type: 'fetch',
-          url: '/api/auth/admin/ban-user',
-          method: 'POST',
-          body: { userId: '$record.id' },
-          responseEnvelope: 'better-auth',
-          onSuccess: { type: 'toast', message: 'Account banned', refetch: USERS_GRID_ID },
-        },
-      },
-      {
-        label: 'Lift ban',
-        visibleWhen: { field: 'banned', eq: true },
-        action: {
-          type: 'fetch',
-          url: '/api/auth/admin/unban-user',
-          method: 'POST',
-          body: { userId: '$record.id' },
-          responseEnvelope: 'better-auth',
-          onSuccess: { type: 'toast', message: 'Ban lifted', refetch: USERS_GRID_ID },
-        },
-      },
-    ],
-  },
-] as const
+    actions: [changeRoleAction(app), BAN_ACTION, LIFT_BAN_ACTION],
+  }) as const
+
+/**
+ * The directory columns for this caller: the read columns always, plus the
+ * account-write action column only when the admin plane will honour those
+ * writes. Omitting the whole column (rather than disabling its buttons) is what
+ * makes "no affordance without capability" observable — a disabled control still
+ * advertises a capability the caller does not have.
+ */
+const usersColumns = (app: Readonly<App>, canAdministerAccounts: boolean) =>
+  canAdministerAccounts ? [...USERS_READ_COLUMNS, usersActionColumn(app)] : USERS_READ_COLUMNS
 
 /** The page intro: heading + orienting one-liner. */
 function intro(): Component {
@@ -206,11 +247,11 @@ function kpiStrip(): Component {
  * The account directory as a system-source `data-table`. Bound to
  * `GET /api/admin/users` (the `{ users: [...] }` envelope, rows keyed on `id`);
  * columns + localized labels + per-row actions come from {@link USERS_COLUMNS}.
- * `toolbar.export` surfaces the "Exporter" CSV affordance (a `mode: navigate` to
+ * `toolbar.export` surfaces the "Export" CSV affordance (a `mode: navigate` to
  * the system endpoint's `?format=csv`); the `Users` table aria-label
  * preserves the live-observed landmark.
  */
-function usersDataTable(): Component {
+function usersDataTable(app: Readonly<App>, canAdministerAccounts: boolean): Component {
   return {
     type: 'data-table',
     props: {
@@ -222,9 +263,14 @@ function usersDataTable(): Component {
         endpoint: '/api/admin/users',
         rowsKey: 'users',
         idKey: 'id',
+        // Without this the grid counts the rows it was handed, so a page of 25
+        // out of 33 accounts reported "1-25 of 25" with Next disabled over the
+        // eight it was hiding. The endpoint reports how many accounts MATCH;
+        // the pager needs that number, not this page's length.
+        totalKey: 'total',
       },
     },
-    columns: USERS_COLUMNS,
+    columns: usersColumns(app, canAdministerAccounts),
     search: { enabled: true, placeholder: 'Search users' },
     toolbar: { search: true, export: true, sort: true },
     pagination: { pageSize: 25 },
@@ -237,18 +283,20 @@ function usersDataTable(): Component {
  * Build the Users page (`/_admin/users`), wrapped in the persistent shell.
  * The breadcrumb anchors it under Console / Data.
  */
-export function buildDataUsersPage(options: DataShellOptions): Page {
+export function buildDataUsersPage(options: DataShellOptions, app: Readonly<App>): Page {
   return {
     id: 'dashboard-data-users',
     name: 'dashboard-data-users',
     path: '/users',
     meta: { title: 'Sovrium — Data · Users' },
-    components: wrapInShell([intro(), kpiStrip(), usersDataTable()], {
-      canEdit: options.canEdit,
-      appName: options.appName,
-      appVersion: options.appVersion,
-      breadcrumb: [homeCrumb(options.appName), { label: 'Users', href: '/_admin/users' }],
-      publishedSnapshot: options.publishedSnapshot ?? {},
-    }),
+    components: wrapInShell(
+      [intro(), kpiStrip(), usersDataTable(app, options.canAdministerAccounts)],
+      {
+        canEdit: options.canEdit,
+        appName: options.appName,
+        appVersion: options.appVersion,
+        breadcrumb: [homeCrumb(options.appName), { label: 'Users', href: '/_admin/users' }],
+      }
+    ),
   } as Page
 }

@@ -16,12 +16,12 @@ import { Schema } from 'effect'
 export const AgentMcpSchema = Schema.Struct({
   /** List of allowed MCP tool names the agent can invoke */
   allowedTools: Schema.optional(
-    Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(
-      Schema.annotations({ description: 'MCP tool names the agent is allowed to use' })
+    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
+      Schema.annotate({ description: 'MCP tool names the agent is allowed to use' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentMcp',
     title: 'Agent MCP Configuration',
     description: 'Model Context Protocol client configuration for the agent',

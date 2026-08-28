@@ -65,13 +65,7 @@
       // @sovrium/types — e.g. the apps/* configs. Points at source, matching
       // the @apps/* / @/* source-alias pattern above.
       "@sovrium/types": ["packages/types/src/index.ts"]
-    },
-
-    "plugins": [
-      {
-        "name": "@effect/language-service"
-      }
-    ]
+    }
   },
   // Bound the typecheck program to the three source roots only. Without an
   // explicit `include`, tsc defaults to "every .ts under the project root minus

@@ -8,53 +8,49 @@
 /**
  * Pure parsing + validation for on-the-fly image transform query parameters.
  *
- * Used by the bucket file download route to interpret `?width=&height=&fit=&crop=`
- * style parameters. All functions here are pure — Sharp invocation lives in the
- * infrastructure layer.
+ * Used by the bucket file download route to interpret `?width=&height=&fit=`
+ * style parameters. All functions here are pure — the image pipeline itself
+ * lives in the infrastructure layer.
  */
 
-/** Sharp `fit` modes supported by Sovrium image transforms. */
-export type TransformFit = 'cover' | 'contain' | 'fill'
+/**
+ * How a two-dimension resize reconciles the requested box with the source
+ * aspect ratio.
+ *
+ * - `inside` — scale to fit WITHIN the box, preserving the aspect ratio. The
+ *   output may be smaller than the box that was asked for. This is the default.
+ * - `fill` — stretch to exactly the box, discarding the aspect ratio. The only
+ *   mode that distorts, which is why it must be named explicitly.
+ *
+ * `cover`, `contain` and `outside` are gone: each needs to crop or pad to
+ * reach an exact box, and the pipeline exposes no crop primitive.
+ */
+export type TransformFit = 'fill' | 'inside'
 
 /**
  * Output image format for on-the-fly format conversion.
  *
- * - `webp` / `avif` / `jpeg` / `png` — explicit transcode target
+ * - `webp` / `jpeg` / `png` — explicit transcode target
  * - `origin` — preserve the stored image's original format (no transcode,
  *   ignores any `Accept` header negotiation)
  *
  * When the `format` parameter is absent, the route negotiates the best
  * available format from the request's `Accept` header.
  */
-export type TransformFormat = 'webp' | 'avif' | 'jpeg' | 'png' | 'origin'
-
-/**
- * Crop strategy for `fit=cover`.
- *
- * - `center`  — default Sharp gravity (center crop)
- * - `entropy` — Sharp entropy-based smart cropping
- * - `attention` — Sharp attention-based smart cropping
- * - focal point — `{ x, y }` percentages (0-100) describing where to anchor the crop
- */
-export type CropStrategy =
-  | { readonly kind: 'center' }
-  | { readonly kind: 'entropy' }
-  | { readonly kind: 'attention' }
-  | { readonly kind: 'focal'; readonly x: number; readonly y: number }
+export type TransformFormat = 'webp' | 'jpeg' | 'png' | 'origin'
 
 /** Parsed, validated transform request derived from query parameters. */
 export interface TransformParams {
   readonly width?: number
   readonly height?: number
   readonly fit: TransformFit
-  readonly crop: CropStrategy
   /**
    * Explicit output format. `undefined` means "negotiate from the `Accept`
    * header"; `origin` means "preserve the stored format unchanged".
    */
   readonly format?: TransformFormat
   /**
-   * Compression quality for lossy output formats (JPEG, WebP, AVIF). An
+   * Compression quality for lossy output formats (JPEG, WebP). An
    * integer in the inclusive range 1-100. `undefined` means "apply the
    * default quality" (see {@link DEFAULT_QUALITY}). Ignored for lossless PNG
    * output.
@@ -67,11 +63,18 @@ export type TransformParseResult =
   | { readonly ok: true; readonly params: TransformParams }
   | { readonly ok: false; readonly error: string }
 
-const FIT_VALUES: ReadonlySet<TransformFit> = new Set<TransformFit>(['cover', 'contain', 'fill'])
+const FIT_VALUES: ReadonlySet<TransformFit> = new Set<TransformFit>(['fill', 'inside'])
 
+/**
+ * The accepted `format` values.
+ *
+ * `avif` was withdrawn here rather than merely stopped being produced, so
+ * `?format=avif` is answered with a 400 naming the unsupported value. Leaving
+ * it parseable would have meant accepting a request the encoder cannot serve
+ * on Linux — the platform-conditional behaviour the withdrawal exists to end.
+ */
 const FORMAT_VALUES: ReadonlySet<TransformFormat> = new Set<TransformFormat>([
   'webp',
-  'avif',
   'jpeg',
   'png',
   'origin',
@@ -124,13 +127,6 @@ const parseQuality = (raw: string | undefined): TransformParseResult | number | 
   return value
 }
 
-const NAMED_CROPS: ReadonlyMap<string, CropStrategy> = new Map<string, CropStrategy>([
-  ['center', { kind: 'center' }],
-  ['', { kind: 'center' }],
-  ['entropy', { kind: 'entropy' }],
-  ['attention', { kind: 'attention' }],
-])
-
 /** Inclusive minimum pixel value for a `width` / `height` resize dimension. */
 const MIN_DIMENSION = 1
 
@@ -162,47 +158,27 @@ const parseDimension = (
   return value
 }
 
-/** True when a focal-point percentage is within the inclusive 0-100 range. */
-const inFocalRange = (n: number): boolean => n >= 0 && n <= 100
-
-/** Parse the focal-point `x,y` form of the `crop` parameter. */
-const parseFocalCrop = (raw: string): TransformParseResult | CropStrategy => {
-  const parts = raw.split(',')
-  if (parts.length !== 2) {
-    return { ok: false, error: `Invalid crop parameter: '${raw}'` }
-  }
-  const x = Number(parts[0])
-  const y = Number(parts[1])
-  if (!Number.isFinite(x) || !Number.isFinite(y)) {
-    return { ok: false, error: `Invalid crop focal point: '${raw}'` }
-  }
-  if (!inFocalRange(x) || !inFocalRange(y)) {
-    return {
-      ok: false,
-      error: `Crop focal point values must be between 0 and 100, received: '${raw}'`,
-    }
-  }
-  return { kind: 'focal', x, y }
-}
-
 /**
- * Parse the `crop` parameter.
+ * Reject any `crop` parameter.
  *
- * Accepts `center` | `entropy` | `attention`, or a focal point `x,y` where both
- * x and y are percentages in the inclusive range 0-100. Focal point values
- * outside 0-100 produce a validation error.
+ * Cropping was WITHDRAWN rather than emulated — the pipeline has no crop
+ * primitive, and every available substitution (centre-cropping an `entropy`
+ * request, stretching a `cover` request) still answers `200` while quietly
+ * changing the image. Refusing names the problem once, at the request that
+ * causes it, instead of leaving a catalogue of silently re-framed thumbnails.
+ *
+ * A well-formed focal point is refused exactly like a malformed one: the
+ * capability is gone, so the validity of the value is no longer the question.
  */
-const parseCrop = (raw: string | undefined): TransformParseResult | CropStrategy => {
-  if (raw === undefined) return { kind: 'center' }
-  const named = NAMED_CROPS.get(raw)
-  if (named) return named
-  return parseFocalCrop(raw)
-}
-
-/** True when a `parseDimension` result is a validation error rather than a number. */
-const isDimensionError = (
-  result: TransformParseResult | number | undefined
-): result is TransformParseResult => result !== undefined && typeof result === 'object'
+const rejectCrop = (raw: string | undefined): TransformParseResult | undefined =>
+  raw === undefined || raw === ''
+    ? undefined
+    : {
+        ok: false,
+        error:
+          `Unsupported parameter 'crop': cropping is no longer offered — ` +
+          `remove 'crop' from the request (accepted: width, height, fit, format, quality)`,
+      }
 
 /**
  * True when a parse result that may carry a primitive value (a `TransformFormat`
@@ -214,65 +190,86 @@ const isParseError = <T>(
 ): result is TransformParseResult =>
   result !== undefined && result !== null && typeof result === 'object' && 'ok' in result
 
-/** Resolve the requested `fit` mode, defaulting to `cover` for absent/unknown values. */
-const resolveFit = (raw: string | undefined): TransformFit =>
-  raw !== undefined && FIT_VALUES.has(raw as TransformFit) ? (raw as TransformFit) : 'cover'
+/** Fit applied when the request names none. Preserves the source aspect ratio. */
+export const DEFAULT_FIT: TransformFit = 'inside'
+
+/**
+ * Parse the `fit` parameter.
+ *
+ * An unrecognised value is an ERROR, not a fallback. It used to resolve
+ * silently to `cover`, so a typo changed the output instead of reporting
+ * itself — and `cover`, `contain` and `outside` are themselves now
+ * unrecognised, having been withdrawn along with cropping.
+ */
+const parseFit = (raw: string | undefined): TransformParseResult | TransformFit | undefined => {
+  if (raw === undefined || raw === '') return undefined
+  if (FIT_VALUES.has(raw as TransformFit)) return raw as TransformFit
+  return { ok: false, error: `Unsupported fit: '${raw}' (accepted: fill, inside)` }
+}
 
 /**
  * Parse and validate transform query parameters.
  *
- * The `crop` strategy is only meaningful when `fit=cover`; for other fit modes
- * the crop value is parsed (so invalid focal points still 400) but ignored when
- * applying the transform.
+ * `crop` is rejected outright; `fit` is validated rather than silently
+ * defaulted; dimensions are range-checked. Any one of those failing short-
+ * circuits to a validation error the download route surfaces as HTTP 400.
  */
+/** The validated pieces of a transform request, before defaults are applied. */
+interface ValidatedTransformFields {
+  readonly width: number | undefined
+  readonly height: number | undefined
+  readonly fit: TransformFit | undefined
+  readonly format: TransformFormat | undefined
+  readonly quality: number | undefined
+}
+
+/** Assemble the validated pieces, omitting the keys the request left unset. */
+const buildTransformParams = (fields: ValidatedTransformFields): TransformParams => ({
+  ...(fields.width !== undefined && { width: fields.width }),
+  ...(fields.height !== undefined && { height: fields.height }),
+  fit: fields.fit ?? DEFAULT_FIT,
+  ...(fields.format !== undefined && { format: fields.format }),
+  ...(fields.quality !== undefined && { quality: fields.quality }),
+})
+
 export const parseTransformParams = (
-  query: Record<string, string | undefined>
+  query: Readonly<Record<string, string | undefined>>
 ): TransformParseResult => {
-  const widthResult = parseDimension('width', query['width'])
-  if (isDimensionError(widthResult)) return widthResult
+  const cropRejection = rejectCrop(query['crop'])
+  if (cropRejection) return cropRejection
 
-  const heightResult = parseDimension('height', query['height'])
-  if (isDimensionError(heightResult)) return heightResult
+  const width = parseDimension('width', query['width'])
+  if (isParseError(width)) return width
 
-  const cropResult = parseCrop(query['crop'])
-  if ('ok' in cropResult) return cropResult
+  const height = parseDimension('height', query['height'])
+  if (isParseError(height)) return height
 
-  const formatResult = parseFormat(query['format'])
-  if (isParseError(formatResult)) return formatResult
+  const fit = parseFit(query['fit'])
+  if (isParseError(fit)) return fit
 
-  const qualityResult = parseQuality(query['quality'])
-  if (isParseError(qualityResult)) return qualityResult
+  const format = parseFormat(query['format'])
+  if (isParseError(format)) return format
 
-  return {
-    ok: true,
-    params: {
-      ...(widthResult !== undefined && { width: widthResult }),
-      ...(heightResult !== undefined && { height: heightResult }),
-      fit: resolveFit(query['fit']),
-      crop: cropResult,
-      ...(formatResult !== undefined && { format: formatResult }),
-      ...(qualityResult !== undefined && { quality: qualityResult }),
-    },
-  }
+  const quality = parseQuality(query['quality'])
+  if (isParseError(quality)) return quality
+
+  return { ok: true, params: buildTransformParams({ width, height, fit, format, quality }) }
 }
 
 /**
- * Default transform params carrying no resize / crop / explicit format.
+ * Default transform params carrying no resize and no explicit format.
  *
  * Used by the download route for plain image requests that carry no `?width`
  * etc. — passing these defaults still lets the transform pipeline run
  * `Accept`-header format negotiation.
  */
-export const defaultTransformParams = (): TransformParams => ({
-  fit: 'cover',
-  crop: { kind: 'center' },
-})
+export const defaultTransformParams = (): TransformParams => ({ fit: DEFAULT_FIT })
 
 /**
  * Returns true when the query carries at least one transform-affecting parameter.
  * Used to decide whether to run the transform pipeline at all.
  */
-export const hasTransformParams = (query: Record<string, string | undefined>): boolean =>
+export const hasTransformParams = (query: Readonly<Record<string, string | undefined>>): boolean =>
   ['width', 'height', 'fit', 'crop', 'format', 'quality'].some((k) => {
     const v = query[k]
     return v !== undefined && v !== ''

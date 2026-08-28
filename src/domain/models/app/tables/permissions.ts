@@ -69,7 +69,7 @@ export const FieldPermissionSchema = Schema.Struct({
    */
   write: Schema.optional(TablePermissionSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Field Permission',
     description:
       "Granular permission for a specific field. Uses same format as table-level: 'all', 'authenticated', or role array.",
@@ -97,7 +97,7 @@ export type FieldPermission = Schema.Schema.Type<typeof FieldPermissionSchema>
  * Array of field-level permission configurations for table permissions.
  */
 export const TableFieldPermissionsSchema = Schema.Array(FieldPermissionSchema).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Table Field Permissions',
     description: 'Array of field-level permission configurations for table permissions.',
   })
@@ -120,8 +120,8 @@ export type TableFieldPermissions = Schema.Schema.Type<typeof TableFieldPermissi
  * Invalid: "123users", "_posts", "User Posts"
  */
 export const ResourceNameSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z][a-z0-9_-]*$/i),
-  Schema.annotations({
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9_-]*$/i)),
+  Schema.annotate({
     title: 'Resource Name',
     description: 'Resource identifier (e.g., "users", "posts", "analytics")',
     examples: ['users', 'posts', 'api_keys', 'user-profiles'],
@@ -142,8 +142,8 @@ export type ResourceName = Schema.Schema.Type<typeof ResourceNameSchema>
  * Invalid: "123read", "_write"
  */
 export const ActionNameSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z][a-z0-9_-]*$/i),
-  Schema.annotations({
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9_-]*$/i)),
+  Schema.annotate({
     title: 'Action Name',
     description: 'Action identifier (e.g., "read", "write", "create", "delete")',
     examples: ['read', 'write', 'create', 'update', 'delete', 'list'],
@@ -158,8 +158,8 @@ export type ActionName = Schema.Schema.Type<typeof ActionNameSchema>
  *
  * Either a specific action name or "*" for all actions on a resource.
  */
-export const ActionWithWildcardSchema = Schema.Union(Schema.Literal('*'), ActionNameSchema).pipe(
-  Schema.annotations({
+export const ActionWithWildcardSchema = Schema.Union([Schema.Literal('*'), ActionNameSchema]).pipe(
+  Schema.annotate({
     title: 'Action',
     description: 'Action name or "*" for all actions',
     examples: ['read', 'write', '*'],
@@ -189,19 +189,19 @@ export type ActionWithWildcard = Schema.Schema.Type<typeof ActionWithWildcardSch
  * }
  * ```
  */
-export const ResourceActionPermissionsSchema = Schema.Record({
-  key: ResourceNameSchema.pipe(
-    Schema.annotations({ description: 'Resource name (e.g., "users", "posts")' })
+export const ResourceActionPermissionsSchema = Schema.Record(
+  ResourceNameSchema.pipe(
+    Schema.annotate({ description: 'Resource name (e.g., "users", "posts")' })
   ),
-  value: Schema.Array(ActionWithWildcardSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+  Schema.Array(ActionWithWildcardSchema).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Allowed Actions',
       description: 'Allowed actions for this resource',
     })
-  ),
-}).pipe(
-  Schema.annotations({
+  )
+).pipe(
+  Schema.annotate({
     title: 'Resource:Action Permissions',
     description:
       'Granular permission definitions using resource:action pattern. Shared across admin, API keys, and other permission contexts.',
@@ -243,8 +243,8 @@ export type ResourceActionPermissions = Schema.Schema.Type<typeof ResourceAction
  * creatorRole: 'admin'
  * ```
  */
-export const StandardRoleSchema = Schema.Literal('admin', 'member', 'viewer').pipe(
-  Schema.annotations({
+export const StandardRoleSchema = Schema.Literals(['admin', 'member', 'viewer']).pipe(
+  Schema.annotate({
     title: 'Standard Role',
     description: 'Built-in role with predefined permissions. Hierarchy: admin > member > viewer',
     examples: ['admin', 'member', 'viewer'],
@@ -261,7 +261,7 @@ export type StandardRole = Schema.Schema.Type<typeof StandardRoleSchema>
  * Used for features like role creation/assignment restrictions.
  */
 export const AdminLevelRoleSchema = Schema.Literal('admin').pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Admin-Level Role',
     description: 'Roles with administrative capabilities (admin)',
     examples: ['admin'],
@@ -278,15 +278,15 @@ export type AdminLevelRole = Schema.Schema.Type<typeof AdminLevelRoleSchema>
  * Used in admin plugin for defaultRole configuration.
  */
 export const UserLevelRoleSchema = Schema.String.pipe(
-  Schema.filter(
+  Schema.refine(
     (value): value is 'admin' | 'member' | 'viewer' => {
       return value === 'admin' || value === 'member' || value === 'viewer'
     },
     {
-      message: () => 'Invalid role. Must be one of: admin, member, viewer',
+      message: 'Invalid role. Must be one of: admin, member, viewer',
     }
   ),
-  Schema.annotations({
+  Schema.annotate({
     title: 'User-Level Role',
     description: 'Roles available for default user assignment in admin context',
     examples: ['admin', 'member', 'viewer'],
@@ -313,8 +313,8 @@ export type UserLevelRole = Schema.Schema.Type<typeof UserLevelRoleSchema>
  * ```
  */
 export const FlexibleRolesSchema = Schema.Array(Schema.String).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     title: 'Flexible Roles',
     description:
       'Array of role names (supports both standard and custom roles). At least one role required.',
@@ -332,8 +332,8 @@ export type FlexibleRoles = Schema.Schema.Type<typeof FlexibleRolesSchema>
  * Use for strict validation when only built-in roles are allowed.
  */
 export const StandardRolesArraySchema = Schema.Array(StandardRoleSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     title: 'Standard Roles Array',
     description: 'Array of standard roles only (admin, member, viewer)',
     examples: [['admin'], ['admin', 'member'], ['admin', 'member', 'viewer']],
@@ -453,8 +453,8 @@ export const TablePermissionsSchema = Schema.Struct({
    */
   inherit: Schema.optional(
     Schema.String.pipe(
-      Schema.nonEmptyString({ message: () => 'inherit table name must not be empty' }),
-      Schema.annotations({
+      Schema.check(Schema.isNonEmpty({ message: 'inherit table name must not be empty' })),
+      Schema.annotate({
         description: 'Name of the parent table to inherit permissions from',
       })
     )
@@ -495,7 +495,7 @@ export const TablePermissionsSchema = Schema.Struct({
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Table Permissions',
     description:
       "Permissions for table operations. Each operation accepts 'all', 'authenticated', or a role array. Declaring ANY operation (read, create, update, delete, comment) turns the table into a gated one: every operation you then leave out is denied to non-admins. A table with no permissions block — or a block that only sets 'fields', 'inherit' or 'override' — declares no operation and stays open to every non-viewer role.",
@@ -579,10 +579,10 @@ export type TablePermissions = Schema.Schema.Type<typeof TablePermissionsSchema>
  */
 export const UserAccessRowSchema = Schema.Struct({
   /** Primary key (UUID) */
-  id: Schema.UUID,
+  id: Schema.String.check(Schema.isGUID()),
 
   /** Foreign key to Better Auth `user.id` */
-  user_id: Schema.UUID,
+  user_id: Schema.String.check(Schema.isGUID()),
 
   /**
    * App table the access grant scopes to.
@@ -592,12 +592,14 @@ export const UserAccessRowSchema = Schema.Struct({
    * (the schema does not have access to the active app config).
    */
   table_slug: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.pattern(/^[a-z][a-z0-9_-]*$/i, {
-      message: () =>
-        "table_slug must start with a letter and contain only letters, digits, '_', or '-'",
-    }),
-    Schema.annotations({
+    Schema.check(
+      Schema.isMinLength(1),
+      Schema.isPattern(/^[a-z][a-z0-9_-]*$/i, {
+        message:
+          "table_slug must start with a letter and contain only letters, digits, '_', or '-'",
+      })
+    ),
+    Schema.annotate({
       description: 'Table slug (e.g. "clients", "projects"); validated against auth.scopeTables',
     })
   ),
@@ -609,11 +611,13 @@ export const UserAccessRowSchema = Schema.Struct({
    * `table_slug`. Engine-level row-level enforcement (Z-3) consults this
    * array via the `$currentUser.assignments.<table_slug>` path.
    */
-  record_ids: Schema.Array(Schema.UUID).pipe(
-    Schema.minItems(1, {
-      message: () => 'record_ids must contain at least one UUID',
-    }),
-    Schema.annotations({
+  record_ids: Schema.Array(Schema.String.check(Schema.isGUID())).pipe(
+    Schema.check(
+      Schema.isMinLength(1, {
+        message: 'record_ids must contain at least one UUID',
+      })
+    ),
+    Schema.annotate({
       description: 'Records the user can access. Engine flattens across multiple rows.',
     })
   ),
@@ -626,19 +630,19 @@ export const UserAccessRowSchema = Schema.Struct({
    * hold a row with `role: 'customer-admin'` for a specific scope.
    */
   role: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'App-defined role within this scope (validated against auth.roles)',
     })
   ),
 
   /** Timestamp of grant (audit) */
-  created_at: Schema.Date,
+  created_at: Schema.DateFromString,
 
   /** UUID of the user who granted this access (audit) */
-  created_by: Schema.UUID,
+  created_by: Schema.String.check(Schema.isGUID()),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'UserAccessRow',
     title: 'User Access Row',
     description:

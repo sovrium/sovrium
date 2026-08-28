@@ -124,7 +124,7 @@ export const buildRecordDisplayLabels = (
   specs: readonly RelationshipDisplaySpec[],
   fields: Readonly<Record<string, unknown>>,
   labels: Readonly<Record<string, Readonly<Record<string, string>>>>
-): RecordDisplayLabels | undefined => {
+): Readonly<RecordDisplayLabels> | undefined => {
   const entries = specs.flatMap((spec): readonly (readonly [string, string | string[]])[] => {
     const byId = labels[`${spec.relatedTable}.${spec.displayField}`]
     if (!byId) return []

@@ -315,13 +315,20 @@ export interface AdminRunsListInput {
   readonly automationId?: string | undefined
   readonly from?: string | undefined
   readonly to?: string | undefined
+  /**
+   * The operator's free-text term over the automation name + the failure
+   * `error` text, already trimmed and length-checked by `searchTermSchema`.
+   * `undefined` means "no search" (the unfiltered page).
+   */
+  readonly q?: string | undefined
   readonly cursor?: string | undefined
   readonly limit: number
 }
 
 /**
  * Outcome of the runs-list build. `Ok` carries the response body (items +
- * nextCursor); `ValidationFailed` maps to a 500 (response-gate failure).
+ * nextCursor + `appliedQuery`); `ValidationFailed` maps to a 500 (response-gate
+ * failure).
  */
 export type AdminRunsListOutcome =
   | {
@@ -329,6 +336,7 @@ export type AdminRunsListOutcome =
       readonly body: {
         readonly items: readonly AutomationRunAdminItem[]
         readonly nextCursor: string | null
+        readonly appliedQuery: string | null
       }
     }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
@@ -339,7 +347,28 @@ export type AdminRunsListOutcome =
  * Pagination semantics (preserved verbatim from the former route): fetch
  * `limit + 1` rows ordered `createdAt DESC`; the page is the first `limit`
  * rows; `nextCursor` is non-null only when a `limit + 1`-th row existed.
+ *
+ * `q` composes INTO that seek rather than beside it, so a page is a page of
+ * MATCHES — a run thirty rows down is reachable in one query instead of being
+ * unreachable from a grid that only ever holds twenty-five.
  */
+/**
+ * Derive the opaque `nextCursor` for a runs page: non-null only when the
+ * `limit + 1` fetch actually returned that extra row, i.e. when a further page
+ * exists. Split out of the use case so the generator stays under its complexity
+ * ceiling.
+ */
+function deriveRunsNextCursor(
+  rowCount: number,
+  pageRows: ReadonlyArray<AdminAutomationRunRow>,
+  limit: number
+): string | null {
+  const lastRow = pageRows[pageRows.length - 1]
+  // eslint-disable-next-line unicorn/no-null -- API envelope uses `null` for an absent next page (matches public list schema)
+  if (rowCount <= limit || lastRow === undefined) return null
+  return encodeRunsCursor(toIso(lastRow.createdAt) ?? new Date().toISOString(), lastRow.id)
+}
+
 export const BuildAdminRunsList = (
   app: App,
   input: AdminRunsListInput
@@ -360,6 +389,7 @@ export const BuildAdminRunsList = (
       automationId: input.automationId,
       from: input.from !== undefined ? new Date(input.from) : undefined,
       to: input.to !== undefined ? new Date(input.to) : undefined,
+      q: input.q,
       cursorBefore,
       limit: input.limit,
     })
@@ -369,21 +399,23 @@ export const BuildAdminRunsList = (
       buildAdminRunItem(row, resolveTriggerType(app, row.automationName))
     )
 
-    const lastRow = pageRows[pageRows.length - 1]
-    const nextCursor =
-      rows.length > input.limit && lastRow !== undefined
-        ? encodeRunsCursor(toIso(lastRow.createdAt) ?? new Date().toISOString(), lastRow.id)
-        : // eslint-disable-next-line unicorn/no-null -- API envelope uses `null` for an absent next page (matches public list schema)
-          null
+    const nextCursor = deriveRunsNextCursor(rows.length, pageRows, input.limit)
 
-    const body = { items, nextCursor }
+    // `appliedQuery` rides EVERY response, `null` when no term was applied. Its
+    // PRESENCE — not its truthiness — is what tells the grid this endpoint
+    // filters server-side and that it must not re-filter the page in memory.
+    // Omitting the key on a no-term request would silently re-arm that
+    // in-memory pass the moment an operator CLEARS the box.
+    // eslint-disable-next-line unicorn/no-null -- the tri-state contract distinguishes `null` (searches, no term) from an ABSENT key (does not search)
+    const appliedQuery = input.q ?? null
+    const body = { items, nextCursor, appliedQuery }
     const parsed = automationsRunsListResponseSchema.safeParse(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return {
       _tag: 'Ok',
-      body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor },
+      body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor, appliedQuery },
     } as const
   })
 
@@ -457,7 +489,7 @@ export const BuildAdminRunDetail = (
     const runRepo = yield* AutomationRunRepository
     const stepRows = yield* runRepo
       .findStepsByRunId(runId)
-      .pipe(Effect.catchAll(() => Effect.succeed([] as const)))
+      .pipe(Effect.orElseSucceed(() => [] as const))
     const steps = stepRows.map(buildAdminRunStep)
 
     const item = buildAdminRunItem(row, resolveTriggerType(app, row.automationName))

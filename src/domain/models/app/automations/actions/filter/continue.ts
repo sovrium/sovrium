@@ -21,8 +21,8 @@ export const FilterContinueActionSchema = Schema.Struct({
   props: Schema.Struct({
     condition: ConditionGroupSchema,
     onFalse: Schema.optional(
-      Schema.Literal('stop', 'skip').pipe(
-        Schema.annotations({
+      Schema.Literals(['stop', 'skip']).pipe(
+        Schema.annotate({
           description:
             'Behavior when condition is false: stop (halt automation) or skip (skip to next action). Default: stop',
         })
@@ -30,7 +30,7 @@ export const FilterContinueActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FilterContinueAction',
     title: 'Filter Continue Action',
     description: 'Conditionally continue or stop automation based on evaluated conditions',

@@ -23,12 +23,12 @@ export const RecordBatchUpsertActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Target table name */
     table: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Table to upsert records in' })
+      Schema.annotate({ description: 'Table to upsert records in' })
     ),
 
     /** Template variable referencing an array of record data objects */
     items: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Template variable referencing an array of record data objects (e.g., "{{fetchContacts.result}}")',
       })
@@ -36,26 +36,24 @@ export const RecordBatchUpsertActionSchema = Schema.Struct({
 
     /** Field used to match existing records for upsert logic */
     matchField: Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Field name used to match existing records (e.g., "externalId"). If a record with a matching value exists, it is updated; otherwise a new record is created.',
       })
     ),
 
-    /** Maximum records per batch operation */
-
     /** Continue processing remaining records if one fails */
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Continue processing remaining items if one fails (default: false)',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordBatchUpsertAction',
     title: 'Record Batch Upsert Action',
     description: 'Insert or update multiple records using a match field',

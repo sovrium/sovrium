@@ -81,14 +81,14 @@ type WithPageChildren<T> = T extends unknown ? T & PageChildren : never
  * ]
  * ```
  */
-export const PageComponentItemSchema = Schema.Union(
+export const PageComponentItemSchema = Schema.Union([
   Schema.suspend(() => ComponentSchema).pipe(
-    Schema.annotations({
+    Schema.annotate({
       identifier: 'PageComponent',
     })
   ),
-  ComponentReferenceSchema
-).annotations({
+  ComponentReferenceSchema,
+]).annotate({
   title: 'Page Component Item',
   description:
     'A page component that can be either a direct component or component reference (with optional variables)',
@@ -141,19 +141,19 @@ export const PageComponentItemSchema = Schema.Union(
  *
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended types requires any for circular reference resolution; see the `Component` docblock for the measured cost of narrowing this
-export const ComponentSchema: Schema.Schema<any, any, never> = buildComponentUnion({
+export const ComponentSchema: Schema.Codec<any, any, never> = buildComponentUnion({
   children: Schema.optional(
     Schema.Array(
-      Schema.Union(
+      Schema.Union([
         Schema.suspend(() => PageComponentItemSchema).pipe(
-          Schema.annotations({
+          Schema.annotate({
             identifier: 'PageComponentItem',
           })
         ),
-        Schema.String
-      )
+        Schema.String,
+      ])
     ).pipe(
-      Schema.annotations({
+      Schema.annotate({
         identifier: 'Children',
         title: 'Child Components',
         description: 'Array of child components or text strings',
@@ -161,7 +161,7 @@ export const ComponentSchema: Schema.Schema<any, any, never> = buildComponentUni
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component',
     description: 'Direct component definition',
   })
@@ -216,7 +216,7 @@ export const ComponentSchema: Schema.Schema<any, any, never> = buildComponentUni
  * ```
  *
  */
-export const PageComponentsSchema = Schema.Array(PageComponentItemSchema).annotations({
+export const PageComponentsSchema = Schema.Array(PageComponentItemSchema).annotate({
   title: 'Page Components',
   description: 'Array of page components',
 })

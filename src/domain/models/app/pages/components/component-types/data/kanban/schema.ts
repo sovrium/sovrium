@@ -26,11 +26,11 @@ import { ActionSchema, CrudActionSchema } from '../../../action'
  */
 export const KanbanGroupBySchema = Schema.Struct({
   /** Field name to group records by (select/status field) */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description:
       'Field name whose distinct values create kanban columns (typically a select/status field)',
   }),
-}).annotations({
+}).annotate({
   identifier: 'KanbanGroupBy',
   title: 'Kanban Group By',
   description: 'Configuration for how records are grouped into kanban columns',
@@ -45,16 +45,16 @@ export const KanbanGroupBySchema = Schema.Struct({
  */
 export const KanbanCardFooterItemSchema = Schema.Struct({
   /** Field name to display */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Field name from the data source table',
   }),
   /** Display format for the value */
   format: Schema.optional(
-    Schema.Literal('relative-date', 'short-date', 'avatar', 'badge', 'text').annotations({
+    Schema.Literals(['relative-date', 'short-date', 'avatar', 'badge', 'text']).annotate({
       description: 'How to format the field value in the footer',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Kanban Card Footer Item',
   description: 'Metadata field displayed in the kanban card footer',
 })
@@ -87,9 +87,9 @@ export const KanbanCardFooterItemSchema = Schema.Struct({
 export const KanbanCardSchema = Schema.Struct({
   /** Child components for the card body (supports $record.* variables) */
   children: Schema.optional(
-    Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown })).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+    Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Child component definitions for the card body',
       })
     )
@@ -98,14 +98,14 @@ export const KanbanCardSchema = Schema.Struct({
   onClick: Schema.optional(ActionSchema),
   /** Field reference or $record.* variable for the cover image URL */
   coverImage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Image URL or $record.* variable for card cover image',
       examples: ['$record.thumbnail', '$record.coverImage'],
     })
   ),
   /** Field name whose values map to card background colors */
   colorField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Field name whose values determine card background color',
       examples: ['priority', 'category'],
     })
@@ -113,13 +113,13 @@ export const KanbanCardSchema = Schema.Struct({
   /** Metadata fields displayed in the card footer */
   footer: Schema.optional(
     Schema.Array(KanbanCardFooterItemSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Metadata fields displayed in the card footer area',
       })
     )
   ),
-}).annotations({
+}).annotate({
   identifier: 'KanbanCard',
   title: 'Kanban Card',
   description: 'Template configuration for how records render as kanban cards',
@@ -148,7 +148,7 @@ export const KanbanCardSchema = Schema.Struct({
 export const KanbanDragSchema = Schema.Struct({
   /** Whether drag-and-drop is enabled */
   enabled: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Enable drag-and-drop between columns (default: true)',
     })
   ),
@@ -172,7 +172,7 @@ export const KanbanDragSchema = Schema.Struct({
    *   moves persist.
    */
   persistAction: Schema.optional(CrudActionSchema),
-}).annotations({
+}).annotate({
   identifier: 'KanbanDrag',
   title: 'Kanban Drag',
   description: 'Drag-and-drop configuration for kanban cards',

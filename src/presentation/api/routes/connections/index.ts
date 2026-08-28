@@ -14,7 +14,7 @@ import { generateCodeVerifier, generateOAuthState } from '@/domain/utils/auth/pk
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
+import { requireSession } from '@/presentation/api/utils/auth-helpers'
 import { provideConnectionLive } from './effect-runner'
 import { connectionError } from './error-envelopes'
 import {
@@ -165,15 +165,15 @@ const resolveUserRole = async (userId: string): Promise<string> => {
 }
 
 async function handleAuthorize(c: Context, app: App) {
-  const session = requireSession(c)
-  if (session === undefined) return unauthorized(c)
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
   const name = c.req.param('name')
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
   if (conn === undefined) return connectionError(c, 404, 'connection_not_found')
   if (!isOAuth2(conn)) return connectionError(c, 400, 'connection_not_oauth2')
 
-  const scopeGate = await gateAdminForAppScope(c, conn, session.userId, app)
+  const scopeGate = await gateAdminForAppScope(c, conn, auth.session.userId, app)
   if (scopeGate !== undefined) return scopeGate
 
   // REC-3: schema marks authorizationUrl/tokenUrl/redirectUri optional
@@ -193,17 +193,17 @@ async function handleAuthorize(c: Context, app: App) {
     const store = yield* OAuthStateStore
     yield* store.save(state, {
       connectionName: name,
-      userId: session.userId,
+      userId: auth.session.userId,
       codeVerifier,
       redirectUri: props.redirectUri,
     })
   })
   const saveResult = await runRequestEffect(
     c,
-    provideConnectionLive(saveProgram).pipe(Effect.either)
+    provideConnectionLive(saveProgram).pipe(Effect.result)
   )
-  if (saveResult._tag === 'Left') {
-    logError('[connections] state save failed', saveResult.left)
+  if (saveResult._tag === 'Failure') {
+    logError('[connections] state save failed', saveResult.failure)
     return connectionError(c, 500, 'state_save_failed')
   }
 
@@ -229,6 +229,15 @@ const parseCallbackInputs = (
   return { code, state, name }
 }
 
+/**
+ * Persist the freshly-exchanged credential into the store its scope dictates.
+ *
+ * `app` scope writes the SHARED row and deliberately writes NO per-user row.
+ * That half is load-bearing: `connection_tokens.user_id` is `ON DELETE
+ * cascade`, so a company-wide credential parked under one operator's row
+ * disappears the day that operator is offboarded — weeks later, with nothing
+ * connecting the two events.
+ */
 const persistTokenProgram = (input: {
   readonly conn: ConnectionDef & { props: OAuth2Props }
   readonly userId: string
@@ -239,21 +248,23 @@ const persistTokenProgram = (input: {
     // resolveConnectionId already fails with ConnectionRouteError; no remap needed.
     const connectionId = yield* resolveConnectionId(input.conn)
     const tokenRepo = yield* ConnectionTokenRepository
-    yield* tokenRepo
-      .upsertForUser({
-        connectionId,
-        userId: input.userId,
-        accessToken: input.accessToken,
-        ...(input.tokens.refresh_token !== undefined
-          ? { refreshToken: input.tokens.refresh_token }
-          : {}),
-        ...(typeof input.tokens.expires_in === 'number'
-          ? { expiresAt: new Date(Date.now() + input.tokens.expires_in * 1000) }
-          : {}),
-      })
-      .pipe(
-        Effect.mapError((cause) => new ConnectionRouteError({ operation: 'upsertForUser', cause }))
-      )
+    const common = {
+      connectionId,
+      accessToken: input.accessToken,
+      ...(input.tokens.refresh_token !== undefined
+        ? { refreshToken: input.tokens.refresh_token }
+        : {}),
+      ...(typeof input.tokens.expires_in === 'number'
+        ? { expiresAt: new Date(Date.now() + input.tokens.expires_in * 1000) }
+        : {}),
+    }
+    const write =
+      effectiveScope(input.conn.props) === 'app'
+        ? tokenRepo.upsertForApp(common)
+        : tokenRepo.upsertForUser({ ...common, userId: input.userId })
+    yield* write.pipe(
+      Effect.mapError((cause) => new ConnectionRouteError({ operation: 'persistToken', cause }))
+    )
     return connectionId
   })
 
@@ -283,13 +294,13 @@ const resolveCallbackContext = async (
   })
   const consumeResult = await runRequestEffect(
     c,
-    provideConnectionLive(consumeProgram).pipe(Effect.either)
+    provideConnectionLive(consumeProgram).pipe(Effect.result)
   )
-  if (consumeResult._tag === 'Left') {
-    logError('[connections] state consume failed', consumeResult.left)
+  if (consumeResult._tag === 'Failure') {
+    logError('[connections] state consume failed', consumeResult.failure)
     return { response: connectionError(c, 500, 'state_consume_failed') }
   }
-  const stateEntry = consumeResult.right
+  const stateEntry = consumeResult.success
   if (stateEntry === undefined || stateEntry.connectionName !== inputs.name) {
     return { response: connectionError(c, 400, 'invalid_state_or_mismatch') }
   }
@@ -332,8 +343,9 @@ const resolveCallbackContext = async (
 }
 
 async function handleCallback(c: Context, app: App) {
-  const session = requireSession(c)
-  if (session === undefined) return unauthorized(c)
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const ctx = await resolveCallbackContext(c, app, session.userId)
   if ('response' in ctx) return ctx.response
@@ -355,13 +367,13 @@ async function handleCallback(c: Context, app: App) {
         tokens: exchange.tokens,
         accessToken,
       })
-    ).pipe(Effect.either)
+    ).pipe(Effect.result)
   )
-  if (result._tag === 'Left') {
-    logError('[connections] token persistence failed', result.left)
+  if (result._tag === 'Failure') {
+    logError('[connections] token persistence failed', result.failure)
     return connectionError(c, 500, 'token_persistence_failed')
   }
-  return c.json({ success: true, connectionId: result.right }, 200)
+  return c.json({ success: true, connectionId: result.success }, 200)
 }
 
 /**
@@ -420,8 +432,9 @@ const deriveStatus = (
 }
 
 async function handleStatus(c: Context, app: App) {
-  const session = requireSession(c)
-  if (session === undefined) return unauthorized(c)
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const name = c.req.param('name')
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
@@ -431,13 +444,13 @@ async function handleStatus(c: Context, app: App) {
 
   const result = await runRequestEffect(
     c,
-    provideConnectionLive(statusLookupProgram({ name, userId: session.userId })).pipe(Effect.either)
+    provideConnectionLive(statusLookupProgram({ name, userId: session.userId })).pipe(Effect.result)
   )
-  if (result._tag === 'Left') {
-    logError('[connections] status lookup failed', result.left)
+  if (result._tag === 'Failure') {
+    logError('[connections] status lookup failed', result.failure)
     return connectionError(c, 500, 'status_lookup_failed')
   }
-  const { connected, expiresAt } = result.right
+  const { connected, expiresAt } = result.success
   const status = deriveStatus(connected, expiresAt)
   return c.json(
     {
@@ -453,10 +466,9 @@ async function handleStatus(c: Context, app: App) {
 }
 
 async function handleDisconnect(c: Context, app: App) {
-  const session = requireSession(c)
-  if (session === undefined) {
-    return unauthorized(c)
-  }
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const name = c.req.param('name')
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
@@ -473,19 +485,27 @@ async function handleDisconnect(c: Context, app: App) {
       )
     if (row === undefined) return false
     const tokenRepo = yield* ConnectionTokenRepository
-    return yield* tokenRepo
-      .deleteForUser({ connectionId: String(row['id']), userId: session.userId })
-      .pipe(
-        Effect.mapError((cause) => new ConnectionRouteError({ operation: 'deleteForUser', cause }))
-      )
+    const connectionId = String(row['id'])
+    // An `app`-scoped connection has no per-user row to delete — deleting one
+    // would be a no-op reported as success. Drop the shared credential
+    // instead, which is what "disconnect" means for a shared connection. The
+    // admin gate above has already restricted this path to admin-tier callers
+    // for app scope.
+    const drop =
+      isOAuth2(conn) && effectiveScope(conn.props) === 'app'
+        ? tokenRepo.deleteForApp({ connectionId })
+        : tokenRepo.deleteForUser({ connectionId, userId: session.userId })
+    return yield* drop.pipe(
+      Effect.mapError((cause) => new ConnectionRouteError({ operation: 'deleteToken', cause }))
+    )
   })
 
-  const result = await runRequestEffect(c, provideConnectionLive(program).pipe(Effect.either))
-  if (result._tag === 'Left') {
-    logError('[connections] disconnect failed', result.left)
+  const result = await runRequestEffect(c, provideConnectionLive(program).pipe(Effect.result))
+  if (result._tag === 'Failure') {
+    logError('[connections] disconnect failed', result.failure)
     return connectionError(c, 500, 'disconnect_failed')
   }
-  return c.json({ success: true, deleted: result.right }, 200)
+  return c.json({ success: true, deleted: result.success }, 200)
 }
 
 /* eslint-disable drizzle/enforce-delete-with-where -- the `.delete()` below is a Hono route definition, not a Drizzle delete */

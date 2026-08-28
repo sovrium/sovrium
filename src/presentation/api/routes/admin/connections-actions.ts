@@ -62,7 +62,7 @@ import {
   type OAuth2AuthCodeProps,
   type OAuth2Props,
 } from '@/presentation/api/routes/connections/oauth2-props'
-import { requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
+import { requireSession } from '@/presentation/api/utils/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -93,7 +93,7 @@ const findConfig = (app: App, name: string): ConnectionConfigDef | undefined => 
 
 /** Run an Effect program against the admin connections layer, return Either. */
 const runAdmin = <A, E, R>(program: Effect.Effect<A, E, R>) =>
-  Effect.runPromise(provideAdminConnectionsLive(program).pipe(Effect.either))
+  Effect.runPromise(provideAdminConnectionsLive(program).pipe(Effect.result))
 
 /**
  * Resolve a runtime `system.connections` row by id or name. The tagged result
@@ -121,11 +121,11 @@ const lookupConnection = async (
       )
     })
   )
-  if (result._tag === 'Left') {
-    logError('[admin] connection lookup failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[admin] connection lookup failed', result.failure, requestLogAttributes(c))
     return { _tag: 'Failed', response: actionError(c, 500, 'connection_lookup_failed') }
   }
-  return result.right === undefined ? { _tag: 'Missing' } : { _tag: 'Found', row: result.right }
+  return result.success === undefined ? { _tag: 'Missing' } : { _tag: 'Found', row: result.success }
 }
 
 // ─── authorize (id-keyed) ───────────────────────────────────────────────────
@@ -189,8 +189,9 @@ const saveAuthorizeState = (input: {
   })
 
 async function handleAuthorize(c: Context, app: App): Promise<Response> {
-  const session = requireSession(c)
-  if (session === undefined) return unauthorized(c)
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const id = c.req.param('id')
   if (id === undefined || id === '') return actionError(c, 404, 'connection_not_found')
 
@@ -217,10 +218,10 @@ async function handleAuthorize(c: Context, app: App): Promise<Response> {
       redirectUri: props.redirectUri,
     })
   )
-  if (saveResult._tag === 'Left') {
+  if (saveResult._tag === 'Failure') {
     logError(
       '[admin] connection authorize state save failed',
-      saveResult.left,
+      saveResult.failure,
       requestLogAttributes(c)
     )
     return actionError(c, 500, 'state_save_failed')
@@ -235,6 +236,13 @@ interface ResolvedCallback {
   readonly props: OAuth2AuthCodeProps
   readonly connectionId: string
   readonly userId: string
+  /**
+   * Which credential store the exchanged token belongs in. Defaults to `app`,
+   * matching `effectiveScope` on the runtime connection routes — the two must
+   * agree, or an operator authorizes into one store while every automation
+   * reads the other.
+   */
+  readonly scope: 'app' | 'user'
   readonly code: string
   readonly codeVerifier: string | undefined
 }
@@ -281,15 +289,15 @@ const consumeCallbackState = async (
         )
     })
   )
-  if (consume._tag === 'Left') {
+  if (consume._tag === 'Failure') {
     logError(
       '[admin] connection callback state consume failed',
-      consume.left,
+      consume.failure,
       requestLogAttributes(c)
     )
     return { response: actionError(c, 500, 'state_consume_failed') }
   }
-  const entry = consume.right
+  const entry = consume.success
   // Unknown/expired state OR a state issued for a different connection → 400.
   if (entry === undefined || entry.connectionName !== inputs.name) {
     return { response: actionError(c, 400, 'invalid_state_or_mismatch') }
@@ -335,42 +343,56 @@ async function resolveCallback(
     props: fieldsCheck.props,
     connectionId: String(lookup.row['id']),
     userId,
+    scope: resolvedProps.scope === 'user' ? 'user' : 'app',
     code: inputs.code,
     codeVerifier: entry.codeVerifier,
   }
 }
 
-/** Persist the exchanged token (encrypted at rest) for the operator. */
+/**
+ * Persist the exchanged token (encrypted at rest) into the store the
+ * connection's `scope` dictates — the SHARED row for `app` scope (the
+ * default), the operator's own row for `user` scope.
+ *
+ * `app` scope writes no per-user row on purpose: `connection_tokens.user_id`
+ * is `ON DELETE cascade`, so filing a company-wide credential under the
+ * operator who happened to click Connect makes offboarding them silently
+ * delete it.
+ */
 const persistToken = (input: {
   readonly connectionId: string
   readonly userId: string
+  readonly scope: 'app' | 'user'
   readonly tokens: OAuthTokenResponse
   readonly accessToken: string
 }) =>
   Effect.gen(function* () {
     const tokenRepo = yield* ConnectionTokenRepository
-    yield* tokenRepo
-      .upsertForUser({
-        connectionId: input.connectionId,
-        userId: input.userId,
-        accessToken: input.accessToken,
-        ...(input.tokens.refresh_token !== undefined
-          ? { refreshToken: input.tokens.refresh_token }
-          : {}),
-        ...(typeof input.tokens.expires_in === 'number'
-          ? { expiresAt: new Date(Date.now() + input.tokens.expires_in * 1000) }
-          : {}),
-      })
-      .pipe(
-        Effect.mapError(
-          (cause) => new AdminConnectionActionError({ operation: 'upsertForUser', cause })
-        )
+    const common = {
+      connectionId: input.connectionId,
+      accessToken: input.accessToken,
+      ...(input.tokens.refresh_token !== undefined
+        ? { refreshToken: input.tokens.refresh_token }
+        : {}),
+      ...(typeof input.tokens.expires_in === 'number'
+        ? { expiresAt: new Date(Date.now() + input.tokens.expires_in * 1000) }
+        : {}),
+    }
+    const write =
+      input.scope === 'app'
+        ? tokenRepo.upsertForApp(common)
+        : tokenRepo.upsertForUser({ ...common, userId: input.userId })
+    yield* write.pipe(
+      Effect.mapError(
+        (cause) => new AdminConnectionActionError({ operation: 'persistToken', cause })
       )
+    )
   })
 
 async function handleCallback(c: Context, app: App): Promise<Response> {
-  const session = requireSession(c)
-  if (session === undefined) return unauthorized(c)
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const ctx = await resolveCallback(c, app, session.userId)
   if ('response' in ctx) return ctx.response
@@ -386,14 +408,15 @@ async function handleCallback(c: Context, app: App): Promise<Response> {
     persistToken({
       connectionId: ctx.connectionId,
       userId: ctx.userId,
+      scope: ctx.scope,
       tokens: exchange.tokens,
       accessToken,
     })
   )
-  if (persistResult._tag === 'Left') {
+  if (persistResult._tag === 'Failure') {
     logError(
       '[admin] connection callback token persistence failed',
-      persistResult.left,
+      persistResult.failure,
       requestLogAttributes(c)
     )
     return actionError(c, 500, 'token_persistence_failed')
@@ -407,8 +430,8 @@ async function handleCallback(c: Context, app: App): Promise<Response> {
 // ─── disconnect (id-keyed) ──────────────────────────────────────────────────
 
 async function handleDisconnect(c: Context): Promise<Response> {
-  const session = requireSession(c)
-  if (session === undefined) return unauthorized(c)
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
   const id = c.req.param('id')
   if (id === undefined || id === '') return actionError(c, 404, 'connection_not_found')
 
@@ -424,24 +447,34 @@ async function handleDisconnect(c: Context): Promise<Response> {
         )
       if (row === undefined) return { found: false as const }
       const tokenRepo = yield* ConnectionTokenRepository
-      // Shared (app-scoped) connection: clear EVERY operator's token row so the
-      // connection returns to the unconnected state (tokenCount → 0).
+      const connectionId = String(row['id'])
+      // Clear BOTH stores. Clearing only the shared row would leave a
+      // pre-upgrade per-user row behind, and the adoption on the injection
+      // path would then resurrect the credential the operator just revoked —
+      // on the cron jobs, which are exactly the callers nobody is watching.
       yield* tokenRepo
-        .deleteForConnection(String(row['id']))
+        .deleteForConnection(connectionId)
         .pipe(
           Effect.mapError(
             (cause) => new AdminConnectionActionError({ operation: 'deleteForConnection', cause })
           )
         )
+      yield* tokenRepo
+        .deleteForApp({ connectionId })
+        .pipe(
+          Effect.mapError(
+            (cause) => new AdminConnectionActionError({ operation: 'deleteForApp', cause })
+          )
+        )
       return { found: true as const }
     })
   )
-  if (result._tag === 'Left') {
-    logError('[admin] connection disconnect failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[admin] connection disconnect failed', result.failure, requestLogAttributes(c))
     return actionError(c, 500, 'disconnect_failed')
   }
   // Unknown connection id → anti-enum 404.
-  if (!result.right.found) return actionError(c, 404, 'connection_not_found')
+  if (!result.success.found) return actionError(c, 404, 'connection_not_found')
   return c.json({ success: true }, 200)
 }
 

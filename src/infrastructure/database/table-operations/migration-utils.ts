@@ -10,7 +10,7 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { sanitizeTableName } from '../table-queries/shared/field-utils'
-import { generateCreateTableSQL } from './create-table-sql'
+import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import { areTypesCompatible } from './type-compatibility'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -167,40 +167,55 @@ END $$`
   })
 
 /**
+ * The `CREATE TABLE` DDL for the scratch table a recreate copies into.
+ *
+ * Identical to the DDL the create path would emit for this table, with two
+ * textual re-scopings applied: the table name, and every inline constraint name.
+ * Driven by the SAME {@link TableDdlInputs} the fresh-create path takes — a
+ * recreate that fed the generator anything less would not reproduce the table
+ * the create path would have built.
+ */
+const buildTempTableDDL = (
+  table: Table,
+  physicalTableName: string,
+  tempTableName: string,
+  inputs: TableDdlInputs
+): string =>
+  generateCreateTableSQL(table, inputs)
+    .replace(`CREATE TABLE IF NOT EXISTS ${physicalTableName}`, `CREATE TABLE ${tempTableName}`)
+    // Defense-in-depth ([internal ref] fix #2): the generated DDL names inline
+    // constraints after the LIVE table (e.g. `CONSTRAINT <table>_<col>_key
+    // UNIQUE (...)`). Building the temp table with those live names collides
+    // with the still-present live table's same-named backing index (Postgres:
+    // `relation "<table>_<col>_key" already exists`). Re-scope every
+    // `<physicalTableName>_`-prefixed constraint name to the temp table so the
+    // temp CREATE never reuses a live catalog name; `finalizeTableRecreation`
+    // restores the canonical names after the swap.
+    .replaceAll(`CONSTRAINT ${physicalTableName}_`, `CONSTRAINT ${tempTableName}_`)
+
+/**
  * Recreate table with data preservation when schema changes are incompatible with ALTER TABLE
  * Used when primary key type changes or other incompatible schema modifications occur
  */
 export const recreateTableWithDataEffect = (
-  tx: TransactionLike,
-  table: Table,
-  existingColumns: ReadonlyMap<
-    string,
-    { dataType: string; isNullable: string; columnDefault: string | null }
-  >,
-  tableUsesView?: ReadonlyMap<string, boolean>
+  options: TableDdlInputs & {
+    readonly tx: TransactionLike
+    readonly table: Table
+    readonly existingColumns: ReadonlyMap<
+      string,
+      { dataType: string; isNullable: string; columnDefault: string | null }
+    >
+  }
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    const { tx, table, existingColumns } = options
     const sanitized = sanitizeTableName(table.name)
     const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
     const tempTableName = `${physicalTableName}_migration_temp`
 
     // Create temporary table with new schema
     const createTableSQL = yield* Effect.try({
-      try: () =>
-        generateCreateTableSQL(table, tableUsesView)
-          .replace(
-            `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
-            `CREATE TABLE ${tempTableName}`
-          )
-          // Defense-in-depth ([internal ref] fix #2): the generated DDL names inline
-          // constraints after the LIVE table (e.g. `CONSTRAINT <table>_<col>_key
-          // UNIQUE (...)`). Building the temp table with those live names
-          // collides with the still-present live table's same-named backing
-          // index (Postgres: `relation "<table>_<col>_key" already exists`).
-          // Re-scope every `<physicalTableName>_`-prefixed constraint name to the
-          // temp table so the temp CREATE never reuses a live catalog name;
-          // `finalizeTableRecreation` restores the canonical names after the swap.
-          .replaceAll(`CONSTRAINT ${physicalTableName}_`, `CONSTRAINT ${tempTableName}_`),
+      try: () => buildTempTableDDL(table, physicalTableName, tempTableName, options),
       catch: (error) =>
         new SQLExecutionError({
           message: `Failed to generate CREATE TABLE DDL for migration: ${String(error)}`,

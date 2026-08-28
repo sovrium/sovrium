@@ -22,7 +22,7 @@ const errorResponse = (description: string) => jsonResponse(errorResponseSchema,
 
 /** Analytics route group. */
 export const analyticsGroup: StaticGroupSpec = {
-  tag: 'analytics',
+  tag: 'Analytics',
   tagDescription: 'Analytics collection and reporting endpoints',
   routes: [
     {

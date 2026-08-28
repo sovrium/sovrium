@@ -33,6 +33,7 @@
  */
 
 import { automationRunsBody } from './automation-runs-surface'
+import { automationsCatalogBody } from './automations-catalog-surface'
 import { homeCrumb, wrapInShell } from './dashboard-shell-surface'
 import { dataPageEmptyState, dataPageIntro } from './data-object-rail'
 import type { DataShellOptions } from './data-landing-surface'
@@ -53,10 +54,40 @@ function automationNames(automations: ReadonlyArray<OperatorAutomation>): Readon
 
 /** The page intro: heading + orienting one-liner. */
 function intro(): Component {
+  /*
+   * The intro carries the two sentences the operator actually needs, and drops
+   * the "here is what this page contains" line the old copy opened with — the
+   * catalog and the run history are both visible, so narrating them was
+   * ornament ([internal ref] D4).
+   *
+   * What survives is guidance: sentence one says what Pause does and what it
+   * deliberately does NOT touch (your config); sentence two tells an operator
+   * staring at a `Disabled in config` row where to go instead. D4 cuts
+   * ornament, not the sentence that says what happens next.
+   */
   return dataPageIntro(
-    'Runs',
-    'Follow the run history of your automations. By default every run is listed — filter by automation or status, then open a run to inspect each step.'
+    'Automations',
+    'Pause an automation to stop it running without changing your config. ' +
+      'An automation disabled in your app config can only be re-enabled there.'
   )
+}
+
+/**
+ * The run-history section heading, which now sits BELOW the catalog.
+ *
+ * Before the catalog existed the whole page WAS the run history, so the page
+ * heading read "Runs". With two sections the page is named for the entity and
+ * each section names itself — which also makes the page title agree with the
+ * route (`/_admin/automations`) and the nav key, both of which already said
+ * "automations".
+ */
+function runHistoryHeading(): Component {
+  return {
+    type: 'text',
+    element: 'h3',
+    props: { className: 'px-6 text-lg font-semibold tracking-tight' },
+    content: 'Run history',
+  } as unknown as Component
 }
 
 /** The whole-page empty state when the operator declares no automations. */
@@ -82,19 +113,26 @@ export function buildDataAutomationsPage(
 ): Page {
   const automations = (operatorApp.automations ?? []) as ReadonlyArray<OperatorAutomation>
   const names = automationNames(automations)
-  const body = names.length === 0 ? noAutomationsBody() : automationRunsBody(names)
+  // With no automations declared there is nothing to catalogue AND nothing to
+  // run, so the whole-page empty state still stands in for both sections.
+  const body =
+    names.length === 0
+      ? [noAutomationsBody()]
+      : [automationsCatalogBody(), runHistoryHeading(), automationRunsBody(names)]
 
   return {
     id: 'dashboard-data-automations',
     name: 'dashboard-data-automations',
     path: '/automations',
-    meta: { title: 'Sovrium — Data · Runs' },
-    components: wrapInShell([intro(), body], {
+    meta: { title: 'Sovrium — Data · Automations' },
+    components: wrapInShell([intro(), ...body], {
       canEdit: options.canEdit,
       appName: options.appName,
       appVersion: options.appVersion,
-      breadcrumb: [homeCrumb(options.appName), { label: 'Runs', href: '/_admin/automations' }],
-      publishedSnapshot: options.publishedSnapshot ?? {},
+      breadcrumb: [
+        homeCrumb(options.appName),
+        { label: 'Automations', href: '/_admin/automations' },
+      ],
     }),
   } as Page
 }

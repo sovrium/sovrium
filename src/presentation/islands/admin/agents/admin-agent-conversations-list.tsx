@@ -87,8 +87,15 @@ function NewConversation({
 /**
  * The agent filter above the conversation list. Defaults to
  * "All agents" (value `''`); selecting an agent narrows the merged list to
- * that agent's conversations. Hidden when the app declares a single agent (there
- * is nothing to filter). Mirrors the native-select pattern used elsewhere.
+ * that agent's conversations. Hidden when there are fewer than two agents to
+ * choose between. Mirrors the native-select pattern used elsewhere.
+ *
+ * Campaign 4A made the agent a URL segment, so the surface now mounts this
+ * island with a SINGLE-element `agentNames` and the `< 2` guard hides the
+ * control on every real render. It is kept rather than deleted because it is the
+ * one code path: the island still filters by agent internally, and a future
+ * merged view (or a spec mounting several names) gets the control back for free
+ * instead of needing it rebuilt.
  */
 function AgentFilter({
   agent,
@@ -201,19 +208,17 @@ function ConversationCard({
       ].join(' ')}
     >
       <span className="text-foreground truncate text-sm font-medium">{conversation.title}</span>
+      {/* The agent name used to lead this line, from when the list merged every
+          agent. Scoped to one agent by the URL, it repeated the breadcrumb, the
+          sidebar's active row and the page heading on every row — four times for
+          one fact. Dropped; `agentName` stays on the row because the transcript
+          fetch is agent-scoped and still needs it. */}
       <span className="text-foreground-subtle flex items-center gap-2 text-xs">
-        {conversation.agentName && (
-          <>
-            <span className="text-foreground-muted truncate font-medium">
-              {conversation.agentName}
-            </span>
-            <span aria-hidden="true">·</span>
-          </>
-        )}
         <span>{formatRelative(conversation.lastActivityAt)}</span>
         <span aria-hidden="true">·</span>
         <span className="tabular-nums">
-          {conversation.messageCount} message{conversation.messageCount > 1 ? 's' : ''}
+          {/* `> 1` rendered an empty thread as "0 message". Zero is plural. */}
+          {conversation.messageCount} message{conversation.messageCount === 1 ? '' : 's'}
         </span>
       </span>
     </button>
@@ -281,24 +286,41 @@ function ListErrorState({ onRetry }: { readonly onRetry: () => void }): ReactEle
   )
 }
 
-/** The empty state when no agent has any conversation yet (the list spans all agents). */
+/**
+ * The empty state when the selected agent has no conversation yet.
+ *
+ * The list is scoped to ONE agent by the URL segment, so the copy names that
+ * agent rather than "one of your agents" — which read as a whole-console
+ * statement and told an operator looking at a quiet agent that NOTHING had
+ * happened anywhere. The `region` label is unchanged: it is the locked selector.
+ */
 function ListEmptyState(): ReactElement {
   return (
     <ListStateCard
       label="No conversations yet"
       title="No conversations yet"
-      body="Conversations appear here once a user talks to one of your agents."
+      body="Conversations appear here once a user talks to this agent."
     />
   )
 }
 
 /** The no-match state when a search narrows every conversation away. */
-function ListNoMatchState({ onResetSearch }: { readonly onResetSearch: () => void }): ReactElement {
+function ListNoMatchState({
+  query,
+  onResetSearch,
+}: {
+  readonly query: string
+  readonly onResetSearch: () => void
+}): ReactElement {
   return (
     <ListStateCard
       label="No results"
       title="No conversation matches"
-      body="No conversation matches your search."
+      // Name the term, as the users and files grids do
+      // (`No user matches “{query}”`). Echoing what was searched is what tells
+      // the operator the search ran and this is the answer — rather than
+      // leaving them to wonder whether the box did anything.
+      body={`No conversation matches “${query}”.`}
     >
       <button
         type="button"
@@ -336,8 +358,20 @@ function ListBody(props: ConversationListProps): ReactElement {
   const { state, visibleConversations, selectedId, onSelect, onRetry, onResetSearch } = props
   if (state.phase === 'loading') return <ListLoading />
   if (state.phase === 'error') return <ListErrorState onRetry={onRetry} />
-  if (state.conversations.length === 0) return <ListEmptyState />
-  if (visibleConversations.length === 0) return <ListNoMatchState onResetSearch={onResetSearch} />
+  // Search runs SERVER-side, so an empty response while a term is active means
+  // "no matches", not "no conversations". Deciding the empty state on row count
+  // alone told an operator with 221 seeded threads that no user had ever talked
+  // to their agents — a confident wrong answer of exactly the kind this change
+  // set out to remove. The empty state is only honest with no term applied.
+  const searching = props.search.trim().length > 0
+  if (!searching && state.conversations.length === 0) return <ListEmptyState />
+  if (visibleConversations.length === 0)
+    return (
+      <ListNoMatchState
+        query={props.search.trim()}
+        onResetSearch={onResetSearch}
+      />
+    )
   return (
     <>
       {visibleConversations.map((conversation) => (

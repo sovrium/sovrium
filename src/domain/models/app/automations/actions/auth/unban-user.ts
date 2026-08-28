@@ -19,10 +19,10 @@ export const AuthUnbanUserActionSchema = Schema.Struct({
   type: Schema.Literal('auth'),
   operator: Schema.Literal('unbanUser'),
   props: Schema.Struct({
-    userId: TemplateStringSchema.pipe(Schema.annotations({ description: 'User ID to unban' })),
+    userId: TemplateStringSchema.pipe(Schema.annotate({ description: 'User ID to unban' })),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AuthUnbanUserAction',
     title: 'Auth Unban User Action',
     description: 'Unban a previously banned user account',

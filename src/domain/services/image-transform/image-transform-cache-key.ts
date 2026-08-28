@@ -24,19 +24,15 @@ import type { TransformParams } from './image-transform-params'
  * resolved output format. Two requests producing byte-identical output map to
  * the same canonical string; two requests producing different output do not.
  */
-const canonicalString = (key: string, params: TransformParams, resolvedFormat: string): string => {
-  const crop =
-    params.crop.kind === 'focal' ? `focal:${params.crop.x},${params.crop.y}` : params.crop.kind
-  return [
+const canonicalString = (key: string, params: TransformParams, resolvedFormat: string): string =>
+  [
     key,
     `w=${params.width ?? ''}`,
     `h=${params.height ?? ''}`,
     `fit=${params.fit}`,
-    `crop=${crop}`,
     `fmt=${resolvedFormat}`,
     `q=${params.quality ?? ''}`,
   ].join('|')
-}
 
 /**
  * Derive the in-memory transform-cache key for a request.

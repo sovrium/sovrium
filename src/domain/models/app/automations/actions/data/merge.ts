@@ -24,25 +24,25 @@ export const DataMergeActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the first (left) array */
     left: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the first (left) array' })
+      Schema.annotate({ description: 'Template reference to the first (left) array' })
     ),
 
     /** Template reference to the second (right) array */
     right: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the second (right) array' })
+      Schema.annotate({ description: 'Template reference to the second (right) array' })
     ),
 
     /** Shared field to join on — when omitted, the arrays are concatenated */
     joinKey: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Shared field to join on — when omitted, the arrays are concatenated',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataMergeAction',
     title: 'Data Merge Action',
     description: 'Concatenate two arrays, or join them on a shared key',

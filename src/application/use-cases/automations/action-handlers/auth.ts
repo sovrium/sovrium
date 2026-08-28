@@ -77,7 +77,7 @@ const userExists = (userId: string): Effect.Effect<boolean, never, AuthRepositor
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.userExists(userId)
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+  }).pipe(Effect.orElseSucceed(() => false))
 
 /**
  * Shared preamble for the `assignRole` / `banUser` handlers: validate that
@@ -120,12 +120,14 @@ const requireExistingUser = (
  * exists via `requireExistingUser`).
  */
 const mutateUser = (
-  run: (repo: Context.Tag.Service<typeof AuthRepository>) => Effect.Effect<void, AuthDatabaseError>
+  run: (
+    repo: Context.Service.Shape<typeof AuthRepository>
+  ) => Effect.Effect<void, AuthDatabaseError>
 ): Effect.Effect<void, never, AuthRepository> =>
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     yield* run(repo)
-  }).pipe(Effect.catchAll(() => Effect.void))
+  }).pipe(Effect.ignore)
 
 /**
  * `auth/assignRole` — assign a role to an existing user.
@@ -318,16 +320,16 @@ export const handleAuthCreateUser: ActionHandler = (action, app, _automation) =>
       } as const satisfies ActionOutcome
     }
 
-    const created = yield* Effect.either(provisionUser(app, { email, name, password, role }))
-    if (created._tag === 'Left') {
+    const created = yield* Effect.result(provisionUser(app, { email, name, password, role }))
+    if (created._tag === 'Failure') {
       return {
         status: 'failure',
-        error: `auth.createUser: ${created.left.message}`,
+        error: `auth.createUser: ${created.failure.message}`,
       } as const satisfies ActionOutcome
     }
 
     return {
       status: 'success',
-      output: { userId: created.right, email, name },
+      output: { userId: created.success, email, name },
     } as const satisfies ActionOutcome
   })

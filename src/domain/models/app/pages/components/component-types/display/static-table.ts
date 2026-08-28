@@ -20,17 +20,17 @@ export const staticTableFields = {
   ...i18nFields,
   tableHeaders: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Column header labels for static table' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Column header labels for static table' })
     )
   ),
   tableRows: Schema.optional(
     Schema.Array(Schema.Array(Schema.String)).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Row data as array of string arrays for static table' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Row data as array of string arrays for static table' })
     )
   ),
   caption: Schema.optional(
-    Schema.String.annotations({ description: 'Caption text displayed above or below the table' })
+    Schema.String.annotate({ description: 'Caption text displayed above or below the table' })
   ),
 } as const

@@ -11,7 +11,7 @@ import { mimeByExt, uploadArtifact } from './file-support'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
-type Storage = Effect.Effect.Success<typeof StorageService>
+type Storage = Effect.Success<typeof StorageService>
 
 /**
  * Storage-operation `file:*` action handlers — list / getMetadata / move /
@@ -56,10 +56,10 @@ export const handleFileList: ActionHandler = (action) =>
     const limit = optionalNumber(p, 'limit')
 
     const storage = yield* StorageService
-    const listed = yield* Effect.either(storage.list(prefix))
-    if (listed._tag === 'Left') return softError(`failed to list files under ${prefix}`)
+    const listed = yield* Effect.result(storage.list(prefix))
+    if (listed._tag === 'Failure') return softError(`failed to list files under ${prefix}`)
 
-    const keys = limit !== undefined ? listed.right.slice(0, limit) : listed.right
+    const keys = limit !== undefined ? listed.success.slice(0, limit) : listed.success
     return {
       status: 'success',
       output: { files: keys.map((key) => ({ key })) },
@@ -76,10 +76,10 @@ export const handleFileGetMetadata: ActionHandler = (action) =>
     if (!key) return softError('file.getMetadata requires a key')
 
     const storage = yield* StorageService
-    const meta = yield* Effect.either(storage.getMetadata(key))
-    if (meta._tag === 'Left') return softError(`file not found: ${key}`)
+    const meta = yield* Effect.result(storage.getMetadata(key))
+    if (meta._tag === 'Failure') return softError(`file not found: ${key}`)
 
-    return { status: 'success', output: { ...meta.right } } as const
+    return { status: 'success', output: { ...meta.success } } as const
   })
 
 // ---------------------------------------------------------------------------
@@ -97,12 +97,12 @@ const copyBytes = (
   destinationKey: string
 ): Effect.Effect<number | ActionOutcome, never> =>
   Effect.gen(function* () {
-    const downloaded = yield* Effect.either(storage.download(sourceKey))
-    if (downloaded._tag === 'Left') return softError(`file not found: ${sourceKey}`)
+    const downloaded = yield* Effect.result(storage.download(sourceKey))
+    if (downloaded._tag === 'Failure') return softError(`file not found: ${sourceKey}`)
     const mime = mimeByExt(destinationKey) ?? mimeByExt(sourceKey) ?? 'application/octet-stream'
-    const wrote = yield* uploadArtifact(storage, destinationKey, downloaded.right, mime)
+    const wrote = yield* uploadArtifact(storage, destinationKey, downloaded.success, mime)
     if (!wrote) return softError(`failed to write ${destinationKey}`)
-    return downloaded.right.length
+    return downloaded.success.length
   })
 
 const copyOrMove = (
@@ -125,8 +125,8 @@ const copyOrMove = (
 
     if (deleteSource) {
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
-      const removed = yield* Effect.either(storage.delete(sourceKey))
-      if (removed._tag === 'Left') return softError(`failed to remove source ${sourceKey}`)
+      const removed = yield* Effect.result(storage.delete(sourceKey))
+      if (removed._tag === 'Failure') return softError(`failed to remove source ${sourceKey}`)
     }
 
     const base = { key: destinationKey, destinationKey, sourceKey, size: copied }
@@ -151,8 +151,8 @@ export const handleFileDelete: ActionHandler = (action) =>
 
     const storage = yield* StorageService
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
-    const removed = yield* Effect.either(storage.delete(key))
-    if (removed._tag === 'Left') {
+    const removed = yield* Effect.result(storage.delete(key))
+    if (removed._tag === 'Failure') {
       return { status: 'failure', error: `file not found: ${key}` } as const
     }
     return { status: 'success', output: { deleted: true, key } } as const
@@ -172,17 +172,17 @@ export const handleFileSignUrl: ActionHandler = (action) =>
     const contentType = p['contentType'] !== undefined ? stringProp(p, 'contentType') : undefined
 
     const storage = yield* StorageService
-    const signed = yield* Effect.either(
+    const signed = yield* Effect.result(
       operation === 'upload'
         ? storage.getSignedUploadUrl(key, expiresIn, contentType)
         : storage.getSignedUrl(key, expiresIn)
     )
-    if (signed._tag === 'Left') return softError(`failed to sign url for ${key}`)
+    if (signed._tag === 'Failure') return softError(`failed to sign url for ${key}`)
 
     return {
       status: 'success',
       output: {
-        url: signed.right,
+        url: signed.success,
         key,
         operation,
         expiresIn,

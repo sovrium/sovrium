@@ -46,6 +46,18 @@ export type GroupedScripts = {
 }
 
 /**
+ * Removes entries whose `src` was already declared by an earlier entry
+ *
+ * First declaration wins: the surviving tag keeps the attributes of the entry
+ * that appeared first in the merged list.
+ */
+function dedupeBySrc(scripts: ReadonlyArray<ExternalScript>): ReadonlyArray<ExternalScript> {
+  return scripts.filter(
+    (script, index) => scripts.findIndex((other) => other.src === script.src) === index
+  )
+}
+
+/**
  * Groups external and inline scripts by their position in the document
  *
  * Scripts can be positioned in 'head', 'body-start', or 'body-end'.
@@ -55,11 +67,15 @@ export type GroupedScripts = {
  * @returns Scripts grouped by position
  */
 export function groupScriptsByPosition(page: Page): Readonly<GroupedScripts> {
-  // Merge both externalScripts and external arrays (both are independent script arrays)
-  const externalScripts = [
+  // `scripts.external` is an ALIAS of `scripts.externalScripts` — the two keys
+  // name ONE list, not two independent ones. Merge them and drop any src the
+  // merged list already carries, so a URL written under both keys renders a
+  // single tag (a duplicated classic script would otherwise be executed twice).
+  // `externalScripts` is merged first, so it wins the attributes on a conflict.
+  const externalScripts = dedupeBySrc([
     ...(page.scripts?.externalScripts ?? []),
     ...(page.scripts?.external ?? []),
-  ]
+  ])
 
   // Extract inline scripts
   const inlineScripts = page.scripts?.inlineScripts || []

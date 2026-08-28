@@ -17,24 +17,21 @@ export const paginationFields = {
   ...visibilityFields,
   ...i18nFields,
   totalPages: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Total number of pages' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Total number of pages' })
     )
   ),
   currentPage: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Current active page number (1-indexed)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Current active page number (1-indexed)' })
     )
   ),
   siblingCount: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+      Schema.annotate({
         description: 'Number of page links shown on each side of current (default: 1)',
       })
     )

@@ -44,39 +44,39 @@ export const BucketPermissionsSchema = Schema.Struct({
   /** Who can upload files to this bucket */
   upload: Schema.optional(
     PermissionValueSchema.pipe(
-      Schema.annotations({ description: 'Who can upload files to this bucket' })
+      Schema.annotate({ description: 'Who can upload files to this bucket' })
     )
   ),
 
   /** Who can download files from this bucket */
   download: Schema.optional(
     PermissionValueSchema.pipe(
-      Schema.annotations({ description: 'Who can download files from this bucket' })
+      Schema.annotate({ description: 'Who can download files from this bucket' })
     )
   ),
 
   /** Who can generate signed download URLs for files in this bucket */
   sign: Schema.optional(
     PermissionValueSchema.pipe(
-      Schema.annotations({ description: 'Who can generate signed download URLs' })
+      Schema.annotate({ description: 'Who can generate signed download URLs' })
     )
   ),
 
   /** Who can generate signed upload URLs for files in this bucket */
   signUpload: Schema.optional(
     PermissionValueSchema.pipe(
-      Schema.annotations({ description: 'Who can generate signed upload URLs' })
+      Schema.annotate({ description: 'Who can generate signed upload URLs' })
     )
   ),
 
   /** Who can delete files from this bucket */
   delete: Schema.optional(
     PermissionValueSchema.pipe(
-      Schema.annotations({ description: 'Who can delete files from this bucket' })
+      Schema.annotate({ description: 'Who can delete files from this bucket' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'BucketPermissions',
     title: 'Bucket Permissions',
     description:
@@ -139,3 +139,18 @@ export const BUCKET_ACTIONS = Object.keys(BUCKET_ACTION_KIND) as readonly Bucket
 export type BucketFileAction = {
   [K in BucketAction]: (typeof BUCKET_ACTION_KIND)[K] extends 'sign' ? never : K
 }[BucketAction]
+
+/**
+ * {@link BucketFileAction} at runtime, derived from the same classification so a
+ * newly added non-signing action joins this list the day it is declared.
+ *
+ * Consumed by `deriveImplicitBucketPermissions`, which must iterate the file
+ * actions and MUST NOT touch the signing ones: an undeclared `sign` is
+ * admin-only, so inheriting a declared `sign: ['member']` onto the implicit
+ * bucket would LOOSEN it — the exact inversion of that function's purpose.
+ *
+ * @public
+ */
+export const BUCKET_FILE_ACTIONS: readonly BucketFileAction[] = BUCKET_ACTIONS.filter(
+  (action): action is BucketFileAction => BUCKET_ACTION_KIND[action] !== 'sign'
+)

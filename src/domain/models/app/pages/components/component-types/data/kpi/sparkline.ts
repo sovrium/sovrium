@@ -7,24 +7,23 @@
 
 import { Schema } from 'effect'
 
-export const SparklineDateIntervalSchema = Schema.Literal('day', 'week', 'month').annotations({
+export const SparklineDateIntervalSchema = Schema.Literals(['day', 'week', 'month']).annotate({
   title: 'Sparkline Interval',
   description: 'Date grouping interval for sparkline data points',
 })
 
 export const KPISparklineSchema = Schema.Struct({
-  field: Schema.String.annotations({ description: 'Field to plot in the sparkline' }),
-  groupBy: Schema.String.annotations({ description: 'Date field for grouping data points' }),
+  field: Schema.String.annotate({ description: 'Field to plot in the sparkline' }),
+  groupBy: Schema.String.annotate({ description: 'Date field for grouping data points' }),
   interval: SparklineDateIntervalSchema,
-  days: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThan(0),
-    Schema.annotations({
+  days: Schema.Finite.pipe(
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+    Schema.annotate({
       description: 'Number of trailing days of data to show',
       examples: [7, 30, 90],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'KPI Sparkline',
   description: 'Mini line chart showing recent trend for the KPI metric',
 })

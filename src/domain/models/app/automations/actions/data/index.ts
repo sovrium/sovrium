@@ -15,12 +15,11 @@ import { DataMergeActionSchema } from './merge'
 import { DataSetActionSchema } from './set'
 import { DataSortActionSchema } from './sort'
 import { DataSplitActionSchema } from './split'
-import { DataValidateConfigActionSchema } from './validate-config'
 
 /**
  * Data Action — union of all data transformation operators
  */
-export const DataActionSchema = Schema.Union(
+export const DataActionSchema = Schema.Union([
   DataSetActionSchema,
   DataAggregateActionSchema,
   DataSortActionSchema,
@@ -30,13 +29,12 @@ export const DataActionSchema = Schema.Union(
   DataSplitActionSchema,
   DataCompareActionSchema,
   DataLookupActionSchema,
-  DataValidateConfigActionSchema
-).pipe(
-  Schema.annotations({
+]).pipe(
+  Schema.annotate({
     identifier: 'DataAction',
     title: 'Data Action',
     description:
-      'Data transformation operations: set fields, aggregate, sort, limit, deduplicate, merge, split, compare, lookup, validate-config',
+      'Data transformation operations: set fields, aggregate, sort, limit, deduplicate, merge, split, compare, lookup',
   })
 )
 
@@ -52,4 +50,3 @@ export * from './merge'
 export * from './set'
 export * from './sort'
 export * from './split'
-export * from './validate-config'

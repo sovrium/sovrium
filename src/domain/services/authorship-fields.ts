@@ -66,6 +66,23 @@ export const updatedByFieldNames = (
     .map((field) => field.name)
 
 /**
+ * Names of the `deleted-by`-typed fields declared on the named table.
+ *
+ * Completes the trio for consumers that must reason about the WHOLE authorship
+ * surface rather than the write path alone — GDPR Art. 17 erasure being the
+ * case that forced it. Erasure matched authorship by the LITERAL column names,
+ * so a table declaring `{ name: 'author', type: 'created-by' }` had zero rows
+ * deleted while reporting success.
+ */
+export const deletedByFieldNames = (
+  tables: ReadonlyArray<AuthorshipTableShape> | undefined,
+  tableName: string
+): readonly string[] =>
+  (findTable(tables, tableName)?.fields ?? [])
+    .filter((field) => field.type === 'deleted-by')
+    .map((field) => field.name)
+
+/**
  * Build the override map that stamps `actorId` into every `created-by`-typed
  * field of the named table (on create, both created-by and updated-by fields
  * are stamped — authorship starts as "created and last-modified by the same
@@ -76,7 +93,7 @@ export const buildCreateAuthorshipOverrides = (
   tables: ReadonlyArray<AuthorshipTableShape> | undefined,
   tableName: string,
   actorId: string
-): Record<string, string> => {
+): Readonly<Record<string, string>> => {
   const names = [
     ...createdByFieldNames(tables, tableName),
     ...updatedByFieldNames(tables, tableName),
@@ -93,7 +110,7 @@ export const buildUpdateAuthorshipOverrides = (
   tables: ReadonlyArray<AuthorshipTableShape> | undefined,
   tableName: string,
   actorId: string
-): Record<string, string> => {
+): Readonly<Record<string, string>> => {
   const names = updatedByFieldNames(tables, tableName)
   return Object.fromEntries(names.map((name) => [name, actorId]))
 }

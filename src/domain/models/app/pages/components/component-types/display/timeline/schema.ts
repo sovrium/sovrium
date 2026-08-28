@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 
 // ---------------------------------------------------------------------------
 // Timeline / Gantt Component Schema
@@ -19,19 +19,19 @@ import { Schema } from 'effect'
  */
 export const TimelineDependencySchema = Schema.Struct({
   /** Record ID of the predecessor task */
-  from: Schema.String.annotations({ description: 'Record ID of the predecessor task' }),
+  from: Schema.String.annotate({ description: 'Record ID of the predecessor task' }),
 
   /** Record ID of the successor task */
-  to: Schema.String.annotations({ description: 'Record ID of the successor task' }),
+  to: Schema.String.annotate({ description: 'Record ID of the successor task' }),
 
   /** Dependency type (default: finish-to-start) */
   type: Schema.optional(
-    Schema.Literal('FS', 'SS', 'FF', 'SF').annotations({
+    Schema.Literals(['FS', 'SS', 'FF', 'SF']).annotate({
       description:
         'Dependency type: FS (finish-to-start), SS (start-to-start), FF (finish-to-finish), SF (start-to-finish)',
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'TimelineDependency',
   title: 'Timeline Dependency',
   description: 'Dependency link between two timeline items for drawing arrows',
@@ -63,13 +63,13 @@ export const TimelineDependencySchema = Schema.Struct({
 export const DataTimelineSchema = Schema.Struct({
   /** Field name containing the record's start date (required) */
   startField: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'Field name for the start date of each timeline bar' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Field name for the start date of each timeline bar' })
   ),
 
   /** Field name containing the record's end date (omit for point markers) */
   endField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Field name for the end date; records without end date render as point/diamond markers',
     })
@@ -77,72 +77,60 @@ export const DataTimelineSchema = Schema.Struct({
 
   /** Field name whose value is shown as the label on each bar/point */
   labelField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Field name displayed as the label on each timeline bar or point',
     })
   ),
 
   /** Field name to group records into swimlanes */
   groupBy: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Field name to organise records into horizontal swimlanes',
     })
   ),
 
   /** Field name whose values determine bar colour (using field colour config) */
   colorField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Field name whose values map to bar colours via the field colour config',
     })
   ),
 
   /** Default zoom level when the timeline first renders */
   defaultZoom: Schema.optional(
-    Schema.Literal('day', 'week', 'month', 'quarter', 'year').annotations({
+    Schema.Literals(['day', 'week', 'month', 'quarter', 'year']).annotate({
       description: 'Initial zoom level for the time axis (default: month)',
     })
   ),
 
   /** Whether to show a "today" marker line on the time axis */
-  showToday: Schema.optionalWith(
-    Schema.Boolean.annotations({
-      description: 'Display a vertical marker line at the current date (default true)',
-    }),
-    { default: () => true }
-  ),
+  showToday: Schema.Boolean.annotate({
+    description: 'Display a vertical marker line at the current date (default true)',
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
 
   /** Whether users can drag bars to reschedule (requires dataSource write permission) */
-  draggable: Schema.optionalWith(
-    Schema.Boolean.annotations({
-      description: 'Allow drag-to-reschedule on timeline bars (default false)',
-    }),
-    { default: () => false }
-  ),
+  draggable: Schema.Boolean.annotate({
+    description: 'Allow drag-to-reschedule on timeline bars (default false)',
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
 
   /** Whether users can resize bars to change duration */
-  resizable: Schema.optionalWith(
-    Schema.Boolean.annotations({
-      description: 'Allow drag-to-resize on timeline bars to change duration (default false)',
-    }),
-    { default: () => false }
-  ),
+  resizable: Schema.Boolean.annotate({
+    description: 'Allow drag-to-resize on timeline bars to change duration (default false)',
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
 
   /** Whether to draw dependency arrows between linked tasks */
-  showDependencies: Schema.optionalWith(
-    Schema.Boolean.annotations({
-      description: 'Render dependency arrows between linked tasks (default false)',
-    }),
-    { default: () => false }
-  ),
+  showDependencies: Schema.Boolean.annotate({
+    description: 'Render dependency arrows between linked tasks (default false)',
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
 
   /** Field name containing the dependency references (array of record IDs) */
   dependencyField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Field name containing an array of predecessor record IDs for dependencies',
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataTimeline',
     title: 'Data Timeline (Gantt)',
     description:

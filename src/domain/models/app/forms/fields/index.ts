@@ -22,13 +22,13 @@ import { TableBoundFieldSchema } from './table-bound'
  * - `kind: 'section'`       → `./section.ts`
  * - `kind: 'signature'`     → `./signature.ts`
  */
-export const FormFieldSchema = Schema.Union(
+export const FormFieldSchema = Schema.Union([
   TableBoundFieldSchema,
   StandaloneFieldSchema,
   CalculationFieldSchema,
   SectionFieldSchema,
-  SignatureFieldSchema
-).annotations({
+  SignatureFieldSchema,
+]).annotate({
   identifier: 'FormField',
   title: 'Form Field',
   description:

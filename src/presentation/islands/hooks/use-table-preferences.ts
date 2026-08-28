@@ -207,6 +207,17 @@ function usePreferencesUpdateMutation(tableName: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (patch: Partial<UserTablePreferences>) => {
+      // A system-source data-table has no DB table — `tableName` is empty, and
+      // preferences are keyed on a table id, so there is nowhere to write. The
+      // optimistic update in `onMutate` has already applied the change for this
+      // session; skipping the request is what stops a doomed
+      // `PATCH /api/tables//user-preferences` from failing and rolling that
+      // change straight back out. The read at `usePreferencesQuery` has carried
+      // the same guard from the start; the two writes did not.
+      if (!tableName) {
+        const cached = queryClient.getQueryData<UserTablePreferences>(queryKeyFor(tableName))
+        return { ...(cached ?? EMPTY_PREFS), ...patch }
+      }
       const response = await fetch(`/api/tables/${tableName}/user-preferences`, {
         method: 'PATCH',
         credentials: 'include',
@@ -245,6 +256,12 @@ function usePreferencesResetMutation(tableName: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
+      // Same guard as the read and the merge-upsert: no table id, no server-side
+      // preferences row. Without it the reset fired
+      // `DELETE /api/tables//user-preferences`, took the 404, and threw — so the
+      // operator was told their preferences had been reset while nothing had
+      // happened at all.
+      if (!tableName) return EMPTY_PREFS
       const response = await fetch(`/api/tables/${tableName}/user-preferences`, {
         method: 'DELETE',
         credentials: 'include',

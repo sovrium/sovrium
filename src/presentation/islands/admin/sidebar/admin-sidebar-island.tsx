@@ -22,7 +22,7 @@
 
 import { useEffect, useState, type ReactElement } from 'react'
 import { subscribeAdminNavigated } from '../spa-nav/admin-spa-nav'
-import { BrandHeader, BuildVersionFooter, OperatorBar, SearchTrigger } from './admin-sidebar-chrome'
+import { BrandHeader, OperatorBar, SearchTrigger } from './admin-sidebar-chrome'
 import { useBuildVersionOnly, useOperator, useVersion } from './admin-sidebar-data'
 import { DataNavList, DeveloperNavList, OverviewNavLink } from './admin-sidebar-data-tabs'
 
@@ -40,11 +40,6 @@ interface AdminSidebarIslandProps {
    * build version (see {@link useVersion}).
    */
   readonly appVersion?: string
-  /**
-   * Retained for prop compatibility with the shell host (which still seeds the
-   * published config snapshot); inert in the Data-only console.
-   */
-  readonly publishedSnapshot?: Readonly<Record<string, unknown>>
   /** Retained for prop compatibility with the shell host; inert (always nav-only). */
   readonly collapsed?: boolean
 }
@@ -78,8 +73,8 @@ export default function AdminSidebarIsland({
   const path = useActivePath()
   const operator = useOperator()
   // Brand chip = the administered app's OWN config version (`app.version`,
-  // default 1.0.0); the foot = the running Sovrium build version — two distinct
-  // facts, never conflated in one chip.
+  // default 1.0.0); the account menu closes on the running Sovrium build
+  // version — two distinct facts, never conflated in one chip.
   const version = useVersion(appVersion)
   const buildVersion = useBuildVersionOnly()
 
@@ -105,10 +100,10 @@ export default function AdminSidebarIsland({
             destinations. */}
         <DeveloperNavList activePath={path} />
       </div>
-      <div className="flex flex-col gap-2">
-        <OperatorBar operator={operator} />
-        <BuildVersionFooter buildVersion={buildVersion} />
-      </div>
+      <OperatorBar
+        operator={operator}
+        buildVersion={buildVersion}
+      />
     </div>
   )
 }

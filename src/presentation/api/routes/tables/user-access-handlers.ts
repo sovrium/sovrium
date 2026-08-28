@@ -10,6 +10,8 @@ import {
   UserAccessRepository,
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { validateUserAccessInput } from '@/domain/validators/user-access-validators'
 import { runUserAccessProgram } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
@@ -86,6 +88,35 @@ interface ContextLike {
 const respondNotFound = (c: ContextLike) =>
   c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
+/**
+ * Authorize an ADMIN caller for the grant junction.
+ *
+ * `user_access` decides who may see which rows of every scoped table, so
+ * writing to it is privilege assignment and reading it is an enumeration of
+ * the whole tenancy map. Both handlers previously checked only that a session
+ * existed: any authenticated account could mint itself a grant over any record
+ * id it could guess, and list every other tenant's grants.
+ *
+ * These routes are registered BEFORE `.use(enrichUserRole)` (`tables/index.ts`)
+ * so that `validateTable` does not reject the engine-managed junction — which
+ * means `c.get('userRole')` is deliberately absent here. The role is therefore
+ * fetched directly rather than by rewiring the middleware order.
+ *
+ * Denial is **404, not 403** — the S1 anti-enumeration rule this file already
+ * applies to the not-configured case, and the shape `authorizeAdminCaller`
+ * (`presentation/api/routes/auth.ts`) established.
+ *
+ * Returns a Response when the caller is refused, or `undefined` to proceed.
+ */
+const authorizeUserAccessAdmin = async (
+  c: ContextLike,
+  userId: string
+): Promise<Response | undefined> => {
+  const callerRole = await getUserRole(userId)
+  if (!isAdminRole(callerRole)) return respondNotFound(c)
+  return undefined
+}
+
 const respondValidationError = (c: ContextLike, message: string, field?: string) =>
   c.json(
     {
@@ -158,6 +189,11 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
     return respondNotFound(c)
   }
 
+  // Minting a grant is privilege assignment — admins only. Checked BEFORE the
+  // body is parsed so a non-admin learns nothing from validation feedback.
+  const denied = await authorizeUserAccessAdmin(c, session.userId)
+  if (denied) return denied
+
   const parsed = await parseJsonBody(c)
   if (!parsed.success) {
     return respondValidationError(c, 'Invalid JSON body')
@@ -189,10 +225,10 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
     })
   )
 
-  if (result._tag === 'Left') {
-    return respondServerError(c, result.left.cause)
+  if (result._tag === 'Failure') {
+    return respondServerError(c, result.failure.cause)
   }
-  return c.json(toFieldsResponse(result.right), 201)
+  return c.json(toFieldsResponse(result.success), 201)
 }
 
 /**
@@ -211,6 +247,12 @@ export async function handleListUserAccessRecords(c: Context, app: App): Promise
     return respondNotFound(c)
   }
 
+  // Reading the junction enumerates the whole tenancy map — admins only. The
+  // `?user_id=` filter is not a substitute: it is caller-supplied, so a
+  // non-admin could simply point it at somebody else.
+  const denied = await authorizeUserAccessAdmin(c, session.userId)
+  if (denied) return denied
+
   const userIdFilter = c.req.query('user_id')
 
   const result = await runUserAccessProgram(
@@ -220,12 +262,12 @@ export async function handleListUserAccessRecords(c: Context, app: App): Promise
     })
   )
 
-  if (result._tag === 'Left') {
-    return respondServerError(c, result.left.cause)
+  if (result._tag === 'Failure') {
+    return respondServerError(c, result.failure.cause)
   }
   return c.json(
     {
-      records: result.right.map((row) => toFieldsResponse(row)),
+      records: result.success.map((row) => toFieldsResponse(row)),
     },
     200
   )

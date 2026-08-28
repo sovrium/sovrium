@@ -14,6 +14,8 @@ import {
 import { db } from '@/infrastructure/database'
 import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import { systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { TopLevelFormSubmissionRow } from '@/application/ports/repositories/forms/form-submission-repository'
@@ -118,8 +120,41 @@ const buildStatusListFragment = (statuses: readonly string[]) =>
       )
     : sql.raw(`''`)
 
-/** The cap-guarded `INSERT ... SELECT ... WHERE (count) < cap` statement. */
+/**
+ * Columns this raw statement must supply itself on SQLite, and the values a
+ * Drizzle-mapped insert would have generated for them.
+ *
+ * `id` and `submitted_at` are `NOT NULL` on both engines, but only Postgres
+ * backs them with a DB-side default (`gen_random_uuid()` / `now()`). The
+ * sqlite-core mirror declares them as ORM-side `$defaultFn`s, which a raw
+ * `INSERT ... SELECT` bypasses entirely — so omitting them raised
+ * `NOT NULL constraint failed: system_form_submissions.id`. The values
+ * mirror the mirror's own `$defaultFn`s: a UUID, and `submitted_at` as epoch
+ * milliseconds (the column is `integer` with `mode: 'timestamp_ms'`).
+ *
+ * Deliberately NOT fixed by adding defaults to the SQLite DDL: migration
+ * `0000` is released and immutable (see the Drizzle infrastructure doc), and
+ * the ORM-side defaults are correct for every Drizzle-mapped writer. Only
+ * this hand-written statement needs to carry them.
+ */
+const sqliteGeneratedColumns = () => ({
+  columns: sql.raw(', id, submitted_at'),
+  values: sql`, ${crypto.randomUUID()}, ${Date.now()}`,
+})
+
+/**
+ * The cap-guarded `INSERT ... SELECT ... WHERE (count) < cap` statement.
+ *
+ * The ledger is referenced through {@link systemTableRef} rather than the
+ * literal `system.form_submissions`: SQLite has no schemas, so the same table
+ * is the flat `system_form_submissions` there. A hardcoded dotted name made
+ * every capped submission fail on the zero-config default engine.
+ */
 const reserveInsertSql = (input: ReserveInput) => {
+  const ledger = systemTableRef('form_submissions')
+  const generated = isSqliteRuntime()
+    ? sqliteGeneratedColumns()
+    : { columns: sql.raw(''), values: sql.raw('') }
   const statusList = buildStatusListFragment(input.countStatuses)
   // Optional text columns bind as SQL NULL via `sql.raw('NULL')` (avoids
   // passing a JS `null` literal, which the project's lint rules forbid).
@@ -134,12 +169,12 @@ const reserveInsertSql = (input: ReserveInput) => {
   const ua = input.userAgent === undefined ? sql.raw('NULL') : sql`${input.userAgent}`
   const submitter =
     input.submitterUserId === undefined ? sql.raw('NULL') : sql`${input.submitterUserId}`
-  return sql`INSERT INTO system.form_submissions
-          (form_name, form_id, status, data, linked_record_table, linked_record_id, submitter_ip_hash, user_agent, submitter_user_id)
+  return sql`INSERT INTO ${ledger}
+          (form_name, form_id, status, data, linked_record_table, linked_record_id, submitter_ip_hash, user_agent, submitter_user_id${generated.columns})
         SELECT ${input.formName}, ${input.formId}, ${input.status}, ${jsonbLiteral(input.data)},
-               ${linkedTable}, ${linkedId}, ${ipHash}, ${ua}, ${submitter}
+               ${linkedTable}, ${linkedId}, ${ipHash}, ${ua}, ${submitter}${generated.values}
         WHERE (
-          SELECT COUNT(*) FROM system.form_submissions
+          SELECT COUNT(*) FROM ${ledger}
           WHERE form_name = ${input.formName}
             AND status IN (${statusList})
             AND deleted_at IS NULL
@@ -169,9 +204,15 @@ const reserveSlotRaw = async (
   input: ReserveInput
 ): Promise<typeof formSubmissions.$inferSelect | undefined> => {
   if (isSqliteRuntime()) {
-    const rows = (await db.execute(reserveInsertSql(input))) as unknown as ReadonlyArray<
-      typeof formSubmissions.$inferSelect
-    >
+    // `drizzle-orm/sqlite-core` exposes run/all/get/values and has NO
+    // `.execute()`; calling it here threw a TypeError that the forms route
+    // reported as a 422 validation rejection. `executeRawTyped` is the
+    // dialect-aware seam that picks `.all()` on this engine — and `.all()`
+    // returns the RETURNING row for SQLite >= 3.35, which Bun ships.
+    const rows = await executeRawTyped<typeof formSubmissions.$inferSelect>(
+      db,
+      reserveInsertSql(input)
+    )
     return rows[0]
   }
   return db.transaction(async (tx) => {

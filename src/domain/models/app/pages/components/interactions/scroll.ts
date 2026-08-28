@@ -21,7 +21,7 @@ import { DurationSchema } from './hover'
  * - slideInUp: Slide up into position
  * - slideInDown: Slide down into position
  */
-export const ScrollAnimationSchema = Schema.Literal(
+export const ScrollAnimationSchema = Schema.Literals([
   'fadeIn',
   'fadeInUp',
   'fadeInDown',
@@ -29,8 +29,8 @@ export const ScrollAnimationSchema = Schema.Literal(
   'fadeInRight',
   'zoomIn',
   'slideInUp',
-  'slideInDown'
-).annotations({
+  'slideInDown',
+]).annotate({
   description: 'Animation type triggered on scroll',
 })
 
@@ -67,23 +67,23 @@ export const ScrollAnimationSchema = Schema.Literal(
 export const ScrollInteractionSchema = Schema.Struct({
   animation: ScrollAnimationSchema,
   threshold: Schema.optional(
-    Schema.Number.pipe(Schema.between(0, 1)).annotations({
+    Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 }))).annotate({
       description: 'Percentage of element visible before triggering (0-1)',
     })
   ),
   delay: Schema.optional(
-    DurationSchema.annotations({
+    DurationSchema.annotate({
       description: 'Delay before animation starts',
       examples: ['0ms', '100ms', '0.5s'],
     })
   ),
   duration: Schema.optional(DurationSchema),
   once: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Trigger animation only once',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Scroll Interaction',
   description: 'Animations triggered when component enters viewport',
 })

@@ -49,8 +49,8 @@ export const SubmitToSchema = Schema.Struct({
   /** Persist submission as a record in this table. References `tables[].name`. */
   table: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Name of the table to persist the submission record in',
       })
     )
@@ -59,9 +59,8 @@ export const SubmitToSchema = Schema.Struct({
   /** Trigger this automation on submit. References `automations[].name`. */
   automation: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^[a-z][a-z0-9-]*$/),
-      Schema.maxLength(100),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100)),
+      Schema.annotate({
         description: 'Name of the automation to invoke on submission',
       })
     )
@@ -72,7 +71,7 @@ export const SubmitToSchema = Schema.Struct({
    * column name). Use when form field names diverge from table column names.
    */
   mapping: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
+    Schema.Record(Schema.String, Schema.String).annotate({
       description: 'Map form field names to destination column names',
     })
   ),
@@ -82,17 +81,19 @@ export const SubmitToSchema = Schema.Struct({
    * Forms Responses admin view. Default `true` — opt out with `false`.
    */
   storeSubmission: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Persist submission in the built-in form_submissions ledger. Default true.',
     })
   ),
 }).pipe(
-  Schema.filter((s) =>
-    s.table !== undefined || s.automation !== undefined || s.storeSubmission !== false
-      ? true
-      : 'submitTo must specify at least one of: table, automation, storeSubmission: true'
+  Schema.check(
+    Schema.makeFilter((s) =>
+      s.table !== undefined || s.automation !== undefined || s.storeSubmission !== false
+        ? true
+        : 'submitTo must specify at least one of: table, automation, storeSubmission: true'
+    )
   ),
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'SubmitTo',
     title: 'Submit-To Destination',
     description:

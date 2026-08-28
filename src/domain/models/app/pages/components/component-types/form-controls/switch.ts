@@ -17,6 +17,6 @@ export const switchFields = {
   ...visibilityFields,
   ...i18nFields,
   checked: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Default checked state for checkbox or switch' })
+    Schema.Boolean.annotate({ description: 'Default checked state for checkbox or switch' })
   ),
 } as const

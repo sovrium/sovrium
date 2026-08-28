@@ -62,7 +62,7 @@ export class UsersOverviewDatabaseError extends Data.TaggedError('UsersOverviewD
  * bucketing, role classification/serialization, audit emit) lives in the use
  * case.
  */
-export class UsersOverviewRepository extends Context.Tag('UsersOverviewRepository')<
+export class UsersOverviewRepository extends Context.Service<
   UsersOverviewRepository,
   {
     /**
@@ -70,10 +70,7 @@ export class UsersOverviewRepository extends Context.Tag('UsersOverviewRepositor
      * small and a full scan feeds both `totals.users`, `by_role`, and the
      * in-period signup bucketing in a single read).
      */
-    readonly listUserRows: () => Effect.Effect<
-      readonly UserOverviewRow[],
-      UsersOverviewDatabaseError
-    >
+    readonly listUserRows: Effect.Effect<readonly UserOverviewRow[], UsersOverviewDatabaseError>
 
     /**
      * Count distinct `user_id`s with an `auth.session` row created on/after
@@ -91,4 +88,4 @@ export class UsersOverviewRepository extends Context.Tag('UsersOverviewRepositor
       since: Date
     ) => Effect.Effect<readonly SessionOverviewRow[], UsersOverviewDatabaseError>
   }
->() {}
+>()('UsersOverviewRepository') {}

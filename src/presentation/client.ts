@@ -28,6 +28,7 @@ import { executeFetchAction } from '@/presentation/islands/shared/action-executo
 import {
   openFetchConfirmObjectGate,
   parseConfirmObjectConfig,
+  resolveGateLabels,
 } from '@/presentation/islands/shared/confirm-gate-runtime'
 import {
   fetchSessionUser,
@@ -360,13 +361,18 @@ function createGateButton(opts: {
  * whose confirm affordance re-uses the button's label; confirming dispatches,
  * cancelling dismisses the gate WITHOUT firing the action. The trigger button
  * stays in the DOM so the gate can be re-opened after a cancel.
+ *
+ * The two affordance labels arrive together in `labels` because they are one
+ * decision — the gate's language — and passing them as separate positional
+ * arguments is how a caller ends up supplying one and defaulting the other.
  */
 function openFetchConfirmGate(
   trigger: HTMLButtonElement,
   message: string,
-  confirmLabel: string,
+  labels: { readonly confirm: string; readonly cancel: string },
   onConfirm: () => void
 ): void {
+  const { confirm: confirmLabel, cancel: cancelLabel } = labels
   // Guard against stacking a second gate when the trigger is clicked twice.
   if (trigger.nextElementSibling?.hasAttribute('data-confirm-dialog')) return
 
@@ -394,10 +400,13 @@ function openFetchConfirmGate(
       },
     })
   )
+  // The visible text and the accessible name are set from the SAME resolved
+  // string. They used to be two separate literals, which is two places for the
+  // language to drift independently.
   dialog.appendChild(
     createGateButton({
-      label: 'Annuler',
-      ariaLabel: 'Annuler',
+      label: cancelLabel,
+      ariaLabel: cancelLabel,
       className:
         'border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-2 py-1 text-xs transition-colors',
       onClick: () => dialog.remove(),
@@ -435,9 +444,15 @@ function setupFetchButtonHandlers(): void {
     }
     const confirmMessage = button.getAttribute('data-confirm')
     if (confirmMessage) {
-      const confirmLabel =
-        button.getAttribute('data-confirm-label') ?? button.textContent?.trim() ?? 'Confirmer'
-      openFetchConfirmGate(button, confirmMessage, confirmLabel, () => void dispatch())
+      // Same precedence chain as the OBJECT gate, resolved by the SAME function —
+      // this gate's only difference is that its highest-priority override is the
+      // renderer's `data-confirm-label` attribute rather than a config field. The
+      // chain must not fork: a fork is how the two ends came to disagree and put
+      // an "Annuler" beside an author's English affirm label.
+      const labels = resolveGateLabels(button, {
+        confirmLabel: button.getAttribute('data-confirm-label'),
+      })
+      openFetchConfirmGate(button, confirmMessage, labels, () => void dispatch())
       return
     }
 

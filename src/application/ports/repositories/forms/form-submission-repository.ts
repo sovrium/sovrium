@@ -45,7 +45,7 @@ export interface TopLevelFormSubmissionRow {
  * non-deleted submissions from `ipAddress` within the last
  * `windowSeconds`. Spec contract: 10 per IP per minute.
  */
-export class FormSubmissionRepository extends Context.Tag('FormSubmissionRepository')<
+export class FormSubmissionRepository extends Context.Service<
   FormSubmissionRepository,
   {
     readonly create: (input: {
@@ -127,4 +127,4 @@ export class FormSubmissionRepository extends Context.Tag('FormSubmissionReposit
       readonly statusReason?: string | null
     }) => Effect.Effect<void, FormSubmissionDatabaseError>
   }
->() {}
+>()('FormSubmissionRepository') {}

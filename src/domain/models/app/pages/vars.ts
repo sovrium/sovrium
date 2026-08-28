@@ -23,11 +23,11 @@ import { Schema } from 'effect'
  *   primaryColor: blue
  * ```
  */
-export const PageVarsSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-}).pipe(
-  Schema.annotations({
+export const PageVarsSchema = Schema.Record(
+  Schema.String,
+  Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+).pipe(
+  Schema.annotate({
     identifier: 'PageVars',
     title: 'Page Variables',
     description:

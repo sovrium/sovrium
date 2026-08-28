@@ -17,7 +17,6 @@ import {
 } from '@/application/ports/repositories/tables/user-entity-list-repository'
 import { UserEntityListRepositoryLive } from '@/infrastructure/database/repositories/tables/user-entity-list-repository-live'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
-import type { Context } from 'effect'
 
 /**
  * Use cases for the per-user entity-list APIs (`/api/favorites`, `/api/recent`).
@@ -64,7 +63,7 @@ const toIso = (value: Readonly<Date> | string): string =>
  * the fan-out fast, matching the original `Promise.all` behavior.
  */
 const filterLiveEntities = <T extends EntityRef>(
-  repo: Context.Tag.Service<UserEntityListRepository>,
+  repo: UserEntityListRepository['Service'],
   rows: readonly T[]
 ): Effect.Effect<readonly T[], never> =>
   Effect.gen(function* () {

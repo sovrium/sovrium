@@ -24,8 +24,8 @@ export const AutomationCallActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Name of the automation to invoke (must exist in app.automations[]) */
     name: Schema.String.pipe(
-      Schema.pattern(/^[a-z][a-z0-9-]*$/),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+      Schema.annotate({
         description:
           'Name of the automation to call (kebab-case, must reference an existing automation)',
       })
@@ -33,8 +33,8 @@ export const AutomationCallActionSchema = Schema.Struct({
 
     /** Input data passed to the called automation */
     inputData: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-        Schema.annotations({
+      Schema.Record(Schema.String, Schema.Unknown).pipe(
+        Schema.annotate({
           description:
             'Key-value pairs passed as input to the called automation (supports template variables)',
         })
@@ -47,8 +47,8 @@ export const AutomationCallActionSchema = Schema.Struct({
      * `async` fires the child and immediately continues to the next action.
      */
     mode: Schema.optional(
-      Schema.Literal('sync', 'async').pipe(
-        Schema.annotations({
+      Schema.Literals(['sync', 'async']).pipe(
+        Schema.annotate({
           description:
             'Execution mode — sync (default, waits for result) or async (fire-and-forget)',
         })
@@ -60,10 +60,9 @@ export const AutomationCallActionSchema = Schema.Struct({
      * error (default: 10). Guards against infinite A→B→A chains.
      */
     maxDepth: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 100),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 100 })),
+        Schema.annotate({
           description:
             'Maximum call depth before failing with a recursion error (1-100, default 10)',
         })
@@ -73,7 +72,7 @@ export const AutomationCallActionSchema = Schema.Struct({
     /** Whether to wait for the called automation to complete */
     waitForCompletion: Schema.optional(
       Schema.Boolean.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Wait for the called automation to complete (default: true). If false, fire-and-forget.',
         })
@@ -82,17 +81,16 @@ export const AutomationCallActionSchema = Schema.Struct({
 
     /** Timeout for the called automation in milliseconds */
     timeout: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1000, 900_000),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 })),
+        Schema.annotate({
           description: 'Timeout in ms for the called automation (1000-900000)',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AutomationCallAction',
     title: 'Automation Call Action',
     description: 'Invoke another automation as a step. Enables composable workflow architectures.',

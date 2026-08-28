@@ -120,7 +120,7 @@ export interface ListRunsResult {
   readonly total: number
 }
 
-export class AutomationRunRepository extends Context.Tag('AutomationRunRepository')<
+export class AutomationRunRepository extends Context.Service<
   AutomationRunRepository,
   {
     readonly findById: (
@@ -166,4 +166,4 @@ export class AutomationRunRepository extends Context.Tag('AutomationRunRepositor
       readonly steps?: readonly CreateStepInput[]
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
   }
->() {}
+>()('AutomationRunRepository') {}

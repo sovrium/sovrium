@@ -19,7 +19,7 @@ const errorResponse = (description: string) => jsonResponse(errorResponseSchema,
 
 /** Authenticated-user account data and erasure (GDPR) route group. */
 export const accountGroup: StaticGroupSpec = {
-  tag: 'account',
+  tag: 'Account',
   tagDescription: 'Authenticated-user account data and erasure (GDPR) endpoints',
   routes: [
     {

@@ -10,14 +10,12 @@ import { BaseFieldSchema } from '../base-field'
 import { createStatusOptionsSchema } from '../validation-utils'
 
 export const StatusFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('status'),
-      options: createStatusOptionsSchema(),
-      default: Schema.optional(Schema.String),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('status'),
+    options: createStatusOptionsSchema(),
+    default: Schema.optional(Schema.String),
+  }),
+  Schema.annotate({
     title: 'Status Field',
     description: 'Status field with colored options for workflow states.',
     examples: [

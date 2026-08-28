@@ -6,10 +6,13 @@
  */
 
 import { Effect } from 'effect'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -59,10 +62,11 @@ export interface TriggerAuthEventInput {
  */
 const findMatchingAuthAutomations = (
   app: App,
-  event: AuthTriggerEvent
+  event: AuthTriggerEvent,
+  pausedNames: ReadonlySet<string>
 ): readonly NonNullable<App['automations']>[number][] =>
   (app.automations ?? []).filter((automation) => {
-    if (automation.enabled === false) return false
+    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
     const { trigger } = automation
     if (trigger.type !== 'auth') return false
     if (!trigger.events.includes(event)) return false
@@ -86,10 +90,12 @@ const findMatchingAuthAutomations = (
  */
 export const triggerAuthEventAutomations = (
   input: TriggerAuthEventInput
-): Effect.Effect<void, never, ExecuteAutomationRunRequirements> =>
+): Effect.Effect<void, never, ExecuteAutomationRunRequirements | AutomationPauseRepository> =>
   Effect.gen(function* () {
     const { app, event, user, processEnv, userId } = input
-    const matching = findMatchingAuthAutomations(app, event)
+    // Entry point: one read of the operational pauses per auth event.
+    const pausedNames = yield* loadPausedAutomationNames
+    const matching = findMatchingAuthAutomations(app, event, pausedNames)
     if (matching.length === 0) return
 
     yield* Effect.forEach(
@@ -105,7 +111,7 @@ export const triggerAuthEventAutomations = (
       { concurrency: 1, discard: true }
     )
   }).pipe(
-    Effect.catchAllCause((cause) =>
+    Effect.catchCause((cause) =>
       Effect.sync(() => {
         logError('[automation:auth-event] dispatch failure', cause)
       })

@@ -117,7 +117,7 @@ export const ViewSchema = Schema.Struct({
    */
   permissions: Schema.optional(ViewPermissionsSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'View',
     description:
       'A database view configuration for a table. Supports both SQL query mode (PostgreSQL VIEW) and JSON config mode (declarative filters, sorts, grouping).',
@@ -159,7 +159,7 @@ export type View = Schema.Schema.Type<typeof ViewSchema>
  * Array of views for a table.
  */
 export const ViewsSchema = Schema.Array(ViewSchema).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Views',
     description: 'Collection of saved views for a table.',
   })

@@ -21,14 +21,14 @@ import { TemplateStringSchema } from '../template'
  */
 const WebhookAuthSchema = Schema.Struct({
   /** Authentication type */
-  type: Schema.Literal('bearer', 'apiKey', 'hmac', 'basic').pipe(
-    Schema.annotations({ description: 'Authentication mechanism for incoming webhooks' })
+  type: Schema.Literals(['bearer', 'apiKey', 'hmac', 'basic']).pipe(
+    Schema.annotate({ description: 'Authentication mechanism for incoming webhooks' })
   ),
 
   /** Token or secret value (supports template references like $env.SECRET) */
   token: Schema.optional(
     TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Bearer token or API key value (e.g., $env.WEBHOOK_TOKEN)',
       })
     )
@@ -37,49 +37,45 @@ const WebhookAuthSchema = Schema.Struct({
   /** API key value (alternative to token for apiKey auth) */
   key: Schema.optional(
     TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'API key value (e.g., $env.API_KEY)' })
+      Schema.annotate({ description: 'API key value (e.g., $env.API_KEY)' })
     )
   ),
 
   /** Secret for HMAC signature verification */
   secret: Schema.optional(
     TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Secret for HMAC signature verification' })
+      Schema.annotate({ description: 'Secret for HMAC signature verification' })
     )
   ),
 
   /** HMAC algorithm (default: sha256) */
   algorithm: Schema.optional(
-    Schema.String.pipe(Schema.annotations({ description: 'HMAC algorithm (e.g., sha256, sha512)' }))
+    Schema.String.pipe(Schema.annotate({ description: 'HMAC algorithm (e.g., sha256, sha512)' }))
   ),
 
   /** Header name for API key authentication */
   header: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({ description: 'Header name for API key (default: X-API-Key)' })
+      Schema.annotate({ description: 'Header name for API key (default: X-API-Key)' })
     )
   ),
 
   /** Username for basic auth */
   username: Schema.optional(
-    TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Username for basic authentication' })
-    )
+    TemplateStringSchema.pipe(Schema.annotate({ description: 'Username for basic authentication' }))
   ),
 
   /** Password for basic auth */
   password: Schema.optional(
-    TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Password for basic authentication' })
-    )
+    TemplateStringSchema.pipe(Schema.annotate({ description: 'Password for basic authentication' }))
   ),
 
   /** Bearer token prefix (e.g., 'Bot' for 'Bot <token>') */
   prefix: Schema.optional(
-    Schema.String.pipe(Schema.annotations({ description: 'Bearer token prefix (default: Bearer)' }))
+    Schema.String.pipe(Schema.annotate({ description: 'Bearer token prefix (default: Bearer)' }))
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     // Distinct from the OUTGOING webhook auth union's `WebhookAuth` identifier
     // (`src/domain/models/app/tables/webhooks/auth.ts`). A shared identifier
     // collapses both into one JSON Schema `$def`, erasing this one from the
@@ -97,40 +93,35 @@ const WebhookAuthSchema = Schema.Struct({
 const WebhookResponseSchema = Schema.Struct({
   /** HTTP status code to return */
   statusCode: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.between(100, 599),
-      Schema.annotations({ description: 'HTTP status code to return' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 })),
+      Schema.annotate({ description: 'HTTP status code to return' })
     )
   ),
 
   /** HTTP status code (alias for statusCode) */
   status: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.between(100, 599),
-      Schema.annotations({ description: 'HTTP status code to return (alias for statusCode)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 })),
+      Schema.annotate({ description: 'HTTP status code to return (alias for statusCode)' })
     )
   ),
 
   /** Response body (string, template, or object) */
   body: Schema.optional(
-    Schema.Union(
-      TemplateStringSchema,
-      Schema.Record({ key: Schema.String, value: Schema.Unknown })
-    ).pipe(
-      Schema.annotations({ description: 'Response body content (string template or JSON object)' })
+    Schema.Union([TemplateStringSchema, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
+      Schema.annotate({ description: 'Response body content (string template or JSON object)' })
     )
   ),
 
   /** Additional response headers */
   headers: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
-      Schema.annotations({ description: 'Additional response headers' })
+    Schema.Record(Schema.String, Schema.String).pipe(
+      Schema.annotate({ description: 'Additional response headers' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'WebhookResponse',
     title: 'Webhook Response',
     description: 'Custom response configuration for webhook endpoints',
@@ -143,32 +134,29 @@ const WebhookResponseSchema = Schema.Struct({
 const WebhookRateLimitSchema = Schema.Struct({
   /** Maximum number of requests in the window */
   maxRequests: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({ description: 'Maximum requests per window' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Maximum requests per window' })
     )
   ),
 
   /** Time window in seconds */
   windowSeconds: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({ description: 'Rate limit window in seconds' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Rate limit window in seconds' })
     )
   ),
 
   /** Time window in seconds (alias for windowSeconds) */
   window: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({ description: 'Rate limit window in seconds (alias)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Rate limit window in seconds (alias)' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'WebhookRateLimit',
     title: 'Webhook Rate Limit',
     description: 'Rate limiting configuration for webhook endpoints',
@@ -177,25 +165,27 @@ const WebhookRateLimitSchema = Schema.Struct({
 
 export const WebhookTriggerSchema = Schema.Struct({
   type: Schema.Literal('webhook'),
-  method: Schema.Union(
-    Schema.Literal('GET', 'POST', 'PUT', 'PATCH', 'DELETE'),
-    Schema.Array(Schema.Literal('GET', 'POST', 'PUT', 'PATCH', 'DELETE')).pipe(Schema.minItems(1))
-  ).pipe(
-    Schema.annotations({
+  method: Schema.Union([
+    Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
+    Schema.Array(Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])).pipe(
+      Schema.check(Schema.isMinLength(1))
+    ),
+  ]).pipe(
+    Schema.annotate({
       description: 'HTTP method(s) to accept (single or array). Required for webhook triggers.',
     })
   ),
 
   secret: Schema.optional(
     TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Secret for HMAC signature verification (e.g., $env.WEBHOOK_SECRET)',
       })
     )
   ),
   respondImmediately: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Respond with 202 immediately or wait for completion (default: true)',
       })
     )
@@ -209,15 +199,15 @@ export const WebhookTriggerSchema = Schema.Struct({
 
   /** JSON Schema for request body validation */
   requestSchema: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({ description: 'JSON Schema for validating the request body' })
+    Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({ description: 'JSON Schema for validating the request body' })
     )
   ),
 
   /** JSON Schema for query parameter validation */
   querySchema: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({ description: 'JSON Schema for validating query parameters' })
+    Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({ description: 'JSON Schema for validating query parameters' })
     )
   ),
 
@@ -233,7 +223,7 @@ export const WebhookTriggerSchema = Schema.Struct({
    */
   deduplicationKey: Schema.optional(
     TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Template expression to compute a dedup key (e.g. "{{body.orderId}}")',
       })
     )
@@ -245,14 +235,13 @@ export const WebhookTriggerSchema = Schema.Struct({
    * is set but no explicit window is provided. [internal ref].
    */
   deduplicationWindow: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({ description: 'Dedup window in seconds (default: 300)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Dedup window in seconds (default: 300)' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'WebhookTrigger',
     title: 'Webhook Trigger',
     description: 'Trigger automation via incoming HTTP webhook',

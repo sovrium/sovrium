@@ -14,13 +14,13 @@ import { commonFieldProps } from '../../../shared/form-field-props'
  */
 export const CalculationFieldSchema = Schema.Struct({
   kind: Schema.Literal('calculation'),
-  name: Schema.String.pipe(Schema.pattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/)),
+  name: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/))),
   /** Formula expression — references other fields via {{name}} syntax. */
-  formula: Schema.String.pipe(Schema.minLength(1)),
+  formula: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
   /** Output format hint for the renderer. */
-  format: Schema.optional(Schema.Literal('number', 'currency', 'percent', 'text')),
+  format: Schema.optional(Schema.Literals(['number', 'currency', 'percent', 'text'])),
   ...commonFieldProps,
-}).annotations({
+}).annotate({
   identifier: 'CalculationField',
   title: 'Calculation Field',
   description: 'Read-only computed field derived from other fields via a formula',

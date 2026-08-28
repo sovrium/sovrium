@@ -9,11 +9,11 @@ import { Schema } from 'effect'
 import { WebhookResponseActionSchema } from './response'
 import { WebhookSendActionSchema } from './send'
 
-export const WebhookActionSchema = Schema.Union(
+export const WebhookActionSchema = Schema.Union([
   WebhookSendActionSchema,
-  WebhookResponseActionSchema
-).pipe(
-  Schema.annotations({
+  WebhookResponseActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'WebhookAction',
     title: 'Webhook Action',
     description: 'Outgoing webhook send or synchronous response construction',

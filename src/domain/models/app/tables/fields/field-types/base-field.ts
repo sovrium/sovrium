@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Schema, Struct } from 'effect'
 import { FieldNameSchema } from '@/domain/models/app/tables/fields/field-name'
 import { FieldIdSchema } from '@/domain/types/branded-ids'
 
@@ -13,8 +13,9 @@ import { FieldIdSchema } from '@/domain/types/branded-ids'
  * The field's own property set, before annotation.
  *
  * Kept as a bare `Schema.Struct` (rather than inlining it into
- * `BaseFieldSchema`) for exactly one reason: `Schema.Struct.omit` is a method on
- * the struct, and `button` needs a `label`-less base (see
+ * `BaseFieldSchema`) for exactly one reason: field projection
+ * (`mapFields(Struct.omit([...]))`) is a method on the struct, and `button`
+ * needs a `label`-less base (see
  * `BaseFieldWithoutLabelSchema` below). Everything else should extend
  * `BaseFieldSchema`.
  */
@@ -49,8 +50,8 @@ const baseFieldStruct = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.nonEmptyString({ message: () => 'label must not be empty' }),
-      Schema.annotations({
+      Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' })),
+      Schema.annotate({
         title: 'Field Label',
         description:
           'External display name shown to end users, in place of the internal `name`. Resolution order on every surface: surface-level override, then this label, then the raw `name` verbatim.',
@@ -77,8 +78,8 @@ const baseFieldStruct = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.nonEmptyString({ message: () => 'description must not be empty' }),
-      Schema.annotations({
+      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' })),
+      Schema.annotate({
         title: 'Field Description',
         description:
           'Author-written guidance rendered beside the field (under the control on a form, beside the value in a drawer) and associated with the control via aria-describedby. Unlike a placeholder it persists once the user starts typing.',
@@ -104,17 +105,15 @@ const baseFieldStruct = Schema.Struct({
  * @example
  * ```typescript
  * export const CustomFieldSchema = BaseFieldSchema.pipe(
- *   Schema.extend(
- *     Schema.Struct({
- *       type: Schema.Literal('custom'),
- *       customProperty: Schema.String
- *     })
- *   )
+ *   Schema.fieldsAssign({
+ *     type: Schema.Literal('custom'),
+ *     customProperty: Schema.String
+ *   })
  * )
  * ```
  */
 export const BaseFieldSchema = baseFieldStruct.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Base Field',
     description: 'Base field properties: id, name, label, description, required, unique, indexed',
   })
@@ -140,8 +139,8 @@ export const BaseFieldSchema = baseFieldStruct.pipe(
  * back to the raw `name`. `description` does NOT collide and `button` gets it
  * like every other type.
  */
-export const BaseFieldWithoutLabelSchema = baseFieldStruct.omit('label').pipe(
-  Schema.annotations({
+export const BaseFieldWithoutLabelSchema = baseFieldStruct.mapFields(Struct.omit(['label'])).pipe(
+  Schema.annotate({
     title: 'Base Field (without label)',
     description:
       'Base field properties minus `label`, for the button field type which spends that key on its own required button text',

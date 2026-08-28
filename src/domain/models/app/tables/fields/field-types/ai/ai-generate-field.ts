@@ -38,93 +38,92 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const AiGenerateFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('ai-generate').pipe(
-        Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('ai-generate').pipe(
+      Schema.annotate({
+        description: "Constant value 'ai-generate' for type discrimination in discriminated unions",
+      })
+    ),
+    sourceFields: Schema.Array(Schema.String).pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
+        description: 'Field names used as input context for AI generation',
+      })
+    ),
+    prompt: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
           description:
-            "Constant value 'ai-generate' for type discrimination in discriminated unions",
+            'Prompt template with {{fieldName}} variable substitution. Required for generate fields.',
+          examples: [
+            'Write a compelling 2-paragraph marketing description for {{product_name}}. Key features: {{features}}.',
+          ],
         })
-      ),
-      sourceFields: Schema.Array(Schema.String).pipe(
-        Schema.minItems(1),
-        Schema.annotations({
-          description: 'Field names used as input context for AI generation',
-        })
-      ),
-      prompt: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description:
-              'Prompt template with {{fieldName}} variable substitution. Required for generate fields.',
-            examples: [
-              'Write a compelling 2-paragraph marketing description for {{product_name}}. Key features: {{features}}.',
-            ],
-          })
-        )
-      ),
-      systemPrompt: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'System prompt for setting AI persona and context',
-          })
-        )
-      ),
-      model: Schema.optional(
-        Schema.String.pipe(
-          Schema.minLength(1, {
-            message: () => 'AI field model override must be a non-empty string',
-          }),
-          Schema.annotations({
-            description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
-          })
-        )
-      ),
-      temperature: Schema.optional(
-        Schema.Number.pipe(
-          Schema.greaterThanOrEqualTo(0),
-          Schema.lessThanOrEqualTo(1),
-          Schema.annotations({
-            description: 'Temperature override (0 to 1) for controlling creativity',
-          })
-        )
-      ),
-      maxTokens: Schema.optional(
-        Schema.Number.pipe(
-          Schema.int(),
-          Schema.positive(),
-          Schema.annotations({
-            description: 'Maximum tokens for generated output. Defaults to no limit when omitted.',
-          })
-        )
-      ),
-      computeOn: Schema.optional(
-        Schema.Literal('create', 'update', 'both', 'manual').pipe(
-          Schema.annotations({
-            description:
-              'When to compute the AI field: on record creation, update, both, or manual only. Defaults to schema-level behavior when omitted.',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.filter(
-    (field) => {
-      if (field.prompt === undefined || field.prompt.trim() === '') {
-        return 'prompt is required for ai-generate fields'
-      }
-      const placeholders = [...field.prompt.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map(
-        (m) => m[1]
       )
-      const sourceSet = new Set<string>(field.sourceFields)
-      const missing = placeholders.find((name) => name !== undefined && !sourceSet.has(name))
-      return missing === undefined
-        ? true
-        : `ai-generate prompt references {{${missing}}} which is not found in sourceFields`
-    },
-    { identifier: 'AiGeneratePromptRequiredAndPlaceholdersInSourceFields' }
+    ),
+    systemPrompt: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'System prompt for setting AI persona and context',
+        })
+      )
+    ),
+    model: Schema.optional(
+      Schema.String.pipe(
+        Schema.check(
+          Schema.isMinLength(1, {
+            message: 'AI field model override must be a non-empty string',
+          })
+        ),
+        Schema.annotate({
+          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
+        })
+      )
+    ),
+    temperature: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+        Schema.annotate({
+          description: 'Temperature override (0 to 1) for controlling creativity',
+        })
+      )
+    ),
+    maxTokens: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+        Schema.annotate({
+          description: 'Maximum tokens for generated output. Defaults to no limit when omitted.',
+        })
+      )
+    ),
+    computeOn: Schema.optional(
+      Schema.Literals(['create', 'update', 'both', 'manual']).pipe(
+        Schema.annotate({
+          description:
+            'When to compute the AI field: on record creation, update, both, or manual only. Defaults to schema-level behavior when omitted.',
+        })
+      )
+    ),
+  }),
+  Schema.check(
+    Schema.makeFilter(
+      (field) => {
+        if (field.prompt === undefined || field.prompt.trim() === '') {
+          return 'prompt is required for ai-generate fields'
+        }
+        const placeholders = [...field.prompt.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map(
+          (m) => m[1]
+        )
+        const sourceSet = new Set<string>(field.sourceFields)
+        const missing = placeholders.find((name) => name !== undefined && !sourceSet.has(name))
+        return missing === undefined
+          ? true
+          : `ai-generate prompt references {{${missing}}} which is not found in sourceFields`
+      },
+      { identifier: 'AiGeneratePromptRequiredAndPlaceholdersInSourceFields' }
+    )
   ),
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AiGenerateField',
     title: 'AI Generate Field',
     description:

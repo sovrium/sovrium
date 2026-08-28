@@ -25,21 +25,19 @@ import { ActionSchema } from '../../../action'
  */
 export const DataTableBulkActionSchema = Schema.Struct({
   /** Button label */
-  label: Schema.String.annotations({ description: 'Bulk action button label' }),
+  label: Schema.String.annotate({ description: 'Bulk action button label' }),
   /** Optional icon name */
-  icon: Schema.optional(
-    Schema.String.annotations({ description: 'Icon name (e.g., truck, trash)' })
-  ),
+  icon: Schema.optional(Schema.String.annotate({ description: 'Icon name (e.g., truck, trash)' })),
   /** Action to execute on selected rows */
   action: ActionSchema,
   /** Confirmation prompt. Supports {count} placeholder. */
   confirm: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Confirmation dialog. Supports {count} for number of selected rows.',
       examples: ['Delete {count} orders?', 'Mark {count} items as shipped?'],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Bulk Action',
   description: 'Action that operates on multiple selected rows',
 })

@@ -25,7 +25,7 @@ import { createDatabaseIdentifierSchema } from '@/domain/validators/database-ide
  * ```
  */
 export const FieldNameSchema = createDatabaseIdentifierSchema('field').pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Field Name',
     description:
       'Internal identifier name for database columns following PostgreSQL naming conventions. Must start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters.',

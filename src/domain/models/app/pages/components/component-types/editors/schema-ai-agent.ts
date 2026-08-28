@@ -35,39 +35,39 @@ export const schemaAiAgentFields = {
   ...visibilityFields,
   ...i18nFields,
   agent: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Agent name from app.agents[] that drives the config authoring conversation',
     })
   ),
   submitToTable: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Table slug the agent-proposed config is submitted to (e.g. "config_submissions")',
     })
   ),
   configField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Column on the submit table that stores the agent-authored config',
     })
   ),
   formatField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Column on the submit table that stores the editor format discriminant ("agent")',
     })
   ),
   placeholder: Schema.optional(
-    Schema.String.annotations({ description: 'Placeholder text for the agent chat input' })
+    Schema.String.annotate({ description: 'Placeholder text for the agent chat input' })
   ),
   initialValue: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Initial config the agent reasons from (e.g. "$record.config")',
     })
   ),
   chatHeight: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Agent conversation container height in pixels' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Agent conversation container height in pixels' })
     )
   ),
   /**

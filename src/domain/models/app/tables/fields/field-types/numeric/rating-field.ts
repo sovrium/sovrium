@@ -27,35 +27,32 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const RatingFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('rating'),
-      max: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.lessThanOrEqualTo(10),
-          Schema.annotations({
-            description: 'Maximum rating value',
-          })
-        )
-      ),
-      style: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Visual style for the rating',
-          })
-        )
-      ),
-      default: Schema.optional(
-        Schema.Int.pipe(
-          Schema.annotations({
-            description: 'Default rating value when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('rating'),
+    max: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(10)),
+        Schema.annotate({
+          description: 'Maximum rating value',
+        })
+      )
+    ),
+    style: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Visual style for the rating',
+        })
+      )
+    ),
+    default: Schema.optional(
+      Schema.Int.pipe(
+        Schema.annotate({
+          description: 'Default rating value when creating new records',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Rating Field',
     description:
       'Allows rating values with configurable maximum. Typically rendered as stars or other indicators.',

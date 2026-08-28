@@ -23,23 +23,23 @@ export const DataCompareActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the baseline (left) dataset */
     left: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the baseline (left) dataset' })
+      Schema.annotate({ description: 'Template reference to the baseline (left) dataset' })
     ),
 
     /** Template reference to the current (right) dataset */
     right: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the current (right) dataset' })
+      Schema.annotate({ description: 'Template reference to the current (right) dataset' })
     ),
 
     /** Unique identifier field for matching items across the two datasets */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Unique identifier field for matching items across the two datasets',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataCompareAction',
     title: 'Data Compare Action',
     description: 'Diff two arrays by a shared key, returning added/removed/unchanged buckets',

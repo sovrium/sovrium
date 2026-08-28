@@ -27,42 +27,44 @@ export const WebhookPayloadSchema = Schema.Struct({
   /** Only include these fields in the payload (mutually exclusive with excludeFields). */
   includeFields: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.annotations({ description: 'Fields to include in payload (whitelist)' })
+      Schema.annotate({ description: 'Fields to include in payload (whitelist)' })
     )
   ),
 
   /** Exclude these fields from the payload (mutually exclusive with includeFields). */
   excludeFields: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.annotations({ description: 'Fields to exclude from payload (blacklist)' })
+      Schema.annotate({ description: 'Fields to exclude from payload (blacklist)' })
     )
   ),
 
   /** Include previous field values on update events (default: false). */
   includePreviousValues: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Include previous values on update events' })
+      Schema.annotate({ description: 'Include previous values on update events' })
     )
   ),
 
   /** Include createdAt/updatedAt metadata in record data (default: false). */
   includeMetadata: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Include timestamp metadata in record data' })
+      Schema.annotate({ description: 'Include timestamp metadata in record data' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'WebhookPayload',
     title: 'Webhook Payload Configuration',
     description: 'Controls field selection and metadata in webhook payloads.',
   }),
-  Schema.filter((payload) => {
-    if (payload.includeFields && payload.excludeFields) {
-      return 'includeFields and excludeFields are mutually exclusive — use one or the other'
-    }
-    return undefined
-  })
+  Schema.check(
+    Schema.makeFilter((payload) => {
+      if (payload.includeFields && payload.excludeFields) {
+        return 'includeFields and excludeFields are mutually exclusive — use one or the other'
+      }
+      return undefined
+    })
+  )
 )
 
 /** @public */
@@ -103,9 +105,9 @@ const ALWAYS_KEPT = 'id'
  * so at most one branch applies.
  */
 const filterFields = (
-  record: Record<string, unknown>,
+  record: Readonly<Record<string, unknown>>,
   payload: WebhookPayload | undefined
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   if (payload?.includeFields) {
     const allowed = new Set<string>([ALWAYS_KEPT, ...payload.includeFields])
     return Object.fromEntries(Object.entries(record).filter(([key]) => allowed.has(key)))
@@ -125,8 +127,8 @@ const filterFields = (
  * values a record carries.
  */
 const computeChangedFields = (
-  current: Record<string, unknown>,
-  previous: Record<string, unknown>
+  current: Readonly<Record<string, unknown>>,
+  previous: Readonly<Record<string, unknown>>
 ): ReadonlyArray<string> =>
   Object.keys(current).filter((key) => {
     if (key === ALWAYS_KEPT) return false

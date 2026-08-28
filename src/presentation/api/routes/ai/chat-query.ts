@@ -37,7 +37,7 @@ import {
   countDynamicRecords,
   listDynamicRecords,
 } from '@/application/use-cases/ai/dynamic-record-query'
-import { hasReadPermission } from '@/domain/validators/permission-evaluators'
+import { hasReadPermissionForRoles } from '@/domain/validators/permission-evaluators'
 import { provideDynamicRecordRepoLive } from '@/presentation/api/routes/ai/effect-runner'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { QueryIntent, QueryTable } from '@/domain/services/ai-chat/ai-chat-query-parser'
@@ -59,6 +59,13 @@ export interface RunQueryInput {
   readonly intent: QueryIntent
   /** The acting user's role — used for table-level read RBAC. */
   readonly userRole: string
+  /**
+   * The acting principal's effective roles (role + `group:<name>` per group).
+   * The read gate below evaluates against this list: a bare role string can
+   * never match a `group:` entry, so gating on `userRole` alone left every
+   * group-granted table unqueryable via chat.
+   */
+  readonly effectiveRoles: readonly string[]
   /** The full set of app tables (carries permissions + field metadata). */
   readonly tables: ReadonlyArray<QueryTableWithPerms>
 }
@@ -219,9 +226,9 @@ export const runQuery = async (input: RunQueryInput): Promise<QueryOutcome> => {
   }
   // Table-level read RBAC.
   if (
-    !hasReadPermission(
+    !hasReadPermissionForRoles(
       table as { name: string; permissions?: { read?: unknown } },
-      input.userRole,
+      input.effectiveRoles,
       input.tables as ReadonlyArray<{ name: string; permissions?: never }>
     )
   ) {

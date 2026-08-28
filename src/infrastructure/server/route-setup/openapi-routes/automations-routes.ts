@@ -118,7 +118,7 @@ const routes: readonly RouteSpec[] = [
 /** Per-automation route group — resource-scoped to the configured automations. */
 export const automationGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Automation',
-  genericTag: 'automations',
+  genericTag: 'Automations',
   genericTagDescription: 'Automation trigger and run endpoints',
   collection: (app) => app.automations ?? [],
   resourcePlaceholder: '{automationSlug}',
@@ -129,7 +129,7 @@ export const automationGroupSpec: ResourceGroupSpec = {
 
 /** Automation collection and run-management routes — not scoped to one automation. */
 export const automationCollectionGroup: StaticGroupSpec = {
-  tag: 'automations',
+  tag: 'Automations',
   tagDescription: 'Automation trigger and run endpoints',
   routes: [
     {

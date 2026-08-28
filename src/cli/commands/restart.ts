@@ -7,7 +7,12 @@
 
 import { Effect, Console } from 'effect'
 import { printFailure } from '@/infrastructure/logging/cli-output'
-import { isProcessRunning, readLockFile, removeLockFile } from '@/infrastructure/server/lock-file'
+import {
+  isProcessRunning,
+  readLockFile,
+  removeLockFile,
+  waitForProcessExit,
+} from '@/infrastructure/server/lock-file'
 
 /**
  * Handle the 'restart' command -- stop current server, start new one in background
@@ -24,9 +29,19 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
     } catch {
       // Process may already be dead
     }
-    // Wait for old server to stop
-    // eslint-disable-next-line functional/no-expression-statements
-    await new Promise((r) => setTimeout(r, 500))
+    // Wait for the old server to actually exit. Spawning the replacement on a
+    // fixed sleep would put two servers on the same port and the same lock
+    // file — so a stubborn old process fails the restart HERE, before anything
+    // new is started.
+    const exited = await waitForProcessExit(lockData.pid)
+    if (!exited) {
+      printFailure({
+        headline: `Server (PID ${lockData.pid}) did not exit within 5s after SIGTERM. Nothing was restarted.`,
+        guidance: `Force it with 'kill -9 ${lockData.pid}', then run 'sovrium start <config>'.`,
+      })
+      // eslint-disable-next-line functional/no-expression-statements
+      process.exit(1)
+    }
     // eslint-disable-next-line functional/no-expression-statements
     await removeLockFile()
   }

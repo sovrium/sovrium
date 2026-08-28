@@ -22,39 +22,40 @@ export const HttpPutActionSchema = Schema.Struct({
   operator: Schema.Literal('put'),
   props: Schema.Struct({
     url: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Request URL (supports template variables)' })
+      Schema.annotate({ description: 'Request URL (supports template variables)' })
     ),
     headers: Schema.optional(
-      Schema.Record({ key: Schema.String, value: TemplateStringSchema }).pipe(
-        Schema.annotations({
+      Schema.Record(Schema.String, TemplateStringSchema).pipe(
+        Schema.annotate({
           description: 'Request headers (values support template variables and $env)',
         })
       )
     ),
     body: Schema.optional(
-      Schema.Union(
-        Schema.String,
-        Schema.Record({ key: Schema.String, value: Schema.Unknown })
-      ).pipe(Schema.annotations({ description: 'Request body — string or JSON object' }))
+      Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
+        Schema.annotate({ description: 'Request body — string or JSON object' })
+      )
     ),
     contentType: Schema.optional(
-      Schema.Literal('json', 'form', 'text', 'xml').pipe(
-        Schema.annotations({ description: 'Content-Type shorthand (default: json)' })
+      Schema.Literals(['json', 'form', 'text', 'xml']).pipe(
+        Schema.annotate({
+          description:
+            'Content-Type shorthand. No default: when omitted, a JSON-shaped body still sends application/json, and a string body sends no Content-Type header',
+        })
       )
     ),
     timeout: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1000, 120_000),
-        Schema.annotations({
-          description: 'Request timeout in ms (1000-120000, default: 30000)',
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 120_000 })),
+        Schema.annotate({
+          description: 'Request timeout in ms (1000-120000, default: 15000)',
         })
       )
     ),
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description:
             'Connection name for authentication (must reference app.connections[]). Auth headers are auto-injected.',
         })
@@ -62,7 +63,7 @@ export const HttpPutActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'HttpPutAction',
     title: 'HTTP PUT Action',
     description:

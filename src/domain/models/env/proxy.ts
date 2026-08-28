@@ -40,11 +40,13 @@ import { Schema } from 'effect'
  */
 export const TrustedProxyEnvSchema = Schema.Struct({
   hops: Schema.optional(
-    Schema.NumberFromString.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(10),
-      Schema.annotations({
+    Schema.FiniteFromString.pipe(
+      Schema.check(
+        Schema.isInt(),
+        Schema.isGreaterThanOrEqualTo(0),
+        Schema.isLessThanOrEqualTo(10)
+      ),
+      Schema.annotate({
         description:
           'Number of trusted reverse proxies in front of the app (TRUSTED_PROXY_HOPS). Default: 0 (trust no forwarding header).',
         examples: [0, 1, 2],
@@ -68,7 +70,7 @@ export const TRUSTED_PROXY_HOPS_DEFAULT = 0
  * into a single rate-limit bucket, which reads as an outage with no cause.
  */
 export const parseTrustedProxyHops = (env: NodeJS.ProcessEnv = process.env): number => {
-  const decoded = Schema.decodeUnknownSync(TrustedProxyEnvSchema)({
+  const decoded = Schema.decodeSync(TrustedProxyEnvSchema)({
     hops: env.TRUSTED_PROXY_HOPS,
   })
   return decoded.hops ?? TRUSTED_PROXY_HOPS_DEFAULT

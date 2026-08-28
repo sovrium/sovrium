@@ -18,15 +18,15 @@ export const datePickerFields = {
   ...visibilityFields,
   ...i18nFields,
   dateFormat: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Date format string (e.g. "YYYY-MM-DD", "MM/DD/YYYY")',
     })
   ),
   minDate: Schema.optional(
-    Schema.String.annotations({ description: 'Minimum selectable date (ISO 8601)' })
+    Schema.String.annotate({ description: 'Minimum selectable date (ISO 8601)' })
   ),
   maxDate: Schema.optional(
-    Schema.String.annotations({ description: 'Maximum selectable date (ISO 8601)' })
+    Schema.String.annotate({ description: 'Maximum selectable date (ISO 8601)' })
   ),
   datePickerMode: Schema.optional(DatePickerModeSchema),
 } as const

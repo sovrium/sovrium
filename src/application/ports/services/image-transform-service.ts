@@ -16,31 +16,39 @@ export class ImageTransformError extends Data.TaggedError('ImageTransformError')
 }> {}
 
 /**
- * Crop region for {@link ImageTransformService.crop}
+ * Output formats supported by the composed `transform` pipeline.
+ *
+ * AVIF was withdrawn: `Bun.Image`'s `bun` backend — the one that runs on Linux,
+ * and therefore in the compiled binary and the deployment container — carries
+ * no AV1 encoder, so an AVIF transform passed on macOS and failed everywhere
+ * Sovrium actually runs. See `infrastructure/storage/bun-image.ts` for the
+ * measurement.
  */
-export interface CropRegion {
-  readonly x: number
-  readonly y: number
-  readonly w: number
-  readonly h: number
-}
+export type ImageOutputFormat = 'jpeg' | 'png' | 'webp'
 
-/** Output formats supported by the composed `transform` pipeline. */
-export type ImageOutputFormat = 'jpeg' | 'png' | 'webp' | 'avif'
+/**
+ * How a two-dimension resize reconciles the requested box with the source
+ * aspect ratio. `fill` stretches to exactly the box; `inside` scales to fit
+ * within it, preserving the ratio (so the output may be smaller than asked).
+ *
+ * The crop-or-pad modes (`cover`, `contain`, `outside`) are absent because the
+ * pipeline exposes no crop primitive.
+ */
+export type ImageFit = 'fill' | 'inside'
 
 /**
  * Composed-pipeline options consumed by {@link ImageTransformService.transform}.
  *
- * `operation` selects the geometric transform; `outputFormat` + `quality`
- * select the encoding stage. `noop` skips the geometric stage and only
- * re-encodes if `outputFormat` is provided.
+ * `operation` names the author's intent; the geometric stage actually runs
+ * whenever `width` or `height` is supplied, and the encoding stage whenever an
+ * output format is resolved. There is no `crop` operation and no `x` / `y`
+ * offset — cropping was withdrawn rather than emulated.
  */
 export interface ImageTransformOptions {
-  readonly operation: 'resize' | 'crop' | 'noop'
+  readonly operation: 'resize' | 'convert'
   readonly width?: number
   readonly height?: number
-  readonly x?: number
-  readonly y?: number
+  readonly fit?: ImageFit
   readonly outputFormat?: ImageOutputFormat
   readonly quality?: number
 }
@@ -56,28 +64,34 @@ export interface ImageTransformResult {
  *
  * Provides image manipulation operations. Two API levels are exposed:
  *
- * - **Atoms** (`resize`, `crop`, `convert`, `thumbnail`) — single-step
- *   operations that fail explicitly on processing errors. Used by URL
- *   transform presets and the storage layer's on-the-fly transforms.
- * - **Composed pipeline** (`transform`) — single-pass resize/crop + optional
- *   format conversion in one sharp invocation. Used by the automation
- *   `file.transformImage` action where a single image may need multiple
- *   stages without intermediate buffers. Degrades to a passthrough when
- *   sharp cannot process the input (error channel `never`).
+ * - **Atoms** (`resize`, `convert`, `thumbnail`) — single-step operations that
+ *   fail explicitly on processing errors.
+ * - **Composed pipeline** (`transform`) — resize plus optional format
+ *   conversion in a single pipeline run. Used by the automation
+ *   `file.transformImage` action.
+ *
+ * ## Every operation can fail, including `transform`
+ *
+ * `transform` used to declare error channel `never` and degrade to a verbatim
+ * passthrough, on the reasoning that "the automation contract is a file exists
+ * at the destination, not the pixels were re-encoded". That reasoning is what
+ * let a compiled binary in which NO transform worked ship unnoticed: the
+ * passthrough answered `200` with a plausible `Content-Type` for every request,
+ * so no assertion could tell a working pipeline from an absent one.
+ *
+ * A transform that cannot be performed is now an error the caller has to
+ * handle. Callers may still choose to be lenient — but they choose it
+ * explicitly, at a site where the decision is visible.
  *
  * Implementation lives in the infrastructure layer.
  */
-export class ImageTransformService extends Context.Tag('ImageTransformService')<
+export class ImageTransformService extends Context.Service<
   ImageTransformService,
   {
     readonly resize: (
       input: Uint8Array,
       width: number,
       height: number
-    ) => Effect.Effect<Uint8Array, ImageTransformError>
-    readonly crop: (
-      input: Uint8Array,
-      region: CropRegion
     ) => Effect.Effect<Uint8Array, ImageTransformError>
     readonly convert: (
       input: Uint8Array,
@@ -90,6 +104,6 @@ export class ImageTransformService extends Context.Tag('ImageTransformService')<
     readonly transform: (
       input: Uint8Array,
       options: ImageTransformOptions
-    ) => Effect.Effect<ImageTransformResult, never>
+    ) => Effect.Effect<ImageTransformResult, ImageTransformError>
   }
->() {}
+>()('ImageTransformService') {}

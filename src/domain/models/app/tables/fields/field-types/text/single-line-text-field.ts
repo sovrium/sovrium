@@ -35,24 +35,22 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const SingleLineTextFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('single-line-text').pipe(
-        Schema.annotations({
-          description:
-            "Constant value 'single-line-text' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('single-line-text').pipe(
+      Schema.annotate({
+        description:
+          "Constant value 'single-line-text' for type discrimination in discriminated unions",
+      })
+    ),
+    default: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Default value for this field when creating new records',
         })
-      ),
-      default: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Default value for this field when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Single Line Text Field',
     description:
       'Short text input limited to a single line. Ideal for names, titles, labels, and brief identifiers. Text is stored as-is without formatting.',

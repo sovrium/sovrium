@@ -19,23 +19,23 @@ export const aiChatFields = {
   ...visibilityFields,
   ...i18nFields,
   agent: Schema.optional(
-    Schema.String.annotations({ description: 'Agent name from app.agents[] configuration' })
+    Schema.String.annotate({ description: 'Agent name from app.agents[] configuration' })
   ),
   placeholder: Schema.optional(
-    Schema.String.annotations({ description: 'Placeholder text for the chat input field' })
+    Schema.String.annotate({ description: 'Placeholder text for the chat input field' })
   ),
   chatHeight: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Chat container height in pixels' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Chat container height in pixels' })
     )
   ),
   showHistory: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Whether to show previous conversation history on load',
     })
   ),
   allowAttachments: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Whether to allow file attachments in chat' })
+    Schema.Boolean.annotate({ description: 'Whether to allow file attachments in chat' })
   ),
 } as const

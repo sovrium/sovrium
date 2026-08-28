@@ -83,7 +83,7 @@ export class UserPreferencesWriteError extends Data.TaggedError('UserPreferences
  * per-user (scoped to `userId`). `update` has upsert semantics: PATCH merge
  * over the existing row, INSERT when none exists.
  */
-export class UserTablePreferencesRepository extends Context.Tag('UserTablePreferencesRepository')<
+export class UserTablePreferencesRepository extends Context.Service<
   UserTablePreferencesRepository,
   {
     /**
@@ -116,4 +116,4 @@ export class UserTablePreferencesRepository extends Context.Tag('UserTablePrefer
       readonly tableName: string
     }) => Effect.Effect<void, UserPreferencesDbError>
   }
->() {}
+>()('UserTablePreferencesRepository') {}

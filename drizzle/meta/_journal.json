@@ -50,6 +50,48 @@
       "when": 1785533567630,
       "tag": "0006_material_lizard",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786648395695,
+      "tag": "0007_quick_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786820751997,
+      "tag": "0008_cloudy_sentinels",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787688497393,
+      "tag": "0009_lazy_azazel",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787730005391,
+      "tag": "0010_giant_young_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787745358423,
+      "tag": "0011_crazy_beyonder",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787774052932,
+      "tag": "0012_known_union_jack",
+      "breakpoints": true
     }
   ]
 }

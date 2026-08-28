@@ -36,8 +36,8 @@ export const CodeBlockConfigSchema = Schema.Struct({
   /** Named Shiki theme applied to fenced code blocks */
   theme: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         title: 'Code Block Theme',
         description: 'Named Shiki theme for syntax highlighting (e.g., github-dark, github-light)',
         examples: ['github-dark', 'github-light', 'nord', 'dracula'],
@@ -45,7 +45,7 @@ export const CodeBlockConfigSchema = Schema.Struct({
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'CodeBlockConfig',
     title: 'Code Block Configuration',
     description: 'Syntax-highlighting theme configuration for markdown fenced code blocks',

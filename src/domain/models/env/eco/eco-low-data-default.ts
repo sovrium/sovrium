@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { parseEcoEnum } from './eco-env-parsing'
+import { parseEcoMode } from './eco-mode'
+
 /**
  * `ECO_LOW_DATA_DEFAULT` env var — operator-controlled low-data variant
  * posture (ADR 013 D2).
@@ -26,28 +29,81 @@
  * `respect-client` as an explicit opt-in, and `on` to test the unconditional
  * posture. Operators who want low-data-by-default must set the env var.
  */
+
 export type EcoLowDataDefault = 'on' | 'off' | 'respect-client'
 
-const ECO_LOW_DATA_DEFAULTS: ReadonlySet<EcoLowDataDefault> = new Set([
-  'on',
-  'off',
-  'respect-client',
-])
+const ECO_LOW_DATA_DEFAULTS: readonly EcoLowDataDefault[] = ['on', 'off', 'respect-client']
 
 /** Default when `ECO_LOW_DATA_DEFAULT` is unset. */
 export const DEFAULT_ECO_LOW_DATA_DEFAULT: EcoLowDataDefault = 'off'
 
 /**
- * Resolve `ECO_LOW_DATA_DEFAULT` from a snapshot of env vars. An unset,
- * empty, or unrecognised value resolves to `off`.
+ * Resolve `ECO_LOW_DATA_DEFAULT` from a snapshot of env vars. An unset or
+ * empty value resolves to `off`.
+ *
+ * A SET-but-unrecognised value throws. `respect-client` is easy to
+ * mistype (`respect_client`, `respectClient`) and every misspelling used to
+ * resolve to `off` — the one posture that ignores the client signals the
+ * operator was explicitly asking the platform to honour.
+ *
+ * @throws Error when set to anything other than `on`, `off` or `respect-client`.
  */
 export const parseEcoLowDataDefault = (
   processEnv: Readonly<Record<string, string | undefined>>
-): EcoLowDataDefault => {
+): EcoLowDataDefault =>
+  parseEcoEnum('ECO_LOW_DATA_DEFAULT', processEnv['ECO_LOW_DATA_DEFAULT'], {
+    allowed: ECO_LOW_DATA_DEFAULTS,
+    fallback: DEFAULT_ECO_LOW_DATA_DEFAULT,
+  })
+
+/**
+ * Which input decided the effective low-data posture.
+ *
+ * - `explicit`  — the operator set a RECOGNISED `ECO_LOW_DATA_DEFAULT`.
+ * - `eco-mode`  — no explicit value; `ECO_MODE=strict` decided it.
+ * - `default`   — nothing decided it; the conservative `off` default stands.
+ *
+ * Reported verbatim by `GET /api/admin/footprint/overview` so the dashboard
+ * names the value actually in force plus its provenance, rather than a list
+ * of claims about levers that may move nothing.
+ */
+export type EcoLowDataDefaultSource = 'explicit' | 'eco-mode' | 'default'
+
+/** Effective low-data posture plus the input that decided it. */
+export interface EffectiveLowDataDefault {
+  readonly effective: EcoLowDataDefault
+  readonly source: EcoLowDataDefaultSource
+}
+
+/**
+ * Resolve the low-data posture the platform will ACTUALLY apply, composing
+ * `parseEcoLowDataDefault` with the `ECO_MODE` master posture.
+ *
+ * Precedence (highest first):
+ *   1. `ECO_LOW_DATA_DEFAULT` set to a RECOGNISED value → that value (`explicit`)
+ *   2. `ECO_MODE=strict`                                → `on` (`eco-mode`)
+ *   3. otherwise                                        → `off` (`default`)
+ *
+ * An UNRECOGNISED `ECO_LOW_DATA_DEFAULT` (e.g. `aggressive`) is NOT rung 1: a
+ * typo is not an operator choice, so it falls through to rungs 2/3 exactly as
+ * `parseEcoLowDataDefault` already treats it. Claiming it as an explicit `off`
+ * would silently strand the operator's chosen master posture.
+ *
+ * This is `ECO_MODE`'s ONLY enforcement point — the request path reads the
+ * effective value here (`src/infrastructure/server/middleware/low-data-mode.ts`),
+ * so `strict` changes something an end-user can observe.
+ */
+export const resolveEffectiveLowDataDefault = (
+  processEnv: Readonly<Record<string, string | undefined>>
+): EffectiveLowDataDefault => {
   const raw = processEnv['ECO_LOW_DATA_DEFAULT']?.trim().toLowerCase()
-  return raw !== undefined && ECO_LOW_DATA_DEFAULTS.has(raw as EcoLowDataDefault)
-    ? (raw as EcoLowDataDefault)
-    : DEFAULT_ECO_LOW_DATA_DEFAULT
+  if (raw !== undefined && ECO_LOW_DATA_DEFAULTS.includes(raw as EcoLowDataDefault)) {
+    return { effective: parseEcoLowDataDefault(processEnv), source: 'explicit' }
+  }
+  if (parseEcoMode(processEnv) === 'strict') {
+    return { effective: 'on', source: 'eco-mode' }
+  }
+  return { effective: DEFAULT_ECO_LOW_DATA_DEFAULT, source: 'default' }
 }
 
 /**

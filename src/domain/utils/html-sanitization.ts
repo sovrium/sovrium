@@ -88,6 +88,7 @@ const ALLOWED_TAGS: readonly string[] = [
  *  - `'*'` — `class`/`id` on every tag, so customHTML can be located by
  *    selector (`.custom`, `#sandbox-target`).
  */
+// eslint-disable-next-line functional/prefer-immutable-types -- same library constraint as RICH_TEXT_OPTIONS below: sanitizeHtml.IOptions['allowedAttributes'] is mutable by design, and this value is assigned straight into that mutable option slot
 const ALLOWED_ATTRIBUTES: sanitizeHtml.IOptions['allowedAttributes'] = {
   a: ['href', 'title', 'target', 'rel'],
   img: ['src', 'alt', 'title', 'width', 'height'],

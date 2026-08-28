@@ -30,7 +30,7 @@ import type { DatabaseError } from '@/domain/errors'
 export function rawListRecordsProgram(
   session: Readonly<UserSession>,
   tableName: string,
-  filter: Parameters<TableRepository['Type']['listRecords']>[0]['filter'],
+  filter: Parameters<TableRepository['Service']['listRecords']>[0]['filter'],
   includeDeleted?: boolean
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError, TableRepository> {
   return Effect.gen(function* () {

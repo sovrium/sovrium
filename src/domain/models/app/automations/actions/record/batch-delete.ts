@@ -23,29 +23,28 @@ export const RecordBatchDeleteActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Target table name */
     table: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Table to delete records from' })
+      Schema.annotate({ description: 'Table to delete records from' })
     ),
 
     /** Filter condition to match records for deletion */
     filter: ConditionGroupSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Condition to match records for deletion',
       })
     ),
 
     /** Maximum records to delete (safety limit) */
     limit: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 10_000),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10_000 })),
+        Schema.annotate({
           description: 'Maximum records to delete (1-10000, safety limit)',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordBatchDeleteAction',
     title: 'Record Batch Delete Action',
     description: 'Delete multiple records matching a filter condition',

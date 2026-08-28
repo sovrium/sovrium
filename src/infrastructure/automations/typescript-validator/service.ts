@@ -18,9 +18,9 @@ import type { TSValidationError } from './errors'
  * `startServer`. Validation failures short-circuit `startServer` with a
  * `TSValidationError` before the HTTP listener binds.
  */
-export class TypeScriptValidator extends Context.Tag('TypeScriptValidator')<
+export class TypeScriptValidator extends Context.Service<
   TypeScriptValidator,
   {
     readonly validateAll: (app: unknown) => Effect.Effect<void, TSValidationError>
   }
->() {}
+>()('TypeScriptValidator') {}

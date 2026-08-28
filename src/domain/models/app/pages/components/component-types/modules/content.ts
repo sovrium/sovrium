@@ -7,10 +7,10 @@
 
 import { Schema } from 'effect'
 
-export const ContentSchema = Schema.Union(
+export const ContentSchema = Schema.Union([
   Schema.String,
-  Schema.Record({ key: Schema.String, value: Schema.Unknown })
-).annotations({
+  Schema.Record(Schema.String, Schema.Unknown),
+]).annotate({
   description:
     'Text content for text components, or structured content object (e.g., { button: { text, animation } })',
 })

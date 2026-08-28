@@ -60,12 +60,20 @@
  * `OtlpMetrics` periodic reader snapshots each poll — so an update run on ANY
  * runtime reaches the exporter regardless of fiber (see observability-runtime).
  *
- * The OTLP unit is carried as a constant `unit` tag: the `@effect/opentelemetry`
- * metrics exporter reads the instrument's UCUM unit from a `unit`/`time_unit`
- * tag (this is how `Metric.timer` surfaces `time_unit` too).
+ * The OTLP unit is carried as a constant `unit` ATTRIBUTE: the metrics exporter
+ * reads the instrument's UCUM unit from a `unit`/`time_unit` attribute (this is
+ * how `Metric.timer` surfaces `time_unit` too). Verified unchanged in v4 —
+ * `effect/unstable/observability/OtlpMetrics.js:78` still reads
+ * `attributes?.unit ?? attributes?.time_unit ?? "1"`, so the mechanism that
+ * gives every instrument below its unit survives the rename intact.
+ *
+ * EFFECT 4. `MetricBoundaries` and `MetricLabel` are gone as modules. Histogram
+ * boundaries are a plain `ReadonlyArray<number>` inside the options object
+ * (Metric.d.ts:2175), and labels are a plain attribute record
+ * (`Metric.withAttributes`) rather than constructed `MetricLabel` values.
  */
 
-import { Effect, Metric, MetricBoundaries, MetricLabel } from 'effect'
+import { Effect, Metric } from 'effect'
 
 /**
  * Request-duration histogram boundaries, in SECONDS — the OpenTelemetry
@@ -79,14 +87,13 @@ const DURATION_BOUNDARIES_SECONDS = [
 const httpRequestCount = Metric.counter('http.server.request.count', {
   description: 'Number of HTTP server requests handled.',
   incremental: true,
-}).pipe(Metric.tagged('unit', '{request}'))
+}).pipe(Metric.withAttributes({ unit: '{request}' }))
 
 /** Request-duration histogram — OTLP `histogram`, unit `s`. */
-const httpRequestDuration = Metric.histogram(
-  'http.server.request.duration',
-  MetricBoundaries.fromIterable(DURATION_BOUNDARIES_SECONDS),
-  'Duration of HTTP server requests in seconds.'
-).pipe(Metric.tagged('unit', 's'))
+const httpRequestDuration = Metric.histogram('http.server.request.duration', {
+  description: 'Duration of HTTP server requests in seconds.',
+  boundaries: DURATION_BOUNDARIES_SECONDS,
+}).pipe(Metric.withAttributes({ unit: 's' }))
 
 /**
  * Build the effect that records ONE served HTTP request: increment the request
@@ -102,14 +109,10 @@ export const recordHttpRequest = (
   status: string,
   durationSeconds: number
 ): Effect.Effect<void> => {
-  const labels = [
-    MetricLabel.make('method', method),
-    MetricLabel.make('route', route),
-    MetricLabel.make('status', status),
-  ]
-  return Effect.zipRight(
-    Metric.update(httpRequestCount.pipe(Metric.taggedWithLabels(labels)), 1),
-    Metric.update(httpRequestDuration.pipe(Metric.taggedWithLabels(labels)), durationSeconds)
+  const attributes = { method, route, status }
+  return Effect.andThen(
+    Metric.update(httpRequestCount.pipe(Metric.withAttributes(attributes)), 1),
+    Metric.update(httpRequestDuration.pipe(Metric.withAttributes(attributes)), durationSeconds)
   )
 }
 
@@ -118,11 +121,10 @@ export const recordHttpRequest = (
  * duration bucket boundaries: query latencies span the same millisecond-to-
  * seconds range as request latencies.
  */
-const dbQueryDuration = Metric.histogram(
-  'db.query.duration',
-  MetricBoundaries.fromIterable(DURATION_BOUNDARIES_SECONDS),
-  'Duration of database queries in seconds.'
-).pipe(Metric.tagged('unit', 's'))
+const dbQueryDuration = Metric.histogram('db.query.duration', {
+  description: 'Duration of database queries in seconds.',
+  boundaries: DURATION_BOUNDARIES_SECONDS,
+}).pipe(Metric.withAttributes({ unit: 's' }))
 
 /**
  * Build the effect that observes ONE table read/write's duration on the
@@ -138,26 +140,25 @@ export const recordDbQuery = (
   table: string,
   durationSeconds: number
 ): Effect.Effect<void> => {
-  const labels = [MetricLabel.make('operation', operation), MetricLabel.make('table', table)]
-  return Metric.update(dbQueryDuration.pipe(Metric.taggedWithLabels(labels)), durationSeconds)
+  const attributes = { operation, table }
+  return Metric.update(dbQueryDuration.pipe(Metric.withAttributes(attributes)), durationSeconds)
 }
 
 /** Monotonic AI-request counter — OTLP `sum`, unit `{request}`. */
 const aiRequestCount = Metric.counter('ai.request.count', {
   description: 'Number of AI provider requests issued.',
   incremental: true,
-}).pipe(Metric.tagged('unit', '{request}'))
+}).pipe(Metric.withAttributes({ unit: '{request}' }))
 
 /**
  * AI-request duration histogram — OTLP `histogram`, unit `s`. Shares the HTTP
  * duration bucket boundaries: provider latencies span the same millisecond-to-
  * seconds range.
  */
-const aiRequestDuration = Metric.histogram(
-  'ai.request.duration',
-  MetricBoundaries.fromIterable(DURATION_BOUNDARIES_SECONDS),
-  'Duration of AI provider requests in seconds.'
-).pipe(Metric.tagged('unit', 's'))
+const aiRequestDuration = Metric.histogram('ai.request.duration', {
+  description: 'Duration of AI provider requests in seconds.',
+  boundaries: DURATION_BOUNDARIES_SECONDS,
+}).pipe(Metric.withAttributes({ unit: 's' }))
 
 /**
  * Build the effect that records ONE completed AI provider request: increment
@@ -174,14 +175,10 @@ export const recordAiRequest = (
   operation: string,
   durationSeconds: number
 ): Effect.Effect<void> => {
-  const labels = [
-    MetricLabel.make('provider', provider),
-    MetricLabel.make('model', model),
-    MetricLabel.make('operation', operation),
-  ]
-  return Effect.zipRight(
-    Metric.update(aiRequestCount.pipe(Metric.taggedWithLabels(labels)), 1),
-    Metric.update(aiRequestDuration.pipe(Metric.taggedWithLabels(labels)), durationSeconds)
+  const attributes = { provider, model, operation }
+  return Effect.andThen(
+    Metric.update(aiRequestCount.pipe(Metric.withAttributes(attributes)), 1),
+    Metric.update(aiRequestDuration.pipe(Metric.withAttributes(attributes)), durationSeconds)
   )
 }
 
@@ -189,17 +186,16 @@ export const recordAiRequest = (
 const automationRunCount = Metric.counter('automation.run.count', {
   description: 'Number of automation runs executed.',
   incremental: true,
-}).pipe(Metric.tagged('unit', '{run}'))
+}).pipe(Metric.withAttributes({ unit: '{run}' }))
 
 /**
  * Automation-run duration histogram — OTLP `histogram`, unit `s`. Shares the
  * HTTP duration bucket boundaries.
  */
-const automationRunDuration = Metric.histogram(
-  'automation.run.duration',
-  MetricBoundaries.fromIterable(DURATION_BOUNDARIES_SECONDS),
-  'Duration of automation runs in seconds.'
-).pipe(Metric.tagged('unit', 's'))
+const automationRunDuration = Metric.histogram('automation.run.duration', {
+  description: 'Duration of automation runs in seconds.',
+  boundaries: DURATION_BOUNDARIES_SECONDS,
+}).pipe(Metric.withAttributes({ unit: 's' }))
 
 /**
  * Build the effect that records ONE completed automation run: increment the run
@@ -216,15 +212,12 @@ export const recordAutomationRun = (
   status: string,
   durationSeconds: number
 ): Effect.Effect<void> => {
-  const durationLabels = [MetricLabel.make('automation', automation)]
-  const countLabels = [
-    MetricLabel.make('automation', automation),
-    MetricLabel.make('status', status),
-  ]
-  return Effect.zipRight(
-    Metric.update(automationRunCount.pipe(Metric.taggedWithLabels(countLabels)), 1),
+  const durationAttributes = { automation }
+  const countAttributes = { automation, status }
+  return Effect.andThen(
+    Metric.update(automationRunCount.pipe(Metric.withAttributes(countAttributes)), 1),
     Metric.update(
-      automationRunDuration.pipe(Metric.taggedWithLabels(durationLabels)),
+      automationRunDuration.pipe(Metric.withAttributes(durationAttributes)),
       durationSeconds
     )
   )

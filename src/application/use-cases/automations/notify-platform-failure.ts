@@ -96,7 +96,7 @@ const loadAdminEmails = (): Effect.Effect<readonly string[], never> =>
     return yield* repo.findAdminEmails('admin')
   }).pipe(
     Effect.provide(AuthRepositoryLive),
-    Effect.catchAll((error) => {
+    Effect.catch((error) => {
       // Unwrap to the raw driver error, matching the payload this line logged
       // before the lookup moved behind the port.
       logError('[notify-platform-failure] admin email lookup failed', error.cause)
@@ -118,7 +118,7 @@ const sendOneNotification = (
     try: () => sendEmail({ to, subject, text: body, html: body.replaceAll('\n', '<br>') }),
     catch: (cause) => new AdminEmailSendError({ cause }),
   }).pipe(
-    Effect.catchAll((err) => {
+    Effect.catch((err) => {
       logError('[notify-platform-failure] sendEmail failed', err.cause, { to })
       return Effect.void
     }),

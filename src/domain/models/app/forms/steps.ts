@@ -16,8 +16,8 @@ export const GoToRuleSchema = Schema.Struct({
   /** Condition that, when true, causes the branch to take effect. */
   when: VisibleWhenSchema,
   /** Target step id. Must match a `steps[].id` in the same form. */
-  goTo: Schema.String.pipe(Schema.minLength(1)),
-}).annotations({
+  goTo: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+}).annotate({
   identifier: 'GoToRule',
   title: 'Go-To Rule',
   description: 'Branching rule: when condition is true, jump to a specific step',
@@ -32,7 +32,7 @@ export const GoToRuleSchema = Schema.Struct({
  */
 export const FormStepSchema = Schema.Struct({
   /** Unique step id within the form (kebab-case recommended). */
-  id: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64)),
+  id: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(64))),
   /** Step title shown above the fields. */
   title: Schema.optional(Schema.String),
   /** Step description / intro paragraph. */
@@ -42,12 +42,12 @@ export const FormStepSchema = Schema.Struct({
    * `name` (standalone/calculation/signature) or `column` (table-field) on
    * the parent form.
    */
-  fields: Schema.Array(Schema.String).pipe(Schema.minItems(1)),
+  fields: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
   /** When false, the entire step is skipped. */
   visibleWhen: Schema.optional(VisibleWhenSchema),
   /** Branching rules. First matching rule wins; otherwise linear flow. */
   goToWhen: Schema.optional(Schema.Array(GoToRuleSchema)),
-}).annotations({
+}).annotate({
   identifier: 'FormStep',
   title: 'Form Step',
   description:

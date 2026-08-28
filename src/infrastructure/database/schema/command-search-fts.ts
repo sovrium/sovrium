@@ -336,7 +336,7 @@ export const reconcileCommandSearchIndexes = (
     }).pipe(
       // The transaction itself failing (a closed database, a lock) is the same
       // class of problem as one table failing: the search still works, unindexed.
-      Effect.catchAll((error) =>
+      Effect.catch((error) =>
         Effect.sync(() =>
           logWarning(
             `[command-search] search-index reconciliation was skipped — the palette will fall back to unindexed scans: ${String(error.cause)}`

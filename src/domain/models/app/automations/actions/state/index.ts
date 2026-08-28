@@ -15,14 +15,14 @@ import { StateSetActionSchema } from './set'
 /**
  * State Action — union of all key-value state operators
  */
-export const StateActionSchema = Schema.Union(
+export const StateActionSchema = Schema.Union([
   StateGetActionSchema,
   StateSetActionSchema,
   StateIncrementActionSchema,
   StateDeleteActionSchema,
-  StateListActionSchema
-).pipe(
-  Schema.annotations({
+  StateListActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'StateAction',
     title: 'State Action',
     description: 'Key-value state operations: get, set, increment, delete, and list',

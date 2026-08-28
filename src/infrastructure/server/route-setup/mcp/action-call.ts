@@ -50,7 +50,6 @@
  */
 
 import { Effect } from 'effect'
-import { type Context } from 'hono'
 import { defaultActionHandlers } from '@/application/use-cases/automations/action-handlers'
 import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
 import {
@@ -61,7 +60,7 @@ import {
 } from '@/application/use-cases/automations/run-automation'
 import { isAiAccessEnabled } from '@/domain/models/shared/ai-access'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
-import { jsonRpcError, jsonRpcSuccess } from './tool-call-helpers'
+import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from './auth'
 import type { App } from '@/domain/models/app'
 import type { ActionTemplate } from '@/domain/models/app/actions'
@@ -69,7 +68,6 @@ import type { ActionTemplate } from '@/domain/models/app/actions'
 interface CallEnvelope {
   readonly toolName: string
   readonly args: Record<string, unknown>
-  readonly responseId: number | string
 }
 
 const ACTION_INFIX = '_action_'
@@ -179,15 +177,11 @@ const synthesizeAutomation = (
  * `executeAutomationRun` are seed errors — everything else is collapsed
  * into a generic -32603.
  */
-const actionErrorToJsonRpc = (
-  c: Readonly<Context>,
-  responseId: number | string,
-  error: RunAutomationError
-): Response => {
+const actionErrorToJsonRpc = (error: RunAutomationError): never => {
   if (error._tag === 'AutomationRegistrySeedError') {
-    return jsonRpcError(c, responseId, -32_603, `Failed to register action template: ${error.name}`)
+    return toolFailure(-32_603, `Failed to register action template: ${error.name}`)
   }
-  return jsonRpcError(c, responseId, -32_603, 'Action template execution failed')
+  return toolFailure(-32_603, 'Action template execution failed')
 }
 
 /**
@@ -213,7 +207,6 @@ const buildActionResultBody = (result: RunAutomationResult) => {
  * as `HandleAutomationCallInput` in the automation dispatcher.
  */
 export interface HandleActionCallInput {
-  readonly c: Readonly<Context>
   readonly app: App
   readonly caller: McpCaller
   readonly template: ActionTemplate
@@ -231,21 +224,16 @@ export interface HandleActionCallInput {
  * authorization and runtime failures are surfaced as -32602 / -32603
  * errors per MCP convention.
  */
-export const handleActionCall = async (input: HandleActionCallInput): Promise<Response> => {
-  const { c, app, caller, template, envelope } = input
+export const handleActionCall = async (input: HandleActionCallInput): Promise<McpToolResult> => {
+  const { app, caller, template, envelope } = input
 
   const extra = findFirstWhitelistViolation(template, envelope.args)
   if (extra !== undefined) {
-    return jsonRpcError(
-      c,
-      envelope.responseId,
-      -32_602,
-      `Parameter '${extra}' is not in aiAccess.whitelistFields`
-    )
+    return toolFailure(-32_602, `Parameter '${extra}' is not in aiAccess.whitelistFields`)
   }
   const missing = findFirstMissingRequiredParam(template, envelope.args)
   if (missing !== undefined) {
-    return jsonRpcError(c, envelope.responseId, -32_602, `Missing required parameter '${missing}'`)
+    return toolFailure(-32_602, `Missing required parameter '${missing}'`)
   }
 
   const automation = synthesizeAutomation(template, envelope.args)
@@ -264,10 +252,10 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Re
   })
 
   const provided = provideAutomationRuntime(program)
-  const outcome = await Effect.runPromise(Effect.either(provided))
+  const outcome = await Effect.runPromise(Effect.result(provided))
 
-  if (outcome._tag === 'Left') {
-    return actionErrorToJsonRpc(c, envelope.responseId, outcome.left)
+  if (outcome._tag === 'Failure') {
+    return actionErrorToJsonRpc(outcome.failure)
   }
-  return jsonRpcSuccess(c, envelope.responseId, buildActionResultBody(outcome.right))
+  return toolSuccess(buildActionResultBody(outcome.success))
 }

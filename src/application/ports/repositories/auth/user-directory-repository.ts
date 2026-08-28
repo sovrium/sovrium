@@ -72,7 +72,7 @@ export class UserDirectoryDatabaseError extends Data.TaggedError('UserDirectoryD
  * with the implementation, because both predicates are statements about the
  * store's own rows rather than orchestration the caller could reasonably vary.
  */
-export class UserDirectoryRepository extends Context.Tag('UserDirectoryRepository')<
+export class UserDirectoryRepository extends Context.Service<
   UserDirectoryRepository,
   {
     /**
@@ -85,4 +85,4 @@ export class UserDirectoryRepository extends Context.Tag('UserDirectoryRepositor
       query: UserDirectoryQuery
     ) => Effect.Effect<readonly UserDirectoryEntry[], UserDirectoryDatabaseError>
   }
->() {}
+>()('UserDirectoryRepository') {}

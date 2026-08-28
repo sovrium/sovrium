@@ -15,12 +15,15 @@ import {
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { createdByFieldNames } from '@/domain/services/authorship-fields'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { evaluateRecordAgainstPredicate } from '@/domain/validators/row-level-evaluator'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { UserSession } from '@/application/ports/models/user-session'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables/table'
@@ -88,13 +91,15 @@ export interface TriggerCommentEventInput {
  * `filter.mentionsOnly` short-circuits when the caller's mentions list is
  * empty (the trigger envelope's `{{trigger.mentions}}` would be empty too).
  */
-const matchesCommentTrigger = (
-  automation: NonNullable<App['automations']>[number],
-  tableName: string,
-  mentions: readonly string[],
-  status: 'pending' | 'approved' | 'rejected'
-): boolean => {
-  if (automation.enabled === false) return false
+const matchesCommentTrigger = (input: {
+  readonly automation: NonNullable<App['automations']>[number]
+  readonly tableName: string
+  readonly mentions: readonly string[]
+  readonly status: 'pending' | 'approved' | 'rejected'
+  readonly pausedNames: ReadonlySet<string>
+}): boolean => {
+  const { automation, tableName, mentions, status, pausedNames } = input
+  if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
   const { trigger } = automation
   if (trigger.type !== 'comment') return false
   if (trigger.table !== tableName) return false
@@ -148,19 +153,21 @@ const resolveOwnerFallbackEmails = (
     const ownerId = readOwnerId(record, createdByNames)
     if (ownerId === undefined) return [] as readonly string[]
     if (ownerId === newAuthorId) return [] as readonly string[]
-    const emailResult = yield* Effect.either(
+    const emailResult = yield* Effect.result(
       comments.getUserEmailById({ session, userId: ownerId })
     )
-    if (emailResult._tag === 'Left' || !emailResult.right) return [] as readonly string[]
-    return [emailResult.right]
+    if (emailResult._tag === 'Failure' || !emailResult.success) return [] as readonly string[]
+    return [emailResult.success]
   })
 
 /**
  * Resolve `threadParticipants` for the just-posted comment (GAP-13).
  *
  * Distinct EMAIL ADDRESSES of all (non-soft-deleted) comment authors on the
- * same record, minus the new author — usable directly as an `email.send`
- * `to`. When the resolved list is empty (a first comment), falls back to the
+ * same record OF THE SAME TABLE, minus the new author — usable directly as an
+ * `email.send` `to`. The thread is keyed on `(tableId, recordId)`: record ids
+ * are per-table sequences, so a record-only lookup would notify the
+ * commenters of every same-numbered record in the app. When the resolved list is empty (a first comment), falls back to the
  * record OWNER's email so a notify-thread automation still has a recipient.
  * Returns `readonly string[]` so the trigger envelope can surface it directly
  * at `{{trigger.threadParticipants}}`.
@@ -168,20 +175,21 @@ const resolveOwnerFallbackEmails = (
 const resolveThreadParticipants = (params: {
   readonly session: Readonly<UserSession>
   readonly record: Readonly<Record<string, unknown>>
+  readonly tableId: string
   readonly recordId: string
   readonly newAuthorId: string
   readonly createdByNames: readonly string[]
 }): Effect.Effect<readonly string[], never, CommentRepository> =>
   Effect.gen(function* () {
-    const { session, record, recordId, newAuthorId, createdByNames } = params
+    const { session, record, tableId, recordId, newAuthorId, createdByNames } = params
     const comments = yield* CommentRepository
-    const authorsResult = yield* Effect.either(
-      comments.listAuthorEmailsForRecord({ session, recordId })
+    const authorsResult = yield* Effect.result(
+      comments.listAuthorEmailsForRecord({ session, tableId, recordId })
     )
     const priorEmails =
-      authorsResult._tag === 'Left'
+      authorsResult._tag === 'Failure'
         ? ([] as readonly string[])
-        : authorsResult.right
+        : authorsResult.success
             .filter((author) => author.userId !== newAuthorId)
             .map((author) => author.email)
     if (priorEmails.length > 0) return priorEmails
@@ -275,9 +283,9 @@ const fetchParentRecord = (
 ): Effect.Effect<Record<string, unknown> | undefined, never, TableRepository> =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
-    const result = yield* Effect.either(repo.getRecord(session, tableName, recordId))
-    if (result._tag === 'Left') return undefined
-    return result.right ?? undefined
+    const result = yield* Effect.result(repo.getRecord(session, tableName, recordId))
+    if (result._tag === 'Failure') return undefined
+    return result.success ?? undefined
   })
 
 /**
@@ -328,11 +336,22 @@ export const triggerCommentEventAutomations = (
 ): Effect.Effect<
   void,
   never,
-  ExecuteAutomationRunRequirements | CommentRepository | DataSourceRepository
+  | ExecuteAutomationRunRequirements
+  | CommentRepository
+  | DataSourceRepository
+  | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
+    // Entry point: one read of the operational pauses per comment event.
+    const pausedNames = yield* loadPausedAutomationNames
     const matching = (input.app.automations ?? []).filter((automation) =>
-      matchesCommentTrigger(automation, input.tableName, input.mentions, input.comment.status)
+      matchesCommentTrigger({
+        automation,
+        tableName: input.tableName,
+        mentions: input.mentions,
+        status: input.comment.status,
+        pausedNames,
+      })
     )
     if (matching.length === 0) return
 
@@ -346,6 +365,7 @@ export const triggerCommentEventAutomations = (
     const threadParticipants = yield* resolveThreadParticipants({
       session: input.session,
       record,
+      tableId: input.tableId,
       recordId: input.recordId,
       newAuthorId: input.author.id,
       createdByNames,
@@ -361,7 +381,7 @@ export const triggerCommentEventAutomations = (
       { concurrency: 1, discard: true }
     )
   }).pipe(
-    Effect.catchAllCause((cause) =>
+    Effect.catchCause((cause) =>
       Effect.sync(() => {
         logError('[automation:comment-posted] dispatch failure', cause)
       })

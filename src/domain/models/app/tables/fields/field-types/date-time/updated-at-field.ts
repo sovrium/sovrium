@@ -27,12 +27,10 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const UpdatedAtFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('updated-at'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('updated-at'),
+  }),
+  Schema.annotate({
     title: 'Updated At Field',
     description:
       'Automatically updates the timestamp whenever a record is modified. System-managed field that updates on every change.',

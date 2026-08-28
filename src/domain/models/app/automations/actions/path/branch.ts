@@ -13,10 +13,14 @@ import type { Action } from '../..'
 /**
  * Path Action (type: path, operator: branch)
  *
- * Split automation into parallel branches (like n8n Switch or Make router).
+ * Split automation into conditional branches (like n8n Switch or Make router).
  * Each path has a condition and its own sequence of actions.
+ *
+ * Branches are conditional, never concurrent. `first-match` runs the first
+ * matching path; `all-matching` runs every matching path sequentially, in
+ * declaration order, so a later path observes the effects of an earlier one.
  */
-export const PathBranchActionSchema: Schema.Schema<Action & { readonly type: 'path' }, unknown> =
+export const PathBranchActionSchema: Schema.Codec<Action & { readonly type: 'path' }, unknown> =
   Schema.Struct({
     ...ActionBaseFields,
     type: Schema.Literal('path'),
@@ -25,12 +29,12 @@ export const PathBranchActionSchema: Schema.Schema<Action & { readonly type: 'pa
       paths: Schema.Array(
         Schema.Struct({
           name: Schema.String.pipe(
-            Schema.minLength(1),
-            Schema.annotations({ description: 'Path name for identification' })
+            Schema.check(Schema.isMinLength(1)),
+            Schema.annotate({ description: 'Path name for identification' })
           ),
           condition: Schema.optional(ConditionGroupSchema),
           actions: Schema.Array(
-            Schema.suspend((): Schema.Schema<Action, unknown> => {
+            Schema.suspend((): Schema.Codec<Action, unknown> => {
               // `require('..')` resolves to `actions/index.ts` (the top-level
               // ActionSchema union); `require('.')` would resolve to
               // `actions/path/index.ts`, which only re-exports
@@ -39,32 +43,33 @@ export const PathBranchActionSchema: Schema.Schema<Action & { readonly type: 'pa
               // has fully loaded, so the circular import is safe.
               // eslint-disable-next-line @typescript-eslint/no-require-imports
               const { ActionSchema } = require('..') as {
-                ActionSchema: Schema.Schema<Action, unknown>
+                ActionSchema: Schema.Codec<Action, unknown>
               }
               return ActionSchema
             })
           ).pipe(
-            Schema.minItems(1),
-            Schema.annotations({ description: 'Actions to execute on this path' })
+            Schema.check(Schema.isMinLength(1)),
+            Schema.annotate({ description: 'Actions to execute on this path' })
           ),
         })
       ).pipe(
-        Schema.minItems(2),
-        Schema.annotations({ description: 'Two or more paths to branch into' })
+        Schema.check(Schema.isMinLength(2)),
+        Schema.annotate({ description: 'Two or more paths to branch into' })
       ),
       mode: Schema.optional(
-        Schema.Literal('first-match', 'all-matching').pipe(
-          Schema.annotations({
+        Schema.Literals(['first-match', 'all-matching']).pipe(
+          Schema.annotate({
             description:
-              'first-match: execute first matching path; all-matching: execute all matching in parallel. Default: first-match',
+              'first-match: execute only the first matching path; all-matching: execute every matching path sequentially, in declaration order. Default: first-match',
           })
         )
       ),
     }),
   }).pipe(
-    Schema.annotations({
+    Schema.annotate({
       identifier: 'PathBranchAction',
       title: 'Path Branch Action',
-      description: 'Split automation into conditional parallel branches',
+      description:
+        'Split automation into conditional branches, executed sequentially in declaration order',
     })
-  ) as Schema.Schema<Action & { readonly type: 'path' }, unknown>
+  ) as Schema.Codec<Action & { readonly type: 'path' }, unknown>

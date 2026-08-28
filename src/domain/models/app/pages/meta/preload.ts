@@ -16,7 +16,7 @@ import { Schema } from 'effect'
  *
  * 8 standard resource types for <link rel="preload" as="...">
  */
-export const PreloadResourceTypeSchema = Schema.Literal(
+export const PreloadResourceTypeSchema = Schema.Literals([
   'style',
   'script',
   'font',
@@ -24,18 +24,18 @@ export const PreloadResourceTypeSchema = Schema.Literal(
   'video',
   'audio',
   'document',
-  'fetch'
-).annotations({
+  'fetch',
+]).annotate({
   description: 'Resource type hint',
 })
 
 /**
  * CORS setting for preloaded resources
  */
-export const PreloadCrossOriginSchema = Schema.Union(
+export const PreloadCrossOriginSchema = Schema.Union([
   Schema.Boolean,
-  Schema.Literal('anonymous', 'use-credentials')
-).annotations({
+  Schema.Literals(['anonymous', 'use-credentials']),
+]).annotate({
   description: 'CORS setting for the resource',
 })
 
@@ -45,22 +45,22 @@ export const PreloadCrossOriginSchema = Schema.Union(
  * Defines a single resource to preload early in page load for performance optimization.
  */
 export const PreloadItemSchema = Schema.Struct({
-  href: Schema.String.annotations({
+  href: Schema.String.annotate({
     description: 'Resource URL to preload',
   }),
   as: PreloadResourceTypeSchema,
   type: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'MIME type for the resource',
     })
   ),
   crossorigin: Schema.optional(PreloadCrossOriginSchema),
   media: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Media query for conditional loading',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Preload resource',
 })
 
@@ -69,7 +69,7 @@ export const PreloadItemSchema = Schema.Struct({
  *
  * Array of critical resources to preload early in page load.
  */
-export const PreloadSchema = Schema.Array(PreloadItemSchema).annotations({
+export const PreloadSchema = Schema.Array(PreloadItemSchema).annotate({
   title: 'Resource Preloading',
   description: 'Preload critical resources for performance optimization',
 })

@@ -35,34 +35,34 @@ export const schemaFormEditorFields = {
   ...visibilityFields,
   ...i18nFields,
   submitToTable: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Table slug the authored config is submitted to (e.g. "config_submissions")',
     })
   ),
   configField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Column on the submit table that stores the serialized config',
     })
   ),
   formatField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Column on the submit table that stores the editor format discriminant ("form")',
     })
   ),
   initialValue: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Initial config the form-builder hydrates from (e.g. "$record.config")',
     })
   ),
   sections: Schema.optional(
     Schema.Array(
-      Schema.Literal('tables', 'pages', 'fields', 'automations', 'auth', 'theme')
-    ).annotations({
+      Schema.Literals(['tables', 'pages', 'fields', 'automations', 'auth', 'theme'])
+    ).annotate({
       description: 'Which config sections the guided builder exposes (subset of the app schema)',
     })
   ),
   readOnly: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'Whether the builder is read-only (review the structured config without editing)',
     })

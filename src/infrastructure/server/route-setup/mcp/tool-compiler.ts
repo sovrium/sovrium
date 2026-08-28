@@ -500,7 +500,7 @@ const resolveExposedFields = (
  * on PostgreSQL + the records-API for the authoritative validation; the
  * inputSchema only needs to give MCP clients enough hints to render forms.
  */
-const mapFieldToJsonSchema = (field: Fields[number]): Record<string, unknown> => {
+const mapFieldToJsonSchema = (field: Fields[number]): Readonly<Record<string, unknown>> => {
   const fieldType = field.type
   if (NUMERIC_FIELD_TYPES.has(fieldType)) return { type: 'number' }
   if (BOOLEAN_FIELD_TYPES.has(fieldType)) return { type: 'boolean' }
@@ -513,13 +513,13 @@ const mapFieldToJsonSchema = (field: Fields[number]): Record<string, unknown> =>
   return { type: 'string' }
 }
 
-const mapEnumStringField = (field: Fields[number]): Record<string, unknown> => {
+const mapEnumStringField = (field: Fields[number]): Readonly<Record<string, unknown>> => {
   const { options } = field as { readonly options?: ReadonlyArray<string> }
   if (options && options.length > 0) return { type: 'string', enum: [...options] }
   return { type: 'string' }
 }
 
-const mapEnumArrayField = (field: Fields[number]): Record<string, unknown> => {
+const mapEnumArrayField = (field: Fields[number]): Readonly<Record<string, unknown>> => {
   const { options } = field as { readonly options?: ReadonlyArray<string> }
   if (options && options.length > 0) {
     return { type: 'array', items: { type: 'string', enum: [...options] } }

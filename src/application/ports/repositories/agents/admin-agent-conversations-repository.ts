@@ -100,6 +100,11 @@ export interface AdminAgentMessageRow {
  * - `from` / `to` — optional inclusive ISO 8601 bounds on `updatedAt`
  *   (`lastActivityAt`). The use case passes the raw ISO strings; the repository
  *   coerces them to the column's native type for the bound parameter.
+ * - `q` — optional case-insensitive literal-substring match over `title` OR
+ *   `sessionId`. AND-ed with the agent scope, the date window and the cursor
+ *   seek, so the overfetch runs over the MATCHES and a page is a page of
+ *   matches. Message `content` is out of scope (transcript search is a separate
+ *   capability). Absent means "no search", never "match nothing".
  * - `cursor` — the decoded `(value, id)` tuple from the opaque cursor, where
  *   `value` is the last row's `updatedAt` ISO; the repository emits the
  *   dialect-aware newest-first seek predicate for it.
@@ -110,13 +115,12 @@ export interface AdminAgentConversationsListFilters {
   readonly agentName: string
   readonly from?: string | undefined
   readonly to?: string | undefined
+  readonly q?: string | undefined
   readonly cursor?: { readonly value: string; readonly id: string } | undefined
   readonly limit: number
 }
 
-export class AdminAgentConversationsRepository extends Context.Tag(
-  'AdminAgentConversationsRepository'
-)<
+export class AdminAgentConversationsRepository extends Context.Service<
   AdminAgentConversationsRepository,
   {
     /**
@@ -151,4 +155,4 @@ export class AdminAgentConversationsRepository extends Context.Tag(
       conversationId: string
     ) => Effect.Effect<readonly AdminAgentMessageRow[], AdminAgentConversationsDatabaseError>
   }
->() {}
+>()('AdminAgentConversationsRepository') {}

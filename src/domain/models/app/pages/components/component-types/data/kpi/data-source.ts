@@ -59,8 +59,8 @@ export const KpiDbDataSourceSchema = DataSourceSchema
 export const KpiSystemSourceSchema = Schema.Struct({
   /** The named read endpoint to fetch the scalar from (required) */
   endpoint: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Read endpoint path to fetch the scalar from (e.g. /api/admin/overview)',
       examples: ['/api/admin/overview'],
     })
@@ -68,8 +68,8 @@ export const KpiSystemSourceSchema = Schema.Struct({
   /** Dotted path to a single scalar in the response envelope (e.g. records.total) */
   valuePath: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Dotted path to a single scalar in the fetched envelope',
         examples: ['records.total', 'storage.totalBytes'],
       })
@@ -82,8 +82,8 @@ export const KpiSystemSourceSchema = Schema.Struct({
    */
   valueTemplate: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Template interpolating {dotted.path} tokens from the fetched envelope',
         examples: ['{connections.healthy}/{connections.total}'],
       })
@@ -91,14 +91,14 @@ export const KpiSystemSourceSchema = Schema.Struct({
   ),
   /** Static query params merged into the request to the endpoint */
   query: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-    }).annotations({
+    Schema.Record(
+      Schema.String,
+      Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+    ).annotate({
       description: 'Static query params merged into the request to the endpoint',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'KPI System Source',
   description:
     'Read-endpoint binding: read a single pre-computed scalar (or a value template) from a system endpoint instead of aggregating a DB table',
@@ -109,16 +109,16 @@ export const KpiSystemSourceSchema = Schema.Struct({
  * - `{ table, ... }`                  → DB-table binding (unchanged, aggregated client-side)
  * - `{ system: { endpoint, ... } }`   → system read-endpoint binding (scalar value-path)
  */
-export const KpiDataSourceSchema = Schema.Union(
+export const KpiDataSourceSchema = Schema.Union([
   KpiDbDataSourceSchema,
   Schema.Struct({
     /** System read-endpoint binding (mutually exclusive with the DB-table form) */
     system: KpiSystemSourceSchema,
-  }).annotations({
+  }).annotate({
     title: 'KPI System Data Source',
     description: 'System read-endpoint binding for the KPI',
-  })
-).annotations({
+  }),
+]).annotate({
   identifier: 'KpiDataSource',
   title: 'KPI Data Source',
   description:

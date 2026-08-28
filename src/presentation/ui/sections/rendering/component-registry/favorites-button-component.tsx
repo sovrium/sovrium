@@ -78,8 +78,7 @@ const FAVORITES_BUTTON_RUNTIME = `(function () {
   }
   // Record a view of this record in the caller's recent items. Single-record
   // detail pages always carry a favorites-button bound to the host record, so
-  // this doubles as the recent-items auto-tracking hook
-  // (US-PAGES-INTERACTIVITY-FAVORITES-RECENT-002).
+  // this doubles as the recent-items auto-tracking hook.
   function trackRecent(button) {
     var type = button.getAttribute('data-entity-type');
     var id = button.getAttribute('data-entity-id');

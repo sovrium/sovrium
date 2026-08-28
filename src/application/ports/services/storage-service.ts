@@ -21,7 +21,7 @@ export class StorageError extends Data.TaggedError('StorageError')<{
  * Provides file storage operations (upload, download, signed URLs).
  * Implementation lives in infrastructure layer (e.g., S3, local filesystem).
  */
-export class StorageService extends Context.Tag('StorageService')<
+export class StorageService extends Context.Service<
   StorageService,
   {
     readonly upload: (
@@ -58,6 +58,6 @@ export class StorageService extends Context.Tag('StorageService')<
     >
     readonly list: (prefix: string) => Effect.Effect<readonly string[], StorageError>
     /** Total bytes used across all keys for the active provider — used for quota enforcement. */
-    readonly getTotalBytes: () => Effect.Effect<number, StorageError>
+    readonly getTotalBytes: Effect.Effect<number, StorageError>
   }
->() {}
+>()('StorageService') {}

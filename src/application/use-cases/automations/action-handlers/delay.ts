@@ -60,7 +60,7 @@ const sleep = (ms: number): Effect.Effect<void> =>
 const propsOf = (action: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> =>
   (action['props'] ?? {}) as Readonly<Record<string, unknown>>
 
-const ok = (output?: Record<string, unknown>): ActionOutcome =>
+const ok = (output?: Readonly<Record<string, unknown>>): ActionOutcome =>
   (output !== undefined
     ? ({ status: 'success', output } as const)
     : ({ status: 'success' } as const)) satisfies ActionOutcome

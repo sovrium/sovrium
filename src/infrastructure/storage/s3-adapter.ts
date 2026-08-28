@@ -66,19 +66,88 @@ export const s3Delete = async (client: S3Client, bucket: string, key: string): P
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
 }
 
+/**
+ * Keys returned per `ListObjectsV2` call. 1000 is the S3 API maximum.
+ */
+const LIST_PAGE_SIZE = 1000
+
+/**
+ * Hard ceiling on pages walked by one listing, i.e. 100 000 objects.
+ *
+ * `ListObjectsV2` is paginated and truncates SILENTLY at `MaxKeys`: a bucket
+ * with 1500 objects used to answer with 1000 and no indication that 500 were
+ * dropped — so `s3List` under-reported files and `s3GetTotalBytes` returned a
+ * quota figure that could never trip its own limit. Following
+ * `ContinuationToken` fixes the common case, but an unbounded loop turns a
+ * dashboard read into an unbounded round-trip count against a remote endpoint.
+ *
+ * So: paginate, and STATE the truncation when the ceiling is reached. A bounded
+ * number that admits it is a floor is usable; a silent one is not.
+ */
+const MAX_LIST_PAGES = 100
+
+/**
+ * One paginated listing pass over a bucket.
+ *
+ * `truncated` is `true` when {@link MAX_LIST_PAGES} was exhausted with more
+ * pages still pending — the results are then a prefix of the bucket, not the
+ * whole of it.
+ */
+interface S3ListingPage {
+  readonly items: ReadonlyArray<{ readonly key: string; readonly size: number }>
+  readonly truncated: boolean
+}
+
+/**
+ * Walk every `ListObjectsV2` page for `bucket`/`prefix`, up to
+ * {@link MAX_LIST_PAGES}.
+ */
+const s3ListAll = async (
+  client: S3Client,
+  bucket: string,
+  prefix?: string
+): Promise<S3ListingPage> => {
+  const step = async (
+    token: string | undefined,
+    pagesLeft: number,
+    acc: ReadonlyArray<{ readonly key: string; readonly size: number }>
+  ): Promise<S3ListingPage> => {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        ...(prefix ? { Prefix: prefix } : {}),
+        MaxKeys: LIST_PAGE_SIZE,
+        ...(token ? { ContinuationToken: token } : {}),
+      })
+    )
+    const items = [
+      ...acc,
+      ...(response.Contents ?? [])
+        .filter((item) => Boolean(item.Key))
+        .map((item) => ({ key: item.Key ?? '', size: item.Size ?? 0 })),
+    ]
+    const next = response.NextContinuationToken
+    if (!response.IsTruncated || !next) return { items, truncated: false }
+    if (pagesLeft <= 1) return { items, truncated: true }
+    return step(next, pagesLeft - 1, items)
+  }
+
+  return step(undefined, MAX_LIST_PAGES, [])
+}
+
+/**
+ * Object keys under `prefix`.
+ *
+ * `truncated` is `true` when the listing hit {@link MAX_LIST_PAGES} and the
+ * keys are therefore a prefix of the bucket rather than all of it.
+ */
 export const s3List = async (
   client: S3Client,
   bucket: string,
   prefix: string
-): Promise<readonly string[]> => {
-  const response = await client.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: prefix,
-      MaxKeys: 1000,
-    })
-  )
-  return (response.Contents ?? []).map((item) => item.Key ?? '').filter(Boolean)
+): Promise<{ readonly keys: readonly string[]; readonly truncated: boolean }> => {
+  const page = await s3ListAll(client, bucket, prefix)
+  return { keys: page.items.map((item) => item.key), truncated: page.truncated }
 }
 
 export const s3ValidateBucket = async (client: S3Client, bucket: string): Promise<void> => {
@@ -86,18 +155,23 @@ export const s3ValidateBucket = async (client: S3Client, bucket: string): Promis
 }
 
 /**
- * Sum object sizes in the bucket (capped at 1000 keys per page — the test fixture
- * is per-bucket so this is sufficient for quota enforcement). Used for
- * `STORAGE_MAX_TOTAL_SIZE` on the S3 provider.
+ * Sum object sizes across the whole bucket, following `ContinuationToken`.
+ * Used for `STORAGE_MAX_TOTAL_SIZE` on the S3 provider and for the footprint
+ * dashboard's bucket row.
+ *
+ * `truncated` is `true` when the walk stopped at {@link MAX_LIST_PAGES}; the
+ * byte count is then a LOWER BOUND, and the caller is expected to say so
+ * rather than present it as the total.
  */
-export const s3GetTotalBytes = async (client: S3Client, bucket: string): Promise<number> => {
-  const response = await client.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      MaxKeys: 1000,
-    })
-  )
-  return (response.Contents ?? []).reduce((sum, item) => sum + (item.Size ?? 0), 0)
+export const s3GetTotalBytes = async (
+  client: S3Client,
+  bucket: string
+): Promise<{ readonly bytes: number; readonly truncated: boolean }> => {
+  const page = await s3ListAll(client, bucket)
+  return {
+    bytes: page.items.reduce((sum, item) => sum + item.size, 0),
+    truncated: page.truncated,
+  }
 }
 
 export const s3GetSignedUrl = async (

@@ -6,7 +6,7 @@
  */
 
 import { randomBytes, scryptSync } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { defaultEncryptionKeyPath } from '@/domain/models/env/data-dir'
 
@@ -15,8 +15,8 @@ import { defaultEncryptionKeyPath } from '@/domain/models/env/data-dir'
  *
  * Sovrium's headline promise is that a fresh install runs with an empty
  * environment. That used to be false: the server refused to boot without
- * `SOVRIUM_ENCRYPTION_KEY`, which made both one-click deploy manifests fail and
- * pushed local setups onto a publicly-known constant. The whole of `src/` is
+ * `SOVRIUM_ENCRYPTION_KEY`, which broke unattended deploys outright and pushed
+ * local setups onto a publicly-known constant. The whole of `src/` is
  * mirrored to a public repository and compiled into every shipped binary, so a
  * built-in default key would have made the encryption decorative.
  *
@@ -69,18 +69,49 @@ const GENERATED_SECRET_BYTES = 32
 const KEY_FILE_MODE = 0o600
 
 /**
+ * The operator-facing refusal when a key file EXISTS but cannot be read.
+ *
+ * Names the path and the underlying errno, plus the env var that removes the
+ * need to read the file at all.
+ */
+const unreadableMessage = (keyFilePath: string, cause: unknown): string =>
+  `Sovrium found an encryption key at ${keyFilePath} but could not read it ` +
+  `(${cause instanceof Error ? cause.message : String(cause)}). ` +
+  `Refusing to start rather than generate a replacement, which would permanently ` +
+  `orphan every secret already encrypted under the existing key. ` +
+  `Fix the file's permissions, or set ${ROOT_SECRET_ENV_VAR} to supply the key directly.`
+
+/**
  * Read a persisted root secret, or `undefined` when there is none to read.
  *
- * An unreadable or blank file reads as absent rather than as an error: a
- * zero-byte file derives no usable key, and treating it as fatal would strand an
- * install behind a file it could simply rewrite.
+ * ONLY "the file is not there" counts as absent. Every other failure — EACCES on
+ * a key owned by another uid, EIO on failing storage, EISDIR where a directory
+ * shadows the path — THROWS.
+ *
+ * That distinction is the entire job of this function, and it used to be a bare
+ * `catch { return undefined }`. Returning `undefined` here does not mean "no
+ * key"; it means "generate one", and `generateAndPersist` then writes OVER the
+ * file it could not read. Every OAuth token, connection credential and
+ * automation secret encrypted under the old key becomes permanently
+ * undecryptable — silently, because a generated key is reported as a success
+ * line at startup unless `DATABASE_URL` happens to be set. An unreadable file is
+ * usually also unwritable, so the write would often have failed loudly on its
+ * own; "usually" is not a safety property.
+ *
+ * A file that exists and is BLANK still reads as absent, deliberately: it
+ * derives no usable key, so nothing can have been encrypted under it, and
+ * treating that as fatal would strand an install behind a file it can simply
+ * rewrite. Truncation is prevented at the write end instead — see
+ * {@link generateAndPersist}.
  */
 const readPersistedSecret = (keyFilePath: string): string | undefined => {
   try {
     const contents = readFileSync(keyFilePath, 'utf-8').trim()
     return contents.length > 0 ? contents : undefined
-  } catch {
-    return undefined
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    // eslint-disable-next-line functional/no-throw-statements -- fail-loud: generating a replacement key would silently orphan every secret encrypted under the unreadable one
+    throw new Error(unreadableMessage(keyFilePath, cause))
   }
 }
 
@@ -97,15 +128,35 @@ const unwritableMessage = (keyFilePath: string, cause: unknown): string =>
   `Point SOVRIUM_DATA_DIR at a writable directory, or set ${ROOT_SECRET_ENV_VAR} ` +
   `so no key needs to be written.`
 
+/**
+ * Write the key, then move it into place.
+ *
+ * `writeFileSync` truncates the target before writing, so a crash, a full disk
+ * or a container kill between those two steps leaves a zero-byte or partial key
+ * file. A partial file is the worse outcome: `readPersistedSecret` accepts any
+ * non-blank contents, so a truncated key is adopted verbatim as THE key and
+ * every previously-encrypted secret silently fails to decrypt, with no error at
+ * startup. Writing to a sibling temp file and renaming makes the publish atomic
+ * on POSIX — the key file only ever exists complete or not at all.
+ *
+ * The temp file is created with the restrictive mode too: a key must never be
+ * observable at a wider mode, even for the instant before the rename.
+ */
+const writeKeyFileAtomically = (keyFilePath: string, contents: string): void => {
+  const tempPath = `${keyFilePath}.${randomBytes(6).toString('hex')}.tmp`
+  // eslint-disable-next-line functional/no-expression-statements -- filesystem provisioning; mirrors writeLockFile's mkdir-then-write precedent
+  mkdirSync(dirname(keyFilePath), { recursive: true })
+  writeFileSync(tempPath, contents, { mode: KEY_FILE_MODE, encoding: 'utf-8' })
+  // `mode` on writeFileSync applies only on creation and is masked by umask,
+  // so the bits are asserted explicitly rather than hoped for.
+  chmodSync(tempPath, KEY_FILE_MODE)
+  renameSync(tempPath, keyFilePath)
+}
+
 const generateAndPersist = (keyFilePath: string): string => {
   const generated = randomBytes(GENERATED_SECRET_BYTES).toString('hex')
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- filesystem provisioning; mirrors writeLockFile's mkdir-then-write precedent
-    mkdirSync(dirname(keyFilePath), { recursive: true })
-    writeFileSync(keyFilePath, `${generated}\n`, { mode: KEY_FILE_MODE, encoding: 'utf-8' })
-    // `mode` on writeFileSync applies only on creation and is masked by umask,
-    // so the bits are asserted explicitly rather than hoped for.
-    chmodSync(keyFilePath, KEY_FILE_MODE)
+    writeKeyFileAtomically(keyFilePath, `${generated}\n`)
   } catch (cause) {
     // eslint-disable-next-line functional/no-throw-statements -- fail-loud: a process-local key would silently orphan every token it wrote
     throw new Error(unwritableMessage(keyFilePath, cause))

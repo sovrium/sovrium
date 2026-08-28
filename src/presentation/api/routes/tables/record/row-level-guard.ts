@@ -114,7 +114,7 @@ export const buildRowLevelGuardContext = (
     // unexpected fault. Logging it is what stops a legitimately-granted user
     // being denied with no trace.
     const userAccessRoles = yield* repo.fetchUserAccessRoles(session.userId).pipe(
-      Effect.catchAll((error) => {
+      Effect.catch((error) => {
         logError(
           '[PERMISSIONS] user_access role lookup failed; proceeding without the role overlay',
           error,
@@ -346,8 +346,8 @@ async function fetchRowForGate(
   const fetched = await runTableProgram(
     rawGetRecordProgram(session as UserSession, tableName, recordId)
   )
-  if (fetched._tag === 'Left' || !fetched.right) return undefined
-  return fetched.right
+  if (fetched._tag === 'Failure' || !fetched.success) return undefined
+  return fetched.success
 }
 
 interface MutationPredicateInput {
@@ -443,9 +443,9 @@ export async function enforceRestoreGate(input: {
     rawGetRecordProgram(session as UserSession, tableName, recordId)
   )
   if (
-    fetched._tag === 'Right' &&
-    fetched.right &&
-    !recordPassesPredicate(table.rowLevelPermissions, 'read', fetched.right, guard.current)
+    fetched._tag === 'Success' &&
+    fetched.success &&
+    !recordPassesPredicate(table.rowLevelPermissions, 'read', fetched.success, guard.current)
   ) {
     return NOT_FOUND_BODY(c)
   }
@@ -565,13 +565,13 @@ export async function enforceBulkMutationGate(input: BulkGateInput): Promise<Res
   const fetched = await runTableProgram(
     rawListRecordsProgram(session as UserSession, tableName, filter)
   )
-  if (fetched._tag === 'Left') return NOT_FOUND_BODY(c)
+  if (fetched._tag === 'Failure') return NOT_FOUND_BODY(c)
 
   // Compare allowed-set vs input-set: any id missing from the SQL result
   // is either non-existent OR out-of-scope read OR out-of-scope mutation.
   // All three collapse to the same atomic 404 — same contract as the
   // sequential reduce this replaces.
-  const allowedIds = new Set(fetched.right.map((row) => String(row.id)))
+  const allowedIds = new Set(fetched.success.map((row) => String(row.id)))
   const allInScope = ids.every((id) => allowedIds.has(String(id)))
   return allInScope ? undefined : NOT_FOUND_BODY(c)
 }

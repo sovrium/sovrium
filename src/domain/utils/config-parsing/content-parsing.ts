@@ -12,22 +12,41 @@
  * These are pure functions with no side effects.
  */
 
+import { assertConfigIsTree } from './shared-reference-guard'
 import type { SchemaFormat } from './format-detection'
 import type { AppEncoded } from '@/domain/models/app'
 
 /**
- * Parse JSON content to AppEncoded
+ * Run the parsed value through the shared-reference guard before handing it on.
+ *
+ * This is the seam where "a config is a tree" is a TRUE invariant — text has no
+ * way to express sharing except a YAML anchor — which is why the guard lives
+ * here and not at the decoder, where TypeScript configs (which legitimately
+ * share a hoisted `const`) also arrive. See `shared-reference-guard.ts`.
  */
-export const parseJsonContent = (content: string): AppEncoded => JSON.parse(content) as AppEncoded
+const asTree = (parsed: unknown): AppEncoded => {
+  assertConfigIsTree(parsed)
+  return parsed as AppEncoded
+}
+
+/**
+ * Parse JSON content to AppEncoded
+ *
+ * `JSON.parse` has no sharing construct, so the guard can never fire here; it is
+ * applied anyway so the tree invariant is asserted at the seam rather than
+ * assumed from the parser's behaviour.
+ */
+export const parseJsonContent = (content: string): AppEncoded => asTree(JSON.parse(content))
 
 /**
  * Parse YAML content to AppEncoded
  *
  * Uses Bun's native YAML parser (`Bun.YAML.parse`). On malformed YAML this
- * throws a plain `SyntaxError` (not js-yaml's typed `YAMLException`).
+ * throws a plain `SyntaxError` (not js-yaml's typed `YAMLException`); on a
+ * well-formed document that uses anchors/aliases to share a node it throws the
+ * shared-reference refusal.
  */
-export const parseYamlContent = (content: string): AppEncoded =>
-  Bun.YAML.parse(content) as AppEncoded
+export const parseYamlContent = (content: string): AppEncoded => asTree(Bun.YAML.parse(content))
 
 /**
  * Parse schema content based on detected format

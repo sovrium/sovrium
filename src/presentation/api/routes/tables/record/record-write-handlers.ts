@@ -145,6 +145,8 @@ interface UpdateGateInput {
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableName: string
   readonly userRole: string
+  /** Group names the user belongs to (un-prefixed) — group-aware RBAC. */
+  readonly userGroups: readonly string[]
   readonly recordId: string
   readonly guard: RowLevelGuardContext | undefined
 }
@@ -177,19 +179,30 @@ async function checkWritePredicate(input: WritePredicateInput): Promise<Response
   const { c, table, session, tableName, recordId, guard } = input
   if (!table?.rowLevelPermissions?.write?.when) return undefined
   const fetched = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  if (fetched._tag === 'Left' || !fetched.right) {
+  if (fetched._tag === 'Failure' || !fetched.success) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
-  return recordPassesPredicate(table.rowLevelPermissions, 'write', fetched.right, guard.current)
+  return recordPassesPredicate(table.rowLevelPermissions, 'write', fetched.success, guard.current)
     ? undefined
     : c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 }
 
 async function checkUpdateGateAndPredicate(input: UpdateGateInput): Promise<Response | undefined> {
-  const { c, app, table, session, tableName, userRole, recordId, guard } = input
+  const { c, app, table, session, tableName, userRole, userGroups, recordId, guard } = input
 
   if (!guard) {
-    const permissionCheck = checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
+    // Group-aware, mirroring `checkCreateGate` above. The guarded branch below
+    // has always evaluated `guard.effectiveRoles`; this unguarded branch used a
+    // bare `userRole`, so a `group:<name>` entry in `permissions.update` could
+    // never match and an `update: ['group:finance']` grant was inert for every
+    // member of `finance` — while the same grant worked for `create`. The
+    // group overlay exists only in the effective-role set.
+    const permissionCheck = checkTableUpdatePermissionWithRole(
+      app,
+      tableName,
+      buildEffectiveRoles(userRole, userGroups),
+      c
+    )
     return permissionCheck.allowed ? undefined : permissionCheck.response
   }
 
@@ -298,11 +311,11 @@ export async function handleCreateRecord(c: Context, app: App) {
     Effect.provide(validationLayer),
     provideStorageLive
   )
-  const validationResult = await Effect.runPromise(program.pipe(Effect.either))
+  const validationResult = await Effect.runPromise(program.pipe(Effect.result))
 
-  if (validationResult._tag === 'Left') return formatValidationError(validationResult.left, c)
+  if (validationResult._tag === 'Failure') return formatValidationError(validationResult.failure, c)
 
-  const predicateError = checkCreatePredicate(c, table, guard, validationResult.right)
+  const predicateError = checkCreatePredicate(c, table, guard, validationResult.success)
   if (predicateError) return predicateError
 
   // [internal ref] Phase 2 baseline: Postgres computes the AI-compute baseline in a
@@ -313,10 +326,10 @@ export async function handleCreateRecord(c: Context, app: App) {
   const fields =
     table && isSqliteRuntime()
       ? {
-          ...validationResult.right,
-          ...applyAiComputeBaseline({ table, op: 'insert', incoming: validationResult.right }),
+          ...validationResult.success,
+          ...applyAiComputeBaseline({ table, op: 'insert', incoming: validationResult.success }),
         }
-      : validationResult.right
+      : validationResult.success
 
   return await runEffect(
     c,
@@ -325,7 +338,7 @@ export async function handleCreateRecord(c: Context, app: App) {
         session,
         tableName,
         fields,
-        incoming: validationResult.right,
+        incoming: validationResult.success,
         app,
         userRole,
         origin: new URL(c.req.url).origin,
@@ -357,10 +370,12 @@ async function resolveFormUpdateAuth(input: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** Group names the user belongs to (un-prefixed) — group-aware RBAC. */
+  readonly userGroups: readonly string[]
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly recordId: string
 }): Promise<Response | undefined> {
-  const { c, app, tableName, userRole, session, recordId } = input
+  const { c, app, tableName, userRole, userGroups, session, recordId } = input
   const table = app.tables?.find((t) => t.name === tableName)
   const guard = await resolveGuardForTable(session, userRole, table, app)
 
@@ -375,12 +390,17 @@ async function resolveFormUpdateAuth(input: {
       op: 'write',
     })
   }
-  const permissionCheck = checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
+  const permissionCheck = checkTableUpdatePermissionWithRole(
+    app,
+    tableName,
+    buildEffectiveRoles(userRole, userGroups),
+    c
+  )
   return permissionCheck.allowed ? undefined : permissionCheck.response
 }
 
 export async function handleFormUpdateRecord(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const body = await c.req.parseBody()
   const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
@@ -395,7 +415,15 @@ export async function handleFormUpdateRecord(c: Context, app: App) {
   if (readonlyValidation) return readonlyValidation
 
   const recordId = c.req.param('recordId')!
-  const authError = await resolveFormUpdateAuth({ c, app, tableName, userRole, session, recordId })
+  const authError = await resolveFormUpdateAuth({
+    c,
+    app,
+    tableName,
+    userRole,
+    userGroups,
+    session,
+    recordId,
+  })
   if (authError) return authError
 
   const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
@@ -406,7 +434,7 @@ export async function handleFormUpdateRecord(c: Context, app: App) {
   )
 
   if (Object.keys(allowedData).length === 0) {
-    return handleNoAllowedFields({ session, tableName, recordId, forbiddenFields, c })
+    return handleNoAllowedFields({ recordId, forbiddenFields, app, c })
   }
 
   return executeFormUpdate({
@@ -443,7 +471,7 @@ async function executeFormUpdate(config: {
       updateRecordProgram(session, tableName, recordId, { fields: allowedData, app, userRole })
     )
 
-    if (result._tag === 'Left' || !result.right || Object.keys(result.right).length === 0) {
+    if (result._tag === 'Failure' || !result.success || Object.keys(result.success).length === 0) {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
@@ -456,7 +484,7 @@ async function executeFormUpdate(config: {
     if (referer) {
       return c.redirect(referer, 302)
     }
-    return c.json(result.right, 200)
+    return c.json(result.success, 200)
   } catch (error) {
     return handleRouteError(c, error)
   }
@@ -476,7 +504,7 @@ async function checkUpdateGates(input: UpdateGateInput): Promise<Response | unde
 }
 
 export async function handleUpdateRecord(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const result = await validateRequest(c, updateRecordRequestSchema)
   if (!result.success) return result.response
@@ -496,6 +524,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
     session,
     tableName,
     userRole,
+    userGroups,
     recordId,
     guard,
   })
@@ -514,13 +543,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   if (forbiddenValidation) return forbiddenValidation
 
   if (Object.keys(allowedData).length === 0) {
-    return handleNoAllowedFields({
-      session,
-      tableName,
-      recordId,
-      forbiddenFields,
-      c,
-    })
+    return handleNoAllowedFields({ recordId, forbiddenFields, app, c })
   }
 
   // Per-value rules — column formats (`email`, `url`) plus `multi-select`

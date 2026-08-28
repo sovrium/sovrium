@@ -28,36 +28,34 @@ import { createOptionsSchema } from '../validation-utils'
  * ```
  */
 export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('single-select'),
-      options: createOptionsSchema('single-select'),
-      default: Schema.optional(Schema.String),
-      /** Behavioral conditions that dynamically change field properties based on selected value */
-      conditions: Schema.optional(
-        Schema.Array(
-          Schema.Struct({
-            when: Schema.String.pipe(
-              Schema.annotations({
-                description: 'Option value that triggers the condition',
-              })
-            ),
-            then: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-              Schema.annotations({
-                description: 'Property changes to apply when condition matches',
-              })
-            ),
-          })
-        ).pipe(
-          Schema.annotations({
-            description:
-              'Behavioral conditions: when a specific option is selected, apply property changes (e.g., readOnly)',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('single-select'),
+    options: createOptionsSchema('single-select'),
+    default: Schema.optional(Schema.String),
+    /** Behavioral conditions that dynamically change field properties based on selected value */
+    conditions: Schema.optional(
+      Schema.Array(
+        Schema.Struct({
+          when: Schema.String.pipe(
+            Schema.annotate({
+              description: 'Option value that triggers the condition',
+            })
+          ),
+          then: Schema.Record(Schema.String, Schema.Unknown).pipe(
+            Schema.annotate({
+              description: 'Property changes to apply when condition matches',
+            })
+          ),
+        })
+      ).pipe(
+        Schema.annotate({
+          description:
+            'Behavioral conditions: when a specific option is selected, apply property changes (e.g., readOnly)',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Single Select Field',
     description:
       'Allows selection of one option from predefined list. Used for categories or enumerated values.',

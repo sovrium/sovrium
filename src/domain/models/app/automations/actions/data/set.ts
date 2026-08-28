@@ -22,13 +22,13 @@ export const DataSetActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Value to compute and expose as `steps.<name>.value` (supports templates) */
     value: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Value to compute and expose as steps.<name>.value (supports templates)',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataSetAction',
     title: 'Data Set Action',
     description: 'Compute a value and expose it for downstream actions',

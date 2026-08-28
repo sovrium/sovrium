@@ -31,6 +31,11 @@ export function handleRouteError(c: Context, error: unknown): Response {
       success: false,
       message: sanitized.message,
       code: sanitized.code,
+      // Carried when the failure could be attributed to one submitted field, so
+      // this handler and `runEffect`'s answer the same question the same way —
+      // a client should not get a narrower error because of which seam caught it.
+      ...(sanitized.field ? { field: sanitized.field } : {}),
+      ...(sanitized.errors ? { errors: sanitized.errors } : {}),
     },
     statusCode
   )

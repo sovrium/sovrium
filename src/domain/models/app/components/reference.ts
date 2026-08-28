@@ -23,11 +23,13 @@ import { Schema } from 'effect'
  * @see [internal ref]#/properties/$ref
  */
 export const ComponentReferenceNameSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z][a-z0-9-]*$/, {
-    message: () =>
-      'Component reference name must start with lowercase letter and contain only lowercase letters, numbers, and hyphens (kebab-case)',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-z][a-z0-9-]*$/, {
+      message:
+        'Component reference name must start with lowercase letter and contain only lowercase letters, numbers, and hyphens (kebab-case)',
+    })
+  ),
+  Schema.annotate({
     title: 'Component Reference Name',
     description: 'Name of the component to reference (kebab-case)',
     examples: ['icon-badge', 'section-header', 'call-to-action'],
@@ -53,21 +55,23 @@ export const ComponentReferenceNameSchema = Schema.String.pipe(
  *
  * @see [internal ref]#/properties/vars
  */
-export const ComponentVarsSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-      message: () =>
-        'Component variable key must start with a letter and contain only alphanumeric characters',
-    }),
-    Schema.annotations({
+export const ComponentVarsSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+        message:
+          'Component variable key must start with a letter and contain only alphanumeric characters',
+      })
+    ),
+    Schema.annotate({
       title: 'Component Variable Key',
       description: 'Variable name (alphanumeric)',
       examples: ['color', 'icon', 'text', 'titleColor'],
     })
   ),
-  value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-}).pipe(
-  Schema.annotations({
+  Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+).pipe(
+  Schema.annotate({
     title: 'Component Variables',
     description: 'Variables to substitute in the component template',
   })
@@ -89,7 +93,7 @@ export const ComponentVarsSchema = Schema.Record({
 export const SimpleComponentReferenceSchema = Schema.Struct({
   component: ComponentReferenceNameSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Simple Component Reference',
     description: 'Reference to a component by name without variable substitution',
   })
@@ -126,7 +130,7 @@ const FullComponentReferenceSchema = Schema.Struct({
   $ref: ComponentReferenceNameSchema,
   vars: ComponentVarsSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component Reference (Full Syntax)',
     description: 'Reference to a reusable component template with variable substitution',
   })
@@ -135,7 +139,7 @@ const FullComponentReferenceSchema = Schema.Struct({
 const ShorthandComponentReferenceSchema = Schema.Struct({
   component: ComponentReferenceNameSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component Reference (Shorthand)',
     description: 'Shorthand reference to a reusable component without variables',
   })
@@ -145,7 +149,7 @@ const HybridComponentReferenceSchema = Schema.Struct({
   component: ComponentReferenceNameSchema,
   vars: ComponentVarsSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component Reference (Hybrid)',
     description: 'Shorthand component reference with variable substitution',
   })
@@ -157,11 +161,8 @@ const HybridComponentReferenceSchema = Schema.Struct({
  * Variables with nested object support for dot-notation access ($user.name).
  * Values can be any type including nested objects.
  */
-const ComponentNestedVariablesSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.Unknown,
-}).pipe(
-  Schema.annotations({
+const ComponentNestedVariablesSchema = Schema.Record(Schema.String, Schema.Unknown).pipe(
+  Schema.annotate({
     title: 'Component Nested Variables',
     description: 'Variables with nested object support for dot-notation substitution',
   })
@@ -171,19 +172,19 @@ const ComponentReferenceWithVariablesSchema = Schema.Struct({
   component: ComponentReferenceNameSchema,
   variables: ComponentNestedVariablesSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component Reference (With Variables)',
     description: 'Shorthand component reference with nested variable substitution',
   })
 )
 
-export const ComponentReferenceSchema = Schema.Union(
+export const ComponentReferenceSchema = Schema.Union([
   FullComponentReferenceSchema,
   HybridComponentReferenceSchema,
   ComponentReferenceWithVariablesSchema,
-  ShorthandComponentReferenceSchema
-).pipe(
-  Schema.annotations({
+  ShorthandComponentReferenceSchema,
+]).pipe(
+  Schema.annotate({
     title: 'Component Reference',
     description:
       'Reference to a reusable component template. Supports full syntax ($ref + vars), hybrid syntax (component + vars), variables syntax (component + variables), or shorthand (component name only).',

@@ -19,7 +19,9 @@ import { triggerRecordEventAutomations } from '@/application/use-cases/automatio
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
 import { applyAiComputeBaseline } from '@/domain/services/ai-compute/apply-baseline'
-import { hasUpdatePermission } from '@/domain/validators/permission-evaluators'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { filterReadableFields } from '@/domain/validators/field-read-filter'
+import { hasUpdatePermissionForRoles } from '@/domain/validators/permission-evaluators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   provideTableWithAutomationsLive,
@@ -28,6 +30,8 @@ import {
 import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
+import { loadPausedAutomationNamesAsync } from '@/presentation/api/routes/automations/effect-runner'
+import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { handleRouteError } from '../error-handlers'
 import { isAuthorizationError } from '../utils'
@@ -142,23 +146,31 @@ async function deleteStorageFiles(keys: readonly string[]): Promise<void> {
         const storage = yield* StorageService
         yield* storage['delete'](key)
       })
-      return Effect.runPromise(Effect.either(Effect.provide(program, StorageServiceLive)))
+      return Effect.runPromise(Effect.result(Effect.provide(program, StorageServiceLive)))
     })
   ).then(() => undefined)
 }
 
 /**
- * Check if user has table-level update permission (using pre-fetched role from middleware)
+ * Check if the caller has table-level update permission (using the pre-fetched
+ * identity from middleware).
+ *
+ * Takes the caller's EFFECTIVE ROLES — their global role plus a `group:<name>`
+ * entry per membership — not a bare role, and evaluates them
+ * most-permissive-wins. A bare role can never match a `group:` entry, because
+ * that overlay exists only in the effective-role set `buildEffectiveRoles`
+ * produces; passing one left every `group:` update grant silently inert while
+ * the sibling create gate honoured it.
  */
 export function checkTableUpdatePermissionWithRole(
   app: App,
   tableName: string,
-  userRole: string,
+  effectiveRoles: readonly string[],
   c: Context
 ): { allowed: true } | { allowed: false; response: Response } {
   const table = app.tables?.find((t) => t.name === tableName)
 
-  if (!hasUpdatePermission(table, userRole, app.tables)) {
+  if (!hasUpdatePermissionForRoles(table, effectiveRoles, app.tables)) {
     // S1 anti-enumeration: authz denial returns 404 with a generic envelope.
     // The pre-S1 code branched on `userRole === 'viewer'` to customise the
     // error message; that branch is intentionally removed so the response
@@ -208,13 +220,15 @@ export function filterAllowedFieldsWithRole(
  * Handle case where no fields are allowed after filtering
  */
 export async function handleNoAllowedFields(config: {
-  session: UserSession
-  tableName: string
   recordId: string
   forbiddenFields: readonly string[]
+  app: App
   c: Context
 }): Promise<Response> {
-  const { session, tableName, recordId, forbiddenFields, c } = config
+  const { recordId, forbiddenFields, app, c } = config
+  // Both callers derive these from the same `getTableContext(c)`, so reading
+  // them here keeps the caller-supplied set down to what is genuinely local.
+  const { session, tableName, userRole } = getTableContext(c)
   // Filter out system-protected fields from forbidden list
   const attemptedForbiddenFields = forbiddenFields.filter(
     (field) => !SYSTEM_PROTECTED_FIELDS.has(field)
@@ -237,16 +251,24 @@ export async function handleNoAllowedFields(config: {
   // If only system-protected fields were filtered, return unchanged record
   try {
     const result = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-    if (result._tag === 'Left') {
-      return handleRouteError(c, result.left)
+    if (result._tag === 'Failure') {
+      return handleRouteError(c, result.failure)
     }
-    const record = result.right
+    const record = result.success
 
     if (!record) {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
-    return c.json({ record: transformRecord(record) }, 200)
+    // This is the ONLY PATCH branch that emits the `{ record }` envelope, and
+    // it used to serve `rawGetRecordProgram`'s output verbatim — a program that
+    // receives neither `app` nor `userRole` and so structurally cannot filter.
+    // A PATCH whose body reduced to exactly the system-protected `user_id`
+    // cleared the 404 guard above and echoed every read-restricted column on
+    // the row. Route it through the same canonical filter every other
+    // record-bearing response uses.
+    const readable = filterReadableFields({ app, tableName, userRole, record })
+    return c.json({ record: transformRecord(readable, { app, tableName }) }, 200)
   } catch (error) {
     return handleRouteError(c, error)
   }
@@ -254,13 +276,23 @@ export async function handleNoAllowedFields(config: {
 
 /**
  * Whether the schema declares any update-event record-trigger automation
- * targeting this table. Skips the pre-fetch + automation dispatch wiring
- * for the common case where no update automations are configured. Cheap
- * iteration over an in-memory array, no DB roundtrip.
+ * targeting this table that is currently allowed to run. Skips the pre-fetch +
+ * automation dispatch wiring for the common case where no update automations
+ * are configured — or where every one of them is off.
+ *
+ * This is an OPTIMISATION, not the correctness gate: the authoritative filter
+ * is `findMatchingRecordAutomations` inside `triggerRecordEventAutomations`,
+ * which re-reads the pauses itself. Routing the pause through here too means a
+ * fully-paused table also skips the now-pointless previous-record pre-fetch,
+ * rather than paying for it and then dispatching nothing.
  */
-function hasUpdateRecordTrigger(app: App, tableName: string): boolean {
+function hasUpdateRecordTrigger(
+  app: App,
+  tableName: string,
+  pausedNames: ReadonlySet<string>
+): boolean {
   return (app.automations ?? []).some((automation) => {
-    if (automation.enabled === false) return false
+    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
     const { trigger } = automation
     if (trigger.type !== 'record') return false
     if (trigger.table !== tableName) return false
@@ -305,10 +337,10 @@ async function executeUpdateNoTrigger(config: {
       userRole,
     })
   )
-  if (result._tag === 'Left') {
-    return handleUpdateError({ session, tableName, recordId, error: result.left, c })
+  if (result._tag === 'Failure') {
+    return handleUpdateError({ session, tableName, recordId, error: result.failure, c })
   }
-  const updateResult = result.right
+  const updateResult = result.success
   if (!updateResult || Object.keys(updateResult).length === 0) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
@@ -367,7 +399,8 @@ async function prepareUpdateData(config: {
 > {
   const { session, tableName, recordId, allowedData, app, clientUpdatedAt, c } = config
   const rawResult = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  const oldRecord = rawResult._tag === 'Right' && rawResult.right ? rawResult.right : undefined
+  const oldRecord =
+    rawResult._tag === 'Success' && rawResult.success ? rawResult.success : undefined
   if (isStaleWrite({ clientUpdatedAt, storedRecord: oldRecord })) {
     return { conflict: staleWriteConflictResponse(c) }
   }
@@ -415,7 +448,7 @@ export async function executeUpdate(config: {
   const { oldRecord, dataWithBaseline } = prep
 
   try {
-    if (!hasUpdateRecordTrigger(app, tableName)) {
+    if (!hasUpdateRecordTrigger(app, tableName, await loadPausedAutomationNamesAsync())) {
       return await executeUpdateNoTrigger({
         session,
         tableName,
@@ -492,17 +525,17 @@ async function executeUpdateWithRecordTrigger(config: {
     )
   )
 
-  const result = await Effect.runPromise(Effect.either(provideTableWithAutomationsLive(program)))
+  const result = await Effect.runPromise(Effect.result(provideTableWithAutomationsLive(program)))
 
-  if (result._tag === 'Left') {
-    return handleUpdateError({ session, tableName, recordId, error: result.left, c })
+  if (result._tag === 'Failure') {
+    return handleUpdateError({ session, tableName, recordId, error: result.failure, c })
   }
 
-  const updateResult = result.right.updated
+  const updateResult = result.success.updated
   if (!updateResult || Object.keys(updateResult).length === 0) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
-  const oldRecord = result.right.previous ?? undefined
+  const oldRecord = result.success.previous ?? undefined
   // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget webhook dispatch
   await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
   publishUpdateChange({ app, tableName, recordId, incoming, updateResult, oldRecord })
@@ -609,10 +642,10 @@ async function handleUpdateError(config: {
   // Try to read the record to differentiate between "not found" and "forbidden"
   try {
     const result = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-    if (result._tag === 'Left') {
+    if (result._tag === 'Failure') {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
-    const readResult = result.right
+    const readResult = result.success
 
     // S1 anti-enumeration: if we can read but not update, still return 404
     // so the write-permission boundary is not discoverable.

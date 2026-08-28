@@ -16,8 +16,12 @@ import {
   type AdminSubmissionsListFilters,
 } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { db } from '@/infrastructure/database'
-import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  authUsersTable,
+  formSubmissionsTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
 
 /** Wrap a DB promise, adapting failures to AdminFormsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminFormsDatabaseError({ cause }))
@@ -57,25 +61,74 @@ const buildListConditions = (filters: AdminSubmissionsListFilters): ReadonlyArra
 }
 
 /**
+ * The `?q=` predicate: the term occurs in the SUBMITTER'S account `email` or
+ * `name` (reached through the `submitter_user_id` join), or in the submission
+ * `id` an operator pastes out of a support ticket or an audit `resource.id`.
+ *
+ * Neither is a rendered column — the inbox grid shows Status and Received and
+ * nothing else — which is precisely why the response echoes `appliedQuery`: a
+ * client re-filtering the visible cells would throw away every row the server
+ * matched on the submitter.
+ *
+ * **`data` (the submitted body) is NEVER searched.** The D7 redaction lock is a
+ * SECURITY boundary here, not a scoping preference: an OPERATOR can list
+ * submissions whose bodies the reveal gate refuses them, so a term matched
+ * against body content would make this list a confirm/deny oracle over exactly
+ * that withheld content, recoverable one substring at a time. Widening this
+ * haystack is an [internal ref] D7 change.
+ *
+ * Also excluded: `status` (it has `?status`), `submittedAt` (bounded by `?from`
+ * / `?to`), `formName` (constant — the path already scopes the list to one
+ * form), `submitter_ip_hash` (a hash; typing a real IP would return zero rows
+ * and read as "nothing came from it") and `user_agent` (where `Mozilla` matches
+ * nearly everything — a search that answers "all" answers nothing).
+ *
+ * Honest limit, stated because it fails SOFT: an ANONYMOUS submission has no
+ * `submitter_user_id`, so the LEFT JOIN yields NULLs and only its `id` is
+ * searchable. A term that is somebody's e-mail address will not surface the
+ * anonymous rows that merely CONTAIN that address in their (unsearched) body.
+ */
+const buildSearchConditions = (filters: AdminSubmissionsListFilters): ReadonlyArray<SQL> => {
+  const submissions = formSubmissionsTable()
+  const users = authUsersTable()
+  return searchAnyColumn(filters.q, users.email, users.name, submissions.id)
+}
+
+/**
  * Drizzle implementation for {@link AdminFormsRepository.listSubmissions}.
  * Pulled out of the `wrap()` callback so the latter stays under the complexity
  * cap. Fetches `limit + 1` rows so the use case can derive `hasMore`.
+ *
+ * The submitter join is added ONLY when a term is present. It is a LEFT JOIN, so
+ * it could ride unconditionally without changing the row set — but the inbox is
+ * read on every page load and the join buys nothing when nobody is searching.
  */
 const listSubmissionsImpl = async (
   filters: AdminSubmissionsListFilters
 ): Promise<ReadonlyArray<AdminFormSubmissionRow>> => {
   const submissions = formSubmissionsTable()
+  const projection = {
+    id: submissions.id,
+    formName: submissions.formName,
+    submittedAt: submissions.submittedAt,
+    status: submissions.status,
+    deletedAt: submissions.deletedAt,
+  }
   const conditions = buildListConditions(filters)
+  if (filters.q === undefined) {
+    return (await db
+      .select(projection)
+      .from(submissions)
+      .where(and(...conditions))
+      .orderBy(desc(submissions.submittedAt))
+      .limit(filters.limit + 1)) as ReadonlyArray<AdminFormSubmissionRow>
+  }
+  const users = authUsersTable()
   return (await db
-    .select({
-      id: submissions.id,
-      formName: submissions.formName,
-      submittedAt: submissions.submittedAt,
-      status: submissions.status,
-      deletedAt: submissions.deletedAt,
-    })
+    .select(projection)
     .from(submissions)
-    .where(and(...conditions))
+    .leftJoin(users, eq(users.id, submissions.submitterUserId))
+    .where(and(...conditions, ...buildSearchConditions(filters)))
     .orderBy(desc(submissions.submittedAt))
     .limit(filters.limit + 1)) as ReadonlyArray<AdminFormSubmissionRow>
 }

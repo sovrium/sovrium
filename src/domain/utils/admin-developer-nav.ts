@@ -32,13 +32,29 @@ export interface DeveloperNavPage {
 }
 
 /**
- * The two Developers pages: the REST API reference and the MCP connection
- * guide. Order: API first (the broader integration surface), then MCP (the
- * AI-specific one).
+ * The five Developers pages: the two integration references (REST API, MCP)
+ * followed by the three config-introspection surfaces — the App-schema explorer
+ * and the declared-env viewer authorised by [internal ref] amendment A1, and the
+ * design-system console authorised by amendment A2.
+ *
+ * Order: integration docs first — they are what a developer arrives for — then
+ * introspection, which is what they reach for once something does not behave.
+ *
+ * The introspection group belongs HERE rather than in the Data nav because they
+ * reflect CONFIG, not runtime data: the Data destinations answer "what rows
+ * exist", these answer "what is this instance running".
+ *
+ * Within that group the order is schema → env → design system, which is the
+ * order of increasing distance from the config file: what you WROTE, what this
+ * box RESOLVED, and what the app actually RENDERS once everything it inherited
+ * without declaring is folded in.
  */
 export const DEVELOPER_NAV_PAGES: ReadonlyArray<DeveloperNavPage> = [
   { key: 'api', label: 'API', href: '/_admin/api' },
   { key: 'mcp', label: 'MCP', href: '/_admin/mcp' },
+  { key: 'schema', label: 'Schema', href: '/_admin/schema' },
+  { key: 'env', label: 'Environment', href: '/_admin/env' },
+  { key: 'design-system', label: 'Design system', href: '/_admin/design-system' },
 ]
 
 /** The English heading shown above the Developers nav list. */

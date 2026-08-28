@@ -32,6 +32,7 @@
 import { Effect, Layer } from 'effect'
 import {
   AccountRepository,
+  type AuthoredTableCandidate,
   type AccountDatabaseError,
   type AccountFormSubmissionRow,
   type AccountLinkedRow,
@@ -202,9 +203,13 @@ export type ExportAccountOutcome =
  * `userId` with no matching `auth.user` row yields `Unauthorized` (the route
  * maps it to a 401, exactly as the former handler did).
  *
- * Authored records are collected by discovering which app tables carry a
- * `created_by` column (POSTGRES-ONLY introspection in the repository), then
- * scanning each one for `created_by = userId`. Form submissions are collected
+ * Authored records are collected by discovering which of each table's CANDIDATE
+ * authorship columns is real (dialect-aware introspection in the repository),
+ * then scanning each one for `<column> = userId`. The candidates are resolved
+ * from the declared `created-by` field TYPES, not assumed to be the literal
+ * `created_by` — a config naming that field `author` previously matched no
+ * table at all and the export answered `authoredRecords: []` with a 200,
+ * telling the caller they had authored nothing. Form submissions are collected
  * from the `system.form_submissions` ledger scoped to `submitter_user_id =
  * userId`, so another user's submissions never leak in and an anonymous
  * (ownerless) submission is never adopted. The assembled payload is
@@ -213,7 +218,7 @@ export type ExportAccountOutcome =
  */
 export const ExportAccount = (
   userId: string,
-  tableNames: readonly string[]
+  tables: readonly AuthoredTableCandidate[]
 ): Effect.Effect<ExportAccountOutcome, AccountDatabaseError, AccountRepository> =>
   Effect.gen(function* () {
     const repo = yield* AccountRepository
@@ -229,11 +234,11 @@ export const ExportAccount = (
       repo.loadFormSubmissions(userId),
     ])
 
-    const recordTables = yield* repo.tablesWithCreatedBy(tableNames)
+    const recordTables = yield* repo.tablesWithCreatedBy(tables)
     const perTable = yield* Effect.all(
-      recordTables.map((tableName) =>
+      recordTables.map(({ tableName, column }) =>
         repo
-          .readAuthoredRecords(tableName, userId)
+          .readAuthoredRecords(tableName, column, userId)
           .pipe(Effect.map((rows) => rows.map((row) => shapeAuthoredRecord(tableName, row))))
       ),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }

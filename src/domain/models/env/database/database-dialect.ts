@@ -15,7 +15,7 @@ import { defaultSqliteDbPath } from '../data-dir'
  * - `postgres`: PostgreSQL (Drizzle on `bun:sql`) — selected when `DATABASE_URL` is set
  * - `sqlite`: SQLite (Drizzle on `bun:sqlite`) — the zero-config, frugal-by-default engine
  */
-export const DatabaseDialectType = Schema.Literal('postgres', 'sqlite')
+export const DatabaseDialectType = Schema.Literals(['postgres', 'sqlite'])
 
 /** @public */
 export type DatabaseDialect = Schema.Schema.Type<typeof DatabaseDialectType>
@@ -28,7 +28,7 @@ export type DatabaseDialect = Schema.Schema.Type<typeof DatabaseDialectType>
  * `version.spec.ts` already lock in), distinct from the internal `sqlite`
  * dialect used to wire drivers and schemas.
  */
-export const SovriumRuntimeLabelType = Schema.Literal('postgres', 'sqlite-aio')
+export const SovriumRuntimeLabelType = Schema.Literals(['postgres', 'sqlite-aio'])
 
 /** @public */
 export type SovriumRuntimeLabel = Schema.Schema.Type<typeof SovriumRuntimeLabelType>
@@ -39,8 +39,8 @@ export type SovriumRuntimeLabel = Schema.Schema.Type<typeof SovriumRuntimeLabelT
 export const PostgresDialectSchema = Schema.Struct({
   dialect: Schema.Literal('postgres'),
   databaseUrl: Schema.String.pipe(
-    Schema.pattern(/^postgres(ql)?:\/\/.+/),
-    Schema.annotations({
+    Schema.check(Schema.isPattern(/^postgres(ql)?:\/\/.+/)),
+    Schema.annotate({
       description: 'PostgreSQL connection string (DATABASE_URL)',
       examples: ['postgresql://user:pass@localhost:5432/sovrium'],
     })
@@ -56,8 +56,8 @@ export const PostgresDialectSchema = Schema.Struct({
 export const SqliteDialectSchema = Schema.Struct({
   dialect: Schema.Literal('sqlite'),
   path: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Resolved SQLite database file path, or ":memory:"',
       examples: ['./database.db', ':memory:'],
     })
@@ -67,7 +67,7 @@ export const SqliteDialectSchema = Schema.Struct({
 /**
  * Unified database dialect configuration (discriminated union on `dialect`).
  */
-export const DatabaseDialectSchema = Schema.Union(PostgresDialectSchema, SqliteDialectSchema)
+export const DatabaseDialectSchema = Schema.Union([PostgresDialectSchema, SqliteDialectSchema])
 
 /** @public */
 export type DatabaseDialectConfig = Schema.Schema.Type<typeof DatabaseDialectSchema>
@@ -145,7 +145,7 @@ export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
 
   // 1. Postgres scheme → PostgreSQL (unchanged behavior).
   if (databaseUrl && /^postgres(ql)?:\/\//.test(databaseUrl)) {
-    return Schema.decodeUnknownSync(PostgresDialectSchema)({
+    return Schema.decodeSync(PostgresDialectSchema)({
       dialect: 'postgres',
       databaseUrl,
     })
@@ -154,14 +154,14 @@ export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
   // 2. Unset / empty → zero-config SQLite default under the consolidated data
   //    dir (`<SOVRIUM_DATA_DIR>/database.db`, default `./.sovrium/database.db`).
   if (!databaseUrl) {
-    return Schema.decodeUnknownSync(SqliteDialectSchema)({
+    return Schema.decodeSync(SqliteDialectSchema)({
       dialect: 'sqlite',
       path: defaultSqliteDbPath(),
     })
   }
 
   // 3. Set & non-postgres → SQLite family (file:/sqlite:/:memory:) or throw.
-  return Schema.decodeUnknownSync(SqliteDialectSchema)({
+  return Schema.decodeSync(SqliteDialectSchema)({
     dialect: 'sqlite',
     path: parseSqliteUrl(databaseUrl),
   })

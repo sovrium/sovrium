@@ -23,14 +23,18 @@
  * (the `useKpiSystemValue` queryKey is keyed on the endpoint, so TanStack Query
  * dedupes them) over no new backend.
  *
- * The body is a page intro (heading + one-liner) followed by a labelled
+ * The body is a page intro (heading + one-liner), a labelled
  * `<section aria-label="Overview">` region wrapping a responsive grid of
- * `kpi` components. Each tile's `kpi` SSR skeleton paints its French label as
+ * `kpi` components, and a `<section aria-label="Recent activity">` panel
+ * reading the audit log. Each tile's `kpi` SSR skeleton paints its label as
  * visible text pre-hydration, so `getByRole('region', { name: 'Overview' })`
  * and the per-tile `getByText('<label>', { exact: true })` both resolve before
  * the shared endpoint fetch settles. Wrapped in the persistent shell so the
  * Data-nav sidebar + breadcrumb frame it. The overview IS home, so the breadcrumb
  * is the brand home crumb only (no leaf).
+ *
+ * The KPIs answer "how much"; the activity panel answers "what just happened,
+ * and who did it" — together the two questions an operator opens a console with.
  */
 
 import { homeCrumb, wrapInShell } from './dashboard-shell-surface'
@@ -41,6 +45,9 @@ import type { Component } from '@/domain/models/app/pages/components'
 
 /** The cross-domain roll-up endpoint every overview tile reads from. */
 const OVERVIEW_ENDPOINT = '/api/admin/overview'
+
+/** The canonical audit-log read endpoint backing the recent-activity panel. */
+const ACTIVITY_ENDPOINT = '/api/admin/audit-log'
 
 /** The page intro: heading + orienting one-liner (the h2 the spec resolves). */
 function intro(): Component {
@@ -117,6 +124,78 @@ function overviewBody(): Component {
 }
 
 /**
+ * The recent-activity columns, read straight off the canonical audit-log entry.
+ *
+ * `actor.email` and `resource.type` are dot paths into the entry's nested
+ * `actor` / `resource` blocks — the column accessor resolves them.
+ *
+ * `result` is rendered as PLAIN TEXT, deliberately. It is a run outcome on an
+ * admin surface, which [internal ref] A7 classes as chrome: the retired
+ * `success` / `warning` ramps "do not return through a chip-shaped door". An
+ * operator scanning for failures reads the word, not a hue.
+ */
+const ACTIVITY_COLUMNS = [
+  { field: 'timestamp', label: 'When', format: 'datetime' },
+  { field: 'action', label: 'Action' },
+  { field: 'actor.email', label: 'Actor' },
+  { field: 'resource.type', label: 'Resource' },
+  {
+    field: 'transport',
+    label: 'Channel',
+    valueLabels: {
+      'config-file': 'Config file',
+      env: 'Environment',
+      api: 'API',
+      mcp: 'MCP',
+      restore: 'Restore',
+    },
+  },
+  { field: 'result', label: 'Result', valueLabels: { success: 'Success', failure: 'Failed' } },
+] as const
+
+/**
+ * The recent-activity panel: the audit log an operator scans to answer "what
+ * just happened, and who did it?" — the one question a KPI tile cannot answer.
+ *
+ * A generic system-source `data-table` over the EXISTING
+ * `GET /api/admin/audit-log` (`{ items: [...] }`, keyed on `id`) — no bespoke
+ * island and no new backend, per the dogfooding rule.
+ *
+ * NO `pagination` block, deliberately. The system fetch already sends
+ * `?page=N&limit=N` (`use-system-source-fetch.ts:157-158`) and the grid runs
+ * `manualPagination: true` (`use-table.ts:125`), so it renders exactly what the
+ * server returned. But this endpoint's Phase-0 handler parses only `actorId` /
+ * `action` / `transport` / `resourceType` and returns EVERY entry
+ * (`routes/admin/audit-log.ts:46-57`). Declaring a page size therefore produced
+ * a pager reading "1–8 of 10" above all ten rows — the same wrong-answer shape
+ * as a search box that filters nothing. Until the endpoint honours `limit` /
+ * `cursor`, the panel shows the log unpaged rather than claiming a page it does
+ * not have.
+ */
+function activityPanel(): Component {
+  return {
+    type: 'container',
+    element: 'section',
+    props: { className: 'flex flex-col gap-3 pt-4', 'aria-label': 'Recent activity' },
+    children: [
+      {
+        type: 'text',
+        element: 'h3',
+        props: { className: 'text-lg font-semibold tracking-tight' },
+        content: 'Recent activity',
+      } as unknown as Component,
+      {
+        type: 'data-table',
+        props: { id: 'overview-activity-grid', 'aria-label': 'Recent activity' },
+        dataSource: { system: { endpoint: ACTIVITY_ENDPOINT, rowsKey: 'items', idKey: 'id' } },
+        columns: ACTIVITY_COLUMNS,
+        emptyMessage: 'No activity yet. Operator actions are recorded here as they happen.',
+      } as unknown as Component,
+    ],
+  } as unknown as Component
+}
+
+/**
  * Build the dashboard root overview page (`/_admin`), wrapped in the persistent
  * shell. The breadcrumb is the brand home crumb only — the overview IS home.
  */
@@ -126,12 +205,11 @@ export function buildOverviewPage(options: DataShellOptions): Page {
     name: 'dashboard-overview',
     path: '/',
     meta: { title: 'Sovrium — Dashboard' },
-    components: wrapInShell([intro(), overviewBody()], {
+    components: wrapInShell([intro(), overviewBody(), activityPanel()], {
       canEdit: options.canEdit,
       appName: options.appName,
       appVersion: options.appVersion,
       breadcrumb: [homeCrumb(options.appName)],
-      publishedSnapshot: options.publishedSnapshot ?? {},
     }),
   } as Page
 }

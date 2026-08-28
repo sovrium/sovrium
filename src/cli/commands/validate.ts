@@ -7,7 +7,11 @@
 
 import { dirname, basename, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
-import { detectFormat } from '@/domain/utils'
+import {
+  detectFormat,
+  formatConfigCandidatesLine,
+  formatDiscoveredConfigNotice,
+} from '@/domain/utils'
 import { lazyImportSchema } from './utils'
 
 /**
@@ -60,7 +64,15 @@ const parseConfigWithRefSources = async (
   return { parsed, refSources }
 }
 
-const loadConfigForValidationWithSources = async (
+/**
+ * Parse a config file and collect its `$ref` source map, exiting the process on
+ * a missing file, an unsupported extension, or a parse failure.
+ *
+ * Exported because `sovrium design-system` needs the SAME parse: a config that
+ * this command can read and that one cannot (or reads differently) would let
+ * the two disagree about what an operator's config says.
+ */
+export const loadConfigForValidationWithSources = async (
   filePath: string
 ): Promise<{ readonly parsed: unknown; readonly refSources: ReadonlyMap<string, string> }> => {
   // eslint-disable-next-line functional/no-expression-statements
@@ -125,7 +137,7 @@ export const detectUnknownFieldTypes = async (
   const bulkSourceFile = refSources.get('tables')
   const bulkSourceLabel = bulkSourceFile ? basename(bulkSourceFile) : undefined
 
-  return tables.flatMap((table: Record<string, unknown>, index: number) => {
+  return tables.flatMap((table: Readonly<Record<string, unknown>>, index: number) => {
     const { fields } = table
     if (!Array.isArray(fields)) {
       return []
@@ -139,10 +151,10 @@ export const detectUnknownFieldTypes = async (
 
     return fields
       .filter(
-        (field: Record<string, unknown>) =>
+        (field: Readonly<Record<string, unknown>>) =>
           typeof field.type === 'string' && !isRecognizedFieldType(field.type, KNOWN_FIELD_TYPES)
       )
-      .map((field: Record<string, unknown>) => {
+      .map((field: Readonly<Record<string, unknown>>) => {
         const prefix = sourceLabel ? `${sourceLabel}: ` : ''
         return `${prefix}Unknown field type "${field.type}" in field "${field.name}"`
       })
@@ -150,13 +162,22 @@ export const detectUnknownFieldTypes = async (
 }
 
 /**
- * The one post-decode sweep that is still `validate`-only.
+ * The post-decode sweeps `validate` runs on its own.
  *
- * Its three former companions — the data-table field-reference sweep, the
- * cross-component field-reference sweep and the `rowColorField` sweep — now run
- * inside `decodeAppConfigObject`, so `start` and `build` refuse the same configs
- * `validate` does. This one deliberately did NOT go with them, and the reason is
- * NOT the one this file used to give.
+ * Two of them, for opposite reasons. The code-action type-check is here because
+ * `start` runs it and `validate` did not — a gap that let this command print
+ * `Valid configuration` for a config whose boot dies with `TSValidationError`;
+ * see `validate-code-actions.ts` for why that gate crosses over and the ten
+ * env/network-dependent ones deliberately do not. The unknown-field-type sweep
+ * below is the reverse case: `validate`-only on purpose, documented at its own
+ * definition.
+ *
+ * ON THE UNKNOWN-FIELD-TYPE SWEEP, which is the `validate`-only one. Its three
+ * former companions — the data-table field-reference sweep, the cross-component
+ * field-reference sweep and the `rowColorField` sweep — now run inside
+ * `decodeAppConfigObject`, so `start` and `build` refuse the same configs
+ * `validate` does. That sweep deliberately did NOT go with them, and the reason
+ * is NOT the one this file used to give.
  *
  * WHAT THE OLD REASON SAID, AND WHY IT WAS WRONG. It claimed the sweep "depends
  * on the `$ref` source map collected at parse time, which an in-memory config
@@ -187,9 +208,22 @@ export const detectUnknownFieldTypes = async (
  * Returns a flat list of human-readable errors, empty when the config is clean.
  */
 const runPostDecodeChecks = async (
-  parsed: unknown,
+  decoded: Readonly<{ readonly raw: unknown; readonly app: unknown }>,
   refSources: ReadonlyMap<string, string>
-): Promise<readonly string[]> => detectUnknownFieldTypes(parsed, refSources)
+): Promise<readonly string[]> => {
+  // Lazily imported for the same reason the decoder above is: it keeps the
+  // compiled-binary `validate` path from resolving modules it may never need.
+  const { validateCodeActionBodies } =
+    await import('@/application/use-cases/schema/validate-code-actions')
+  // The code-action check is handed the DECODED app, which is what
+  // `startServer` type-checks — so the two commands examine the same bodies
+  // rather than two parses that could drift.
+  const [fieldTypeErrors, codeActionErrors] = await Promise.all([
+    detectUnknownFieldTypes(decoded.raw, refSources),
+    validateCodeActionBodies(decoded.app),
+  ])
+  return [...fieldTypeErrors, ...codeActionErrors]
+}
 
 /**
  * The verdict on one already-parsed config: the shared pipeline plus the CLI's
@@ -199,6 +233,16 @@ interface ValidationOutcome {
   readonly valid: boolean
   readonly name: string
   readonly errors: readonly string[]
+  /**
+   * Non-fatal notices from the shared pipeline — today, deprecated config keys.
+   *
+   * Kept apart from `errors` all the way to the print site. A deprecation is
+   * not a refusal: the config is valid, it ships, and it keeps shipping until
+   * the key is actually removed. Folding the two together would make
+   * `sovrium validate` exit non-zero on a working config, which is the one
+   * thing a deploy gate must never do.
+   */
+  readonly notices: readonly string[]
 }
 
 /**
@@ -225,14 +269,15 @@ const validateParsedConfig = async (
   const decoded = decodeAppConfigObject(parsed, { refSources })
 
   if (!decoded.valid) {
-    return { valid: false, name: '', errors: decoded.errors }
+    return { valid: false, name: '', errors: decoded.errors, notices: [] }
   }
 
-  const postDecodeErrors = await runPostDecodeChecks(decoded.raw, refSources)
+  const postDecodeErrors = await runPostDecodeChecks(decoded, refSources)
   return {
     valid: postDecodeErrors.length === 0,
     name: decoded.name,
     errors: postDecodeErrors,
+    notices: decoded.notices,
   }
 }
 
@@ -289,21 +334,42 @@ export const validateAppConfig = async (
 }
 
 /**
- * Handle the 'validate' command - validate a config file against AppSchema
+ * Resolve the config to validate when the operator named none.
+ *
+ * `validate` has no env-var source, so its order is simply positional →
+ * discovery → refusal. Everything downstream is untouched: a discovered file
+ * travels the same `loadConfigForValidationWithSources` path a named one does,
+ * so it fails identically when it is broken.
  */
-export const handleValidateCommand = async (filePath?: string): Promise<void> => {
-  if (!filePath) {
+const discoverValidationConfig = async (): Promise<string> => {
+  const { discoverDefaultConfigFile } = await lazyImportSchema()
+  const discovered = await discoverDefaultConfigFile(process.cwd())
+
+  if (!discovered) {
     Effect.runSync(
       Console.error(
-        'Error: No config file provided.\n\nUsage:\n  sovrium validate <config.json|config.yaml>'
+        `Error: No config file provided.\n\n` +
+          `${formatConfigCandidatesLine(process.cwd())}\n\n` +
+          `Usage:\n  sovrium validate <config.json|config.yaml>\n\n` +
+          `Run 'sovrium init' to scaffold a new project.`
       )
     )
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
+  Effect.runSync(Console.error(formatDiscoveredConfigNotice(discovered)))
+  return discovered
+}
+
+/**
+ * Handle the 'validate' command - validate a config file against AppSchema
+ */
+export const handleValidateCommand = async (filePath?: string): Promise<void> => {
+  const resolvedPath = filePath ?? (await discoverValidationConfig())
+
   // Load resolved config and collect $ref source mappings for error attribution
-  const { parsed, refSources } = await loadConfigForValidationWithSources(filePath)
+  const { parsed, refSources } = await loadConfigForValidationWithSources(resolvedPath)
   const outcome = await validateParsedConfig(parsed, refSources)
 
   if (!outcome.valid) {
@@ -319,6 +385,14 @@ export const handleValidateCommand = async (filePath?: string): Promise<void> =>
     Effect.runSync(Console.error(`Error: Validation failed.\n\n${errorLines}`))
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
+  }
+
+  // Notices print BEFORE the verdict and on stderr, so the success line stays
+  // the last thing on stdout — a caller piping `sovrium validate` still reads
+  // one clean line, and a human still sees the deprecation.
+  if (outcome.notices.length > 0) {
+    const noticeLines = outcome.notices.map((notice) => `  ${notice}`).join('\n')
+    Effect.runSync(Console.error(`Notice:\n\n${noticeLines}\n`))
   }
 
   Effect.runSync(Console.log(`Valid configuration: ${outcome.name}`))

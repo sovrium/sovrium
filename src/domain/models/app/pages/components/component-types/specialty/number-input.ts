@@ -17,28 +17,28 @@ export const numberInputFields = {
   ...visibilityFields,
   ...i18nFields,
   min: Schema.optional(
-    Schema.Number.annotations({
+    Schema.Finite.annotate({
       description: 'Minimum value for number input',
     })
   ),
   max: Schema.optional(
-    Schema.Number.annotations({
+    Schema.Finite.annotate({
       description: 'Maximum value for number input',
     })
   ),
   step: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Step increment for number input' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Step increment for number input' })
     )
   ),
   showStepper: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Show increment/decrement stepper buttons (default: true)',
     })
   ),
   defaultValue: Schema.optional(
-    Schema.Number.annotations({
+    Schema.Finite.annotate({
       description: 'Initial numeric value rendered in the input',
     })
   ),

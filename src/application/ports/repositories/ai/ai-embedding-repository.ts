@@ -63,7 +63,7 @@ export interface EmbeddingSearchResult {
  * `deleteBySourceIdPrefix` removes stale embeddings when a source record or
  * document is removed.
  */
-export class AiEmbeddingRepository extends Context.Tag('AiEmbeddingRepository')<
+export class AiEmbeddingRepository extends Context.Service<
   AiEmbeddingRepository,
   {
     /** Persist a batch of embeddings. */
@@ -97,4 +97,4 @@ export class AiEmbeddingRepository extends Context.Tag('AiEmbeddingRepository')<
       prefix: string
     ) => Effect.Effect<void, AiEmbeddingDatabaseError>
   }
->() {}
+>()('AiEmbeddingRepository') {}

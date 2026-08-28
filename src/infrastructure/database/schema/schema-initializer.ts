@@ -6,7 +6,7 @@
  */
 
 import { SQL } from 'bun'
-import { Effect, Data, type ConfigError } from 'effect'
+import { Effect, Data, type Config } from 'effect'
 import {
   parseDatabaseDialectConfig,
   type DatabaseDialectConfig,
@@ -39,9 +39,11 @@ import {
   createOrMigrateTableEffect,
   createLookupViewsEffect,
   createTableViewsEffect,
+  buildTablePrimaryKeyTypesMap,
 } from '../table-operations'
 import { sanitizeTableName, isManyToManyRelationship } from '../table-queries/shared/field-utils'
 import * as viewGenerators from '../views/view-generators'
+import { applySchemaDefaults } from './apply-schema-defaults'
 import { dropCommandSearchFtsObjects, reconcileCommandSearchIndexes } from './command-search-fts'
 import { ensureCommentReadStateTable } from './comment-read-state-table'
 import {
@@ -101,135 +103,39 @@ const buildTableUsesViewMap = (
   new Map(tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)]))
 
 /**
- * Build map of table name → `primaryKey.type` so relationship FK columns can be
- * generated with a type matching the referenced table's primary key.
+ * Put the stored schema snapshot into the SAME vocabulary as the tables it will
+ * be compared against.
  *
- * MUST be built from the `applySchemaDefaults`-processed table list so that
- * `auth.scopeTables` parents (which get an implicit `{ type: 'text' }` PK) are
- * captured as `'text'` rather than the default serial/INTEGER.
- */
-const buildTablePrimaryKeyTypesMap = (
-  tables: readonly Table[]
-): ReadonlyMap<string, string | undefined> =>
-  new Map(tables.map((table) => [table.name, table.primaryKey?.type]))
-
-/**
- * F-11 (file-uploads): Upgrade single-attachment columns referenced by
- * any top-level form to storeMetadata true so the column type becomes
- * JSONB (via mapFieldTypeToPostgres special case). This makes the column
- * accept the canonical url/name/size/mimeType payload the form submit
- * pipeline writes, without forcing schema authors to repeat
- * storeMetadata true on every column they expose through a form.
+ * The snapshot is `app.tables` VERBATIM — written before `applySchemaDefaults`
+ * runs (see `createSchemaSnapshot`), while the tables the migrate path compares
+ * it against are the POST-defaults ones. So the two sides described the same
+ * table differently: an `auth.scopeTables` member reads `primaryKey: undefined`
+ * on the stored side and `primaryKey: { type: 'text' }` on the live side. Every
+ * such table therefore looked "changed" on every boot, forever, and was
+ * reconciled by a full drop-and-recreate that had nothing to do.
  *
- * The set key is tableName::columnName so an attachment column on one
- * table is not auto-upgraded just because another table happens to have
- * the same column name.
- */
-const upgradeFormReferencedAttachments = (
-  tables: readonly Table[],
-  app: Readonly<App>
-): readonly Table[] => {
-  const referenced = new Set<string>(
-    (app.forms ?? []).flatMap((form) => {
-      const tableName = form.submitTo.table
-      if (typeof tableName !== 'string') return []
-      return form.fields
-        .filter(
-          (f): f is typeof f & { readonly kind: 'table-field'; readonly column: string } =>
-            f.kind === 'table-field'
-        )
-        .map((f) => tableName + '::' + f.column)
-    })
-  )
-  if (referenced.size === 0) return tables
-  return tables.map((t) => {
-    const fields = t.fields.map((f) => {
-      if (f.type !== 'single-attachment') return f
-      if (!referenced.has(t.name + '::' + f.name)) return f
-      const hasFlag =
-        'storeMetadata' in f && (f as { storeMetadata?: boolean }).storeMetadata === true
-      if (hasFlag) return f
-      return { ...f, storeMetadata: true } as typeof f
-    })
-    return { ...t, fields } as Table
-  })
-}
-
-/**
- * [internal ref] (slug-management): Normalize the table-
- * level `unique: [{ fields: [...] }]` sugar into the existing primitives
- * so constraint-sync and index-sync handle persistence without a new
- * code path:
+ * The STORED FORMAT is deliberately left alone: rewriting it would re-interpret
+ * snapshots written by older binaries. Defaults are resolved against the CURRENT
+ * app because that is the only config on hand — an approximation that can only
+ * ever over-report a change, which is the safe direction ("changed" ⇒
+ * reconcile). A snapshot the defaults cannot process falls back to its raw form
+ * for the same reason.
  *
- *   - single-field entry → set `field.unique = true` on the matching
- *     field (idempotent — leaves an already-unique field alone).
- *   - multi-field entry → append a unique btree index to `table.indexes`
- *     under a deterministic name (`uq_<table>_<f1>_<f2>__<i>`).
- *
- * Unknown field names are silently dropped — they would have failed
- * upstream Effect Schema validation if the author meant a real column.
+ * Scoped to the COMPARISON path alone. Table rename and drop detection (Steps
+ * 3.5 and 4) keep the raw snapshot: they match on table identity, for which the
+ * defaults are irrelevant and where a decoding surprise would be a silent
+ * data-loss decision rather than a redundant rebuild.
  */
-const normalizeTopLevelUnique = (tables: readonly Table[]): readonly Table[] =>
-  tables.map((t) => {
-    const uniqueGroups = (
-      t as Table & { readonly unique?: ReadonlyArray<{ readonly fields: ReadonlyArray<string> }> }
-    ).unique
-    if (!uniqueGroups || uniqueGroups.length === 0) return t
-
-    const knownFieldNames = new Set(t.fields.map((f) => f.name))
-    const groups = uniqueGroups.filter((g) => g.fields.every((name) => knownFieldNames.has(name)))
-    if (groups.length === 0) return t
-
-    const singleFieldNames = new Set(
-      groups.filter((g) => g.fields.length === 1).map((g) => g.fields[0]!)
-    )
-    const newFields = t.fields.map((f) =>
-      singleFieldNames.has(f.name) && !('unique' in f && f.unique)
-        ? ({ ...f, unique: true } as typeof f)
-        : f
-    )
-
-    const compositeGroups = groups.filter((g) => g.fields.length > 1)
-    const compositeIndexes = compositeGroups.map((g, idx) => ({
-      name: `uq_${t.name}_${g.fields.join('_')}__${idx}`.slice(0, 60),
-      fields: g.fields,
-      unique: true,
-    }))
-    const mergedIndexes =
-      compositeIndexes.length === 0 ? t.indexes : [...(t.indexes ?? []), ...compositeIndexes]
-
-    return {
-      ...t,
-      fields: newFields,
-      ...(mergedIndexes ? { indexes: mergedIndexes } : {}),
-    } as Table
-  })
-
-/**
- * Apply schema-author-friendly defaults to the sorted table list:
- *   - Z-1/Z-2: tables in `auth.scopeTables` get a TEXT primary key when
- *     none was declared, so applications can store portable string IDs
- *     in `user_access.record_ids`.
- *   - F-11: form-referenced `single-attachment` columns get
- *     `storeMetadata: true` so the column type becomes JSONB and accepts
- *     the canonical `{ url, name, size, mimeType }` metadata produced by
- *     the form-submit pipeline.
- *   - Pages-002: top-level `unique: [{ fields: [...] }]` flattens into
- *     field-level `unique: true` (single field) or composite unique
- *     indexes so existing migration paths apply without modification.
- */
-const applySchemaDefaults = (
-  sortedTables: readonly Table[],
-  app: Readonly<App>
-): readonly Table[] => {
-  const scopeTableNames = new Set(app.auth?.scopeTables ?? [])
-  const withScopePk = sortedTables.map((t) =>
-    scopeTableNames.has(t.name) && t.primaryKey === undefined
-      ? ({ ...t, primaryKey: { type: 'text', field: 'id' } } as Table)
-      : t
-  )
-  const withFormAttachments = upgradeFormReferencedAttachments(withScopePk, app)
-  return normalizeTopLevelUnique(withFormAttachments)
+const normalizePreviousSchemaForComparison = (
+  previousSchema: { readonly tables: readonly object[] } | undefined,
+  app: App
+): { readonly tables: readonly object[] } | undefined => {
+  if (!previousSchema) return undefined
+  try {
+    return { tables: applySchemaDefaults(previousSchema.tables as readonly Table[], app) }
+  } catch {
+    return previousSchema
+  }
 }
 
 // Configuration for createMigrateTables
@@ -411,6 +317,7 @@ const executeMigrationSteps = (
 
     // Step 3: Load previous schema for field rename detection
     const previousSchema = yield* getPreviousSchema(tx)
+    const previousSchemaForComparison = normalizePreviousSchemaForComparison(previousSchema, app)
 
     // Step 3.5: Rename tables that have changed names
     yield* renameTablesIfNeeded(tx, tables, previousSchema)
@@ -446,7 +353,7 @@ const executeMigrationSteps = (
       tableUsesView,
       tablePrimaryKeyTypes: buildTablePrimaryKeyTypesMap(tablesForCreation),
       circularTables,
-      previousSchema,
+      previousSchema: previousSchemaForComparison,
       lookupViewModule: lookupViewGenerators,
       hasAuthConfig: !!app.auth,
     })
@@ -548,7 +455,7 @@ const cleanupObsoleteViews = (
 
 const initializeSchemaInternal = (
   app: App
-): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
+): Effect.Effect<void, SchemaError | Config.ConfigError> =>
   Effect.gen(function* () {
     // Normalize tables to empty array if undefined
     const tables = app.tables ?? []
@@ -616,7 +523,7 @@ export const initializeSchema = (
   app: App
 ): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> =>
   initializeSchemaInternal(app).pipe(
-    Effect.catchAll(
+    Effect.catch(
       (error): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> => {
         // Re-throw auth config errors - these are fatal configuration issues
         if (error instanceof AuthConfigRequiredForUserFields) {

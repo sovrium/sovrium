@@ -79,7 +79,7 @@ const sampleValueFor = (field: SampleFieldShape): unknown => {
  */
 export const buildSampleRecord = (
   fields: ReadonlyArray<SampleFieldShape>
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const fieldEntries = fields.map((field) => [field.name, sampleValueFor(field)] as const)
   return { id: 1, ...Object.fromEntries(fieldEntries) }
 }

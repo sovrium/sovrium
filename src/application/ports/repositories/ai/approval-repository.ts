@@ -61,7 +61,7 @@ export class ApprovalDatabaseError extends Data.TaggedError('ApprovalDatabaseErr
   readonly cause: unknown
 }> {}
 
-export class ApprovalRepository extends Context.Tag('ApprovalRepository')<
+export class ApprovalRepository extends Context.Service<
   ApprovalRepository,
   {
     /** Insert a new agent-approval mirror row. */
@@ -80,4 +80,4 @@ export class ApprovalRepository extends Context.Tag('ApprovalRepository')<
      */
     readonly lookupUserEmail: (userId: string) => Effect.Effect<string, ApprovalDatabaseError>
   }
->() {}
+>()('ApprovalRepository') {}

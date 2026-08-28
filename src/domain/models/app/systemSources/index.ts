@@ -20,9 +20,8 @@ import { Schema } from 'effect'
  * `runs`. A name must start with an alphanumeric and may contain hyphens.
  */
 export const SystemSourceNameSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.pattern(/^[a-z0-9][a-z0-9-]*$/),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1), Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/)),
+  Schema.annotate({
     title: 'System Source Name',
     description: 'Reference name of a system-source catalog entry (lowercase kebab-case)',
     examples: ['runs', 'audit-log', 'global-search'],
@@ -63,40 +62,40 @@ export const SystemSourceSchema = Schema.Struct({
   name: SystemSourceNameSchema,
   /** The read endpoint to fetch rows from (required) */
   endpoint: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Read endpoint path to fetch rows from (e.g. /api/admin/automations/runs)',
       examples: ['/api/admin/automations/runs', '/api/admin/search'],
     })
   ),
   /** Array key in the response envelope (default: 'items') */
   rowsKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Key of the rows array in the response envelope (default: 'items')",
     })
   ),
   /** Row id key used to identify rows (default: 'id') */
   idKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Key of each row's unique id (default: 'id')",
     })
   ),
   /** Optional total-count key; falls back to rows length when absent */
   totalKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Key of the total-count in the envelope; falls back to rows length if absent',
     })
   ),
   /** Static query params merged into every request to the endpoint */
   query: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-    }).annotations({
+    Schema.Record(
+      Schema.String,
+      Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+    ).annotate({
       description: 'Static query params merged into every request to the endpoint',
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'SystemSource',
   title: 'System Source',
   description:
@@ -115,17 +114,19 @@ export type SystemSource = Schema.Schema.Type<typeof SystemSourceSchema>
  * rejects a duplicate-name catalog offline.
  */
 export const SystemSourceCatalogSchema = Schema.Array(SystemSourceSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     identifier: 'SystemSourceCatalog',
     title: 'System Source Catalog',
     description:
       'Named, reusable system read-endpoint declarations referenced by name via the { systemSource } shorthand',
   }),
-  Schema.filter((sources) => {
-    const names = sources.map((s) => s.name)
-    return names.length === new Set(names).size || 'System source names must be unique'
-  })
+  Schema.check(
+    Schema.makeFilter((sources) => {
+      const names = sources.map((s) => s.name)
+      return names.length === new Set(names).size || 'System source names must be unique'
+    })
+  )
 )
 
 /** @public Forward-prep for CAP-4: consumed when the interpreter reads `app.systemSources` to resolve references. */
@@ -150,7 +151,7 @@ export type SystemSourceCatalog = Schema.Schema.Type<typeof SystemSourceCatalogS
 export const SystemSourceRefSchema = Schema.Struct({
   /** Name of the catalog entry to bind to (validated against app.systemSources) */
   systemSource: SystemSourceNameSchema,
-}).annotations({
+}).annotate({
   identifier: 'SystemSourceRef',
   title: 'System Source Reference',
   description: 'Bind a data component to a named app.systemSources entry by reference',

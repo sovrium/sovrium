@@ -30,5 +30,7 @@ export const pageSearchFields = {
   ...visibilityFields,
   ...i18nFields,
   placeholder: Schema.optional(Schema.String),
-  maxResults: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
+  maxResults: Schema.optional(
+    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+  ),
 } as const

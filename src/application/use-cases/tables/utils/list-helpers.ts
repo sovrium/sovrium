@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { filterReadableFields } from './field-read-filter'
+import { filterReadableFields } from '@/domain/validators/field-read-filter'
 import { transformRecords } from './record-transformer'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'

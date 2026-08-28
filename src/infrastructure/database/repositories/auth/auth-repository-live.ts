@@ -143,14 +143,13 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return result[0]?.token ?? undefined
     }),
 
-  countUsers: () =>
-    Effect.gen(function* () {
-      const rows = yield* wrap(async () => {
-        const users = authUsersTable()
-        return await db.select({ value: count() }).from(users)
-      })
-      return Number(rows[0]?.value ?? 0)
-    }),
+  countUsers: Effect.gen(function* () {
+    const rows = yield* wrap(async () => {
+      const users = authUsersTable()
+      return await db.select({ value: count() }).from(users)
+    })
+    return Number(rows[0]?.value ?? 0)
+  }),
 
   // Count only sign-in-capable (human) users — those with at least one
   // `auth.account` row. Synthetic agent users (mirrored from `app.agents[]`,
@@ -158,18 +157,17 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
   // excludes them. `countDistinct(users.id)` collapses the (rare) multi-account
   // user to a single count. Dialect-portable: it relies only on the always-
   // present `account.user_id` FK, never on the lazily-added `user.type` column.
-  countHumanUsers: () =>
-    Effect.gen(function* () {
-      const rows = yield* wrap(async () => {
-        const users = authUsersTable()
-        const accounts = authAccountsTable()
-        return await db
-          .select({ value: countDistinct(users.id) })
-          .from(users)
-          .innerJoin(accounts, eq(accounts.userId, users.id))
-      })
-      return Number(rows[0]?.value ?? 0)
-    }),
+  countHumanUsers: Effect.gen(function* () {
+    const rows = yield* wrap(async () => {
+      const users = authUsersTable()
+      const accounts = authAccountsTable()
+      return await db
+        .select({ value: countDistinct(users.id) })
+        .from(users)
+        .innerJoin(accounts, eq(accounts.userId, users.id))
+    })
+    return Number(rows[0]?.value ?? 0)
+  }),
 
   findFirstAdmin: (adminRole: string) =>
     Effect.gen(function* () {

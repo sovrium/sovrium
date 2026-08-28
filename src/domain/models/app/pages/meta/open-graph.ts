@@ -23,14 +23,14 @@ import { HttpUrlOrRecordTemplateSchema } from '@/domain/types/url'
  * - video: Video content pages
  * - music: Music content, albums
  */
-export const OpenGraphTypeSchema = Schema.Literal(
+export const OpenGraphTypeSchema = Schema.Literals([
   'website',
   'article',
   'book',
   'profile',
   'video',
-  'music'
-).annotations({
+  'music',
+]).annotate({
   description: 'Open Graph object type',
 })
 
@@ -40,11 +40,13 @@ export const OpenGraphTypeSchema = Schema.Literal(
  * Language and territory format: [language]_[TERRITORY]
  */
 export const OpenGraphLocaleSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z]{2}_[A-Z]{2}$/, {
-    message: () =>
-      'Locale must be in format language_TERRITORY (e.g., en_US, fr_FR, es_ES, de_DE, ja_JP)',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}_[A-Z]{2}$/, {
+      message:
+        'Locale must be in format language_TERRITORY (e.g., en_US, fr_FR, es_ES, de_DE, ja_JP)',
+    })
+  )
+).annotate({
   description: 'Locale in format language_TERRITORY',
   examples: ['en_US', 'fr_FR', 'es_ES'],
 })
@@ -54,7 +56,7 @@ export const OpenGraphLocaleSchema = Schema.String.pipe(
  *
  * Grammatical article that appears before the title in share messages.
  */
-export const OpenGraphDeterminerSchema = Schema.Literal('a', 'an', 'the', 'auto', '').annotations({
+export const OpenGraphDeterminerSchema = Schema.Literals(['a', 'an', 'the', 'auto', '']).annotate({
   description: 'Word that appears before the title',
 })
 
@@ -66,49 +68,49 @@ export const OpenGraphDeterminerSchema = Schema.Literal('a', 'an', 'the', 'auto'
  */
 export const OpenGraphSchema = Schema.Struct({
   title: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(90)).annotations({
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(90))).annotate({
       description: 'Open Graph title (may differ from page title)',
     })
   ),
   description: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(200)).annotations({
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(200))).annotate({
       description: 'Open Graph description',
     })
   ),
   type: Schema.optional(OpenGraphTypeSchema),
   url: Schema.optional(
-    HttpUrlOrRecordTemplateSchema.annotations({
+    HttpUrlOrRecordTemplateSchema.annotate({
       description: 'Canonical URL for this page',
     })
   ),
   image: Schema.optional(
-    HttpUrlOrRecordTemplateSchema.annotations({
+    HttpUrlOrRecordTemplateSchema.annotate({
       description: 'Image URL for social sharing (recommended: 1200x630px)',
     })
   ),
   imageAlt: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Alternative text for the Open Graph image',
     })
   ),
   siteName: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Name of the overall website',
     })
   ),
   locale: Schema.optional(OpenGraphLocaleSchema),
   determiner: Schema.optional(OpenGraphDeterminerSchema),
   video: Schema.optional(
-    HttpUrlOrRecordTemplateSchema.annotations({
+    HttpUrlOrRecordTemplateSchema.annotate({
       description: 'Video URL if sharing video content',
     })
   ),
   audio: Schema.optional(
-    HttpUrlOrRecordTemplateSchema.annotations({
+    HttpUrlOrRecordTemplateSchema.annotate({
       description: 'Audio URL if sharing audio content',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Open Graph Metadata',
   description: 'Open Graph protocol metadata for rich social media sharing',
 })

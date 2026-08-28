@@ -22,18 +22,18 @@ export const DataAggregateActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the array of items to aggregate */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the array of items to aggregate' })
+      Schema.annotate({ description: 'Template reference to the array of items to aggregate' })
     ),
 
     /** Aggregation function to apply */
-    function: Schema.Literal('sum', 'avg', 'min', 'max', 'count').pipe(
-      Schema.annotations({ description: 'Aggregation function to apply' })
+    function: Schema.Literals(['sum', 'avg', 'min', 'max', 'count']).pipe(
+      Schema.annotate({ description: 'Aggregation function to apply' })
     ),
 
     /** Numeric field to aggregate (required for all functions except count) */
     field: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Numeric field to aggregate (required for all functions except count)',
         })
       )
@@ -42,19 +42,21 @@ export const DataAggregateActionSchema = Schema.Struct({
     /** Group results by this field before aggregating */
     groupBy: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({ description: 'Group results by this field before aggregating' })
+        Schema.annotate({ description: 'Group results by this field before aggregating' })
       )
     ),
   }).pipe(
-    Schema.filter((props) => {
-      if (props.function !== 'count' && props.field === undefined) {
-        return `"field" is required when function is "${props.function}"`
-      }
-      return true
-    })
+    Schema.check(
+      Schema.makeFilter((props) => {
+        if (props.function !== 'count' && props.field === undefined) {
+          return `"field" is required when function is "${props.function}"`
+        }
+        return true
+      })
+    )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataAggregateAction',
     title: 'Data Aggregate Action',
     description: 'Compute sum/avg/min/max/count over a numeric field of an array',

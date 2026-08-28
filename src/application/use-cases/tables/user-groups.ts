@@ -58,7 +58,7 @@ export async function getUserGroups(
     Effect.provide(AuthRepositoryLive),
     // Team tables absent (auth not configured) — no group memberships. Kept as a
     // total Effect so this helper never throws into the permission gate.
-    Effect.catchAll(() => Effect.succeed([] as readonly string[]))
+    Effect.orElseSucceed(() => [] as readonly string[])
   )
 
   return Effect.runPromise(program)

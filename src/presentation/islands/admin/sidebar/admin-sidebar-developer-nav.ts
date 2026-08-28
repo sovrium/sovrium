@@ -31,9 +31,16 @@ export interface DeveloperNavItem extends DeveloperNavPage {
 const DEVELOPER_NAV_ICONS: Readonly<Record<string, FamilyIcon>> = {
   api: 'script',
   mcp: 'ai',
+  // The config-introspection group: the App-schema explorer borrows the
+  // structural `component` glyph, the declared-env viewer the `env` one, and
+  // the design-system console takes `theme` — the one glyph in the set that
+  // already means "how this app looks".
+  schema: 'component',
+  env: 'env',
+  'design-system': 'theme',
 }
 
-/** The two Developers rows — the domain pages decorated with each page's glyph. */
+/** The Developers rows — the domain pages decorated with each page's glyph. */
 export const DEVELOPER_NAV_ITEMS: ReadonlyArray<DeveloperNavItem> = DEVELOPER_NAV_PAGES.map(
   (page) => ({
     ...page,

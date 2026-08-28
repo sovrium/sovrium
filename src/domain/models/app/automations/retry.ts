@@ -17,18 +17,16 @@ import { Schema } from 'effect'
  */
 export const RetryConfigSchema = Schema.Struct({
   /** Maximum number of retry attempts (1-10) */
-  maxAttempts: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(1, 10),
-    Schema.annotations({ description: 'Maximum retry attempts (1-10)' })
+  maxAttempts: Schema.Finite.pipe(
+    Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10 })),
+    Schema.annotate({ description: 'Maximum retry attempts (1-10)' })
   ),
 
   /** Delay between retries in milliseconds (100-60000) */
   delayMs: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.between(100, 60_000),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 60_000 })),
+      Schema.annotate({
         description: 'Base delay between retries in milliseconds (100-60000, default: 1000)',
       })
     )
@@ -36,14 +34,14 @@ export const RetryConfigSchema = Schema.Struct({
 
   /** Retry strategy */
   strategy: Schema.optional(
-    Schema.Literal('fixed', 'exponential').pipe(
-      Schema.annotations({
+    Schema.Literals(['fixed', 'exponential']).pipe(
+      Schema.annotate({
         description: 'Retry strategy: fixed delay or exponential backoff (default: fixed)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RetryConfig',
     title: 'Retry Configuration',
     description: 'Automatic retry behavior for failed executions with fixed or exponential backoff',
@@ -56,4 +54,4 @@ export const RetryConfigSchema = Schema.Struct({
 
 export type RetryConfig = Schema.Schema.Type<typeof RetryConfigSchema>
 /** @public */
-export type RetryConfigEncoded = Schema.Schema.Encoded<typeof RetryConfigSchema>
+export type RetryConfigEncoded = Schema.Codec.Encoded<typeof RetryConfigSchema>

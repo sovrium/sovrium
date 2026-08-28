@@ -23,17 +23,19 @@ import { Schema } from 'effect'
  *   `mode: 'single'` record (GAP-I2)
  * - any literal string / number / boolean as a fallback default
  */
-export const PrefillSourceSchema = Schema.Union(
+export const PrefillSourceSchema = Schema.Union([
   Schema.String.pipe(
-    Schema.pattern(/^\$(query|user|parent|record)\.[a-zA-Z_][a-zA-Z0-9_.]*$/, {
-      message: () =>
-        'Prefill source must be a literal value or a reference like $query.<name>, $user.<prop>, $parent.<path>, or $record.<path>',
-    })
+    Schema.check(
+      Schema.isPattern(/^\$(query|user|parent|record)\.[a-zA-Z_][a-zA-Z0-9_.]*$/, {
+        message:
+          'Prefill source must be a literal value or a reference like $query.<name>, $user.<prop>, $parent.<path>, or $record.<path>',
+      })
+    )
   ),
   Schema.String,
-  Schema.Number,
-  Schema.Boolean
-).annotations({
+  Schema.Finite,
+  Schema.Boolean,
+]).annotate({
   identifier: 'PrefillSource',
   title: 'Prefill Source',
   description:
@@ -43,10 +45,7 @@ export const PrefillSourceSchema = Schema.Union(
 /**
  * Prefill Map — keys are form field names, values are prefill sources.
  */
-export const PrefillSchema = Schema.Record({
-  key: Schema.String,
-  value: PrefillSourceSchema,
-}).annotations({
+export const PrefillSchema = Schema.Record(Schema.String, PrefillSourceSchema).annotate({
   identifier: 'Prefill',
   title: 'Prefill Configuration',
   description:
@@ -96,7 +95,7 @@ export const InlinePrefillSchema = Schema.Struct({
    * false (fields are visible with the prefilled values as defaults).
    */
   lockPrefill: Schema.optional(Schema.Boolean),
-}).annotations({
+}).annotate({
   // Distinct from the embedded-form component's `InlinePrefill` identifier
   // (`src/domain/models/app/pages/components/component-types/data/form/index.ts`).
   // A shared identifier collapses both into one JSON Schema `$def`, erasing

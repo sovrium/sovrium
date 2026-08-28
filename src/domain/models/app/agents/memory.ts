@@ -18,7 +18,7 @@ const KnowledgeMemorySchema = Schema.Struct({
   /** Whether knowledge memory is enabled (default: false) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Whether knowledge memory is enabled (default: false)' })
+      Schema.annotate({ description: 'Whether knowledge memory is enabled (default: false)' })
     )
   ),
 
@@ -26,11 +26,11 @@ const KnowledgeMemorySchema = Schema.Struct({
   sources: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.minLength(1),
-        Schema.annotations({ description: 'Knowledge source name' })
+        Schema.check(Schema.isMinLength(1)),
+        Schema.annotate({ description: 'Knowledge source name' })
       )
     ).pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Knowledge source names to search (must reference configured knowledge bases)',
       })
     )
@@ -38,10 +38,9 @@ const KnowledgeMemorySchema = Schema.Struct({
 
   /** Maximum number of documents to retrieve per query (default: 5) */
   retrievalLimit: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum number of documents to retrieve per query (default: 5)',
       })
     )
@@ -49,16 +48,15 @@ const KnowledgeMemorySchema = Schema.Struct({
 
   /** Minimum similarity score (0-1) for retrieved documents (default: 0.7) */
   similarityThreshold: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(1),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+      Schema.annotate({
         description: 'Minimum similarity score (0-1) for retrieved documents (default: 0.7)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'KnowledgeMemory',
     title: 'Knowledge Memory',
     description: 'RAG-based semantic retrieval from configured knowledge sources via pgvector',
@@ -76,16 +74,15 @@ const FactsMemorySchema = Schema.Struct({
   /** Whether facts memory is enabled (default: false) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Whether facts memory is enabled (default: false)' })
+      Schema.annotate({ description: 'Whether facts memory is enabled (default: false)' })
     )
   ),
 
   /** Maximum number of facts the agent can store (default: 100) */
   maxFacts: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum number of facts the agent can store (default: 100)',
       })
     )
@@ -94,14 +91,14 @@ const FactsMemorySchema = Schema.Struct({
   /** Namespace for fact isolation (default: agent name) */
   namespace: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^[a-z][a-z0-9-]*$/),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+      Schema.annotate({
         description: 'Namespace for fact isolation (default: agent name)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FactsMemory',
     title: 'Facts Memory',
     description:
@@ -131,7 +128,7 @@ export const AgentMemorySchema = Schema.Struct({
   /** Persistent AI-managed facts learned across sessions */
   facts: Schema.optional(FactsMemorySchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentMemory',
     title: 'Agent Memory',
     description: 'Memory configuration for an AI agent: knowledge retrieval and learned facts',

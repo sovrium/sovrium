@@ -30,29 +30,33 @@ import { Schema } from 'effect'
  * ```
  *
  */
-export const BreakpointsConfigSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-z0-9]+$/, {
-      message: () => 'Breakpoint key must be lowercase alphanumeric',
-    }),
-    Schema.annotations({
+export const BreakpointsConfigSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-z0-9]+$/, {
+        message: 'Breakpoint key must be lowercase alphanumeric',
+      })
+    ),
+    Schema.annotate({
       title: 'Breakpoint Key',
       description: 'Breakpoint name (lowercase alphanumeric)',
       examples: ['sm', 'md', 'lg', 'xl', '2xl'],
     })
   ),
-  value: Schema.String.pipe(
-    Schema.pattern(/^[0-9]+px$/, {
-      message: () => 'Breakpoint value must be in pixels (e.g., "640px")',
-    }),
-    Schema.annotations({
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[0-9]+px$/, {
+        message: 'Breakpoint value must be in pixels (e.g., "640px")',
+      })
+    ),
+    Schema.annotate({
       title: 'Breakpoint Value',
       description: 'Breakpoint value in pixels',
       examples: ['640px', '768px', '1024px', '1280px'],
     })
-  ),
-}).pipe(
-  Schema.annotations({
+  )
+).pipe(
+  Schema.annotate({
     title: 'Breakpoints',
     description: 'Responsive design breakpoints',
   })

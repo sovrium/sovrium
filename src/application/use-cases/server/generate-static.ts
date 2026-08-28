@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console, Schema, type Context } from 'effect'
+import { Effect, Console, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import {
   CSSCompiler as CSSCompilerService,
@@ -113,14 +113,14 @@ function validateAppSchema(app: unknown): Effect.Effect<App, AppValidationError,
   return hasLanguages && rawApp.pages
     ? Effect.gen(function* () {
         const appWithoutPages = { ...rawApp, pages: undefined }
-        const baseApp = yield* Schema.decodeUnknown(AppSchema)(appWithoutPages).pipe(
+        const baseApp = yield* Schema.decodeUnknownEffect(AppSchema)(appWithoutPages).pipe(
           Effect.mapError((error) => new AppValidationError(error))
         )
         return { ...baseApp, pages: rawApp.pages as App['pages'] }
       })
     : Effect.gen(function* () {
         logDebug('Validating app schema...')
-        return yield* Schema.decodeUnknown(AppSchema)(app).pipe(
+        return yield* Schema.decodeUnknownEffect(AppSchema)(app).pipe(
           Effect.mapError((error) => new AppValidationError(error))
         )
       })
@@ -147,9 +147,9 @@ function generateHtmlFiles(
   app: App,
   outputDir: string,
   replaceAppTokens: (app: App, lang: string) => App,
-  serverFactory: Context.Tag.Service<ServerFactoryService>,
-  pageRenderer: Context.Tag.Service<PageRendererService>,
-  staticSiteGenerator: Context.Tag.Service<StaticSiteGeneratorService>
+  serverFactory: ServerFactoryService['Service'],
+  pageRenderer: PageRendererService['Service'],
+  staticSiteGenerator: StaticSiteGeneratorService['Service']
 ) {
   return app.languages && app.pages
     ? generateMultiLanguageFiles(
@@ -169,7 +169,7 @@ function generateHtmlFiles(
 function generateCssFile(
   outputDir: string,
   app: App,
-  cssCompiler: Context.Tag.Service<CSSCompilerService>,
+  cssCompiler: CSSCompilerService['Service'],
   fs: FileSystemLike,
   emitPrecompiledCss: boolean
 ) {
@@ -187,7 +187,7 @@ function generateCssFile(
 
     // Also write pre-compiled CSS for production start
     const precompiledPath = yield* writePrecompiledCSS(css).pipe(
-      Effect.catchAll((error) =>
+      Effect.catch((error) =>
         Console.log(`⚠️ Could not write pre-compiled CSS: ${error}`).pipe(Effect.as(undefined))
       )
     )

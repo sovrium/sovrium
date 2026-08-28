@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { TYPE_SCALE_STEPS, type TypeScale } from '@/domain/models/app/design/type-scale'
 import type { BorderRadiusConfig } from '@/domain/models/app/theme/border-radius'
 import type { BreakpointsConfig } from '@/domain/models/app/theme/breakpoints'
 import type { ColorsConfig } from '@/domain/models/app/theme/colors'
@@ -68,7 +69,7 @@ const COLORS_NEEDING_FOREGROUND = [
  * `secondary`, `accent`) emit only `--color-*` because they have no role
  * slot in v1.
  */
-const COLOR_TO_SV_TOKEN: Record<string, string> = {
+const COLOR_TO_SV_TOKEN: Readonly<Record<string, string>> = {
   primary: 'primary',
   'primary-hover': 'primary-hover',
   'primary-active': 'primary-active',
@@ -367,4 +368,93 @@ export function generateThemeBorderRadius(borderRadius?: BorderRadiusConfig): st
  */
 export function generateThemeBreakpoints(breakpoints?: BreakpointsConfig): string {
   return generateVarBlock(breakpoints as Record<string, string> | undefined, 'breakpoint')
+}
+
+/**
+ * Generate Tailwind `@theme` typography tokens from `design.typeScale`.
+ *
+ * ─── WHY THE `--text-*` NAMESPACE ───────────────────────────────────────────
+ *
+ * This is not a Sovrium-invented variable shape. Tailwind v4 reserves the
+ * `--text-*` namespace for font sizes and recognises three MODIFIERS on it —
+ * `--line-height`, `--letter-spacing` and `--font-weight`. An author declaring
+ * `typeScale.h1` can write `class: 'text-h1'` and get all four properties at
+ * once.
+ *
+ * That is the whole difference between this key and the three it supersedes.
+ * `theme.fonts.*.size` never became a variable at all; `--text-h1` is both a
+ * variable and the basis of a utility.
+ *
+ * ─── WHAT IS UNCONDITIONAL AND WHAT IS NOT (MEASURED) ───────────────────────
+ *
+ * Stated separately because the two halves have different guarantees, and
+ * conflating them is how a claim about CSS quietly becomes false:
+ *
+ *  - **The custom properties are unconditional.** They land inside
+ *    `@theme static`, which reaches `:root` whether or not any candidate
+ *    references them. `var(--text-h1)` always resolves — which matters because
+ *    client-hydrated islands read these at runtime, beyond the build-time scan.
+ *  - **The `text-{step}` UTILITY is candidate-gated**, exactly like every other
+ *    Tailwind utility. It is generated only when the build-time scan sees the
+ *    class name in the app's own `className` props. An app that declares a step
+ *    and never writes `text-h1` anywhere gets the variables and no rule — which
+ *    is correct (an unused utility is dead CSS) but is NOT the same sentence as
+ * "the utility always exists". `[internal ref]` pins the end-to-end path an
+ *    author takes: declare the step, use the class, get the styles.
+ *
+ * ─── WHAT EACH LINE ACTUALLY BUYS, MEASURED ─────────────────────────────────
+ *
+ * Stated precisely rather than optimistically, because a generator that
+ * over-claims is how the superseded fields got into the schema in the first
+ * place:
+ *
+ *  - `--text-{step}`, `--…--line-height`, `--…--letter-spacing`,
+ *    `--…--font-weight` — Tailwind modifiers. They populate `:root` AND fold
+ *    into the `text-{step}` utility.
+ *  - `--text-{step}--font-family` — NOT a Tailwind modifier. Tailwind does not
+ *    fold it into the utility, so this one is a plain custom property for
+ *    direct use (`font-family: var(--text-h1--font-family)`). It resolves
+ *    through `--font-{category}`, which `generateThemeFonts` emits, so the
+ *    binding follows the face wherever the author retunes it. Emitted because
+ *    a charter that says "h1 is set in the title face" should have somewhere
+ *    for that to be true; named honestly here because it behaves differently
+ *    from the four above.
+ *
+ * Everything lands inside `@theme static`, so the variables reach `:root`
+ * whether or not any candidate references them — which matters because
+ * client-hydrated islands may read them at runtime, beyond the build-time scan.
+ */
+export function generateThemeTypeScale(typeScale?: TypeScale): string {
+  if (!typeScale) return ''
+
+  // Iterate the canonical ladder rather than `Object.entries`, so the emitted
+  // order is the charter's order (display → caption) regardless of the order
+  // the author happened to write the keys in.
+  //
+  // WHAT THAT DOES AND DOES NOT BUY, measured rather than assumed: the CSS
+  // pipeline REORDERS `--text-*` declarations downstream of this function, so
+  // this order does not survive into the served stylesheet. A vacuity probe on
+  // `[internal ref]` established it — an E2E assertion on stylesheet order
+  // passed with this loop deliberately rewired to authoring order, which is
+  // why that spec now asserts the EXPORT instead.
+  //
+  // The ordering is kept regardless, for the two consumers where it IS
+  // Sovrium's and a reader depends on it: the DTCG `typography` group and the
+  // markdown ladder, neither of which passes through the CSS pipeline. All
+  // three read `TYPE_SCALE_STEPS`, so they cannot disagree.
+  return TYPE_SCALE_STEPS.flatMap((step) => {
+    const declared = typeScale[step]
+    if (!declared) return []
+
+    const modifier = (suffix: string, value: string | number | undefined): string | undefined =>
+      value === undefined ? undefined : `    --text-${step}--${suffix}: ${value};`
+
+    return [
+      `    --text-${step}: ${declared.size};`,
+      modifier('line-height', declared.lineHeight),
+      modifier('font-weight', declared.weight),
+      modifier('letter-spacing', declared.letterSpacing),
+      modifier('font-family', declared.font ? `var(--font-${declared.font})` : undefined),
+    ].filter((entry): entry is string => entry !== undefined)
+  }).join('\n')
 }

@@ -5,12 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  evaluatePermission,
-  OPEN_WHEN_UNDECLARED,
-  permits,
-  toPermissionValue,
-} from '@/domain/models/shared/permission-evaluation'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /**
@@ -36,42 +30,16 @@ function extractRecordFieldRefs(component: Component): readonly string[] {
 }
 
 /**
- * Determines which fields the current user role is NOT allowed to read,
- * based on the table's field-level permissions configuration.
- */
-export function getRestrictedFields(
-  tablePermissions:
-    | { readonly fields?: readonly { readonly field: string; readonly read?: unknown }[] }
-    | undefined,
-  userRole: string
-): ReadonlySet<string> {
-  if (!tablePermissions?.fields) return new Set()
-
-  return new Set(
-    tablePermissions.fields
-      // A field is RESTRICTED exactly when the ladder refuses this role. An
-      // absent or unparseable `read` restricts nothing. No admin override —
-      // callers that grant one do it before reaching here.
-      .filter(
-        (fp) =>
-          !permits(
-            evaluatePermission(
-              toPermissionValue(fp.read),
-              { role: userRole },
-              {
-                whenUndeclared: OPEN_WHEN_UNDECLARED,
-                adminOverride: 'no-admin-override',
-              }
-            )
-          )
-      )
-      .map((fp) => fp.field)
-  )
-}
-
-/**
  * Filters children of a component to remove those that reference restricted fields.
  * Also filters the requested fields list to exclude restricted fields from DB queries.
+ *
+ * `restrictedFields` comes from the composed read plan
+ * (`ReadAccessPlan.restrictedColumns`). It used to come from a local
+ * `getRestrictedFields` here, which derived restrictions ONLY from a declared
+ * `permissions.fields` block and so returned the empty set exactly when the
+ * built-in default rules were the sole field-level control. This module now
+ * owns only the COMPONENT-TREE half of the job — which `$record.*` references
+ * to drop — and no longer decides what is restricted.
  */
 export function applyFieldLevelPermissions(
   component: Component,

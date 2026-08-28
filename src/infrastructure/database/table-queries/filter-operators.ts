@@ -18,7 +18,7 @@ type SqlIdentifier = Readonly<ReturnType<typeof sql.identifier>>
  * SQL operator mapping for comparison operators
  * Maps domain filter operators to SQL comparison operators
  */
-export const SQL_OPERATOR_MAP: Record<string, string> = {
+export const SQL_OPERATOR_MAP: Readonly<Record<string, string>> = {
   equals: '=',
   notEquals: '!=',
   greaterThan: '>',

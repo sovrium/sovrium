@@ -82,13 +82,13 @@ export interface EmailService {
    *
    * @returns Effect that resolves with true or fails with EmailConnectionError
    */
-  readonly verifyConnection: () => Effect.Effect<boolean, EmailConnectionError>
+  readonly verifyConnection: Effect.Effect<boolean, EmailConnectionError>
 }
 
 /**
  * Email service tag for Effect dependency injection
  */
-export class Email extends Context.Tag('Email')<Email, EmailService>() {}
+export class Email extends Context.Service<Email, EmailService>()('Email') {}
 
 /**
  * Live implementation of EmailService using Nodemailer
@@ -116,19 +116,18 @@ export const EmailLive = Layer.succeed(
           }),
       }),
 
-    verifyConnection: () =>
-      Effect.tryPromise({
-        try: async () => {
-          const transporter = getTransporter()
-          if (!transporter) return false
-          return transporter.verify()
-        },
-        catch: (error) =>
-          new EmailConnectionError({
-            message: `SMTP connection failed: ${error instanceof Error ? error.message : String(error)}`,
-            cause: error,
-          }),
-      }),
+    verifyConnection: Effect.tryPromise({
+      try: async () => {
+        const transporter = getTransporter()
+        if (!transporter) return false
+        return transporter.verify()
+      },
+      catch: (error) =>
+        new EmailConnectionError({
+          message: `SMTP connection failed: ${error instanceof Error ? error.message : String(error)}`,
+          cause: error,
+        }),
+    }),
   })
 )
 

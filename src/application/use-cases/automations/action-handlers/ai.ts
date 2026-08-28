@@ -186,7 +186,13 @@ export const aiErrorOutcome = (envelope: AiErrorEnvelope): ActionOutcome => ({
  *
  * The success branch returns the raw {@link ChatReply}; the caller decides
  * how to shape `output` (`ai/generate` → `{ text }`, `ai/classify` →
- * `{ category }`, `ai/extract` → `{ data }`, etc.).
+ * `{ category }`, `ai/extract` → the parsed object's own fields at the TOP
+ * level, etc.).
+ *
+ * `ai/extract` is spelled out because this doc used to claim a `{ data }`
+ * wrapper. It never had one: the handler spreads the parsed object straight
+ * into `output`, and every config reading `{{steps.X.<field>}}` depends on
+ * that. The doc was the thing that was wrong, not the code.
  */
 export const runAiChat = (
   input: ChatInput
@@ -197,10 +203,10 @@ export const runAiChat = (
 > =>
   Effect.gen(function* () {
     const ai = yield* AiService
-    const result = yield* Effect.either(ai.chat(input))
-    return result._tag === 'Left'
-      ? aiErrorOutcome(classifyAiError(result.left))
-      : { ok: true as const, reply: result.right }
+    const result = yield* Effect.result(ai.chat(input))
+    return result._tag === 'Failure'
+      ? aiErrorOutcome(classifyAiError(result.failure))
+      : { ok: true as const, reply: result.success }
   })
 
 // ---------------------------------------------------------------------------
@@ -320,7 +326,7 @@ export const handleAiClassify: ActionHandler = (action, _app, _automation) =>
  */
 const extractSchema = (
   props: Readonly<Record<string, unknown>>
-): Record<string, unknown> | undefined => {
+): Readonly<Record<string, unknown>> | undefined => {
   const raw = props['schema']
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
   const obj = raw as Record<string, unknown>
@@ -337,7 +343,7 @@ const extractSchema = (
 const extractUserContent = (
   props: Readonly<Record<string, unknown>>,
   input: string,
-  schema: Record<string, unknown>
+  schema: Readonly<Record<string, unknown>>
 ): string => {
   const instruction = stringProp(props, 'prompt')
   const lines = [

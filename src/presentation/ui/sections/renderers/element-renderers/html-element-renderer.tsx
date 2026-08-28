@@ -35,19 +35,35 @@ export type HTMLElementConfig = {
  * If content starts with '<', it's treated as HTML and rendered via dangerouslySetInnerHTML.
  * Otherwise, content is rendered as plain text.
  *
- * SECURITY NOTE - Trusted Schema Content:
- * HTML content is rendered without sanitization since it comes from trusted
- * schema configuration. For user-generated content, use renderCustomHTML instead.
- *
- * SECURITY: Safe use of dangerouslySetInnerHTML
+ * SECURITY: use of dangerouslySetInnerHTML
  * - Content: Schema-defined HTML from page configuration
  * - Source: Validated Page schema (section.content property)
- * - Risk: Low - content is from server configuration, not user input
- * - Validation: Content validated at build/runtime via schema
  * - Purpose: Render rich HTML content in structural elements
- * - XSS Protection: Use renderCustomHTML (which applies `sanitizeRichTextHTML`)
- *   for user-generated content
- * - Condition: Only used when content starts with '<' character
+ * - Condition: content starts with '<' AND the resolver has not pinned it to
+ *   the text branch via `data-content-plain-text`
+ *
+ * THAT SECOND CONDITION IS LOAD-BEARING. `startsWith('<')` used to be the only
+ * gate, and an earlier version of this note said "Risk: Low - content is from
+ * server configuration, not user input". That was FALSE for any content
+ * carrying a `$record.*` binding: the author writes the literal `'$record.bio'`,
+ * which does not start with `<`, and the RECORD then decides at request time
+ * which branch this function takes. A stored value beginning with `<` flipped
+ * the element into the raw-HTML path — stored XSS against every subsequent
+ * visitor, needing no authentication to plant. Saying "Risk: Low" is exactly
+ * what stopped the previous reader from checking.
+ *
+ * The verdict is now settled where provenance is still known.
+ * `substituteRecordInContent` (presentation/rendering/data-source-resolver.ts)
+ * decides HTML-vs-text from the AUTHOR's template alone: it HTML-escapes record
+ * values interpolated into an author HTML template, and sets
+ * `data-content-plain-text` whenever record data would otherwise have flipped
+ * this branch. Do not "simplify" that pin away, and do not add a new
+ * interpolation path into `content` without routing it through the same
+ * function — by the time a string arrives here, author markup and record data
+ * are one string and indistinguishable.
+ *
+ * For user-generated RICH TEXT that is meant to render as markup, use
+ * renderCustomHTML, which applies the canonical `sanitizeRichTextHTML`.
  *
  * For section elements, automatically adds role="region" for accessibility best practices,
  * ensuring sections are properly identified in the accessibility tree.
@@ -58,14 +74,24 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
   const { type, props, content, children, interactions } = config
   const Element = type
 
-  // Build element props immutably
-  const accessibilityRole = buildAccessibilityRole(type, children.length > 0, !!content, props.role)
-  const scrollAttributes = buildScrollAttributes(interactions)
-  const elementProps = { ...props, ...accessibilityRole, ...scrollAttributes }
+  // The plain-text pin is a resolver→renderer signal, not markup: strip it here
+  // so it never reaches the DOM.
+  const { 'data-content-plain-text': plainTextPin, ...authorProps } = props
+  const contentIsPinnedToText = plainTextPin === true
 
-  // If content looks like HTML (starts with '<'), render as HTML
-  // This is safe for schema-defined content but should NOT be used for user input
-  if (content?.trim().startsWith('<')) {
+  // Build element props immutably
+  const accessibilityRole = buildAccessibilityRole(
+    type,
+    children.length > 0,
+    !!content,
+    authorProps.role
+  )
+  const scrollAttributes = buildScrollAttributes(interactions)
+  const elementProps = { ...authorProps, ...accessibilityRole, ...scrollAttributes }
+
+  // If the AUTHOR's content looks like HTML (starts with '<'), render as HTML.
+  // Record-derived content never reaches this branch — see the note above.
+  if (!contentIsPinnedToText && content?.trim().startsWith('<')) {
     return (
       <Element
         {...elementProps}

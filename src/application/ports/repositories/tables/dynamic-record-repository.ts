@@ -133,7 +133,7 @@ export interface DynamicRecordDeleteInput {
  * Every method targets a user-defined table by name and returns plain raw
  * result shapes — no authorship, no soft-delete, no cascade.
  */
-export class DynamicRecordRepository extends Context.Tag('DynamicRecordRepository')<
+export class DynamicRecordRepository extends Context.Service<
   DynamicRecordRepository,
   {
     /** Run `SELECT COUNT(*)::int AS count`, optionally filtered. */
@@ -172,4 +172,4 @@ export class DynamicRecordRepository extends Context.Tag('DynamicRecordRepositor
       input: DynamicRecordDeleteInput
     ) => Effect.Effect<ReadonlyArray<number>, DynamicRecordError>
   }
->() {}
+>()('DynamicRecordRepository') {}

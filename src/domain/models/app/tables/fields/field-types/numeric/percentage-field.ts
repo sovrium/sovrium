@@ -42,48 +42,44 @@ import { validateMinMaxRange } from '../validation-utils'
  * ```
  */
 export const PercentageFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('percentage').pipe(
-        Schema.annotations({
-          description:
-            "Constant value 'percentage' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('percentage').pipe(
+      Schema.annotate({
+        description: "Constant value 'percentage' for type discrimination in discriminated unions",
+      })
+    ),
+    precision: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(10)),
+        Schema.annotate({
+          description: 'Number of decimal places (0-10, default: 0 for whole percentages)',
         })
-      ),
-      precision: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(0),
-          Schema.lessThanOrEqualTo(10),
-          Schema.annotations({
-            description: 'Number of decimal places (0-10, default: 0 for whole percentages)',
-          })
-        )
-      ),
-      min: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Minimum allowed percentage value (inclusive, typically 0)',
-          })
-        )
-      ),
-      max: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Maximum allowed percentage value (inclusive, typically 100)',
-          })
-        )
-      ),
-      default: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Default percentage value when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.filter(validateMinMaxRange),
-  Schema.annotations({
+      )
+    ),
+    min: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Minimum allowed percentage value (inclusive, typically 0)',
+        })
+      )
+    ),
+    max: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Maximum allowed percentage value (inclusive, typically 100)',
+        })
+      )
+    ),
+    default: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Default percentage value when creating new records',
+        })
+      )
+    ),
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange)),
+  Schema.annotate({
     title: 'Percentage Field',
     description:
       'Specialized numeric field for percentage values (0-100). Values automatically display with % symbol in UI. Supports configurable decimal precision.',

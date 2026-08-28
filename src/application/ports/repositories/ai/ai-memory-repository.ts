@@ -60,7 +60,7 @@ export interface AiMemoryConversationSummary {
  * completes). All reads are scoped by `userId` so users only see their own
  * conversations.
  */
-export class AiMemoryRepository extends Context.Tag('AiMemoryRepository')<
+export class AiMemoryRepository extends Context.Service<
   AiMemoryRepository,
   {
     /**
@@ -110,4 +110,4 @@ export class AiMemoryRepository extends Context.Tag('AiMemoryRepository')<
       readonly maxAgeDays: number
     }) => Effect.Effect<number, AiMemoryDatabaseError>
   }
->() {}
+>()('AiMemoryRepository') {}

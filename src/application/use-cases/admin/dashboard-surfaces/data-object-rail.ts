@@ -70,8 +70,13 @@ export function dataPageIntro(heading: string, blurb: string): Component {
     props: { className: 'flex flex-col gap-2 pt-4' },
     children: [
       {
+        // `h1`, not `h2`. Every Data console page routes its title through here,
+        // so this single element decided the heading hierarchy of eleven pages —
+        // and they all shipped with no `h1` at all, while the Developer pages
+        // used one. A page whose title is an `h2` reads to a screen reader as a
+        // section of some absent parent.
         type: 'text',
-        element: 'h2',
+        element: 'h1',
         props: { className: 'text-2xl font-semibold tracking-tight' },
         content: heading,
       },
@@ -190,7 +195,6 @@ export function objectScopedPage(
         { label, href: `/_admin/${key}` },
         ...(selected ? [{ label: selected }] : []),
       ],
-      publishedSnapshot: options.publishedSnapshot ?? {},
     }),
   } as Page
 }

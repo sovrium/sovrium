@@ -17,7 +17,7 @@ const errorResponse = (description: string) => jsonResponse(errorResponseSchema,
 
 /** Activity log route group. */
 export const activityGroup: StaticGroupSpec = {
-  tag: 'activity',
+  tag: 'Activity',
   tagDescription: 'Activity log and audit trail endpoints',
   routes: [
     {

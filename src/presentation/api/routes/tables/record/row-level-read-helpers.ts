@@ -61,8 +61,25 @@ export type FilterStructure =
 export const NOT_FOUND_RESPONSE = (c: Context): Response =>
   c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 
+/**
+ * The zero-row answer the LIST branch short-circuits to when the row-level read
+ * predicate can admit nothing (`'empty'` / `'reject'`).
+ *
+ * It carries `appliedQuery: null` for the same reason every other list response
+ * does: presence of the key — not its value — is what tells the grid the server
+ * owns the filtering (`src/domain/models/api/_shared/search.ts`). Omitting it on
+ * this branch alone would make "the guard denied you" indistinguishable from
+ * "this endpoint does not search", so a denied grid would switch its in-memory
+ * filter back on and the ROUTE's own contract would depend on the caller's
+ * permissions. `null` rather than the term because nothing was applied: the
+ * query never ran.
+ *
+ * The trash branch does NOT reach here — it has its own handler, and its
+ * omission of the key is deliberate (`handleListTrash` ignores `?q=`).
+ */
 export const EMPTY_LIST_RESPONSE = (c: Context): Response =>
-  c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 } }, 200)
+  // eslint-disable-next-line unicorn/no-null -- the API envelope canonically distinguishes an explicit `null` ("no term applied") from an ABSENT key ("this branch does not search"); `undefined` erases that distinction on the wire, since JSON.stringify drops the key
+  c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 }, appliedQuery: null }, 200)
 
 /**
  * Non-guard (role-only) read gate shared by the list and get handlers:

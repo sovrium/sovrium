@@ -27,13 +27,11 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const CheckboxFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('checkbox'),
-      default: Schema.optional(Schema.Boolean),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('checkbox'),
+    default: Schema.optional(Schema.Boolean),
+  }),
+  Schema.annotate({
     title: 'Checkbox Field',
     description: 'Boolean field for true/false values. Typically rendered as a checkbox in the UI.',
     examples: [

@@ -20,9 +20,9 @@ import { Schema } from 'effect'
  */
 export const ViewSortSchema = Schema.Struct({
   field: Schema.String,
-  direction: Schema.Literal('asc', 'desc'),
+  direction: Schema.Literals(['asc', 'desc']),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'View Sort',
     description: 'Sort configuration for a single field.',
   })

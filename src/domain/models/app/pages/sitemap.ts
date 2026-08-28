@@ -14,15 +14,15 @@ import { Schema } from 'effect'
 /**
  * Sitemap change frequency hint for search engines.
  */
-export const SitemapChangefreqSchema = Schema.Literal(
+export const SitemapChangefreqSchema = Schema.Literals([
   'always',
   'hourly',
   'daily',
   'weekly',
   'monthly',
   'yearly',
-  'never'
-).annotations({
+  'never',
+]).annotate({
   title: 'Sitemap Change Frequency',
   description: 'Hint to search engines about how often the page content changes',
 })
@@ -48,17 +48,16 @@ export const SitemapChangefreqSchema = Schema.Literal(
  * sitemap: false
  * ```
  */
-export const SitemapConfigSchema = Schema.Union(
-  Schema.Literal(false).annotations({
+export const SitemapConfigSchema = Schema.Union([
+  Schema.Literal(false).annotate({
     description: 'Set to false to exclude this page from the sitemap',
   }),
   Schema.Struct({
     /** Priority hint for search engines (0.0 to 1.0) */
     priority: Schema.optional(
-      Schema.Number.pipe(
-        Schema.greaterThanOrEqualTo(0),
-        Schema.lessThanOrEqualTo(1),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+        Schema.annotate({
           description: 'Sitemap priority (0.0 to 1.0, default: 0.5)',
           examples: [0.5, 0.8, 1.0],
         })
@@ -66,10 +65,10 @@ export const SitemapConfigSchema = Schema.Union(
     ),
     /** Change frequency hint */
     changefreq: Schema.optional(SitemapChangefreqSchema),
-  }).annotations({
+  }).annotate({
     description: 'Sitemap entry configuration with priority and change frequency',
-  })
-).annotations({
+  }),
+]).annotate({
   identifier: 'SitemapConfig',
   title: 'Sitemap Configuration',
   description: 'Per-page sitemap configuration, or false to exclude from sitemap',

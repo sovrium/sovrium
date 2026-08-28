@@ -45,7 +45,7 @@ export interface UpsertResult {
  * })
  * ```
  */
-export class BatchRepository extends Context.Tag('BatchRepository')<
+export class BatchRepository extends Context.Service<
   BatchRepository,
   {
     readonly batchCreate: (
@@ -83,4 +83,4 @@ export class BatchRepository extends Context.Tag('BatchRepository')<
       fieldsToMergeOn: readonly string[]
     ) => Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError>
   }
->() {}
+>()('BatchRepository') {}

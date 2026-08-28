@@ -41,26 +41,41 @@ const requiresInlineIdPk = (table: Table, primaryKeyFields: readonly string[]): 
 }
 
 /**
+ * Everything the table-DDL generators need beyond the table itself.
+ *
+ * ONE type for all of them, deliberately. Every field here changes the emitted
+ * DDL, and the same table is reached through three different paths — the fresh
+ * CREATE, the recreate-and-copy, and the definition fingerprint that decides
+ * whether a recreate is needed at all. A path reached with a different value
+ * than another emits a DIFFERENT table for the SAME config, so the three cannot
+ * be allowed to declare their own near-copies of this shape and drift apart.
+ *
+ * `tablePrimaryKeyTypes` is REQUIRED, and deliberately so. It used to be the
+ * last of five optional positional arguments, which meant every caller that
+ * stopped short of it silently produced a table whose `relationship` columns
+ * fell back to the hardcoded `INTEGER` — so a foreign key onto a TEXT/UUID-keyed
+ * parent could not be built and the boot died on `foreign key constraint … cannot
+ * be implemented`. An optional argument that must always be passed is a comment;
+ * a required one is a compile error. Pass `buildTablePrimaryKeyTypesMap(tables)`
+ * built from the SAME post-defaults table list the rest of the migration uses.
+ */
+export type TableDdlInputs = {
+  /** Map of table name → `primaryKey.type` (post-`applySchemaDefaults`). */
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+  /** Map of table names to whether they use a VIEW. */
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  /** Skip foreign key constraints (for circular dependencies). */
+  readonly skipForeignKeys?: boolean
+  /** Whether the app has an auth config (affects NOT NULL on user fields). */
+  readonly hasAuthConfig?: boolean
+}
+
+/**
  * Generate CREATE TABLE statement
  * When table has lookup fields, creates a base table (_base suffix) and will later create a VIEW
- *
- * @param table - Table definition
- * @param tableUsesView - Map of table names to whether they use a VIEW
- * @param skipForeignKeys - Skip foreign key constraints (for circular dependencies)
- * @param hasAuthConfig - Whether the app has an auth config (affects NOT NULL on user fields)
- * @param tablePrimaryKeyTypes - Map of table name → `primaryKey.type`, used to
- *   resolve `relationship` FK column types to match the referenced table's PK
- *   type. Threaded alongside `tableUsesView` (built from the same table list).
  */
-/* eslint-disable max-params -- extends an existing positional DDL-generator API; bundling into an options object would churn its call sites */
-export const generateCreateTableSQL = (
-  table: Table,
-  tableUsesView?: ReadonlyMap<string, boolean>,
-  skipForeignKeys?: boolean,
-  hasAuthConfig: boolean = true,
-  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
-): string => {
-  /* eslint-enable max-params */
+export const generateCreateTableSQL = (table: Table, options: TableDdlInputs): string => {
+  const { tablePrimaryKeyTypes, tableUsesView, skipForeignKeys, hasAuthConfig = true } = options
   // Sanitize table name for PostgreSQL (lowercase, underscores)
   const sanitized = sanitizeTableName(table.name)
   // Determine table name (add _base suffix if using VIEW for lookup fields)

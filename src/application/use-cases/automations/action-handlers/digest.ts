@@ -79,26 +79,26 @@ export const handleDigestCollect: ActionHandler = (action, _app, automation, run
       typeof props['deduplicateBy'] === 'string' ? props['deduplicateBy'] : undefined
 
     const repo = yield* AutomationDigestRepository
-    const bucketResult = yield* Effect.either(
+    const bucketResult = yield* Effect.result(
       repo.findOrCreateActiveBucket({ automationId: automation.id, digestKey })
     )
-    if (bucketResult._tag === 'Left') {
-      return { status: 'failure', error: String(bucketResult.left.cause) } as const
+    if (bucketResult._tag === 'Failure') {
+      return { status: 'failure', error: String(bucketResult.failure.cause) } as const
     }
     const dedupeKey = extractDedupeKey(item, deduplicateBy)
-    const sizeResult = yield* Effect.either(
+    const sizeResult = yield* Effect.result(
       repo.addItem({
-        bucketId: bucketResult.right,
+        bucketId: bucketResult.success,
         item,
         ...(dedupeKey !== undefined ? { dedupeKey } : {}),
       })
     )
-    if (sizeResult._tag === 'Left') {
-      return { status: 'failure', error: String(sizeResult.left.cause) } as const
+    if (sizeResult._tag === 'Failure') {
+      return { status: 'failure', error: String(sizeResult.failure.cause) } as const
     }
     return {
       status: 'success',
-      output: { collected: true, digestSize: sizeResult.right },
+      output: { collected: true, digestSize: sizeResult.success },
     } as const
   })
 
@@ -122,7 +122,7 @@ export const handleDigestRelease: ActionHandler = (action, _app, automation) =>
         : undefined
 
     const repo = yield* AutomationDigestRepository
-    const result = yield* Effect.either(
+    const result = yield* Effect.result(
       repo.release({
         automationId: automation.id,
         digestKey,
@@ -130,8 +130,8 @@ export const handleDigestRelease: ActionHandler = (action, _app, automation) =>
         ...(limit !== undefined ? { limit } : {}),
       })
     )
-    if (result._tag === 'Left') {
-      return { status: 'failure', error: String(result.left.cause) } as const
+    if (result._tag === 'Failure') {
+      return { status: 'failure', error: String(result.failure.cause) } as const
     }
-    return { status: 'success', output: { items: result.right } } as const
+    return { status: 'success', output: { items: result.success } } as const
   })

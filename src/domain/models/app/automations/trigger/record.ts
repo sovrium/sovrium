@@ -16,22 +16,22 @@ import { ConditionGroupSchema } from '../conditions'
 export const RecordTriggerSchema = Schema.Struct({
   type: Schema.Literal('record'),
   table: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'Name of the table to watch for record events' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Name of the table to watch for record events' })
   ),
-  events: Schema.Array(Schema.Literal('create', 'update', 'delete')).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'Record events that trigger this automation' })
+  events: Schema.Array(Schema.Literals(['create', 'update', 'delete'])).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Record events that trigger this automation' })
   ),
   watchFields: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Only trigger on update when these fields change' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Only trigger on update when these fields change' })
     )
   ),
   condition: Schema.optional(ConditionGroupSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordTrigger',
     title: 'Record Trigger',
     description: 'Trigger automation when records are created, updated, or deleted',

@@ -33,6 +33,11 @@
 
 import { Effect, Ref, pipe } from 'effect'
 import { parseEcoPageCacheMaxMb } from '@/domain/models/env/eco/eco-page-cache-max-mb'
+import {
+  publishPageCacheOccupancy,
+  recordPageCacheAdmission,
+  type PageCacheAdmission,
+} from '@/infrastructure/utils/page-cache-telemetry'
 
 /** A cached page render plus the time it was stored (for diagnostics). */
 export interface CachedPage {
@@ -49,7 +54,21 @@ interface PageCacheEntry extends CachedPage {
  * Process-global page-HTML cache. `Ref` + immutable `Map` replacement keeps
  * state management functional (no mutation), matching the CSS cache.
  */
-const pageCache = Ref.unsafeMake<Map<string, PageCacheEntry>>(new Map())
+const pageCache = Ref.makeUnsafe<Map<string, PageCacheEntry>>(new Map())
+
+/**
+ * The store's two — and only two — state mutators are {@link setCachedPage}
+ * and {@link clearPageCache}. Both republish occupancy to
+ * `infrastructure/utils/page-cache-telemetry.ts`, which the footprint console
+ * reads. A third mutator added without that call would leave the console
+ * confidently reporting entries the cache no longer holds.
+ */
+const measureOccupancy = (
+  cache: ReadonlyMap<string, PageCacheEntry>
+): { readonly entries: number; readonly bytes: number } => ({
+  entries: cache.size,
+  bytes: [...cache.values()].reduce((total, entry) => total + entry.bytes, 0),
+})
 
 /**
  * Build the cache key for a page render.
@@ -127,6 +146,22 @@ const keepNewestWithinBudget = (
   ).kept
 
 /**
+ * What one admission did to the store, paired with the store it produced.
+ *
+ * `Ref.modify` needs the pair to be one named type: inferring it from two
+ * returns widens `evicted` to the literal `0` of whichever branch TypeScript
+ * sees first.
+ */
+type AdmissionOutcome = readonly [PageCacheAdmission, Map<string, PageCacheEntry>]
+
+/** Pair an admission verdict with the store it produced, measuring occupancy once. */
+const admitted = (
+  verdict: { readonly evicted: number; readonly refused: number },
+  // eslint-disable-next-line functional/prefer-immutable-types -- `Ref.modify` requires the mutable `Map` this pairs with; measuring it does not mutate it
+  cache: Map<string, PageCacheEntry>
+): AdmissionOutcome => [{ ...verdict, ...measureOccupancy(cache) }, cache]
+
+/**
  * Store a rendered page in the cache, evicting the insertion-order-oldest
  * entries until the store is back within the `ECO_PAGE_CACHE_MAX_MB` budget.
  *
@@ -136,19 +171,37 @@ const keepNewestWithinBudget = (
  * room for something that still would not fit.
  */
 export const setCachedPage = (cacheKey: string, page: CachedPage): Effect.Effect<void, never> =>
-  Ref.update(pageCache, (currentCache) => {
-    const budget = pageCacheBudgetBytes()
-    const bytes = Buffer.byteLength(page.html, 'utf8')
-    const others = [...currentCache].filter(([key]) => key !== cacheKey)
-    if (bytes > budget) return new Map(others)
-    const entry: PageCacheEntry = { html: page.html, timestamp: page.timestamp, bytes }
-    return new Map(keepNewestWithinBudget([...others, [cacheKey, entry] as const], budget))
-  })
+  pipe(
+    Ref.modify(pageCache, (currentCache): AdmissionOutcome => {
+      const budget = pageCacheBudgetBytes()
+      const bytes = Buffer.byteLength(page.html, 'utf8')
+      const others = [...currentCache].filter(([key]) => key !== cacheKey)
+      if (bytes > budget) return admitted({ evicted: 0, refused: 1 }, new Map(others))
+      const entry: PageCacheEntry = { html: page.html, timestamp: page.timestamp, bytes }
+      const candidates = [...others, [cacheKey, entry] as const]
+      const kept = keepNewestWithinBudget(candidates, budget)
+      return admitted({ evicted: candidates.length - kept.length, refused: 0 }, new Map(kept))
+    }),
+    Effect.map(recordPageCacheAdmission)
+  )
 
 /**
  * Clear the entire page cache (used by tests and hot-reload paths).
+ *
+ * Republishes occupancy — but NOT as an eviction. Nothing was displaced under
+ * budget pressure, and counting a hot-reload as eviction pressure would tell an
+ * operator their cache is too small for its workload when it is not.
  */
-export const clearPageCache = (): Effect.Effect<void, never> => Ref.set(pageCache, new Map())
+// `Effect.suspend` so the empty `Map` is allocated per run rather than once at
+// module load and shared by every clear.
+export const clearPageCache: Effect.Effect<void, never> = Effect.suspend(() =>
+  pipe(
+    Ref.set(pageCache, new Map()),
+    Effect.map(() => {
+      publishPageCacheOccupancy({ entries: 0, bytes: 0 })
+    })
+  )
+)
 
 /**
  * Get a cached page or compute, store, and return it on a miss.

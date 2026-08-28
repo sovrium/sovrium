@@ -57,6 +57,7 @@ import { Effect, Console } from 'effect'
 import { handleAdminCommand } from '@/cli/admin'
 import { getCommandHelp } from '@/cli/command-help'
 import { handleBuildCommand } from '@/cli/commands/build'
+import { handleDesignSystemCommand } from '@/cli/commands/design-system'
 import { handleInitCommand } from '@/cli/commands/init'
 import { handleReloadCommand } from '@/cli/commands/reload'
 import { handleRestartCommand } from '@/cli/commands/restart'
@@ -100,6 +101,7 @@ const HELP_TEXT = [
   '  sovrium init [dir]            Scaffold a new project (in [dir], or cwd)',
   '  sovrium schema                Print JSON Schema to stdout',
   '  sovrium validate <config>     Validate a config file against AppSchema',
+  '  sovrium design-system         Export the design system as an agent brief or DTCG JSON',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
   '',
   'Operate:',
@@ -112,7 +114,8 @@ const HELP_TEXT = [
   '  --help, -h                    Show this help message',
   '  --version, -v                 Show version number',
   '  --watch, -w                   Watch config file and hot reload (start)',
-  '  --output <path>               Write schema to file (schema command)',
+  '  --output <path>               Write to a file (schema, design-system)',
+  '  --format <md|json>            Export format (design-system; default: md)',
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
   '  --name <name>                 App name (init)',
   '  --password <value>            Admin password (admin create; else prompted)',
@@ -130,7 +133,7 @@ const HELP_TEXT = [
   '  SOVRIUM_ENCRYPTION_KEY        Root secret (default: generated into <data dir>)',
   '  AI_PROVIDER                   Enable AI: ollama|openai|anthropic|… (default: off)',
   '  STORAGE_PROVIDER              s3|local (default: auto — local files / Postgres)',
-  '  Eco defaults (override to opt out): ECO_PAGE_CACHE=on  ECO_IMAGE_FORMAT=avif',
+  '  ECO_*                         Eco levers (default: performance-first; opt in)',
   '  Full reference: see .env.example or https://sovrium.com/docs/configuration',
   '',
   'Supported config formats: .json, .yaml, .yml, .ts',
@@ -139,6 +142,7 @@ const HELP_TEXT = [
   '  sovrium start app.yaml --watch                     # Hot reload on changes',
   '  sovrium build app.json                             # Build static site',
   '  sovrium schema --output app.schema.json            # Write JSON Schema',
+  '  sovrium design-system app.ts --output DESIGN.md    # Brief an agent can read',
   '  sovrium init ./my-app --template blog              # Scaffold from template',
   '  sovrium init ./my-app --template sovrium/crm-template  # Scaffold from a GitHub repo',
   '  sovrium seed app.yaml --mode replace               # Deterministic full refresh',
@@ -197,6 +201,12 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
   build: async () => handleBuildCommand(parsed.configFile, parsed.publicDir),
   schema: async () => handleSchemaCommand(parsed.outputPath),
   validate: async () => handleValidateCommand(parsed.configFile),
+  'design-system': async () =>
+    handleDesignSystemCommand({
+      configFile: parsed.configFile,
+      outputPath: parsed.outputPath,
+      format: parsed.format,
+    }),
   seed: async () =>
     handleSeedCommand({
       configFile: parsed.configFile,
@@ -276,23 +286,22 @@ const runCommand = async (): Promise<void> => {
     return
   }
 
-  // Unknown command — try as implicit start or show error
-  if (!parsed.command.startsWith('-')) {
-    // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-    await handleStartCommand(
-      undefined,
-      parsed.watchMode,
-      parsed.publicDir,
-      parsed.helpRequested ?? false
-    )
-  } else {
-    printFailure({
-      headline: `Unknown command "${parsed.command}".`,
-      guidance: "Run 'sovrium --help' to list the available commands.",
-    })
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
+  // Unknown command. This used to fall through to an implicit `start` with no
+  // config, which was survivable only because that path then errored on "No
+  // configuration provided". Auto-discovery removes that accidental backstop:
+  // in a directory holding an `app.yaml`, `sovrium strt` would silently BOOT A
+  // SERVER. So an unknown word is now reported as a typo, exactly as an unknown
+  // *flag* already is above.
+  //
+  // Still reaching their handlers, and not this branch: bare `sovrium` (parseArgs
+  // defaults the command to `start`) and `sovrium ./app.yaml` (isConfigFile
+  // rewrites it to `start` with a configFile).
+  printFailure({
+    headline: `Unknown command "${parsed.command}".`,
+    guidance: "Run 'sovrium --help' to list the available commands.",
+  })
+  // eslint-disable-next-line functional/no-expression-statements
+  process.exit(1)
 }
 
 runCommand().catch((error: unknown) => {
@@ -300,10 +309,14 @@ runCommand().catch((error: unknown) => {
   // TaggedError into actionable diagnostics. Without it, schema decode
   // failures and most Effect-thrown errors surface as "An error has occurred"
   // — see commit 68b20a5af for the full motivation.
-  // NOTE: the "Unexpected failure" headline below is matched by
-  // isDeterministicSchemaRejection in [internal ref] — keep in sync.
-  // That matcher is conservative: a drift makes it return false and the retry
-  // safety net is kept, so the coupling degrades to "slower", never to "wrong".
+  // NOTE: this headline is a CRASH marker and nothing else — it means Sovrium
+  // reached a failure it has no specific handling for. A rejected config never
+  // arrives here: `commands/start.ts` routes refusals through
+  // `formatConfigRejection` and exits 1 before this catch. Nothing keys on the
+  // wording any more; the E2E fixture decides
+  // whether to retry a boot from an allow-list of transient signatures, and
+  // the refusal side of that boundary is pinned by
+  // `commands/start.test.ts` rather than by a string match here.
   const message = formatRuntimeError(error)
 
   printFailure({

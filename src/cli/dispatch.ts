@@ -81,6 +81,14 @@ export interface ParsedArgs {
   readonly seedTables?: readonly string[]
   /** `--dry-run` — report the plan, write nothing. */
   readonly dryRun?: boolean
+  /**
+   * `--format <value>` — the RAW string, deliberately unvalidated here.
+   *
+   * `sovrium design-system` owns the refusal so it can print the accepted set.
+   * A parser that quietly fell back to the default would hand a CI step asking
+   * for `yaml` a markdown file, exit 0, and let nobody look again.
+   */
+  readonly format?: string
 }
 
 const hasFlag = (argv: readonly string[], long: string, short: string): boolean =>
@@ -118,6 +126,11 @@ const FLAG_VALUE_OPTIONS = [
   '--dir',
   '--mode',
   '--table',
+  // `sovrium design-system --format md|json`. Listed here as well as in
+  // KNOWN_VALUE_FLAGS: omitting a value-flag leaves its value in the positional
+  // stream, so `sovrium design-system --format json app.yaml` would treat the
+  // string `json` as the config path.
+  '--format',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -157,6 +170,9 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--dir',
   '--mode',
   '--table',
+  // `sovrium design-system`. Absent from this set, `findUnknownFlag` rejects
+  // the flag outright — a refusal naming the flag but not the accepted values.
+  '--format',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */
@@ -253,6 +269,7 @@ interface ParsedFlags {
   readonly seedMode: string | undefined
   readonly seedTables: readonly string[]
   readonly dryRun: boolean
+  readonly format: string | undefined
 }
 
 /**
@@ -278,6 +295,7 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   seedMode: getFlagValue(argv, '--mode'),
   seedTables: getFlagValues(argv, '--table'),
   dryRun: argv.includes('--dry-run'),
+  format: getFlagValue(argv, '--format'),
 })
 
 /**
@@ -317,6 +335,7 @@ const buildStandardResult = (
     seedMode: flags.seedMode,
     seedTables: flags.seedTables,
     dryRun: flags.dryRun,
+    format: flags.format,
   }
 }
 /* eslint-enable max-params */

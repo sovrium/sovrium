@@ -16,7 +16,7 @@ import { visibilityFields } from '../modules/visibility'
 
 export const TextTypeLiteral = Schema.Literal('text')
 
-export const TextElementSchema = Schema.Literal(
+export const TextElementSchema = Schema.Literals([
   'p',
   'span',
   'h1',
@@ -29,8 +29,8 @@ export const TextElementSchema = Schema.Literal(
   'pre',
   'kbd',
   'blockquote',
-  'code'
-).annotations({
+  'code',
+]).annotate({
   title: 'Text Element',
   description: 'HTML element to render. Defaults to "p".',
 })
@@ -45,7 +45,7 @@ export const textFields = {
   ...sessionFields,
   element: Schema.optional(TextElementSchema),
   required: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'When rendered as a <label> element, appends a required-indicator (*) after the label text.',
     })

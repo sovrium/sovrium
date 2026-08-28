@@ -122,10 +122,10 @@ async function handleGetActivityById(c: Context) {
 
   const program = GetActivityById(activityId).pipe(provideActivityLive)
 
-  const result = await runRequestEffect(c, program.pipe(Effect.either))
+  const result = await runRequestEffect(c, program.pipe(Effect.result))
 
-  if (result._tag === 'Left') {
-    const error = result.left
+  if (result._tag === 'Failure') {
+    const error = result.failure
 
     if (error._tag === 'InvalidActivityIdError') {
       return c.json(
@@ -145,7 +145,7 @@ async function handleGetActivityById(c: Context) {
     )
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -301,12 +301,12 @@ async function handleListActivityLogs(c: Context) {
 
   const result = await runRequestEffect(
     c,
-    ListActivityLogs({ userId: session.userId }).pipe(provideListActivityLogsLive, Effect.either)
+    ListActivityLogs({ userId: session.userId }).pipe(provideListActivityLogsLive, Effect.result)
   )
 
-  if (result._tag === 'Left') {
+  if (result._tag === 'Failure') {
     const sanitized = sanitizeError(
-      result.left,
+      result.failure,
       (c.get('requestId') as string | undefined) ?? crypto.randomUUID()
     )
     return c.json(
@@ -315,7 +315,7 @@ async function handleListActivityLogs(c: Context) {
     )
   }
 
-  const filtered = applyFilters(result.right, {
+  const filtered = applyFilters(result.success, {
     tableName,
     action: action ?? undefined,
     userId,

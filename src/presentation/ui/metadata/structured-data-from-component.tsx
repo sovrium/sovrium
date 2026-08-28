@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { serializeJsonForScript } from '@/domain/utils/json-script-serialization'
 
 /**
  * Component meta property type for structured data
@@ -95,14 +96,15 @@ function generateStructuredData(meta: ComponentMeta): Record<string, unknown> {
 /**
  * Renders structured data script from component meta
  *
- * SECURITY: Safe use of dangerouslySetInnerHTML
- * - Content: Schema.org JSON-LD from component metadata (JSON.stringify)
+ * SECURITY: use of dangerouslySetInnerHTML
+ * - Content: Schema.org JSON-LD from component metadata
  * - Source: Validated component meta configuration (component.meta.structuredData)
- * - Risk: None - JSON data cannot execute as code
- * - Validation: Schema validation ensures correct structure
  * - Purpose: Generate rich search results from component content (SEO)
- * - XSS Protection: type="application/ld+json" prevents script execution
- * - Format: Safe serialization via JSON.stringify with formatting
+ * - Risk: a `</script>` sequence inside any string value closes the element
+ *   early — `type="application/ld+json"` does not prevent that, the HTML
+ *   tokenizer scans raw text for the literal delimiter and ignores `type`.
+ * - Mitigation: `serializeJsonForScript` escapes `<` as `\u003c` (see its
+ *   docstring). NEVER call `JSON.stringify` directly into a script body.
  *
  * @param props - Component props
  * @param props.meta - Component meta configuration
@@ -128,7 +130,7 @@ export function StructuredDataFromComponent({
       type="application/ld+json"
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(jsonLd, undefined, 2),
+        __html: serializeJsonForScript(jsonLd, 2),
       }}
     />
   )

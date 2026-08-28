@@ -238,8 +238,26 @@ export const refreshAccessToken = async (
  */
 const inFlight = new Map<string, Promise<unknown>>()
 
-const refreshKey = (input: { readonly connectionId: string; readonly userId: string }): string =>
-  `${input.connectionId}::${input.userId}`
+/**
+ * Reserved key segment standing in for "no user" — an `app`-scoped connection's
+ * shared credential, which by construction has no owning user.
+ *
+ * Contention on this key is [internal ref] rather than per-user: every automation in
+ * the installation contends on the single shared credential at once, so the
+ * single-flight guarantee matters more here than it does per-user. Providers
+ * both rate-limit refreshes and commonly invalidate the previous refresh token
+ * when they issue a new one, so two concurrent refreshes of a shared credential
+ * do not merely waste a call — they can break the connection for everyone.
+ *
+ * Cannot collide with a real user id: Better Auth ids are uuid/nanoid-shaped
+ * and the angle brackets are not in their alphabet.
+ */
+const APP_SCOPE_KEY = '<app-scope>'
+
+const refreshKey = (input: {
+  readonly connectionId: string
+  readonly userId: string | undefined
+}): string => `${input.connectionId}::${input.userId ?? APP_SCOPE_KEY}`
 
 /**
  * Wrap a refresh-and-persist sequence with single-flight dedup. Multiple
@@ -258,7 +276,7 @@ const refreshKey = (input: { readonly connectionId: string; readonly userId: str
  * upsert and trigger a redundant second refresh.
  */
 export const withRefreshLock = async <T>(
-  input: { readonly connectionId: string; readonly userId: string },
+  input: { readonly connectionId: string; readonly userId: string | undefined },
   exec: () => Promise<T>
 ): Promise<T> => {
   const key = refreshKey(input)

@@ -41,8 +41,8 @@ import type { Page, PageEncoded } from './page'
  * ```
  */
 export const PagesSchema = Schema.Array(PageSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     identifier: 'Pages',
     title: 'Pages',
     description:
@@ -56,22 +56,24 @@ export const PagesSchema = Schema.Array(PageSchema).pipe(
   // Annotations sit BEFORE this filter (AppSchema pattern) so the identifier/
   // title/description survive JSON Schema generation — a bare Schema.filter
   // node carries no JSON representation of its own.
-  Schema.filter((pages) => {
-    const conflicts = pages.flatMap((page) => {
-      if (page.contentDir?.index === undefined) return []
-      const basePath = deriveContentDirIndexBasePath(page.path)
-      // Path with no trailing dynamic segment degenerates naturally (no base
-      // path to serve) — nothing to validate.
-      if (basePath === undefined) return []
-      return pages
-        .filter((candidate) => candidate !== page && candidate.path === basePath)
-        .map(
-          (candidate) =>
-            `page "${candidate.name}" (${candidate.path}) conflicts with the contentDir index base path of page "${page.name}" (${page.path})`
-        )
+  Schema.check(
+    Schema.makeFilter((pages) => {
+      const conflicts = pages.flatMap((page) => {
+        if (page.contentDir?.index === undefined) return []
+        const basePath = deriveContentDirIndexBasePath(page.path)
+        // Path with no trailing dynamic segment degenerates naturally (no base
+        // path to serve) — nothing to validate.
+        if (basePath === undefined) return []
+        return pages
+          .filter((candidate) => candidate !== page && candidate.path === basePath)
+          .map(
+            (candidate) =>
+              `page "${candidate.name}" (${candidate.path}) conflicts with the contentDir index base path of page "${page.name}" (${page.path})`
+          )
+      })
+      return conflicts[0] ?? true
     })
-    return conflicts[0] ?? true
-  })
+  )
 )
 
 /**

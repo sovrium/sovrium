@@ -56,7 +56,7 @@ export const handleFlowStop: ActionHandler = (_action, _app, _automation, runCon
       props['output'] !== null
         ? (resolveRunContextValue(props['output'], ctx) as Record<string, unknown>)
         : undefined
-    const body: Record<string, unknown> = {
+    const body: Readonly<Record<string, unknown>> = {
       status,
       ...(message !== undefined ? { message } : {}),
       ...(output !== undefined ? { output } : {}),

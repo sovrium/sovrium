@@ -32,22 +32,55 @@ import type { Context } from 'hono'
  */
 
 /**
- * Extract the current user's id from the request context, or `undefined`
- * if no session is present. Use in routes that have `authMiddleware`
- * applied but NOT `requireAuth` — i.e. routes that need to branch on
- * authenticated vs anonymous.
- */
-export const requireSession = (c: Context): { readonly userId: string } | undefined => {
-  const session = getSessionContext(c)
-  return session !== undefined ? { userId: session.userId } : undefined
-}
-
-/**
  * Canonical 401 response. Always returns the same envelope so clients
  * (and E2E specs) can rely on a single shape across all routes.
  */
 export const unauthorized = (c: Context) =>
   c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
+
+/**
+ * The outcome of {@link requireSession}: either a session, or the 401 to return.
+ *
+ * A discriminated union rather than `T | undefined` on purpose. The predecessor
+ * returned `{ userId } | undefined` — a shape that ENFORCES nothing despite its
+ * name, because a caller who forgets the `if (!session)` line gets a silent
+ * `undefined` and carries on. `api-routes.ts` applies `authMiddleware` without
+ * `requireAuth` on eight prefixes under a standing convention that "the handler
+ * returns 401 itself", and the audit found six of the eight did not. A name
+ * that says `require` and a type that does not is exactly how a convention
+ * decays.
+ *
+ * The session is unreachable without narrowing on `ok`, so the 401 cannot be
+ * skipped by omission — only by writing code that visibly discards it.
+ */
+export type RequiredSession =
+  | { readonly ok: true; readonly session: { readonly userId: string } }
+  | { readonly ok: false; readonly response: Response }
+
+/**
+ * Demand a session, or produce the canonical 401.
+ *
+ * For routes carrying `authMiddleware` but NOT `requireAuth` — those that must
+ * stay reachable anonymously for SOME paths while gating others. A route that
+ * is gated on EVERY path belongs behind `requireAuth()` in `api-routes.ts`
+ * instead; this helper is for the mixed case.
+ *
+ * Usage:
+ * ```ts
+ * const auth = requireSession(c)
+ * if (!auth.ok) return auth.response
+ * // auth.session.userId is available from here
+ * ```
+ *
+ * A route that genuinely wants to BRANCH on anonymity — a public form, a
+ * favourites-boost that degrades gracefully — wants `getSessionContext`, which
+ * says what it does.
+ */
+export const requireSession = (c: Context): RequiredSession => {
+  const session = getSessionContext(c)
+  if (session === undefined) return { ok: false, response: unauthorized(c) }
+  return { ok: true, session: { userId: session.userId } }
+}
 
 /**
  * Canonical 403 response. The `message` is overridable so callers can

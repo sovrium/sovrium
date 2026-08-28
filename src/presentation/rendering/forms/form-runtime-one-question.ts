@@ -47,6 +47,13 @@
  * radio AND change the visible focus on each ArrowDown, which would
  * accidentally trigger auto-advance after ONE arrow press instead of
  * after Enter.
+ *
+ * The script string below ships to the browser verbatim, so its inline
+ * comments describe behavior only and carry no internal spec ids — those
+ * belong in TypeScript comments like this one, which the build strips.
+ * The mapping lives here: the synchronous submit on the summary step
+ * exists for [internal ref], and the
+ * question navigation plus summary foundation for [internal ref]..051.
  */
 export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
   // ---- One-question-at-a-time navigation ------------------------------------
@@ -233,7 +240,7 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
       // foundation tier — entering the summary purges question wrappers
       // from the DOM (so radio labels do not collide with summary text
       // for Playwright's getByText). A richer tier could rebuild
-      // wrappers from stashedAnswers; not needed for APP-FORMS-045..051.
+      // wrappers from stashedAnswers; the foundation tier does not.
       return
     }
     showQuestion(oqState.current - 1)
@@ -366,8 +373,7 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
     //
     // The default form runtime intercepts submit and fires an async
     // fetch, leaving page.click() to resolve while the POST is still
-    // in flight. The regression spec
-    // (APP-FORMS-ONE-QUESTION-AT-A-TIME-REGRESSION) immediately runs an
+    // in flight. The one-question regression spec immediately runs an
     // executeQuery after the click and expects the row to be visible —
     // an explicit "wait for success message" assertion between them
     // would have given the fetch time to settle, but the spec was

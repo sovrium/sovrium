@@ -50,7 +50,7 @@ import { Schema } from 'effect'
 export const DemoNoticeEnvSchema = Schema.Struct({
   notice: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Master switch for the demo context notice (SOVRIUM_DEMO_NOTICE). Unset means no notice.',
         examples: ['on'],
@@ -59,7 +59,7 @@ export const DemoNoticeEnvSchema = Schema.Struct({
   ),
   name: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Optional template display name (SOVRIUM_DEMO_NAME). Sets the panel title to `<name> demo` / `Démo <name>`; unset (or empty) falls back to the brand title.',
         examples: ['CRM'],
@@ -68,7 +68,7 @@ export const DemoNoticeEnvSchema = Schema.Struct({
   ),
   url: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Target of the notice "more info" call to action (SOVRIUM_DEMO_URL)',
         examples: ['https://sovrium.com/apps/crm'],
       })
@@ -76,7 +76,7 @@ export const DemoNoticeEnvSchema = Schema.Struct({
   ),
   email: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Display-only demo sign-in email (SOVRIUM_DEMO_EMAIL). NEVER sourced from AUTH_ADMIN_EMAIL.',
         examples: ['demo@sovrium.com'],
@@ -85,7 +85,7 @@ export const DemoNoticeEnvSchema = Schema.Struct({
   ),
   password: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Display-only demo sign-in password (SOVRIUM_DEMO_PASSWORD). NEVER sourced from AUTH_ADMIN_PASSWORD.',
         examples: ['demo'],
@@ -115,7 +115,7 @@ const ENABLED_VALUES: ReadonlySet<string> = new Set(['on', 'true', '1', 'yes'])
 export const parseDemoNoticeEnvConfig = (
   processEnv: Readonly<Record<string, string | undefined>> = process.env
 ): DemoNoticeEnvConfig =>
-  Schema.decodeUnknownSync(DemoNoticeEnvSchema)({
+  Schema.decodeSync(DemoNoticeEnvSchema)({
     notice: processEnv['SOVRIUM_DEMO_NOTICE'],
     name: processEnv['SOVRIUM_DEMO_NAME'],
     url: processEnv['SOVRIUM_DEMO_URL'],

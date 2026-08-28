@@ -5,48 +5,40 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { CropRegion } from '@/application/ports/services/image-transform-service'
-
 /**
- * Lazily load the native `sharp` module.
+ * Single-step image operations, expressed over the shared `Bun.Image` seam.
  *
- * `sharp` ships a native addon that a `bun build --compile` standalone binary
- * cannot load from its virtual filesystem. A static top-level `import sharp
- * from 'sharp'` would crash the binary at module-load time — the same class of
- * failure as the native CSS addon in issue #19. Deferring the import to call
- * time lets the binary boot; an image-transform call then fails with sharp's
- * own clear error only if that feature is actually exercised in the binary.
+ * These used to lazily `import('sharp')` because its native addon cannot load
+ * from a compiled binary's virtual filesystem. `Bun.Image` is part of the
+ * runtime, so there is no module to defer and nothing to fail at load time —
+ * see `./bun-image.ts` for why that mattered.
+ *
+ * Every function here REJECTS on an undecodable input rather than returning it
+ * unchanged. `cropImage` is gone: the pipeline has no crop primitive.
  */
-const loadSharp = async () => (await import('sharp')).default
 
+import { runImagePipeline } from './bun-image'
+import type { ImageOutputFormat } from './bun-image'
+
+/** Resize to an exact width x height box, distorting if the ratio disagrees. */
 export const resizeImage = async (
   input: Uint8Array,
   width: number,
   height: number
-): Promise<Uint8Array> => {
-  const sharp = await loadSharp()
-  const result = await sharp(input).resize({ width, height, fit: 'cover' }).toBuffer()
-  return new Uint8Array(result)
-}
+): Promise<Uint8Array> => await runImagePipeline(input, { width, height, fit: 'fill' })
 
-export const createThumbnail = async (input: Uint8Array, size: number): Promise<Uint8Array> => {
-  const sharp = await loadSharp()
-  const result = await sharp(input).resize(size, size, { fit: 'cover' }).toBuffer()
-  return new Uint8Array(result)
-}
+/**
+ * Scale an image to fit within a `size` x `size` box.
+ *
+ * `fit: 'inside'` preserves the aspect ratio, so a non-square source yields a
+ * non-square thumbnail. The previous `fit: 'cover'` cropped to an exact square;
+ * that mode was withdrawn along with cropping.
+ */
+export const createThumbnail = async (input: Uint8Array, size: number): Promise<Uint8Array> =>
+  await runImagePipeline(input, { width: size, height: size, fit: 'inside' })
 
+/** Re-encode into another container, leaving the geometry untouched. */
 export const convertImage = async (
   input: Uint8Array,
-  format: 'jpeg' | 'png' | 'webp' | 'avif'
-): Promise<Uint8Array> => {
-  const sharp = await loadSharp()
-  const result = await sharp(input).toFormat(format).toBuffer()
-  return new Uint8Array(result)
-}
-
-export const cropImage = async (input: Uint8Array, region: CropRegion): Promise<Uint8Array> => {
-  const sharp = await loadSharp()
-  const { x, y, w, h } = region
-  const result = await sharp(input).extract({ left: x, top: y, width: w, height: h }).toBuffer()
-  return new Uint8Array(result)
-}
+  format: ImageOutputFormat
+): Promise<Uint8Array> => await runImagePipeline(input, { outputFormat: format })

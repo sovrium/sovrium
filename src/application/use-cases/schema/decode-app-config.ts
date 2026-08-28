@@ -15,7 +15,6 @@
  *     command and the progress pipeline's sweep)
  *   - `sovrium start`    (`src/index.ts` → `start-server.ts`)
  *   - `sovrium build`    (`src/index.ts`)
- *   - the `data:validate-config` automation action (GAP-J2)
  *
  * WHY THIS FILE EXISTS. The four decoders that preceded it disagreed with each
  * other. One skipped the boot-time cross-field checks, so a config with an
@@ -36,18 +35,20 @@
  * show. Everything imported here is pure TypeScript; keep it that way.
  */
 
-import { Effect, Either, Schema } from 'effect'
-import { TreeFormatter } from 'effect/ParseResult'
+import { Effect, Result, Schema } from 'effect'
 import { validateComputedFieldForeignKeys } from '@/application/use-cases/tables/validate-computed-field-foreign-keys'
 import { AppSchema } from '@/domain/models/app'
+import {
+  collectDesignDeprecationNotices,
+  normalizeAppDesign,
+} from '@/domain/models/app/design-normalization'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
 import {
   validateDataTableFieldReferences,
   validateRowColorFields,
 } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
-import { buildExcessPropertyReport } from '@/domain/utils/config-parsing/excess-property-report'
+import { buildDecodeIssueReport } from '@/domain/utils/config-parsing/excess-property-report'
 import type { App } from '@/domain/models/app'
-import type { ParseError } from 'effect/ParseResult'
 
 /**
  * Options every entry point may pass.
@@ -76,6 +77,16 @@ export type DecodeAppConfigResult =
       readonly app: App
       /** The RAW config as parsed — what downstream re-decoders must be handed. */
       readonly raw: unknown
+      /**
+       * Non-fatal notices about the config, currently only deprecations.
+       *
+       * SEPARATE from `errors` on purpose, and never merged into it: a config
+       * on this branch is valid and ships. A caller that prints notices as
+       * failures would turn "you may move this key" into "your deploy is
+       * broken". Empty for the overwhelming majority of configs, so a caller
+       * that ignores it loses nothing but the announcement.
+       */
+      readonly notices: readonly string[]
     }
   | {
       readonly valid: false
@@ -85,25 +96,59 @@ export type DecodeAppConfigResult =
 const EMPTY_REF_SOURCES: ReadonlyMap<string, string> = new Map<string, string>()
 
 /**
+ * Collapse the decoder's own message into `complaint` + indented detail blocks,
+ * then drop blocks that repeat one already printed.
+ *
+ * v4 renders one entry per failing union member, so a config rejected inside a
+ * four-branch union prints the SAME complaint at the SAME path four times.
+ * Nothing distinguishes the copies, so nothing is lost by keeping one — and the
+ * real error stops competing with its own echo for the author's attention.
+ *
+ * Only this: no reordering, no suppression of DIFFERENT complaints. A message
+ * the decoder produced once still reaches the author, because the failure the
+ * reporter above could not explain is exactly the failure that needs its raw
+ * text intact.
+ */
+const dedupeMessageBlocks = (message: string): readonly string[] =>
+  message
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .reduce<readonly (readonly string[])[]>(
+      (blocks, line) =>
+        /^\s/.test(line) && blocks.length > 0
+          ? [...blocks.slice(0, -1), [...(blocks.at(-1) ?? []), line]]
+          : [...blocks, [line]],
+      []
+    )
+    .filter(
+      (block, index, all) =>
+        all.findIndex((other) => other.join('\n') === block.join('\n')) === index
+    )
+    .flat()
+
+/**
  * Turn a decode failure into lines an author can act on.
  *
- * An unrecognised property is by far the most common failure and the one
- * `TreeFormatter` reports worst (67 lines of union traversal, the offending
- * name on line 52, no path at all). When the reporter can name it, its four
- * lines replace the blob; when it cannot — a missing required field, a bad
- * value — it returns nothing and the decoder's own formatter still speaks, so
- * no failure is ever swallowed.
+ * An unrecognised property is by far the most common failure and the one the
+ * decoder's own formatter reports worst. When the reporter can name it — or can
+ * name the variants a rejected union accepts — its handful of lines replace the
+ * blob; when it cannot, it returns nothing and the decoder's own formatter still
+ * speaks, so no failure is ever swallowed.
+ *
+ * EFFECT 4. v3 formatted through `ParseResult.TreeFormatter.formatErrorSync`,
+ * which rendered the whole schema shape as an indented tree. v4 has no
+ * `TreeFormatter`: `SchemaError.message` already renders the issue with the
+ * default formatter, one line plus a path. Probed side by side against v3 —
+ * see `reportInput` on the decode call for the part that is NOT automatic, and
+ * `excess-property-report.ts` for the union titles v4's formatter stopped
+ * reading off the AST.
  */
 const formatDecodeError = (
-  error: Readonly<ParseError>,
+  error: Readonly<Schema.SchemaError>,
   refSources: ReadonlyMap<string, string>
 ): readonly string[] => {
-  const excessLines = buildExcessPropertyReport(error.issue, refSources)
-  return excessLines.length > 0
-    ? excessLines
-    : TreeFormatter.formatErrorSync(error)
-        .split('\n')
-        .filter((line) => line.trim().length > 0)
+  const reportLines = buildDecodeIssueReport(error.issue, refSources)
+  return reportLines.length > 0 ? reportLines : dedupeMessageBlocks(error.message)
 }
 
 /**
@@ -153,9 +198,9 @@ const formatDecodeError = (
  * the one its comment used to give.
  */
 const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[] => {
-  const foreignKeys = Effect.runSync(Effect.either(validateComputedFieldForeignKeys(decoded)))
+  const foreignKeys = Effect.runSync(Effect.result(validateComputedFieldForeignKeys(decoded)))
   return [
-    ...(Either.isLeft(foreignKeys) ? foreignKeys.left.split('\n') : []),
+    ...(Result.isFailure(foreignKeys) ? foreignKeys.failure.split('\n') : []),
     ...validateDataTableFieldReferences(normalized),
     ...validateComponentFieldReferences(normalized),
     ...validateRowColorFields(normalized),
@@ -181,21 +226,44 @@ export const decodeAppConfigObject = (
 ): DecodeAppConfigResult => {
   const { refSources = EMPTY_REF_SOURCES } = options
 
-  const decoded = Schema.decodeUnknownEither(AppSchema, { onExcessProperty: 'error' })(parsed)
-  if (Either.isLeft(decoded)) {
-    return { valid: false, errors: formatDecodeError(decoded.left, refSources) }
+  // `reportInput: true` is NOT cosmetic and NOT the v4 default. Without it a
+  // type failure renders as `Expected number` where v3 rendered
+  // `Expected number, actual "not-a-number"` — the offending value, which is
+  // the part an author acts on, silently disappears from every message
+  // `sovrium validate` prints. Probed against effect@3.22.1 side by side.
+  //
+  // The upstream caveat is that reported input can disclose secrets or PII
+  // through the message. That is acceptable HERE and only here: the input is
+  // the operator's own config file and every consumer of this result prints it
+  // back to that same operator (CLI stdout, the boot log, an automation run
+  // they triggered). It is also exactly what v3 did. Do not copy this option to
+  // a decode whose input comes from an untrusted request body.
+  const decoded = Schema.decodeUnknownResult(AppSchema, {
+    onExcessProperty: 'error',
+    reportInput: true,
+  })(parsed)
+  if (Result.isFailure(decoded)) {
+    return { valid: false, errors: formatDecodeError(decoded.failure, refSources) }
   }
 
-  const semanticErrors = runSemanticChecks(decoded.right, parsed)
+  const semanticErrors = runSemanticChecks(decoded.success, parsed)
   if (semanticErrors.length > 0) {
     return { valid: false, errors: semanticErrors }
   }
 
   const { name } = parsed as Record<string, unknown>
+  // `theme` and `design.theme` are the same tokens in two accepted positions
+  // (the second is canonical, the first a deprecated alias). Mirroring them
+  // here — at the one decode boundary every entry point shares — is what makes
+  // the alias real in both directions without rewiring the ~38 modules that
+  // read `app.theme`. See `design-normalization.ts` for why this is not the
+  // "quiet repair" this file's header forbids.
+  const app = normalizeAppDesign(decoded.success)
   return {
     valid: true,
     name: typeof name === 'string' ? name : 'unnamed',
-    app: decoded.right,
+    app,
     raw: parsed,
+    notices: collectDesignDeprecationNotices(decoded.success),
   }
 }

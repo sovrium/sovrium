@@ -32,6 +32,7 @@ import {
   type AdminAgentConversationRow,
   type AdminAgentMessageRow,
   type AdminAgentConversationsDatabaseError,
+  type AdminAgentConversationsListFilters,
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
 import {
   agentConversationsListResponseSchema,
@@ -150,8 +151,35 @@ export interface AgentConversationsListInput {
   readonly agentName: string
   readonly from?: string | undefined
   readonly to?: string | undefined
+  /**
+   * The operator's free-text term over `title` + `sessionId`, already trimmed
+   * and length-checked by `searchTermSchema`. `undefined` means "no search".
+   */
+  readonly q?: string | undefined
   readonly cursor?: string | undefined
   readonly limit: number
+}
+
+/**
+ * Assemble the repository's WHERE/ORDER inputs from the parsed query and the
+ * decoded cursor.
+ *
+ * Every optional knob is spread conditionally rather than passed as `undefined`,
+ * so an absent knob is genuinely absent — which is what lets the repository
+ * distinguish "no search" from "search for nothing".
+ */
+function buildListFilters(
+  input: Readonly<AgentConversationsListInput>,
+  decoded: { readonly value: string; readonly id: string } | null
+): AdminAgentConversationsListFilters {
+  return {
+    agentName: input.agentName,
+    ...(input.from !== undefined ? { from: input.from } : {}),
+    ...(input.to !== undefined ? { to: input.to } : {}),
+    ...(input.q !== undefined ? { q: input.q } : {}),
+    ...(decoded !== null ? { cursor: decoded } : {}),
+    limit: input.limit,
+  }
 }
 
 /**
@@ -165,6 +193,7 @@ export type AgentConversationsListOutcome =
       readonly body: {
         readonly items: readonly AgentConversationListItem[]
         readonly nextCursor: string | null
+        readonly appliedQuery: string | null
       }
     }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
@@ -175,6 +204,11 @@ export type AgentConversationsListOutcome =
  * Pagination semantics: fetch `limit + 1` rows ordered by the `(updatedAt, id)`
  * tuple descending (newest-first); the page is the first `limit` rows;
  * `nextCursor` is non-null only when a `limit + 1`-th row existed.
+ *
+ * `q` composes INTO that seek rather than beside it, which is what changes the
+ * viewer's cap from "matches among the 200 most recent" to "200 MATCHES". The
+ * island loads at most 200 threads per agent and never follows the cursor, so
+ * before this, conversation 201 was reported as not existing.
  */
 export const BuildAgentConversations = (
   input: AgentConversationsListInput
@@ -188,13 +222,7 @@ export const BuildAgentConversations = (
 
     const decoded = input.cursor ? decodeConversationsCursor(input.cursor) : null
 
-    const rows = yield* repo.listConversations({
-      agentName: input.agentName,
-      ...(input.from !== undefined ? { from: input.from } : {}),
-      ...(input.to !== undefined ? { to: input.to } : {}),
-      ...(decoded !== null ? { cursor: decoded } : {}),
-      limit: input.limit,
-    })
+    const rows = yield* repo.listConversations(buildListFilters(input, decoded))
 
     const pageRows = rows.slice(0, input.limit)
     const items = pageRows.map((row) => buildConversationItem(row))
@@ -204,14 +232,20 @@ export const BuildAgentConversations = (
         ? encodeConversationsCursor(lastItem.lastActivityAt, lastItem.id)
         : null
 
-    const body = { items, nextCursor }
+    const body = { items, nextCursor, appliedQuery: input.q ?? null }
     const parsed = agentConversationsListResponseSchema.safeParse(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return {
       _tag: 'Ok',
-      body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor },
+      body: {
+        items: parsed.data.items,
+        nextCursor: parsed.data.nextCursor,
+        // Echoed on EVERY response (`null` when no term was applied) so the
+        // reader knows the narrowing already happened and must not repeat it.
+        appliedQuery: parsed.data.appliedQuery ?? null,
+      },
     }
   })
 

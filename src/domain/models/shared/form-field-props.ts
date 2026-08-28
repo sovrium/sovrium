@@ -24,7 +24,7 @@ import { VisibleWhenConditionSchema } from './visible-when'
  */
 export const FormFieldPermissionsSchema = Schema.Struct({
   read: Schema.optional(PermissionValueSchema),
-}).annotations({
+}).annotate({
   identifier: 'FormFieldPermissions',
   title: 'Form Field Permissions',
   description: 'Per-field read permissions for admin export + detail redaction',
@@ -55,7 +55,7 @@ export const commonFieldProps = {
   /** Whether the field is hidden but submitted (server-only). */
   hidden: Schema.optional(Schema.Boolean),
   /** Default value (literal or `$query.{name}` / `$user.{prop}` reference). */
-  defaultValue: Schema.optional(Schema.Union(Schema.String, Schema.Number, Schema.Boolean)),
+  defaultValue: Schema.optional(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
   /**
    * Conditional visibility — show/hide based on another field's value.
    * Accepts a simple `{ field, operator, value }` rule OR a compound

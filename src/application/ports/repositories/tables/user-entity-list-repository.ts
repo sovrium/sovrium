@@ -78,7 +78,7 @@ export class UserEntityListDatabaseError extends Data.TaggedError('UserEntityLis
  * existence-filtering) lives in the use-case; each method here maps to a single
  * raw query against `system.user_favorites` / `system.user_recent_items`.
  */
-export class UserEntityListRepository extends Context.Tag('UserEntityListRepository')<
+export class UserEntityListRepository extends Context.Service<
   UserEntityListRepository,
   {
     /** List the user's favorites, newest first (soft-deleted excluded). */
@@ -155,4 +155,4 @@ export class UserEntityListRepository extends Context.Tag('UserEntityListReposit
      */
     readonly recordStillExists: (entity: EntityRef) => Effect.Effect<boolean, never>
   }
->() {}
+>()('UserEntityListRepository') {}

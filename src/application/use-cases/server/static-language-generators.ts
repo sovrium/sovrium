@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Schema, type Context } from 'effect'
+import { Effect, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { AppSchema } from '@/domain/models/app'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
@@ -24,9 +24,9 @@ import type { ServerCreationError } from '@/infrastructure/errors/server-creatio
 import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 
 // Service types extracted from Context.Tag
-type ServerFactory = Context.Tag.Service<ServerFactoryService>
-type PageRenderer = Context.Tag.Service<PageRendererService>
-type StaticSiteGenerator = Context.Tag.Service<StaticSiteGeneratorService>
+type ServerFactory = ServerFactoryService['Service']
+type PageRenderer = PageRendererService['Service']
+type StaticSiteGenerator = StaticSiteGeneratorService['Service']
 
 /**
  * Generate static files for multi-language configuration
@@ -66,7 +66,7 @@ export const generateMultiLanguageFiles = (
           const langApp = replaceAppTokens(validatedApp, lang.code)
 
           // Validate the language-specific app
-          const validatedLangApp = yield* Schema.decodeUnknown(AppSchema)(langApp).pipe(
+          const validatedLangApp = yield* Schema.decodeEffect(AppSchema)(langApp).pipe(
             Effect.mapError((error) => new AppValidationError(error))
           )
 
@@ -107,7 +107,7 @@ export const generateMultiLanguageFiles = (
     logDebug('Generating root index.html with default language...')
     const defaultLang = validatedApp.languages!.default
     const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
-    const validatedDefaultApp = yield* Schema.decodeUnknown(AppSchema)(defaultLangApp).pipe(
+    const validatedDefaultApp = yield* Schema.decodeEffect(AppSchema)(defaultLangApp).pipe(
       Effect.mapError((error) => new AppValidationError(error))
     )
 

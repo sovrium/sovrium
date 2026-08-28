@@ -13,23 +13,22 @@ import { Schema } from 'effect'
  */
 export const AgentApprovalEscalationSchema = Schema.Struct({
   /** Seconds before escalation triggers (must be less than parent timeout) */
-  after: Schema.Number.pipe(
-    Schema.int(),
-    Schema.positive(),
-    Schema.annotations({
+  after: Schema.Finite.pipe(
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+    Schema.annotate({
       description: 'Seconds before escalation triggers (must be less than timeout)',
     })
   ),
 
   /** Role to escalate to (must exist in auth.roles) */
   to: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Role to escalate to (must reference a role defined in auth.roles)',
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentApprovalEscalation',
     title: 'Agent Approval Escalation',
     description: 'Escalation configuration for pending approval requests.',
@@ -50,8 +49,8 @@ export type AgentApprovalEscalation = Schema.Schema.Type<typeof AgentApprovalEsc
 export const AgentApprovalSchema = Schema.Struct({
   /** Approval mode: none (no approval), all (every action), or selective (specific actions) */
   mode: Schema.optional(
-    Schema.Literal('none', 'all', 'selective').pipe(
-      Schema.annotations({
+    Schema.Literals(['none', 'all', 'selective']).pipe(
+      Schema.annotate({
         description:
           'Approval mode: none (no approval), all (every action), selective (specific actions only)',
       })
@@ -62,11 +61,11 @@ export const AgentApprovalSchema = Schema.Struct({
   required: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.minLength(1),
-        Schema.annotations({ description: 'Action type requiring approval' })
+        Schema.check(Schema.isMinLength(1)),
+        Schema.annotate({ description: 'Action type requiring approval' })
       )
     ).pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Actions requiring approval (must be a subset of capabilities.actions). Required when mode=selective.',
         examples: [['record.delete', 'email.send']],
@@ -76,10 +75,9 @@ export const AgentApprovalSchema = Schema.Struct({
 
   /** Seconds before pending approval expires (defaults to 3600 = 1 hour) */
   timeout: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Seconds before pending approval expires (defaults to 3600)',
       })
     )
@@ -88,7 +86,7 @@ export const AgentApprovalSchema = Schema.Struct({
   /** Escalation configuration for pending approvals */
   escalation: Schema.optional(AgentApprovalEscalationSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentApproval',
     title: 'Agent Approval',
     description:

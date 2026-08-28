@@ -31,15 +31,17 @@ export const FormAccessSchema = Schema.Struct({
   /** Optional redirect path for denied submitters. Not yet honoured at runtime. */
   redirectTo: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^\//, {
-        message: () => 'Redirect path must start with /',
-      })
-    ).annotations({
+      Schema.check(
+        Schema.isPattern(/^\//, {
+          message: 'Redirect path must start with /',
+        })
+      )
+    ).annotate({
       description: 'URL path to redirect unauthenticated/unauthorized submitters',
       examples: ['/login', '/signup'],
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'FormAccess',
   title: 'Form Access',
   description: 'Access control for a form. Reuses the shared permission model.',

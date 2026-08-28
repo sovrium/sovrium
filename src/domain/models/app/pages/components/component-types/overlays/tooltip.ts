@@ -18,12 +18,12 @@ export const tooltipFields = {
   ...contentFields,
   ...i18nFields,
   tooltipContent: Schema.optional(
-    Schema.String.annotations({ description: 'Text content displayed in the tooltip' })
+    Schema.String.annotate({ description: 'Text content displayed in the tooltip' })
   ),
   tooltipDelay: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.annotations({ description: 'Delay in milliseconds before showing tooltip' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+      Schema.annotate({ description: 'Delay in milliseconds before showing tooltip' })
     )
   ),
   floatingSide: Schema.optional(FloatingSideSchema),

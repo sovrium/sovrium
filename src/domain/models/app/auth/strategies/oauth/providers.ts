@@ -29,14 +29,14 @@ import { Schema } from 'effect'
  * const providers = ['google', 'github', 'slack']
  * ```
  */
-export const OAuthProviderSchema = Schema.Literal(
+export const OAuthProviderSchema = Schema.Literals([
   'google',
   'github',
   'microsoft',
   'slack',
-  'gitlab'
-).pipe(
-  Schema.annotations({
+  'gitlab',
+]).pipe(
+  Schema.annotate({
     title: 'OAuth Provider',
     description: 'Supported OAuth providers for social login',
   })

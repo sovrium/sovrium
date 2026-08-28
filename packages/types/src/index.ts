@@ -34,6 +34,11 @@ export type { Page } from '@/domain/models/app/pages'
 // (no effect/markdown-it/shiki imports — this package stays zero-dependency).
 export type { Markdown, ContentDir } from '@/domain/models/app/pages/markdown'
 export type { Theme } from '@/domain/models/app/theme'
+// `design` is the canonical home for the design system: the same tokens as
+// `theme` (which remains a deprecated alias for `design.theme`), plus the
+// principles, voice/tone and per-colour / per-component usage rules that had
+// no schema home before.
+export type { Design } from '@/domain/models/app/design'
 // `Theme.codeBlock` selects the Shiki syntax-highlighting theme for markdown
 // fenced code blocks. Re-exported as a structural type alias.
 export type { CodeBlockConfig } from '@/domain/models/app/theme/code-block'
@@ -57,6 +62,7 @@ export type { Page as PageConfig } from '@/domain/models/app/pages'
 export type { Table as TableConfig } from '@/domain/models/app/tables'
 export type { ComponentTemplate as ComponentConfig } from '@/domain/models/app/components/component'
 export type { Theme as ThemeConfig } from '@/domain/models/app/theme'
+export type { Design as DesignConfig } from '@/domain/models/app/design'
 export type { Auth as AuthConfig } from '@/domain/models/app/auth'
 export type { Languages as LanguageConfig } from '@/domain/models/app/languages'
 export type { BuiltInAnalytics as AnalyticsConfig } from '@/domain/models/app/analytics'
@@ -109,13 +115,23 @@ export interface CodeContext {
    * a template named `ref` is rejected at schema validation.
    */
   readonly actions: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic return shape (templates return arbitrary handler output)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, functional/prefer-immutable-types -- dynamic return shape (templates return arbitrary handler output). No Readonly<> here: this interface is a hand-maintained MIRROR of the CodeContext text emitted by scripts/build/build-types.ts (and of CODE_CONTEXT_PRELUDE in src/infrastructure/automations/typescript-validator/layer.ts). The published dist/index.d.ts is emitted from that script, NOT from this file, so annotating only here would silently diverge the mirrors with no drift check to catch it.
     readonly ref: (templateName: string, vars?: Record<string, unknown>) => Promise<any>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic native dispatch (props/return shapes are per-handler, not type-narrowed yet)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, functional/prefer-immutable-types -- dynamic native dispatch (props/return shapes are per-handler, not type-narrowed yet). Same mirror constraint as `ref` above.
   } & Record<string, Record<string, (props?: Record<string, unknown>) => Promise<any>>>
   /** Environment variables (values redacted in logs when length >= 8) */
   readonly env: Record<string, string>
-  /** Structured logging — info/warn/error */
+  /**
+   * Structured logging — info/warn/error.
+   *
+   * NOT YET WIRED: all three methods currently DISCARD their arguments. The
+   * sandbox is handed a no-op implementation, so `context.log.info(…)` emits
+   * nothing — not to stdout, not to run history, not to the error tracker.
+   * The surface is typed and stable so code actions can call it today and
+   * start producing output when a real sink lands, without a rewrite; until
+   * then, anything a code action must actually surface belongs in its return
+   * value (which is persisted as the step output) or in a thrown error.
+   */
   readonly log: {
     readonly info: (...args: ReadonlyArray<unknown>) => void
     readonly warn: (...args: ReadonlyArray<unknown>) => void

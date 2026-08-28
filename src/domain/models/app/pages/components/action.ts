@@ -11,7 +11,7 @@ import { SuccessPageActionSchema } from '../../forms/on-success'
 /**
  * Toast notification variant
  */
-export const ToastVariantSchema = Schema.Literal('success', 'error', 'warning', 'info').annotations(
+export const ToastVariantSchema = Schema.Literals(['success', 'error', 'warning', 'info']).annotate(
   {
     title: 'Toast Variant',
     description: 'Visual style of the toast notification',
@@ -30,23 +30,22 @@ export const ToastVariantSchema = Schema.Literal('success', 'error', 'warning', 
  */
 export const ToastSchema = Schema.Struct({
   /** Message to display */
-  message: Schema.String.annotations({
+  message: Schema.String.annotate({
     description: 'Toast notification message. Supports $variable references.',
   }),
   /** Visual variant */
   variant: Schema.optional(ToastVariantSchema),
   /** Auto-dismiss duration in milliseconds */
   duration: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Auto-dismiss duration in milliseconds (default: 5000)',
         examples: [2000, 5000, 10_000],
       })
     )
   ),
-}).annotations({
+}).annotate({
   title: 'Toast',
   description: 'Toast notification configuration',
 })
@@ -69,13 +68,13 @@ export const ToastSchema = Schema.Struct({
  *   Only meaningful on a `type: auth`, `method: login` action and requires
  *   `auth.landingPath` (plus per-role `defaultLanding`) to be configured.
  */
-export const ActionResponseTypeSchema = Schema.Literal(
+export const ActionResponseTypeSchema = Schema.Literals([
   'navigate',
   'reset',
   'message',
   'successPage',
-  'role-landing'
-).annotations({
+  'role-landing',
+]).annotate({
   title: 'Action Response Type',
   description:
     'Form behavior after a successful action (navigate, reset, message, successPage, role-landing)',
@@ -126,7 +125,7 @@ export const ActionResponseSchema = Schema.Struct({
   type: Schema.optional(ActionResponseTypeSchema),
   /** Path to navigate to after action */
   navigate: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'URL path to navigate to. Supports $variable references.',
       examples: ['/dashboard', '/posts/$record.slug'],
     })
@@ -137,7 +136,7 @@ export const ActionResponseSchema = Schema.Struct({
    * when `type` is `reset`.
    */
   preserveFields: Schema.optional(
-    Schema.Array(Schema.String).annotations({
+    Schema.Array(Schema.String).annotate({
       description:
         'Field names retained after a reset. Only meaningful when type is "reset". All other fields are cleared.',
       examples: [
@@ -151,7 +150,7 @@ export const ActionResponseSchema = Schema.Struct({
    * `successPage`. Supports `$variable` references.
    */
   title: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Success page heading. Only meaningful when type is "successPage".',
       examples: ['Thank you for your feedback!', 'Ticket Created'],
     })
@@ -161,7 +160,7 @@ export const ActionResponseSchema = Schema.Struct({
    * when `type` is `successPage`. Supports `$variable` references.
    */
   message: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Success page body message. Only meaningful when type is "successPage".',
     })
   ),
@@ -171,7 +170,7 @@ export const ActionResponseSchema = Schema.Struct({
    * `SuccessPageAction` shape with the standalone Forms feature.
    */
   actions: Schema.optional(
-    Schema.Array(SuccessPageActionSchema).annotations({
+    Schema.Array(SuccessPageActionSchema).annotate({
       description: 'Success page action buttons. Only meaningful when type is "successPage".',
     })
   ),
@@ -180,7 +179,7 @@ export const ActionResponseSchema = Schema.Struct({
    * field values. Only meaningful when `type` is `successPage`.
    */
   showSummary: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'Render a read-only summary of submitted values on the success page. Only meaningful when type is "successPage".',
     })
@@ -191,7 +190,7 @@ export const ActionResponseSchema = Schema.Struct({
    * the created/updated record. Only meaningful when `type` is `successPage`.
    */
   redirect: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage".',
       examples: ['/support/tickets/$record.id'],
@@ -199,7 +198,7 @@ export const ActionResponseSchema = Schema.Struct({
   ),
   /** Toast notification to show */
   toast: Schema.optional(ToastSchema),
-}).annotations({
+}).annotate({
   title: 'Action Response',
   description: 'Defines behavior after action success or failure',
 })
@@ -220,25 +219,25 @@ export const ActionResponseSchema = Schema.Struct({
 export const AuthActionSchema = Schema.Struct({
   type: Schema.Literal('auth'),
   /** Auth method */
-  method: Schema.Literal(
+  method: Schema.Literals([
     'login',
     'signup',
     'logout',
     'resetPassword',
     'setNewPassword',
-    'verifyEmail'
-  ).annotations({
+    'verifyEmail',
+  ]).annotate({
     description: 'Authentication operation to perform',
   }),
   /** Auth strategy */
   strategy: Schema.optional(
-    Schema.Literal('email', 'magicLink', 'oauth').annotations({
+    Schema.Literals(['email', 'magicLink', 'oauth']).annotate({
       description: 'Authentication strategy to use',
     })
   ),
   /** OAuth provider name (required when strategy is oauth) */
   provider: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'OAuth provider name (e.g., google, github)',
       examples: ['google', 'github', 'discord'],
     })
@@ -260,7 +259,7 @@ export const AuthActionSchema = Schema.Struct({
    * ```
    */
   submitLabel: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Custom submit-button label for the auth form. Defaults to the localized built-in label for the method. Supports $t:key translation references.',
       examples: ['Sign In', 'Se connecter', '$t:auth.submit'],
@@ -286,7 +285,7 @@ export const AuthActionSchema = Schema.Struct({
    * ```
    */
   pendingLabel: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Custom in-flight (pending) submit-button label for the auth form. Defaults to the localized built-in pending label for the method. Supports $t:key translation references.',
       examples: ['Signing in…', 'Connexion…', '$t:auth.pending'],
@@ -315,33 +314,33 @@ export const AuthActionSchema = Schema.Struct({
     Schema.Array(
       Schema.Struct({
         /** Field name to target (must match a rendered auth field, e.g. `email`) */
-        name: Schema.String.annotations({
+        name: Schema.String.annotate({
           description: 'Name of the auth field to override (e.g. email, password)',
           examples: ['email', 'password'],
         }),
         /** Visible label override. Supports $t:key translation references. */
         label: Schema.optional(
-          Schema.String.annotations({
+          Schema.String.annotate({
             description: 'Visible label override for this field. Supports $t:key references.',
             examples: ['Adresse e-mail', 'Mot de passe', '$t:auth.email.label'],
           })
         ),
         /** Input placeholder override. Supports $t:key translation references. */
         placeholder: Schema.optional(
-          Schema.String.annotations({
+          Schema.String.annotate({
             description: 'Input placeholder override for this field. Supports $t:key references.',
             examples: ['vous@exemple.com', '$t:auth.email.placeholder'],
           })
         ),
       })
-    ).annotations({
+    ).annotate({
       description:
         'Per-field label/placeholder overrides for the auth form. Targets fields by name. Additive — default fields are used when omitted.',
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
-}).annotations({
+}).annotate({
   title: 'Auth Action',
   description: 'Authentication action (login, signup, logout, etc.)',
 })
@@ -365,29 +364,29 @@ export const AuthActionSchema = Schema.Struct({
 export const CrudActionSchema = Schema.Struct({
   type: Schema.Literal('crud'),
   /** CRUD operation */
-  operation: Schema.Literal('create', 'update', 'delete').annotations({
+  operation: Schema.Literals(['create', 'update', 'delete']).annotate({
     description: 'Data operation to perform',
   }),
   /** Target table name (must exist in app.tables) */
-  table: Schema.String.annotations({
+  table: Schema.String.annotate({
     description: 'Table to perform the operation on',
   }),
   /** Show a confirmation prompt before executing the action */
   confirm: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'If true, shows a confirmation prompt before executing the action',
     })
   ),
   /** Custom confirmation message to display (requires confirm: true) */
   confirmMessage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Custom confirmation message. Defaults to a generic confirmation prompt.',
       examples: ['Are you sure you want to delete this record?'],
     })
   ),
   /** Static data payload for bulk update operations */
   data: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
       description: 'Field values to apply in bulk update operations',
       examples: [{ status: 'shipped' }, { archived: true }],
     })
@@ -410,7 +409,7 @@ export const CrudActionSchema = Schema.Struct({
    * ```
    */
   submitLabel: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Custom submit-button label for the CRUD form. Defaults to the localized built-in label for the operation (Create/Update/Delete). Supports $t:key translation references.',
       examples: ['Create', 'Enregistrer', '$t:crud.submit'],
@@ -440,33 +439,33 @@ export const CrudActionSchema = Schema.Struct({
     Schema.Array(
       Schema.Struct({
         /** Field name to target (must match a table column rendered in the form) */
-        name: Schema.String.annotations({
+        name: Schema.String.annotate({
           description: 'Name of the CRUD field to override (matches a table column, e.g. name)',
           examples: ['name', 'email'],
         }),
         /** Visible label override. Supports $t:key translation references. */
         label: Schema.optional(
-          Schema.String.annotations({
+          Schema.String.annotate({
             description: 'Visible label override for this field. Supports $t:key references.',
             examples: ['Nom du client', 'Adresse e-mail', '$t:crud.name.label'],
           })
         ),
         /** Input placeholder override. Supports $t:key translation references. */
         placeholder: Schema.optional(
-          Schema.String.annotations({
+          Schema.String.annotate({
             description: 'Input placeholder override for this field. Supports $t:key references.',
             examples: ['Entreprise SARL', '$t:crud.name.placeholder'],
           })
         ),
       })
-    ).annotations({
+    ).annotate({
       description:
         'Per-field label/placeholder overrides for the CRUD form. Targets fields by name (table column). Additive — table-derived fields are used when omitted.',
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
-}).annotations({
+}).annotate({
   title: 'CRUD Action',
   description: 'Data operation action (create, update, delete)',
 })
@@ -493,26 +492,26 @@ export const CrudActionSchema = Schema.Struct({
 export const AutomationActionSchema = Schema.Struct({
   type: Schema.Literal('automation'),
   /** Automation name (must match an automation defined in app.automations) */
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: 'Automation name (must match an automation defined in app.automations)',
   }),
   /** Key-value pairs passed to the automation as input */
   inputData: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
       description:
         'Key-value pairs passed to the automation as input. Supports $variable references.',
     })
   ),
   /** Whether to wait for completion before triggering response */
   await: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'Wait for completion before triggering response (default: false = fire-and-forget)',
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
-}).annotations({
+}).annotate({
   title: 'Automation Action',
   description: 'Invoke a named automation from a page component (button click, form submit)',
 })
@@ -532,20 +531,20 @@ export const AutomationActionSchema = Schema.Struct({
 export const FilterActionSchema = Schema.Struct({
   type: Schema.Literal('filter'),
   /** Target data source ID to apply filter to */
-  targetDataSource: Schema.String.annotations({
+  targetDataSource: Schema.String.annotate({
     description: 'ID of the data source to filter (matches dataSource.targetId)',
   }),
   /** Field to filter on */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Field name to apply the filter to',
   }),
   /** Filter operator */
   operator: Schema.optional(
-    Schema.Literal('eq', 'neq', 'contains', 'gt', 'lt', 'gte', 'lte').annotations({
+    Schema.Literals(['eq', 'neq', 'contains', 'gt', 'lt', 'gte', 'lte']).annotate({
       description: 'Comparison operator (defaults to eq)',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Filter Action',
   description: 'Cross-component filter action targeting a data source',
 })
@@ -579,14 +578,14 @@ export const FilterActionSchema = Schema.Struct({
 export const NavigateActionSchema = Schema.Struct({
   type: Schema.Literal('navigate'),
   /** Destination URL path. Supports `$record.X` substitution. */
-  path: Schema.String.annotations({
+  path: Schema.String.annotate({
     description: 'Destination URL path (supports $record.X substitution)',
   }),
   /** Optional success handler (rarely used for pure navigation). */
   onSuccess: Schema.optional(ActionResponseSchema),
   /** Optional error handler (e.g. router rejection). */
   onError: Schema.optional(ActionResponseSchema),
-}).annotations({
+}).annotate({
   title: 'Navigate Action',
   description: 'Pure navigation action — no mutation side-effect',
 })
@@ -617,23 +616,22 @@ export const NavigateActionSchema = Schema.Struct({
 export const ToastActionSchema = Schema.Struct({
   type: Schema.Literal('toast'),
   /** Message to display. Supports $variable references. */
-  message: Schema.String.annotations({
+  message: Schema.String.annotate({
     description: 'Toast notification message. Supports $variable references.',
   }),
   /** Visual variant */
   variant: Schema.optional(ToastVariantSchema),
   /** Auto-dismiss duration in milliseconds */
   duration: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Auto-dismiss duration in milliseconds (default: 5000)',
         examples: [2000, 5000, 10_000],
       })
     )
   ),
-}).annotations({
+}).annotate({
   title: 'Toast Action',
   description: 'Pure notification action — shows a transient toast with no side-effect',
 })
@@ -651,21 +649,20 @@ export const ToastActionSchema = Schema.Struct({
 export const FetchToastResponseSchema = Schema.Struct({
   type: Schema.Literal('toast'),
   /** Message to display. Supports $variable references. */
-  message: Schema.String.annotations({
+  message: Schema.String.annotate({
     description: 'Toast notification message. Supports $variable references.',
   }),
   /** Visual variant */
   variant: Schema.optional(
-    Schema.Literal('default', 'success', 'destructive', 'error', 'warning', 'info').annotations({
+    Schema.Literals(['default', 'success', 'destructive', 'error', 'warning', 'info']).annotate({
       description: 'Visual style of the toast notification',
     })
   ),
   /** Auto-dismiss duration in milliseconds */
   duration: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Auto-dismiss duration in milliseconds (default: 5000)',
         examples: [2000, 5000, 10_000],
       })
@@ -673,19 +670,19 @@ export const FetchToastResponseSchema = Schema.Struct({
   ),
   /** Label of an optional action button rendered inside the toast */
   actionLabel: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Label of an optional action button rendered inside the toast',
       examples: ['Undo', 'Retry'],
     })
   ),
   /** URL invoked (POST) when the toast action button is clicked */
   actionUrl: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'URL invoked (POST) when the toast action button is clicked. Required with actionLabel.',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Fetch Toast Response',
   description: 'Toast notification rendered after a fetch action completes',
 })
@@ -703,18 +700,18 @@ export const FetchToastResponseSchema = Schema.Struct({
  */
 const FetchSuccessStatusSchema = Schema.Struct({
   /** `props.id` of the sibling element the status message is written into. */
-  target: Schema.String.annotations({
+  target: Schema.String.annotate({
     description:
       'props.id of the sibling element the status message is written into (promoted to role=status).',
     examples: ['export-status', 'save-indicator'],
   }),
   /** The status message. Supports `$variable` / `$session.<field>` references. */
-  message: Schema.String.annotations({
+  message: Schema.String.annotate({
     description:
       'Persistent status message written into the target region. Supports $variable references.',
     examples: ['Export généré', 'Saved'],
   }),
-}).annotations({
+}).annotate({
   title: 'Fetch Success Status',
   description:
     'A persistent inline role="status" region populated on success (the persistent counterpart to a transient toast).',
@@ -727,10 +724,10 @@ const FetchSuccessStatusSchema = Schema.Struct({
  * change without a full reload (e.g. a pending-erasure table re-fetching after the
  * erase POST). Accepts a single id or an array.
  */
-const FetchSuccessRefetchSchema = Schema.Union(
+const FetchSuccessRefetchSchema = Schema.Union([
   Schema.String,
-  Schema.Array(Schema.String).pipe(Schema.minItems(1))
-).annotations({
+  Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
+]).annotate({
   title: 'Fetch Success Refetch',
   description:
     'props.id (or array of ids) of sibling data-bound component(s) to re-query on success. Works for both a DB-table dataSource and a dataSource.system read endpoint.',
@@ -757,7 +754,7 @@ export const FetchSuccessResponseSchema = Schema.Struct({
   status: Schema.optional(FetchSuccessStatusSchema),
   /** Sibling data-bound component id(s) to re-query on success. */
   refetch: Schema.optional(FetchSuccessRefetchSchema),
-}).annotations({
+}).annotate({
   title: 'Fetch Success Response',
   description:
     'Success handler for a fetch action: the toast slot plus optional client-state effects — a persistent inline status region (status) and a sibling data-bound refetch (refetch).',
@@ -791,12 +788,12 @@ export const FetchSuccessResponseSchema = Schema.Struct({
  *   DATA at `redirectKey`, default `url`), navigate the browser to that URL, and
  *   let the provider return to `callbackPath`. For a connection `authorize`.
  */
-export const FetchActionModeSchema = Schema.Literal(
+export const FetchActionModeSchema = Schema.Literals([
   'fetch',
   'navigate',
   'download',
-  'oauth'
-).annotations({
+  'oauth',
+]).annotate({
   title: 'Fetch Action Mode',
   description:
     'Dispatch mode: fetch (default, client fetch + toast), navigate (browser navigation, e.g. ?format=csv export), download (native file download), oauth (authorize → provider → callback round-trip)',
@@ -815,11 +812,11 @@ export const FetchActionModeSchema = Schema.Literal(
  * - `raw`: make no body-shape assumptions; success = any 2xx, error = any
  *   non-2xx, with no message extraction.
  */
-export const FetchResponseEnvelopeSchema = Schema.Literal(
+export const FetchResponseEnvelopeSchema = Schema.Literals([
   'sovrium',
   'better-auth',
-  'raw'
-).annotations({
+  'raw',
+]).annotate({
   title: 'Fetch Response Envelope',
   description:
     'Response-envelope interpretation: sovrium (default), better-auth (always-200 enumeration-safe envelope at /api/auth/admin/*), raw (status-only, no body assumptions)',
@@ -901,7 +898,7 @@ export const FetchActionSchema = Schema.Struct({
    * restricted to a `/api/admin/*` prefix — may target the Better-Auth admin
    * plugin (`/api/auth/admin/*`) or the public buckets API (`/api/buckets/*`).
    */
-  url: Schema.String.annotations({
+  url: Schema.String.annotate({
     description:
       'Target URL (any absolute path or fully-qualified URL; not prefix-restricted). e.g. /api/tables/contacts/records, /api/auth/admin/ban-user, /api/buckets/default/files/<key>',
   }),
@@ -912,19 +909,19 @@ export const FetchActionSchema = Schema.Struct({
   mode: Schema.optional(FetchActionModeSchema),
   /** HTTP method (defaults to GET) */
   method: Schema.optional(
-    Schema.Literal('GET', 'POST', 'PUT', 'PATCH', 'DELETE').annotations({
+    Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).annotate({
       description: 'HTTP method (defaults to GET)',
     })
   ),
   /** Optional request headers */
   headers: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
+    Schema.Record(Schema.String, Schema.String).annotate({
       description: 'Request headers. Content-Type defaults to application/json when body is set.',
     })
   ),
   /** Optional JSON request body (serialized with JSON.stringify) */
   body: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
       description:
         'JSON request body (serialized with JSON.stringify). String values support $record.<field> and the $session.<field> token (resolved client-side from the caller session, e.g. { confirm: "$session.email" }).',
     })
@@ -935,13 +932,13 @@ export const FetchActionSchema = Schema.Struct({
    * into a confirm-gated operate action (ban, erase, …).
    */
   confirm: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'If true, shows a confirmation prompt before executing the action',
     })
   ),
   /** Custom confirmation message to display (requires confirm: true) */
   confirmMessage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Custom confirmation message. Defaults to a generic confirmation prompt.',
       examples: ['Bannir ce compte ?', "L'effacement est définitif et irréversible."],
     })
@@ -952,7 +949,7 @@ export const FetchActionSchema = Schema.Struct({
    * of the server's `Content-Disposition`.
    */
   filename: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Suggested download filename. Only meaningful when mode is "download".',
       examples: ['mon-compte.json', 'export.csv', '$record.name'],
     })
@@ -964,7 +961,7 @@ export const FetchActionSchema = Schema.Struct({
    * navigates to; `redirectKey` names that field.
    */
   redirectKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Response field holding the OAuth provider redirect URL (default "url"). Only meaningful when mode is "oauth".',
       examples: ['authorizationUrl', 'url'],
@@ -976,7 +973,7 @@ export const FetchActionSchema = Schema.Struct({
    * this callback path (e.g. `/api/admin/connections/:name/callback`).
    */
   callbackPath: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'OAuth provider return path (the registered redirect_uri). Only meaningful when mode is "oauth".',
       examples: ['/api/admin/connections/slack/callback'],
@@ -996,7 +993,7 @@ export const FetchActionSchema = Schema.Struct({
   onSuccess: Schema.optional(FetchSuccessResponseSchema),
   /** Toast displayed when the fetch resolves with a non-2xx response or rejects */
   onError: Schema.optional(FetchToastResponseSchema),
-}).annotations({
+}).annotate({
   title: 'Fetch Action',
   description:
     'Client-side operate action: fetch (default) / navigate / download / oauth, with optional confirm gating, arbitrary target path, and non-Sovrium response-envelope tolerance',
@@ -1036,7 +1033,7 @@ export const OpenDrawerActionSchema = Schema.Struct({
    * ID of the drawer component to open. Must match a sibling
    * `{ type: 'drawer', id: '<this-value>' }` component on the same page.
    */
-  component: Schema.String.annotations({
+  component: Schema.String.annotate({
     description:
       "ID of the drawer page-component to open (matches a sibling `{ type: 'drawer', id }`)",
   }),
@@ -1044,17 +1041,16 @@ export const OpenDrawerActionSchema = Schema.Struct({
   props: Schema.optional(
     Schema.Struct({
       width: Schema.optional(
-        Schema.Number.pipe(
-          Schema.int(),
-          Schema.greaterThan(0),
-          Schema.annotations({ description: 'Drawer width in pixels for this trigger instance' })
+        Schema.Finite.pipe(
+          Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+          Schema.annotate({ description: 'Drawer width in pixels for this trigger instance' })
         )
       ),
-    }).annotations({
+    }).annotate({
       description: 'Per-trigger overrides applied to the referenced drawer component',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Open Drawer Action',
   description:
     'Opens a referenced drawer component (record-detail quick-edit pattern). Discriminated by the `action: openDrawer` literal (not `type`).',
@@ -1132,7 +1128,7 @@ export const OpenDrawerActionSchema = Schema.Struct({
  *     message: Saved!
  * ```
  */
-export const ActionSchema = Schema.Union(
+export const ActionSchema = Schema.Union([
   AuthActionSchema,
   CrudActionSchema,
   AutomationActionSchema,
@@ -1140,9 +1136,9 @@ export const ActionSchema = Schema.Union(
   NavigateActionSchema,
   ToastActionSchema,
   FetchActionSchema,
-  OpenDrawerActionSchema
-).pipe(
-  Schema.annotations({
+  OpenDrawerActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'Action',
     title: 'Action',
     description:
@@ -1187,8 +1183,11 @@ export const ActionSchema = Schema.Union(
  *   component: record-detail
  * ```
  */
-export const RowClickActionSchema = Schema.Union(NavigateActionSchema, OpenDrawerActionSchema).pipe(
-  Schema.annotations({
+export const RowClickActionSchema = Schema.Union([
+  NavigateActionSchema,
+  OpenDrawerActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'RowClickAction',
     title: 'Row Click Action',
     description:

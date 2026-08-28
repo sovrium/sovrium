@@ -208,7 +208,7 @@ export const BuildUsersOverview = (
     const last24hDate = new Date(nowMs - 24 * HOUR_MS)
 
     // 1) totals.users + by_role + in-period signups — one full scan.
-    const totals = tallyUserRows(yield* repo.listUserRows(), fromMs)
+    const totals = tallyUserRows(yield* repo.listUserRows, fromMs)
 
     // 2) active_24h — distinct user_id from auth.session rows in last 24h.
     const active24h = yield* repo.countActiveUsersSince(last24hDate)

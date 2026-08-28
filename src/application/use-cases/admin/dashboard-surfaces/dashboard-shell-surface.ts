@@ -49,7 +49,6 @@ interface SidebarHostProps {
   readonly canEdit: boolean
   readonly appName: string | undefined
   readonly appVersion: string | undefined
-  readonly publishedSnapshot: Readonly<Record<string, unknown>>
   readonly collapsed: boolean
 }
 
@@ -63,8 +62,12 @@ function sidebar(props: SidebarHostProps): Component {
       // a fixed drawer when the burger toggle sets `data-mobile-open` (the inline
       // `SidebarDrawerToggle` script flips the classes). `data-dashboard-aside`
       // is the toggle script's hook.
+      // `overflow-hidden` (not `overflow-y-auto`): the aside is a fixed-height
+      // frame, and the island's own inner region owns the scrolling so the
+      // operator bar + build version stay pinned to the foot. Two nested
+      // scroll containers made the foot ride the outer scroll instead.
       className:
-        'hidden md:flex w-64 shrink-0 border-r border-border bg-background-raised p-4 flex-col gap-6 overflow-y-auto',
+        'hidden md:flex w-64 shrink-0 border-r border-border bg-background-raised p-4 flex-col gap-6 overflow-hidden',
       'data-dashboard-aside': 'true',
       'data-island': 'admin-sidebar',
       'data-island-props': JSON.stringify(props),
@@ -180,11 +183,6 @@ export interface ShellOptions {
   readonly appVersion?: string
   /** Breadcrumb trail for the top chrome bar. */
   readonly breadcrumb: ReadonlyArray<ShellBreadcrumbItem>
-  /**
-   * Retained for shell-host signature compatibility; inert in the Data-only
-   * console (the navigation-only sidebar renders no config count badges).
-   */
-  readonly publishedSnapshot: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -202,16 +200,21 @@ export function wrapInShell(
   body: ReadonlyArray<Component>,
   options: ShellOptions
 ): ReadonlyArray<Component> {
-  const { canEdit, appName, appVersion, breadcrumb, publishedSnapshot } = options
+  const { canEdit, appName, appVersion, breadcrumb } = options
   // The sidebar is ALWAYS collapsed (navigation-only) on EVERY surface, home
   // included: it is pure Data navigation.
   return [
     {
       type: 'container',
       element: 'div',
-      props: { className: 'flex min-h-screen bg-background text-foreground' },
+      // `h-screen overflow-hidden`, not `min-h-screen`: the shell is a
+      // fixed-viewport app frame whose two columns scroll independently. Under
+      // `min-h-screen` the row grew to the tallest column, so NEITHER child's
+      // `overflow-y-auto` ever engaged — the whole document scrolled and the
+      // sidebar foot (operator bar + build version) dropped below the fold.
+      props: { className: 'flex h-screen overflow-hidden bg-background text-foreground' },
       children: [
-        sidebar({ canEdit, appName, appVersion, publishedSnapshot, collapsed: true }),
+        sidebar({ canEdit, appName, appVersion, collapsed: true }),
         // Content column. The page renderer wraps every page in a single
         // `<main id="main-content">` (PageMain), so this uses a plain `div`
         // — a second `element: main` would duplicate the `main` landmark.

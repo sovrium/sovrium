@@ -19,7 +19,7 @@ import { Schema } from 'effect'
  * ```
  */
 export const ViewFieldsSchema = Schema.Array(Schema.String).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'View Fields',
     description: 'Array of field names to include in the view.',
   })

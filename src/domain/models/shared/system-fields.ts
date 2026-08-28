@@ -110,3 +110,26 @@ export const SYSTEM_FIELD_NAMES: ReadonlySet<string> = new Set<string>([
  * {@link SYSTEM_FIELD_NAMES}).
  */
 export const isSystemFieldName = (name: string): boolean => SYSTEM_FIELD_NAMES.has(name)
+
+/**
+ * Whether `name` can resolve to a real column of a table whose author-declared
+ * fields are `declaredFieldNames` — i.e. it is either declared, or a member of
+ * the system namespace above.
+ *
+ * This is the single predicate behind BOTH halves of the record-filter field
+ * check, and it exists as one function precisely because they are two halves:
+ * the AppSchema cross-validation refuses a field written LITERALLY in the
+ * config, while the automation runtime refuses one that arrives through a
+ * `{{...}}` template and therefore does not exist at decode time. Two copies of
+ * "is this a real column?" is how the boot-time verdict and the runtime verdict
+ * come to disagree about the same name — and the disagreement is not
+ * symmetrical: on SQLite an accepted-but-unknown identifier degrades to a
+ * string literal and the predicate matches the WHOLE table.
+ *
+ * Callers pass the declared set rather than the table, so the lookup is theirs
+ * to build once and reuse across every condition in a filter.
+ */
+export const isResolvableColumnName = (
+  declaredFieldNames: ReadonlySet<string>,
+  name: string
+): boolean => declaredFieldNames.has(name) || isSystemFieldName(name)

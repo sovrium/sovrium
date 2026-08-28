@@ -16,17 +16,16 @@ import { EMAIL_PATTERN, MAX_EMAIL_LENGTH } from '@/domain/utils/email-validation
 export const AuthEnvSchema = Schema.Struct({
   authSecret: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(16),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(16)),
+      Schema.annotate({
         description: 'Secret key for signing tokens and cookies (AUTH_SECRET)',
       })
     )
   ),
   adminEmail: Schema.optional(
     Schema.String.pipe(
-      Schema.maxLength(MAX_EMAIL_LENGTH),
-      Schema.pattern(EMAIL_PATTERN),
-      Schema.annotations({
+      Schema.check(Schema.isMaxLength(MAX_EMAIL_LENGTH), Schema.isPattern(EMAIL_PATTERN)),
+      Schema.annotate({
         description: 'Default admin email (AUTH_ADMIN_EMAIL)',
         examples: ['admin@example.com'],
       })
@@ -34,15 +33,15 @@ export const AuthEnvSchema = Schema.Struct({
   ),
   adminPassword: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(8),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(8)),
+      Schema.annotate({
         description: 'Default admin password (AUTH_ADMIN_PASSWORD)',
       })
     )
   ),
   adminName: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Default admin display name (AUTH_ADMIN_NAME)',
         examples: ['System Administrator'],
       })

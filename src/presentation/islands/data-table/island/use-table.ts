@@ -45,6 +45,22 @@ interface UseDataTableInstanceParams {
   readonly setColumnSizing: OnChangeFn<ColumnSizingState>
   readonly selectionConfig: DataTableSelection | undefined
   readonly totalRecords: number
+  /**
+   * Whether the RESPONSE declared that the server already applied the search
+   * term (its `appliedQuery` key was present — see `FetchResult.appliedQuery`).
+   *
+   * Exactly one layer may filter, and both failure modes are wrong-answer bugs.
+   * Filter NEITHER and the box is inert. Filter BOTH and the server's matches
+   * are silently discarded whenever the field that matched is not a rendered
+   * column — which is precisely how a users-directory row matched on `name`
+   * disappeared before `name` was a column.
+   *
+   * Keyed on the response rather than on "is this a system source" deliberately:
+   * several system endpoints (automation runs, connections, form submissions)
+   * still ignore `?q=`, and their grids must keep filtering in memory. The
+   * endpoint is the only party that knows, so it says so in its own body.
+   */
+  readonly serverFiltered: boolean
 }
 
 /**
@@ -108,6 +124,10 @@ function buildTableOptions(params: UseDataTableInstanceParams) {
     sortDescFirst: false,
     manualPagination: true,
     manualSorting: true,
+    // When the response declared the search already ran server-side, TanStack's
+    // `getFilteredRowModel` is bypassed (it returns the pre-filtered core model)
+    // so the page of MATCHES the server sent is rendered as sent.
+    manualFiltering: params.serverFiltered,
     pageCount: Math.ceil(totalRecords / pagination.pageSize),
   }
 }

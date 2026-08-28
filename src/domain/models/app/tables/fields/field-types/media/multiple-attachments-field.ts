@@ -9,53 +9,51 @@ import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
 export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('multiple-attachments'),
-      /** Storage bucket name for this field's files. References a bucket defined in app.buckets.
-       *  When omitted, uses the implicit 'default' bucket. */
-      bucket: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description:
-              "Storage bucket name for this field's files. References a bucket in app.buckets.",
-            examples: ['avatars', 'documents'],
-          })
-        )
-      ),
-      maxFiles: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({ description: 'Maximum number of files allowed' })
-        )
-      ),
-      allowedFileTypes: Schema.optional(
-        Schema.Array(Schema.String).pipe(
-          Schema.annotations({
-            description: 'Allowed MIME types for file uploads',
-            examples: [['application/pdf', 'application/msword']],
-          })
-        )
-      ),
-      maxFileSize: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({
-            description: 'Maximum file size in bytes per attachment',
-            examples: [10_485_760],
-          })
-        )
-      ),
-      storeMetadata: Schema.optional(
-        Schema.Boolean.pipe(
-          Schema.annotations({
-            description: 'Whether to store metadata for each attachment',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('multiple-attachments'),
+    /** Storage bucket name for this field's files. References a bucket defined in app.buckets.
+     *  When omitted, uses the implicit 'default' bucket. */
+    bucket: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description:
+            "Storage bucket name for this field's files. References a bucket in app.buckets.",
+          examples: ['avatars', 'documents'],
+        })
+      )
+    ),
+    maxFiles: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+        Schema.annotate({ description: 'Maximum number of files allowed' })
+      )
+    ),
+    allowedFileTypes: Schema.optional(
+      Schema.Array(Schema.String).pipe(
+        Schema.annotate({
+          description: 'Allowed MIME types for file uploads',
+          examples: [['application/pdf', 'application/msword']],
+        })
+      )
+    ),
+    maxFileSize: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+        Schema.annotate({
+          description: 'Maximum file size in bytes per attachment',
+          examples: [10_485_760],
+        })
+      )
+    ),
+    storeMetadata: Schema.optional(
+      Schema.Boolean.pipe(
+        Schema.annotate({
+          description: 'Whether to store metadata for each attachment',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Multiple Attachments Field',
     description:
       'Stores multiple file attachments. The storage backend is configured globally through STORAGE_* environment variables, not per field.',

@@ -350,6 +350,13 @@ export interface SubmissionsListInput {
   readonly status?: FormSubmissionStatus | undefined
   readonly from?: string | undefined
   readonly to?: string | undefined
+  /**
+   * The operator's free-text term over the SUBMITTER identity and the
+   * submission `id`, already trimmed and length-checked by `searchTermSchema`.
+   * `undefined` means "no search". The submitted body is never searched — see
+   * the repository's `buildSearchConditions` for why that is a D7 lock.
+   */
+  readonly q?: string | undefined
   readonly cursor?: string | undefined
   readonly limit: number
 }
@@ -371,6 +378,7 @@ export const BuildSubmissionsList = (
   FormsBuildOutcome<{
     readonly items: readonly FormSubmissionAdminItem[]
     readonly nextCursor: string | null
+    readonly appliedQuery: string | null
   }>,
   AdminFormsDatabaseError,
   AdminFormsRepository
@@ -387,6 +395,7 @@ export const BuildSubmissionsList = (
       status: input.status,
       from: input.from !== undefined ? new Date(input.from) : undefined,
       to: input.to !== undefined ? new Date(input.to) : undefined,
+      q: input.q,
       cursorBefore,
       limit: input.limit,
     })
@@ -399,12 +408,24 @@ export const BuildSubmissionsList = (
         ? encodeSubmissionsCursor(lastItem.submittedAt, lastItem.id)
         : null
 
-    const body = { items, nextCursor }
+    // `appliedQuery` rides EVERY response, `null` when no term was applied. Its
+    // PRESENCE — not its truthiness — is what tells the inbox grid that the
+    // narrowing already happened server-side and it must not repeat it over the
+    // two columns it renders. Omitting the key on a no-term request would
+    // re-arm that in-memory pass the moment an operator CLEARS the box.
+    const body = { items, nextCursor, appliedQuery: input.q ?? null }
     const parsed = formsSubmissionsListResponseSchema.safeParse(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
-    return { _tag: 'Ok', body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor } }
+    return {
+      _tag: 'Ok',
+      body: {
+        items: parsed.data.items,
+        nextCursor: parsed.data.nextCursor,
+        appliedQuery: parsed.data.appliedQuery ?? null,
+      },
+    }
   })
 
 // ─── Submission-detail use case ──────────────────────────────────────────────
@@ -474,7 +495,7 @@ export const BuildSubmissionDetail = (
     if (input.reveal && (!input.captureAllowed || !input.isAdmin)) {
       return { _tag: 'RevealDenied' } as const
     }
-    const bodyToInclude: Record<string, unknown> | undefined = input.reveal
+    const bodyToInclude: Readonly<Record<string, unknown>> | undefined = input.reveal
       ? ((row.data ?? {}) as Record<string, unknown>)
       : undefined
 

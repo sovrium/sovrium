@@ -20,11 +20,8 @@ import { Schema } from 'effect'
  * { status: 'published' }
  * ```
  */
-const KnowledgeTableFilterSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.Unknown,
-}).pipe(
-  Schema.annotations({
+const KnowledgeTableFilterSchema = Schema.Record(Schema.String, Schema.Unknown).pipe(
+  Schema.annotate({
     identifier: 'KnowledgeTableFilter',
     title: 'Knowledge Table Filter',
     description: 'Key-value filter conditions for knowledge table rows',
@@ -49,8 +46,8 @@ const KnowledgeTableFilterSchema = Schema.Record({
 const KnowledgeTableSchema = Schema.Struct({
   /** Table name to embed (must reference a table defined in app.tables) */
   table: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Table name to embed for knowledge retrieval',
     })
   ),
@@ -58,12 +55,12 @@ const KnowledgeTableSchema = Schema.Struct({
   /** Field names to include in embeddings (at least one required) */
   fields: Schema.Array(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Field name to include in embedding' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Field name to include in embedding' })
     )
   ).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Fields to embed from this table',
     })
   ),
@@ -71,7 +68,7 @@ const KnowledgeTableSchema = Schema.Struct({
   /** Optional filter to limit which rows are embedded */
   filter: Schema.optional(KnowledgeTableFilterSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'KnowledgeTable',
     title: 'Knowledge Table',
     description: 'Table data source configuration for agent knowledge embedding',
@@ -97,8 +94,8 @@ export type KnowledgeTable = Schema.Schema.Type<typeof KnowledgeTableSchema>
 const KnowledgeDocumentSchema = Schema.Struct({
   /** File path to the document */
   path: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Path to the document file for knowledge embedding',
     })
   ),
@@ -106,14 +103,14 @@ const KnowledgeDocumentSchema = Schema.Struct({
   /** Human-readable label for the document */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Human-readable label for the knowledge document',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'KnowledgeDocument',
     title: 'Knowledge Document',
     description: 'Document file data source for agent knowledge embedding',
@@ -149,7 +146,7 @@ export const AgentKnowledgeSchema = Schema.Struct({
   /** Table data sources to embed */
   tables: Schema.optional(
     Schema.Array(KnowledgeTableSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Table data sources for knowledge embedding',
       })
     )
@@ -158,13 +155,13 @@ export const AgentKnowledgeSchema = Schema.Struct({
   /** Document file sources to embed */
   documents: Schema.optional(
     Schema.Array(KnowledgeDocumentSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Document file sources for knowledge embedding',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentKnowledge',
     title: 'Agent Knowledge',
     description:

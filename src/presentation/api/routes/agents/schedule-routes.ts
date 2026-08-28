@@ -20,37 +20,47 @@
  *                                              task once. The agent's
  *                                              `taskPrompt` is sent to the LLM
  *                                              as the user message. Returns
- *                                              200 `completed` for an agent
- *                                              whose approval mode allows
- *                                              immediate execution, 202
- *                                              `pending_approval` when the
- *                                              schedule action needs human
- *                                              review, 403 when the agent is
- *                                              disabled, 404 when the agent or
- *                                              its schedule is not declared.
+ *                                              200 `completed`, 202
+ *                                              `pending_approval` (human review
+ *                                              needed) or `queued` (over
+ *                                              budget), 403 when the agent is
+ *                                              disabled, 429 when it has
+ *                                              tripped its action rate limit or
+ *                                              exhausted its daily tokens, 503
+ *                                              when the deployment configures
+ *                                              no AI provider, and 404 when the
+ *                                              agent is undeclared, carries no
+ *                                              schedule, or the caller may not
+ *                                              trigger it.
+ *
+ * The trigger runs under EXACTLY the gates `/execute` runs under, and shares
+ * their implementation (`agent-execution-gates.ts`). Until it did, an operator
+ * who capped an agent at two actions a minute got that cap on `/execute` and no
+ * cap at all here, and a scheduled run's token cost was dropped on the floor
+ * ([internal ref].. -012).
+ *
+ * BOTH routes are gated by `permissions.trigger`: the trigger is a second way
+ * to run the same agent under the same privileged identity, and the readback
+ * serves `taskPrompt`, which is prompt material exactly as `systemPrompt` is
+ *.
  *
  * Cron expression and timezone validity are enforced at schema-decode time by
  * `AgentScheduleSchema`; these handlers assume a well-formed schedule.
  */
 
-import { Cron, DateTime, Either } from 'effect'
-import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
-import { recordAgentActivity } from './agent-activity-log'
-import { callAgentAi } from './agent-ai-call'
+import { Cron, DateTime, Result } from 'effect'
+import { isAiProviderConfigured } from '@/domain/models/env/ai/ai-providers'
+import { checkExecutionGates, checkLimitGates } from './agent-execution-gates'
+import { isTokenBudgetExhausted, releaseConcurrencySlot, resolveAgentLimits } from './agent-limits'
 import { agentNotFound, findAgent } from './agent-lookup'
-import { buildApprovalRecord } from './approval-presenter'
-import { appendAgentActivityEntry, putApproval } from './approval-store'
-import { runApprovalMirror, toMirrorRecord } from './effect-runner'
+import { runScheduledAgentTask } from './agent-schedule-runner'
+import { checkTriggerPermission } from './agent-trigger-guard'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context, Hono } from 'hono'
 
-/** Generic action label recorded for a scheduled agent run. */
-const SCHEDULE_ACTION = 'agent.scheduled'
-
-/** Standard 404 body for an agent that has no `schedule` configuration. */
-const scheduleNotFound = (c: Readonly<Context>, agentName: string): Response =>
-  c.json({ error: `Agent '${agentName}' has no schedule configured.` }, 404)
+/** A declared agent schedule, once its presence has been established. */
+type AgentSchedule = NonNullable<Agent['schedule']>
 
 /**
  * Compute the next cron fire time for a schedule. Returns an empty object when
@@ -58,44 +68,53 @@ const scheduleNotFound = (c: Readonly<Context>, agentName: string): Response =>
  * so this is belt-and-braces).
  */
 const computeNextRunAt = (cron: string, timezone: string): Record<string, string> => {
-  const zone = Either.try({
-    try: () => DateTime.zoneUnsafeMakeNamed(timezone),
+  const zone = Result.try({
+    try: () => DateTime.zoneMakeNamedUnsafe(timezone),
     catch: () => undefined,
   })
-  if (Either.isLeft(zone)) return {}
-  const parsed = Cron.parse(cron, zone.right)
-  if (Either.isLeft(parsed)) return {}
-  return { nextRunAt: Cron.next(parsed.right, new Date()).toISOString() }
+  if (Result.isFailure(zone)) return {}
+  const parsed = Cron.parse(cron, zone.success)
+  if (Result.isFailure(parsed)) return {}
+  return { nextRunAt: Cron.next(parsed.success, new Date()).toISOString() }
 }
 
+/** Either the addressed scheduled agent, or the response that stands in for it. */
+type ScheduleTarget =
+  { readonly agent: Agent; readonly schedule: AgentSchedule } | { readonly refusal: Response }
+
 /**
- * Decide whether the agent's approval configuration requires its scheduled
- * action to be queued for human review. `mode: 'all'` pauses every action;
- * `mode: 'selective'` pauses only listed actions; `mode: 'none'` never pauses.
+ * Resolve the agent a schedule route addresses.
+ *
+ * The trigger gate runs BEFORE the "has a schedule" check on purpose: an agent
+ * that exists but declares no schedule must be indistinguishable from one that
+ * was never declared and from one the caller may not reach, or the three
+ * answers become an enumeration oracle keyed on the name in the URL.
  */
-const scheduleRequiresApproval = (agent: Agent): boolean => {
-  const mode = agent.approval?.mode ?? 'none'
-  if (mode === 'all') return true
-  if (mode === 'selective') {
-    return (agent.approval?.required ?? []).includes(SCHEDULE_ACTION)
-  }
-  return false
+const resolveScheduleTarget = async (
+  c: Readonly<Context>,
+  app: App | undefined
+): Promise<ScheduleTarget> => {
+  const agent = findAgent(app, c.req.param('name') ?? '')
+  if (!agent) return { refusal: agentNotFound(c) }
+  const triggerRefusal = await checkTriggerPermission(c, agent)
+  if (triggerRefusal) return { refusal: triggerRefusal }
+  const { schedule } = agent
+  if (schedule === undefined) return { refusal: agentNotFound(c) }
+  return { agent, schedule }
 }
 
 const handleGetSchedule =
   (app: App | undefined) =>
-  (c: Readonly<Context>): Response => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c, agentName)
-    const { schedule } = agent
-    if (schedule === undefined) return scheduleNotFound(c, agentName)
+  async (c: Readonly<Context>): Promise<Response> => {
+    const target = await resolveScheduleTarget(c, app)
+    if ('refusal' in target) return target.refusal
+    const { agent, schedule } = target
 
     // [internal ref]: timezone defaults to UTC when not specified.
     const timezone = schedule.timezone ?? 'UTC'
     return c.json(
       {
-        agent: agentName,
+        agent: agent.name,
         cron: schedule.cron,
         timezone,
         taskPrompt: schedule.taskPrompt,
@@ -105,65 +124,68 @@ const handleGetSchedule =
     )
   }
 
+/**
+ * Run the manual trigger while a concurrency slot is held, mirroring
+ * `executeWithinSlot` on the execute path — including the post-call
+ * daily-token gate, so `maxTokensPerDay` can actually be reached through this
+ * route.
+ */
+const triggerWithinSlot = async (
+  c: Readonly<Context>,
+  agent: Agent,
+  taskPrompt: string
+): Promise<Response> => {
+  const outcome = await runScheduledAgentTask(agent, taskPrompt)
+  const limits = resolveAgentLimits(agent.limits)
+  if (isTokenBudgetExhausted(agent.name, limits.maxTokensPerDay)) {
+    return c.json({ error: `Daily token budget exhausted for agent '${agent.name}'.` }, 429)
+  }
+  if (outcome.kind === 'pending_approval') {
+    return c.json(
+      {
+        status: 'pending_approval',
+        approvalRequired: true,
+        approvalId: outcome.approvalId,
+        agent: agent.name,
+      },
+      202
+    )
+  }
+  return c.json({ status: 'completed', approvalRequired: false, agent: agent.name }, 200)
+}
+
 const handleTriggerSchedule =
   (app: App | undefined) =>
   async (c: Readonly<Context>): Promise<Response> => {
-    const agentName = c.req.param('name') ?? ''
-    const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c, agentName)
-    const { schedule } = agent
-    if (schedule === undefined) return scheduleNotFound(c, agentName)
+    const target = await resolveScheduleTarget(c, app)
+    if ('refusal' in target) return target.refusal
+    const { agent, schedule } = target
 
-    // [internal ref]: a disabled agent skips scheduled execution.
-    if (agent.enabled === false) {
+    // [internal ref]: an agent on a deployment with no AI provider is INERT —
+    // declared and discoverable but not runnable. Degrade with 503 rather than
+    // calling an unreachable provider and then reporting `completed` for a run
+    // that never happened.
+    if (!isAiProviderConfigured(process.env)) {
       return c.json(
-        { error: `Agent '${agentName}' is disabled and cannot run scheduled tasks.` },
-        403
+        { error: 'AI provider not configured — the assistant is currently unavailable.' },
+        503
       )
     }
 
-    // [internal ref]: the agent's taskPrompt is sent to the LLM as
-    // the user message for the scheduled execution.
-    // eslint-disable-next-line functional/no-expression-statements -- observational AI round-trip
-    await callAgentAi(agent, SCHEDULE_ACTION, schedule.taskPrompt)
+    // Disabled → 403 (SCHEDULE-007); action rate limit → 429 (SCHEDULE-010).
+    const gateResponse = checkExecutionGates(c, agent)
+    if (gateResponse) return gateResponse
 
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort activity write
-    await recordAgentActivity({
-      actorName: agentName,
-      action: SCHEDULE_ACTION,
-      targetTable: undefined,
-    })
-    appendAgentActivityEntry({
-      id: crypto.randomUUID(),
-      action: SCHEDULE_ACTION,
-      agentName,
-      actor: { type: 'agent', name: agentName },
-      targetTable: undefined,
-      createdAt: new Date().toISOString(),
-    })
+    // Operational budget → 202 `queued` (SCHEDULE-011). Claims a concurrency
+    // slot when it lets the run through.
+    const limitGate = checkLimitGates(c, agent)
+    if (limitGate) return limitGate
 
-    // [internal ref]: scheduled execution respects the agent's
-    // approval config — `mode: all` queues the action for human review.
-    if (scheduleRequiresApproval(agent)) {
-      const record = buildApprovalRecord(agent, SCHEDULE_ACTION, {
-        action: SCHEDULE_ACTION,
-        taskPrompt: schedule.taskPrompt,
-      })
-      putApproval(record)
-      // eslint-disable-next-line functional/no-expression-statements -- best-effort DB mirror write; failure is discarded by the runner
-      await runApprovalMirror(MirrorApprovalCreate(toMirrorRecord(record)))
-      return c.json(
-        {
-          status: 'pending_approval',
-          approvalRequired: true,
-          approvalId: record.id,
-          agent: agentName,
-        },
-        202
-      )
+    try {
+      return await triggerWithinSlot(c, agent, schedule.taskPrompt)
+    } finally {
+      releaseConcurrencySlot(agent.name)
     }
-
-    return c.json({ status: 'completed', approvalRequired: false, agent: agentName }, 200)
   }
 
 /**

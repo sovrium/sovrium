@@ -36,7 +36,7 @@
 
 import { getCookie } from 'hono/cookie'
 import {
-  parseEcoLowDataDefault,
+  resolveEffectiveLowDataDefault,
   resolveLowDataMode,
   type LowDataSignals,
 } from '@/domain/models/env/eco/eco-low-data-default'
@@ -177,15 +177,20 @@ async function handleLowDataResponse(c: Context, next: Next): Promise<void> {
   // eslint-disable-next-line functional/no-expression-statements -- middleware contract
   await next()
 
-  const envValue = parseEcoLowDataDefault(
+  // EFFECTIVE posture, not the raw `ECO_LOW_DATA_DEFAULT` parse: `ECO_MODE`
+  // is a real lever only because this resolution is the request path's single
+  // reading of it. Both consumers below MUST read this one binding — an
+  // early-return guard that re-read the raw parse would leave the resolved
+  // `on` unreachable under `ECO_MODE=strict` and the feature dead.
+  const { effective: envValue } = resolveEffectiveLowDataDefault(
     process.env as Readonly<Record<string, string | undefined>>
   )
 
-  // Eco-aligned default — when the operator did NOT opt in to the low-data
-  // resolver, the middleware is a complete no-op (no sentinel, no badge,
-  // no body buffering). Mirrors `ECO_INDEX_HEADER`'s on-default + opt-out
-  // posture: operators opt in to BEHAVIOUR, never to the middleware
-  // touching unrelated pages.
+  // Eco-aligned default — when neither an explicit value nor the master
+  // posture opted in to the low-data resolver, the middleware is a complete
+  // no-op (no sentinel, no badge, no body buffering). Mirrors
+  // `ECO_INDEX_HEADER`'s on-default + opt-out posture: operators opt in to
+  // BEHAVIOUR, never to the middleware touching unrelated pages.
   const cookie = readLowDataCookie(c)
   if (envValue === 'off' && cookie === undefined) return
 

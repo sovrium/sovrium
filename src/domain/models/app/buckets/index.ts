@@ -38,18 +38,20 @@ import { BucketSchema } from './bucket'
  * ```
  */
 export const BucketsSchema = Schema.Array(BucketSchema).pipe(
-  Schema.filter((buckets) => {
-    // Check for duplicate bucket names
-    const names = buckets.map((b) => b.name)
-    const uniqueNames = new Set(names)
-    if (uniqueNames.size !== names.length) {
-      const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
-      return `Duplicate bucket names: ${duplicates.join(', ')}`
-    }
+  Schema.check(
+    Schema.makeFilter((buckets) => {
+      // Check for duplicate bucket names
+      const names = buckets.map((b) => b.name)
+      const uniqueNames = new Set(names)
+      if (uniqueNames.size !== names.length) {
+        const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
+        return `Duplicate bucket names: ${duplicates.join(', ')}`
+      }
 
-    return undefined
-  }),
-  Schema.annotations({
+      return undefined
+    })
+  ),
+  Schema.annotate({
     identifier: 'Buckets',
     title: 'Buckets',
     description:

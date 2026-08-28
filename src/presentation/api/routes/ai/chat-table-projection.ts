@@ -20,11 +20,11 @@
  */
 
 import {
-  DENY_WHEN_UNDECLARED,
-  evaluatePermission,
-  permits,
-  toPermissionValue,
-} from '@/domain/models/shared/permission-evaluation'
+  buildReadAccessPlan,
+  CANONICAL_READ_POLICY,
+  type ReadPrincipal,
+  type TableLike,
+} from '@/domain/validators/read-access-plan'
 import type { App } from '@/domain/models/app'
 
 /** A field projected onto the minimal shape every chat parser/builder reads. */
@@ -102,50 +102,43 @@ export const projectAppTables = (
     }))
 }
 
-/** A field's (untyped) raw field-level permission entry. */
-interface RawFieldPermission {
-  readonly field: string
-  readonly read?: unknown
-}
-
 /**
- * Compute the column names the acting role may READ for a table, applying
- * field-level read restrictions (declared at the table level via
- * `permissions.fields[]`). A column with no field-perm entry inherits the
- * table-level read permission (gated by the caller) and is therefore readable;
- * a column with a `read` restriction is readable only when the role passes
- * (admin override applies, mirroring `evaluateFieldPermissions`). Drives the
- * AI structured-query tool's column enums and result-row projection
+ * Compute the column names the acting role may READ for a table.
+ *
+ * Delegates to the canonical {@link buildReadAccessPlan} so the AI chat tool
+ * agrees with `GET /api/tables/:t/records` about which columns exist. It did
+ * not: this projection re-derived field-level read from scratch and diverged in
+ * two ways, both of which disclosed columns the records API strips.
+ *
+ *  - It applied the built-in DEFAULT field rules nowhere, so a `viewer` could
+ *    enumerate `email` and `salary` columns through the structured-query tool
+ *    on any table declaring no `permissions.fields`.
+ *  - Its superuser bypass keyed off the LITERAL `'admin'` role rather than
+ *    `isAdminEquivalent`, so a field grant naming only the app's resolved TOP
+ *    custom role stripped the column from the built-in admin as well — the
+ *    exact bug the realtime transport had already fixed one file away.
+ *
+ * Returns the full column list when every column is readable (the plan's
+ * `undefined` whitelist), because this drives a tool enum that must be total.
+ * Powers the AI structured-query tool's column enums and result-row projection
  *.
  */
-export const readableColumnsForRole = (
-  fields: ReadonlyArray<ProjectedField>,
-  permissions: unknown,
-  userRole: string
+export const readableColumnsForTable = (
+  app: App | undefined,
+  table: ProjectedTable,
+  principal: ReadPrincipal
 ): ReadonlyArray<string> => {
-  const fieldPerms = (permissions as { fields?: ReadonlyArray<RawFieldPermission> } | undefined)
-    ?.fields
-  const restricted = new Map<string, unknown>(
-    (fieldPerms ?? [])
-      .filter((perm) => perm.read !== undefined)
-      .map((perm) => [perm.field, perm.read])
-  )
-  return fields
-    .filter((field) => {
-      // A field with no `read` entry carries no restriction and stays readable;
-      // only a declared entry is put to the ladder. A malformed entry normalises
-      // to undeclared and is denied — a restriction nobody can parse restricts.
-      if (!restricted.has(field.name)) return true
-      return permits(
-        evaluatePermission(
-          toPermissionValue(restricted.get(field.name)),
-          { role: userRole },
-          {
-            whenUndeclared: DENY_WHEN_UNDECLARED,
-            adminOverride: 'admin-outranks-everything',
-          }
-        )
-      )
-    })
-    .map((field) => field.name)
+  if (!app) return table.fields.map((field) => field.name)
+  const plan = buildReadAccessPlan({
+    app,
+    table: {
+      name: table.name,
+      fields: table.fields,
+      permissions: table.permissions as TableLike['permissions'],
+    },
+    principal,
+    policy: CANONICAL_READ_POLICY,
+  })
+  if (!plan.allowed) return []
+  return plan.columnWhitelist ?? table.fields.map((field) => field.name)
 }

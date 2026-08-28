@@ -101,7 +101,27 @@ interface DataTableIslandProps {
   readonly searchSourceId?: string
   readonly tableFields?: readonly string[]
   readonly fieldMeta?: FieldMetaMap
-  readonly tablePermissions?: { readonly update?: readonly string[] }
+  /**
+   * The bound table's declared `permissions` block, forwarded verbatim.
+   *
+   * DESCRIPTIVE ONLY — it gates nothing, and must not. A permission answer needs
+   * the acting role, which the island never receives; the gate is `canUpdate`
+   * below, decided server-side. The type was `{ update?: readonly string[] }`,
+   * which could not even represent `update: 'all'`.
+   */
+  readonly tablePermissions?: Readonly<Record<string, unknown>>
+  /**
+   * Whether inline editing should be OFFERED by default on this grid
+   * — the permission-derived default behind a
+   * column's `editable`, computed server-side from the session role and the
+   * table's declared `update` grant.
+   *
+   * Only an explicit `true` enables anything: absent (auth not configured, a
+   * system-source binding, or a table declaring no `update` grant) leaves every
+   * grid read-only, exactly as today. A column's own `editable` still wins in
+   * both directions.
+   */
+  readonly canUpdate?: boolean
   /**
    * Whether the current role may create records in the bound table
    *. Computed server-side from the session role
@@ -202,13 +222,29 @@ const DEFAULT_DECLARED_VIEWS: readonly DataTableViewType[] = ['grid']
 const DEFAULT_SAVE_LABEL = 'Save'
 const DEFAULT_CANCEL_LABEL = 'Cancel'
 
+/**
+ * The grid's load-failure alert. Operator-facing, so it states what failed and
+ * what to do about it — not a raw response envelope.
+ *
+ * It used to render `Failed to load data: ` in front of a message that already
+ * began `Failed to fetch system rows: `, and the fetch appended the response
+ * body, so an operator met
+ * `Failed to load data: Failed to fetch system rows: 400 {"success":false,…}`.
+ * Two prefixes and a JSON blob. The status is kept because 400 / 403 / 500 tell
+ * an operator genuinely different things; the envelope now lives on the Error's
+ * `cause` for the console.
+ */
 function ErrorBanner({ error }: { readonly error: unknown }) {
   return (
     <div
       role="alert"
       className="border-error-border bg-error-bg text-error-fg rounded border p-4 text-sm"
     >
-      Failed to load data: {error instanceof Error ? error.message : 'Unknown error'}
+      <p className="font-medium">This data could not be loaded.</p>
+      <p className="mt-1">
+        {error instanceof Error ? error.message : 'The server sent no readable response.'} Refresh
+        to try again.
+      </p>
     </div>
   )
 }
@@ -224,11 +260,68 @@ function isSystemSourceBinding(props: DataTableIslandProps): boolean {
   return props.dataSource.system !== undefined
 }
 
+/**
+ * Resolves the documented default of `ColumnSchema.editable` — "default: from
+ * table permissions" — once, at the island boundary,
+ * by stamping `editable: true` onto the columns entitled to it.
+ *
+ * Resolving here rather than at each point of use is what keeps double-click
+ * editing and Tab navigation agreeing about which cells are editable: both read
+ * the same `columnConfig`, so neither can derive a different answer.
+ *
+ * Only a column that declares NO `editable` is touched, which is the whole
+ * resolution order:
+ *
+ *   1. explicit `false` — the author's opt-OUT, which survives a table granting
+ * `update`
+ *   2. explicit `true`  — the author's opt-IN, which survives a table that does
+ * not
+ *   3. otherwise the permission-derived default
+ *   4. otherwise closed — every gate downstream tests `editable === true`, so an
+ *      unresolved column cannot open an editor
+ */
+function withPermissionEditableDefault(
+  columns: readonly DataTableColumn[] | undefined,
+  permissionEditable: boolean
+): readonly DataTableColumn[] | undefined {
+  if (!columns || !permissionEditable) return columns
+  return columns.map((col) =>
+    'field' in col && col.editable === undefined ? { ...col, editable: true } : col
+  )
+}
+
+/**
+ * Whether this grid may take the permission-derived inline-edit default, and the
+ * three states it deliberately falls closed on.
+ *
+ * A system source is read-only — there is no records table to write to —
+ * mirroring the create affordance's own system-source gate.
+ *
+ * The other two mirror `rowIsClickable` in `data-row.tsx` verbatim
+ * (`hasRowAction || selectionMode === 'single'`), because that is the exact
+ * condition under which an editable cell STOPS a click from reaching its row
+ * (rule R1). R1 is right for editability the author DECLARED: writing
+ * `editable: true` beside `onRowClick` is knowingly accepting the trade. It is
+ * wrong for editability merely DERIVED from a permission, where the author asked
+ * for a clickable row and never asked for editing at all — swallowing that click
+ * would break row-click navigation and single-row
+ * selection on every grid whose table grants `update`.
+ * A declared `editable` still wins either way; only the DEFAULT yields.
+ */
+function permissionEditableAllowed(props: DataTableIslandProps): boolean {
+  return (
+    props.canUpdate === true &&
+    props.dataSource.system === undefined &&
+    props.onRowClick === undefined &&
+    props.selection?.mode !== 'single'
+  )
+}
+
 /** Maps island props to the parameter bag {@link useDataTableIslandSetup} expects. */
 function toSetupParams(props: DataTableIslandProps) {
   return {
     dataSource: props.dataSource,
-    columnConfig: props.columns,
+    columnConfig: withPermissionEditableDefault(props.columns, permissionEditableAllowed(props)),
     paginationConfig: props.pagination,
     searchConfig: props.search,
     selectionConfig: props.selection,
@@ -376,12 +469,21 @@ export default function DataTableIsland(props: DataTableIslandProps) {
   const emptyMessage = props.emptyMessage ?? 'No records found'
   const declaredViews = props.views ?? DEFAULT_DECLARED_VIEWS
 
-  if (setup.isError) return <ErrorBanner error={setup.error} />
-
   return (
     <>
       {paste.dialog}
       {paste.toast}
+      {/*
+        A failed read is TOLD, not enacted. This used to `return <ErrorBanner/>`
+        in place of the whole component, so one refused sort took the rows, the
+        headers, the toolbar and the search box with it — and since the sort
+        lived in React state rather than the URL, the header that would have
+        toggled it back off was gone too, leaving a page reload as the only way
+        out. The banner now sits ABOVE the grid: the operator keeps the last page
+        the server actually served, and keeps every control they need to try
+        something else.
+      */}
+      {setup.readError !== undefined && <ErrorBanner error={setup.readError} />}
       <DataTableView
         containerRef={clipboardRef}
         table={setup.table}

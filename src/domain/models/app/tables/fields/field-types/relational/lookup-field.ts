@@ -10,25 +10,23 @@ import { ViewFiltersSchema } from '../../../views/filters'
 import { BaseFieldSchema } from '../base-field'
 
 export const LookupFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('lookup'),
-      relationshipField: Schema.String.pipe(
-        Schema.nonEmptyString({ message: () => 'relationshipField is required' }),
-        Schema.annotations({ description: 'Name of the relationship field to lookup from' })
-      ),
-      relatedField: Schema.String.pipe(
-        Schema.nonEmptyString({ message: () => 'relatedField is required' }),
-        Schema.annotations({ description: 'Name of the field in the related table to display' })
-      ),
-      filters: Schema.optional(
-        ViewFiltersSchema.pipe(
-          Schema.annotations({ description: 'Filters to apply to the lookup results' })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('lookup'),
+    relationshipField: Schema.String.pipe(
+      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' })),
+      Schema.annotate({ description: 'Name of the relationship field to lookup from' })
+    ),
+    relatedField: Schema.String.pipe(
+      Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' })),
+      Schema.annotate({ description: 'Name of the field in the related table to display' })
+    ),
+    filters: Schema.optional(
+      ViewFiltersSchema.pipe(
+        Schema.annotate({ description: 'Filters to apply to the lookup results' })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Lookup Field',
     description: 'Displays values from related records without aggregation.',
     examples: [

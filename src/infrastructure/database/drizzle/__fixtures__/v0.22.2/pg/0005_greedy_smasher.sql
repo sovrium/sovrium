@@ -1,0 +1,1 @@
+CREATE INDEX "record_comments_guest_email_status_idx" ON "system"."record_comments" USING btree ("table_id","guest_email","status");

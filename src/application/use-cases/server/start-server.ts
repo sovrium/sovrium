@@ -107,10 +107,10 @@ class BootstrapTokenBootError extends Data.TaggedError('BootstrapTokenBootError'
 const userTableIsEmpty = (): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
     const repo = yield* AuthRepository
-    return (yield* repo.countHumanUsers()) === 0
+    return (yield* repo.countHumanUsers) === 0
   }).pipe(
     Effect.provide(AuthRepositoryLive),
-    Effect.catchAll(() => Effect.succeed(false))
+    Effect.orElseSucceed(() => false)
   )
 
 /**
@@ -226,7 +226,7 @@ const formatBootstrapError = (
  */
 const runBootSequenceAndBootstrap = (
   validatedApp: App,
-  logger: Context.Tag.Service<typeof Logger>
+  logger: Context.Service.Shape<typeof Logger>
 ): Effect.Effect<
   string | undefined,
   MigrationError | DatabaseConnectionError,
@@ -248,28 +248,28 @@ const runBootSequenceAndBootstrap = (
  * token to `serverFactory.create` so it surfaces in the clean startup banner
  * (renderStartupSummary). Token-generation failure resolves to `undefined`.
  */
+/** "No token was generated" — the union member, not a throwaway void. */
+const NO_BOOTSTRAP_TOKEN: string | undefined = undefined
+
 const bootstrapAdminAndToken = (
   validatedApp: App,
-  logger: Context.Tag.Service<typeof Logger>
+  logger: Context.Service.Shape<typeof Logger>
 ): Effect.Effect<string | undefined, never, AuthRepository | Auth> =>
   Effect.gen(function* () {
     yield* bootstrapAdmin(validatedApp).pipe(
-      Effect.catchAll((error) =>
-        logger.warn(`Admin bootstrap error: ${formatBootstrapError(error)}`)
-      )
+      Effect.catch((error) => logger.warn(`Admin bootstrap error: ${formatBootstrapError(error)}`))
     )
     return yield* runBootstrapTokenFlow(validatedApp).pipe(
-      Effect.catchAll((error) => {
+      Effect.catch((error) => {
         const { cause } = error
         const message = cause instanceof Error ? cause.message : String(cause)
-        return Effect.zipRight(
+        return Effect.andThen(
           logger.warn(`Bootstrap token generation skipped: ${message}`),
-          // Resolve to `undefined` (not `Effect.void`) so this recovery branch
-          // matches `runBootstrapTokenFlow`'s `string | undefined` success type —
-          // the happy path returns a token string. effect(effectSucceedWithVoid)
-          // is a false positive here: the value participates in a `string | undefined`
-          // union, it is not a throwaway void.
-          Effect.succeed(undefined)
+          // NOT `Effect.void`: this recovery branch must match
+          // `runBootstrapTokenFlow`'s `string | undefined` success type, since the
+          // happy path returns a token string. The value participates in a union,
+          // it is not a throwaway void.
+          Effect.succeed(NO_BOOTSTRAP_TOKEN)
         )
       })
     )
@@ -281,8 +281,8 @@ const bootstrapAdminAndToken = (
  * under the per-function line cap).
  */
 interface CreateServerDeps {
-  readonly serverFactory: Context.Tag.Service<typeof ServerFactory>
-  readonly pageRenderer: Context.Tag.Service<typeof PageRenderer>
+  readonly serverFactory: Context.Service.Shape<typeof ServerFactory>
+  readonly pageRenderer: Context.Service.Shape<typeof PageRenderer>
   readonly bootstrapToken: string | undefined
 }
 

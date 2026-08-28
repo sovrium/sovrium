@@ -214,6 +214,50 @@ function resolveButtonFieldMeta(field: Tables[number]['fields'][number]): Record
   }
 }
 
+/**
+ * The field vocabulary of a grid bound to a SYSTEM read endpoint.
+ *
+ * A system source has no `dataSource.table`, so there is no `app.tables` entry
+ * to resolve a field list from — and the filter builder's Field select is
+ * populated from exactly that list. The result was an empty select under a live
+ * "Add filter" button on every system-source grid, at any data volume: the
+ * operator could commit a filter that narrowed nothing, and the grid answered
+ * with the same rows.
+ *
+ * The author's DECLARED COLUMNS are the field vocabulary in that case — they
+ * are what the header row already shows, so offering them is offering what the
+ * operator can see. Each column's `label` rides along as its display name for
+ * the same reason: a Field select naming `automationName` where the header says
+ * `Automatisation` asks the operator to translate.
+ *
+ * Only the fields and their labels are derived. Types, options, permissions and
+ * views stay absent — an endpoint row has no declared type, and inventing one
+ * would put type-specific operators in front of values that may not match.
+ */
+function resolveSystemSourceColumnInputs(component: Component): TypeSpecificResolvedInputs {
+  const source = 'dataSource' in component ? component.dataSource : undefined
+  if (!source || !(typeof source === 'object' && 'system' in source)) return EMPTY_RESOLVED
+
+  const columns = ('columns' in component ? component.columns : undefined) as
+    ReadonlyArray<{ readonly field?: unknown; readonly label?: unknown }> | undefined
+  const declared = (columns ?? []).filter(
+    (column): column is { readonly field: string; readonly label?: string } =>
+      typeof column.field === 'string' && column.field.length > 0
+  )
+  if (declared.length === 0) return EMPTY_RESOLVED
+
+  return {
+    ...EMPTY_RESOLVED,
+    dataTableTableFields: declared.map((column) => column.field),
+    dataTableFieldMeta: Object.fromEntries(
+      declared.map((column) => [
+        column.field,
+        typeof column.label === 'string' ? { label: column.label } : {},
+      ])
+    ),
+  }
+}
+
 function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInputs {
   return {
     dataTableTableFields: table.fields.map((f) => f.name),
@@ -376,7 +420,7 @@ export function resolveTypeSpecificInputs(
 ): TypeSpecificResolvedInputs {
   if (type === 'data-table') {
     const table = resolveSourceTable(component, tables)
-    if (!table) return EMPTY_RESOLVED
+    if (!table) return resolveSystemSourceColumnInputs(component)
     return {
       ...resolveDataTableInputs(table),
       // Same resolver, same slot as the three record views — the grid is the
@@ -489,6 +533,13 @@ const TYPE_BUILDERS: {
     // Absent (undefined) when auth is not configured → the island defaults to
     // offering it (full-access model).
     canCreate: (componentProps as { _canCreate?: boolean } | undefined)?._canCreate,
+    // Render-time update-permission gate, stamped by
+    // the same data-source resolver. It is the permission-derived DEFAULT for a
+    // column's `editable` — the one `ColumnSchema.editable` has always been
+    // annotated with ("default: from table permissions"). An explicit `editable`
+    // on the column still wins in both directions; absent (auth not configured,
+    // or the table declares no `update` grant) the grid stays read-only.
+    canUpdate: (componentProps as { _canUpdate?: boolean } | undefined)?._canUpdate,
     // Interpreter-provided create-record label, resolved against the
     // active language: English default ("New record"), French built-in, author
     // `languages.translations['datatable.newRecord']` override wins. Consumed by

@@ -16,21 +16,23 @@ import { Schema } from 'effect'
 export const RateLimitSchema = Schema.Struct({
   /** Max submissions per IP within the window. */
   perIp: Schema.optional(
-    Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)).annotations({
+    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0))).annotate({
       description: 'Maximum submissions per IP within the time window',
     })
   ),
   /** Max submissions per form (across all IPs) within the window. */
   perForm: Schema.optional(
-    Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)).annotations({
+    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0))).annotate({
       description: 'Maximum submissions per form (all IPs) within the time window',
     })
   ),
   /** Sliding window in seconds. */
-  windowSeconds: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)).annotations({
-    description: 'Rolling time window in seconds for rate-limit counting',
-  }),
-}).annotations({
+  windowSeconds: Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0))).annotate(
+    {
+      description: 'Rolling time window in seconds for rate-limit counting',
+    }
+  ),
+}).annotate({
   identifier: 'RateLimit',
   title: 'Rate Limit',
   description: 'Rate-limit configuration for form submissions',
@@ -46,13 +48,13 @@ export const RateLimitSchema = Schema.Struct({
 export const AntiSpamSchema = Schema.Struct({
   /** Toggle the hidden honeypot field. */
   honeypot: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'When true, server adds a hidden honeypot field; bots that fill it are blocked',
     })
   ),
   /** Sliding-window rate limits. */
   rateLimit: Schema.optional(RateLimitSchema),
-}).annotations({
+}).annotate({
   identifier: 'AntiSpam',
   title: 'Anti-Spam Controls',
   description: 'Anti-spam controls for form submissions (honeypot, rate-limit)',

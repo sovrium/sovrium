@@ -47,7 +47,7 @@ export interface AiFact {
  * for a `(namespace, userId)` pair — the per-user filter guarantees user X
  * never recalls user Y's facts even within a shared namespace.
  */
-export class AiFactsRepository extends Context.Tag('AiFactsRepository')<
+export class AiFactsRepository extends Context.Service<
   AiFactsRepository,
   {
     /**
@@ -71,4 +71,4 @@ export class AiFactsRepository extends Context.Tag('AiFactsRepository')<
       readonly userId: string
     }) => Effect.Effect<ReadonlyArray<AiFact>, AiFactsDatabaseError>
   }
->() {}
+>()('AiFactsRepository') {}

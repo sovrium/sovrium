@@ -13,10 +13,10 @@ import { AutomationReturnActionSchema } from './return'
  * Automation Action — `call` (invoke a sub-automation) and `return` (hand
  * data back to the calling automation).
  */
-export const AutomationActionSchema = Schema.Union(
+export const AutomationActionSchema = Schema.Union([
   AutomationCallActionSchema,
-  AutomationReturnActionSchema
-)
+  AutomationReturnActionSchema,
+])
 
 /** @public */
 export type AutomationAction = Schema.Schema.Type<typeof AutomationActionSchema>

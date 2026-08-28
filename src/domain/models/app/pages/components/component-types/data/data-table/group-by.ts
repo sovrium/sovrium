@@ -17,7 +17,7 @@ import { Schema } from 'effect'
  */
 const groupByLevelFields = {
   /** Field to group rows by */
-  field: Schema.String.annotations({ description: 'Field name to group rows by' }),
+  field: Schema.String.annotate({ description: 'Field name to group rows by' }),
   /**
    * Order of the group HEADERS at THIS level.
    *
@@ -38,7 +38,7 @@ const groupByLevelFields = {
    * headers presentation-side. Changing one has no effect on the other.
    */
   direction: Schema.optional(
-    Schema.Literal('asc', 'desc').annotations({
+    Schema.Literals(['asc', 'desc']).annotate({
       description:
         'Order of this level’s group headers themselves, not the row sort within a group (default: asc)',
     })
@@ -58,7 +58,7 @@ const groupByLevelFields = {
    * point its sub-groups are open.
    */
   collapsed: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Start this level’s groups collapsed (default: false)',
     })
   ),
@@ -71,7 +71,7 @@ const groupByLevelFields = {
  * today, and exporting a type no importer uses is what `knip` exists to catch.
  * Export it when a consumer needs it rather than ahead of one.
  */
-const DataTableGroupByLevelSchema = Schema.Struct(groupByLevelFields).annotations({
+const DataTableGroupByLevelSchema = Schema.Struct(groupByLevelFields).annotate({
   title: 'Data Table Group By Level',
   description: 'One additional grouping level nested inside the level before it',
 })
@@ -159,20 +159,22 @@ export const DataTableGroupBySchema = Schema.Struct({
    */
   thenBy: Schema.optional(
     Schema.Array(DataTableGroupByLevelSchema).pipe(
-      Schema.minItems(1, {
-        message: () => 'groupBy.thenBy must name at least one field, or be omitted entirely',
-      }),
-      Schema.maxItems(2, {
-        message: () =>
-          'groupBy.thenBy accepts at most 2 levels — a data table groups at most 3 levels deep (the primary groupBy plus two nested levels)',
-      }),
-      Schema.annotations({
+      Schema.check(
+        Schema.isMinLength(1, {
+          message: 'groupBy.thenBy must name at least one field, or be omitted entirely',
+        }),
+        Schema.isMaxLength(2, {
+          message:
+            'groupBy.thenBy accepts at most 2 levels — a data table groups at most 3 levels deep (the primary groupBy plus two nested levels)',
+        })
+      ),
+      Schema.annotate({
         description:
           'Up to 2 additional grouping levels, applied in order inside the primary level (3 levels total)',
       })
     )
   ),
-}).annotations({
+}).annotate({
   title: 'Data Table Group By',
   description: 'Row grouping configuration, up to 3 levels deep',
 })

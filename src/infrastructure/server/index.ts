@@ -22,5 +22,5 @@
  */
 
 export { createServer } from './server'
-export { withGracefulShutdown } from './lifecycle'
+export { installShutdownHandlers } from './lifecycle'
 export { ServerFactoryLive } from './server-factory-live'

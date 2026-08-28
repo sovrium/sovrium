@@ -38,23 +38,21 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const UrlFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('url').pipe(
-        Schema.annotations({
-          description: "Constant value 'url' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('url').pipe(
+      Schema.annotate({
+        description: "Constant value 'url' for type discrimination in discriminated unions",
+      })
+    ),
+    default: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Default URL value when creating new records',
         })
-      ),
-      default: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Default URL value when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'URL Field',
     description:
       'Text field with URL format validation. Validates web addresses and supports multiple protocols (http://, https://, ftp://, etc.).',

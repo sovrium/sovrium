@@ -204,7 +204,7 @@ export type ChatChunk =
  * state without crashing the server at startup. This mirrors the Storage
  * service's no-storage fallback contract.
  */
-export class AiService extends Context.Tag('AiService')<
+export class AiService extends Context.Service<
   AiService,
   {
     /** Non-streaming chat completion. Returns the assistant message text. */
@@ -231,4 +231,4 @@ export class AiService extends Context.Tag('AiService')<
     /** True when the live adapter found AI env vars; false for the no-op stub. */
     readonly isConfigured: () => boolean
   }
->() {}
+>()('AiService') {}

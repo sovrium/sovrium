@@ -37,7 +37,34 @@
  *
  * Source story: [internal ref]
  *
+ * ## What `?q=` searches, and what it deliberately does not
+ *
+ * `automationName` is the column the operator reads in the grid. `error` is the
+ * failure message and is **not a rendered column** (the run-history grid shows
+ * Automation / Status / Started / Duration and nothing else) — which is exactly
+ * why the response must echo {@link appliedQuerySchema}: a client that re-ran its
+ * own in-memory filter over the visible cells would discard the very row the
+ * server just matched on `error`. "Which runs blew up on ECONNREFUSED" is the
+ * question this search exists to answer, and it is unanswerable from the cells.
+ *
+ * Deliberately EXCLUDED, each for its own reason:
+ *
+ * - `status` — it already has a precise filter (`?status`) AND a dedicated
+ *   combobox on the surface. Folding it into free text would make `?q=failed`
+ *   return every failed run in the app, burying the one the operator was looking
+ *   for under a category match they did not ask for. The two knobs compose with
+ *   AND instead. It is also rendered through a client-side localizer
+ *   (`localizeRunStatusRows` maps `failed` → `Failed`), so a free-text status
+ *   match would agree with the cell only by accident of language.
+ * - `startedAt` — bounded by `?from` / `?to`, which is the honest shape for a
+ *   time window; substring-matching a formatted timestamp is not a search.
+ * - `triggerData` — an unbounded JSON blob whose text form differs per dialect.
+ *   A substring hit inside serialized JSON is not a fact about the run.
+ * - `id` — the detail endpoint (`/runs/:runId`) addresses a run by id exactly;
+ *   a substring match over a UUID is noise, not recall.
+ *
  * @see [internal ref] D2, D3, D9 — locked by this story
+ * @see ../../_shared/search.ts — the shared `?q=` / `appliedQuery` contract
  * @see plan §4.3 — per-story design for [internal ref]
  * @see plan §5.1 — CC-1 shared `_admin` envelope (authored alongside)
  * @see plan §6.5 — schema reuse rule (extend, never duplicate)
@@ -48,6 +75,7 @@ import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
 } from '@/domain/models/api/_shared/cursor-pagination'
+import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/_shared/search'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/_shared/admin-envelope'
 import { runSchema, runStatusSchema } from '@/domain/models/api/automations'
 
@@ -111,6 +139,9 @@ export const automationsRunsListQuerySchema = cursorPaginationQuerySchema
       .describe(
         'Include soft-deleted runs. Default `false` — the D2 lock. Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even when the underlying table has no soft-delete column yet (forward-contract — see story §risks).'
       ),
+    q: searchTermSchema.describe(
+      'Optional free-text search over the run `automationName` and the failure `error` message, as a case-insensitive literal substring. Composes with every other filter (AND) and with the cursor, so a page is a page of MATCHES. `status`, `startedAt` and `triggerData` are intentionally NOT searched — see the searchable-field contract in the module docstring. Empty / whitespace-only means "no search".'
+    ),
   })
   .openapi('AutomationsRunsListQuery')
 
@@ -155,7 +186,9 @@ export type AutomationRunAdminItem = z.infer<typeof automationRunAdminItemSchema
  */
 export const automationsRunsListResponseSchema = cursorPaginationResponseSchema(
   automationRunAdminItemSchema
-).openapi('AutomationsRunsListResponse')
+)
+  .extend({ appliedQuery: appliedQuerySchema })
+  .openapi('AutomationsRunsListResponse')
 
 /** @public */
 export type AutomationsRunsListResponse = z.infer<typeof automationsRunsListResponseSchema>

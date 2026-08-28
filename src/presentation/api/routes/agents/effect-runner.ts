@@ -65,7 +65,7 @@ export const runApprovalMirror = async (
   program: Effect.Effect<void, unknown, ApprovalRepository>
 ): Promise<void> => {
   // eslint-disable-next-line functional/no-expression-statements -- best-effort DB mirror; the Either result is intentionally discarded
-  await Effect.runPromise(provideApprovalMirrorLive(program).pipe(Effect.either))
+  await Effect.runPromise(provideApprovalMirrorLive(program).pipe(Effect.result))
 }
 
 /**
@@ -75,7 +75,7 @@ export const runApprovalMirror = async (
  */
 export const runApproverEmailLookup = async (userId: string): Promise<string> => {
   const result = await Effect.runPromise(
-    provideApprovalMirrorLive(LookupApproverEmail(userId)).pipe(Effect.either)
+    provideApprovalMirrorLive(LookupApproverEmail(userId)).pipe(Effect.result)
   )
-  return result._tag === 'Right' ? result.right : ''
+  return result._tag === 'Success' ? result.success : ''
 }

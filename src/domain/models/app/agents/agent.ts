@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { DEFAULT_AGENT_NAME, isDefaultAgentName } from '@/domain/utils/agent-identity'
 import { AgentApprovalSchema } from './approval'
 import { AgentDefinitionSchema } from './definition'
 import { AgentKnowledgeSchema } from './knowledge'
@@ -52,7 +53,7 @@ export const AgentSchema = Schema.Struct({
   /** MCP client configuration for external tool servers */
   mcp: Schema.optional(AgentMcpSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Agent',
     title: 'Agent Configuration',
     description:
@@ -68,12 +69,34 @@ export type Agent = Schema.Schema.Type<typeof AgentSchema>
  * Used as the type for the `agents` property on AppSchema.
  */
 export const AgentsSchema = Schema.Array(AgentSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(
+    // The reservation is checked HERE, on the array, rather than on the name
+    // inside `AgentDefinitionSchema`: `default` is legal kebab-case, so the
+    // per-name pattern has no business rejecting it, and the collision it
+    // creates is a collision with a set — the virtual `agent_name IS NULL`
+    // view — not with any other declaration. A declared `default` would carry
+    // rows stamped `agent_name = 'default'` while that virtual view carries
+    // NULL rows: two different row sets behind one name and one URL. See
+    // `src/domain/utils/agent-identity.ts`.
+    //
+    // ORDER IS LOAD-BEARING: it precedes `isMinLength`. The trailing
+    // `Schema.annotate` below lands on the LAST check, and a `makeFilter` has
+    // no JSON Schema representation, so a filter in final position swallows the
+    // title + description and the PUBLISHED schema
+    // (`apps/website/public/schema/app.json`) silently loses them — measured,
+    // not assumed. Keeping a representable check last preserves them.
+    Schema.makeFilter((agents) =>
+      agents.some((agent) => isDefaultAgentName(agent.name))
+        ? `Agent name '${DEFAULT_AGENT_NAME}' is reserved for the general-purpose agent (the conversations no declared agent claimed). Rename this agent.`
+        : undefined
+    ),
+    Schema.isMinLength(1)
+  ),
+  Schema.annotate({
     identifier: 'Agents',
     title: 'Agents Configuration',
     description:
-      'Array of AI agent configurations. At least one agent must be defined when the agents property is present.',
+      'Array of AI agent configurations. At least one agent must be defined when the agents property is present. The name `default` is reserved for the general-purpose agent.',
   })
 )
 

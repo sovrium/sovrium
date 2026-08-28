@@ -40,7 +40,7 @@ type AuthInstance = ReturnType<typeof createAuthInstance>
  * })
  * ```
  */
-export class Auth extends Context.Tag('Auth')<
+export class Auth extends Context.Service<
   Auth,
   {
     readonly api: AuthInstance['api']
@@ -55,7 +55,7 @@ export class Auth extends Context.Tag('Auth')<
       AuthError
     >
   }
->() {}
+>()('Auth') {}
 
 /**
  * Create an Auth Layer with a specific auth configuration

@@ -24,11 +24,14 @@ import { buildDataFormsPage } from './data-forms-surface'
 import {
   buildDataPagePlaceholder,
   readyDataPageLabel,
+  type ConsoleRequest,
   type DataShellOptions,
 } from './data-landing-surface'
+import { buildDataLinksPage } from './data-links-surface'
 import { buildDataPagesPage } from './data-pages-surface'
 import { buildDataTablesPage } from './data-tables-surface'
 import { buildDataUsersPage } from './data-users-surface'
+import { buildFootprintPage } from './footprint-surface'
 import { buildOverviewPage } from './overview-surface'
 import type { DataObjectRedirect } from './data-object-rail'
 import type { DataRoute } from '../dashboard-surface-routes'
@@ -44,14 +47,28 @@ export type DataSurface = Page | DataObjectRedirect
 
 /**
  * The Data pages with a built surface, keyed by their `/data/{page}` segment. The
- * object-scoped pages (`tables` / `forms` / `buckets`) mount the selected object's
- * runtime-data island FULL-WIDTH and 302-redirect a bare path to their first
- * object (Pass 1 items 1.5a + 1.5c); the flat directories (`users` / `pages` /
- * `connections`) ignore the object segment and render a single island. Ready
- * destinations not in this map fall back to the "coming next" placeholder.
+ * object-scoped pages (`tables` / `forms` / `buckets` / `agents`) mount the
+ * selected object's runtime-data island FULL-WIDTH and 302-redirect a bare path
+ * to their first object (Pass 1 items 1.5a + 1.5c); the flat directories
+ * (`users` / `pages` / `connections`) ignore the object segment and render a
+ * single island. Ready destinations not in this map fall back to the "coming
+ * next" placeholder.
  */
 const DATA_PAGE_BUILDERS: Readonly<
-  Record<string, (app: App, object: string | undefined, shell: DataShellOptions) => DataSurface>
+  Record<
+    string,
+    (
+      app: App,
+      object: string | undefined,
+      shell: DataShellOptions,
+      // The per-request analytics window (`?period=`), forwarded only to the
+      // analytics-shaped surfaces that derive their reads from it. Every other
+      // builder ignores it, which is why it is a plain optional argument rather
+      // than a field on the shell: a surface with no window must not be able to
+      // read one by accident.
+      period?: string
+    ) => DataSurface
+  >
 > = {
   tables: buildDataTablesPage,
   automations: buildDataAutomationsPage,
@@ -60,7 +77,7 @@ const DATA_PAGE_BUILDERS: Readonly<
   agents: buildDataAgentsPage,
   // The Users directory is flat (one user population, not many objects), so
   // it ignores the per-page object segment and mounts a single directory island.
-  users: (app, _object, shell) => buildDataUsersPage(shell),
+  users: (app, _object, shell) => buildDataUsersPage(shell, app),
   // Analytics is an app-wide analytics dashboard (not per-object), so it too
   // ignores the object segment. Threads whether the operator declared an
   // `analytics` block: enabled → live KPI/chart/table over the baked window;
@@ -70,6 +87,16 @@ const DATA_PAGE_BUILDERS: Readonly<
   // (not many objects to pick), so it ignores the object segment and mounts a
   // single directory island fed by GET /api/admin/connections.
   connections: (app, _object, shell) => buildDataConnectionsPage(shell),
+  // Footprint describes the INSTANCE rather than any object in it — there is
+  // nothing to pick — so it ignores the object segment and renders one page.
+  footprint: (app, _object, shell) => buildFootprintPage(shell),
+  // Links is a FLAT directory — deliberately no first-object redirect. Records,
+  // Submissions and Files redirect a bare path to their first object because
+  // their object list is config-bounded and the sidebar enumerates it; the links
+  // population is unbounded and database-backed, so there is no meaningful
+  // "first link" and the operator's first question is cross-link anyway. The
+  // object segment, when present, opens that one link's deep-dive.
+  links: buildDataLinksPage,
 }
 
 /**
@@ -81,22 +108,16 @@ const DATA_PAGE_BUILDERS: Readonly<
  * on a bare path — Pass 1 item 1.5a); remaining ready pages open the "coming next"
  * placeholder. A gap / unknown page returns `undefined` so the route falls through
  * to the dashboard not-found rather than rendering an empty page.
- *
- * @param publishedSnapshotOf - projects the operator App to the read-through
- *   config snapshot the shell sidebar counts source from (injected by the
- *   builder, which owns that projection).
  */
 export function resolveDataPage(
   operatorApp: App,
   route: DataRoute,
-  canEdit: boolean,
-  publishedSnapshotOf: (app: App) => Readonly<Record<string, unknown>>
+  request: ConsoleRequest
 ): DataSurface | undefined {
   const shell: DataShellOptions = {
-    canEdit,
+    ...request,
     appName: operatorApp.name,
     appVersion: operatorApp.version,
-    publishedSnapshot: publishedSnapshotOf(operatorApp),
   }
   // [internal ref] reclaimed the root for the cross-domain KPI overview: the bare
   // `/_admin` (page undefined) IS the "Dashboard" overview, NOT the retired
@@ -105,6 +126,6 @@ export function resolveDataPage(
   const label = readyDataPageLabel(route.page)
   if (label === undefined) return undefined
   const builder = DATA_PAGE_BUILDERS[route.page]
-  if (builder) return builder(operatorApp, route.object, shell)
+  if (builder) return builder(operatorApp, route.object, shell, request.period)
   return buildDataPagePlaceholder(route.page, label, shell)
 }

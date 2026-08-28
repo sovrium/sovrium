@@ -59,15 +59,15 @@ import { Schema } from 'effect'
 export const VisibilitySchema = Schema.Struct({
   /** Authentication state condition */
   when: Schema.optional(
-    Schema.Literal('authenticated', 'unauthenticated').annotations({
+    Schema.Literals(['authenticated', 'unauthenticated']).annotate({
       description: "Show component only when user is 'authenticated' or 'unauthenticated'",
     })
   ),
   /** Role-based visibility filter */
   roles: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         title: 'Visibility Roles',
         description: 'Show component only to users with one of these roles',
         examples: [['admin'], ['admin', 'editor']],
@@ -78,23 +78,23 @@ export const VisibilitySchema = Schema.Struct({
   condition: Schema.optional(
     Schema.Struct({
       /** Field reference (e.g., $user.plan, $user.role) */
-      field: Schema.String.annotations({
+      field: Schema.String.annotate({
         description: 'Field reference to evaluate (e.g., $user.plan)',
       }),
       /** Comparison operator */
-      operator: Schema.Literal('eq', 'neq').annotations({
+      operator: Schema.Literals(['eq', 'neq']).annotate({
         description: 'Comparison operator: eq (equals) or neq (not equals)',
       }),
       /** Value to compare against */
-      value: Schema.String.annotations({
+      value: Schema.String.annotate({
         description: 'Value to compare the field against',
       }),
-    }).annotations({
+    }).annotate({
       title: 'Visibility Condition',
       description: 'Field-based condition for SSR-excluded visibility',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Visibility',
   description: 'Conditional component visibility based on authentication state and user roles',
 })

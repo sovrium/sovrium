@@ -97,7 +97,7 @@ export interface RepairTarget {
 export const rebindDefaultBucketUrl = (
   value: unknown,
   bucket: string
-): Record<string, unknown> | undefined => {
+): Readonly<Record<string, unknown>> | undefined => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
   const record = value as Record<string, unknown>
   const { url } = record

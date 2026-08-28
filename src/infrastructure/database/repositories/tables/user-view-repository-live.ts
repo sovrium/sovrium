@@ -65,7 +65,7 @@ const isUniqueViolation = (err: unknown): boolean => findConstraintViolation(err
  * PostgreSQL: `jsonb` column round-trips a JS object directly.
  * SQLite:     stored as TEXT — manually `JSON.parse` on read.
  */
-const readConfig = (raw: unknown): Record<string, unknown> => {
+const readConfig = (raw: unknown): Readonly<Record<string, unknown>> => {
   if (raw === null || raw === undefined) return {}
   if (typeof raw === 'string') {
     try {
@@ -82,7 +82,9 @@ const readConfig = (raw: unknown): Record<string, unknown> => {
  * Encode `config` for storage. SQLite needs `JSON.stringify`; pg-core takes
  * objects directly.
  */
-const writeConfig = (config: Record<string, unknown>): Record<string, unknown> | string =>
+const writeConfig = (
+  config: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> | string =>
   isSqliteRuntime() ? JSON.stringify(config) : config
 
 /**
@@ -107,14 +109,15 @@ const PRESENTATION_KEYS = ['viewType', 'rowDensity', 'columnWidths'] as const
 const pickPresent = (
   source: Readonly<Record<string, unknown>>,
   keys: readonly string[]
-): Record<string, unknown> =>
+): Readonly<Record<string, unknown>> =>
   Object.fromEntries(
     keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]])
   )
 
 /** Project the Wave-4 presentation keys out of a stored `config` blob. */
-const readPresentationState = (config: Record<string, unknown>): Record<string, unknown> =>
-  pickPresent(config, PRESENTATION_KEYS)
+const readPresentationState = (
+  config: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> => pickPresent(config, PRESENTATION_KEYS)
 
 /**
  * Map a Drizzle row into the wire-response shape expected by the API
@@ -174,14 +177,15 @@ const CONFIG_KEYS = [
 ] as const satisfies readonly (keyof CreateUserViewInput & keyof UpdateUserViewInput)[]
 
 /** Extract the `config` blob from a create-payload (everything but name/isDefault). */
-const extractConfigFromCreate = (input: Readonly<CreateUserViewInput>): Record<string, unknown> =>
-  pickPresent(input as Record<string, unknown>, CONFIG_KEYS)
+const extractConfigFromCreate = (
+  input: Readonly<CreateUserViewInput>
+): Readonly<Record<string, unknown>> => pickPresent(input as Record<string, unknown>, CONFIG_KEYS)
 
 /** Merge PATCH config keys into the existing JSON config. */
 const mergeConfigKeys = (
-  existing: Record<string, unknown>,
+  existing: Readonly<Record<string, unknown>>,
   body: Readonly<UpdateUserViewInput>
-): Record<string, unknown> => ({
+): Readonly<Record<string, unknown>> => ({
   ...existing,
   ...pickPresent(body as Record<string, unknown>, CONFIG_KEYS),
 })

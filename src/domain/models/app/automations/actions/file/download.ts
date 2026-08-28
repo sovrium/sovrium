@@ -22,13 +22,13 @@ export const FileDownloadActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Storage key of the file to download */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key of the file to download',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileDownloadAction',
     title: 'File Download Action',
     description: 'Download a file from storage by key',

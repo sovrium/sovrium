@@ -38,12 +38,12 @@ export const kpiFields = {
   // value-path). Must come AFTER `...dataBoundFields` to replace its `dataSource`.
   dataSource: Schema.optional(KpiDataSourceSchema),
   label: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Descriptive text displayed above the KPI metric value',
     })
   ),
   icon: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Lucide icon name displayed alongside the KPI metric (e.g., dollar-sign)',
     })
   ),
@@ -52,8 +52,8 @@ export const kpiFields = {
   kpiFormat: Schema.optional(KPIFormatSchema),
   thresholds: Schema.optional(
     Schema.Array(KPIThresholdSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Conditional color thresholds for KPI value' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Conditional color thresholds for KPI value' })
     )
   ),
   sparkline: Schema.optional(KPISparklineSchema),

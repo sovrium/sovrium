@@ -7,7 +7,9 @@
 
 import { Effect } from 'effect'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -16,6 +18,7 @@ import {
   type RunAutomationResult,
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -109,18 +112,20 @@ export const usesUserScopedConnection = (
 
 /**
  * Locate a manual-triggered automation by name and reject states that
- * should not produce a run (missing, disabled, or non-manual trigger).
+ * should not produce a run (missing, operationally OFF, or non-manual trigger).
  *
- * Disabled and non-existent automations both 404 to prevent enumeration,
- * matching the convention `resolveWebhookAutomation` already established.
+ * Off (config-disabled OR operationally paused) and non-existent automations
+ * all 404 to prevent enumeration, matching the convention
+ * `resolveWebhookAutomation` already established.
  */
 const resolveManualAutomation = (
   app: App,
-  name: string
+  name: string,
+  pausedNames: ReadonlySet<string>
 ): Effect.Effect<NonNullable<App['automations']>[number], RunAutomationError> => {
   const automation = app.automations?.find((a) => a.name === name)
   if (!automation) return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
-  if (automation.enabled === false)
+  if (!isAutomationOperationallyEnabled(automation, pausedNames))
     return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   if (automation.trigger.type !== 'manual') {
     return Effect.fail({ _tag: 'AutomationNotManualTriggered' as const, name })
@@ -173,10 +178,12 @@ export const runManualAutomation = ({
 }: RunManualAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
-  ExecuteAutomationRunRequirements
+  ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const automation = yield* resolveManualAutomation(app, name)
+    // Entry point: one read of the operational pauses, threaded into the gate.
+    const pausedNames = yield* loadPausedAutomationNames
+    const automation = yield* resolveManualAutomation(app, name, pausedNames)
 
     // ManualTrigger schema guarantees `trigger.type === 'manual'`; the
     // optional `requiredRole` defaults to 'admin' when omitted (per

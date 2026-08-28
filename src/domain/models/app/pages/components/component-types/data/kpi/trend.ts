@@ -7,23 +7,23 @@
 
 import { Schema } from 'effect'
 
-export const KPIComparisonPeriodSchema = Schema.Literal(
+export const KPIComparisonPeriodSchema = Schema.Literals([
   'previousDay',
   'previousWeek',
   'previousMonth',
   'previousQuarter',
-  'previousYear'
-).annotations({
+  'previousYear',
+]).annotate({
   title: 'Comparison Period',
   description: 'Time period to compare the current metric value against',
 })
 
-export const KPITrendDirectionSchema = Schema.Literal('up', 'down', 'flat').annotations({
+export const KPITrendDirectionSchema = Schema.Literals(['up', 'down', 'flat']).annotate({
   title: 'Trend Direction',
   description: 'Direction of change compared to the previous period',
 })
 
-export const KPITrendColorSchema = Schema.Literal('green', 'red', 'yellow', 'gray').annotations({
+export const KPITrendColorSchema = Schema.Literals(['green', 'red', 'yellow', 'gray']).annotate({
   title: 'Trend Color',
   description: 'Color indicating whether the trend is positive, negative, or neutral',
 })
@@ -31,11 +31,11 @@ export const KPITrendColorSchema = Schema.Literal('green', 'red', 'yellow', 'gra
 export const KPITrendSchema = Schema.Struct({
   comparisonPeriod: KPIComparisonPeriodSchema,
   direction: KPITrendDirectionSchema,
-  changePercent: Schema.Number.annotations({
+  changePercent: Schema.Finite.annotate({
     description: 'Percentage change from the comparison period',
   }),
   color: Schema.optional(KPITrendColorSchema),
-}).annotations({
+}).annotate({
   title: 'KPI Trend',
   description: 'Trend comparison showing change direction and percentage from a previous period',
 })

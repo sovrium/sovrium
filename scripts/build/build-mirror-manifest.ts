@@ -40,7 +40,11 @@ const PROJECT_ROOT = join(import.meta.dir, '..', '..')
  * scripts so they never drift.
  */
 export const KEEP_SCRIPTS = [
-  'prepare',
+  // NOTE: 'prepare' was removed with the Effect 4 migration. It ran
+  // `effect-language-service patch`, which mutates the consumer's local
+  // TypeScript install on every `bun install` — an install-time side effect the
+  // public mirror should never carry, and whose dependency
+  // (@effect/language-service) has no verified Effect 4 support.
   'build',
   'build:binary',
   'build:css-assets',

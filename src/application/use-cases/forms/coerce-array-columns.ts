@@ -86,7 +86,7 @@ export const coerceScalarsForArrayColumns = (
   fields: Readonly<Record<string, unknown>>,
   app: Readonly<App>,
   tableName: string
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const arrayColumns = collectArrayTypedColumnNames(app, tableName)
   if (arrayColumns.size === 0) return { ...fields }
   return Object.fromEntries(

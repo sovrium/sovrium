@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { parse } from 'csv-parse/sync'
 import { Data, Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { sweepAgedTempFiles } from '@/application/use-cases/storage/sweep-temp-storage'
@@ -17,7 +18,7 @@ import {
 /**
  * Shared helpers for the `file:*` action handlers — MIME inference,
  * temp-key minting, source resolution (`data:` URI / HTTP URL / storage
- * key), and tiny pure CSV read/write.
+ * key), and the RFC 4180 CSV codec.
  */
 
 // ---------------------------------------------------------------------------
@@ -71,14 +72,14 @@ export const tempKey = (suffix: string): string =>
  * temp write must go through here to keep `tmp/automations/` bounded.
  */
 export const uploadArtifact = (
-  storage: Effect.Effect.Success<typeof StorageService>,
+  storage: Effect.Success<typeof StorageService>,
   key: string,
   bytes: Uint8Array,
   contentType: string
 ): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
-    const wrote = yield* Effect.either(storage.upload(key, bytes, contentType))
-    if (wrote._tag === 'Left') return false
+    const wrote = yield* Effect.result(storage.upload(key, bytes, contentType))
+    if (wrote._tag === 'Failure') return false
     if (key.startsWith(TEMP_STORAGE_PREFIX)) {
       yield* sweepAgedTempFiles(storage, { preserve: key })
     }
@@ -158,6 +159,17 @@ const fetchSource = (
   return Effect.promise(() => fetchRemote(source))
 }
 
+/**
+ * True when `source` carries its own bytes (a `data:` URI) or is fetchable over
+ * the network — i.e. when `resolveSource` will NOT consult storage.
+ *
+ * Exported so a caller that wants storage's own "not found" diagnostics for a
+ * plain key can branch BEFORE calling `resolveSource`, which deliberately
+ * degrades a missing key to empty bytes.
+ */
+export const isSelfContainedSource = (source: string): boolean =>
+  source.startsWith('data:') || /^https?:\/\//.test(source)
+
 export const resolveSource = (
   source: string
 ): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, StorageService> => {
@@ -166,63 +178,148 @@ export const resolveSource = (
   if (/^https?:\/\//.test(source)) return fetchSource(source)
   return Effect.gen(function* () {
     const storage = yield* StorageService
-    const downloaded = yield* Effect.either(storage.download(source))
-    return downloaded._tag === 'Left' ? { bytes: new Uint8Array(0) } : { bytes: downloaded.right }
+    const downloaded = yield* Effect.result(storage.download(source))
+    return downloaded._tag === 'Failure'
+      ? { bytes: new Uint8Array(0) }
+      : { bytes: downloaded.success }
   })
 }
 
 // ---------------------------------------------------------------------------
-// Tiny pure CSV codec — the automation specs use simple, well-formed CSV.
+// CSV codec — RFC 4180 via `csv-parse`, plus the three decisions a parser
+// cannot make for you: which byte encoding the document is in, how many leading
+// lines to drop, and which delimiter it uses.
 // ---------------------------------------------------------------------------
 
-export const csvCell = (value: unknown): string => {
+/** The delimiters `FileParseCsvActionSchema` accepts, in tie-break order. */
+const DELIMITER_CANDIDATES: readonly string[] = [',', ';', '\t', '|']
+
+/**
+ * Quote a value for CSV output.
+ *
+ * The quoting decision is driven by the delimiter ACTUALLY in use, not by a
+ * fixed character class: a value containing the active delimiter MUST be quoted
+ * or it silently splits into two fields on re-read. The rest of the set is RFC
+ * 4180's mandatory minimum (`"`, CR, LF) — nothing else is quoted, so a `;`
+ * inside a comma-delimited file stays bare, which is legal and lossless.
+ */
+export const csvCell = (value: unknown, delimiter: string = ','): string => {
   const str = value === undefined || value === null ? '' : String(value)
-  return /[",\n;\t]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str
+  const mustQuote =
+    str.includes('"') || str.includes('\n') || str.includes('\r') || str.includes(delimiter)
+  return mustQuote ? `"${str.replace(/"/g, '""')}"` : str
 }
 
-interface SplitState {
-  readonly cells: readonly string[]
-  readonly current: string
-  readonly inQuotes: boolean
-  readonly skipNext: boolean
-}
-
-const stepSplit = (
-  state: SplitState,
-  ch: string,
-  next: string | undefined,
-  delim: string
-): SplitState => {
-  if (state.skipNext) return { ...state, skipNext: false }
-  if (state.inQuotes) {
-    if (ch === '"') {
-      return next === '"'
-        ? { ...state, current: state.current + '"', skipNext: true }
-        : { ...state, inQuotes: false }
-    }
-    return { ...state, current: state.current + ch }
+/**
+ * Decode CSV bytes as UTF-8, falling back to windows-1252 when the document is
+ * not valid UTF-8 — what Excel FR still emits by default.
+ *
+ * This is an automatic FALLBACK rather than a declared `encoding` property on
+ * purpose. An accented windows-1252 byte (0x80-0xFF) is never a valid
+ * standalone UTF-8 sequence, so a fatal UTF-8 decode separates the two
+ * encodings on its own: valid UTF-8 can never be mistaken for Latin-1, and the
+ * operator never has to declare which one they were handed.
+ */
+export const decodeCsvBytes = (bytes: Uint8Array): string => {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes)
   }
-  if (ch === '"') return { ...state, inQuotes: true }
-  if (ch === delim) return { ...state, cells: [...state.cells, state.current], current: '' }
-  return { ...state, current: state.current + ch }
 }
 
-export const splitCsvLine = (line: string, delimiter: string): readonly string[] => {
-  const final = Array.from(line).reduce<SplitState>(
-    (state, ch, i) => stepSplit(state, ch, line[i + 1], delimiter),
-    { cells: [], current: '', inQuotes: false, skipNext: false }
+/** First line with non-whitespace content, or `undefined` for a blank document. */
+const firstNonBlankLine = (text: string): string | undefined => {
+  const nl = text.indexOf('\n')
+  const line = (nl === -1 ? text : text.slice(0, nl)).replace(/\r$/, '')
+  if (line.trim() !== '') return line
+  return nl === -1 ? undefined : firstNonBlankLine(text.slice(nl + 1))
+}
+
+/**
+ * Drop the first `count` non-blank PHYSICAL lines — that, and nothing else, is
+ * what `skipRows` means. Header handling stays orthogonal (see `csvRows`), so
+ * asking to skip a preamble can never silently change the output shape.
+ *
+ * The remainder is returned verbatim rather than re-joined, so a quoted field
+ * further down keeps its exact bytes, CRLF included.
+ */
+export const dropLeadingLines = (text: string, count: number): string => {
+  if (count <= 0) return text
+  const nl = text.indexOf('\n')
+  if (nl === -1) return ''
+  const remaining = text.slice(0, nl).trim() === '' ? count : count - 1
+  return dropLeadingLines(text.slice(nl + 1), remaining)
+}
+
+interface CountState {
+  readonly inQuotes: boolean
+  readonly count: number
+}
+
+/** Occurrences of `target` in `line` that sit outside any quoted field. */
+const countOutsideQuotes = (line: string, target: string): number =>
+  Array.from(line).reduce<CountState>(
+    (state, ch) => {
+      if (ch === '"') return { inQuotes: !state.inQuotes, count: state.count }
+      if (!state.inQuotes && ch === target) return { ...state, count: state.count + 1 }
+      return state
+    },
+    { inQuotes: false, count: 0 }
+  ).count
+
+/**
+ * Detect the field delimiter by COUNT, not by first match.
+ *
+ * Counting is the whole point: a `;`-delimited French export whose header
+ * legitimately contains one comma (`ville, pays`) must still read as
+ * semicolon-delimited. First-match-wins collapsed it into a single column.
+ * Occurrences inside quotes do not count; ties fall back to comma.
+ *
+ * ORDERING CONTRACT: `text` must ALREADY have had `skipRows` applied. A
+ * preamble line such as `# Export CRM` contains none of the four candidates, so
+ * sampling the raw document would fall through to the comma default and
+ * mis-parse the real header underneath it. Taking post-skip text is therefore
+ * deliberate, not an accident of call order — hence this takes the DOCUMENT and
+ * picks its own sample line rather than trusting the caller to pass the right
+ * one.
+ */
+export const autoDelimiter = (text: string): string => {
+  const sample = firstNonBlankLine(text)
+  if (sample === undefined) return ','
+  const best = DELIMITER_CANDIDATES.map((d) => ({ d, n: countOutsideQuotes(sample, d) })).reduce(
+    (a, b) => (b.n > a.n ? b : a)
   )
-  return [...final.cells, final.current].map((c) => c.trim())
+  return best.n > 0 ? best.d : ','
 }
 
-export const autoDelimiter = (sampleLine: string | undefined): string => {
-  if (!sampleLine) return ','
-  if (sampleLine.includes(',')) return ','
-  if (sampleLine.includes('\t')) return '\t'
-  if (sampleLine.includes(';')) return ';'
-  if (sampleLine.includes('|')) return '|'
-  return ','
+/**
+ * Parse a whole CSV DOCUMENT into raw cell rows, or `undefined` when it is
+ * malformed beyond recovery (an unterminated quote is the only case
+ * `csv-parse` still refuses under `relax_quotes`).
+ *
+ * Document-level parsing is the point: a quoted field may contain the record
+ * separator itself, so splitting on newlines BEFORE parsing — as the previous
+ * hand-rolled codec did — tears a multi-line notes column into malformed rows.
+ *
+ * `trim: true` implements RFC 4180 §2.5 as the spec intends: whitespace is
+ * trimmed around UNQUOTED fields only, leaving quoted content verbatim, so
+ * `"  007  "` survives intact while `  008  ` is still tidied to `008`.
+ */
+export const parseCsvDocument = (
+  text: string,
+  delimiter: string
+): ReadonlyArray<ReadonlyArray<string>> | undefined => {
+  try {
+    return parse(text, {
+      delimiter,
+      bom: true,
+      trim: true,
+      skip_empty_lines: true,
+      relax_column_count: true,
+      relax_quotes: true,
+    }) as ReadonlyArray<ReadonlyArray<string>>
+  } catch {
+    return undefined
+  }
 }
-
-export const splitNonEmptyLines = (text: string): readonly string[] =>
-  text.split(/\r?\n/).filter((l) => l.trim() !== '')

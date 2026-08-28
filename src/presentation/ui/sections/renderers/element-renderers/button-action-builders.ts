@@ -16,9 +16,15 @@
  * resolution helpers.
  */
 
+import {
+  CONFIRM_AFFIRM_LABEL_ATTR,
+  CONFIRM_CANCEL_LABEL_ATTR,
+} from '@/domain/utils/confirm-gate-labels'
 import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
+import { resolveInterpreterString } from '@/domain/utils/translation-resolver'
 import { substituteRecordInInputData } from '@/presentation/rendering/record-template-substitution'
 import type { CrudFormAction } from './crud-form/crud-form-renderer'
+import type { Languages } from '@/domain/models/app/languages'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 import type { RouteParams } from '@/domain/utils/matching/route-matcher'
 
@@ -196,20 +202,79 @@ export function isFetchAction(action: unknown): action is FetchAction {
  * so the always-loaded client runtime renders the richer gate. Author-supplied
  * `data-confirm` / `data-confirm-config` props win. Returns an empty object when
  * `confirm` is absent or already present in props.
+ *
+ * When a gate IS declared, the gate's two affordance labels are resolved against
+ * the page's active language — author `languages.translations` override, then
+ * the built-in catalog for that language, then English — and ride along on
+ * {@link CONFIRM_CANCEL_LABEL_ATTR} / {@link CONFIRM_AFFIRM_LABEL_ATTR}. They are
+ * stamped unconditionally with the gate rather than only when they differ from
+ * the built-in default: the runtime's own last-resort constant is a fallback for
+ * a trigger some OTHER path rendered, not a second place to decide the language.
  */
 export function buildConfirmAttributes(
   rawConfirm: unknown,
-  elementProps: Record<string, unknown>
+  elementProps: Record<string, unknown>,
+  currentLang?: string,
+  languages?: Languages
 ): Record<string, string> {
+  const labelAttrs: Record<string, string> = {
+    [CONFIRM_CANCEL_LABEL_ATTR]: resolveInterpreterString(
+      'confirmGate.cancel',
+      currentLang,
+      languages
+    ),
+    [CONFIRM_AFFIRM_LABEL_ATTR]: resolveInterpreterString(
+      'confirmGate.confirm',
+      currentLang,
+      languages
+    ),
+  }
   if (typeof rawConfirm === 'string') {
-    return elementProps['data-confirm'] === undefined ? { 'data-confirm': rawConfirm } : {}
+    return elementProps['data-confirm'] === undefined
+      ? { 'data-confirm': rawConfirm, ...labelAttrs }
+      : {}
   }
   if (rawConfirm !== null && typeof rawConfirm === 'object') {
     return elementProps['data-confirm-config'] === undefined
-      ? { 'data-confirm-config': JSON.stringify(rawConfirm) }
+      ? { 'data-confirm-config': JSON.stringify(rawConfirm), ...labelAttrs }
       : {}
   }
   return {}
+}
+
+/**
+ * Overlay button-schema top-level fields (`label`, `confirm`) onto the
+ * elementProps envelope so the renderButton helper picks them up without a
+ * second extraction path. Author-supplied `props.label` / confirm attrs win. The
+ * `confirm` field (string prompt OR rich object form) is mapped to its data
+ * attribute(s) by {@link buildConfirmAttributes}.
+ *
+ * `lang` is threaded through so the gate's two affordance labels resolve
+ * server-side and get stamped onto the TRIGGER — the vanilla-DOM gates build
+ * their buttons at click time and have no dialog element to carry them.
+ *
+ * Lives beside {@link buildConfirmAttributes} rather than in the component
+ * registry that calls it: the two are one decision about how a button's schema
+ * fields become DOM attributes, and splitting them left the registry importing
+ * the low-level builder purely to re-wrap it.
+ */
+export function overlayButtonSchemaFallbacks(
+  elementProps: Record<string, unknown>,
+  componentRaw: Record<string, unknown>,
+  lang: { readonly currentLang?: string; readonly languages?: Languages }
+): Record<string, unknown> {
+  const topLabel =
+    typeof componentRaw['label'] === 'string' ? (componentRaw['label'] as string) : undefined
+  return {
+    ...elementProps,
+    ...(topLabel !== undefined && elementProps.label === undefined ? { label: topLabel } : {}),
+    ...buildConfirmAttributes(
+      componentRaw['confirm'],
+      elementProps,
+      lang.currentLang,
+      lang.languages
+    ),
+  }
 }
 
 /**

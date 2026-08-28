@@ -22,6 +22,19 @@
  */
 
 import { DATA_NAV_PAGES } from '@/domain/utils/admin-data-nav'
+import {
+  isCatalogComponentCategory,
+  type CatalogComponentCategory,
+} from './dashboard-surfaces/design-system-catalog-registry'
+import {
+  isCatalogFieldCategory,
+  type CatalogFieldCategory,
+} from './dashboard-surfaces/design-system-field-registry'
+import {
+  isDesignSystemPreviewSection,
+  type DesignSystemPreviewSection,
+} from './dashboard-surfaces/design-system-preview-surface'
+import { DESIGN_SYSTEM_CONSOLE_PATH } from './dashboard-surfaces/design-system-surface'
 
 /** The set of known top-level Data-page keys (the first route segment of a data surface). */
 const DATA_PAGE_KEYS: ReadonlySet<string> = new Set(DATA_NAV_PAGES.map((page) => page.key))
@@ -58,4 +71,82 @@ export function parseDataRoute(dashboardPath: string): DataRoute | undefined {
   if (segments.length === 1) return { page }
   if (segments.length === 2 && segments[1]) return { page, object: segments[1] }
   return undefined
+}
+
+/**
+ * Parse a design-system PREVIEW sub-path, or `undefined` when it is not one.
+ *
+ *  - `/design-system/preview/foundations` → `'foundations'`
+ *  - `/design-system/preview/nonsense`    → undefined (falls through to the 404)
+ *  - `/design-system`                     → undefined (the console page itself,
+ *                                           resolved by `MANAGEMENT_BUILDERS`)
+ *
+ * An unknown section is `undefined` rather than a defaulted section on purpose:
+ * a mistyped URL that silently rendered `foundations` would make a broken link
+ * on the console page look like a working one.
+ */
+export function parseDesignSystemPreviewRoute(
+  dashboardPath: string
+): DesignSystemPreviewSection | undefined {
+  const segments = dashboardPath.split('/').filter((segment) => segment.length > 0)
+  const [root, preview, section] = segments
+  if (segments.length !== 3) return undefined
+  if (`/${root}` !== DESIGN_SYSTEM_CONSOLE_PATH || preview !== 'preview') return undefined
+  return section !== undefined && isDesignSystemPreviewSection(section) ? section : undefined
+}
+
+/**
+ * Parse a design-system CATALOG sub-path, or `undefined` when it is not one.
+ *
+ *  - `/design-system/preview/components/form-controls` → `'form-controls'`
+ *  - `/design-system/preview/components/editors`       → undefined (refused;
+ *                                                        see the registry)
+ *  - `/design-system/preview/components/nonsense`      → undefined
+ *  - `/design-system/preview/foundations`              → undefined (a v1
+ *                                                        section, three
+ *                                                        segments, parsed by
+ *                                                        the sibling above)
+ *
+ * An unpublished category is `undefined` rather than a defaulted one for the
+ * same reason the v1 parser refuses a mistyped section: a URL that silently
+ * rendered SOME category would make a broken link look like a working one —
+ * and here it would also make the `editors` refusal look like a rendering.
+ */
+export function parseDesignSystemCatalogRoute(
+  dashboardPath: string
+): CatalogComponentCategory | undefined {
+  const segments = dashboardPath.split('/').filter((segment) => segment.length > 0)
+  if (segments.length !== 4) return undefined
+  const [root, preview, kind, category] = segments
+  if (`/${root}` !== DESIGN_SYSTEM_CONSOLE_PATH || preview !== 'preview') return undefined
+  if (kind !== 'components') return undefined
+  return category !== undefined && isCatalogComponentCategory(category) ? category : undefined
+}
+
+/**
+ * Parse a design-system FIELD-catalog sub-path, or `undefined` when it is not one.
+ *
+ *  - `/design-system/preview/fields/text`     → `'text'`
+ *  - `/design-system/preview/fields/numeric`  → undefined (unpublished; the
+ *                                               remaining categories are the
+ *                                               mechanical repetition, not a
+ *                                               refusal — see the registry)
+ *  - `/design-system/preview/components/text` → undefined (a COMPONENT path,
+ *                                               parsed by the sibling above)
+ *
+ * A separate parser rather than a `kind` parameter on the component one: the
+ * two return different category types, and collapsing them would hand the
+ * builder a string it has to re-narrow. The 404 for an unpublished category is
+ * the same deliberate refusal the component parser gives — a URL that silently
+ * rendered SOME category would make a broken link look like a working one.
+ */
+export function parseDesignSystemFieldCatalogRoute(
+  dashboardPath: string
+): CatalogFieldCategory | undefined {
+  const segments = dashboardPath.split('/').filter((segment) => segment.length > 0)
+  if (segments.length !== 4) return undefined
+  const [root, preview, kind, category] = segments
+  if (`/${root}` !== DESIGN_SYSTEM_CONSOLE_PATH || preview !== 'preview') return undefined
+  if (kind !== 'fields') return undefined
+  return category !== undefined && isCatalogFieldCategory(category) ? category : undefined
 }

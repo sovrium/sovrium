@@ -1,0 +1,56 @@
+# The design system, in the config the running app reads.
+#
+# This blog has two registers and a hard line between them: a public reading
+# surface anyone can reach, and an admin space behind auth where an editor
+# works. `zones` is where that line is DECLARED rather than implied by the
+# `/admin` prefix — which is what lets the platform hold it.
+#
+# `theme` is NOT here: this template declares its tokens at the top-level
+# `theme` key (`./theme.yaml`), and declaring both positions is a decode error.
+
+# How the blog sounds by default — the constant half of the voice/tone pair.
+voice:
+  personality:
+    - warm
+    - plain-spoken
+    - never breathless
+  pronoun: you
+  prefer:
+    - 'Lead a CTA with its verb: Publish, Save, Delete.'
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks in product chrome.
+    - No unverifiable claims about reach or reading time.
+  tone:
+    empty: Say what this list will hold, then the action that fills it.
+    error: State what stopped, then the one thing that unblocks it. Never accuse.
+    destructive: Name what is deleted and whether it can be recovered.
+
+# The zone map. Order does not decide the winner — specificity does — so
+# `/admin/*` governs the admin space and the catch-all takes everything else.
+zones:
+  # Behind auth. The working budget: no persuasion, no marketing weight, and a
+  # register that addresses a colleague rather than a visitor.
+  - pattern: /admin/*
+    zone: product
+    accentBudget: product
+    voice:
+      # Per-FIELD override: only `avoid` departs. `personality`, `pronoun`,
+      # `prefer` and `tone` are inherited from `voice` above unchanged — which
+      # is the whole point of the per-field rule. Whole-object replacement would
+      # make this entry mean "the admin space has no preferred patterns and no
+      # tone guidance", which is not what an author writing four extra refusals
+      # is asking for.
+      #
+      # `pronoun` is deliberately NOT restated here: it is already `you`, and a
+      # zone override identical to the app value is refused at decode time — a
+      # second spelling of the same value drifts the moment one of them changes.
+      avoid:
+        - No marketing superlatives behind auth.
+        - Never call a destructive action "cleanup".
+
+  # The public reading surface. `marketing` carries the PUBLIC accent budget by
+  # convention, and declaring anything other than `public` here is refused.
+  - pattern: everything else
+    zone: marketing
+    accentBudget: public

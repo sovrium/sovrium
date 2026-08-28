@@ -22,7 +22,7 @@ export const ManualTriggerSchema = Schema.Struct({
   /** Button label for admin interface */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Button label in admin interface (e.g., "Export Report", "Sync Data")',
       })
     )
@@ -30,8 +30,8 @@ export const ManualTriggerSchema = Schema.Struct({
 
   /** JSON Schema describing required input fields */
   inputSchema: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({
+    Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({
         description: 'JSON Schema describing required input fields when manually triggered',
       })
     )
@@ -40,13 +40,13 @@ export const ManualTriggerSchema = Schema.Struct({
   /** Role required to trigger this automation */
   requiredRole: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Auth role required to trigger this automation (default: admin)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ManualTrigger',
     title: 'Manual Trigger',
     description: 'Admin-initiated workflow execution via button or API call',

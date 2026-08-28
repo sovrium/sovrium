@@ -29,11 +29,11 @@ import { SubmitToSchema } from './submit-to'
  * - `multi-step`: Fields grouped into `steps[]` with prev/next navigation.
  * - `one-question`: One field per screen, Typeform-style.
  */
-export const FormLayoutModeSchema = Schema.Literal(
+export const FormLayoutModeSchema = Schema.Literals([
   'single-page',
   'multi-step',
-  'one-question'
-).annotations({
+  'one-question',
+]).annotate({
   identifier: 'FormLayoutMode',
   title: 'Form Layout Mode',
   description: 'Form rendering layout mode',
@@ -54,15 +54,14 @@ export const FormLayoutModeSchema = Schema.Literal(
  */
 export const FormSchema = Schema.Struct({
   /** Numeric server-internal identifier (positive integer). */
-  id: Schema.Number.pipe(
-    Schema.int(),
-    Schema.positive(),
-    Schema.annotations({ description: 'Numeric form identifier (positive integer, unique)' })
+  id: Schema.Finite.pipe(
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+    Schema.annotate({ description: 'Numeric form identifier (positive integer, unique)' })
   ),
   /** Kebab-case unique name used in cross-references. */
   name: FormNameSchema,
   /** Human-friendly title shown to submitters. Supports `$t:` i18n keys. */
-  title: Schema.String.pipe(Schema.minLength(1)).annotations({
+  title: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
     description: 'Form title shown to submitters (supports $t: i18n keys)',
   }),
   /** Optional description / intro shown above the first field. */
@@ -77,15 +76,17 @@ export const FormSchema = Schema.Struct({
   submitTo: SubmitToSchema,
   /** Field definitions. At least one field required. */
   fields: Schema.Array(FormFieldSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'Form fields in render order' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Form fields in render order' })
   ),
   /** Layout mode. Default `single-page`. */
   layout: Schema.optional(FormLayoutModeSchema),
   /** Multi-step / one-question step definitions. */
-  steps: Schema.optional(Schema.Array(FormStepSchema).pipe(Schema.minItems(1))),
+  steps: Schema.optional(Schema.Array(FormStepSchema).pipe(Schema.check(Schema.isMinLength(1)))),
   /** Field grouping inside single-page layouts. */
-  fieldGroups: Schema.optional(Schema.Array(FormFieldGroupSchema).pipe(Schema.minItems(1))),
+  fieldGroups: Schema.optional(
+    Schema.Array(FormFieldGroupSchema).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   /** Display / cosmetic options. */
   display: Schema.optional(FormDisplaySchema),
   /** Access control (public / authenticated / role-restricted). */
@@ -103,36 +104,38 @@ export const FormSchema = Schema.Struct({
   /** On-error behavior. */
   onError: Schema.optional(FormOnErrorSchema),
 }).pipe(
-  Schema.filter((form) => {
-    // [internal ref] / S1: per-field `defaultValue` referencing `$user.*` on a
-    // public form is a configuration mistake — the value would always resolve
-    // empty for anonymous visitors (the resolver drops unresolvable $user
-    // references) and could leak session state in mixed contexts. Surface
-    // this at schema-validation time with a message naming the form and the
-    // offending field so the developer can fix it before boot.
-    //
-    // Top-level `forms[].prefill: { field: '$user.email' }` on public forms
-    // is INTENTIONALLY tolerated ([internal ref]
-    // document the runtime "drop silently when no session" semantic). Only
-    // the inline per-field `defaultValue` form is rejected here.
-    const isPublic = form.access?.require === undefined || isOpenToEveryone(form.access.require)
-    if (!isPublic) return true
+  Schema.check(
+    Schema.makeFilter((form) => {
+      // [internal ref] / S1: per-field `defaultValue` referencing `$user.*` on a
+      // public form is a configuration mistake — the value would always resolve
+      // empty for anonymous visitors (the resolver drops unresolvable $user
+      // references) and could leak session state in mixed contexts. Surface
+      // this at schema-validation time with a message naming the form and the
+      // offending field so the developer can fix it before boot.
+      //
+      // Top-level `forms[].prefill: { field: '$user.email' }` on public forms
+      // is INTENTIONALLY tolerated ([internal ref]
+      // document the runtime "drop silently when no session" semantic). Only
+      // the inline per-field `defaultValue` form is rejected here.
+      const isPublic = form.access?.require === undefined || isOpenToEveryone(form.access.require)
+      if (!isPublic) return true
 
-    const violations = form.fields.flatMap((field) => {
-      const dv = (field as { readonly defaultValue?: unknown }).defaultValue
-      if (typeof dv !== 'string' || !dv.startsWith('$user.')) return []
-      const path =
-        (field as { readonly name?: string; readonly column?: string }).name ??
-        (field as { readonly column?: string }).column ??
-        '<unknown>'
-      return [`fields.${path}.defaultValue=${dv}`]
+      const violations = form.fields.flatMap((field) => {
+        const dv = (field as { readonly defaultValue?: unknown }).defaultValue
+        if (typeof dv !== 'string' || !dv.startsWith('$user.')) return []
+        const path =
+          (field as { readonly name?: string; readonly column?: string }).name ??
+          (field as { readonly column?: string }).column ??
+          '<unknown>'
+        return [`fields.${path}.defaultValue=${dv}`]
+      })
+      if (violations.length > 0) {
+        return `Form "${form.name}" is public but references $user.* values (${violations.join(', ')}). $user references require access.require to be "authenticated" or a role list.`
+      }
+      return true
     })
-    if (violations.length > 0) {
-      return `Form "${form.name}" is public but references $user.* values (${violations.join(', ')}). $user references require access.require to be "authenticated" or a role list.`
-    }
-    return true
-  }),
-  Schema.annotations({
+  ),
+  Schema.annotate({
     identifier: 'Form',
     title: 'Form',
     description:
@@ -144,8 +147,8 @@ export const FormSchema = Schema.Struct({
  * Forms Schema — non-empty array of `FormSchema`.
  */
 export const FormsSchema = Schema.Array(FormSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     identifier: 'Forms',
     title: 'Standalone Forms',
     description:

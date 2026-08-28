@@ -72,13 +72,11 @@ export function SearchToolbar({ search, value, onChange }: SearchToolbarProps) {
 
 interface ExportControlProps {
   /**
-   * System read-endpoint. When present AND {@link showExport} on a read-only
-   * source, the control is an "Exporter" button navigating to `{endpoint}?format=csv`.
+   * System read-endpoint. When present on a read-only source, the control is an
+   * "Export" button navigating to `{endpoint}?format=csv`.
    */
   readonly systemExportEndpoint?: string
   readonly readOnly: boolean
-  /** `toolbar.export === true` — only gates the system-source "Exporter" affordance. */
-  readonly showExport: boolean
   readonly tableName: string
   readonly table: ReturnType<typeof useReactTable<TableRecord>>
   readonly activeFilter: ActiveFilter | undefined
@@ -88,16 +86,23 @@ interface ExportControlProps {
 }
 
 /**
- * The toolbar export affordance. A read-only system source with `toolbar.export`
- * enabled renders an "Exporter" button that navigates the browser to the system
- * endpoint's `?format=csv` (the server's `Content-Disposition` drives the
- * download). Every other case keeps the DB-table records-export dropdown
- * (HTTP-status-quo: an "Export" menu targeting `/api/tables/:t/export`).
+ * The toolbar export affordance, rendered only where `toolbar.export` declares
+ * it (the caller owns that gate).
+ *
+ * A read-only system source navigates the browser to the system endpoint's
+ * `?format=csv` — the server's `Content-Disposition` drives the download. Every
+ * other case keeps the DB-table records-export dropdown targeting
+ * `/api/tables/:t/export`.
+ *
+ * The gate is what keeps those two apart. This control used to render on every
+ * grid, and a system source that had NOT declared `export` fell through to the
+ * DB-table branch with an empty table name — an "Export" menu pointing at
+ * `/api/tables//export`, which 404s with an HTML error page. There is no
+ * URL-building bug to fix underneath: not offering the control is the fix.
  */
 function ExportControl({
   systemExportEndpoint,
   readOnly,
-  showExport,
   tableName,
   table,
   activeFilter,
@@ -114,15 +119,15 @@ function ExportControl({
     window.location.href = `${systemExportEndpoint}${separator}format=csv`
   }, [systemExportEndpoint])
 
-  if (readOnly && showExport && systemExportEndpoint) {
+  if (readOnly && systemExportEndpoint) {
     return (
       <button
         type="button"
         className={DROPDOWN_TRIGGER_CLASS}
-        aria-label="Exporter"
+        aria-label="Export"
         onClick={onSystemExportClick}
       >
-        Exporter
+        Export
       </button>
     )
   }
@@ -430,22 +435,24 @@ export function DataTableToolbarBar({
             Import
           </button>
         )}
-        <button
-          type="button"
-          className="hover:bg-background-subtle inline-flex items-center gap-1 rounded border px-3 py-1 text-sm"
-          aria-label="Filter"
-          onClick={onOpenFilterOverlay}
-        >
-          Filter
-          {activeFilterCount > 0 && (
-            <span
-              data-testid="filter-badge"
-              className="bg-primary text-primary-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-medium"
-            >
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
+        {toolbarConfig?.filters && (
+          <button
+            type="button"
+            className="hover:bg-background-subtle inline-flex items-center gap-1 rounded border px-3 py-1 text-sm"
+            aria-label="Filter"
+            onClick={onOpenFilterOverlay}
+          >
+            Filter
+            {activeFilterCount > 0 && (
+              <span
+                data-testid="filter-badge"
+                className="bg-primary text-primary-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-medium"
+              >
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        )}
         {toolbarConfig?.sort && (
           <button
             type="button"
@@ -523,17 +530,19 @@ export function DataTableToolbarBar({
             )}
           </>
         )}
-        <div className="relative">
-          <button
-            type="button"
-            className={DROPDOWN_TRIGGER_CLASS}
-            aria-label="Columns"
-            onClick={onToggleColumnsMenu}
-          >
-            Columns
-          </button>
-          {columnsMenuOpen && <ColumnsMenu table={table} />}
-        </div>
+        {toolbarConfig?.columnToggle && (
+          <div className="relative">
+            <button
+              type="button"
+              className={DROPDOWN_TRIGGER_CLASS}
+              aria-label="Columns"
+              onClick={onToggleColumnsMenu}
+            >
+              Columns
+            </button>
+            {columnsMenuOpen && <ColumnsMenu table={table} />}
+          </div>
+        )}
         {selectionConfig?.mode === 'multiple' && (
           <button
             type="button"
@@ -545,17 +554,18 @@ export function DataTableToolbarBar({
             Export selected
           </button>
         )}
-        <ExportControl
-          {...(systemExportEndpoint !== undefined && { systemExportEndpoint })}
-          readOnly={readOnly}
-          showExport={toolbarConfig?.export === true}
-          tableName={tableName}
-          table={table}
-          activeFilter={activeFilter}
-          exportMenuOpen={exportMenuOpen}
-          onToggleExportMenu={onToggleExportMenu}
-          onCloseExportMenu={onCloseExportMenu}
-        />
+        {toolbarConfig?.export && (
+          <ExportControl
+            {...(systemExportEndpoint !== undefined && { systemExportEndpoint })}
+            readOnly={readOnly}
+            tableName={tableName}
+            table={table}
+            activeFilter={activeFilter}
+            exportMenuOpen={exportMenuOpen}
+            onToggleExportMenu={onToggleExportMenu}
+            onCloseExportMenu={onCloseExportMenu}
+          />
+        )}
         {toolbarConfig?.refresh && (
           <button
             type="button"
@@ -572,7 +582,13 @@ export function DataTableToolbarBar({
             onSelect={onSelectDensity}
           />
         )}
-        {onResetPreferences && <SettingsDialog onReset={onResetPreferences} />}
+        {/* The Settings dialog is the per-user PREFERENCES surface, so it rides
+            the flag that declares this grid has one to remember. Rendering it
+            unconditionally put a "Reset to defaults" in front of every grid,
+            including the ones with no preferences to reset. */}
+        {toolbarConfig?.density && onResetPreferences && (
+          <SettingsDialog onReset={onResetPreferences} />
+        )}
       </div>
     </div>
   )

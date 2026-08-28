@@ -76,7 +76,7 @@ export const loadCurrentUserContext = (
     const entries = yield* Effect.all(
       scopeTables.map((slug) =>
         repo.fetchUserAssignments(session.userId, slug).pipe(
-          Effect.catchAll((error) => {
+          Effect.catch((error) => {
             logError(
               '[PERMISSIONS] Row-level scope lookup failed; denying access for this scope table',
               error,

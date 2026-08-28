@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { buildAdminOverview } from '@/application/use-cases/admin/overview'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
@@ -28,7 +27,6 @@ import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getSovriumVersion } from '@/infrastructure/utils/version'
 import { handleGetAuditLog } from '@/presentation/api/routes/admin/audit-log'
 import { createHandleGetTablesOverview } from '@/presentation/api/routes/admin/tables-overview'
-import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -188,32 +186,6 @@ async function handleGetStorageStatus(c: Context): Promise<Response> {
 }
 
 /**
- * Handle GET /api/admin/buckets/quota — admin only
- *
- * Returns current storage usage statistics: total bytes used across all stored
- * files and the number of files. Useful for administrators to monitor quota
- * consumption before enforcing STORAGE_MAX_TOTAL_SIZE limits.
- */
-async function handleGetBucketsQuota(c: Context): Promise<Response> {
-  const program = Effect.gen(function* () {
-    const storage = yield* StorageService
-    const [totalBytes, keys] = yield* Effect.all([storage.getTotalBytes(), storage.list('')])
-    return { totalBytes, fileCount: keys.length }
-  })
-
-  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
-  if (result._tag === 'Left') {
-    logError('[admin] storage-quota lookup failed', result.left, requestLogAttributes(c))
-    return c.json(
-      { success: false, error: 'Failed to retrieve storage quota', code: 'STORAGE_ERROR' },
-      500
-    )
-  }
-
-  return c.json(result.right, 200)
-}
-
-/**
  * Handle DELETE /api/admin/storage/transform-cache — admin only
  *
  * Clears the on-the-fly image transform cache. Image transforms are computed
@@ -314,8 +286,6 @@ function createHandleGetSearch(app: App) {
  * - GET /api/admin/storage/status — returns the active storage configuration
  *   (provider, region, bucket, etc.) so administrators can verify the env
  *   wiring at runtime.
- * - GET /api/admin/buckets/quota — returns current storage usage statistics
- *   (totalBytes, fileCount) for quota monitoring.
  * - GET /api/admin/config/version — returns build/runtime reflection
  *   (version, commit, runtime, nodeVersion, startedAt).
  * - GET /api/admin/tables/overview — returns per-table aggregates
@@ -336,7 +306,6 @@ export function chainAdminRoutes<T extends Hono>(honoApp: T, app: App): T {
     .get('/api/admin/overview', createHandleGetOverview(app))
     .get('/api/admin/search', createHandleGetSearch(app))
     .get('/api/admin/storage/status', handleGetStorageStatus)
-    .get('/api/admin/buckets/quota', handleGetBucketsQuota)
     .get('/api/admin/config/version', handleGetConfigVersion)
     .get('/api/admin/tables/overview', createHandleGetTablesOverview(app))
     .get('/api/admin/audit-log', handleGetAuditLog)

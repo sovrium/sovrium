@@ -51,9 +51,9 @@ export async function checkFieldConditionReadOnly(
   if (!table || !hasConditions) return undefined
 
   const fetched = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  if (fetched._tag === 'Left' || !fetched.right) return undefined
+  if (fetched._tag === 'Failure' || !fetched.success) return undefined
 
-  if (isRecordReadOnly(table.fields, fetched.right as Readonly<Record<string, unknown>>)) {
+  if (isRecordReadOnly(table.fields, fetched.success as Readonly<Record<string, unknown>>)) {
     return c.json(
       {
         success: false,
@@ -127,10 +127,10 @@ async function validateUpdateFieldFormats(
   const result = await Effect.runPromise(
     validateFieldFormats(fields).pipe(
       Effect.provide(createValidationLayer(app, tableName, userRole)),
-      Effect.either
+      Effect.result
     )
   )
-  return result._tag === 'Left' ? result.left : undefined
+  return result._tag === 'Failure' ? result.failure : undefined
 }
 
 /**
@@ -179,13 +179,13 @@ async function validateUpdateMultiSelectValues(
 ): Promise<FieldFormatError | FieldValidationError | undefined> {
   const layer = createValidationLayer(app, tableName, userRole)
   const membership = await Effect.runPromise(
-    validateMultiSelectOptions(fields).pipe(Effect.provide(layer), Effect.either)
+    validateMultiSelectOptions(fields).pipe(Effect.provide(layer), Effect.result)
   )
-  if (membership._tag === 'Left') return membership.left
+  if (membership._tag === 'Failure') return membership.failure
   const cardinality = await Effect.runPromise(
-    validateMultiSelectSelectionLimits(fields).pipe(Effect.provide(layer), Effect.either)
+    validateMultiSelectSelectionLimits(fields).pipe(Effect.provide(layer), Effect.result)
   )
-  return cardinality._tag === 'Left' ? cardinality.left : undefined
+  return cardinality._tag === 'Failure' ? cardinality.failure : undefined
 }
 
 /**

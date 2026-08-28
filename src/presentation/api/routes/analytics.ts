@@ -17,6 +17,7 @@ import { queryPages } from '@/application/use-cases/analytics/query-pages'
 import { queryReferrers } from '@/application/use-cases/analytics/query-referrers'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
+  analyticsClickSchema,
   analyticsCollectSchema,
   analyticsQuerySchema,
 } from '@/domain/models/api/analytics/analytics'
@@ -25,6 +26,8 @@ import { matchesAnyGlobPattern } from '@/domain/utils/matching/glob-matcher'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { handleClick } from '@/presentation/api/routes/analytics/click-handler'
+import { handleTargets } from '@/presentation/api/routes/analytics/targets-handler'
 import { unauthorized, validationError } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import { provideAnalyticsLive } from './analytics/effect-runner'
@@ -42,6 +45,8 @@ function parseAnalyticsQuery(
       readonly from: Date
       readonly to: Date
       readonly granularity: 'hour' | 'day' | 'week' | 'month'
+      readonly eventType?: string
+      readonly eventName?: string
     }
   | undefined {
   const fromStr = c.req.query('from')
@@ -63,11 +68,21 @@ function parseAnalyticsQuery(
   const toDate = new Date(parsed.data.to)
   const toEndOfSecond = new Date(Math.ceil(toDate.getTime() / 1000) * 1000 + 999)
 
+  // Which event population to aggregate, and optionally which named event within
+  // it. Both pass straight through to the shared where-clause, which pins the
+  // default at `page_view` — so omitting them reproduces the pre-existing
+  // behaviour exactly, and an unrecognised value returns EMPTY rather than
+  // silently widening to every population.
+  const eventType = c.req.query('event_type')
+  const eventName = c.req.query('event_name')
+
   return {
     appName,
     from: new Date(parsed.data.from),
     to: toEndOfSecond,
     granularity: parsed.data.granularity,
+    ...(eventType === undefined ? {} : { eventType }),
+    ...(eventName === undefined ? {} : { eventName }),
   }
 }
 
@@ -79,6 +94,17 @@ interface AnalyticsRouteConfig {
   readonly retentionDays?: number
   readonly excludedPaths?: readonly string[]
   readonly respectDoNotTrack?: boolean
+  /**
+   * The link table as the LIVE config currently declares it, for naming the
+   * destination each recorded `targetIndex` resolves to today.
+   *
+   * A thunk rather than a value so a reload is reflected without a restart, and
+   * optional so an app without links pays nothing for the reader existing.
+   */
+  readonly resolveLinks?: () => ReadonlyArray<{
+    readonly slug: string
+    readonly destinations: readonly string[]
+  }>
 }
 
 /**
@@ -136,7 +162,7 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
       { concurrency: 'unbounded' }
     ).pipe(
       provideAnalyticsLive,
-      Effect.catchAll(() => Effect.void)
+      Effect.catch(() => Effect.void)
     )
   )
 
@@ -196,23 +222,18 @@ async function handleOverview(c: Context, appName: string): Promise<Response> {
 
   const result = await runRequestEffect(
     c,
-    queryOverview({
-      appName: params.appName,
-      from: params.from,
-      to: params.to,
-      granularity: params.granularity,
-    }).pipe(provideAnalyticsLive, Effect.either)
+    queryOverview(params).pipe(provideAnalyticsLive, Effect.result)
   )
 
-  if (result._tag === 'Left') {
-    logError('[analytics] overview query failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[analytics] overview query failed', result.failure, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query analytics', code: 'INTERNAL_ERROR' },
       500
     )
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -238,19 +259,15 @@ async function handlePages(c: Context, appName: string): Promise<Response> {
 
   const result = await runRequestEffect(
     c,
-    queryPages({
-      appName: params.appName,
-      from: params.from,
-      to: params.to,
-    }).pipe(provideAnalyticsLive, Effect.either)
+    queryPages(params).pipe(provideAnalyticsLive, Effect.result)
   )
 
-  if (result._tag === 'Left') {
-    logError('[analytics] pages query failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[analytics] pages query failed', result.failure, requestLogAttributes(c))
     return c.json({ success: false, message: 'Failed to query pages', code: 'INTERNAL_ERROR' }, 500)
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -276,22 +293,18 @@ async function handleReferrers(c: Context, appName: string): Promise<Response> {
 
   const result = await runRequestEffect(
     c,
-    queryReferrers({
-      appName: params.appName,
-      from: params.from,
-      to: params.to,
-    }).pipe(provideAnalyticsLive, Effect.either)
+    queryReferrers(params).pipe(provideAnalyticsLive, Effect.result)
   )
 
-  if (result._tag === 'Left') {
-    logError('[analytics] referrers query failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[analytics] referrers query failed', result.failure, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query referrers', code: 'INTERNAL_ERROR' },
       500
     )
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -317,22 +330,18 @@ async function handleDevices(c: Context, appName: string): Promise<Response> {
 
   const result = await runRequestEffect(
     c,
-    queryDevices({
-      appName: params.appName,
-      from: params.from,
-      to: params.to,
-    }).pipe(provideAnalyticsLive, Effect.either)
+    queryDevices(params).pipe(provideAnalyticsLive, Effect.result)
   )
 
-  if (result._tag === 'Left') {
-    logError('[analytics] devices query failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[analytics] devices query failed', result.failure, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query devices', code: 'INTERNAL_ERROR' },
       500
     )
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -431,18 +440,18 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
         from: params.from,
         to: params.to,
       })
-    }).pipe(provideAnalyticsLive, Effect.either)
+    }).pipe(provideAnalyticsLive, Effect.result)
   )
 
-  if (result._tag === 'Left') {
-    logError('[analytics] events query failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[analytics] events query failed', result.failure, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query events', code: 'INTERNAL_ERROR' },
       500
     )
   }
 
-  const events = result.right.events.map((event) => ({
+  const events = result.success.events.map((event) => ({
     id: event.id,
     app_name: event.appName,
     event_type: event.eventType,
@@ -454,7 +463,7 @@ async function handleEvents(c: Context, appName: string): Promise<Response> {
     properties: event.properties,
   }))
 
-  return c.json({ events, pagination: result.right.pagination }, 200)
+  return c.json({ events, pagination: result.success.pagination }, 200)
 }
 
 /**
@@ -480,22 +489,18 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
 
   const result = await runRequestEffect(
     c,
-    queryCampaigns({
-      appName: params.appName,
-      from: params.from,
-      to: params.to,
-    }).pipe(provideAnalyticsLive, Effect.either)
+    queryCampaigns(params).pipe(provideAnalyticsLive, Effect.result)
   )
 
-  if (result._tag === 'Left') {
-    logError('[analytics] campaigns query failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[analytics] campaigns query failed', result.failure, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to query campaigns', code: 'INTERNAL_ERROR' },
       500
     )
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -503,6 +508,7 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
  *
  * Provides:
  * - POST /api/analytics/collect - Record page view (public, no auth)
+ * - POST /api/analytics/click - Record outbound click (public, no auth)
  * - GET /api/analytics/overview - Summary + time series (admin only)
  * - GET /api/analytics/pages - Top pages (admin only)
  * - GET /api/analytics/referrers - Top referrers (admin only)
@@ -519,10 +525,14 @@ export function chainAnalyticsRoutes<T extends Hono>(honoApp: T, config: Analyti
     .post('/api/analytics/collect', zValidator('json', analyticsCollectSchema), (c) =>
       handleCollect(c, config)
     )
+    .post('/api/analytics/click', zValidator('json', analyticsClickSchema), (c) =>
+      handleClick(c, config)
+    )
     .get('/api/analytics/overview', (c) => handleOverview(c, appName))
     .get('/api/analytics/pages', (c) => handlePages(c, appName))
     .get('/api/analytics/referrers', (c) => handleReferrers(c, appName))
     .get('/api/analytics/devices', (c) => handleDevices(c, appName))
     .get('/api/analytics/campaigns', (c) => handleCampaigns(c, appName))
+    .get('/api/analytics/targets', (c) => handleTargets(c, config))
     .get('/api/analytics/events', (c) => handleEvents(c, appName)) as T
 }

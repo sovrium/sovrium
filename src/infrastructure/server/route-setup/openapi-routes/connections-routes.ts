@@ -116,7 +116,7 @@ const routes: readonly RouteSpec[] = [
 /** Connection route group — resource-scoped to the configured connections. */
 export const connectionGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Connection',
-  genericTag: 'connections',
+  genericTag: 'Connections',
   genericTagDescription: 'External service connection (OAuth) endpoints',
   collection: (app) => app.connections ?? [],
   resourcePlaceholder: '{connectionSlug}',

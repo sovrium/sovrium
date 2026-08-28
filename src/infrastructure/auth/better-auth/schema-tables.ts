@@ -10,7 +10,17 @@
 // they cannot collide with user-defined application tables in `public`.
 // Relations live in `schema-relations.ts` (split for ESLint max-lines).
 
-import { boolean, index, integer, jsonb, pgSchema, text, timestamp } from 'drizzle-orm/pg-core'
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgSchema,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 
 // Better Auth schema - isolated from main app schema
 export const authSchema = pgSchema('auth')
@@ -73,6 +83,13 @@ export const accounts = authSchema.table(
     id: text('id').primaryKey(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
+    // Account identity is scoped by issuer: `local:credential` for password
+    // accounts, `local:oauth:<providerId>` for social ones. Upstream declares it
+    // required with no default, but it is kept NULLABLE here on purpose — SQLite
+    // cannot ADD COLUMN … NOT NULL without a default, and a PG-only NOT NULL
+    // would diverge the two dialects. Every writer must set it; the value is
+    // produced by `credentialIssuer()` / `oauthIssuer()` in `account-issuer.ts`.
+    issuer: text('issuer'),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -89,7 +106,12 @@ export const accounts = authSchema.table(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index('account_userId_idx').on(table.userId)]
+  (table) => [
+    index('account_userId_idx').on(table.userId),
+    // Name matches the one Better Auth's own migrator generates, so an operator
+    // who ever runs `auth migrate` finds it present and skips it.
+    uniqueIndex('account_issuer_accountId_uidx').on(table.issuer, table.accountId),
+  ]
 )
 
 export const verifications = authSchema.table(
@@ -193,6 +215,9 @@ export const teams = authSchema.table(
     organizationId: text('organization_id')
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
+    // Denormalised member tally. Required upstream but carries a default, so it
+    // can be added NOT NULL on both dialects without a table rebuild.
+    memberCount: integer('member_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
@@ -212,6 +237,9 @@ export const teamMembers = authSchema.table(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    // Idempotency key for team membership. Nullable, and NULLs never collide in
+    // a unique constraint, so pre-existing rows are unaffected.
+    membershipKey: text('membership_key').unique(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
@@ -226,6 +254,10 @@ export const jwks = authSchema.table('jwks', {
   id: text('id').primaryKey(),
   publicKey: text('public_key').notNull(),
   privateKey: text('private_key').notNull(),
+  // Signing algorithm and curve, recorded so a key can be rotated to a
+  // different algorithm without guessing how the stored key was generated.
+  alg: text('alg'),
+  crv: text('crv'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
 })
@@ -236,7 +268,7 @@ export const oauthClients = authSchema.table(
   'oauth_client',
   {
     id: text('id').primaryKey(),
-    clientId: text('client_id').notNull(),
+    clientId: text('client_id').notNull().unique(),
     clientSecret: text('client_secret'),
     disabled: boolean('disabled'),
     skipConsent: boolean('skip_consent'),
@@ -267,6 +299,15 @@ export const oauthClients = authSchema.table(
     public: boolean('public'),
     type: text('type'),
     requirePKCE: boolean('require_pkce'),
+    // OpenID Connect / OAuth 2.1 client metadata.
+    clientDiscoveryId: text('client_discovery_id'),
+    clientCredentialsScopes: text('client_credentials_scopes').array(),
+    backchannelLogoutUri: text('backchannel_logout_uri'),
+    backchannelLogoutSessionRequired: boolean('backchannel_logout_session_required'),
+    applicationType: text('application_type'),
+    jwks: text('jwks'),
+    jwksUri: text('jwks_uri'),
+    dpopBoundAccessTokens: boolean('dpop_bound_access_tokens'),
     metadata: jsonb('metadata'),
   },
   (table) => [
@@ -289,6 +330,14 @@ export const oauthRefreshTokens = authSchema.table(
     scopes: text('scopes').array().notNull(),
     revoked: timestamp('revoked', { withTimezone: true }),
     authTime: timestamp('auth_time', { withTimezone: true }),
+    // Resource-indicator + rotation-replay bookkeeping (OAuth 2.1).
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
+    rotatedAt: timestamp('rotated_at', { withTimezone: true }),
+    rotationReplayResponse: text('rotation_replay_response'),
+    rotationReplayExpiresAt: timestamp('rotation_replay_expires_at', { withTimezone: true }),
+    confirmation: jsonb('confirmation'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },
@@ -311,6 +360,12 @@ export const oauthAccessTokens = authSchema.table(
     userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
     referenceId: text('reference_id'),
     scopes: text('scopes').array().notNull(),
+    // Resource-indicator support + per-token revocation (OAuth 2.1).
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
+    revoked: timestamp('revoked', { withTimezone: true }),
+    confirmation: jsonb('confirmation'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },
@@ -333,6 +388,9 @@ export const oauthConsents = authSchema.table(
     clientId: text('client_id').notNull(),
     referenceId: text('reference_id'),
     scopes: text('scopes').array().notNull(),
+    // What the user consented to, beyond plain scopes.
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
@@ -342,5 +400,62 @@ export const oauthConsents = authSchema.table(
   (table) => [
     index('oauthConsent_userId_idx').on(table.userId),
     index('oauthConsent_clientId_idx').on(table.clientId),
+  ]
+)
+
+// API-key plugin table (`@better-auth/api-key`, model name `apikey`).
+//
+// Mounted only when `auth.apiKeys` is enabled, but the TABLE always exists:
+// migrations are not conditional on an app's config, and a table with no rows
+// costs nothing. The 22 columns mirror the plugin's own `apiKeySchema()`
+// field-for-field — a column the adapter expects and cannot find makes the
+// endpoint 500 rather than degrade, so this is a faithful mirror, not a subset.
+//
+// `referenceId` is the OWNER. The plugin's `references` option is left at its
+// default (`'user'`), so it is always an `auth.user.id` — hence the cascade,
+// which is what makes an erased account take its keys with it (S5). It is NOT
+// declared as polymorphic here because Sovrium never configures the
+// organization-owned mode; if that ever changes, the FK is the thing to revisit.
+//
+// The two millisecond-valued columns are `bigint` rather than `integer`: a
+// refill interval beyond ~24.8 days overflows int32 silently. Both are
+// server-only properties the client path refuses, so the overflow is currently
+// unreachable — `bigint` keeps it unreachable if that ever stops being true.
+export const apiKeys = authSchema.table(
+  'api_key',
+  {
+    id: text('id').primaryKey(),
+    configId: text('config_id').notNull().default('default'),
+    name: text('name'),
+    start: text('start'),
+    prefix: text('prefix'),
+    // The HASHED key (unpadded base64url SHA-256 by default). Never the issued
+    // credential — a database reader must not be able to authenticate.
+    key: text('key').notNull(),
+    referenceId: text('reference_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    refillInterval: bigint('refill_interval', { mode: 'number' }),
+    refillAmount: integer('refill_amount'),
+    lastRefillAt: timestamp('last_refill_at', { withTimezone: true }),
+    enabled: boolean('enabled').default(true),
+    rateLimitEnabled: boolean('rate_limit_enabled').default(true),
+    rateLimitTimeWindow: bigint('rate_limit_time_window', { mode: 'number' }),
+    rateLimitMax: integer('rate_limit_max'),
+    requestCount: integer('request_count').default(0),
+    remaining: integer('remaining'),
+    lastRequest: timestamp('last_request', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    permissions: text('permissions'),
+    metadata: text('metadata'),
+  },
+  (table) => [
+    index('apiKey_referenceId_idx').on(table.referenceId),
+    index('apiKey_configId_idx').on(table.configId),
   ]
 )

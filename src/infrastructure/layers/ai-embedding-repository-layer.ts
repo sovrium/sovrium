@@ -6,33 +6,19 @@
  */
 
 /**
- * Dialect-gated `AiEmbeddingRepository` Layer.
+ * Dialect-gated `AiEmbeddingRepository` Layer — re-export.
  *
- * Selects the embedding repository implementation from the active database
- * dialect — the same dispatch `db-bun.ts` uses to build the Drizzle client:
+ * The Layer itself is defined beside the two implementations it selects
+ * between, in
+ * `infrastructure/database/repositories/ai/ai-embedding-repository-live.ts`.
+ * That placement is deliberate: an application use-case may name a
+ * `*-repository-live` Layer at a composition seam, but `infrastructure/layers/`
+ * is not in `APPLICATION_INFRASTRUCTURE_ALLOWLIST`
+ *, so a definition here would be unreachable
+ * from the agent action handler that needs it.
  *
- *   - `postgres` — `AiEmbeddingRepositoryLive` (pgvector `<=>` cosine search).
- *   - `sqlite`   — `AiEmbeddingRepositorySqlite` (Float32Array BLOBs + app-side
- *     cosine, the zero-config frugal default).
- *
- * Every RAG sync/search Effect program provides this gated Layer (via
- * `RagSyncLayer` in `embed-pipeline.ts`) instead of the Postgres-only `-live`
- * Layer, so the same code path runs on both runtimes.
+ * This module survives as the import path the infrastructure-side RAG pipeline
+ * already uses. One definition, two paths to it.
  */
 
-import { Layer } from 'effect'
-import {
-  AiEmbeddingRepositoryLive,
-  AiEmbeddingRepositorySqlite,
-} from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
-
-/**
- * The active-dialect AI embedding repository. Resolved per process via
- * `isSqliteRuntime()` (reads `DATABASE_URL` through `parseDatabaseDialectConfig`),
- * matching the dialect dispatch in `db-bun.ts`.
- */
-export const AiEmbeddingRepositoryActive: Layer.Layer<AiEmbeddingRepository> = Layer.suspend(() =>
-  isSqliteRuntime() ? AiEmbeddingRepositorySqlite : AiEmbeddingRepositoryLive
-)
+export { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'

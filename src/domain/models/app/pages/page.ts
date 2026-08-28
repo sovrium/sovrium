@@ -314,20 +314,20 @@ export const PageSchema = Schema.Struct({
   collection: Schema.optional(
     Schema.Struct({
       /** Table name to generate pages from (must exist in app.tables) */
-      table: Schema.String.annotations({
+      table: Schema.String.annotate({
         description: 'Table name to generate collection pages from',
       }),
       /** Field name whose value becomes the URL parameter */
-      slugField: Schema.String.annotations({
+      slugField: Schema.String.annotate({
         description: 'Field used as the URL slug parameter',
       }),
       /** Optional filter to limit which records generate pages */
       filter: Schema.optional(
-        Schema.Array(DataFilterSchema).annotations({
+        Schema.Array(DataFilterSchema).annotate({
           description: 'Filter conditions to limit which records generate pages',
         })
       ),
-    }).annotations({
+    }).annotate({
       identifier: 'PageCollection',
       title: 'Page Collection',
       description: 'Template page configuration that generates one route per table record',
@@ -370,24 +370,23 @@ export const PageSchema = Schema.Struct({
    * ```
    */
   rss: Schema.optional(
-    Schema.Union(
-      Schema.Boolean.annotations({
+    Schema.Union([
+      Schema.Boolean.annotate({
         description: 'Enable RSS feed with default settings (20 items)',
       }),
       Schema.Struct({
         /** Maximum number of items in the RSS feed */
         limit: Schema.optional(
-          Schema.Number.pipe(
-            Schema.int(),
-            Schema.greaterThan(0),
-            Schema.annotations({
+          Schema.Finite.pipe(
+            Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+            Schema.annotate({
               description: 'Maximum number of items in the RSS feed',
               examples: [10, 20, 50],
             })
           )
         ),
-      })
-    ).annotations({
+      }),
+    ]).annotate({
       identifier: 'PageRss',
       title: 'RSS Feed Configuration',
       description: 'RSS feed generation for collection pages',
@@ -441,7 +440,7 @@ export const PageSchema = Schema.Struct({
    */
   presence: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Enable real-time presence awareness for this page',
       })
     )
@@ -494,16 +493,16 @@ export const PageSchema = Schema.Struct({
    * ```
    */
   dataSource: Schema.optional(
-    Schema.Union(
+    Schema.Union([
       DataSourceSchema,
       Schema.Struct({
         /** System detail-endpoint binding (mutually exclusive with the DB-table form) */
         system: SystemDetailSourceSchema,
-      }).annotations({
+      }).annotate({
         title: 'Page System Detail Source',
         description: 'System detail-endpoint binding for a page-level single-record context',
-      })
-    ).annotations({
+      }),
+    ]).annotate({
       identifier: 'PageDataSourceBinding',
       title: 'Page Data Source',
       description:
@@ -524,14 +523,14 @@ export const PageSchema = Schema.Struct({
    * ```
    */
   allowedTables: Schema.optional(
-    Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(
-      Schema.annotations({
+    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
+      Schema.annotate({
         description: 'Tables accessible from this page context (e.g., for AI chat scoping)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Page',
     title: 'Page',
     description:

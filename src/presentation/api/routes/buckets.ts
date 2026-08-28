@@ -10,6 +10,7 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { deriveImplicitBucketPermissions } from '@/domain/models/app/buckets/implicit-default-permissions'
 import {
   isFilePublic,
   resolveStoragePublicAccess,
@@ -40,6 +41,7 @@ import {
   applyImageTransform,
   mimeForFormat,
   resolveTransformOutputFormat,
+  type ImageTransformFailure,
 } from '@/infrastructure/storage/apply-image-transform'
 import {
   evictTransformCacheForKey,
@@ -122,11 +124,11 @@ function createHandleGetBucketFile(app: App) {
 
 /**
  * Resolve any on-the-fly image transform request for a bucket download and
- * stream the result. Handles `?width=&height=&fit=&crop=&format=&quality=`
+ * stream the result. Handles `?width=&height=&fit=&format=&quality=`
  * plus the named `?preset=` shorthand (resolved from the operator-controlled
  * `STORAGE_TRANSFORM_PRESETS` env var).
  *
- * Invalid transform parameters (a focal point outside 0-100, an unsupported
+ * Invalid transform parameters (the withdrawn `crop`, an unsupported `fit` or
  * `format`, an unknown preset name, or a `?preset=` with no presets configured)
  * are rejected with HTTP 400 before the storage lookup runs. Even without
  * explicit transform params, an image download may still be transcoded by
@@ -215,8 +217,8 @@ function buildTransformResponse(
  * (the upload handler stores keys as `<uuid>-<original-filename>`).
  *
  * The downloaded image bytes are passed through the on-the-fly image transform
- * pipeline (resize + crop + format negotiation). The transform is graceful:
- * if it cannot be applied the original bytes are served unchanged.
+ * pipeline (resize + format negotiation). A transform that cannot be performed
+ * is reported as an HTTP error rather than degrading to the stored bytes.
  *
  * Transform results are cached in an in-memory LRU cache keyed by the storage
  * key + transform params + negotiated output format. The first request runs
@@ -257,14 +259,42 @@ async function serveFileDownload(
 }
 
 /**
+ * Turn a transform failure into HTTP.
+ *
+ * An undecodable stored file, or an encoder this build does not carry, is a
+ * `400`: the caller asked for something this file or this machine cannot
+ * produce, and saying so is the entire reason the silent passthrough was
+ * removed. Anything else is a genuine server fault and reports as `500`.
+ */
+function transformFailureResponse(c: Context, failure: ImageTransformFailure): Response {
+  if (failure.reason === 'failed') {
+    logError('[buckets] image transform failed', failure.message)
+    return c.json(
+      {
+        success: false,
+        error: `Image transform failed: ${failure.message}`,
+        code: 'TRANSFORM_ERROR',
+      },
+      500
+    )
+  }
+  const error =
+    failure.reason === 'undecodable'
+      ? `Stored file is not a decodable image: ${failure.message}`
+      : `Requested image format is not available on this server: ${failure.message}`
+  return c.json({ success: false, error, code: 'BAD_REQUEST' }, 400)
+}
+
+/**
  * Cache-miss path of {@link serveFileDownload}: download the source bytes from
  * storage, run the on-the-fly image transform, populate the transform cache,
  * and build the HTTP response. Extracted so `serveFileDownload` stays under
  * the per-function statement limit.
  *
- * `applyImageTransform` never throws — it degrades to the original bytes if
- * Sharp is unavailable or the input is not a decodable image. The `Accept`
- * header drives format negotiation when no explicit `format` was supplied.
+ * `applyImageTransform` reports failure instead of degrading to the original
+ * bytes: an undecodable stored file, or an encoder this machine does not have,
+ * becomes an HTTP error the operator can see. The `Accept` header drives format
+ * negotiation when no explicit `format` was supplied.
  */
 async function produceTransformResponse(
   c: Context,
@@ -277,15 +307,15 @@ async function produceTransformResponse(
     return yield* storage.download(key)
   })
 
-  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
-  if (result._tag === 'Left') {
-    const { cause } = result.left as { readonly cause?: unknown }
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))
+  if (result._tag === 'Failure') {
+    const { cause } = result.failure as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
     // Single canonical "is 404?" — see `isNotFoundError` for the patterns
     // covered (S3 NoSuchKey, local ENOENT, bytea "File not found", etc.).
     const isNotFound = isNotFoundError(cause)
     if (!isNotFound) {
-      logError('[buckets] download (transform path) failed', result.left)
+      logError('[buckets] download (transform path) failed', result.failure)
     }
     return c.json(
       {
@@ -297,7 +327,8 @@ async function produceTransformResponse(
     )
   }
 
-  const transformed = await applyImageTransform(result.right, transform, ctx.acceptHeader)
+  const transformed = await applyImageTransform(result.success, transform, ctx.acceptHeader)
+  if (!transformed.ok) return transformFailureResponse(c, transformed)
   // When the transform produced a concrete output format the Content-Type
   // reflects that format; otherwise fall back to the stored filename suffix.
   const contentType = transformed.format ? mimeForFormat(transformed.format) : inferMimeFromKey(key)
@@ -319,7 +350,7 @@ function stripUuidPrefix(key: string): string {
 }
 
 /**
- * Resolve the bucket for an upload request, falling back to an implicit
+ * Resolve the bucket for a file request, falling back to an implicit
  * 'default' bucket when no explicit configuration is found.
  *
  * The implicit default bucket is private (`public: false`) when the app
@@ -327,11 +358,22 @@ function stripUuidPrefix(key: string): string {
  * has no auth configured there is no session system to gate against, so
  * the implicit default bucket is public, allowing anonymous uploads (used
  * by page-component forms with file-upload fields).
+ *
+ * It also inherits the strictest role list the app's DECLARED buckets state for
+ * each file action. Without that, an app declaring a single admin-only bucket
+ * still exposed every one of its objects to any signed-in caller through this
+ * phantom bucket, because storage keys are flat and carry no bucket — see
+ * {@link deriveImplicitBucketPermissions} for the full rule and its bounds
+ * (`[internal ref]`/`-017`).
  */
 function resolveUploadBucket(app: App, bucketName: string | undefined): Bucket | undefined {
   const explicit = app.buckets?.find((b) => b.name === bucketName)
   if (explicit) return explicit
-  return bucketName === 'default' ? { name: 'default', public: !app.auth } : undefined
+  if (bucketName !== 'default') return undefined
+  const permissions = deriveImplicitBucketPermissions(app.buckets)
+  return permissions === undefined
+    ? { name: 'default', public: !app.auth }
+    : { name: 'default', public: !app.auth, permissions }
 }
 
 /**
@@ -628,11 +670,11 @@ async function persistUpload(c: Context, file: File, explicitPath?: string): Pro
     yield* storage.upload(key, content, mimeType)
   })
 
-  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
-  if (result._tag === 'Left') {
-    const { cause } = result.left as { readonly cause?: unknown }
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))
+  if (result._tag === 'Failure') {
+    const { cause } = result.failure as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
-    logError('[buckets] upload failed', result.left)
+    logError('[buckets] upload failed', result.failure)
     return c.json(
       { success: false, error: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
       500
@@ -657,21 +699,21 @@ async function checkStorageQuota(c: Context, incomingSize: number): Promise<Resp
 
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    return yield* storage.getTotalBytes()
+    return yield* storage.getTotalBytes
   })
 
-  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
-  if (result._tag === 'Left') {
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))
+  if (result._tag === 'Failure') {
     // Quota probe failed — do not block the upload on infrastructure error;
     // the upload itself will surface any genuine connectivity issue.
     return undefined
   }
 
-  if (result.right + incomingSize > maxTotalSize) {
+  if (result.success + incomingSize > maxTotalSize) {
     return c.json(
       {
         success: false,
-        error: `Storage quota exceeded: ${result.right + incomingSize} > ${maxTotalSize} bytes`,
+        error: `Storage quota exceeded: ${result.success + incomingSize} > ${maxTotalSize} bytes`,
         code: 'QUOTA_EXCEEDED',
       },
       507
@@ -711,13 +753,13 @@ function createHandleDeleteBucketFile(app: App) {
       yield* storage['delete'](key)
     })
 
-    const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
-    if (result._tag === 'Left') {
-      const { cause } = result.left as { readonly cause?: unknown }
+    const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))
+    if (result._tag === 'Failure') {
+      const { cause } = result.failure as { readonly cause?: unknown }
       const isNotFound = isNotFoundError(cause)
       const message = cause instanceof Error ? cause.message : String(cause)
       if (!isNotFound) {
-        logError('[buckets] delete failed', result.left)
+        logError('[buckets] delete failed', result.failure)
       }
       return c.json(
         {

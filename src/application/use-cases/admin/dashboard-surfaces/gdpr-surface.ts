@@ -41,6 +41,8 @@
  */
 
 import { homeCrumb, wrapInShell, type ShellBreadcrumbItem } from './dashboard-shell-surface'
+import { dataPageIntro } from './data-object-rail'
+import { accountCrossLink } from './profile-surface'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -91,7 +93,7 @@ function identityCard(): Component {
     children: [
       {
         type: 'text',
-        element: 'h3',
+        element: 'h2',
         props: { className: 'text-foreground text-lg font-semibold' },
         content: 'My identity',
       },
@@ -119,7 +121,7 @@ function exportCard(): Component {
     children: [
       {
         type: 'text',
-        element: 'h3',
+        element: 'h2',
         props: { className: 'text-foreground text-lg font-semibold' },
         content: 'Export my data',
       },
@@ -193,7 +195,7 @@ function eraseCard(): Component {
     children: [
       {
         type: 'text',
-        element: 'h3',
+        element: 'h2',
         props: { className: 'text-error-fg text-lg font-semibold' },
         content: 'Erase my account',
       },
@@ -297,8 +299,6 @@ export interface GdprOptions {
   readonly appName?: string
   /** Operator config version (`app.version`); seeds the sidebar version chip. */
   readonly appVersion?: string
-  /** Operator published config; seeds the read-through count badges. */
-  readonly publishedSnapshot: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -310,18 +310,28 @@ export interface GdprOptions {
  * @param options - tier + shell concerns
  */
 export function buildGdprPage(title: string, options: GdprOptions): Page {
-  const { canEdit, appName, appVersion, publishedSnapshot } = options
-  // The profile menu's "My account" opens this page, so the breadcrumb leaf reads
-  // "My account" — the operator's own account (identity + GDPR self-service).
-  const breadcrumb: ReadonlyArray<ShellBreadcrumbItem> = [
-    homeCrumb(appName),
-    { label: 'My account' },
-  ]
+  const { canEdit, appName, appVersion } = options
+  // [internal ref] split the operator's own account in two. This page is the DATA half —
+  // what the instance holds about me and how I get it out or erase it. The
+  // IDENTITY half (name / email / password) moved to `/_admin/profile`, which is
+  // now what the profile menu's "My account" opens.
+  const breadcrumb: ReadonlyArray<ShellBreadcrumbItem> = [homeCrumb(appName), { label: 'My data' }]
   const body: Component = {
     type: 'container',
     element: 'div',
     props: { className: 'flex max-w-3xl flex-col gap-6' },
     children: [
+      // The page heading the cards sit under, routed through the same helper as
+      // every other console page. Without it this page's outline began at a card
+      // heading, which reads to a screen reader as a section of an absent parent.
+      // The breadcrumb's own words come first — an operator arriving from
+      // "Export or erase my data" should meet the page they clicked — with the
+      // regime named after them, because "GDPR" is what someone hunting for
+      // these controls searches the console for.
+      dataPageIntro(
+        'My data (GDPR)',
+        'What this instance holds about you, and how to take it out or erase it.'
+      ),
       identityCard(),
       {
         type: 'container',
@@ -330,6 +340,9 @@ export function buildGdprPage(title: string, options: GdprOptions): Page {
         children: [exportCard(), eraseCard()],
       },
       pendingTable(),
+      // The other half of the account. Both pages carry a cross-link: a split is
+      // only an improvement while both halves stay findable from either one.
+      accountCrossLink('/_admin/profile', 'Change my name, email or password'),
     ],
   } as unknown as Component
   return {
@@ -342,7 +355,6 @@ export function buildGdprPage(title: string, options: GdprOptions): Page {
       appName,
       appVersion,
       breadcrumb,
-      publishedSnapshot,
     }),
   } as Page
 }

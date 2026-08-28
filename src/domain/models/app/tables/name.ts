@@ -19,7 +19,7 @@ import { createDatabaseIdentifierSchema } from '@/domain/validators/database-ide
  * ```
  */
 export const NameSchema = createDatabaseIdentifierSchema('table').pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Name',
     description:
       'User-friendly name for the table. Can contain spaces, mixed case, and special characters. Will be automatically sanitized for database use (lowercase with underscores). Maximum 63 characters. Choose descriptive names that clearly indicate the purpose.',

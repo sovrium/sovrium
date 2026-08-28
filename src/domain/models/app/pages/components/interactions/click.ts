@@ -18,14 +18,14 @@ import { Schema } from 'effect'
  * - ripple: Material Design ripple from click point
  * - none: No animation
  */
-export const ClickAnimationSchema = Schema.Literal(
+export const ClickAnimationSchema = Schema.Literals([
   'pulse',
   'bounce',
   'shake',
   'flash',
   'ripple',
-  'none'
-).annotations({
+  'none',
+]).annotate({
   description: 'Animation to trigger on click',
 })
 
@@ -40,10 +40,12 @@ export const ClickAnimationSchema = Schema.Literal(
  * ```
  */
 export const ElementIdSelectorSchema = Schema.String.pipe(
-  Schema.pattern(/^#[a-zA-Z][a-zA-Z0-9-]*$/, {
-    message: () =>
-      'Element ID selector must start with # followed by a letter, then alphanumeric characters and hyphens',
-  })
+  Schema.check(
+    Schema.isPattern(/^#[a-zA-Z][a-zA-Z0-9-]*$/, {
+      message:
+        'Element ID selector must start with # followed by a letter, then alphanumeric characters and hyphens',
+    })
+  )
 )
 
 /**
@@ -87,34 +89,34 @@ export const ElementIdSelectorSchema = Schema.String.pipe(
 export const ClickInteractionSchema = Schema.Struct({
   animation: Schema.optional(ClickAnimationSchema),
   navigate: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Path to navigate to',
       examples: ['/contact', '/pricing', '#section-id'],
     })
   ),
   openUrl: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'External URL to open',
     })
   ),
   openInNewTab: Schema.optional(Schema.Boolean),
   scrollTo: Schema.optional(ElementIdSelectorSchema),
   toggleElement: Schema.optional(
-    ElementIdSelectorSchema.annotations({
+    ElementIdSelectorSchema.annotate({
       description: 'Element ID to show/hide',
     })
   ),
   submitForm: Schema.optional(
-    ElementIdSelectorSchema.annotations({
+    ElementIdSelectorSchema.annotate({
       description: 'Form ID to submit',
     })
   ),
   modal: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Modal section ID to open when clicked',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Click Interaction',
   description: 'Actions triggered when component is clicked',
 })

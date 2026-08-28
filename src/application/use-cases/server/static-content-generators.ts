@@ -6,6 +6,7 @@
  */
 
 import {
+  isPageInSitemap,
   resolveSitemapChangefreq,
   resolveSitemapPriority,
 } from '@/domain/services/feeds/sitemap-builder'
@@ -202,15 +203,17 @@ interface ExpandedPage {
 /**
  * Filter to indexable pages and expand each into its concrete URL paths
  * (contentDir pages fan out to one path per markdown file).
+ *
+ * The eligibility predicate is the DOMAIN's `isPageInSitemap`, not a local
+ * copy of it. This function previously inlined a byte-equivalent
+ * duplicate, and the two drifted the moment `access` had to be honoured: the
+ * live route and the static build are the two halves of the same contract, and
+ * a build that withholds a gated page's HTML while advertising its URL in the
+ * sitemap it writes beside it hands every crawler a guaranteed 404. One
+ * predicate means they cannot disagree again.
  */
 const collectExpandedPages = async (pages: readonly Page[]): Promise<readonly ExpandedPage[]> => {
-  const indexablePages = pages.filter(
-    (page) =>
-      !page.meta?.noindex &&
-      !(page.meta?.robots && page.meta.robots.includes('noindex')) &&
-      !page.path.startsWith('/_') &&
-      page.sitemap !== false
-  )
+  const indexablePages = pages.filter(isPageInSitemap)
   const expanded = await Promise.all(
     indexablePages.map(async (page) => ({ page, paths: await expandPagePaths(page) }))
   )

@@ -34,11 +34,13 @@ export * from './twitter'
  * ISO 639-1 language code with optional ISO 3166-1 country code.
  */
 export const LanguageCodeSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
-    message: () =>
-      'Language code must be ISO 639-1 format with optional country (e.g., en, en-US, fr-FR, es-ES)',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
+      message:
+        'Language code must be ISO 639-1 format with optional country (e.g., en, en-US, fr-FR, es-ES)',
+    })
+  )
+).annotate({
   description: 'Page language code (ISO 639-1 with optional country)',
   examples: ['en-US', 'fr-FR', 'es-ES', 'de-DE'],
 })
@@ -52,53 +54,53 @@ export const LanguageCodeSchema = Schema.String.pipe(
  */
 export const MetaSchema = Schema.Struct({
   lang: Schema.optional(
-    LanguageCodeSchema.annotations({
+    LanguageCodeSchema.annotate({
       description: 'Page language code (optional - uses auto-detection if not specified)',
     })
   ),
-  title: Schema.String.pipe(Schema.maxLength(60)).annotations({
+  title: Schema.String.pipe(Schema.check(Schema.isMaxLength(60))).annotate({
     description: 'Page title for browser tab and SEO (max 60 characters for optimal display)',
   }),
   description: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(160)).annotations({
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(160))).annotate({
       description: 'Page description for SEO and social sharing (max 160 characters)',
     })
   ),
   keywords: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Comma-separated keywords for SEO',
     })
   ),
   author: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Page author or organization name',
     })
   ),
   canonical: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Canonical URL to prevent duplicate content issues',
       format: 'uri',
     })
   ),
   robots: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Robot directives (e.g., noindex, nofollow, noindex, nofollow)',
     })
   ),
   noindex: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Prevent indexing by search engines (shorthand for robots: noindex)',
     })
   ),
   favicon: Schema.optional(FaviconSchema),
-  favicons: Schema.optional(Schema.Union(FaviconSetSchema, FaviconsConfigSchema)),
+  favicons: Schema.optional(Schema.Union([FaviconSetSchema, FaviconsConfigSchema])),
   stylesheet: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Path to the main stylesheet',
     })
   ),
   googleFonts: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Google Fonts URL',
       format: 'uri',
     })
@@ -106,7 +108,7 @@ export const MetaSchema = Schema.Struct({
   openGraph: Schema.optional(OpenGraphSchema),
   twitter: Schema.optional(TwitterCardSchema),
   schema: Schema.optional(
-    Schema.Unknown.annotations({
+    Schema.Unknown.annotate({
       description:
         'Schema.org structured data - accepts orchestrator format (organization, faqPage, etc.) or direct Schema.org object (@context, @type, ...)',
     })
@@ -114,38 +116,38 @@ export const MetaSchema = Schema.Struct({
   preload: Schema.optional(PreloadSchema),
   dnsPrefetch: Schema.optional(DnsPrefetchSchema),
   analytics: Schema.optional(
-    Schema.Union(Schema.Record({ key: Schema.String, value: Schema.Unknown }), AnalyticsSchema)
+    Schema.Union([Schema.Record(Schema.String, Schema.Unknown), AnalyticsSchema])
   ),
   customElements: Schema.optional(CustomElementsSchema),
   // Aliases for test compatibility
   twitterCard: Schema.optional(TwitterCardSchema),
   structuredData: Schema.optional(Schema.Unknown),
   'og:site_name': Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'OpenGraph site name (shorthand for openGraph.siteName)',
     })
   ),
   // Internationalization for metadata
   i18n: Schema.optional(
-    Schema.Record({
-      key: LanguageCodeSchema,
-      value: Schema.Struct({
+    Schema.Record(
+      LanguageCodeSchema,
+      Schema.Struct({
         title: Schema.optional(
-          Schema.String.pipe(Schema.maxLength(60)).annotations({
+          Schema.String.pipe(Schema.check(Schema.isMaxLength(60))).annotate({
             description: 'Translated page title (max 60 characters)',
           })
         ),
         description: Schema.optional(
-          Schema.String.pipe(Schema.maxLength(160)).annotations({
+          Schema.String.pipe(Schema.check(Schema.isMaxLength(160))).annotate({
             description: 'Translated page description (max 160 characters)',
           })
         ),
-      }),
-    }).annotations({
+      })
+    ).annotate({
       description: 'Localized metadata translations per language',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Page Metadata',
   description:
     'Comprehensive page metadata including SEO, social media, structured data, performance, and analytics',

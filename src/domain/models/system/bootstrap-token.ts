@@ -31,12 +31,12 @@ import { Data, Schema } from 'effect'
 
 export const BootstrapTokenSchema = Schema.Struct({
   /** SHA-256 hex digest of the plaintext token. Primary key. */
-  tokenHash: Schema.String.pipe(Schema.minLength(64), Schema.maxLength(64)),
-  expiresAt: Schema.DateFromSelf,
-  usedAt: Schema.optional(Schema.DateFromSelf),
-  createdAt: Schema.DateFromSelf,
+  tokenHash: Schema.String.pipe(Schema.check(Schema.isMinLength(64), Schema.isMaxLength(64))),
+  expiresAt: Schema.Date,
+  usedAt: Schema.optional(Schema.Date),
+  createdAt: Schema.Date,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'BootstrapToken',
     title: 'Bootstrap Token (persisted hash)',
     description: 'One-time bootstrap token persisted as SHA-256 hash. Plaintext is never stored.',
@@ -50,11 +50,11 @@ export type BootstrapToken = typeof BootstrapTokenSchema.Type
 // ---------------------------------------------------------------------------
 
 export const BootstrapTokenClaimSchema = Schema.Struct({
-  email: Schema.String.pipe(Schema.minLength(3)),
-  password: Schema.String.pipe(Schema.minLength(8)),
-  name: Schema.String.pipe(Schema.minLength(1)),
+  email: Schema.String.pipe(Schema.check(Schema.isMinLength(3))),
+  password: Schema.String.pipe(Schema.check(Schema.isMinLength(8))),
+  name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'BootstrapTokenClaim',
     title: 'Bootstrap Token Claim Payload',
     description:

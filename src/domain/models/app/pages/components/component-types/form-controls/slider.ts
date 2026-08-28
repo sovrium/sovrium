@@ -14,19 +14,19 @@ export const SliderTypeLiteral = Schema.Literal('slider')
 export const sliderFields = {
   ...coreFields,
   ...visibilityFields,
-  min: Schema.optional(Schema.Number.annotations({ description: 'Minimum value for slider' })),
-  max: Schema.optional(Schema.Number.annotations({ description: 'Maximum value for slider' })),
+  min: Schema.optional(Schema.Finite.annotate({ description: 'Minimum value for slider' })),
+  max: Schema.optional(Schema.Finite.annotate({ description: 'Maximum value for slider' })),
   step: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Step increment for slider' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Step increment for slider' })
     )
   ),
   showValue: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Display the current slider value' })
+    Schema.Boolean.annotate({ description: 'Display the current slider value' })
   ),
   defaultValue: Schema.optional(
-    Schema.Union(Schema.String, Schema.Number, Schema.Boolean).annotations({
+    Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
       description: 'Default value for form controls (select, radio-group, slider, etc.)',
     })
   ),

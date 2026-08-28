@@ -16,8 +16,8 @@ import { Schema } from 'effect'
  * - `page_view` — Automatically recorded when a visitor navigates to a page.
  * - `track` — Explicitly recorded via the tracking API or automation actions.
  */
-export const AnalyticsEventTypeSchema = Schema.Literal('page_view', 'track').pipe(
-  Schema.annotations({
+export const AnalyticsEventTypeSchema = Schema.Literals(['page_view', 'track']).pipe(
+  Schema.annotate({
     identifier: 'AnalyticsEventType',
     title: 'Analytics Event Type',
     description: 'Discriminator for page view events vs custom tracking events',

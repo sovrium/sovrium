@@ -26,12 +26,10 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const GeolocationFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('geolocation'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('geolocation'),
+  }),
+  Schema.annotate({
     title: 'Geolocation Field',
     description:
       'Stores geographic coordinates (latitude and longitude). Used for location-based features.',

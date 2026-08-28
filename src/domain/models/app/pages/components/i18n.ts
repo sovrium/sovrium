@@ -26,22 +26,24 @@ import { ComponentPropsSchema } from '../../components/props'
  *     content: Bienvenido
  * ```
  */
-export const ComponentI18nSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
-      message: () => 'Language code must be ISO 639-1 format (e.g., en-US, fr-FR)',
-    })
+export const ComponentI18nSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
+        message: 'Language code must be ISO 639-1 format (e.g., en-US, fr-FR)',
+      })
+    )
   ),
-  value: Schema.Struct({
+  Schema.Struct({
     content: Schema.optional(
-      Schema.String.annotations({
+      Schema.String.annotate({
         description: 'Translated content text',
       })
     ),
     props: Schema.optional(ComponentPropsSchema),
-  }),
-}).pipe(
-  Schema.annotations({
+  })
+).pipe(
+  Schema.annotate({
     identifier: 'ComponentI18n',
     title: 'Component I18n',
     description: 'Localized translations per language for this component',

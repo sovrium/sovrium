@@ -70,6 +70,7 @@ export const TEXT_HELPERS = [
   'titleCase',
   'sentenceCase',
   'camelCase',
+  'pascalCase',
   'snakeCase',
   'kebabCase',
   'slugify',
@@ -94,6 +95,7 @@ export const TEXT_HELPERS = [
   'escapeHtml',
   'unescapeHtml',
   'pluralize',
+  'concat',
 ] as const
 
 /** Number formatting and arithmetic helpers */
@@ -114,7 +116,6 @@ export const NUMBER_HELPERS = [
   'percentage',
   'formatNumber',
   'formatCurrency',
-  'random',
   'isEven',
   'isOdd',
 ] as const
@@ -122,21 +123,42 @@ export const NUMBER_HELPERS = [
 /**
  * Date/time formatting and manipulation helpers.
  *
- * Date format tokens (Luxon-compatible):
- *   YYYY — 4-digit year (2026)
- *   YY   — 2-digit year (26)
- *   MM   — Month 01-12
- *   MMM  — Short month (Mar)
- *   MMMM — Full month (March)
- *   DD   — Day 01-31
- *   dd   — Short weekday (Mon)
- *   dddd — Full weekday (Monday)
- *   HH   — Hour 24h 00-23
- *   hh   — Hour 12h 01-12
- *   mm   — Minute 00-59
- *   ss   — Second 00-59
- *   A    — AM/PM
- *   Z    — Timezone offset (+05:00)
+ * ## Format tokens — a CLOSED set
+ *
+ * The vocabulary is defined once, in `src/domain/services/date-tokens.ts`, and
+ * is deliberately CLOSED: an unrecognised letter outside a quoted literal is a
+ * failure, never a silent pass-through. Implying a full date-library
+ * vocabulary would oblige us to deliver all of it.
+ *
+ *   yyyy — Calendar year, 4 digits (2026)      (legacy alias: YYYY)
+ *   MM   — Month, 2 digits (01-12)
+ *   dd   — Day of month, 2 digits (01-31)      (legacy alias: DD)
+ *   HH   — Hour, 24-hour, 2 digits (00-23)
+ *   mm   — Minute, 2 digits (00-59)
+ *   ss   — Second, 2 digits (00-59)
+ *   MMMM — Month name, full, localised (March / mars)
+ *   MMM  — Month name, short, localised (Mar / mars)
+ *   EEEE — Weekday name, full, localised (Saturday / samedi)
+ *   EEE  — Weekday name, short, localised (Sat / sam.)
+ *
+ * To emit a literal letter, quote it: `"dd 'de' MMMM"`.
+ *
+ * ## Timezone and locale
+ *
+ * `formatDate`, `parseDate`, `today`, `startOf`, `endOf`, `dayOfWeek`,
+ * `isWeekday` and `isWeekend` accept OPTIONAL trailing `timezone` (IANA) and,
+ * where names are rendered, `locale` (BCP 47) arguments. Both default to `UTC`
+ * and `en-US` so output is deterministic rather than host-dependent.
+ *
+ *   {{formatDate trigger.data.createdAt "yyyy-MM-dd"}}
+ *   {{formatDate trigger.data.createdAt "dd MMMM yyyy" "Europe/Paris" "fr-FR"}}
+ *
+ * There is deliberately no `toTimezone` helper: an instant carries no zone, so
+ * a "convert" that returned an instant would be a no-op that teaches the wrong
+ * mental model. Rendering in a zone is what `formatDate`'s timezone argument
+ * does. Nor are there `isBefore`/`isAfter` helpers — ordered comparison is
+ * `{{gt}}`/`{{lt}}` here and the `greaterThan`/`lessThan` comparators in a
+ * condition group; a third spelling would be a third place to keep in sync.
  */
 export const DATE_HELPERS = [
   'now',
@@ -150,16 +172,15 @@ export const DATE_HELPERS = [
   'addYears',
   'subtractDays',
   'subtractHours',
+  'subtractMinutes',
   'subtractMonths',
+  'subtractYears',
   'dateDiff',
   'startOf',
   'endOf',
-  'toTimezone',
   'dayOfWeek',
   'isWeekday',
   'isWeekend',
-  'isBefore',
-  'isAfter',
   'timestamp',
   'fromTimestamp',
 ] as const
@@ -188,8 +209,6 @@ export const COLLECTION_HELPERS = [
   'includes',
   'unique',
   'flatten',
-  'sortAsc',
-  'sortDesc',
   'reverseArray',
   'count',
   'keys',
@@ -204,6 +223,7 @@ export const COLLECTION_HELPERS = [
 /** Logic and conditional helpers */
 export const LOGIC_HELPERS = [
   'if',
+  'ifValue',
   'ifEmpty',
   'default',
   'coalesce',
@@ -225,6 +245,8 @@ export const ENCODING_HELPERS = [
   'decodeUri',
   'encodeUriComponent',
   'decodeUriComponent',
+  'urlEncode',
+  'urlDecode',
   'base64Encode',
   'base64Decode',
   'md5',
@@ -285,7 +307,7 @@ export type TemplateHelper = (typeof ALL_HELPERS)[number]
  * ```
  */
 export const TemplateStringSchema = Schema.String.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Template String',
     description:
       'String with {{step.property}} variables, {{helper args}} expressions, and $env.VAR references',

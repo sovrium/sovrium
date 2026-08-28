@@ -23,7 +23,6 @@
  */
 
 import { Effect } from 'effect'
-import { type Context } from 'hono'
 import {
   collectAssignmentScopeTables,
   loadCurrentUserContext,
@@ -53,8 +52,10 @@ import { handleAutomationCall, resolveAutomationTool } from './automation-call'
 import {
   applyMcpFieldExposureToRecord,
   applyMcpFieldExposureToRecords,
-  jsonRpcError,
-  jsonRpcSuccess,
+  findFirstMultiSelectViolation,
+  toolFailure,
+  toolSuccess,
+  type McpToolResult,
   runProgramAsToolResult,
 } from './tool-call-helpers'
 import type { McpCaller } from './auth'
@@ -73,7 +74,6 @@ const SUPPORTED_OPERATIONS: ReadonlySet<AiAccessOperation> = new Set([
 interface CallEnvelope {
   readonly toolName: string
   readonly args: Record<string, unknown>
-  readonly responseId: number | string
 }
 
 interface ResolvedTool {
@@ -88,18 +88,17 @@ interface ResolvedTool {
  * the client always sees a parseable JSON-RPC body.
  */
 export async function handleToolsCall(
-  c: Readonly<Context>,
   app: App,
   caller: McpCaller,
   envelope: CallEnvelope
-): Promise<Response> {
+): Promise<McpToolResult> {
   // M-8: Manual-trigger automation tools take precedence over the
   // table-record dispatcher because the `_automation_` infix is
   // unambiguous (table tools end in one of the 5 CRUD operation
   // suffixes; automation tools live under a dedicated infix).
   const automation = resolveAutomationTool(app, envelope.toolName)
   if (automation !== undefined) {
-    return handleAutomationCall({ c, app, caller, automation, envelope })
+    return handleAutomationCall({ app, caller, automation, envelope })
   }
 
   // M-9: Action-template tools share the same infix-based separation as
@@ -110,20 +109,20 @@ export async function handleToolsCall(
   // it owns.
   const template = resolveActionTemplateTool(app, envelope.toolName)
   if (template !== undefined) {
-    return handleActionCall({ c, app, caller, template, envelope })
+    return handleActionCall({ app, caller, template, envelope })
   }
 
   const resolved = resolveTool(app, envelope.toolName)
   if (resolved === undefined) {
-    return jsonRpcError(c, envelope.responseId, -32_601, `Tool not found: ${envelope.toolName}`)
+    return toolFailure(-32_601, `Tool not found: ${envelope.toolName}`)
   }
 
   const opGateError = checkOperationGate(resolved.table, resolved.operation, caller.role)
   if (opGateError !== undefined) {
-    return jsonRpcError(c, envelope.responseId, -32_603, opGateError)
+    return toolFailure(-32_603, opGateError)
   }
 
-  return executeTool({ c, app, caller, envelope, resolved })
+  return executeTool({ app, caller, envelope, resolved })
 }
 
 /**
@@ -178,7 +177,6 @@ function checkOperationGate(
 }
 
 interface ExecuteToolInput {
-  readonly c: Readonly<Context>
   readonly app: App
   readonly caller: McpCaller
   readonly envelope: CallEnvelope
@@ -192,28 +190,27 @@ interface ExecuteToolInput {
  * (field-write violation, scoped-row-out-of-bounds, soft-deleted) bubble
  * up as -32602 / -32603 per the user-story spec.
  */
-async function executeTool(input: ExecuteToolInput): Promise<Response> {
-  const { c, app, caller, envelope, resolved } = input
+async function executeTool(input: ExecuteToolInput): Promise<McpToolResult> {
+  const { app, caller, envelope, resolved } = input
   const { operation, table } = resolved
   const session = synthesizeSession(caller.userId)
 
   if (operation === 'list') {
-    return executeList({ c, app, caller, envelope, table, session })
+    return executeList({ app, caller, envelope, table, session })
   }
   if (operation === 'read') {
-    return executeRead({ c, app, caller, envelope, table, session })
+    return executeRead({ app, caller, envelope, table, session })
   }
   if (operation === 'create') {
-    return executeCreate({ c, app, caller, envelope, table, session })
+    return executeCreate({ app, caller, envelope, table, session })
   }
   if (operation === 'update') {
-    return executeUpdate({ c, app, caller, envelope, table, session })
+    return executeUpdate({ app, caller, envelope, table, session })
   }
-  return executeDelete({ c, app, caller, envelope, table, session })
+  return executeDelete({ app, caller, envelope, table, session })
 }
 
 interface ExecBranchInput {
-  readonly c: Readonly<Context>
   readonly app: App
   readonly caller: McpCaller
   readonly envelope: CallEnvelope
@@ -221,8 +218,8 @@ interface ExecBranchInput {
   readonly session: UserSession
 }
 
-async function executeList(input: ExecBranchInput): Promise<Response> {
-  const { c, app, caller, envelope, table, session } = input
+async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
+  const { app, caller, envelope, table, session } = input
   const limitArg = envelope.args['limit']
   const limit = typeof limitArg === 'number' ? limitArg : undefined
   const offsetArg = envelope.args['offset']
@@ -231,15 +228,13 @@ async function executeList(input: ExecBranchInput): Promise<Response> {
   const userCtx = await resolveUserContextOrUndefined(caller, table, app)
   const filter = buildReadListFilter(table, userCtx)
   if (filter === 'empty') {
-    return jsonRpcSuccess(c, envelope.responseId, [])
+    return toolSuccess([])
   }
   if (filter === 'reject') {
-    return jsonRpcSuccess(c, envelope.responseId, [])
+    return toolSuccess([])
   }
 
   return runProgramAsToolResult({
-    c,
-    responseId: envelope.responseId,
     program: createListRecordsProgram({
       session,
       tableName: table.name,
@@ -260,17 +255,15 @@ async function executeList(input: ExecBranchInput): Promise<Response> {
   })
 }
 
-async function executeRead(input: ExecBranchInput): Promise<Response> {
-  const { c, app, caller, envelope, table, session } = input
+async function executeRead(input: ExecBranchInput): Promise<McpToolResult> {
+  const { app, caller, envelope, table, session } = input
   const recordId = String(envelope.args['id'] ?? '')
   if (!recordId) {
-    return jsonRpcError(c, envelope.responseId, -32_602, "Missing 'id' parameter")
+    return toolFailure(-32_602, "Missing 'id' parameter")
   }
 
   const userCtx = await resolveUserContextOrUndefined(caller, table, app)
   return runProgramAsToolResult({
-    c,
-    responseId: envelope.responseId,
     program: createGetRecordProgram({
       session,
       tableName: table.name,
@@ -289,31 +282,23 @@ async function executeRead(input: ExecBranchInput): Promise<Response> {
   })
 }
 
-async function executeCreate(input: ExecBranchInput): Promise<Response> {
-  const { c, app, caller, envelope, table, session } = input
+async function executeCreate(input: ExecBranchInput): Promise<McpToolResult> {
+  const { app, caller, envelope, table, session } = input
   const fields = extractFields(envelope.args)
   const whitelistError = findFirstWhitelistViolation(table, fields)
   if (whitelistError !== undefined) {
-    return jsonRpcError(
-      c,
-      envelope.responseId,
-      -32_602,
-      `Field '${whitelistError}' is not in aiAccess.whitelistFields`
-    )
+    return toolFailure(-32_602, `Field '${whitelistError}' is not in aiAccess.whitelistFields`)
   }
   const writeError = findFirstFieldWriteViolation(table, caller.role, fields)
   if (writeError !== undefined) {
-    return jsonRpcError(
-      c,
-      envelope.responseId,
-      -32_602,
-      `Cannot write to field '${writeError}': insufficient permissions`
-    )
+    return toolFailure(-32_602, `Cannot write to field '${writeError}': insufficient permissions`)
+  }
+  const multiSelectError = findFirstMultiSelectViolation(table, fields)
+  if (multiSelectError !== undefined) {
+    return toolFailure(-32_602, multiSelectError)
   }
 
   return runProgramAsToolResult({
-    c,
-    responseId: envelope.responseId,
     program: createRecordProgram({
       session,
       tableName: table.name,
@@ -324,35 +309,27 @@ async function executeCreate(input: ExecBranchInput): Promise<Response> {
   })
 }
 
-async function executeUpdate(input: ExecBranchInput): Promise<Response> {
-  const { c, app, caller, envelope, table, session } = input
+async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
+  const { app, caller, envelope, table, session } = input
   const recordId = String(envelope.args['id'] ?? '')
   if (!recordId) {
-    return jsonRpcError(c, envelope.responseId, -32_602, "Missing 'id' parameter")
+    return toolFailure(-32_602, "Missing 'id' parameter")
   }
   const fields = extractFields(envelope.args)
   const whitelistError = findFirstWhitelistViolation(table, fields)
   if (whitelistError !== undefined) {
-    return jsonRpcError(
-      c,
-      envelope.responseId,
-      -32_602,
-      `Field '${whitelistError}' is not in aiAccess.whitelistFields`
-    )
+    return toolFailure(-32_602, `Field '${whitelistError}' is not in aiAccess.whitelistFields`)
   }
   const writeError = findFirstFieldWriteViolation(table, caller.role, fields)
   if (writeError !== undefined) {
-    return jsonRpcError(
-      c,
-      envelope.responseId,
-      -32_602,
-      `Cannot write to field '${writeError}': insufficient permissions`
-    )
+    return toolFailure(-32_602, `Cannot write to field '${writeError}': insufficient permissions`)
+  }
+  const multiSelectError = findFirstMultiSelectViolation(table, fields)
+  if (multiSelectError !== undefined) {
+    return toolFailure(-32_602, multiSelectError)
   }
 
   return runProgramAsToolResult({
-    c,
-    responseId: envelope.responseId,
     program: updateRecordProgram(session, table.name, recordId, {
       fields,
       app,
@@ -361,15 +338,13 @@ async function executeUpdate(input: ExecBranchInput): Promise<Response> {
   })
 }
 
-async function executeDelete(input: ExecBranchInput): Promise<Response> {
-  const { c, app, envelope, table, session } = input
+async function executeDelete(input: ExecBranchInput): Promise<McpToolResult> {
+  const { app, envelope, table, session } = input
   const recordId = String(envelope.args['id'] ?? '')
   if (!recordId) {
-    return jsonRpcError(c, envelope.responseId, -32_602, "Missing 'id' parameter")
+    return toolFailure(-32_602, "Missing 'id' parameter")
   }
   return runProgramAsToolResult({
-    c,
-    responseId: envelope.responseId,
     program: deleteRecordProgram(session, table.name, recordId, app),
   })
 }
@@ -418,7 +393,7 @@ function findFirstWhitelistViolation(
  * a flat `{ field: value, ... }` shape (more ergonomic for AI-generated
  * payloads). The flat shape strips the `id` key (used as the path param).
  */
-function extractFields(args: Readonly<Record<string, unknown>>): Record<string, unknown> {
+function extractFields(args: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
   const { data } = args
   if (isPlainObject(data)) {
     return { ...data }

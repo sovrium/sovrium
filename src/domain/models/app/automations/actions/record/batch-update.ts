@@ -23,30 +23,28 @@ export const RecordBatchUpdateActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Target table name */
     table: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Table to update records in' })
+      Schema.annotate({ description: 'Table to update records in' })
     ),
 
     /** Template variable referencing an array of { filter, data } objects */
     items: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Template variable referencing an array of { filter, data } objects for batch updates',
       })
     ),
 
-    /** Maximum records per batch operation */
-
     /** Continue updating remaining records if one fails */
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Continue processing remaining items if one fails (default: false)',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordBatchUpdateAction',
     title: 'Record Batch Update Action',
     description: 'Update multiple records in a single operation',

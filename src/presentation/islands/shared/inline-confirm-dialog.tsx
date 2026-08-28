@@ -47,9 +47,20 @@ export interface InlineConfirmDialogProps {
   readonly onConfirm: () => void
   /** Fired when the user cancels (or as the first step of confirming). */
   readonly onCancel: () => void
+  /**
+   * Dismiss-button label — the host's language-resolved `confirmGate.cancel`.
+   * Defaults to the ENGLISH catalog value, matching `DEFAULT_INTERPRETER_LANG`;
+   * a French default here would be a second fallback chain disagreeing with the
+   * server's, which is exactly how an "Annuler" ended up beside an author's
+   * English affirm on every console dialog.
+   */
+  readonly cancelLabel?: string
   /** Override the container className (defaults to the inline-gate chrome). */
   readonly className?: string
 }
+
+/** The ENGLISH catalog value for `confirmGate.cancel`, per `DEFAULT_INTERPRETER_LANG`. */
+const DEFAULT_GATE_CANCEL_LABEL = 'Cancel'
 
 /** The inline confirm gate shown while a `confirm`-bearing action is armed. */
 export function InlineConfirmDialog({
@@ -58,6 +69,7 @@ export function InlineConfirmDialog({
   confirmDataActionType,
   onConfirm,
   onCancel,
+  cancelLabel = DEFAULT_GATE_CANCEL_LABEL,
   className,
 }: InlineConfirmDialogProps): ReactElement {
   return (
@@ -81,11 +93,11 @@ export function InlineConfirmDialog({
       </button>
       <button
         type="button"
-        aria-label="Annuler"
+        aria-label={cancelLabel}
         className={CANCEL_BUTTON_CLASS}
         onClick={onCancel}
       >
-        Annuler
+        {cancelLabel}
       </button>
     </div>
   )
@@ -119,6 +131,12 @@ export interface ObjectConfirmDialogProps {
   readonly onCancel: () => void
   /** Confirm-button label fallback when the config omits `confirmLabel`. */
   readonly fallbackConfirmLabel: string
+  /**
+   * Dismiss-button label fallback when the config omits `cancelLabel` — the
+   * host's language-resolved `confirmGate.cancel`. Defaults to the ENGLISH
+   * catalog value; see {@link InlineConfirmDialogProps.cancelLabel}.
+   */
+  readonly fallbackCancelLabel?: string
 }
 
 /** Resolve `$record.<field>` references in a `matchValue` against the row record. */
@@ -163,9 +181,7 @@ function useResolvedMatchValue(
  * needs. A non-modal `role` surface (`dialog` / `alertdialog`) whose accessible
  * NAME is the SEPARATE `title` (distinct from the body `message`), an optional
  * type-to-confirm `input` whose confirm affordance stays DISABLED until the value
- * equals the resolved `matchValue` (a `$session.<field>` token resolves to the
- * caller's OWN session value), and `confirmLabel` / `cancelLabel` overrides. The
- * vanilla-DOM `client.ts` gate renders the equivalent markup for non-React buttons.
+ * equals the resolved `matchValue`, and `confirmLabel` / `cancelLabel` overrides.
  */
 export function ObjectConfirmDialog({
   config,
@@ -174,16 +190,16 @@ export function ObjectConfirmDialog({
   onConfirm,
   onCancel,
   fallbackConfirmLabel,
+  fallbackCancelLabel = DEFAULT_GATE_CANCEL_LABEL,
 }: ObjectConfirmDialogProps): ReactElement {
   const title = config.title ?? config.message
   const confirmLabel = config.confirmLabel ?? fallbackConfirmLabel
-  const cancelLabel = config.cancelLabel ?? 'Annuler'
+  const cancelLabel = config.cancelLabel ?? fallbackCancelLabel
   const rawMatch = config.input?.matchValue
 
   const [inputValue, setInputValue] = useState('')
   const matchValue = useResolvedMatchValue(rawMatch, record)
-  // Disabled only when a type-to-confirm `matchValue` is armed and unmet (a
-  // free-text input with no matchValue never gates).
+  // Disabled only when a type-to-confirm `matchValue` is armed and unmet.
   const confirmDisabled =
     rawMatch !== undefined && (matchValue === undefined || inputValue !== matchValue)
 

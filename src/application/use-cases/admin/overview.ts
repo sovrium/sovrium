@@ -52,7 +52,7 @@
  * boundary.
  */
 
-import { Effect } from 'effect'
+import { Effect, Semaphore } from 'effect'
 import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { TablesOverviewRepository } from '@/application/ports/repositories/tables/tables-overview-repository'
 import { StorageService } from '@/application/ports/services/storage-service'
@@ -138,7 +138,7 @@ const parseMaxConcurrent = (raw: string | undefined): number => {
   const parsed = raw === undefined ? Number.NaN : Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CONCURRENT_OVERVIEWS
 }
-const overviewSemaphore = Effect.unsafeMakeSemaphore(
+const overviewSemaphore = Semaphore.makeUnsafe(
   parseMaxConcurrent(process.env.ADMIN_OVERVIEW_MAX_CONCURRENT)
 )
 
@@ -160,7 +160,7 @@ const recordsBlock = (app: App): Effect.Effect<{ readonly total: number }> => {
     return { total: counts.reduce((acc, n) => acc + n, 0) }
   }).pipe(
     Effect.provide(TablesOverviewRepositoryLive),
-    Effect.catchAll(() => Effect.succeed(RECORDS_ZERO))
+    Effect.orElseSucceed(() => RECORDS_ZERO)
   )
 }
 
@@ -174,7 +174,7 @@ const usersBlock = (): Effect.Effect<{ readonly total: number }> =>
       total: outcome._tag === 'Ok' ? outcome.body.totals.users : 0,
     })),
     Effect.provide(UsersOverviewLayer),
-    Effect.catchAll(() => Effect.succeed(USERS_ZERO))
+    Effect.orElseSucceed(() => USERS_ZERO)
   )
 
 /**
@@ -193,7 +193,7 @@ const runsBlock = (
         : RUNS_ZERO
     ),
     Effect.provide(AdminAutomationsLayer),
-    Effect.catchAll(() => Effect.succeed(RUNS_ZERO))
+    Effect.orElseSucceed(() => RUNS_ZERO)
   )
 
 /**
@@ -222,7 +222,7 @@ const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> =
     return { total: sumSubmissionCounts(aggregates) }
   }).pipe(
     Effect.provide(AdminFormsRepositoryLive),
-    Effect.catchAll(() => Effect.succeed(SUBMISSIONS_ZERO))
+    Effect.orElseSucceed(() => SUBMISSIONS_ZERO)
   )
 }
 
@@ -234,11 +234,11 @@ const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> =
 const storageBlock = (): Effect.Effect<{ readonly totalBytes: number }> =>
   Effect.gen(function* () {
     const storage = yield* StorageService
-    const totalBytes = yield* storage.getTotalBytes()
+    const totalBytes = yield* storage.getTotalBytes
     return { totalBytes }
   }).pipe(
     Effect.provide(StorageServiceLive),
-    Effect.catchAll(() => Effect.succeed(STORAGE_ZERO))
+    Effect.orElseSucceed(() => STORAGE_ZERO)
   )
 
 /**
@@ -250,7 +250,7 @@ const connectionsBlock = (): Effect.Effect<{
   readonly total: number
   readonly healthy: number
 }> =>
-  BuildConnectionsList().pipe(
+  BuildConnectionsList.pipe(
     Effect.map((outcome) => {
       if (outcome._tag !== 'Ok') return CONNECTIONS_ZERO
       const { connections } = outcome.body
@@ -260,7 +260,7 @@ const connectionsBlock = (): Effect.Effect<{
       return { total: connections.length, healthy }
     }),
     Effect.provide(AdminConnectionsLayer),
-    Effect.catchAll(() => Effect.succeed(CONNECTIONS_ZERO))
+    Effect.orElseSucceed(() => CONNECTIONS_ZERO)
   )
 
 /**

@@ -45,6 +45,11 @@
 import { Effect } from 'effect'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import {
+  BuildAutomationsCatalog,
+  PauseAutomation,
+  ResumeAutomation,
+} from '@/application/use-cases/admin/automations-catalog'
+import {
   BuildAdminRunDetail,
   BuildAdminRunsList,
   BuildAutomationsOverview,
@@ -56,14 +61,19 @@ import {
 } from '@/application/use-cases/automations/retry-automation-run'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
+  automationPauseParamsSchema,
   automationsOverviewQuerySchema,
   automationsRunsDetailParamsSchema,
   automationsRunsListQuerySchema,
   type AutomationRunAdminItem,
+  type AutomationsRunsListQuery,
 } from '@/domain/models/api/admin/automations'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { provideAdminAutomationsLive } from '@/presentation/api/routes/admin/automations/effect-runner'
+import {
+  provideAdminAutomationsLive,
+  provideAutomationPauseLive,
+} from '@/presentation/api/routes/admin/automations/effect-runner'
 import { provideAutomationLive } from '@/presentation/api/routes/automations/effect-runner'
 import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { ReplayAutomationRunError } from '@/application/use-cases/automations/replay-automation-run'
@@ -121,11 +131,31 @@ async function handleAutomationsOverview(c: Context, app: App): Promise<Response
 
 // ─── Runs list handler ───────────────────────────────────────────────────────
 
+/**
+ * Project the parsed query onto the use case's input shape. Every knob is
+ * forwarded explicitly — including `q`, whose omission at THIS seam is what made
+ * the endpoint answer a search it was never asked to run.
+ */
+function runsListInput(query: AutomationsRunsListQuery): Parameters<typeof BuildAdminRunsList>[1] {
+  return {
+    status: query.status,
+    automationName: query.automationName,
+    automationId: query.automationId,
+    from: query.from,
+    to: query.to,
+    q: query.q,
+    cursor: query.cursor,
+    limit: query.limit,
+  }
+}
+
 async function handleListRuns(c: Context, app: App): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
 
-  // Parse query string against the canonical schema (so the cursor, limit,
-  // status, filters, include_deleted defaults all apply).
+  // Parse against the canonical schema (cursor / limit / status / filters /
+  // include_deleted defaults). This literal is an ALLOW-LIST — Hono drops any
+  // parameter not named here, which is how `?q=` returned a confident 200 over
+  // the wrong rows; it is READ here, not merely declared on the schema.
   const parsedQuery = automationsRunsListQuerySchema.safeParse({
     cursor: c.req.query('cursor'),
     limit: c.req.query('limit'),
@@ -135,6 +165,7 @@ async function handleListRuns(c: Context, app: App): Promise<Response> {
     from: c.req.query('from'),
     to: c.req.query('to'),
     include_deleted: c.req.query('include_deleted'),
+    q: c.req.query('q'),
   })
   if (!parsedQuery.success) {
     return c.json({ success: false, message: 'Invalid query', code: 'BAD_REQUEST' }, 400)
@@ -146,20 +177,11 @@ async function handleListRuns(c: Context, app: App): Promise<Response> {
     return c.json({ success: false, message: 'from > to', code: 'BAD_REQUEST' }, 400)
   }
 
-  // Build the runs-list body (filters → cursor read → admin items) via the use
-  // case; the cursor decode lives in the use case alongside the rest of the
-  // pure logic.
+  // Build the body (filters → cursor read → admin items) via the use case; the
+  // cursor decode lives there alongside the rest of the pure logic.
   const outcome = await runRequestEffect(
     c,
-    BuildAdminRunsList(app, {
-      status: query.status,
-      automationName: query.automationName,
-      automationId: query.automationId,
-      from: query.from,
-      to: query.to,
-      cursor: query.cursor,
-      limit: query.limit,
-    }).pipe(provideAdminAutomationsLive)
+    BuildAdminRunsList(app, runsListInput(query)).pipe(provideAdminAutomationsLive)
   )
   if (outcome._tag === 'ValidationFailed') {
     logError('[admin] automations runs list response validation failed', outcome.error)
@@ -288,15 +310,114 @@ async function handleRetryRun(c: Context, app: App): Promise<Response> {
   }
   const result = await runRequestEffect(
     c,
-    Effect.either(provideAutomationLive(retryAutomationRun(options)))
+    Effect.result(provideAutomationLive(retryAutomationRun(options)))
   )
-  if (result._tag === 'Left') {
-    return retryErrorResponse(c, result.left)
+  if (result._tag === 'Failure') {
+    return retryErrorResponse(c, result.failure)
   }
 
   // 202 Accepted — the retry created a NEW run (`runId`); the original run's
   // row is untouched. Hand-shaped ack (no raw DB row leaks, S4).
-  return c.json({ runId: result.right.runId, status: 'accepted' }, 202)
+  return c.json({ runId: result.success.runId, status: 'accepted' }, 202)
+}
+
+// ─── Catalog handler ─────────────────────────────────────────────────────────
+
+/**
+ * `GET /api/admin/automations` — every automation declared in config, in config
+ * order, with its operator-visible state.
+ *
+ * Uncursored by design: this enumerates CONFIG, bounded by the app file, unlike
+ * the cursor-paginated `/runs` sibling whose source grows without bound.
+ */
+async function handleAutomationsCatalog(c: Context, app: App): Promise<Response> {
+  const result = await runRequestEffect(
+    c,
+    Effect.result(provideAutomationPauseLive(BuildAutomationsCatalog(app)))
+  )
+  if (result._tag === 'Failure') {
+    logError('[admin] automations catalog read failed', result.failure, requestLogAttributes(c))
+    return c.json(
+      { success: false, message: 'Failed to build automations catalog', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  c.header('Cache-Control', 'no-store')
+  return c.json(result.success, 200)
+}
+
+// ─── Pause / resume handlers ─────────────────────────────────────────────────
+
+/**
+ * Shared body of `POST /:name/pause` and `POST /:name/resume`.
+ *
+ * The two differ only in which mutation they run and which audit action they
+ * emit; every status-code decision is identical and lives here so the pair
+ * cannot drift — a resume that 404'd where pause 409'd would leak the
+ * config-disabled state through a status-code difference.
+ *
+ * The audit emit happens ONLY on the 200 path. The 404 and 409 paths write
+ * nothing: an audit row for a refused mutation on a name that may not exist
+ * would itself become an enumeration surface for anyone who can read the log.
+ */
+async function handlePauseMutation(
+  c: Context,
+  app: App,
+  mutation: 'pause' | 'resume'
+): Promise<Response> {
+  const session = (c as ContextWithSession).var.session!
+
+  const parsedParams = automationPauseParamsSchema.safeParse({ name: c.req.param('name') })
+  if (!parsedParams.success) {
+    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+  const { name } = parsedParams.data
+
+  const program =
+    mutation === 'pause' ? PauseAutomation(app, name, session.userId) : ResumeAutomation(app, name)
+  const result = await runRequestEffect(c, Effect.result(provideAutomationPauseLive(program)))
+
+  if (result._tag === 'Failure') {
+    logError(`[admin] automation ${mutation} failed`, result.failure, requestLogAttributes(c))
+    return c.json(
+      { success: false, message: `Failed to ${mutation} automation`, code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  const outcome = result.success
+  if (outcome._tag === 'NotFound') {
+    return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+  }
+  if (outcome._tag === 'Conflict') {
+    return c.json(
+      {
+        success: false,
+        message: 'Automation is disabled in config',
+        code: 'CONFLICT',
+      },
+      409
+    )
+  }
+
+  // These are the FIRST audited automation MUTATIONS — every existing
+  // `automation.*` action is a readback. `emitAuditEvent` SILENTLY DROPS an
+  // action missing from ACTION_CATALOG (a warning, not a throw), so
+  // `automation.paused` / `automation.resumed` being registered there is what
+  // makes these rows appear at all; [internal ref] asserts they do.
+  const actor = await resolveActor(session.userId)
+  await emitAuditEvent({
+    action:
+      mutation === 'pause' ? AUDIT_ACTIONS.AUTOMATION_PAUSED : AUDIT_ACTIONS.AUTOMATION_RESUMED,
+    actor,
+    resourceId: name,
+    severity: 'info',
+    result: 'success',
+  })
+
+  c.header('Cache-Control', 'no-store')
+  return c.json(outcome.body, 200)
 }
 
 // ─── Route registration ──────────────────────────────────────────────────────
@@ -321,11 +442,26 @@ async function handleRetryRun(c: Context, app: App): Promise<Response> {
  * engine (CAP-3 — the one net-new admin-dashboard backend).
  */
 export function chainAdminAutomationsRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
-  return honoApp
-    .get('/api/admin/automations/overview', (c) => handleAutomationsOverview(c, resolveApp()))
-    .post('/api/admin/automations/runs/:runId/retry', (c) => handleRetryRun(c, resolveApp()))
-    .get('/api/admin/automations/runs/:runId', (c) => handleRunDetail(c, resolveApp()))
-    .get('/api/admin/automations/runs', (c) => handleListRuns(c, resolveApp())) as T
+  return (
+    honoApp
+      .get('/api/admin/automations/overview', (c) => handleAutomationsOverview(c, resolveApp()))
+      .post('/api/admin/automations/runs/:runId/retry', (c) => handleRetryRun(c, resolveApp()))
+      .get('/api/admin/automations/runs/:runId', (c) => handleRunDetail(c, resolveApp()))
+      .get('/api/admin/automations/runs', (c) => handleListRuns(c, resolveApp()))
+      // The pause/resume mutations are POSTs on a two-segment path
+      // (`/:name/pause`), so they cannot shadow — nor be shadowed by — the
+      // three-segment `/runs/:runId/retry` POST above. Registered after it
+      // regardless, keeping the file's "most specific first" ordering.
+      .post('/api/admin/automations/:name/pause', (c) =>
+        handlePauseMutation(c, resolveApp(), 'pause')
+      )
+      .post('/api/admin/automations/:name/resume', (c) =>
+        handlePauseMutation(c, resolveApp(), 'resume')
+      )
+      // The bare catalog path, registered last: it is the least specific GET on
+      // this prefix and must not intercept `/overview` or `/runs`.
+      .get('/api/admin/automations', (c) => handleAutomationsCatalog(c, resolveApp())) as T
+  )
 }
 
 // Re-export the schema type so the api-routes wiring's `import type` stays

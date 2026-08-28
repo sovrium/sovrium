@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { findConstraintFieldName } from '@/domain/errors/driver-failure'
 import {
   db,
   ForeignKeyViolationError,
@@ -80,64 +81,54 @@ async function executeCreateRecordTx(
 }
 
 /**
- * Best-effort extraction of the violating column name from a FK-violation
- * error. Postgres surfaces the column name in three places (in order of
- * usefulness):
- *   1. `detail`: `Key (col)=(value) is not present in table "ref".`
- *   2. `constraint`: `<table>_<col>_fkey` (drizzle / Sovrium convention).
- *   3. `message`: same `Key (col)=...` phrase as the detail.
+ * Convert a failed INSERT into the typed failure the API boundary answers from.
  *
- * SQLite's `FOREIGN KEY constraint failed` carries no column metadata, so
- * the caller falls back to inspecting the inserted fields against the
- * table's declared `foreignKeys[]` (or `user`-typed columns) for a single
- * candidate column.
+ * The interesting half is the COLUMN. A constraint rejection is the caller's
+ * own value clashing with a rule their config declared, so the only useful
+ * answer names which value — and the column name is recoverable because the
+ * constraint name is OURS (`check_<column>_<suffix>`, `<table>_<column>_fkey`),
+ * handed back by the driver on `constraint` under PostgreSQL and inside the
+ * message text under SQLite.
  *
- * Returns `undefined` when no column can be confidently identified — the
- * application-layer wrapper (submit-form's `processCreateRecordError`) then
- * uses a generic message.
+ * Recovery goes through the shared {@link findConstraintFieldName} rather than
+ * a private regex ladder, and is restricted to columns the caller ACTUALLY
+ * SUBMITTED. That guard is what makes the echo safe (standing rule S4) and what
+ * makes it unambiguous: `created_by` and `updated_by` are injected from the
+ * session after the payload is taken, so an FK failure on one of them names no
+ * column at all instead of disclosing a column the caller never sent.
  *
- * Bug 3 / [internal ref].
+ * Order is the contract, and it is the pre-existing one: foreign-key BEFORE
+ * unique. PostgreSQL attaches a `constraint` name to FK violations too, so the
+ * looser uniqueness test would otherwise claim them.
+ *
+ * Bug 3 / [internal ref]; [internal ref].
  */
-/**
- * Run a regex over a list of candidate strings and return the first match's
- * first capture group. Replaces a `for…of` + early-return pattern so the
- * `extractFkFieldName` caller stays under the complexity cap.
- */
-function firstCapture(
-  pattern: Readonly<RegExp>,
-  sources: readonly (string | undefined)[]
-): string | undefined {
-  return sources
-    .filter((s): s is string => typeof s === 'string')
-    .map((s) => pattern.exec(s))
-    .find((m): m is RegExpExecArray => m !== null && m[1] !== undefined)?.[1]
-}
+function wrapCreateRecordFailure(
+  error: unknown,
+  tableName: string,
+  submittedFields: readonly string[]
+  // eslint-disable-next-line functional/prefer-immutable-types -- returns Error class instances, whose shape is fixed by the platform; same exemption the sibling handler factories in shared/error-handling.ts carry
+): DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError {
+  if (error instanceof DatabaseError) return error
+  if (error instanceof UniqueConstraintViolationError) return error
+  if (error instanceof ForeignKeyViolationError) return error
 
-function extractFkFieldName(error: unknown): string | undefined {
-  const err = error as
-    | {
-        readonly detail?: string
-        readonly constraint?: string
-        readonly message?: string
-        readonly cause?: {
-          readonly detail?: string
-          readonly constraint?: string
-          readonly message?: string
-        }
-      }
-    | null
-    | undefined
-  if (err === null || err === undefined) return undefined
-  // Postgres: `Key (col_name)=(value) is not present in table "ref".`
-  const fromDetail = firstCapture(/Key \(([^)]+)\)=/, [
-    err.detail,
-    err.message,
-    err.cause?.detail,
-    err.cause?.message,
-  ])
-  if (fromDetail !== undefined) return fromDetail
-  // Drizzle / Sovrium convention: `<table>_<column>_fkey` (or `_fk`).
-  return firstCapture(/_([a-z][a-z0-9_]*)_fk(?:ey)?$/i, [err.constraint, err.cause?.constraint])
+  const fieldName = findConstraintFieldName(error, submittedFields)
+
+  if (isForeignKeyViolation(error)) {
+    const message = fieldName
+      ? `referenced ${fieldName} does not exist`
+      : 'referenced record does not exist'
+    return new ForeignKeyViolationError(message, fieldName, error)
+  }
+  if (isUniqueConstraintViolation(error)) {
+    return new UniqueConstraintViolationError('Unique constraint violation', error)
+  }
+  // Everything else — including the CHECK and NOT NULL rejections this path
+  // used to drop on the floor. The message is server-side log context only;
+  // the client is answered from `CONSTRAINT_MESSAGES` by the sanitizer, which
+  // reads `fieldName` off this error to name the offending column.
+  return new DatabaseError(`Failed to create record in ${tableName}`, error, fieldName)
 }
 
 /**
@@ -162,26 +153,9 @@ export function createRecord(
       tableName,
       Effect.tryPromise({
         try: () => db.transaction((tx) => executeCreateRecordTx(tx, session, tableName, fields)),
-        catch: (error) => {
-          if (error instanceof DatabaseError) return error
-          if (error instanceof UniqueConstraintViolationError) return error
-          if (error instanceof ForeignKeyViolationError) return error
-          // Bug 3 / [internal ref]: detect FK violations BEFORE unique-constraint
-          // detection. Postgres FK violations also carry a `constraint` field
-          // (which the loose `isUniqueConstraintViolation` heuristic would
-          // otherwise match), so order matters here.
-          if (isForeignKeyViolation(error)) {
-            const fieldName = extractFkFieldName(error)
-            const message = fieldName
-              ? `referenced ${fieldName} does not exist`
-              : 'referenced record does not exist'
-            return new ForeignKeyViolationError(message, fieldName, error)
-          }
-          if (isUniqueConstraintViolation(error)) {
-            return new UniqueConstraintViolationError('Unique constraint violation', error)
-          }
-          return new DatabaseError(`Failed to create record in ${tableName}`, error)
-        },
+        // The caller's own keys, taken BEFORE authorship injection: only a
+        // column they submitted may be named back to them (S4).
+        catch: (error) => wrapCreateRecordFailure(error, tableName, Object.keys(fields)),
       })
     )
 

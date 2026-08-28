@@ -23,7 +23,7 @@ export const FileExtractTextActionSchema = Schema.Struct({
     /** Storage key of the file to extract text from */
     key: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Storage key of the file to extract text from',
         })
       )
@@ -32,7 +32,7 @@ export const FileExtractTextActionSchema = Schema.Struct({
     /** Storage key of the file to extract text from (alias of `key`) */
     source: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Storage key of the file to extract text from',
         })
       )
@@ -40,19 +40,21 @@ export const FileExtractTextActionSchema = Schema.Struct({
 
     /** Output text format */
     format: Schema.optional(
-      Schema.Literal('plain', 'markdown').pipe(
-        Schema.annotations({
+      Schema.Literals(['plain', 'markdown']).pipe(
+        Schema.annotate({
           description: 'Output text format (default: plain)',
         })
       )
     ),
   }).pipe(
-    Schema.filter((props) => (props.key ?? props.source) !== undefined, {
-      message: () => 'extractText requires `key` (or `source`)',
-    })
+    Schema.check(
+      Schema.makeFilter((props) => (props.key ?? props.source) !== undefined, {
+        message: 'extractText requires `key` (or `source`)',
+      })
+    )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileExtractTextAction',
     title: 'File Extract Text Action',
     description: 'Extract plain text content from PDF, DOCX, or HTML files',

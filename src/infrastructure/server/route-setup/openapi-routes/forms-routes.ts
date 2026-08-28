@@ -92,7 +92,7 @@ const routes: readonly RouteSpec[] = [
 /** Form route group — resource-scoped to the configured forms. */
 export const formGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Form',
-  genericTag: 'forms',
+  genericTag: 'Forms',
   genericTagDescription: 'Form rendering and submission endpoints',
   collection: (app) => app.forms ?? [],
   resourcePlaceholder: '{formSlug}',

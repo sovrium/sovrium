@@ -62,15 +62,24 @@ export function BrandHeader({
  * prototype 05). Placing it in the sidebar makes keyboard navigation flow
  * correctly — focusing it and pressing Tab moves into the sidebar nav
  *. The `CommandPaletteCapture` inline
- * script opens the palette on click via the `[aria-label="Search"]` target,
- * before the palette island hydrates. `focus-visible` draws a clear keyboard
- * focus ring (no ring on mouse click).
+ * script opens the palette on click via the `[data-command-palette-trigger]`
+ * target, before the palette island hydrates.
+ *
+ * The hook is a DATA ATTRIBUTE, not the `aria-label`, and that is load-bearing:
+ * the capture script used to select `[aria-label="Rechercher"]`, so when the
+ * console was re-voiced to English this button went silently dead while `⌘K`
+ * kept working — the shortcut keys on the K press, not on a label, which is
+ * exactly why the breakage survived unnoticed. An accessible name is display
+ * copy and will be translated again; a behaviour hook must not depend on it.
+ *
+ * `focus-visible` draws a clear keyboard focus ring (no ring on mouse click).
  */
 export function SearchTrigger(): ReactElement {
   return (
     <button
       type="button"
       aria-label="Search"
+      data-command-palette-trigger="true"
       className="border-border text-foreground-subtle hover:text-foreground focus-visible:ring-primary flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
     >
       <svg
@@ -96,44 +105,28 @@ export function SearchTrigger(): ReactElement {
 /**
  * The signed-in operator bar pinned to the sidebar foot. Once the session
  * resolves it becomes the {@link AdminOperatorMenu} trigger (a config-native
- * `dropdown-menu` — account / feedback / bug report / sign out); until then it
- * shows a calm loading line so the foot never flashes an empty slot.
+ * `dropdown-menu` — account / feedback / bug report / sign out, closing on the
+ * running Sovrium build version); until then it shows a calm loading line so
+ * the foot never flashes an empty slot.
  */
 export function OperatorBar({
   operator,
+  buildVersion,
 }: {
   readonly operator: Operator | undefined
+  readonly buildVersion: string | undefined
 }): ReactElement {
   if (operator === undefined) {
     return (
       <div className="border-border text-foreground-subtle border-t px-2 pt-3 text-xs">
-        Session en cours…
+        Loading session…
       </div>
     )
   }
-  return <AdminOperatorMenu operator={operator} />
-}
-
-/**
- * The quiet Sovrium build-version line pinned to the very foot of the sidebar,
- * below the operator bar. It reports which Sovrium the operator is running
- * (`Sovrium vX.Y.Z`) as plain platform metadata — deliberately distinct from
- * the brand chip's app-config version above. Mono + muted + tiny so it reads as
- * an unobtrusive footer, never competing with the operator's own identity bar.
- * Renders nothing until the version resolves (see {@link useBuildVersionOnly}).
- */
-export function BuildVersionFooter({
-  buildVersion,
-}: {
-  readonly buildVersion: string | undefined
-}): ReactElement | null {
-  if (buildVersion === undefined || buildVersion.length === 0) {
-    // eslint-disable-next-line unicorn/no-null -- React renders null, not undefined
-    return null
-  }
   return (
-    <div className="text-foreground-subtle px-2 font-mono text-[0.6875rem] tracking-tight">
-      Sovrium v{buildVersion}
-    </div>
+    <AdminOperatorMenu
+      operator={operator}
+      buildVersion={buildVersion}
+    />
   )
 }

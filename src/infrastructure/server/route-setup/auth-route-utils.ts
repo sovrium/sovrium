@@ -76,7 +76,7 @@ export const recordRateLimitRequest = (ip: string): readonly number[] =>
 
 const authLimiter = createSlidingWindowLimiter()
 
-const getAuthRateLimitConfigs = (): Record<string, EndpointRateLimitConfig> => {
+const getAuthRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitConfig>> => {
   const windowMs = getRateLimitWindowMs()
   return {
     '/api/auth/sign-in/email': {
@@ -90,6 +90,23 @@ const getAuthRateLimitConfigs = (): Record<string, EndpointRateLimitConfig> => {
     '/api/auth/request-password-reset': {
       windowMs,
       maxRequests: 10, // 10 attempts per window (prevents enumeration while allowing legitimate use)
+    },
+    // RFC 7591 dynamic client registration, capped at the sign-up rate because
+    // it is the same kind of surface once an operator sets
+    // `SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true`: an unauthenticated
+    // caller writing rows into `auth.oauth_client`, each carrying a
+    // caller-chosen `client_name` that a consent screen will later show a user.
+    // Uncapped, one caller can fill the table and stock an unbounded supply of
+    // plausible-looking client identities.
+    //
+    // The cap applies whether or not the operator opted in. With the default
+    // `false` the endpoint 401s before reaching here, so the limiter simply
+    // never becomes the binding constraint — and it is already in place on the
+    // day someone flips the env var, which is the point.
+    // Spec: [internal ref].
+    '/api/auth/oauth2/register': {
+      windowMs,
+      maxRequests: 20,
     },
   }
 }
@@ -120,7 +137,7 @@ export const getAuthRateLimitRetryAfter = (endpoint: string, ip: string): number
 
 const tablesLimiter = createSlidingWindowLimiter()
 
-const getTablesRateLimitConfigs = (): Record<string, EndpointRateLimitConfig> => {
+const getTablesRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitConfig>> => {
   const windowMs = getRateLimitWindowMs()
   return {
     'GET:/api/tables': { windowMs, maxRequests: 100 },
@@ -172,7 +189,7 @@ export const getTablesRateLimitRetryAfter = (method: string, path: string, ip: s
 
 const activityLimiter = createSlidingWindowLimiter()
 
-const getActivityRateLimitConfigs = (): Record<string, EndpointRateLimitConfig> => {
+const getActivityRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitConfig>> => {
   const windowMs = getRateLimitWindowMs()
   return {
     'GET:/api/activity': { windowMs, maxRequests: 60 },

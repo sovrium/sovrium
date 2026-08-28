@@ -53,7 +53,7 @@ const buildCodeTriggerView = (
   triggerData: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, unknown>> => {
   const { body } = triggerData
-  const fromBody: Record<string, unknown> =
+  const fromBody: Readonly<Record<string, unknown>> =
     body !== undefined && body !== null && typeof body === 'object'
       ? { ...(body as Record<string, unknown>) }
       : {}
@@ -241,7 +241,7 @@ const compileExecuteFn = (
   const wrapper = `${transpiled}\n; if (typeof execute !== 'function') { throw new Error('code action must define a function named "execute"') } execute;`
   const script = new vm.Script(wrapper, { filename: 'code-action.js' })
   return (context) => {
-    const sandbox: Record<string, unknown> = {
+    const sandbox: Readonly<Record<string, unknown>> = {
       // Limited globals: only what user code legitimately needs. fs, http,
       // child_process, process etc. are deliberately absent. No module
       // loading is available inside the sandbox — neither `require` nor
@@ -267,6 +267,24 @@ const compileExecuteFn = (
       URLSearchParams,
       setTimeout,
       clearTimeout,
+      // WebCrypto (`globalThis.crypto`), NOT `node:crypto`. The prelude
+      // declares the `Crypto` shape — randomUUID/getRandomValues/subtle —
+      // so binding the Node module object here would type-check at boot and
+      // then fail on the first member access. The drift check proves the
+      // NAME resolves, never the shape; keeping this a bare global
+      // reference is what keeps the two in agreement.
+      //
+      // Shorthand is load-bearing: `extractSandboxGlobals` in
+      // [internal ref] only recognises shorthand
+      // properties, so `crypto: globalThis.crypto` would be silently
+      // invisible to the guard.
+      crypto,
+      // Already reachable inside `vm.createContext` as a V8 intrinsic
+      // regardless of this literal (verified empirically), and declared by
+      // `lib.es5`/`lib.es2020.intl`. Listing it makes the grant intentional
+      // and auditable rather than accidental — and is what lets code
+      // actions do locale/timezone formatting.
+      Intl,
       // The user's context.
       context,
     }
@@ -342,7 +360,7 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
  * BigInts, circular references) so the action still surfaces *something*
  * rather than dropping the result.
  */
-const sanitizeOutput = (value: unknown): Record<string, unknown> => {
+const sanitizeOutput = (value: unknown): Readonly<Record<string, unknown>> => {
   try {
     const json = JSON.stringify(value)
     if (json === undefined) return {}

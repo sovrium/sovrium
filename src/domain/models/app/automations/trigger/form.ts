@@ -27,7 +27,7 @@ export const FormTriggerSchema = Schema.Struct({
   /** Top-level form name from app.forms[].name. Cross-validated. */
   form: FormNameSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FormTrigger',
     title: 'Form Trigger',
     description:

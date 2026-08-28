@@ -29,27 +29,26 @@ const wrap = makeDbWrap((error) => new UsersOverviewDatabaseError({ cause: error
  * what keeps each query targeting a table that actually exists.
  */
 export const UsersOverviewRepositoryLive = Layer.succeed(UsersOverviewRepository, {
-  listUserRows: () =>
-    wrap(async () => {
-      // One full scan of auth.user.role + created_at. The auth.user table is
-      // small (operators in the hundreds, not millions) so a per-row scan is
-      // cheaper than three separate GROUP BY queries and keeps the
-      // dialect-agnostic call site simple.
-      //
-      // Agent-mirrored accounts are excluded on the same predicate the sibling
-      // DIRECTORY read uses. Filtering only one of the two would be worse than
-      // filtering neither: the operator would read a total on the tile that does
-      // not match the number of rows in the list directly beneath it, and the
-      // discrepancy would silently equal the agent count.
-      const usersTable = authUsersTable()
-      return (await db
-        .select({ role: usersTable.role, createdAt: usersTable.createdAt })
-        .from(usersTable)
-        .where(notAnAgentAccount(usersTable.email))) as ReadonlyArray<{
-        role: string | null
-        createdAt: Date | string | number
-      }>
-    }),
+  listUserRows: wrap(async () => {
+    // One full scan of auth.user.role + created_at. The auth.user table is
+    // small (operators in the hundreds, not millions) so a per-row scan is
+    // cheaper than three separate GROUP BY queries and keeps the
+    // dialect-agnostic call site simple.
+    //
+    // Agent-mirrored accounts are excluded on the same predicate the sibling
+    // DIRECTORY read uses. Filtering only one of the two would be worse than
+    // filtering neither: the operator would read a total on the tile that does
+    // not match the number of rows in the list directly beneath it, and the
+    // discrepancy would silently equal the agent count.
+    const usersTable = authUsersTable()
+    return (await db
+      .select({ role: usersTable.role, createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(notAnAgentAccount(usersTable.email))) as ReadonlyArray<{
+      role: string | null
+      createdAt: Date | string | number
+    }>
+  }),
 
   countActiveUsersSince: (since) =>
     wrap(async () => {

@@ -70,28 +70,32 @@ const OPTION_COLOR_HEX = /^#[0-9a-fA-F]{6}$/
  * label, never the color), so colouring or translating an option never rewrites
  * data and emits byte-identical DDL.
  */
-export const SelectOptionSchema = Schema.Union(
+export const SelectOptionSchema = Schema.Union([
   Schema.String,
   Schema.Struct({
-    value: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'option value is required' })),
+    value: Schema.String.pipe(
+      Schema.check(Schema.isNonEmpty({ message: 'option value is required' }))
+    ),
     label: Schema.optional(Schema.String),
     color: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(OPTION_COLOR_HEX, {
-          message: () => 'Invalid color format - color must be a hex code (e.g., #3B82F6)',
-        }),
+        Schema.check(
+          Schema.isPattern(OPTION_COLOR_HEX, {
+            message: 'Invalid color format - color must be a hex code (e.g., #3B82F6)',
+          })
+        ),
         // The trailing annotation is LOAD-BEARING for the published JSON Schema:
         // `Schema.pattern` supplies its own `description` ("a string matching the
         // pattern …"), so dropping this line silently replaces human prose with a
         // regex restatement in `sovrium schema` output. Measured on this change.
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Hex color code (#RRGGBB) painted as the option chip fill; the foreground and border are derived from it',
         })
       )
     ),
-  }).pipe(Schema.annotations({ title: 'Select Option (object form)' }))
-).annotations({
+  }).pipe(Schema.annotate({ title: 'Select Option (object form)' })),
+]).annotate({
   title: 'Select Option',
   description:
     'A select option: a bare string, or `{ value, label?, color? }` where `label` may be a `$t:` key and `color` a `#RRGGBB` fill',
@@ -126,18 +130,26 @@ export type SelectOption = Schema.Schema.Type<typeof SelectOptionSchema>
  */
 export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select') =>
   Schema.Array(SelectOptionSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
+      // EFFECT 4: `Annotations.Filter.message` is a `string`, where v3 took a
+      // `() => string` thunk. A thunk here is not rejected at runtime, it is
+      // simply not a string — so the custom line silently vanished and authors
+      // got the generic "Expected a value with a length of at least 1" instead.
+      // `fieldType` is a parameter of this factory, so nothing is lost by
+      // interpolating eagerly.
       title: 'Options',
-      message: () => `At least one option is required for ${fieldType} field`,
+      message: `At least one option is required for ${fieldType} field`,
     }),
-    Schema.filter((options) => {
-      const values = options.map(optionValue)
-      const uniqueValues = new Set(values)
-      return (
-        values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
-      )
-    })
+    Schema.check(
+      Schema.makeFilter((options) => {
+        const values = options.map(optionValue)
+        const uniqueValues = new Set(values)
+        return (
+          values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+        )
+      })
+    )
   )
 
 /**
@@ -173,15 +185,17 @@ export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select')
  */
 export const createStatusOptionsSchema = () =>
   Schema.Array(SelectOptionSchema).pipe(
-    Schema.minItems(1, { message: () => 'at least one option required' }),
-    Schema.annotations({ title: 'Status Options' }),
-    Schema.filter((options) => {
-      const values = options.map(optionValue)
-      const uniqueValues = new Set(values)
-      return (
-        values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
-      )
-    })
+    Schema.check(Schema.isMinLength(1, { message: 'at least one option required' })),
+    Schema.annotate({ title: 'Status Options' }),
+    Schema.check(
+      Schema.makeFilter((options) => {
+        const values = options.map(optionValue)
+        const uniqueValues = new Set(values)
+        return (
+          values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+        )
+      })
+    )
   )
 
 /**

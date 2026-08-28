@@ -29,8 +29,17 @@ import {
   handleDataSet,
   handleDataSort,
   handleDataSplit,
-  handleDataValidateConfig,
 } from './data'
+import {
+  handleDateAdd,
+  handleDateDiff,
+  handleDateEndOf,
+  handleDateFormat,
+  handleDateNow,
+  handleDateParse,
+  handleDateStartOf,
+  handleDateSubtract,
+} from './date'
 import { handleDelayQueue, handleDelayWait, handleDelayWebhook } from './delay'
 import { handleDigestCollect, handleDigestRelease } from './digest'
 import { handleEmailSend } from './email'
@@ -54,6 +63,7 @@ import {
   handleFileMove,
   handleFileSignUrl,
 } from './file-ops'
+import { handleFileGenerateXlsx, handleFileParseXlsx } from './file-xlsx'
 import { handleFilterContinue } from './filter'
 import { handleFlowStop } from './flow'
 import {
@@ -65,14 +75,22 @@ import {
   handleHttpRequest,
 } from './http'
 import { handleLoopEach } from './loop'
+import { handlePathBranch } from './path'
 import {
-  handleRecordBatchCreate,
   handleRecordCreate,
   handleRecordDelete,
   handleRecordRead,
   handleRecordUpdate,
   handleRecordUpsert,
 } from './record'
+import {
+  handleRecordBatchCreate,
+  handleRecordBatchDelete,
+  handleRecordBatchUpdate,
+  handleRecordBatchUpsert,
+} from './record-batch'
+import { actionKey } from './shared'
+import { handleSovriumValidateConfig } from './sovrium'
 import {
   handleStateDelete,
   handleStateGet,
@@ -113,7 +131,14 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['data/split', handleDataSplit],
   ['data/compare', handleDataCompare],
   ['data/lookup', handleDataLookup],
-  ['data/validate-config', handleDataValidateConfig],
+  ['date/format', handleDateFormat],
+  ['date/parse', handleDateParse],
+  ['date/add', handleDateAdd],
+  ['date/subtract', handleDateSubtract],
+  ['date/diff', handleDateDiff],
+  ['date/startOf', handleDateStartOf],
+  ['date/endOf', handleDateEndOf],
+  ['date/now', handleDateNow],
   ['ai/generate', handleAiGenerate],
   ['ai/classify', handleAiClassify],
   ['ai/extract', handleAiExtract],
@@ -131,10 +156,15 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['record/delete', handleRecordDelete],
   ['record/upsert', handleRecordUpsert],
   ['record/batchCreate', handleRecordBatchCreate],
+  ['record/batchUpdate', handleRecordBatchUpdate],
+  ['record/batchDelete', handleRecordBatchDelete],
+  ['record/batchUpsert', handleRecordBatchUpsert],
   ['file/upload', handleFileUpload],
   ['file/download', handleFileDownload],
   ['file/parseCsv', handleFileParseCsv],
   ['file/generateCsv', handleFileGenerateCsv],
+  ['file/parseXlsx', handleFileParseXlsx],
+  ['file/generateXlsx', handleFileGenerateXlsx],
   ['file/list', handleFileList],
   ['file/getMetadata', handleFileGetMetadata],
   ['file/move', handleFileMove],
@@ -152,6 +182,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['http/patch', handleHttpPatch],
   ['http/delete', handleHttpDelete],
   ['flow/stop', handleFlowStop],
+  ['sovrium/validateConfig', handleSovriumValidateConfig],
   ['email/send', handleEmailSend],
   ['webhook/send', handleWebhookSend],
   ['webhook/response', handleWebhookResponse],
@@ -166,24 +197,56 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['delay/webhook', handleDelayWebhook],
   ['delay/queue', handleDelayQueue],
   ['loop/each', handleLoopEach],
+  ['path/branch', handlePathBranch],
   ['automation/call', handleAutomationCall],
   ['automation/return', handleAutomationReturn],
 ])
 
 /**
- * No-op success handler used when no entry is registered for the action's
- * key. Records the run as successful so the dispatch shape stays additive
- * across waves (a new action type that lands without a handler doesn't
- * regress unrelated tests; it surfaces as a missing-handler entry in logs
- * that the next migration spec can fill in).
+ * Explain why an action's key found no handler.
+ *
+ * `ref` is the one declarable type with no handler BY DESIGN: every `$ref` is
+ * rewritten to its target template by `expandRefActions` before the run loop
+ * dispatches anything, so the registry never sees the key. An action arriving
+ * here as `ref` therefore means the referenced template is not declared in
+ * `app.actions[]` — say THAT, rather than "no handler for ref", which sends the
+ * reader hunting for a handler that must not exist. Mirrors the
+ * `NEVER_DISPATCHED` allowlist in `registry-schema-coverage.test.ts`.
  */
-export const noopActionHandler: ActionHandler = (_action, _app, _automation) =>
-  Effect.succeed({ status: 'success' } as const)
+const missingHandlerMessage = (action: Readonly<Record<string, unknown>>): string => {
+  const type = String(action['type'] ?? '')
+  if (type === 'ref') {
+    return `action template '${String(action['$ref'] ?? '')}' is not defined in app.actions[]`
+  }
+  return `no handler registered for action '${actionKey(type, action['operator'] as string | undefined)}'`
+}
+
+/**
+ * Fallback handler used when no entry is registered for the action's key.
+ *
+ * This used to be a no-op that reported SUCCESS, on the reasoning that the
+ * dispatch shape should stay additive across waves — a new action type landing
+ * without a handler would not regress unrelated tests. What it actually bought
+ * was silence: `path/branch`, `record/batchUpdate`, `record/batchDelete` and
+ * `record/batchUpsert` all shipped declarable, documented and schema-valid with
+ * no handler, and every run of them reported success while doing nothing. The
+ * only signal was the absence of rows in the database.
+ *
+ * So an unregistered key is now a step FAILURE. The blast radius is provably
+ * zero for schema-valid configs: `registry-schema-coverage.test.ts` asserts
+ * that every declarable action has a handler, so nothing a config author can
+ * write reaches this path. It remains reachable from the code-action sandbox's
+ * native invoker, which bypasses schema validation — and that path already
+ * rejected unregistered keys loudly (`run/action-invokers.ts`), so this simply
+ * ends an asymmetry rather than introducing a new failure mode.
+ */
+export const missingActionHandler: ActionHandler = (action, _app, _automation) =>
+  Effect.succeed({ status: 'failure', error: missingHandlerMessage(action) } as const)
 
 // Re-export the public surface so external callers (currently
 // `run-automation.ts`) can keep importing from the same module path
 // regardless of internal file structure.
-export { actionKey } from './shared'
+export { actionKey }
 export type {
   ActionHandler,
   ActionKey,

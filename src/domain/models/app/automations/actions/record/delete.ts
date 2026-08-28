@@ -20,13 +20,13 @@ export const RecordDeleteActionSchema = Schema.Struct({
   operator: Schema.Literal('delete'),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Target table name' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Target table name' })
     ),
     filter: ConditionGroupSchema,
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordDeleteAction',
     title: 'Record Delete Action',
     description: 'Delete records matching filter conditions',

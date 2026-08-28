@@ -34,8 +34,8 @@ import { WebhookRetrySchema } from './retry'
 export const WebhookSchema = Schema.Struct({
   /** Unique webhook name within the table. */
   name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Webhook Name',
       description: 'Unique webhook identifier within the table',
     })
@@ -43,30 +43,32 @@ export const WebhookSchema = Schema.Struct({
 
   /** Destination URL for the outgoing HTTP POST request. */
   url: Schema.String.pipe(
-    Schema.filter(
-      (value) => {
-        // Reject malformed URLs at schema-decode time. The webhook dispatcher
-        // only ever issues http(s) POST requests, so anything that does not
-        // parse as an absolute http/https URL is a configuration error.
-        try {
-          const parsed = new URL(value)
-          return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-        } catch {
-          return false
-        }
-      },
-      { message: () => 'Webhook url must be a valid http(s) URL' }
+    Schema.check(
+      Schema.makeFilter(
+        (value) => {
+          // Reject malformed URLs at schema-decode time. The webhook dispatcher
+          // only ever issues http(s) POST requests, so anything that does not
+          // parse as an absolute http/https URL is a configuration error.
+          try {
+            const parsed = new URL(value)
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+          } catch {
+            return false
+          }
+        },
+        { message: 'Webhook url must be a valid http(s) URL' }
+      )
     ),
-    Schema.annotations({
+    Schema.annotate({
       title: 'Webhook URL',
       description: 'Destination URL for outgoing webhook POST requests',
     })
   ),
 
   /** Record events that trigger this webhook. At least one required. */
-  events: Schema.Array(Schema.Literal('create', 'update', 'delete')).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+  events: Schema.Array(Schema.Literals(['create', 'update', 'delete'])).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Webhook Events',
       description: 'Record CRUD events that trigger webhook delivery',
     })
@@ -75,7 +77,7 @@ export const WebhookSchema = Schema.Struct({
   /** Whether this webhook is active (default: true). */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Whether this webhook is active (default: true)' })
+      Schema.annotate({ description: 'Whether this webhook is active (default: true)' })
     )
   ),
 
@@ -88,7 +90,7 @@ export const WebhookSchema = Schema.Struct({
   /** Payload field selection and metadata options (optional). */
   payload: Schema.optional(WebhookPayloadSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Webhook',
     title: 'Table Webhook',
     description:
@@ -113,4 +115,4 @@ export const WebhookSchema = Schema.Struct({
 /** @public */
 export type Webhook = Schema.Schema.Type<typeof WebhookSchema>
 /** @public */
-export type WebhookEncoded = Schema.Schema.Encoded<typeof WebhookSchema>
+export type WebhookEncoded = Schema.Codec.Encoded<typeof WebhookSchema>

@@ -20,12 +20,12 @@ import { Schema } from 'effect'
  * - app: Mobile app promotion with install button
  * - player: Video/audio player embed
  */
-export const TwitterCardTypeSchema = Schema.Literal(
+export const TwitterCardTypeSchema = Schema.Literals([
   'summary',
   'summary_large_image',
   'app',
-  'player'
-).annotations({
+  'player',
+]).annotate({
   description: 'Type of Twitter Card',
 })
 
@@ -35,11 +35,13 @@ export const TwitterCardTypeSchema = Schema.Literal(
  * Twitter @username format: starts with @ followed by alphanumeric and underscores.
  */
 export const TwitterUsernameSchema = Schema.String.pipe(
-  Schema.pattern(/^@[A-Za-z0-9_]+$/, {
-    message: () =>
-      'Twitter username must start with @ and contain only letters, numbers, and underscores (e.g., @mysite, @johndoe)',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^@[A-Za-z0-9_]+$/, {
+      message:
+        'Twitter username must start with @ and contain only letters, numbers, and underscores (e.g., @mysite, @johndoe)',
+    })
+  )
+).annotate({
   description: 'Twitter @username',
   examples: ['@mysite', '@johndoe'],
 })
@@ -48,12 +50,10 @@ export const TwitterUsernameSchema = Schema.String.pipe(
  * App name configuration for Twitter App Card
  */
 export const TwitterAppNameSchema = Schema.Struct({
-  iPhone: Schema.optional(Schema.String.annotations({ description: 'App name for iPhone' })),
-  iPad: Schema.optional(Schema.String.annotations({ description: 'App name for iPad' })),
-  googlePlay: Schema.optional(
-    Schema.String.annotations({ description: 'App name for Google Play' })
-  ),
-}).annotations({
+  iPhone: Schema.optional(Schema.String.annotate({ description: 'App name for iPhone' })),
+  iPad: Schema.optional(Schema.String.annotate({ description: 'App name for iPad' })),
+  googlePlay: Schema.optional(Schema.String.annotate({ description: 'App name for Google Play' })),
+}).annotate({
   description: 'Name of app (for app cards)',
 })
 
@@ -61,12 +61,12 @@ export const TwitterAppNameSchema = Schema.Struct({
  * App ID configuration for Twitter App Card
  */
 export const TwitterAppIdSchema = Schema.Struct({
-  iPhone: Schema.optional(Schema.String.annotations({ description: 'App Store ID for iPhone' })),
-  iPad: Schema.optional(Schema.String.annotations({ description: 'App Store ID for iPad' })),
+  iPhone: Schema.optional(Schema.String.annotate({ description: 'App Store ID for iPhone' })),
+  iPad: Schema.optional(Schema.String.annotate({ description: 'App Store ID for iPad' })),
   googlePlay: Schema.optional(
-    Schema.String.annotations({ description: 'Google Play package name (e.g., com.example.myapp)' })
+    Schema.String.annotate({ description: 'Google Play package name (e.g., com.example.myapp)' })
   ),
-}).annotations({
+}).annotate({
   description: 'App ID in respective stores',
 })
 
@@ -78,14 +78,12 @@ export const TwitterAppIdSchema = Schema.Struct({
  * installed.
  */
 export const TwitterAppUrlSchema = Schema.Struct({
-  iPhone: Schema.optional(
-    Schema.String.annotations({ description: 'Deep-link URL for iPhone app' })
-  ),
-  iPad: Schema.optional(Schema.String.annotations({ description: 'Deep-link URL for iPad app' })),
+  iPhone: Schema.optional(Schema.String.annotate({ description: 'Deep-link URL for iPhone app' })),
+  iPad: Schema.optional(Schema.String.annotate({ description: 'Deep-link URL for iPad app' })),
   googlePlay: Schema.optional(
-    Schema.String.annotations({ description: 'Deep-link URL for Google Play app' })
+    Schema.String.annotate({ description: 'Deep-link URL for Google Play app' })
   ),
-}).annotations({
+}).annotate({
   description: 'Deep-link URL to open app in respective stores',
 })
 
@@ -101,52 +99,52 @@ export const TwitterAppUrlSchema = Schema.Struct({
 export const TwitterCardSchema = Schema.Struct({
   card: TwitterCardTypeSchema,
   title: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(70)).annotations({
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(70))).annotate({
       description: 'Twitter Card title',
     })
   ),
   description: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(200)).annotations({
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(200))).annotate({
       description: 'Twitter Card description',
     })
   ),
   image: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Image URL (min 144x144px for summary, 300x157px for large)',
       format: 'uri',
     })
   ),
   imageAlt: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(420)).annotations({
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(420))).annotate({
       description: 'Alternative text for the image',
     })
   ),
   site: Schema.optional(
-    TwitterUsernameSchema.annotations({ description: 'Twitter @username of website' })
+    TwitterUsernameSchema.annotate({ description: 'Twitter @username of website' })
   ),
   creator: Schema.optional(
-    TwitterUsernameSchema.annotations({ description: 'Twitter @username of content creator' })
+    TwitterUsernameSchema.annotate({ description: 'Twitter @username of content creator' })
   ),
   player: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'HTTPS URL to video player (for player cards)',
       format: 'uri',
     })
   ),
   playerWidth: Schema.optional(
-    Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+    Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))).annotate({
       description: 'Width of video player in pixels',
     })
   ),
   playerHeight: Schema.optional(
-    Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+    Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))).annotate({
       description: 'Height of video player in pixels',
     })
   ),
   appName: Schema.optional(TwitterAppNameSchema),
   appId: Schema.optional(TwitterAppIdSchema),
   appUrl: Schema.optional(TwitterAppUrlSchema),
-}).annotations({
+}).annotate({
   title: 'Twitter Card Metadata',
   description: 'Twitter Card metadata for rich Twitter/X sharing',
 })

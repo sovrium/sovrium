@@ -148,7 +148,15 @@ async function bundleJS(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function generateDeclarations(): void {
-  run(['bun', 'tsc', '-p', 'tsconfig.build.json'], 'Generating .d.ts declarations')
+  // Addressed by path, not as `tsc`: node_modules/.bin/tsc is TypeScript 7
+  // (tsgo's compiler, installed under the `@typescript/native` alias), and TS 7
+  // rejects this repo's tsconfig outright. The release declaration emit must
+  // stay on TypeScript 6. See `TSC_BIN` in
+  // [internal ref].
+  run(
+    ['./node_modules/typescript/bin/tsc', '-p', 'tsconfig.build.json'],
+    'Generating .d.ts declarations'
+  )
 }
 
 // ---------------------------------------------------------------------------

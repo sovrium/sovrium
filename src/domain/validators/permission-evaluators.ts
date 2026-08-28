@@ -39,7 +39,7 @@ export function evaluateFieldPermissions(
   fieldPerms: TableFieldPermissions | undefined,
   userRole: string,
   isAdmin: boolean
-): Record<string, { read: boolean; write: boolean }> {
+): Readonly<Record<string, { read: boolean; write: boolean }>> {
   const fields = fieldPerms ?? []
   return Object.fromEntries(
     fields.map((fieldPerm) => [
@@ -347,6 +347,47 @@ export function hasUpdatePermission(
 }
 
 /**
+ * Whether a grid should OFFER inline editing by default on this table.
+ *
+ * This is the permission-derived default behind a data-table column's
+ * `editable`, whose schema annotation has always read "default: from table
+ * permissions". It is a UI-affordance question, deliberately narrower than
+ * "may this caller update?", and it is a strict SUBSET of
+ * {@link hasUpdatePermission} — it can only ever withhold an affordance the
+ * write path would have allowed, never manufacture one it would refuse.
+ * Server-side enforcement is untouched and remains the only security boundary:
+ * a refused update still fails at the records API.
+ *
+ * The extra condition is that the table must actually DECLARE an `update`
+ * grant. `hasUpdatePermission` treats an undeclared operation as open to every
+ * non-viewer (`omittedOperationIsOpen`), which is right for a write a caller
+ * explicitly asked to perform and wrong as a default affordance: it would turn
+ * double-click editing on across every grid bound to a table carrying no
+ * `permissions` block at all. Measured on `apps/partner`, that is the
+ * difference between 11 tables and 52. An absent grant is not a permission to
+ * follow, so there is nothing to derive from and the grid stays read-only,
+ * exactly as it is today.
+ *
+ * Inheritance is honoured — the declaration test runs against the EFFECTIVE
+ * permissions, so an `inherit`ing table follows the grant it resolves to.
+ *
+ * Admin still outranks a role list: an admin editing a table whose `update`
+ * names only `['engineer']` is the `hasUpdatePermission` early-return doing its
+ * job. An admin gets no affordance on a table that declares no `update`
+ * either, because such a table opted out of role-based update gating entirely.
+ */
+export function hasInlineEditDefault(
+  table: Parameters<typeof hasUpdatePermission>[0],
+  userRole: string,
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+): boolean {
+  const effectivePerms = getEffectivePermissions(table, allTables) as
+    Readonly<{ update?: unknown }> | undefined
+  if (effectivePerms?.update === undefined) return false
+  return hasUpdatePermission(table, userRole, allTables)
+}
+
+/**
  * Check if user has read permission for a table
  * Returns true if permission granted, false if denied
  *
@@ -497,6 +538,27 @@ export function hasDeletePermissionForRoles(
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
   return effectiveRoles.some((role) => hasDeletePermission(table, role, allTables))
+}
+
+/**
+ * Group-aware comment permission check (most-permissive-wins).
+ *
+ * Returns true when ANY of the user's effective roles may comment. The fifth
+ * member of the `*ForRoles` family, added because the comment CREATE gate
+ * crosses read AND comment: making only the read half group-aware would leave a
+ * group-granted caller denied by the comment half, invisibly.
+ *
+ * Safe to fold with `.some()` for the same reason as its four siblings —
+ * `hasCommentPermission` is monotone in permissiveness, so the ungated
+ * fall-throughs (a `comments` block, an omitted `comment` operation) answer the
+ * same for every role and the declared-grant branch is a pure membership test.
+ */
+export function hasCommentPermissionForRoles(
+  table: Parameters<typeof hasCommentPermission>[0],
+  effectiveRoles: readonly string[],
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+): boolean {
+  return effectiveRoles.some((role) => hasCommentPermission(table, role, allTables))
 }
 
 /**

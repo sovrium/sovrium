@@ -13,12 +13,12 @@ import { DelayWebhookActionSchema } from './webhook'
 /**
  * Delay Action — union of all delay operators
  */
-export const DelayActionSchema = Schema.Union(
+export const DelayActionSchema = Schema.Union([
   DelayWaitActionSchema,
   DelayWebhookActionSchema,
-  DelayQueueActionSchema
-).pipe(
-  Schema.annotations({
+  DelayQueueActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'DelayAction',
     title: 'Delay Action',
     description: 'Pause execution: wait for duration/datetime, webhook callback, or queue throttle',

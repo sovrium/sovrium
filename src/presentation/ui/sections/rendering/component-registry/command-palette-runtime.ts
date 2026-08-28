@@ -239,7 +239,7 @@ ${COMMAND_PALETTE_RUNTIME_ACTIONS}
   // Quick actions filtered by the query are rendered LAST — when a query is
   // typed the user is most likely looking for an actual page/record match, so
   // pressing ArrowDown once should highlight a content result, not the generic
-  // "Create new record in <table>" quick action (APP-COMMAND-PALETTE-004).
+  // "Create new record in <table>" quick action.
   function renderSearch(query, ctx) {
     // The previous results stay on screen until the new ones arrive: clearing
     // up front would blank the list on every debounce tick, which reads as

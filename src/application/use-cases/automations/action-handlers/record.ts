@@ -23,13 +23,16 @@ import {
   buildSystemSession,
 } from '../build-guest-session'
 import {
-  buildRunContextView,
-  rawActionProps,
-  resolveRunContextValue,
-} from './run-context-resolution'
-import { recordProp, stringProp } from './shared'
+  declaredFieldNames,
+  extractIdFromFilter,
+  failureFromError,
+  filterFieldRefusal,
+  resolveActionTargetIds,
+  toQueryFilter,
+} from './record-filters'
+import { findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
-import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
+import type { App } from '@/domain/models/app'
 
 /**
  * Resolve the actor id a record write should be attributed to.
@@ -63,6 +66,16 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: 'record.create requires a table name' } as const
     }
 
+    // Multi-select membership + cardinality. Checked on the raw author-supplied
+    // payload (authorship overrides are system-generated and never
+    // multi-select), and checked HERE rather than inside `createRecordProgram`
+    // because that program takes `app` OPTIONALLY and this caller has none to
+    // give it — validation placed there would silently no-op on this path.
+    const multiSelectError = findMultiSelectViolationMessage(app, tableName, fields)
+    if (multiSelectError) {
+      return { status: 'failure', error: multiSelectError } as const
+    }
+
     // Actor authority: the automation engine writes with a durable, non-null
     // actor id (not the NULL-normalized guest id) so NOT-NULL authorship
     // columns are satisfied. `runAs: 'triggering-user'` attributes
@@ -79,132 +92,14 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
         ...buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
       },
     })
-    const result = yield* Effect.either(program)
-    if (result._tag === 'Left') {
-      const err = result.left
+    const result = yield* Effect.result(program)
+    if (result._tag === 'Failure') {
+      const err = result.failure
       const message = err instanceof Error ? err.message : String(err)
       return { status: 'failure', error: message } as const
     }
     return { status: 'success' } as const
   })
-
-const errorMessageOf = (value: unknown): string =>
-  value instanceof Error ? value.message : String(value)
-
-const firstLeftMessage = <A>(
-  results: ReadonlyArray<
-    | { readonly _tag: 'Left'; readonly left: unknown }
-    | { readonly _tag: 'Right'; readonly right: A }
-  >
-): string => {
-  const firstError = results.find(
-    (r): r is { readonly _tag: 'Left'; readonly left: unknown } => r._tag === 'Left'
-  )
-  return firstError ? errorMessageOf(firstError.left) : 'batch create failed'
-}
-
-/**
- * `record/batchCreate` handler — creates many rows in the named table from a
- * template-resolved array. Accepts `records` or `items` as the array key.
- *
- * The array prop is re-resolved from the RAW pre-substitution action against
- * the run-context view, because the run loop's `resolveTriggerInValue` pass
- * stringifies non-scalar leaves (`String([{…}])` → `"[object Object]"`); a
- * whole-string `{{steps.parseCsv.data}}` must survive as the actual array.
- */
-export const handleRecordBatchCreate: ActionHandler = (action, app, _automation, runContext) =>
-  Effect.gen(function* () {
-    const props = runContext
-      ? (resolveRunContextValue(
-          rawActionProps(runContext),
-          buildRunContextView(runContext)
-        ) as Record<string, unknown>)
-      : ((action['props'] as Record<string, unknown> | undefined) ?? {})
-
-    const tableName = stringProp(props, 'table')
-    if (!tableName) {
-      return { status: 'failure', error: 'record.batchCreate requires a table name' } as const
-    }
-    const itemsRaw = props['records'] ?? props['items']
-    const items = Array.isArray(itemsRaw) ? (itemsRaw as ReadonlyArray<unknown>) : []
-    const continueOnItemError = props['continueOnItemError'] === true
-
-    // System authority — same rationale as handleRecordCreate.
-    const session = buildSystemSession()
-    const authorship = buildCreateAuthorshipOverrides(app.tables, tableName, SYSTEM_USER_ID)
-    const results = yield* Effect.forEach(items, (item) => {
-      const fields =
-        item !== null && typeof item === 'object' ? (item as Record<string, unknown>) : {}
-      return Effect.either(
-        createRecordProgram({ session, tableName, fields: { ...fields, ...authorship } })
-      )
-    })
-    const created = results.filter((r) => r._tag === 'Right').length
-    const failed = results.length - created
-    return failed > 0 && !continueOnItemError
-      ? ({
-          status: 'failure',
-          error: firstLeftMessage(results),
-          output: { created, failed },
-        } as const)
-      : ({ status: 'success', output: { created, failed } } as const)
-  })
-
-interface FilterCondition {
-  readonly field?: string
-  readonly operator?: string
-  readonly value?: unknown
-}
-interface FilterGroup {
-  readonly conditions?: readonly FilterCondition[]
-}
-
-/**
- * Extract a single record id from a foundational filter shape:
- * `{ conditions: [{ field: 'id', operator: 'equals', value: <id> }] }`.
- *
- * Returns undefined if the filter is missing, has multiple conditions, or
- * does not match the `id equals` shape. Future migration specs widen this
- * to compile filters into a SQL WHERE clause; the foundation only handles
- * the most common case used by record-event triggers (update by id).
- */
-const isValidIdEqualsCondition = (condition: FilterCondition): boolean => {
-  if (condition.field !== 'id') return false
-  if (condition.operator !== 'equals') return false
-  if (condition.value === undefined) return false
-  if (condition.value === '') return false
-  return true
-}
-
-const extractIdFromFilter = (filter: unknown): string | undefined => {
-  if (!filter || typeof filter !== 'object') return undefined
-  const { conditions } = filter as FilterGroup
-  if (!Array.isArray(conditions) || conditions.length !== 1) return undefined
-  const condition = conditions[0]
-  if (!condition || typeof condition !== 'object') return undefined
-  if (!isValidIdEqualsCondition(condition)) return undefined
-  return String(condition.value)
-}
-
-/**
- * Translate the spec's filter shape (`{ conditions: [{ field, operator,
- * value }] }`) into the repository's `QueryFilter` (`{ and: [...] }`). The
- * two shapes carry the same information; the rename exists because the
- * spec mirrors the records-API public contract while `QueryFilter` is the
- * internal repository protocol.
- */
-const toQueryFilter = (filter: unknown): QueryFilter | undefined => {
-  if (!filter || typeof filter !== 'object') return undefined
-  const { conditions } = filter as FilterGroup
-  if (!Array.isArray(conditions) || conditions.length === 0) return undefined
-  const and = conditions.flatMap((c) => {
-    if (!c || typeof c !== 'object') return []
-    const { field, operator, value } = c as FilterCondition
-    if (typeof field !== 'string' || typeof operator !== 'string') return []
-    return [{ field, operator, value }] as const
-  })
-  return and.length > 0 ? { and } : undefined
-}
 
 /**
  * `record/update` handler — apply a filter, then update each matched row
@@ -228,10 +123,26 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: 'record.update requires a table name' } as const
     }
 
-    const idFastPath = extractIdFromFilter(props['filter'])
-    const idsToUpdate: readonly string[] = idFastPath
-      ? [idFastPath]
-      : yield* resolveIdsByFilter(tableName, props['filter'])
+    // Multi-select membership + cardinality — see `handleRecordCreate`. Runs
+    // BEFORE the target lookup so a bad payload is rejected without spending a
+    // query, and so the answer does not depend on whether the filter matched.
+    const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
+    if (multiSelectError) {
+      return { status: 'failure', error: multiSelectError } as const
+    }
+
+    // Lenient lookup — a failed query reads as "matched nothing" and the update
+    // then no-ops successfully. Pre-existing behaviour, preserved explicitly;
+    // see `resolveIdsByFilterLenient` for why it was not tightened here. A
+    // filter naming a column that does not exist is NOT degraded that way.
+    const targets = yield* resolveActionTargetIds({
+      operator: 'record.update',
+      tableName,
+      filter: props['filter'],
+      declaredFields: declaredFieldNames(app, tableName),
+    })
+    if (!targets.resolved) return targets.outcome
+    const idsToUpdate: readonly string[] = targets.ids
 
     if (idsToUpdate.length === 0) {
       // No matches — succeed silently. A follow-up spec may surface this as
@@ -241,18 +152,44 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
       return { status: 'success' } as const
     }
 
-    // Actor authority: stamp `updated-by`-typed columns (literal + custom) with
-    // the durable actor so the update records WHO changed the row instead of
-    // silently wiping authorship to NULL under the guest id. `runAs:
-    // 'triggering-user'` re-stamps `updated_by` with the triggering
-    // user when one exists; otherwise the system actor (unchanged default).
-    const actorId = resolveRunAsActor(props, automation)
+    return yield* applyRecordUpdates({
+      actorId: resolveRunAsActor(props, automation),
+      tableName,
+      idsToUpdate,
+      data,
+      tables: app.tables,
+    })
+  })
+
+/**
+ * Write branch of `record/update` — stamp authorship, then update each matched
+ * row.
+ *
+ * Extracted for the same reason `upsertCreate`/`upsertUpdate` were: it keeps the
+ * handler within its `max-statements` budget, and it names the step that carries
+ * the actor authority.
+ *
+ * Actor authority: stamp `updated-by`-typed columns (literal + custom) with the
+ * durable actor so the update records WHO changed the row instead of silently
+ * wiping authorship to NULL under the guest id. `runAs: 'triggering-user'`
+ * re-stamps `updated_by` with the triggering user when one exists;
+ * otherwise the system actor (unchanged default).
+ */
+const applyRecordUpdates = (config: {
+  readonly actorId: string
+  readonly tableName: string
+  readonly idsToUpdate: readonly string[]
+  readonly data: Readonly<Record<string, unknown>>
+  readonly tables: App['tables']
+}): Effect.Effect<ActionOutcome, never, TableRepository> =>
+  Effect.gen(function* () {
+    const { actorId, tableName, idsToUpdate, data, tables } = config
     const session = buildSyntheticSession(actorId)
     const fieldsWithAuthorship = {
       ...data,
-      ...buildUpdateAuthorshipOverrides(app.tables, tableName, actorId),
+      ...buildUpdateAuthorshipOverrides(tables, tableName, actorId),
     }
-    const updates = yield* Effect.either(
+    const updates = yield* Effect.result(
       Effect.forEach(
         idsToUpdate,
         (recordId) =>
@@ -260,12 +197,9 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
         { discard: true }
       )
     )
-    if (updates._tag === 'Left') {
-      const err = updates.left
-      const message = err instanceof Error ? err.message : String(err)
-      return { status: 'failure', error: message } as const
-    }
-    return { status: 'success' } as const
+    return updates._tag === 'Failure'
+      ? failureFromError(updates.failure)
+      : ({ status: 'success' } as const)
   })
 
 /**
@@ -296,15 +230,15 @@ const upsertCreate = (config: {
 }): Effect.Effect<ActionOutcome, never, TableRepository> =>
   Effect.gen(function* () {
     const { actorId, tableName, data, createOverrides } = config
-    const created = yield* Effect.either(
+    const created = yield* Effect.result(
       createRecordProgram({
         session: buildSyntheticSession(actorId),
         tableName,
         fields: { ...data, ...createOverrides },
       })
     )
-    return created._tag === 'Left'
-      ? failureFromError(created.left)
+    return created._tag === 'Failure'
+      ? failureFromError(created.failure)
       : ({ status: 'success', output: { operation: 'created' } } as const)
   })
 
@@ -325,15 +259,15 @@ const upsertUpdate = (config: {
     const { actorId, tableName, matchedIds, data, updateOverrides } = config
     const session = buildSyntheticSession(actorId)
     const fields = { ...data, ...updateOverrides }
-    const updates = yield* Effect.either(
+    const updates = yield* Effect.result(
       Effect.forEach(
         matchedIds,
         (recordId) => updateRecordProgram(session, tableName, recordId, { fields }),
         { discard: true }
       )
     )
-    return updates._tag === 'Left'
-      ? failureFromError(updates.left)
+    return updates._tag === 'Failure'
+      ? failureFromError(updates.failure)
       : ({ status: 'success', output: { operation: 'updated' } } as const)
   })
 
@@ -347,11 +281,28 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: 'record.upsert requires a table name' } as const
     }
 
-    const idProp = stringProp(props, 'id')
-    const idFastPath = idProp !== '' ? idProp : extractIdFromFilter(props['filter'])
-    const matchedIds: readonly string[] = idFastPath
-      ? [idFastPath]
-      : yield* resolveIdsByFilter(tableName, props['filter'])
+    // Multi-select membership + cardinality — see `handleRecordCreate`. Checked
+    // once here rather than inside `upsertCreate`/`upsertUpdate`: `data` is the
+    // same payload on both branches, and neither branch receives `app`.
+    const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
+    if (multiSelectError) {
+      return { status: 'failure', error: multiSelectError } as const
+    }
+
+    // Lenient lookup — pre-existing behaviour, preserved explicitly. Note this
+    // is the sharpest of the four lenient sites: a failed query reads as "no
+    // existing row", so the upsert takes its CREATE branch and every retry
+    // duplicates. See `resolveIdsByFilterLenient`. An unresolvable filter field
+    // is refused outright rather than degraded into that create branch.
+    const targets = yield* resolveActionTargetIds({
+      operator: 'record.upsert',
+      tableName,
+      filter: props['filter'],
+      declaredFields: declaredFieldNames(app, tableName),
+      idFastPath: stringProp(props, 'id'),
+    })
+    if (!targets.resolved) return targets.outcome
+    const matchedIds: readonly string[] = targets.ids
 
     // Actor authority: `runAs: 'triggering-user'` attributes both
     // branches — create-branch `created-by` and update-branch `updated-by` —
@@ -388,7 +339,7 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
  * already requires a non-empty `filter` at decode time; this guard defends
  * the code-action invoker path that bypasses schema validation.
  */
-export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
+export const handleRecordDelete: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -406,10 +357,19 @@ export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
       } as const
     }
 
-    const idFastPath = extractIdFromFilter(props['filter'])
-    const idsToDelete: readonly string[] = idFastPath
-      ? [idFastPath]
-      : yield* resolveIdsByFilter(tableName, props['filter'])
+    // Lenient lookup — pre-existing behaviour, preserved explicitly. Unlike
+    // `record/batchDelete` (which now fails on a failed lookup) this still
+    // reports `deletedCount: 0` and succeeds. See `resolveIdsByFilterLenient`.
+    // A filter naming a column that does not exist is refused instead: on
+    // SQLite the degraded form of that predicate matches the WHOLE table.
+    const targets = yield* resolveActionTargetIds({
+      operator: 'record.delete',
+      tableName,
+      filter: props['filter'],
+      declaredFields: declaredFieldNames(app, tableName),
+    })
+    if (!targets.resolved) return targets.outcome
+    const idsToDelete: readonly string[] = targets.ids
 
     if (idsToDelete.length === 0) {
       // Filter matched no live rows — succeed silently (consistent with SQL
@@ -420,47 +380,17 @@ export const handleRecordDelete: ActionHandler = (action, _app, _automation) =>
     // System authority — soft-delete stamps `deleted_by` with the durable
     // system actor instead of NULL under the guest id.
     const session = buildSystemSession()
-    const deletes = yield* Effect.either(
+    const deletes = yield* Effect.result(
       Effect.forEach(idsToDelete, (recordId) => deleteRecordProgram(session, tableName, recordId), {
         discard: true,
       })
     )
-    if (deletes._tag === 'Left') {
-      const err = deletes.left
+    if (deletes._tag === 'Failure') {
+      const err = deletes.failure
       const message = err instanceof Error ? err.message : String(err)
       return { status: 'failure', error: message } as const
     }
     return { status: 'success', output: { deletedCount: idsToDelete.length } } as const
-  })
-
-/**
- * List records matching the action's filter and return their `id`s. Used
- * by `handleRecordUpdate` when the filter isn't the foundation `id-equals`
- * fast path. Accesses the table repository directly (rather than through
- * `createListRecordsProgram`) because the handler doesn't have an `App` /
- * `userRole` context — it operates with the guest session that the
- * automation engine threads through every record action.
- */
-const resolveIdsByFilter = (
-  tableName: string,
-  filter: unknown
-): Effect.Effect<readonly string[], never, TableRepository> =>
-  Effect.gen(function* () {
-    const queryFilter = toQueryFilter(filter)
-    if (queryFilter === undefined) return [] as const
-    const repo = yield* TableRepository
-    const records = yield* Effect.either(
-      repo.listRecords({ session: buildGuestSession(), tableName, filter: queryFilter })
-    )
-    if (records._tag === 'Left') return [] as const
-    return records.right.flatMap((row) => {
-      const { id } = row as Record<string, unknown>
-      // Records can carry a numeric id (DB serial) or a string id (UUID).
-      // `updateRecordProgram` accepts either via `String(id)`.
-      if (typeof id === 'string' && id !== '') return [id]
-      if (typeof id === 'number' && Number.isFinite(id)) return [String(id)]
-      return []
-    })
   })
 
 /**
@@ -481,11 +411,6 @@ const buildReadOutput = (records: readonly Readonly<Record<string, unknown>>[]):
   },
 })
 
-const failureFromError = (err: unknown): ActionOutcome => ({
-  status: 'failure',
-  error: err instanceof Error ? err.message : String(err),
-})
-
 /**
  * Primary-key fast path for `record/read`. Goes straight to `getRecord`
  * (single SELECT by id) rather than walking `listRecords`. Returns a
@@ -499,9 +424,9 @@ const readByPrimaryKey = (
 ): Effect.Effect<ActionOutcome, never, TableRepository> =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
-    const result = yield* Effect.either(repo.getRecord(buildGuestSession(), tableName, recordId))
-    if (result._tag === 'Left') return failureFromError(result.left)
-    const record = result.right
+    const result = yield* Effect.result(repo.getRecord(buildGuestSession(), tableName, recordId))
+    if (result._tag === 'Failure') return failureFromError(result.failure)
+    const record = result.success
     return buildReadOutput(record ? [record] : [])
   })
 
@@ -512,10 +437,21 @@ const readByPrimaryKey = (
  * empty `conditions` arrays at decode time, but a code-action invoker
  * (which bypasses schema validation) could still arrive here with an
  * empty filter, and that should not silently degrade to "read everything".
+ *
+ * A filter naming a field that resolves to no column is refused on the same
+ * principle, and it is the same refusal the write operators use. `record/read`
+ * was the one operator that never reached the shared seam: it called
+ * `toQueryFilter` and handed the result straight to `listRecords`, so it never
+ * passed `declaredFields`. On SQLite — the zero-config default engine — an
+ * unknown double-quoted identifier degrades to a string literal, so
+ * `"knid" = 'knid'` is TRUE on every row and the ENTIRE table was handed back
+ * to whoever supplied the field name. That is the read counterpart of the
+ * mass-deletion the write operators already refuse.
  */
 const readByFilter = (
   tableName: string,
-  filter: unknown
+  filter: unknown,
+  declaredFields: ReadonlySet<string> | undefined
 ): Effect.Effect<ActionOutcome, never, TableRepository> =>
   Effect.gen(function* () {
     const queryFilter = toQueryFilter(filter)
@@ -525,12 +461,19 @@ const readByFilter = (
         error: 'record.read filter must contain at least one condition',
       } as const
     }
+    const refusal = filterFieldRefusal(tableName, queryFilter, declaredFields)
+    if (refusal !== undefined) {
+      return {
+        status: 'failure',
+        error: `record.read could not resolve its filter: ${refusal.message}`,
+      } as const
+    }
     const repo = yield* TableRepository
-    const result = yield* Effect.either(
+    const result = yield* Effect.result(
       repo.listRecords({ session: buildGuestSession(), tableName, filter: queryFilter })
     )
-    if (result._tag === 'Left') return failureFromError(result.left)
-    return buildReadOutput(result.right)
+    if (result._tag === 'Failure') return failureFromError(result.failure)
+    return buildReadOutput(result.success)
   })
 
 /**
@@ -542,7 +485,7 @@ const readByFilter = (
  * upstream tests pin the runtime contract for code-action invokers that
  * skip schema validation.
  */
-export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
+export const handleRecordRead: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -552,7 +495,9 @@ export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
     const idRaw = props['id']
     const idValue = typeof idRaw === 'string' && idRaw !== '' ? idRaw : undefined
     if (idValue !== undefined) return yield* readByPrimaryKey(tableName, idValue)
-    if (props['filter'] !== undefined) return yield* readByFilter(tableName, props['filter'])
+    if (props['filter'] !== undefined) {
+      return yield* readByFilter(tableName, props['filter'], declaredFieldNames(app, tableName))
+    }
     // Schema-level enforcement should have rejected this configuration at
     // decode time. The runtime guard exists so a code-action invoking
     // `record.read` natively (skipping schema validation) still gets a

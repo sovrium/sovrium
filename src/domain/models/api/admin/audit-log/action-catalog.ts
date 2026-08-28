@@ -70,6 +70,25 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   'account.deletion.purged': 'user',
   // Admin config readbacks
   'config.version.queried': 'config',
+  // Config-reflection readbacks authorised by [internal ref] amendment A1 (2026-08-14):
+  // the App-schema explorer and the env viewer. Both key on the singular
+  // `config` resource type — the running configuration is the one entity these
+  // reads target, exactly as `config.version.queried` does.
+  //
+  // These two are audited more consequentially than a version readback: a full
+  // config reflection is the broadest read an operator can perform against this
+  // instance, so "who read the whole config, and when" is a question the audit
+  // trail must be able to answer. They remain severity `info` / result `success`
+  // — a READ is not an incident — but they are never emit-on-cold-start
+  // optimised away, because the actor is the point.
+  'config.schema.queried': 'config',
+  'config.env.queried': 'config',
+  // The design-system export ([internal ref] amendment A2). Audited for the same
+  // reason as the two reflections above: it is a whole-config projection an
+  // operator is likely to paste somewhere else, so who exported it, and when,
+  // must be answerable afterwards. `config` is the resource — the export
+  // describes the running configuration, it is not an entity of its own.
+  'config.design.queried': 'config',
   // Schema-config MUTATIONS.
   // Every config-mutation path funnels through `emitAuditEvent` so the Activity
   // feed records who changed the config, how (the `transport` canal), and which
@@ -147,6 +166,21 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // filter.
   'automation.runs.list.queried': 'automation.run',
   'automation.runs.detail.queried': 'automation.run',
+  // Operational pause/resume. The FIRST
+  // audited automation MUTATIONS — every `automation.*` entry above is a
+  // readback, and the sibling `POST /runs/:runId/retry` emits nothing today.
+  // Past-tense verb per the mutation convention (`bucket.file.uploaded`,
+  // `account.deletion.purged`). Keyed on the singular `automation` type: a
+  // pause is a state change OF an automation, not of a run, so one
+  // `?resourceType=automation` filter returns pause history alongside the
+  // overview readbacks.
+  //
+  // These two entries are load-bearing, not documentation: `emitAuditEvent`
+  // looks the action up here and SILENTLY DROPS the emit (a warning only) when
+  // it is absent — so an unregistered action means the audit row is never
+  // written and nothing fails loudly.
+  'automation.paused': 'automation',
+  'automation.resumed': 'automation',
   // Admin agent-conversations readbacks. The
   // conversation list + detail endpoints both key on the singular `agent`
   // resource type — a conversation read is a read OF an agent's history, so
@@ -157,6 +191,10 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // (the per-bucket file browser keys on `bucket`, not `bucket.files`).
   'agent.conversation.list.queried': 'agent',
   'agent.conversation.detail.queried': 'agent',
+  // The agent INDEX readback (`GET /api/admin/agents`) keys on the same
+  // singular `agent` type as its conversation siblings, so one
+  // `?resourceType=agent` filter still returns every agent-domain action.
+  'agent.list.queried': 'agent',
   // Admin app-connections readbacks. The connection
   // list + detail endpoints both key on the singular `connection` resource
   // type — a connection read is a read OF a connection, so the resource is the
@@ -168,6 +206,39 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // sub-resource read keys on the parent resource type, not a compound type).
   'connection.list.queried': 'connection',
   'connection.detail.queried': 'connection',
+
+  // Short-link mutations. All five key on the
+  // singular `link`, so one `?resourceType=link` filter returns a link's whole
+  // operational history — which is the question an operator actually asks
+  // ("what happened to /l/spring-promo?"), and it is only answerable if the
+  // enable/disable overlay shares a resource type with create and delete.
+  //
+  // These are WRITES, unlike most of the catalog above: `emitAuditEvent` DROPS
+  // an unregistered action with a warning rather than throwing, so a mutation
+  // missing from here would succeed while leaving no trace and failing no test.
+  'link.created': 'link',
+  'link.updated': 'link',
+  'link.deleted': 'link',
+  'link.disabled': 'link',
+  'link.enabled': 'link',
+
+  // Design-system share links ([internal ref] amendment A3 Part 2). Both key on the
+  // singular `design.share`, following the `link.*` precedent for the same
+  // reason: one `?resourceType=design.share` filter answers "what happened to
+  // this share?", which is only possible if mint and revoke share a type.
+  //
+  // WRITES, like the `link.*` block above — and consequential ones. Publishing
+  // an app's design principles, voice guidance and per-component usage rules to
+  // the anonymous internet is at least as worth recording as minting a
+  // redirect, and `emitAuditEvent` DROPS an unregistered action with a warning
+  // rather than throwing, so an entry missing from here would leave the
+  // publication with no trace at all.
+  //
+  // Segment spelling is load-bearing: `action-catalog.test.ts` pins
+  // `/^[a-z]+(\.[a-z]+)+$/`, so `design.share-link.created` reads more
+  // naturally and fails the test. Dots, never hyphens.
+  'design.share.created': 'design.share',
+  'design.share.revoked': 'design.share',
 }
 
 /**
@@ -190,6 +261,9 @@ export const AUDIT_ACTIONS = {
   ACCOUNT_DELETION_SCHEDULED: 'account.deletion.scheduled',
   ACCOUNT_DELETION_PURGED: 'account.deletion.purged',
   CONFIG_VERSION_QUERIED: 'config.version.queried',
+  CONFIG_SCHEMA_QUERIED: 'config.schema.queried',
+  CONFIG_ENV_QUERIED: 'config.env.queried',
+  CONFIG_DESIGN_QUERIED: 'config.design.queried',
   SCHEMA_DRAFT_UPDATE: 'schema.draft.update',
   SCHEMA_DRAFT_REBASE: 'schema.draft.rebase',
   SCHEMA_DRAFT_PUBLISH: 'schema.draft.publish',
@@ -212,10 +286,20 @@ export const AUDIT_ACTIONS = {
   AUTOMATION_OVERVIEW_QUERIED: 'automation.overview.queried',
   AUTOMATION_RUNS_LIST_QUERIED: 'automation.runs.list.queried',
   AUTOMATION_RUNS_DETAIL_QUERIED: 'automation.runs.detail.queried',
+  AUTOMATION_PAUSED: 'automation.paused',
+  AUTOMATION_RESUMED: 'automation.resumed',
+  AGENT_LIST_QUERIED: 'agent.list.queried',
   AGENT_CONVERSATION_LIST_QUERIED: 'agent.conversation.list.queried',
   AGENT_CONVERSATION_DETAIL_QUERIED: 'agent.conversation.detail.queried',
   CONNECTION_LIST_QUERIED: 'connection.list.queried',
   CONNECTION_DETAIL_QUERIED: 'connection.detail.queried',
+  LINK_CREATED: 'link.created',
+  LINK_UPDATED: 'link.updated',
+  LINK_DELETED: 'link.deleted',
+  LINK_DISABLED: 'link.disabled',
+  LINK_ENABLED: 'link.enabled',
+  DESIGN_SHARE_CREATED: 'design.share.created',
+  DESIGN_SHARE_REVOKED: 'design.share.revoked',
 } as const
 
 /** @public — union of all valid audit action codes. */

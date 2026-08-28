@@ -29,7 +29,7 @@ export const themeToggleFields = {
    * accessible name.
    */
   label: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Accessible label for the toggle button (default: 'Toggle theme')",
     })
   ),
@@ -44,7 +44,7 @@ export const themeToggleFields = {
    *     while reading as a compact icon button in chrome (navbars, toolbars).
    */
   variant: Schema.optional(
-    Schema.Literal('text', 'icon').annotations({
+    Schema.Literals(['text', 'icon']).annotate({
       description:
         "Toggle visual: 'text' shows the label (default), 'icon' shows a sun/moon glyph pair",
     })

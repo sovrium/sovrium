@@ -109,56 +109,63 @@ const describeWith = (description: string | undefined) =>
 
 /** Base string carrying the caller's description, for branches without a pattern. */
 const annotatedString = (description: string | undefined) =>
-  description === undefined
-    ? Schema.String
-    : Schema.String.pipe(Schema.annotations({ description }))
+  description === undefined ? Schema.String : Schema.String.pipe(Schema.annotate({ description }))
 
 /** Table names: user-friendly format, sanitized for the database downstream. */
 const tableIdentifierSchema = (description: string | undefined) =>
   annotatedString(description).pipe(
-    Schema.minLength(1, { message: () => 'This field is required' }),
-    Schema.maxLength(63, { message: () => 'Maximum length is 63 characters' }),
-    Schema.filter((name) => {
-      const trimmed = name.trim()
-      if (/^\d/.test(trimmed)) {
-        return `Invalid table name '${name}': name must start with a letter`
-      }
-      if (!/^[a-zA-Z][a-zA-Z0-9_\s-]*$/.test(trimmed)) {
-        return `Invalid table name '${name}': name must start with a letter and contain only letters, numbers, underscores, hyphens, or spaces`
-      }
-      return true
-    }),
-    Schema.filter((name) => {
-      const sanitized = name
-        .toLowerCase()
-        .replace(/[^a-z0-9_]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '')
-      const isReserved = SQL_RESERVED_KEYWORDS.has(sanitized)
-      return (
-        !isReserved ||
-        `Table name '${name}' resolves to reserved SQL keyword '${sanitized}'. Reserved keywords like SELECT, INSERT, UPDATE, DELETE, etc. are restricted to prevent SQL syntax conflicts. Choose a different name.`
-      )
-    })
+    Schema.check(
+      Schema.isMinLength(1, { message: 'This field is required' }),
+      Schema.isMaxLength(63, { message: 'Maximum length is 63 characters' })
+    ),
+    Schema.check(
+      Schema.makeFilter((name) => {
+        const trimmed = name.trim()
+        if (/^\d/.test(trimmed)) {
+          return `Invalid table name '${name}': name must start with a letter`
+        }
+        if (!/^[a-zA-Z][a-zA-Z0-9_\s-]*$/.test(trimmed)) {
+          return `Invalid table name '${name}': name must start with a letter and contain only letters, numbers, underscores, hyphens, or spaces`
+        }
+        return true
+      })
+    ),
+    Schema.check(
+      Schema.makeFilter((name) => {
+        const sanitized = name
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_+|_+$/g, '')
+        const isReserved = SQL_RESERVED_KEYWORDS.has(sanitized)
+        return (
+          !isReserved ||
+          `Table name '${name}' resolves to reserved SQL keyword '${sanitized}'. Reserved keywords like SELECT, INSERT, UPDATE, DELETE, etc. are restricted to prevent SQL syntax conflicts. Choose a different name.`
+        )
+      })
+    )
   )
 
 /** Field / column names: strict database pattern. */
 const columnIdentifierSchema = (identifierType: 'field' | 'column', description?: string) =>
   annotatedString(description).pipe(
-    Schema.minLength(1, { message: () => 'This field is required' }),
-    Schema.maxLength(63, { message: () => 'Maximum length is 63 characters' }),
-    Schema.pattern(/^[a-z][a-z0-9_]*$/, {
-      ...describeWith(description),
-      message: () =>
-        `Invalid ${identifierType} name pattern. Must follow database naming conventions: start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters (PostgreSQL limit). This name is used in SQL queries, API endpoints, and code generation. Choose descriptive names that clearly indicate the purpose (e.g., "email_address" not "ea").`,
-    }),
-    Schema.filter((name) => {
-      const isReserved = SQL_RESERVED_KEYWORDS.has(name.toLowerCase())
-      return (
-        !isReserved ||
-        `Cannot use reserved SQL keyword '${name}' as ${identifierType} name. Reserved keywords like SELECT, INSERT, UPDATE, DELETE, etc. are restricted to prevent SQL syntax conflicts. Choose a descriptive alternative name (e.g., 'user_record' instead of 'user', 'selection' instead of 'select').`
-      )
-    })
+    Schema.check(
+      Schema.isMinLength(1, { message: 'This field is required' }),
+      Schema.isMaxLength(63, { message: 'Maximum length is 63 characters' }),
+      Schema.isPattern(/^[a-z][a-z0-9_]*$/, {
+        ...describeWith(description),
+        message: `Invalid ${identifierType} name pattern. Must follow database naming conventions: start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters (PostgreSQL limit). This name is used in SQL queries, API endpoints, and code generation. Choose descriptive names that clearly indicate the purpose (e.g., "email_address" not "ea").`,
+      })
+    ),
+    Schema.check(
+      Schema.makeFilter((name) => {
+        const isReserved = SQL_RESERVED_KEYWORDS.has(name.toLowerCase())
+        return (
+          !isReserved ||
+          `Cannot use reserved SQL keyword '${name}' as ${identifierType} name. Reserved keywords like SELECT, INSERT, UPDATE, DELETE, etc. are restricted to prevent SQL syntax conflicts. Choose a descriptive alternative name (e.g., 'user_record' instead of 'user', 'selection' instead of 'select').`
+        )
+      })
+    )
   )
 
 /**

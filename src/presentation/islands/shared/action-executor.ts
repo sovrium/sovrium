@@ -102,8 +102,19 @@ export interface ExecuteFetchActionOptions {
   readonly record?: Record<string, unknown>
 }
 
-/** Fallback confirm copy when `confirm` is set without a `confirmMessage`. */
-const DEFAULT_CONFIRM_MESSAGE = 'Confirmer cette action ?'
+/**
+ * Fallback confirm copy when `confirm` is set without a `confirmMessage`.
+ *
+ * ENGLISH on purpose, and it must stay equal to the `en` entry of
+ * `confirmGate.message` in `domain/utils/translation-resolver.ts` — the same
+ * invariant `CONFIRM_AFFIRM_LABEL_FALLBACK` documents in
+ * `domain/utils/confirm-gate-labels.ts`. This was hard-coded French while the
+ * gate's Confirm/Cancel buttons around it resolved to English, so an app of any
+ * language got a French question above two English buttons: the exact
+ * two-disagreeing-fallback-chains bug that helper exists to prevent, fixed for
+ * the buttons but never for the prompt.
+ */
+const DEFAULT_CONFIRM_MESSAGE = 'Confirm this action?'
 
 /** Confirm gate used outside a DOM (SSR / tests) — always proceeds. */
 const ALWAYS_CONFIRM = (): boolean => true

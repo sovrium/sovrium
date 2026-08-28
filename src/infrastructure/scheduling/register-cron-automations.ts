@@ -22,7 +22,7 @@ type CronTriggerLike = {
   readonly expression: string
   readonly timezone: string
 }
-type CronScheduleService = Effect.Effect.Success<typeof CronScheduler>
+type CronScheduleService = Effect.Success<typeof CronScheduler>
 
 /**
  * Build the per-automation cron callback. Each invocation runs the shared
@@ -42,7 +42,7 @@ const buildCronCallback =
       ),
       // Tagged-error union is wide; narrow to `void` for the scheduler
       // callback signature so the timer keeps firing on the next tick.
-      Effect.catchAll(() => Effect.void),
+      Effect.catch(() => Effect.void),
       Effect.asVoid
     )
 
@@ -64,7 +64,7 @@ const scheduleOne = (
       timezone: trigger.timezone,
     })
     .pipe(
-      Effect.catchAll((err) =>
+      Effect.catch((err) =>
         Effect.sync(() => {
           logError('[cron-scheduler] failed to schedule automation', err, {
             name: automation.name,
@@ -87,17 +87,46 @@ const scheduleOne = (
  * first fire will appear in `system.automation_runs` within one schedule
  * period.
  *
- * Disabled automations are skipped silently. Schema validation already
+ * Config-disabled automations are skipped silently. Schema validation already
  * guaranteed every cron expression parses, but `Cron.parse` is invoked
  * again inside `CronScheduler.schedule`; if it ever fails (Effect API
  * drift), the scheduler error is logged and the registration moves on so
  * one bad job cannot block the rest.
+ *
+ * ## Why this site is DELIBERATELY EXCLUDED from the operational-pause gate
+ *
+ * This is the ONE `automation.enabled` check in the codebase that is NOT routed
+ * through `isAutomationOperationallyEnabled`, and the omission is a decision,
+ * not an oversight — recorded here so the next person to count the seams does
+ * not "fix" it.
+ *
+ * Registration happens ONCE, at boot. Gating it on the pause table would mean a
+ * paused cron automation is never armed — and would therefore create a standing
+ * obligation to RE-ARM it the moment an operator resumes. That re-arm hook has a
+ * silent failure mode: miss it, and a resumed cron automation stays dead until
+ * the next process restart, with the console cheerfully reporting `active`. That
+ * is the worst class of bug this whole feature exists to prevent.
+ *
+ * So the pause is enforced at FIRE time instead, in
+ * `application/use-cases/automations/run-cron-automation.ts` — at
+ * `resolveCronAutomation` (the scheduled path, reached from `buildCronCallback`
+ * above) and again in `runCronAutomationOnDemand` (the manual-invoke path).
+ * Those two gates are what make this exclusion safe: every route from a cron
+ * schedule to a run row passes through one of them.
+ *
+ * The cost is a paused cron job still waking the scheduler on its schedule and
+ * being dropped — wasted ticks, never a wrong outcome, and self-correcting the
+ * instant the pause is lifted with no restart ([internal ref] pins
+ * exactly that). Prefer the failure mode that is cheap and loud over the one
+ * that is silent and wrong.
  */
 export const registerCronAutomations = (
   app: App,
   processEnv: Readonly<Record<string, string | undefined>>
 ): Effect.Effect<readonly string[], never> =>
   Effect.gen(function* () {
+    // NOTE: `enabled !== false` only — no pause check. See the block comment
+    // above; the pause is enforced at fire time in `run-cron-automation.ts`.
     const cronAutomations = (app.automations ?? []).filter(
       (automation) => automation.trigger.type === 'cron' && automation.enabled !== false
     )

@@ -24,7 +24,7 @@ const rolesOnly = (entries: readonly string[]): readonly string[] =>
  * Returns an error message or undefined if all roles are valid.
  */
 const findInvalidRoleInPermissions = (
-  perms: Record<string, unknown>,
+  perms: Readonly<Record<string, unknown>>,
   keys: readonly string[],
   validRoles: ReadonlySet<string>
 ): string | undefined =>

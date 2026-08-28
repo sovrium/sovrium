@@ -87,12 +87,12 @@ export async function handleReplayRunById(c: Context, app: App) {
 
   const lookup = await runRequestEffect(
     c,
-    Effect.either(provideAutomationLive(loadRunForReplay(id)))
+    Effect.result(provideAutomationLive(loadRunForReplay(id)))
   )
-  if (lookup._tag === 'Left' || lookup.right === undefined) {
+  if (lookup._tag === 'Failure' || lookup.success === undefined) {
     return c.json({ success: false, message: 'Run not found' }, 404)
   }
-  const name = lookup.right.automationName
+  const name = lookup.success.automationName
 
   const body = (await c.req.json().catch(() => undefined)) as
     { triggerData?: Record<string, unknown>; fromStep?: string } | undefined
@@ -108,16 +108,16 @@ export async function handleReplayRunById(c: Context, app: App) {
     processEnv: process.env,
     ...(overrideTriggerData !== undefined ? { triggerData: overrideTriggerData } : {}),
   })
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
 
-  if (result._tag === 'Left') {
-    return replayErrorResponse(c, result.left)
+  if (result._tag === 'Failure') {
+    return replayErrorResponse(c, result.failure)
   }
   // RUNS-005/006 contract: surface both `id` and `runId` plus `status: 'accepted'`.
   return c.json(
     {
-      id: result.right.runId,
-      runId: result.right.runId,
+      id: result.success.runId,
+      runId: result.success.runId,
       status: 'accepted',
     },
     200
@@ -157,8 +157,8 @@ export async function handleCancelRun(c: Context, _app: App) {
     const repo = yield* AutomationRunRepository
     return yield* repo.updateStatus({ id, status: 'cancelled' })
   })
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
-  if (result._tag === 'Left' || result.right === undefined) {
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
+  if (result._tag === 'Failure' || result.success === undefined) {
     return c.json({ success: false, message: 'Run not found' }, 404)
   }
   return c.json({ id, status: 'cancelled' }, 200)
@@ -228,11 +228,11 @@ export async function handleResolveApproval(c: Context, app: App, decision: 'app
     app,
     processEnv: process.env,
   })
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
-  if (result._tag === 'Left') {
-    return resolveApprovalErrorResponse(c, result.left)
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
+  if (result._tag === 'Failure') {
+    return resolveApprovalErrorResponse(c, result.failure)
   }
-  return c.json({ success: true, runId, approvalId, status: result.right.decision }, 200)
+  return c.json({ success: true, runId, approvalId, status: result.success.decision }, 200)
 }
 
 /**

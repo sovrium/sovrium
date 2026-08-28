@@ -54,7 +54,7 @@ export function hasCommandPaletteHost(
  * Synchronous inline open-capture for the ⌘K command palette
  *. Emitted in `<head>` so it runs during HTML parse —
  * BEFORE `islands.js` downloads — and captures a `⌘K` / `Ctrl+K` press (or a
- * "Rechercher" affordance click) that lands before the palette island hydrates
+ * search-affordance click) that lands before the palette island hydrates
  * (e.g. right after an in-app navigation). It records the intent in
  * `window.__sovriumOpenCommandPalette` and dispatches `sovrium:open-command-palette`,
  * which the island replays on mount and subscribes to thereafter — so no early
@@ -81,6 +81,6 @@ export const COMMAND_PALETTE_CAPTURE_SCRIPT = `(function(){
 "use strict";
 function open(){window.__sovriumOpenCommandPalette=true;document.dispatchEvent(new CustomEvent("sovrium:open-command-palette"))}
 document.addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key&&e.key.toLowerCase()==="k"){e.preventDefault();open()}},true);
-document.addEventListener("click",function(e){var t=e.target;if(t&&t.closest&&t.closest('[aria-label="Rechercher"]')){e.preventDefault();open()}},true);
+document.addEventListener("click",function(e){var t=e.target;if(t&&t.closest&&t.closest('[data-command-palette-trigger]')){e.preventDefault();open()}},true);
 ${SIDEBAR_DRAWER_TOGGLE_SNIPPET}
 })();`

@@ -71,31 +71,26 @@ const collectActionNames = (
 export const AutomationSchema = Schema.Struct({
   /** Unique automation name (kebab-case, used in webhook URLs) */
   name: Schema.String.pipe(
-    Schema.pattern(/^[a-z][a-z0-9-]*$/),
-    Schema.maxLength(100),
-    Schema.annotations({
+    Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100)),
+    Schema.annotate({
       description: 'Unique automation name (kebab-case, e.g., "new-order-notification")',
     })
   ),
 
   /** Human-readable label */
   label: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotations({ description: 'Human-readable label for this automation' })
-    )
+    Schema.String.pipe(Schema.annotate({ description: 'Human-readable label for this automation' }))
   ),
 
   /** Description of what this automation does */
   description: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotations({ description: 'Description of what this automation does' })
-    )
+    Schema.String.pipe(Schema.annotate({ description: 'Description of what this automation does' }))
   ),
 
   /** Whether this automation is enabled (default: true) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Whether this automation is active (default: true)' })
+      Schema.annotate({ description: 'Whether this automation is active (default: true)' })
     )
   ),
 
@@ -104,8 +99,8 @@ export const AutomationSchema = Schema.Struct({
 
   /** Sequential list of actions to execute */
   actions: Schema.Array(ActionSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'Ordered list of actions to execute when triggered' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Ordered list of actions to execute when triggered' })
   ),
 
   /** Automation-level retry configuration (applies to the entire workflow) */
@@ -113,10 +108,9 @@ export const AutomationSchema = Schema.Struct({
 
   /** Timeout for the entire automation run in milliseconds */
   timeout: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.between(1000, 900_000),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 })),
+      Schema.annotate({
         description: 'Total automation timeout in ms (1000-900000, default: 300000)',
       })
     )
@@ -140,16 +134,15 @@ export const AutomationSchema = Schema.Struct({
   concurrency: Schema.optional(
     Schema.Struct({
       limit: Schema.optional(
-        Schema.Number.pipe(
-          Schema.int(),
-          Schema.between(1, 50),
-          Schema.annotations({
+        Schema.Finite.pipe(
+          Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 50 })),
+          Schema.annotate({
             description: 'Max simultaneous runs of this automation (1-50)',
           })
         )
       ),
     }).pipe(
-      Schema.annotations({
+      Schema.annotate({
         identifier: 'AutomationConcurrency',
         description:
           'Per-automation concurrency limits. Without this block, the global default applies.',
@@ -160,7 +153,7 @@ export const AutomationSchema = Schema.Struct({
   /** Tags for organization and filtering */
   tags: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.annotations({ description: 'Tags for organizing automations' })
+      Schema.annotate({ description: 'Tags for organizing automations' })
     )
   ),
 
@@ -170,13 +163,13 @@ export const AutomationSchema = Schema.Struct({
       /** Who can trigger this automation (e.g., via chat commands, manual trigger) */
       trigger: Schema.optional(
         PermissionValueSchema.pipe(
-          Schema.annotations({
+          Schema.annotate({
             description: "Who can trigger this automation. 'all', 'authenticated', or role array.",
           })
         )
       ),
     }).pipe(
-      Schema.annotations({
+      Schema.annotate({
         identifier: 'AutomationPermissions',
         description: 'Per-automation permission configuration',
       })
@@ -212,7 +205,7 @@ export const AutomationSchema = Schema.Struct({
    */
   aiAccess: Schema.optional(AiAccessSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Automation',
     title: 'Automation',
     description:
@@ -237,19 +230,21 @@ export const AutomationSchema = Schema.Struct({
       },
     ],
   }),
-  Schema.filter((automation) => {
-    const actionNames = collectActionNames(automation.actions as ReadonlyArray<Action>)
-    const uniqueNames = new Set(actionNames)
-    if (actionNames.length !== uniqueNames.size) {
-      return `Automation '${automation.name}' has duplicate action names`
-    }
-    return true
-  })
+  Schema.check(
+    Schema.makeFilter((automation) => {
+      const actionNames = collectActionNames(automation.actions as ReadonlyArray<Action>)
+      const uniqueNames = new Set(actionNames)
+      if (actionNames.length !== uniqueNames.size) {
+        return `Automation '${automation.name}' has duplicate action names`
+      }
+      return true
+    })
+  )
 )
 
 export type Automation = Schema.Schema.Type<typeof AutomationSchema>
 /** @public */
-export type AutomationEncoded = Schema.Schema.Encoded<typeof AutomationSchema>
+export type AutomationEncoded = Schema.Codec.Encoded<typeof AutomationSchema>
 
 /**
  * Automations Array Schema
@@ -257,16 +252,18 @@ export type AutomationEncoded = Schema.Schema.Encoded<typeof AutomationSchema>
  * Top-level array of automations with unique name validation.
  */
 export const AutomationsSchema = Schema.Array(AutomationSchema).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Automations',
     title: 'Automations',
     description: 'List of workflow automations with triggers and actions',
   }),
-  Schema.filter((automations) => {
-    const names = automations.map((a) => a.name)
-    const uniqueNames = new Set(names)
-    return names.length === uniqueNames.size || 'Automation names must be unique'
-  })
+  Schema.check(
+    Schema.makeFilter((automations) => {
+      const names = automations.map((a) => a.name)
+      const uniqueNames = new Set(names)
+      return names.length === uniqueNames.size || 'Automation names must be unique'
+    })
+  )
 )
 
 /** @public */

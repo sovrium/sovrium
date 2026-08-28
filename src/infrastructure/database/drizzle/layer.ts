@@ -23,7 +23,7 @@ import { db, type DrizzleDB } from './db.js'
  * })
  * ```
  */
-export class Database extends Context.Tag('Database')<Database, DrizzleDB>() {}
+export class Database extends Context.Service<Database, DrizzleDB>()('Database') {}
 
 /**
  * Live Database Layer

@@ -134,6 +134,26 @@ export const resolvePrimaryKeyColumnType = (primaryKeyType: string | undefined):
 }
 
 /**
+ * Build the table name → `primaryKey.type` map every DDL generator needs to
+ * size a `relationship` foreign-key column to the key it references.
+ *
+ * MUST be built from the `applySchemaDefaults`-processed table list: a table
+ * named in `auth.scopeTables` is granted an implicit `{ type: 'text' }` primary
+ * key there, and a map built from the raw config would report it as the default
+ * serial and hand every child an INTEGER foreign key onto a TEXT parent.
+ *
+ * Lives beside {@link resolvePrimaryKeyColumnType} — the function that consumes
+ * its values — so the producer and the consumer of this vocabulary stay
+ * together.
+ *
+ * @public
+ */
+export const buildTablePrimaryKeyTypesMap = (
+  tables: readonly Table[]
+): ReadonlyMap<string, string | undefined> =>
+  new Map(tables.map((table) => [table.name, table.primaryKey?.type]))
+
+/**
  * Determine if table needs an automatic id column
  * Creates automatic id column if:
  * - No explicit id field is defined in the fields array

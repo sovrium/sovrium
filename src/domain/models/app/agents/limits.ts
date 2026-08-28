@@ -21,10 +21,9 @@ import { Schema } from 'effect'
 export const AgentLimitsSchema = Schema.Struct({
   /** Maximum DB/email actions per minute (defaults to 30) */
   maxActionsPerMinute: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum DB/email actions per minute (defaults to 30)',
       })
     )
@@ -32,10 +31,9 @@ export const AgentLimitsSchema = Schema.Struct({
 
   /** Maximum LLM tokens consumed per 24h period (defaults to 200000) */
   maxTokensPerDay: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum LLM tokens consumed per 24h period (defaults to 200000)',
       })
     )
@@ -43,16 +41,15 @@ export const AgentLimitsSchema = Schema.Struct({
 
   /** Maximum simultaneous task executions (defaults to 5) */
   maxConcurrentTasks: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum simultaneous task executions (defaults to 5)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentLimits',
     title: 'Agent Operational Limits',
     description:

@@ -10,9 +10,15 @@ import { resolveStoragePublicAccess } from '@/domain/models/env/storage/storage-
 
 /**
  * Raised when `STORAGE_PUBLIC_PATHS` / `STORAGE_DEFAULT_ACCESS` is malformed.
- * Wraps the descriptive error thrown by `resolveStoragePublicAccess` in `cause`.
+ *
+ * `message` is carried EXPLICITLY, not just `cause` — a `Data.TaggedError`
+ * whose payload is `{ cause }` alone renders as the literal string
+ * `StoragePublicAccessEnvError: An error has occurred`, burying the parser's
+ * descriptive text ("Invalid STORAGE_DEFAULT_ACCESS: expected …") where the
+ * operator's terminal never shows it. Same contract as `EcoEnvError`.
  */
 class StoragePublicAccessEnvError extends Data.TaggedError('StoragePublicAccessEnvError')<{
+  readonly message: string
   readonly cause: unknown
 }> {}
 
@@ -29,11 +35,12 @@ class StoragePublicAccessEnvError extends Data.TaggedError('StoragePublicAccessE
  * `createServer`'s existing `Error` union accommodates it without widening any
  * caller signature.
  */
-export const validateStoragePublicAccessEnv = (): Effect.Effect<
-  void,
-  StoragePublicAccessEnvError
-> =>
+export const validateStoragePublicAccessEnv: Effect.Effect<void, StoragePublicAccessEnvError> =
   Effect.try({
     try: () => resolveStoragePublicAccess(),
-    catch: (cause) => new StoragePublicAccessEnvError({ cause }),
+    catch: (cause) =>
+      new StoragePublicAccessEnvError({
+        message: cause instanceof Error ? cause.message : String(cause),
+        cause,
+      }),
   }).pipe(Effect.asVoid)

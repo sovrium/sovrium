@@ -24,6 +24,12 @@
  * `append`) the way the rest of `islands/shared/` is.
  */
 
+import {
+  CONFIRM_AFFIRM_LABEL_ATTR,
+  CONFIRM_AFFIRM_LABEL_FALLBACK,
+  CONFIRM_CANCEL_LABEL_ATTR,
+  CONFIRM_CANCEL_LABEL_FALLBACK,
+} from '@/domain/utils/confirm-gate-labels'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
@@ -166,6 +172,57 @@ function appendObjectConfirmButtons(
 }
 
 /**
+ * Resolve the gate's two affordance labels.
+ *
+ * Precedence, for each:
+ *
+ *   1. the caller's explicit override (see below);
+ *   2. (affirm only) the trigger's own visible text — "Delete note" reads better
+ *      inside the dialog than a generic "Confirm";
+ *   3. the interpreter's language-resolved string, stamped on the trigger
+ *      server-side as {@link CONFIRM_AFFIRM_LABEL_ATTR} /
+ *      {@link CONFIRM_CANCEL_LABEL_ATTR};
+ *   4. the ENGLISH catalog default.
+ *
+ * Step 4 is English on purpose. `DEFAULT_INTERPRETER_LANG` is `'en'`, so a
+ * French last resort here would be two fallback chains that disagree — and that
+ * disagreement is what put an "Annuler" beside an author's English "Retry" on
+ * every console dialog, in an app of any language.
+ *
+ * ## Why both gates call THIS, and the override is a parameter
+ *
+ * The two vanilla-DOM gates run an identical chain and differ only in where the
+ * step-1 override comes from: the OBJECT gate reads `confirmLabel` / `cancelLabel`
+ * off the parsed `data-confirm-config`, while the STRING gate in
+ * `presentation/client.ts` reads the `data-confirm-label` attribute. Taking the
+ * override as an argument is what lets one chain serve both — and the chain is
+ * the thing that must not fork, because a fork is precisely how the two ends
+ * came to disagree in the first place.
+ *
+ * @param trigger   - the server-rendered trigger carrying the stamped attributes
+ * @param overrides - highest-precedence labels; `undefined` / absent falls through
+ */
+export function resolveGateLabels(
+  trigger: HTMLButtonElement,
+  overrides: {
+    readonly confirmLabel?: string | null | undefined
+    readonly cancelLabel?: string | null | undefined
+  }
+): { readonly confirm: string; readonly cancel: string } {
+  return {
+    confirm:
+      overrides.confirmLabel ??
+      trigger.textContent?.trim() ??
+      trigger.getAttribute(CONFIRM_AFFIRM_LABEL_ATTR) ??
+      CONFIRM_AFFIRM_LABEL_FALLBACK,
+    cancel:
+      overrides.cancelLabel ??
+      trigger.getAttribute(CONFIRM_CANCEL_LABEL_ATTR) ??
+      CONFIRM_CANCEL_LABEL_FALLBACK,
+  }
+}
+
+/**
  * Render the OBJECT-form confirm gate after a standalone fetch button. The
  * trigger stays in the DOM (sibling) so the gate can be re-opened after a cancel;
  * a guard prevents stacking a second gate.
@@ -177,8 +234,7 @@ export function openFetchConfirmObjectGate(
 ): void {
   if (trigger.nextElementSibling?.hasAttribute('data-confirm-dialog')) return
   const title = config.title ?? config.message
-  const confirmLabel = config.confirmLabel ?? trigger.textContent?.trim() ?? 'Confirmer'
-  const cancelLabel = config.cancelLabel ?? 'Annuler'
+  const { confirm: confirmLabel, cancel: cancelLabel } = resolveGateLabels(trigger, config)
   const dialog = buildObjectConfirmShell(config, title)
   const confirmBtn = createGateButton({
     label: confirmLabel,

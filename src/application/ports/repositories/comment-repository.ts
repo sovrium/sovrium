@@ -76,7 +76,7 @@ export interface ListedComment {
  * })
  * ```
  */
-export class CommentRepository extends Context.Tag('CommentRepository')<
+export class CommentRepository extends Context.Service<
   CommentRepository,
   {
     readonly create: (config: {
@@ -121,9 +121,13 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
      * record. Powers the comment-posted trigger's `threadParticipants`
      * derivation — returns prior authors so the caller can exclude the new
      * comment's author from the resulting list.
+     *
+     * `tableId` is REQUIRED: record ids are per-table sequences, so a thread
+     * is identified by `(table, record)`, never by the record alone.
      */
     readonly listAuthorsForRecord: (config: {
       readonly session: Readonly<UserSession>
+      readonly tableId: string
       readonly recordId: string
     }) => Effect.Effect<readonly string[], DatabaseError>
 
@@ -134,9 +138,14 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
      * `{{trigger.threadParticipants}}` is usable directly as an `email.send`
      * `to`. The caller drops the new comment's author by user id before
      * surfacing the emails.
+     *
+     * `tableId` is REQUIRED and is a privacy boundary, not a filter: record
+     * ids are per-table sequences, so a record-only lookup returns the email
+     * addresses of every same-numbered record's commenters across the app.
      */
     readonly listAuthorEmailsForRecord: (config: {
       readonly session: Readonly<UserSession>
+      readonly tableId: string
       readonly recordId: string
     }) => Effect.Effect<
       readonly { readonly userId: string; readonly email: string }[],
@@ -214,8 +223,14 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly commentId: string
     }) => Effect.Effect<void, DatabaseError>
 
+    /**
+     * List a record's comments. `tableId` is REQUIRED — a record id alone is
+     * not an identity (per-table sequences), so an unscoped list returns
+     * every same-numbered record's comments app-wide.
+     */
     readonly list: (config: {
       readonly session: Readonly<UserSession>
+      readonly tableId: string
       readonly recordId: string
       readonly limit?: number
       readonly offset?: number
@@ -230,6 +245,7 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
 
     readonly getCount: (config: {
       readonly session: Readonly<UserSession>
+      readonly tableId: string
       readonly recordId: string
       /**
        * Moderation visibility, mirrors `list` so the pagination total
@@ -305,4 +321,4 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       DatabaseError
     >
   }
->() {}
+>()('CommentRepository') {}

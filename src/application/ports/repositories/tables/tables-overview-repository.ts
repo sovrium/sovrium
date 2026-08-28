@@ -42,7 +42,7 @@ export class TablesOverviewError extends Data.TaggedError('TablesOverviewError')
  * tables (newly created with no rows yet) produce a row with zeros and
  * `lastWriteAt: null`.
  */
-export class TablesOverviewRepository extends Context.Tag('TablesOverviewRepository')<
+export class TablesOverviewRepository extends Context.Service<
   TablesOverviewRepository,
   {
     readonly aggregateTables: (
@@ -85,4 +85,4 @@ export class TablesOverviewRepository extends Context.Tag('TablesOverviewReposit
       buckets: ReadonlyArray<{ readonly start: Readonly<Date>; readonly end: Readonly<Date> }>
     ) => Effect.Effect<ReadonlyArray<number>, TablesOverviewError>
   }
->() {}
+>()('TablesOverviewRepository') {}

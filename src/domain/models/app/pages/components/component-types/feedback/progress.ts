@@ -18,19 +18,19 @@ export const progressFields = {
   ...visibilityFields,
   ...i18nFields,
   progressValue: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.annotations({ description: 'Current progress value (0 to progressMax)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+      Schema.annotate({ description: 'Current progress value (0 to progressMax)' })
     )
   ),
   progressMax: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Maximum progress value (default: 100)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Maximum progress value (default: 100)' })
     )
   ),
   showLabel: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Display progress percentage label' })
+    Schema.Boolean.annotate({ description: 'Display progress percentage label' })
   ),
   size: Schema.optional(ComponentSizeSchema),
   progressVariant: Schema.optional(ProgressVariantSchema),

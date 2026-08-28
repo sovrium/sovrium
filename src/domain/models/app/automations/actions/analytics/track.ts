@@ -20,17 +20,17 @@ export const AnalyticsTrackActionSchema = Schema.Struct({
   operator: Schema.Literal('track'),
   props: Schema.Struct({
     event: TemplateStringSchema.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Custom event name to track (non-empty)' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Custom event name to track (non-empty)' })
     ),
     properties: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-        Schema.annotations({ description: 'Event properties (key-value pairs)' })
+      Schema.Record(Schema.String, Schema.Unknown).pipe(
+        Schema.annotate({ description: 'Event properties (key-value pairs)' })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AnalyticsTrackAction',
     title: 'Analytics Track Action',
     description: 'Track custom events in the built-in analytics system',

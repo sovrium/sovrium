@@ -218,6 +218,53 @@ export const adminUnbanUserResponseSchema = z.object({
   user: userWithRoleSchema.describe('Unbanned user'),
 })
 
+/**
+ * The invited account as returned by the invitation endpoints.
+ *
+ * Deliberately NOT {@link userWithRoleSchema}: an invited account is a
+ * PLACEHOLDER until the invitation is accepted — it carries no credential
+ * account row, so `emailVerified` / `banned` / `role` are not yet meaningful
+ * facts about a person who can sign in. The invitation handlers return exactly
+ * these three fields, and the catalogue must describe what ships rather than
+ * what the sibling admin operations happen to return.
+ */
+const invitedUserSchema = z.object({
+  id: z.string().describe('Invited user id'),
+  email: z.string().email().describe('Invited email address'),
+  name: z.string().describe('Invited display name'),
+})
+
+/**
+ * Admin invite-user response schema.
+ *
+ * A Sovrium-owned Hono route, not a Better Auth plugin endpoint — which is
+ * precisely why it was missing from the catalogue. An admin-issued invitation
+ * is the ONLY onboarding path when `allowSignUp: false`, so an integrator who
+ * cannot discover this endpoint cannot onboard anyone at all.
+ */
+export const adminInviteUserResponseSchema = z.object({
+  user: invitedUserSchema.describe('The invited (placeholder) account'),
+  invitationSent: z.literal(true).describe('The invitation email was dispatched'),
+})
+
+/**
+ * Admin accept-invitation response schema.
+ *
+ * PUBLIC by design — the invitee arrives from an emailed link with no session,
+ * so this path is exempt from the admin-plane guard. The response carries a
+ * `Set-Cookie` session for the freshly-onboarded account; `sessionEstablished`
+ * appears only on the soft-fail path where sign-in did not complete and the
+ * customer must use the regular sign-in form.
+ */
+export const adminAcceptInvitationResponseSchema = z.object({
+  user: invitedUserSchema.describe('The now-onboarded account'),
+  status: z.literal('accepted').describe('Invitation acceptance outcome'),
+  sessionEstablished: z
+    .boolean()
+    .optional()
+    .describe('Absent on success; false when the post-accept sign-in did not complete'),
+})
+
 // ============================================================================
 // TypeScript Types
 // ============================================================================

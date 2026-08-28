@@ -22,21 +22,19 @@ export const DataLookupActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the array of records to search */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the array of records to search' })
+      Schema.annotate({ description: 'Template reference to the array of records to search' })
     ),
 
     /** Field name to match against */
-    key: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Field name to match against' })
-    ),
+    key: TemplateStringSchema.pipe(Schema.annotate({ description: 'Field name to match against' })),
 
     /** Value the `key` field must equal (supports template variables) */
     value: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Value the key field must equal (supports templates)' })
+      Schema.annotate({ description: 'Value the key field must equal (supports templates)' })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataLookupAction',
     title: 'Data Lookup Action',
     description: 'Find the first record in an array matching a key-value pair',

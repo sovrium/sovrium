@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import {
   ImageTransformService,
+  type ImageFit,
   type ImageOutputFormat,
 } from '@/application/ports/services/image-transform-service'
 import { StorageService } from '@/application/ports/services/storage-service'
@@ -26,7 +27,7 @@ import type { ActionHandler, ActionOutcome } from './shared'
  *
  * The heavy lifting (ZIP container, PDF wrapper, text extraction) lives in
  * the small sibling pure modules `file-zip.ts`, `file-pdf.ts`,
- * `file-extract.ts`, plus the `ImageTransformService` port (composed sharp
+ * `file-extract.ts`, plus the `ImageTransformService` port (the composed image
  * pipeline in `infrastructure/storage/image-transform-live.ts`), so each
  * concern stays individually testable and the handler stays a thin
  * storage-port glue.
@@ -63,14 +64,14 @@ export const handleFileCompress: ActionHandler = (action) =>
 
     const storage = yield* StorageService
     const downloads = yield* Effect.forEach(keys, (key) =>
-      Effect.either(storage.download(key)).pipe(Effect.map((res) => ({ key, res })))
+      Effect.result(storage.download(key)).pipe(Effect.map((res) => ({ key, res })))
     )
-    const missing = downloads.find((d) => d.res._tag === 'Left')
+    const missing = downloads.find((d) => d.res._tag === 'Failure')
     if (missing) return softError(`file not found: ${missing.key}`)
 
     const entries = downloads.map((d) => ({
       name: d.key.slice(d.key.lastIndexOf('/') + 1),
-      bytes: d.res._tag === 'Right' ? d.res.right : new Uint8Array(0),
+      bytes: d.res._tag === 'Success' ? d.res.success : new Uint8Array(0),
     }))
     const zip = buildStoredZip(entries)
 
@@ -105,11 +106,11 @@ export const handleFileExtractText: ActionHandler = (action) =>
     if (!key) return softError('file.extractText requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.either(storage.download(key))
-    if (downloaded._tag === 'Left') return softError(`file not found: ${key}`)
+    const downloaded = yield* Effect.result(storage.download(key))
+    if (downloaded._tag === 'Failure') return softError(`file not found: ${key}`)
 
     const format = resolveExtractFormat(p['format'])
-    const extracted = extractTextFromBytes(downloaded.right, key, format)
+    const extracted = extractTextFromBytes(downloaded.success, key, format)
     if (extracted === undefined) {
       return softError(`unsupported file type for text extraction: ${key}`)
     }
@@ -130,7 +131,7 @@ export const handleFileExtractText: ActionHandler = (action) =>
 // ---------------------------------------------------------------------------
 
 const resolveImageFormat = (raw: unknown): ImageOutputFormat | undefined =>
-  raw === 'jpeg' || raw === 'png' || raw === 'webp' || raw === 'avif' ? raw : undefined
+  raw === 'jpeg' || raw === 'png' || raw === 'webp' ? raw : undefined
 
 /** Optional numeric prop accessor — returns `undefined` when the key is absent. */
 const optionalNumber = (
@@ -139,19 +140,26 @@ const optionalNumber = (
   fallback: number
 ): number | undefined => (p[key] !== undefined ? numberProp(p, key, fallback) : undefined)
 
-type ImageOperation = 'resize' | 'crop' | 'noop'
+type ImageOperation = 'resize' | 'convert'
 
 const resolveImageOperation = (raw: string): ImageOperation =>
-  raw === 'crop' || raw === 'noop' ? raw : 'resize'
+  raw === 'convert' ? 'convert' : 'resize'
+
+/**
+ * Resolve the `fit` prop. Only `fill` and `inside` survive — the crop-or-pad
+ * modes went with the crop capability. AppSchema already rejects anything else,
+ * so an unrecognised value here can only come from a hand-built props bag.
+ */
+const resolveImageFit = (raw: unknown): ImageFit | undefined =>
+  raw === 'fill' || raw === 'inside' ? raw : undefined
 
 interface TransformImageInputs {
   readonly operation: ImageOperation
   readonly outputFormat: ImageOutputFormat | undefined
   readonly width: number | undefined
   readonly height: number | undefined
+  readonly fit: ImageFit | undefined
   readonly quality: number | undefined
-  readonly x: number | undefined
-  readonly y: number | undefined
 }
 
 /** Parse `transformImage` props into the typed shape the port consumes. */
@@ -160,9 +168,8 @@ const parseTransformImageInputs = (p: Readonly<Record<string, unknown>>): Transf
   outputFormat: resolveImageFormat(p['outputFormat'] ?? p['format']),
   width: optionalNumber(p, 'width', 0),
   height: optionalNumber(p, 'height', 0),
+  fit: resolveImageFit(p['fit']),
   quality: optionalNumber(p, 'quality', 80),
-  x: optionalNumber(p, 'x', 0),
-  y: optionalNumber(p, 'y', 0),
 })
 
 /** Resolve `(source key) | undefined` from either `props.key` or `props.source`. */
@@ -215,12 +222,22 @@ export const handleFileTransformImage: ActionHandler = (action) =>
     if (!key) return softError('file.transformImage requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.either(storage.download(key))
-    if (downloaded._tag === 'Left') return softError(`file not found: ${key}`)
+    const downloaded = yield* Effect.result(storage.download(key))
+    if (downloaded._tag === 'Failure') return softError(`file not found: ${key}`)
 
     const inputs = parseTransformImageInputs(p)
     const imageTransform = yield* ImageTransformService
-    const result = yield* imageTransform.transform(downloaded.right, inputs)
+    // The port reports a transform it could not perform. Reporting it as a
+    // failed STEP is a deliberate, visible choice here — the alternative the
+    // port used to make for every caller was to return the source bytes
+    // unchanged, which wrote an untransformed file and called it success.
+    const transformed = yield* Effect.result(imageTransform.transform(downloaded.success, inputs))
+    if (transformed._tag === 'Failure') {
+      const { cause } = transformed.failure
+      const detail = cause instanceof Error ? cause.message : String(cause)
+      return softError(`file.transformImage could not transform ${key}: ${detail}`)
+    }
+    const result = transformed.success
 
     const { destination, destinationKey } = resolveDestinationKey(p, key, inputs)
     const contentType = mimeByExt(destinationKey) ?? result.contentType

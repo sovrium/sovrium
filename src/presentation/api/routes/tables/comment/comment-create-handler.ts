@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { createCommentProgram } from '@/application/use-cases/tables/comment-programs'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   isModerationEnabled,
   resolveCommentModerationStatus,
@@ -15,7 +16,10 @@ import {
   type CommentModerationConfig,
 } from '@/domain/services/comments/comment-moderation-policy'
 import { isAuthenticatedSession } from '@/domain/services/guest-session'
-import { hasCommentPermission, hasReadPermission } from '@/domain/validators/permission-evaluators'
+import {
+  hasCommentPermissionForRoles,
+  hasReadPermissionForRoles,
+} from '@/domain/validators/permission-evaluators'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { handleRouteError } from '../error-handlers'
@@ -232,18 +236,23 @@ function readModerationConfig(table: NonNullable<App['tables']>[number]): Commen
  * a role that can read but is not in the `comment` grant is denied. Both denials
  * (and a missing table) collapse to 404 (S1 anti-enumeration — a non-commentable
  * surface must not be discoverable via the comment endpoint).
+ *
+ * BOTH gates are group-aware. A bare role can never match a `group:<name>`
+ * entry, so widening only the read half would leave a group-granted caller
+ * denied by the comment half — invisibly, since both denials render the same
+ * 404.
  */
 function resolveCommentableTable(
   c: Context,
   app: App,
   tableName: string,
-  userRole: string
+  effectiveRoles: readonly string[]
 ): NonNullable<App['tables']>[number] | Response {
   const table = app.tables?.find((t) => t.name === tableName)
   if (
     !table ||
-    !hasReadPermission(table, userRole, app.tables) ||
-    !hasCommentPermission(table, userRole, app.tables)
+    !hasReadPermissionForRoles(table, effectiveRoles, app.tables) ||
+    !hasCommentPermissionForRoles(table, effectiveRoles, app.tables)
   ) {
     return notFoundResponse(c)
   }
@@ -291,7 +300,7 @@ async function resolvePriorGuestApproval(input: {
       return yield* repo.hasApprovedGuestComment({ session, tableId, guestEmail })
     })
   )
-  return lookup._tag === 'Right' && lookup.right
+  return lookup._tag === 'Success' && lookup.success
 }
 
 /**
@@ -316,8 +325,13 @@ function requireCommentAuthentication(input: {
 }
 
 async function checkCreateCommentGate(c: Context, app: App): Promise<CreateCommentGate> {
-  const { tableName, tableId, userRole, session } = getTableContext(c)
-  const tableOrResponse = resolveCommentableTable(c, app, tableName, userRole)
+  const { tableName, tableId, userRole, userGroups, session } = getTableContext(c)
+  const tableOrResponse = resolveCommentableTable(
+    c,
+    app,
+    tableName,
+    buildEffectiveRoles(userRole, userGroups)
+  )
   if (tableOrResponse instanceof Response) return { ok: false, response: tableOrResponse }
   const table = tableOrResponse
 
@@ -433,8 +447,8 @@ async function checkSingleLevelThreading(
       return yield* repo.getWithUser({ session, commentId: parentCommentId })
     })
   )
-  if (lookup._tag === 'Left' || lookup.right === undefined) return undefined
-  if (lookup.right.parentId !== null) {
+  if (lookup._tag === 'Failure' || lookup.success === undefined) return undefined
+  if (lookup.success.parentId !== null) {
     return c.json(
       {
         success: false,
@@ -499,7 +513,7 @@ async function maybeFireCommentPostedTrigger(input: {
   readonly recordId: string
   readonly userRole: string
   readonly status: CombinedModerationStatus
-  readonly result: Effect.Effect.Success<ReturnType<typeof createCommentProgram>>
+  readonly result: Effect.Success<ReturnType<typeof createCommentProgram>>
 }): Promise<void> {
   const { app, table, validated, session, tableId, recordId, userRole, status, result } = input
   if (status !== 'approved') return
@@ -554,7 +568,7 @@ async function persistResolvedComment(input: {
   // A failed create is reported as a failure. There is no verdict-dependent
   // branch here: see [[handleCommentError]] for why fabricating a success for
   // a non-approved verdict is the exact inversion this path must not have.
-  if (result._tag === 'Left') return handleCommentError(c, result.left)
+  if (result._tag === 'Failure') return handleCommentError(c, result.failure)
 
   // eslint-disable-next-line functional/no-expression-statements -- IO boundary: trigger dispatch returns void
   await maybeFireCommentPostedTrigger({
@@ -566,7 +580,7 @@ async function persistResolvedComment(input: {
     recordId,
     userRole,
     status,
-    result: result.right,
+    result: result.success,
   })
 
   // Emit ONLY the display comment (no-email `user`). `result.right.author`
@@ -574,5 +588,5 @@ async function persistResolvedComment(input: {
   // serialized to the wire (B1). The top-level `status` is read back from
   // the PERSISTED row (`result.right.comment.status`), not a synthesized
   // literal — so the response reflects the verdict actually committed.
-  return c.json({ comment: result.right.comment, status: result.right.comment.status }, 201)
+  return c.json({ comment: result.success.comment, status: result.success.comment.status }, 201)
 }

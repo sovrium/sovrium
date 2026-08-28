@@ -44,7 +44,7 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 (Scalingo's filesystem is ephemeral — the database keeps your data across deploys; file
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
-(see [DEPLOY.md](https://github.com/sovrium/sovrium/blob/main/DEPLOY.md)).
+(see the [deployment guides](https://sovrium.com/en/docs/installation)).
 
 ## About this repository
 

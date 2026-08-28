@@ -153,9 +153,7 @@ const syncDocuments = (input: {
       ).pipe(
         // Re-embed is idempotent: drop the document's prior chunks first.
         Effect.tap(() =>
-          repo
-            .deleteBySourceIdPrefix(documentSourceId(doc.path))
-            .pipe(Effect.catchAll(() => Effect.void))
+          repo.deleteBySourceIdPrefix(documentSourceId(doc.path)).pipe(Effect.ignore)
         )
       )
     )
@@ -173,7 +171,7 @@ const syncDocuments = (input: {
       embedding,
       metadata: { path: chunk.path },
     }))
-    yield* repo.insertMany(rows).pipe(Effect.catchAll(() => Effect.void))
+    yield* repo.insertMany(rows).pipe(Effect.ignore)
 
     const documents = countRowsBy(rows, (row) => String((row.metadata ?? {})['path'] ?? ''))
     return { documents, totalChunks: rows.length } satisfies SyncDocumentStats

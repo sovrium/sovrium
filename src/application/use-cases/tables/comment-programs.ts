@@ -396,11 +396,13 @@ interface ListCommentsConfig {
    */
   readonly viewerIsAdmin?: boolean
   /**
-   * Raw `:tableId` URL param. Scopes the unread-count read-state
-   * watermark to the same `(user, table, record)` identity comments are stored
-   * under. Required only when `readTracking` is true.
+   * Raw `:tableId` URL param. Scopes BOTH the comment read itself and the
+   * [internal ref] unread-count watermark to the same `(table, record)` identity
+   * comments are stored under. Not optional: record ids are per-table
+   * sequences, so a record-only read returns every same-numbered record's
+   * comments across the app.
    */
-  readonly tableId?: string
+  readonly tableId: string
   /**
    * Opt-in per-user read tracking. When `true` the response carries
    * an `unreadCount`; when omitted/false the feature is inert (no read-state
@@ -651,6 +653,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     // List comments (admins see all statuses; everyone else approved-only)
     const commentsList = yield* comments.list({
       session,
+      tableId,
       recordId,
       limit,
       offset,
@@ -665,7 +668,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
         ? calculatePagination({
             limit,
             offset,
-            total: yield* comments.getCount({ session, recordId, includeAllStatuses }),
+            total: yield* comments.getCount({ session, tableId, recordId, includeAllStatuses }),
           })
         : undefined
 
@@ -673,7 +676,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     // read tracking. The viewer's own comments never count as unread; the
     // read-state is per-user and isolated (enforced in the query).
     const unreadCount =
-      readTracking === true && tableId !== undefined
+      readTracking === true
         ? yield* comments.countUnread({ session, tableId, recordId })
         : undefined
 

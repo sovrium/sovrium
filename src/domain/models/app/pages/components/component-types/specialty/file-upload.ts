@@ -23,7 +23,7 @@ export const FileUploadTypeLiteral = Schema.Literal('file-upload')
  * The string form is the common case for the basic upload button and the
  * dropzone variant.
  */
-export const FileUploadActionSchema = Schema.Union(Schema.String, ActionSchema).annotations({
+export const FileUploadActionSchema = Schema.Union([Schema.String, ActionSchema]).annotate({
   title: 'Upload Action',
   description:
     'Upload destination — either a URL string (e.g. "/api/buckets/default/files") or an Action object',
@@ -35,26 +35,25 @@ export const fileUploadFields = {
   ...actionFields,
   ...i18nFields,
   accept: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Accepted file types as MIME types or extensions (e.g. "image/*, .pdf")',
     })
   ),
   dropZone: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Enable drag-and-drop dropzone area for uploads',
     })
   ),
   maxFiles: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Maximum number of files allowed per upload' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Maximum number of files allowed per upload' })
     )
   ),
   maxFileSize: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum file size in bytes (e.g. 10485760 for 10MB)',
       })
     )

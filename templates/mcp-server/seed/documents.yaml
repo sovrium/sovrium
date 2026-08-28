@@ -107,7 +107,7 @@ records:
 
         `stdio` suits a client running on the same machine as the app: the client launches the process and speaks to it over a pipe, so there is no port, no TLS and no session to authenticate.
 
-        `streamable-http` is the one to use when the client is somewhere else. It needs a reachable URL and a real authentication strategy, which is what MCP_AUTH_STRATEGY=oauth selects: the client signs in as a Sovrium user and inherits that user's role, so table permissions apply to the model exactly as they apply to a person.
+        `streamable-http` is the one to use when the client is somewhere else. It needs a reachable URL and a credential. There is no strategy variable to set: /mcp reads the header the request carries, so an API key on `x-api-key` and an OAuth access token on `Authorization: Bearer` both work, and both name a real Sovrium user. The caller inherits that user's role, so table permissions apply to the model exactly as they apply to a person.
 
         Still to work out: what a sensible token lifetime is, and whether a per-agent role is worth the extra configuration.
 

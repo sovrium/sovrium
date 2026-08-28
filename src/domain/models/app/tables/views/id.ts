@@ -17,10 +17,12 @@ import { Schema } from 'effect'
  * - No spaces, no uppercase letters
  */
 const ViewIdStringSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z0-9_-]+$/, {
-    message: () => 'must be one of the allowed values',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-z0-9_-]+$/, {
+      message: 'must be one of the allowed values',
+    })
+  ),
+  Schema.annotate({
     description: 'View ID as string (lowercase, numbers, underscores, hyphens only)',
   })
 )
@@ -38,8 +40,8 @@ const ViewIdStringSchema = Schema.String.pipe(
  * 'kanban-view'
  * ```
  */
-export const ViewIdSchema = Schema.Union(Schema.Number, ViewIdStringSchema).pipe(
-  Schema.annotations({
+export const ViewIdSchema = Schema.Union([Schema.Finite, ViewIdStringSchema]).pipe(
+  Schema.annotate({
     title: 'View ID',
     description:
       'Unique identifier for the view. Can be a number or string (lowercase, numbers, underscores, hyphens only).',

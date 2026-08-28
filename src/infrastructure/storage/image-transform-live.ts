@@ -5,80 +5,75 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import {
   ImageTransformService,
   ImageTransformError,
-  type CropRegion,
   type ImageOutputFormat,
   type ImageTransformOptions,
   type ImageTransformResult,
 } from '@/application/ports/services/image-transform-service'
-import { parseEcoImageFormat } from '@/domain/models/env/eco/eco-image-format'
-import { resizeImage, createThumbnail, convertImage, cropImage } from './image-processor'
-
-/** Internal failure when `sharp` cannot process the composed-pipeline input. */
-class SharpProcessingError extends Data.TaggedError('SharpProcessingError')<{
-  readonly cause: unknown
-}> {}
-
-const MIME_BY_FORMAT: Readonly<Record<ImageOutputFormat, string>> = {
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-  avif: 'image/avif',
-}
-
-/** Resize args when the operation requests a resize with both dimensions. */
-const resizeArgs = (
-  options: ImageTransformOptions
-): Readonly<{ width: number; height: number; fit: 'cover' }> | undefined =>
-  options.operation === 'resize' && options.width !== undefined && options.height !== undefined
-    ? { width: options.width, height: options.height, fit: 'cover' }
-    : undefined
-
-/** Extract/crop args when the operation requests a crop with a full region. */
-const cropArgs = (
-  options: ImageTransformOptions
-): Readonly<{ left: number; top: number; width: number; height: number }> | undefined => {
-  if (options.operation !== 'crop') return undefined
-  const { x, y, width, height } = options
-  if (x === undefined || y === undefined || width === undefined || height === undefined) {
-    return undefined
-  }
-  return { left: x, top: y, width, height }
-}
+import { MIME_BY_IMAGE_FORMAT, readSourceImageMetadata, runImagePipeline } from './bun-image'
+import { resizeImage, createThumbnail, convertImage } from './image-processor'
 
 /**
- * Run the composed sharp pipeline (resize-or-crop + optional format conversion).
+ * Output codec used when a `file.transformImage` CONVERSION names no format.
  *
- * `sharp` is loaded lazily for the same reason as `image-processor.ts`: its
- * native addon cannot load from a `bun build --compile` standalone binary's
- * virtual filesystem at module-load time, so the import is deferred to call
- * time. Bun caches the dynamic import so subsequent calls have no extra cost.
+ * This was AVIF, resolved through a preference list because AVIF is not
+ * universally encodable. The list is gone with the format: `Bun.Image`'s `bun`
+ * backend — the default on Linux, and therefore in the distributed binary and
+ * in the deployment container — ships no AV1 encoder and answers AVIF with
+ * `ERR_IMAGE_FORMAT_UNSUPPORTED`. A default that works on macOS and fails in
+ * production is not a default.
+ *
+ * WebP replaces it, and it is a constant rather than a list because it is the
+ * only thing left to choose:
+ *
+ * - it encodes on BOTH backends, so it never varies by host;
+ * - it is lossy by default and roughly 25-30% smaller than JPEG at equivalent
+ *   visual quality, so the frugality the AVIF default was chosen for survives;
+ * - unlike AVIF it is supported by every browser shipped since 2020, so it is
+ *   a win-win in the ecoconception sense — smaller AND faster — with no
+ *   compatibility trade;
+ * - unlike JPEG it keeps the alpha channel, so a transparent PNG source is not
+ *   silently flattened onto black.
+ *
+ * PNG stays available as an EXPLICIT choice for callers who need lossless
+ * output; it is the wrong default because it is the largest.
  */
-const runSharpPipeline = async (
-  input: Uint8Array,
-  options: ImageTransformOptions
-): Promise<Uint8Array> => {
-  const sharpModule = (await import('sharp')).default
-  const pipeline = sharpModule(Buffer.from(input))
+const DEFAULT_OUTPUT_FORMAT: ImageOutputFormat = 'webp'
 
-  const resize = resizeArgs(options)
-  const resized = resize ? pipeline.resize(resize) : pipeline
+/**
+ * The format the pipeline should encode to, or `undefined` for "keep the
+ * source format".
+ *
+ * A default only applies to `operation: 'convert'`, because that is the only
+ * operation that ASKED for a different container. A `resize` naming no format
+ * used to be transcoded to the default anyway — to AVIF before this change,
+ * and to WebP after it — which meant an action declaring
+ * `destination: 'thumbnail.png'` wrote WebP bytes to a `.png` key, then
+ * labelled them `image/png` from the extension. Nothing caught it because the
+ * only assertion on the written file was that it had a non-zero length.
+ *
+ * Preserving the source format for a pure resize is also the narrower promise:
+ * an author who wants a different container has one word to type, and one who
+ * does not gets their own format back.
+ */
+const resolveOutputFormat = (options: ImageTransformOptions): ImageOutputFormat | undefined =>
+  options.outputFormat ?? (options.operation === 'convert' ? DEFAULT_OUTPUT_FORMAT : undefined)
 
-  const crop = cropArgs(options)
-  const cropped = crop ? resized.extract(crop) : resized
-
-  const formatted = options.outputFormat
-    ? cropped.toFormat(
-        options.outputFormat,
-        options.quality !== undefined ? { quality: options.quality } : undefined
-      )
-    : cropped
-
-  const buffer = await formatted.toBuffer()
-  return new Uint8Array(buffer)
+/**
+ * MIME type for a pipeline run that preserved the source format.
+ *
+ * `Bun.Image#metadata()` names the source container; when it is one this
+ * platform also encodes, its canonical MIME type is used. Anything else — a
+ * format decodable but not encodable here — is reported as a generic binary
+ * rather than guessed at, so a caller deriving a filename from it is not
+ * quietly handed the wrong suffix.
+ */
+const preservedContentType = async (input: Uint8Array): Promise<string> => {
+  const { format } = await readSourceImageMetadata(input)
+  return MIME_BY_IMAGE_FORMAT[format as ImageOutputFormat] ?? 'application/octet-stream'
 }
 
 export const ImageTransformServiceLive = Layer.succeed(
@@ -87,12 +82,6 @@ export const ImageTransformServiceLive = Layer.succeed(
     resize: (input: Uint8Array, width: number, height: number) =>
       Effect.tryPromise({
         try: () => resizeImage(input, width, height),
-        catch: (error: unknown) => new ImageTransformError({ cause: error }),
-      }),
-
-    crop: (input: Uint8Array, region: CropRegion) =>
-      Effect.tryPromise({
-        try: () => cropImage(input, region),
         catch: (error: unknown) => new ImageTransformError({ cause: error }),
       }),
 
@@ -111,33 +100,31 @@ export const ImageTransformServiceLive = Layer.succeed(
     /**
      * Composed pipeline for the automation `file.transformImage` action.
      *
-     * When the caller does not specify an `outputFormat`, the operator's
-     * `ECO_IMAGE_FORMAT` env var (default `avif`) is honoured per standing
-     * rule R1 — AVIF gives the smallest payload at equivalent visual quality
-     * and is the eco-aligned default. Operators opt out (e.g. `jpeg` for
-     * legacy-browser compatibility).
+     * Fails when the input cannot be decoded or the requested encoder is
+     * unavailable. It used to swallow both and return the input bytes verbatim,
+     * which is how a binary that performed no transforms at all shipped
+     * unnoticed — the caller could not distinguish a re-encoded image from the
+     * original one.
      *
-     * Degrades to a verbatim passthrough when sharp cannot process the input
-     * (corrupt / unsupported bytes, or the native module unavailable in a
-     * compiled binary). Error channel `never` — callers always receive a
-     * usable `{ bytes, contentType }` pair. The automation contract is "a
-     * file exists at the destination", not "the pixels were re-encoded".
+     * `contentType` describes the bytes actually produced, whether that came
+     * from an explicit format, the conversion default, or the source.
      */
     transform: (input: Uint8Array, options: ImageTransformOptions) => {
-      const ecoFormat = parseEcoImageFormat(process.env)
-      const resolvedFormat: ImageOutputFormat = options.outputFormat ?? ecoFormat
-      const effectiveOptions: ImageTransformOptions = {
-        ...options,
-        outputFormat: resolvedFormat,
-      }
-      const contentType = MIME_BY_FORMAT[resolvedFormat]
+      const resolvedFormat = resolveOutputFormat(options)
       return Effect.tryPromise({
-        try: () => runSharpPipeline(input, effectiveOptions),
-        catch: (cause) => new SharpProcessingError({ cause }),
-      }).pipe(
-        Effect.map((bytes): ImageTransformResult => ({ bytes, contentType })),
-        Effect.catchAll(() => Effect.succeed({ bytes: input, contentType }))
-      )
+        try: async (): Promise<ImageTransformResult> => {
+          const bytes = await runImagePipeline(input, {
+            ...options,
+            ...(resolvedFormat !== undefined && { outputFormat: resolvedFormat }),
+          })
+          const contentType =
+            resolvedFormat === undefined
+              ? await preservedContentType(input)
+              : MIME_BY_IMAGE_FORMAT[resolvedFormat]
+          return { bytes, contentType }
+        },
+        catch: (cause) => new ImageTransformError({ cause }),
+      })
     },
   })
 )

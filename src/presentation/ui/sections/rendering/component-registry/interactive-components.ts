@@ -6,7 +6,7 @@
  */
 
 import * as Renderers from '../../renderers/element-renderers'
-import { buildConfirmAttributes } from '../../renderers/element-renderers/button-action-builders'
+import { overlayButtonSchemaFallbacks } from '../../renderers/element-renderers/button-action-builders'
 import {
   computeButtonDefaultClasses,
   type ButtonSize,
@@ -107,26 +107,6 @@ function buildAlertClassName(
     : undefined
   const defaults = computeAlertClasses({ variant })
   return authorClassName ? `${defaults} ${authorClassName}` : defaults
-}
-
-/**
- * Overlay button-schema top-level fields (`label`, `confirm`) onto the
- * elementProps envelope so the renderButton helper picks them up without a
- * second extraction path. Author-supplied `props.label` / confirm attrs win. The
- * `confirm` field (string prompt OR rich object form) is mapped to its data
- * attribute(s) by {@link buildConfirmAttributes}.
- */
-function overlayButtonSchemaFallbacks(
-  elementProps: Record<string, unknown>,
-  componentRaw: Record<string, unknown>
-): Record<string, unknown> {
-  const topLabel =
-    typeof componentRaw['label'] === 'string' ? (componentRaw['label'] as string) : undefined
-  return {
-    ...elementProps,
-    ...(topLabel !== undefined && elementProps.label === undefined ? { label: topLabel } : {}),
-    ...buildConfirmAttributes(componentRaw['confirm'], elementProps),
-  }
 }
 
 const BUTTON_VARIANTS = new Set<ButtonVariant>([
@@ -242,9 +222,12 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       tables,
       routeParams,
       component,
+      currentLang,
+      languages,
     }) => {
       const c = (component ?? {}) as Record<string, unknown>
-      const propsWithSchemaFallbacks = overlayButtonSchemaFallbacks(elementProps, c)
+      const lang = { currentLang, languages }
+      const propsWithSchemaFallbacks = overlayButtonSchemaFallbacks(elementProps, c, lang)
       const loading = c['loading'] as boolean | undefined
       const disabled = propsWithSchemaFallbacks['disabled'] === true
       // [internal ref]: a button's visual state determines whether the prestyled

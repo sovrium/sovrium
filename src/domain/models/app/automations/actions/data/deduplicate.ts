@@ -22,16 +22,16 @@ export const DataDeduplicateActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the array of items */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the array of items' })
+      Schema.annotate({ description: 'Template reference to the array of items' })
     ),
 
     /** Field whose value identifies duplicates */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Field whose value identifies duplicates' })
+      Schema.annotate({ description: 'Field whose value identifies duplicates' })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataDeduplicateAction',
     title: 'Data Deduplicate Action',
     description: 'Remove duplicate items from an array based on a specified key field',

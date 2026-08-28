@@ -36,14 +36,14 @@ import { Schema } from 'effect'
 export const ToolAnnotationsSchema = Schema.Struct({
   readOnly: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Tool only reads data; safe to auto-approve. Maps to MCP readOnlyHint.',
       })
     )
   ),
   destructive: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Tool performs destructive operations (delete, send email, charge card); clients should require explicit confirmation. Maps to MCP destructiveHint.',
       })
@@ -51,7 +51,7 @@ export const ToolAnnotationsSchema = Schema.Struct({
   ),
   idempotent: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Calling the tool twice with the same args is safe (no duplicate side effects). Maps to MCP idempotentHint.',
       })
@@ -59,14 +59,14 @@ export const ToolAnnotationsSchema = Schema.Struct({
   ),
   openWorld: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Tool reaches outside the local app (external API, network call). Maps to MCP openWorldHint.',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ToolAnnotations',
     title: 'MCP Tool Risk Annotations',
     description:
@@ -83,7 +83,13 @@ export type ToolAnnotations = typeof ToolAnnotationsSchema.Type
 /**
  * Operation Schema — Which CRUD operations are exposed to MCP for an entity
  */
-export const AiAccessOperationSchema = Schema.Literal('read', 'list', 'create', 'update', 'delete')
+export const AiAccessOperationSchema = Schema.Literals([
+  'read',
+  'list',
+  'create',
+  'update',
+  'delete',
+])
 
 export type AiAccessOperation = typeof AiAccessOperationSchema.Type
 
@@ -94,7 +100,7 @@ export type AiAccessOperation = typeof AiAccessOperationSchema.Type
  * - `'permissioned'` — Only fields the connecting role can read/write (default)
  * - `'whitelist'` — Only fields explicitly listed in `whitelistFields`
  */
-export const FieldExposureSchema = Schema.Literal('all', 'permissioned', 'whitelist')
+export const FieldExposureSchema = Schema.Literals(['all', 'permissioned', 'whitelist'])
 
 /** @public */
 export type FieldExposure = typeof FieldExposureSchema.Type
@@ -109,8 +115,8 @@ export type FieldExposure = typeof FieldExposureSchema.Type
 export const AiAccessConfigSchema = Schema.Struct({
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.maxLength(2000),
-      Schema.annotations({
+      Schema.check(Schema.isMaxLength(2000)),
+      Schema.annotate({
         description:
           'Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior — explain when to use this tool, what context the AI needs, and any non-obvious constraints.',
       })
@@ -118,8 +124,8 @@ export const AiAccessConfigSchema = Schema.Struct({
   ),
   operations: Schema.optional(
     Schema.Array(AiAccessOperationSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field — they expose a single invocation tool.',
       })
@@ -127,15 +133,15 @@ export const AiAccessConfigSchema = Schema.Struct({
   ),
   fieldExposure: Schema.optional(
     FieldExposureSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Field exposure mode. Defaults to permissioned (only fields the connecting role can read/write per RBAC).',
       })
     )
   ),
   whitelistFields: Schema.optional(
-    Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(
-      Schema.annotations({
+    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
+      Schema.annotate({
         description:
           'Fields to expose when fieldExposure=whitelist. Required and must be non-empty when fieldExposure=whitelist; ignored otherwise.',
       })
@@ -144,14 +150,14 @@ export const AiAccessConfigSchema = Schema.Struct({
   annotations: Schema.optional(ToolAnnotationsSchema),
   requireConfirmation: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Force destructiveHint=true on the resulting MCP tool regardless of operation type. Use for automations/actions whose effects are non-reversible (e.g. sending emails) even if technically idempotent.',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AiAccessConfig',
     title: 'AI Access Configuration (rich form)',
     description:
@@ -199,8 +205,8 @@ export type AiAccessConfig = typeof AiAccessConfigSchema.Type
  *         destructive: false
  * ```
  */
-export const AiAccessSchema = Schema.Union(Schema.Boolean, AiAccessConfigSchema).pipe(
-  Schema.annotations({
+export const AiAccessSchema = Schema.Union([Schema.Boolean, AiAccessConfigSchema]).pipe(
+  Schema.annotate({
     identifier: 'AiAccess',
     title: 'AI Access',
     description:

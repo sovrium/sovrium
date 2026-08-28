@@ -164,13 +164,13 @@ function downloadFromStorage(path: string) {
     const storage = yield* StorageService
     return yield* storage.download(path)
   })
-  return Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+  return Effect.runPromise(program.pipe(provideStorageLive, Effect.result))
 }
 
 /** Check whether a stored object exists by attempting a download. */
 async function fileExists(path: string): Promise<boolean> {
   const result = await downloadFromStorage(path)
-  return result._tag === 'Right'
+  return result._tag === 'Success'
 }
 
 type BatchResult =
@@ -305,7 +305,7 @@ function uploadToStorage(path: string, content: Uint8Array, mimeType: string) {
     const storage = yield* StorageService
     return yield* storage.upload(path, content, mimeType)
   })
-  return Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
+  return Effect.runPromise(program.pipe(provideStorageLive, Effect.result))
 }
 
 /** Parameters for a verified signed-upload request. */
@@ -382,7 +382,7 @@ async function storeSignedUpload(c: Context, params: SignedUploadParams): Promis
 
   const mimeType = requestType !== '' ? requestType : inferMimeFromKey(path)
   const result = await uploadToStorage(path, body, mimeType)
-  if (result._tag === 'Left') {
+  if (result._tag === 'Failure') {
     return c.json({ success: false, error: 'Upload failed', code: 'STORAGE_ERROR' }, 500)
   }
   return c.json({ success: true, path })
@@ -448,8 +448,8 @@ function buildSignedContentDisposition(path: string): string {
 /** Download `path` via the StorageService and stream it back to the client. */
 async function streamSignedDownload(c: Context, path: string): Promise<Response> {
   const result = await downloadFromStorage(path)
-  if (result._tag === 'Left') {
-    const { cause } = result.left as { readonly cause?: unknown }
+  if (result._tag === 'Failure') {
+    const { cause } = result.failure as { readonly cause?: unknown }
     const isNotFound = isNotFoundError(cause)
     return c.json(
       {
@@ -460,7 +460,7 @@ async function streamSignedDownload(c: Context, path: string): Promise<Response>
       isNotFound ? 404 : 500
     )
   }
-  const body = Uint8Array.from(result.right)
+  const body = Uint8Array.from(result.success)
   return new Response(body, {
     status: 200,
     headers: {

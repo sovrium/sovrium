@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
+import { AiActionProviderSchema } from './provider'
 
 /**
  * AI Extract Action (type: ai, operator: extract)
@@ -20,30 +21,26 @@ export const AiExtractActionSchema = Schema.Struct({
   type: Schema.Literal('ai'),
   operator: Schema.Literal('extract'),
   props: Schema.Struct({
-    /** LLM provider */
-    provider: Schema.Literal('openai', 'anthropic', 'ollama', 'custom').pipe(
-      Schema.annotations({
-        description: 'LLM provider: openai, anthropic, ollama (self-hosted), or custom',
-      })
-    ),
+    /** LLM provider — optional, advisory (see {@link AiActionProviderSchema}) */
+    provider: AiActionProviderSchema,
 
     /** Model identifier */
     model: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Model name (e.g., "gpt-4o", "claude-sonnet-4-20250514")',
       })
     ),
 
     /** Text to extract from */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Text input to extract data from (supports template variables)',
       })
     ),
 
     /** JSON Schema describing the expected output shape */
-    schema: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({
+    schema: Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({
         description:
           'JSON Schema describing the extraction output. Example: { "name": "string", "email": "string", "age": "number" }',
       })
@@ -52,7 +49,7 @@ export const AiExtractActionSchema = Schema.Struct({
     /** Instruction prepended to the extraction request */
     prompt: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Optional instruction prepended to the input + schema sent to the model (supports template variables)',
         })
@@ -62,7 +59,7 @@ export const AiExtractActionSchema = Schema.Struct({
     /** System prompt */
     systemPrompt: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'System prompt to set model behavior and context',
         })
       )
@@ -70,9 +67,9 @@ export const AiExtractActionSchema = Schema.Struct({
 
     /** Sampling temperature */
     temperature: Schema.optional(
-      Schema.Number.pipe(
-        Schema.between(0, 2),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isBetween({ minimum: 0, maximum: 2 })),
+        Schema.annotate({
           description: 'Sampling temperature (0-2, default: provider default)',
         })
       )
@@ -80,10 +77,9 @@ export const AiExtractActionSchema = Schema.Struct({
 
     /** Maximum tokens to generate */
     maxTokens: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 1_000_000),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 1_000_000 })),
+        Schema.annotate({
           description: 'Maximum tokens to generate (1-1000000)',
         })
       )
@@ -92,15 +88,15 @@ export const AiExtractActionSchema = Schema.Struct({
     /** Connection name for API authentication */
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description: 'Connection name for API auth (must reference app.connections[])',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AiExtractAction',
     title: 'AI Extract Action',
     description: 'Extract structured data from text using a language model and JSON Schema',

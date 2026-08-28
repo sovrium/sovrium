@@ -5,10 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, type Result } from 'effect'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/auth/user-access-repository-live'
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
+import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
 import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-repository-live'
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
@@ -30,6 +31,9 @@ export { checkForExistingRecords } from '@/infrastructure/database/table-queries
  *   - ConnectionRepository, ConnectionTokenRepository (http/oauth handlers)
  *   - DataSourceRepository (GAP-J1: hydrate many-to-one relationship fields in
  *     the record-event trigger envelope by fetching the related row by id)
+ *   - AutomationPauseRepository (the operational-pause read
+ *     `triggerRecordEventAutomations` performs before matching, so a paused
+ *     automation is filtered out of the dispatch set)
  *
  * Used by the record-create handler so a record write can fire matching
  * record-triggered automations in the same request without leaking
@@ -44,7 +48,8 @@ const TableWithAutomationsLive = Layer.mergeAll(
   ConnectionRepositoryLive,
   ConnectionTokenRepositoryLive,
   AnalyticsRepositoryLive,
-  DataSourceRepositoryLive
+  DataSourceRepositoryLive,
+  AutomationPauseRepositoryLive
 )
 
 /**
@@ -57,29 +62,27 @@ const UserAccessLive = UserAccessRepositoryLive
 /**
  * Run an Effect program with TableLive layer
  *
- * This utility consolidates the common pattern of providing TableLive, converting to Either,
+ * This utility consolidates the common pattern of providing TableLive, converting to a Result,
  * and running as Promise. It's used by all table-related route handlers.
  *
  * TableLive provides: TableRepository, BatchRepository, CommentRepository, ActivityRepository
  *
  * @param program - The Effect program to run (may require repository services from TableLive)
- * @returns Promise resolving to Either (Left for errors, Right for success)
+ * @returns Promise resolving to a Result (Failure for errors, Success for success)
  *
  * @example
  * const result = await runTableProgram(createCommentProgram({ session, tableId, content }))
- * if (result._tag === 'Left') {
- *   return handleError(c, result.left)
+ * if (result._tag === 'Failure') {
+ *   return handleError(c, result.failure)
  * }
- * return c.json(result.right, 201)
+ * return c.json(result.success, 201)
  */
 export async function runTableProgram<A, E, R>(
   program: Effect.Effect<A, E, R>
-): Promise<
-  { readonly _tag: 'Left'; readonly left: E } | { readonly _tag: 'Right'; readonly right: A }
-> {
+): Promise<Result.Result<A, E>> {
   // Type assertion: TableLive provides all required repositories, so remaining requirements are never
   const provided = Effect.provide(program, TableLive) as Effect.Effect<A, E, never>
-  return Effect.runPromise(Effect.either(provided))
+  return Effect.runPromise(Effect.result(provided))
 }
 
 /**
@@ -89,18 +92,16 @@ export async function runTableProgram<A, E, R>(
  */
 export async function runUserAccessProgram<A, E, R>(
   program: Effect.Effect<A, E, R>
-): Promise<
-  { readonly _tag: 'Left'; readonly left: E } | { readonly _tag: 'Right'; readonly right: A }
-> {
+): Promise<Result.Result<A, E>> {
   const provided = Effect.provide(program, UserAccessLive) as Effect.Effect<A, E, never>
-  return Effect.runPromise(Effect.either(provided))
+  return Effect.runPromise(Effect.result(provided))
 }
 
 /**
  * Provide TableLive layer to an Effect program
  *
  * This is a simpler utility for cases where the program will be passed to runEffect
- * (which handles the Either conversion and error handling itself).
+ * (which handles the Result conversion and error handling itself).
  *
  * TableLive provides: TableRepository, BatchRepository, CommentRepository, ActivityRepository
  *

@@ -163,7 +163,7 @@ const readFieldRows = (
 /** Fold junction rows for one field into the `recordId -> relatedIds` shape. */
 const foldFieldRows = (
   rows: ReadonlyArray<Record<string, unknown>>
-): Record<string, readonly (string | number)[]> =>
+): Readonly<Record<string, readonly (string | number)[]>> =>
   rows.reduce<Record<string, (string | number)[]>>((acc, row) => {
     const src = String(row.src)
     const rel = row.rel as string | number

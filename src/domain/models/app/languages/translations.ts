@@ -19,11 +19,13 @@ import { Schema } from 'effect'
  * ```
  */
 export const TranslationKeySchema = Schema.String.pipe(
-  Schema.pattern(/^[a-zA-Z0-9._-]+$/, {
-    message: () =>
-      'Translation key must contain only alphanumeric characters, dots, hyphens, and underscores',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-zA-Z0-9._-]+$/, {
+      message:
+        'Translation key must contain only alphanumeric characters, dots, hyphens, and underscores',
+    })
+  ),
+  Schema.annotate({
     title: 'Translation Key',
     description: 'Key for centralized translations dictionary',
     examples: ['common.save', 'nav.home', 'homepage.hero.title', 'errors.404'],
@@ -47,11 +49,8 @@ export const TranslationKeySchema = Schema.String.pipe(
  * }
  * ```
  */
-export const TranslationDictionarySchema = Schema.Record({
-  key: TranslationKeySchema,
-  value: Schema.String,
-}).pipe(
-  Schema.annotations({
+export const TranslationDictionarySchema = Schema.Record(TranslationKeySchema, Schema.String).pipe(
+  Schema.annotate({
     title: 'Translation Dictionary',
     description: 'Maps translation keys to localized strings for a single language',
   })
@@ -80,16 +79,17 @@ export const TranslationDictionarySchema = Schema.Record({
  * }
  * ```
  */
-export const TranslationsSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-z]{2}$/, {
-      message: () =>
-        'Language code must be 2 lowercase letters (ISO 639-1 format, e.g., en, fr, es)',
-    })
+export const TranslationsSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-z]{2}$/, {
+        message: 'Language code must be 2 lowercase letters (ISO 639-1 format, e.g., en, fr, es)',
+      })
+    )
   ),
-  value: TranslationDictionarySchema,
-}).pipe(
-  Schema.annotations({
+  TranslationDictionarySchema
+).pipe(
+  Schema.annotate({
     title: 'Centralized Translations',
     description:
       'Translation dictionaries for all supported languages (keyed by short codes: en, fr, es). Use $t:key syntax to reference translations.',

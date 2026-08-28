@@ -22,14 +22,14 @@ import { Schema } from 'effect'
  * - posthog: Product analytics, session replay, feature flags
  * - mixpanel: Product analytics, funnel analysis, cohort analysis
  */
-export const AnalyticsProviderNameSchema = Schema.Literal(
+export const AnalyticsProviderNameSchema = Schema.Literals([
   'google',
   'plausible',
   'matomo',
   'fathom',
   'posthog',
-  'mixpanel'
-).annotations({
+  'mixpanel',
+]).annotate({
   description: 'Analytics provider name',
 })
 
@@ -46,22 +46,22 @@ export const AnalyticsProviderNameSchema = Schema.Literal(
  * - defer: Defer execution until DOM loaded
  */
 export const AnalyticsScriptSchema = Schema.Struct({
-  src: Schema.String.annotations({
+  src: Schema.String.annotate({
     description: 'Script source URL',
     format: 'uri',
   }),
   async: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Load script asynchronously',
       default: true,
     })
   ),
   defer: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Defer script execution',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Analytics script',
 })
 
@@ -73,32 +73,29 @@ export const AnalyticsScriptSchema = Schema.Struct({
 export const AnalyticsProviderSchema = Schema.Struct({
   name: AnalyticsProviderNameSchema,
   enabled: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Whether this provider is enabled',
       default: true,
     })
   ),
   scripts: Schema.optional(Schema.Array(AnalyticsScriptSchema)),
   initScript: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Inline JavaScript to initialize the analytics',
     })
   ),
   dnsPrefetch: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Domain to DNS prefetch for this provider',
       format: 'uri',
     })
   ),
   config: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }).annotations({
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
       description: 'Provider-specific configuration',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Analytics provider',
 })
 
@@ -109,7 +106,7 @@ export const AnalyticsProviderSchema = Schema.Struct({
  */
 export const AnalyticsSchema = Schema.Struct({
   providers: Schema.Array(AnalyticsProviderSchema),
-}).annotations({
+}).annotate({
   title: 'Analytics Configuration',
   description: 'Configuration for analytics providers',
 })

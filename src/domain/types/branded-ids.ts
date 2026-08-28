@@ -16,8 +16,7 @@ import { Schema } from 'effect'
  * - Are system-generated and immutable
  */
 const BaseNumericIdSchema = Schema.Int.pipe(
-  Schema.greaterThanOrEqualTo(1),
-  Schema.lessThanOrEqualTo(9_007_199_254_740_991)
+  Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(9_007_199_254_740_991))
 )
 
 /**
@@ -39,11 +38,11 @@ const BaseNumericIdSchema = Schema.Int.pipe(
  * const table3 = { id: 'products', name: 'products', fields: [] }
  * ```
  */
-export const TableIdSchema = Schema.Union(
+export const TableIdSchema = Schema.Union([
   BaseNumericIdSchema,
-  Schema.String.pipe(Schema.minLength(1))
-).pipe(
-  Schema.annotations({
+  Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+]).pipe(
+  Schema.annotate({
     identifier: 'TableId',
     title: 'Table ID',
     description:
@@ -66,7 +65,7 @@ export type TableId = Schema.Schema.Type<typeof TableIdSchema>
  * ```
  */
 export const FieldIdSchema = BaseNumericIdSchema.pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FieldId',
     title: 'Field ID',
     description: 'Unique identifier for a field within a table. Examples: 1, 2, 3, 100',
@@ -88,7 +87,7 @@ export type FieldId = Schema.Schema.Type<typeof FieldIdSchema>
  * ```
  */
 export const RecordIdSchema = BaseNumericIdSchema.pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordId',
     title: 'Record ID',
     description: 'Unique identifier for a record within a table. Examples: 1, 2, 3, 1000',
@@ -110,9 +109,9 @@ export type RecordId = Schema.Schema.Type<typeof RecordIdSchema>
  * ```
  */
 export const UserIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
+  Schema.check(Schema.isMinLength(1)),
   Schema.brand('UserId'),
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'UserId',
     title: 'User ID',
     description:
@@ -135,9 +134,9 @@ export type UserId = Schema.Schema.Type<typeof UserIdSchema>
  * ```
  */
 export const WorkspaceIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
+  Schema.check(Schema.isMinLength(1)),
   Schema.brand('WorkspaceId'),
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'WorkspaceId',
     title: 'Workspace ID',
     description:
@@ -160,13 +159,15 @@ export type WorkspaceId = Schema.Schema.Type<typeof WorkspaceIdSchema>
  * ```
  */
 export const ComponentTemplateIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.pattern(/^[a-z][a-z0-9-]*$/, {
-    message: () =>
-      'Component template ID must start with a letter and contain only lowercase letters, numbers, and hyphens',
-  }),
+  Schema.check(
+    Schema.isMinLength(1),
+    Schema.isPattern(/^[a-z][a-z0-9-]*$/, {
+      message:
+        'Component template ID must start with a letter and contain only lowercase letters, numbers, and hyphens',
+    })
+  ),
   Schema.brand('ComponentTemplateId'),
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ComponentTemplateId',
     title: 'Component Template ID',
     description:
@@ -189,13 +190,15 @@ export type ComponentTemplateId = Schema.Schema.Type<typeof ComponentTemplateIdS
  * ```
  */
 export const BrandedViewIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.pattern(/^[a-z][a-z0-9_]*$/, {
-    message: () =>
-      'View ID must start with a letter and contain only lowercase letters, numbers, and underscores',
-  }),
+  Schema.check(
+    Schema.isMinLength(1),
+    Schema.isPattern(/^[a-z][a-z0-9_]*$/, {
+      message:
+        'View ID must start with a letter and contain only lowercase letters, numbers, and underscores',
+    })
+  ),
   Schema.brand('ViewId'),
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ViewId',
     title: 'View ID',
     description:

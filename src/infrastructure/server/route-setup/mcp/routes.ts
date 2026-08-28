@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Server, createMcpHandler, type McpHttpHandler } from '@modelcontextprotocol/server'
 import { Schema } from 'effect'
 import { type Context, type Hono } from 'hono'
 import {
@@ -12,7 +13,6 @@ import {
   McpEnvSchema,
   resolveMcpEnv,
   validateMcpEnv,
-  type McpAuthStrategy,
   type McpEnvConfig,
   type ResolvedMcpEnvConfig,
 } from '@/domain/models/env/mcp'
@@ -23,10 +23,9 @@ import {
   isInternalAuditListTool,
 } from '@/infrastructure/server/route-setup/mcp/audit'
 import {
-  buildOauthWwwAuthenticate,
+  authenticateMcpRequest,
   readBearerToken,
-  resolveCaller,
-  resolveCallerRole,
+  type McpAuthInstance,
   type McpCaller,
   type McpCallerRole,
 } from '@/infrastructure/server/route-setup/mcp/auth'
@@ -36,7 +35,6 @@ import {
   resolveInternalTool,
 } from '@/infrastructure/server/route-setup/mcp/internals'
 import {
-  applyRateLimitHeaders,
   buildRateLimitExceededResponse,
   checkMcpRateLimit,
   deriveMcpCallerKey,
@@ -49,6 +47,7 @@ import {
   type CompiledTool,
 } from '@/infrastructure/server/route-setup/mcp/tool-compiler'
 import type { App } from '@/domain/models/app'
+import type { McpToolResult } from '@/infrastructure/server/route-setup/mcp/tool-call-helpers'
 
 // JSON-RPC 2.0 spec uses `null` for the request id when the server cannot
 // determine it (parse error, missing id). The project lints against `null`,
@@ -67,20 +66,27 @@ const JSONRPC_NULL_ID = JSON.parse('null') as any
  * 404 handler. The schema author's `aiAccess` declarations on tables /
  * automations / actions have NO runtime effect when MCP is disabled.
  *
+ * Protocol era: `2026-07-28` only, with `legacy: 'reject'`. That
+ * revision has no `initialize` and no session — every request carries its own
+ * `_meta` envelope plus `Mcp-Method` (and `Mcp-Name` for `tools/call`), and
+ * `server/discover` advertises the era without establishing anything. A client
+ * that can only speak a 2025-era revision is refused rather than downgraded.
+ *
+ * Credentials: a request authenticates with an API key on `x-api-key` or an
+ * OAuth access token on `Authorization: Bearer`, and `/mcp` picks its verifier
+ * from whichever header is present. Both are Better Auth plugins, so
+ * `MCP_ENABLED=true` requires `app.auth`.
+ *
  * Validation runs at startup (before the route is mounted) so a misconfigured
  * deployment fails fast on `bun run start` rather than serving an unauthed
  * surface or crashing on first request:
- *  - Token strategy with no `MCP_TOKEN_*` set → throw
- *  - Any `MCP_TOKEN_*` shorter than 32 chars → throw (Schema decode error)
- *  - Token strategy + valid token(s) → mount with bearer-token gate
- *
- * Auth-strategy resolution: when `MCP_AUTH_STRATEGY` is unset the effective
- * strategy is derived from the app — `oauth2` when `app.auth` is configured
- * (signals that Better Auth is mounted with the OAuth-server plugin), else
- * `token` (the only authentication mode that works without app-level auth).
+ *  - `MCP_ENABLED=true` without `app.auth` → throw
+ *  - A still-set `MCP_TOKEN_*`, or `MCP_AUTH_STRATEGY=token` → throw
+ *  - A non-positive rate limit → throw (Schema decode error)
  *
  * @param honoApp - Hono application instance to extend (passed through unchanged when MCP is disabled)
  * @param app - Application schema; used to read `app.name`, `app.version`, and `app.tables[].aiAccess`
+ * @param authInstance - The Better Auth instance `createHonoApp` built for this app; the credential verifier both header paths run through
  * @param env - Process env source (defaults to `process.env`); injectable for tests
  * @returns Hono app with the MCP route registered, or the input unchanged when disabled
  * @throws Error when validation fails (descriptive message picked up by `Console.error` in start.ts)
@@ -88,6 +94,7 @@ const JSONRPC_NULL_ID = JSON.parse('null') as any
 export function setupMcpRoutes(
   honoApp: Readonly<Hono>,
   app: App,
+  authInstance?: McpAuthInstance,
   env: NodeJS.ProcessEnv = process.env
 ): Readonly<Hono> {
   const config = parseAndValidateMcpEnv(app, env)
@@ -130,19 +137,91 @@ export function setupMcpRoutes(
   // spec (server-initiated notifications). Today the SSE stream stays empty
   // (capabilities advertise listChanged: false), but the Content-Type contract
   // matters for clients that probe transport before issuing POSTs.
+  // One handler for the lifetime of the mount. The per-request MCP `Server` is
+  // built by the factory below, which reads the already-authenticated caller
+  // out of the pass-through `authInfo` the Hono handler supplies — that is how
+  // per-caller `tools/list` filtering survives a shared handler.
+  const mcpHandler = createMcpHandler(
+    (ctx) => buildMcpServer(readCallerFromAuthInfo(ctx.authInfo), dispatchContext),
+    { legacy: 'reject' }
+  )
+
   return honoApp
     .post(config.mountPath, async (c) =>
-      handleMcpRequest(c as unknown as Readonly<Context>, config, dispatchContext)
+      handleMcpRequest(c as unknown as Readonly<Context>, config, mcpHandler, authInstance)
     )
-    .get(config.mountPath, async (c) => handleMcpSseGet(c as unknown as Readonly<Context>, config))
+    .get(config.mountPath, async (c) =>
+      handleMcpSseGet(c as unknown as Readonly<Context>, authInstance)
+    )
+}
+
+/**
+ * Build the per-request MCP server.
+ *
+ * The low-level {@link Server} is used rather than `McpServer` deliberately.
+ * `McpServer.registerTool` converts every handler outcome — including a thrown
+ * `ProtocolError` — into a `CallToolResult` with `isError: true`, so a JSON-RPC
+ * protocol error becomes structurally unreachable from a tool. Sovrium's RBAC
+ * and field-permission denials are specified AS protocol errors
+ * (`[internal ref]` → -32603, `[internal ref]` → -32602, 16
+ * assertions across six spec files), and a single `tools/call` request handler
+ * is also what lets the layered resolver chain stay one ordered function
+ * rather than N independent registrations. Both properties come from `Server`.
+ *
+ * A second consequence, worth stating because it removes a whole class of
+ * work: `tools/list` here returns the compiler's JSON Schema verbatim, so no
+ * Standard-Schema/zod conversion sits in the path at all.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- `Server` is the SDK's own mutable class; it is registered into, then handed to the handler
+const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server => {
+  const server = new Server(dispatch.serverInfo, {
+    // `listChanged: false` declares Sovrium does NOT push tool-list-change
+    // notifications (no `notifications/tools/list_changed`). Clients that
+    // respect it skip subscribing; clients that don't simply never get a push.
+    capabilities: { tools: { listChanged: false } },
+  })
+
+  server.setRequestHandler('tools/list', async () => ({
+    // `CompiledTool` already IS the wire shape (`tool-compiler.ts` emits
+    // `inputSchema: { type: 'object', … }` JSON Schema). The cast only bridges
+    // the readonly-array variance the SDK's mutable `Tool[]` does not accept.
+    tools: filterToolsForRole(dispatch.tools, caller.role) as unknown as never,
+  }))
+
+  server.setRequestHandler(
+    'tools/call',
+    async (request) =>
+      // Same readonly-array variance bridge as `tools/list`: the value IS the
+      // wire shape, only its immutability annotation differs.
+      dispatchToolsCall({
+        params: (request as { readonly params?: unknown }).params,
+        dispatch,
+        caller,
+      }) as unknown as never
+  )
+
+  return server
+}
+
+/**
+ * Recover the authenticated caller from the SDK's pass-through `authInfo`.
+ *
+ * `handleMcpRequest` always populates it before delegating, so the fallback is
+ * unreachable in practice. It fails CLOSED to `viewer` — the least-privileged
+ * role — rather than defaulting to `member`, because a widened tool surface is
+ * exactly the failure mode [internal ref] names as its riskiest gap.
+ */
+const readCallerFromAuthInfo = (authInfo: { readonly extra?: unknown } | undefined): McpCaller => {
+  const extra = authInfo?.extra as { readonly caller?: McpCaller } | undefined
+  return extra?.caller ?? { role: 'viewer', userId: undefined }
 }
 
 const handleMcpSseGet = async (
   c: Readonly<Context>,
-  config: EffectiveMcpConfig
+  authInstance: McpAuthInstance | undefined
 ): Promise<Response> => {
-  const role = await resolveCallerRole(c, config)
-  if (role === undefined) return buildUnauthorizedResponse(c, config)
+  const auth = await authenticateMcpRequest(c, authInstance)
+  if (!auth.ok) return auth.response
   // Minimal SSE body: comment line opens the stream and prevents proxy
   // buffering; no events are pushed until downstream specs add notifications.
   return new Response(': connected\n\n', {
@@ -173,22 +252,22 @@ interface McpDispatchContext {
 
 const handleMcpRequest = async (
   c: Readonly<Context>,
-  config: EffectiveMcpConfig,
-  dispatch: McpDispatchContext
+  config: ResolvedMcpEnvConfig,
+  // eslint-disable-next-line functional/prefer-immutable-types -- `McpHttpHandler` is an SDK-owned object with mutable members
+  mcpHandler: McpHttpHandler,
+  authInstance: McpAuthInstance | undefined
 ): Promise<Response> => {
-  // Bearer token auth gate. In `token` strategy the bearer is matched against
-  // the static MCP_TOKEN_* env vars. In `oauth2` strategy the bearer is
-  // looked up in `auth.oauth_access_token` (issued by the Better Auth
-  // oauth-provider plugin) and the role is derived from `auth.user.role`.
-  const caller = await resolveCaller(c, config)
-  if (caller === undefined) return buildUnauthorizedResponse(c, config)
+  // Credential gate. An `x-api-key` is verified as a Better Auth API key; an
+  // `Authorization: Bearer` goes to the MCP resource server. Either way the
+  // outcome is a caller with a real `userId`.
+  const auth = await authenticateMcpRequest(c, authInstance)
+  if (!auth.ok) return auth.response
+  const { caller } = auth
 
-  // Per-token / per-OAuth-user rate limiting (M-12). Pre-flight the budget
-  // BEFORE parsing JSON so a malformed payload from an exhausted caller
-  // still yields a 429 (and we don't waste cycles on parse). The bearer is
-  // re-read here for keying — `resolveCaller` discards it.
-  const bearerToken = readBearerToken(c) ?? ''
-  const callerKey = deriveMcpCallerKey(caller, bearerToken)
+  // Per-caller rate limiting (M-12). Pre-flight the budget BEFORE the handler
+  // parses anything so a malformed payload from an exhausted caller still
+  // yields a 429.
+  const callerKey = deriveMcpCallerKey(caller)
   const rateLimitConfig: McpRateLimitConfig = {
     perMinute: config.rateLimitPerMinute,
     perDay: config.rateLimitPerDay,
@@ -199,119 +278,46 @@ const handleMcpRequest = async (
   }
   recordMcpRequest(callerKey)
   // Re-evaluate post-record so the headers reflect the budget AFTER this
-  // request lands (matches the convention used by GitHub's API: Remaining
-  // counts what the caller has LEFT, not what was available at request time).
+  // request lands (matches GitHub's API convention: Remaining counts what the
+  // caller has LEFT, not what was available at request time).
   const postRecord = checkMcpRateLimit(callerKey, rateLimitConfig)
-  applyRateLimitHeaders(c, postRecord.headers)
 
-  const body = await safeReadJson(c.req.raw)
-  if (body === undefined) {
-    return c.json(
-      {
-        jsonrpc: '2.0',
-        id: JSONRPC_NULL_ID,
-        error: { code: -32_700, message: 'Parse error' },
-      },
-      200
-    )
-  }
+  // Hand the request to the SDK handler. `authInfo` is strictly pass-through —
+  // the handler never reads headers or verifies tokens itself — so it is the
+  // sanctioned channel for carrying the caller Sovrium already authenticated.
+  const response = await mcpHandler.fetch(c.req.raw, {
+    authInfo: {
+      // Bearer only. An API key is deliberately NOT echoed here: `authInfo` is
+      // pass-through state the SDK hands to tool code, and a long-lived
+      // credential does not belong in it.
+      token: readBearerToken(c) ?? '',
+      clientId: caller.userId ?? 'mcp-caller',
+      scopes: [],
+      extra: { caller },
+    },
+  })
 
-  return dispatchJsonRpc(c, body, dispatch, caller)
+  // Rate-limit headers must ride on the SDK's Response. `c.header(...)` only
+  // decorates responses Hono itself builds, so setting them on the context
+  // would silently drop them here.
+  return withRateLimitHeaders(response, postRecord.headers)
 }
 
 /**
- * Build a 401 response for `/mcp` requests with no / invalid auth.
- *
- * In `oauth2` strategy the response carries an RFC 9728-shaped
- * `WWW-Authenticate: Bearer ...` header with two discovery hints (built by
- * `buildOauthWwwAuthenticate` in `mcp-auth.ts`). Token strategy returns the
- * same JSON-RPC envelope but without the OAuth discovery hints — there's no
- * authorization server to advertise.
+ * Return a copy of `response` carrying the rate-limit headers. The body is
+ * passed through by reference (not read), so no stream is consumed.
  */
-const buildUnauthorizedResponse = (c: Readonly<Context>, config: EffectiveMcpConfig): Response => {
-  const body = {
-    jsonrpc: '2.0',
-    id: JSONRPC_NULL_ID,
-    error: { code: -32_000, message: 'Unauthorized' },
-  }
-  const wwwAuth = buildOauthWwwAuthenticate(c, config)
-  if (wwwAuth === undefined) return c.json(body, 401)
-  return c.json(body, 401, { 'WWW-Authenticate': wwwAuth })
-}
+const withRateLimitHeaders = (
+  response: Readonly<Response>,
+  headers: Readonly<Record<string, string>>
+): Response => {
+  const merged = new Headers(response.headers)
 
-interface JsonRpcCall {
-  readonly method: string
-  readonly params: unknown
-  readonly responseId: number | string
-}
-
-const dispatchJsonRpc = (
-  c: Readonly<Context>,
-  body: unknown,
-  dispatch: McpDispatchContext,
-  caller: McpCaller
-): Response | Promise<Response> => {
-  const envelope = body as {
-    readonly jsonrpc?: unknown
-    readonly id?: unknown
-    readonly method?: unknown
-    readonly params?: unknown
-  }
-  const responseId = normalizeResponseId(envelope.id)
-
-  if (envelope.jsonrpc !== '2.0' || typeof envelope.method !== 'string') {
-    return c.json({
-      jsonrpc: '2.0',
-      id: responseId,
-      error: { code: -32_600, message: 'Invalid Request' },
-    })
-  }
-  return dispatchMcpMethod(
-    c,
-    { method: envelope.method, params: envelope.params, responseId },
-    dispatch,
-    caller
-  )
-}
-
-const dispatchMcpMethod = (
-  c: Readonly<Context>,
-  call: JsonRpcCall,
-  dispatch: McpDispatchContext,
-  caller: McpCaller
-): Response | Promise<Response> => {
-  const { method, params, responseId } = call
-  if (method === 'initialize') {
-    return c.json({
-      jsonrpc: '2.0',
-      id: responseId,
-      result: {
-        protocolVersion: '2024-11-05',
-        serverInfo: dispatch.serverInfo,
-        // `listChanged: false` declares Sovrium does NOT push tool-list-change
-        // notifications mid-session (no `notifications/tools/list_changed`).
-        // Clients that respect this skip subscribing and avoid spurious
-        // re-fetches; clients that don't will simply never receive a push.
-        capabilities: { tools: { listChanged: false } },
-      },
-    })
-  }
-  if (method === 'tools/list') {
-    const visible = filterToolsForRole(dispatch.tools, caller.role)
-    return c.json({ jsonrpc: '2.0', id: responseId, result: { tools: visible } })
-  }
-  if (method === 'tools/call') {
-    return dispatchToolsCall({ c, params, responseId, dispatch, caller })
-  }
-  if (method.startsWith('notifications/')) {
-    // Notifications have no `id` and expect no response per JSON-RPC 2.0.
-    // Return 204 to satisfy the HTTP transport layer without sending a body.
-    return c.body(JSONRPC_NULL_ID, 204)
-  }
-  return c.json({
-    jsonrpc: '2.0',
-    id: responseId,
-    error: { code: -32_601, message: `Method not found: ${method}` },
+  Object.entries(headers).forEach(([name, value]) => merged.set(name, value))
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: merged,
   })
 }
 
@@ -320,8 +326,18 @@ const dispatchMcpMethod = (
  * order each tool family must claim its own names:
  *
  *   1. Audit-list tool (`{appName}_system_ai_tool_calls_list`) — special-cased
- *      FIRST so its anti-recursion gate stays intact (logging an audit-read
- *      into the same table it just queried would announce its own creation).
+ *      FIRST so its explicit 12-column projection claims the name before the
+ *      generic dispatcher can. Tier 2 answers `SELECT *`, and `ai_tool_calls`
+ *      declares `denylistFields: []`, so letting it claim this tool would put
+ *      `session_id` and `request_id` on the wire. The ordering is a
+ * DATA-EXPOSURE constraint, pinned by `[internal ref]`.
+ *
+ *      It is NOT an anti-recursion gate, which is what this comment claimed
+ * until 2026-08-27: tier 2 returns early from this same
+ *      function, outside `auditedToolsCallDispatch`, so NEITHER tier writes an
+ *      audit row. "No new row after an audit-read" holds under both orderings
+ *      and so cannot motivate this one. Reading the constraint as bookkeeping
+ *      makes it look droppable; dropping it leaks two columns.
  *   2. M-14 registry-driven internals dispatcher — every other
  *      `{appName}_{auth|system}_{table}_{list|read}` tool flows through the
  *      generic SELECT-and-strip handler. Internal tools are NOT audited
@@ -334,25 +350,21 @@ const dispatchMcpMethod = (
  * project-wide `max-lines-per-function` ceiling.
  */
 interface DispatchToolsCallInput {
-  readonly c: Readonly<Context>
   readonly params: unknown
-  readonly responseId: number | string
   readonly dispatch: McpDispatchContext
   readonly caller: McpCaller
 }
 
-const dispatchToolsCall = (input: DispatchToolsCallInput): Response | Promise<Response> => {
-  const { c, params, responseId, dispatch, caller } = input
+const dispatchToolsCall = (input: DispatchToolsCallInput): Promise<McpToolResult> => {
+  const { params, dispatch, caller } = input
   const parsed = parseToolsCallParams(params)
   if (isInternalAuditListTool(parsed.toolName, dispatch.app.name)) {
-    return handleAuditListCall({ c, caller, responseId, args: parsed.args })
+    return handleAuditListCall({ caller, args: parsed.args })
   }
   const internalResolved = resolveInternalTool(dispatch.app.name, parsed.toolName)
   if (internalResolved !== undefined) {
     return handleInternalToolCall({
-      c,
       caller,
-      responseId,
       resolved: internalResolved,
       args: parsed.args,
     })
@@ -362,7 +374,7 @@ const dispatchToolsCall = (input: DispatchToolsCallInput): Response | Promise<Re
     caller,
     toolName: parsed.toolName,
     args: parsed.args,
-    dispatch: () => handleToolsCall(c, dispatch.app, caller, { ...parsed, responseId }),
+    dispatch: () => handleToolsCall(dispatch.app, caller, parsed),
   })
 }
 
@@ -387,47 +399,31 @@ const parseToolsCallParams = (
   return { toolName, args }
 }
 
-const normalizeResponseId = (id: unknown): number | string => {
-  if (typeof id === 'number' || typeof id === 'string') return id
-  return JSONRPC_NULL_ID
-}
-
 // ---------------------------------------------------------------------------
 // Env parsing + validation
 // ---------------------------------------------------------------------------
 
-/**
- * Effective resolved MCP config — extends `ResolvedMcpEnvConfig` with the
- * `authStrategy` filled in based on `app.auth`. Internal type; not exported
- * because nothing outside the route setup needs to consume it.
- */
-type EffectiveMcpConfig = ResolvedMcpEnvConfig & {
-  readonly authStrategy: McpAuthStrategy
-}
-
 const parseAndValidateMcpEnv = (
   app: Readonly<App>,
   env: Readonly<NodeJS.ProcessEnv>
-): EffectiveMcpConfig => {
-  // Decode env vars via the schema. Throws on invalid values (e.g. token
-  // shorter than 32 chars) — the Effect Schema error message includes both
-  // the field description (which mentions MCP_TOKEN_ADMIN) and the
-  // `minLength(32)` constraint, satisfying [internal ref]'s regex.
-  const decoded = decodeMcpEnv(env)
+): ResolvedMcpEnvConfig => {
+  // Decode env vars via the schema. Throws on invalid values (e.g. a
+  // non-positive rate limit).
+  const resolved = resolveMcpEnv(decodeMcpEnv(env))
+  if (!resolved.enabled) return resolved
 
-  const resolved = resolveMcpEnv(decoded)
-  const effectiveAuthStrategy: McpAuthStrategy =
-    resolved.authStrategy ?? (app.auth ? 'oauth2' : 'token')
-  const effective: EffectiveMcpConfig = { ...resolved, authStrategy: effectiveAuthStrategy }
-
-  if (!effective.enabled) return effective
-
-  const validationError = validateMcpEnv(effective, { authConfigured: app.auth !== undefined })
+  // The raw env goes through so the retired-var guard can see names the schema
+  // no longer carries — that is the whole point of detecting them by presence
+  // rather than by a constraint on a field that no longer exists.
+  const validationError = validateMcpEnv(resolved, {
+    authConfigured: app.auth !== undefined,
+    env,
+  })
   if (validationError !== undefined) {
     // eslint-disable-next-line functional/no-throw-statements -- startup validation must abort the process
     throw new Error(`MCP env validation failed: ${validationError}`)
   }
-  return effective
+  return resolved
 }
 
 const decodeMcpEnv = (env: Readonly<NodeJS.ProcessEnv>): McpEnvConfig => {
@@ -436,10 +432,6 @@ const decodeMcpEnv = (env: Readonly<NodeJS.ProcessEnv>): McpEnvConfig => {
       enabled: env.MCP_ENABLED,
       transport: env.MCP_TRANSPORT,
       mountPath: env.MCP_MOUNT_PATH,
-      authStrategy: env.MCP_AUTH_STRATEGY,
-      tokenAdmin: env.MCP_TOKEN_ADMIN,
-      tokenMember: env.MCP_TOKEN_MEMBER,
-      tokenViewer: env.MCP_TOKEN_VIEWER,
       rateLimitPerMinute: env.MCP_RATE_LIMIT_PER_MINUTE,
       rateLimitPerDay: env.MCP_RATE_LIMIT_PER_DAY,
       auditEnabled: env.MCP_AUDIT_ENABLED,
@@ -502,14 +494,6 @@ const isMutatingTool = (toolName: string): boolean => {
   // gate at tools/call time.
   if (toolName.includes('_automation_')) return true
   return false
-}
-
-const safeReadJson = async (req: Readonly<Request>): Promise<unknown | undefined> => {
-  try {
-    return await req.json()
-  } catch {
-    return undefined
-  }
 }
 
 // Re-export defaults so a future audit/tests can introspect the keystone

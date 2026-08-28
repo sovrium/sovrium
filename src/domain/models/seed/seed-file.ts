@@ -84,8 +84,8 @@ import { SEED_KEY_PATTERN } from './references'
  */
 export const SEED_MODES = ['if-empty', 'upsert', 'replace'] as const
 
-export const SeedModeSchema = Schema.Literal(...SEED_MODES).pipe(
-  Schema.annotations({
+export const SeedModeSchema = Schema.Literals(SEED_MODES).pipe(
+  Schema.annotate({
     title: 'Seed Mode',
     description: 'How `sovrium seed` treats a table that already has rows.',
   })
@@ -121,24 +121,26 @@ export const parseSeedMode = (raw: string | undefined): SeedMode | undefined =>
  */
 export const SeedRecordSchema = Schema.Struct({
   key: Schema.String.pipe(
-    Schema.pattern(SEED_KEY_PATTERN, {
-      message: () =>
-        'key must start with a letter or digit and contain only letters, digits, "-" and "_"',
-    }),
-    Schema.annotations({
+    Schema.check(
+      Schema.isPattern(SEED_KEY_PATTERN, {
+        message:
+          'key must start with a letter or digit and contain only letters, digits, "-" and "_"',
+      })
+    ),
+    Schema.annotate({
       description:
         'File-local natural key. Other seed rows reference this row as @<table>.<key>. Never written to the database.',
       examples: ['acme', 'acme-renewal', 'q3_kickoff'],
     })
   ),
-  fields: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-    Schema.annotations({
+  fields: Schema.Record(Schema.String, Schema.Unknown).pipe(
+    Schema.annotate({
       description:
         'Column values for this row. String values may carry @<table>.<key> references, @asset:<file> references, or {{today±Nd}} tokens.',
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Seed Record',
     description: 'A single row in a seed file, addressable by its natural key.',
   })
@@ -148,18 +150,20 @@ export const SeedRecordSchema = Schema.Struct({
 export const SeedFileSchema = Schema.Struct({
   table: Schema.optional(
     Schema.String.pipe(
-      Schema.nonEmptyString({ message: () => 'table must not be empty' }),
-      Schema.annotations({
+      Schema.check(Schema.isNonEmpty({ message: 'table must not be empty' })),
+      Schema.annotate({
         description: 'Target table name. Defaults to the seed file name without its extension.',
       })
     )
   ),
   mergeOn: Schema.optional(
-    Schema.Array(Schema.String.pipe(Schema.nonEmptyString())).pipe(
-      Schema.minItems(1, {
-        message: () => 'mergeOn must name at least one field, or be omitted entirely',
-      }),
-      Schema.annotations({
+    Schema.Array(Schema.String.pipe(Schema.check(Schema.isNonEmpty()))).pipe(
+      Schema.check(
+        Schema.isMinLength(1, {
+          message: 'mergeOn must name at least one field, or be omitted entirely',
+        })
+      ),
+      Schema.annotate({
         description:
           'Real, uniquely-constrained column(s) used to match existing rows under --mode upsert.',
         examples: [['email'], ['name']],
@@ -167,13 +171,13 @@ export const SeedFileSchema = Schema.Struct({
     )
   ),
   records: Schema.Array(SeedRecordSchema).pipe(
-    Schema.annotations({
+    Schema.annotate({
       description:
         'Rows to seed, in any order — `sovrium seed` resolves cross-table dependencies itself. May be empty.',
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Seed File',
     description: 'One table of seed data, mirroring config/tables/<table>.yaml.',
     examples: [

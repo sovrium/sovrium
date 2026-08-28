@@ -42,24 +42,68 @@
  */
 
 import { z } from '@hono/zod-openapi'
-import { cursorPaginationQuerySchema, cursorPaginationResponseSchema } from '../../_shared'
+import {
+  appliedQuerySchema,
+  cursorPaginationQuerySchema,
+  cursorPaginationResponseSchema,
+  searchTermSchema,
+} from '../../_shared'
 
 /**
- * Sort key for the file browser. `date` orders by `createdAt`, `size` by the
- * byte `size`. Default `date` (the most recent uploads first is the operator's
- * default mental model when opening a bucket).
+ * Sort key for the file browser — one per COLUMN the browser renders.
+ *
+ * The keys ARE the column field names (`filename` | `mimeType` | `size` |
+ * `createdAt`), and that identity is the contract. The grid declares four
+ * sortable columns and serialises a header click as `?sort=<field>:<direction>`,
+ * so a key the enum does not carry answers 400 where the operator asked for an
+ * ordering. Three of the four did exactly that for as long as the enum spelled
+ * its date key `date` while the column spelled the same thing `createdAt` — a
+ * vocabulary disagreeing with itself. Adding a column to the browser means
+ * adding its field here AND to `sortColumnExpression` in the repository.
+ *
+ * Default `createdAt` (newest uploads first is the operator's mental model on
+ * opening a bucket) — the same ordering the old `date` default produced,
+ * re-spelled rather than re-pointed. `date` is still ACCEPTED, as a legacy alias
+ * normalised away before it reaches this enum, so exactly one spelling exists
+ * downstream of the route (see {@link normalizeBucketFilesSortKey}).
  *
  * The server seeks the next cursor page deterministically by the
  * `(<sortKey>, id)` tuple — `id` (the unique `file_storage_metadata.id`) is
- * the tie-breaker so two files with the same `createdAt` or `size` never
- * collapse into one cursor position.
+ * the tie-breaker, so two files with the same `createdAt`, `size` or folded name
+ * never collapse into one cursor position.
  */
 export const bucketFilesSortSchema = z
-  .enum(['size', 'date'])
-  .default('date')
+  .enum(['filename', 'mimeType', 'size', 'createdAt'])
+  .default('createdAt')
   .describe(
-    'File-browser sort key. `date` orders by `createdAt`; `size` by byte size. Default `date` (newest-first). Combined with `order`, drives the deterministic `(<sortKey>, id)` cursor seek.'
+    'File-browser sort key — one per rendered column: `filename`, `mimeType`, `size`, `createdAt`. Default `createdAt` (newest-first). The legacy spelling `date` is accepted as an alias of `createdAt`. The two string keys order case-insensitively, identically on both engines. Combined with `order`, drives the deterministic `(<sortKey>, id)` cursor seek.'
   )
+
+/**
+ * Legacy sort spellings still accepted, mapped to their canonical column name.
+ *
+ * `date` predates the four-column vocabulary and is the spelling this endpoint's
+ * own older specs document, so retiring it would break operator bookmarks for no
+ * gain. It is an ALIAS and not a peer: it is rewritten to `createdAt` before
+ * validation, which is what makes the two spellings provably ONE sort rather
+ * than two that merely both answer 200. Two independent spellings of one column
+ * is precisely the drift that produced the defect this vocabulary closes.
+ */
+const BUCKET_FILES_SORT_ALIASES: Readonly<Record<string, string>> = { date: 'createdAt' }
+
+/**
+ * Rewrite a legacy sort key to its canonical column name; leave anything else
+ * exactly as it arrived.
+ *
+ * Deliberately NOT a widening. An unknown key passes through untouched and then
+ * fails {@link bucketFilesSortSchema}, so it still answers 400 rather than being
+ * served in whatever order the store happened to yield: widening what can be
+ * SPELLED must not widen what can be SERVED.
+ */
+export function normalizeBucketFilesSortKey(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined
+  return BUCKET_FILES_SORT_ALIASES[raw] ?? raw
+}
 
 /**
  * Sort direction. Default `desc` (newest / largest first), matching the
@@ -122,6 +166,19 @@ export const bucketFileItemSchema = z
  * - `type` — optional mimeType filter. Matches by **prefix** when the value
  *   ends in `/` (e.g. `image/` matches every image), or **exact** otherwise
  *   (e.g. `image/png` matches only PNGs). Empty / omitted = "all types".
+ * - `q` — optional free-text search over `filename` and `key` (see below).
+ *
+ * ## What `q` searches here, and what it deliberately does not
+ *
+ * `filename` is what the operator reads in the browser; `key` is the storage
+ * path segment they may have pasted from a download URL or a log line. Both are
+ * matched as a case-insensitive substring.
+ *
+ * `mimeType` is deliberately EXCLUDED. It already has a precise filter of its
+ * own (`type`), and folding it into free text would make `?q=png` return every
+ * PNG in the bucket — drowning the one file the operator was actually looking
+ * for under a category match they did not ask for. The two knobs compose with
+ * AND instead: `?type=image/&q=logo` is "images whose name contains logo".
  */
 export const bucketFilesQuerySchema = cursorPaginationQuerySchema.extend({
   sort: bucketFilesSortSchema,
@@ -133,6 +190,9 @@ export const bucketFilesQuerySchema = cursorPaginationQuerySchema.extend({
     .describe(
       'Optional mimeType filter. A trailing-slash value (`image/`) matches by prefix; a full type (`image/png`) matches exactly. Omit for "all types".'
     ),
+  q: searchTermSchema.describe(
+    'Optional free-text search over the file `filename` and storage `key`, as a case-insensitive literal substring. Composes with `type` (AND) and with the cursor, so the page is a page of MATCHES. `mimeType` is intentionally not searched — use `type` for that. Empty / whitespace-only means "no search".'
+  ),
 })
 
 /**
@@ -152,8 +212,9 @@ export const bucketFilesResponseSchema = cursorPaginationResponseSchema(bucketFi
       .int()
       .nonnegative()
       .describe(
-        "Sum of all stored file sizes (bytes) in this bucket across every page — NOT just the current page. Lets the file browser render its quota bar without a second query to `/api/admin/buckets`. Invariant across pagination. Mirrors the bucket's `_admin.metadata.totalBytes` from the list endpoint."
+        "Sum of all stored file sizes (bytes) in this bucket across every page — NOT just the current page, and NOT narrowed by `type` or `q`. Lets the file browser render its quota bar without a second query to `/api/admin/buckets`. Invariant across pagination AND across filtering: the quota bar answers 'how full is this bucket', which a search does not change. Mirrors the bucket's `_admin.metadata.totalBytes` from the list endpoint."
       ),
+    appliedQuery: appliedQuerySchema,
   })
   .openapi('BucketFilesResponse')
 

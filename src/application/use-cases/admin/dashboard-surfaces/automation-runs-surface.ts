@@ -17,8 +17,11 @@
  * baseline verbatim (the "Run history" table with columns
  * Automation · Status · Started · Duration, the status pill, the two
  * server-side filters, and the "No runs" empty state) and GAINS column
- * sort + pagination over the old list. Runs are OBSERVED here, not triggered
- * (the dashboard is a pure DATA console, config code-only, [internal ref]).
+ * sort over the old list. It does NOT gain pagination: this line claimed it did
+ * for as long as the grid declared a `pagination` block, which painted a pager
+ * that could not page — see the `Why there is NO pagination block` section on
+ * `runsDataTable` below. Runs are OBSERVED here, not triggered (the dashboard is
+ * a pure DATA console, config code-only, [internal ref]).
  *
  * The body composes three parts:
  *  1. a shared-filter PUBLISHER (`shared-filter-select` island) — the
@@ -108,6 +111,41 @@ const RUNS_COLUMNS = [
  * The system-source `data-table` for the run-history list. Bound to
  * `GET /api/admin/automations/runs` (the `{ items: [...] }` envelope, rows
  * keyed on `id`); columns + status pill come from {@link RUNS_COLUMNS}.
+ *
+ * ## Why the search box needs BOTH `search` and `toolbar.search`
+ *
+ * The render guard is `showSearch && searchConfig` — `toolbar.search` alone
+ * renders NO box, and `search` alone leaves the toolbar without the affordance.
+ * Declaring only one is the quiet way to ship an inert control.
+ *
+ * ## Why this ships in the SAME change-set as the endpoint's `?q=`
+ *
+ * The grid emits `?q=` verbatim and, when the response omits `appliedQuery`,
+ * falls back to filtering the page it holds. Turning the box on before the
+ * server honoured the term would therefore INSTALL the page-1 lie rather than
+ * fix it: an operator searching for a run thirty rows down would be told, by a
+ * confident empty table, that it does not exist. The endpoint now both applies
+ * the term and echoes `appliedQuery`, so the client's in-memory pass stands down.
+ *
+ * ## Why there is NO `pagination` block
+ *
+ * The endpoint is CURSOR-paginated (`{ items, nextCursor }`) and reports no
+ * total, while the grid's pager is page-number based and derives its total from
+ * the rows it holds. Declaring `pagination` therefore painted three separate
+ * wrong answers at once, measured against 30 seeded runs: the summary read
+ * "1–25 of 25"; "Page 1 of 1" left Next permanently DISABLED; and the `page=2`
+ * that control would have sent is not on the handler's allow-list, so it
+ * re-served page 1 verbatim. An operator was told, by a confident pager, that
+ * the 30th run did not exist.
+ *
+ * Removing the block removes the pager (`data-table-view.tsx` gates it on
+ * `paginationConfig`). The rows stay capped at the fetch's 25 either way — the
+ * block never controlled that — so the cap is now STATED beneath the grid
+ * instead of being contradicted by a pager.
+ *
+ * The response's `nextCursor` already carries "there are more", so an honest
+ * cursor-driven "Load more" needs no server change; it is a client capability
+ * (`parseSystemEnvelope` discards the key today), not config.
  */
 function runsDataTable(): Component {
   return {
@@ -130,9 +168,10 @@ function runsDataTable(): Component {
       },
     },
     columns: RUNS_COLUMNS,
-    toolbar: { sort: true },
-    pagination: { pageSize: 25 },
+    search: { enabled: true, placeholder: 'Search runs' },
+    toolbar: { search: true, sort: true },
     emptyMessage: 'No runs',
+    noMatchMessage: 'No run matches “{query}”',
   } as unknown as Component
 }
 
@@ -216,9 +255,29 @@ function runDetailDrawer(): Component {
 }
 
 /**
+ * The grid's read-window statement, rendered directly beneath it.
+ *
+ * The fetch returns at most 25 runs and the surface cannot page past them, so
+ * the window is declared rather than left to be inferred from a row count. The
+ * second sentence is the load-bearing half: it names the affordance that DOES
+ * reach older runs (search + the filters both run server-side over every run),
+ * and admits that a narrowed result carries the same 25-row cap — otherwise
+ * removing the pager would just relocate the wrong answer one interaction later.
+ */
+function runsReadWindowNote(): Component {
+  return {
+    type: 'text',
+    element: 'p',
+    props: { className: 'text-foreground-subtle mt-2 text-sm' },
+    content:
+      'Shows the 25 most recent runs. Search and the filters query every run and return the 25 most recent matches.',
+  } as unknown as Component
+}
+
+/**
  * The converted run-history directory body: the external filter bar, the
- * system-source `data-table` run list, and the on-demand run-detail
- * `record-drawer` (opened from the grid's action column).
+ * system-source `data-table` run list, its read-window statement, and the
+ * on-demand run-detail `record-drawer` (opened from the grid's action column).
  *
  * @param automationNames - The operator's automation names (the automation
  * filter options — [internal ref] defaults to ALL runs and filters by
@@ -229,6 +288,11 @@ export function automationRunsBody(automationNames: ReadonlyArray<string>): Comp
     type: 'container',
     element: 'div',
     props: { className: 'p-6' },
-    children: [runsFiltersBar(automationNames), runsDataTable(), runDetailDrawer()],
+    children: [
+      runsFiltersBar(automationNames),
+      runsDataTable(),
+      runsReadWindowNote(),
+      runDetailDrawer(),
+    ],
   } as unknown as Component
 }

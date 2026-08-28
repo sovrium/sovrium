@@ -31,12 +31,12 @@ export const FormAnalyticsSchema = Schema.Struct({
    * omitted (or `true`), aggregate analytics apply. Default = `true`.
    */
   enabled: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'When false, this form is excluded from aggregate analytics and the system.analytics_events stream. Default = true.',
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'FormAnalytics',
   title: 'Form Analytics Configuration',
   description: 'Per-form opt-out for aggregate analytics (default: enabled when omitted)',

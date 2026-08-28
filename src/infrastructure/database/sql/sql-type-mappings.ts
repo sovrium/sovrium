@@ -13,7 +13,7 @@ import type { Fields } from '@/domain/models/app/tables/fields'
  * Field type to PostgreSQL type mapping
  * Note: button field type is included for type safety but should not create database columns
  */
-export const fieldTypeToPostgresMap: Record<string, string> = {
+export const fieldTypeToPostgresMap: Readonly<Record<string, string>> = {
   'ai-categorize': 'VARCHAR(255)',
   'ai-extract': 'JSONB',
   'ai-generate': 'TEXT',
@@ -76,7 +76,7 @@ export const fieldTypeToPostgresMap: Record<string, string> = {
 /**
  * Map formula resultType to PostgreSQL type
  */
-const formulaResultTypeMap: Record<string, string> = {
+const formulaResultTypeMap: Readonly<Record<string, string>> = {
   decimal: 'DECIMAL',
   number: 'DECIMAL',
   numeric: 'DECIMAL',
@@ -123,7 +123,7 @@ export const mapFormulaResultTypeToPostgres = (resultType: string | undefined): 
  *     safe fallback so table creation does not crash; the behavior of these
  *     field types degrades on SQLite (Phase 6).
  */
-const postgresToSqliteTypeMap: Record<string, string> = {
+const postgresToSqliteTypeMap: Readonly<Record<string, string>> = {
   TIMESTAMPTZ: 'TEXT',
   TIMESTAMP: 'TEXT',
   DATE: 'TEXT',

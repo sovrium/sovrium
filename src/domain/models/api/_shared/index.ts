@@ -8,3 +8,4 @@
 export * from './common'
 export * from './cursor-pagination'
 export * from './error'
+export * from './search'

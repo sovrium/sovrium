@@ -18,8 +18,8 @@ import { Schema } from 'effect'
 export const EnvVarSchema = Schema.Struct({
   /** Environment variable key (uppercase snake_case) */
   key: Schema.String.pipe(
-    Schema.pattern(/^[A-Z][A-Z0-9_]*$/),
-    Schema.annotations({
+    Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9_]*$/)),
+    Schema.annotate({
       description: 'Environment variable key (uppercase snake_case, e.g., API_KEY)',
     })
   ),
@@ -27,34 +27,73 @@ export const EnvVarSchema = Schema.Struct({
   /** Human-readable description */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({ description: 'Description of what this env var is used for' })
+      Schema.annotate({ description: 'Description of what this env var is used for' })
     )
   ),
 
   /** Whether this env var is required for automation execution */
   required: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Whether this variable must be set (default: true)' })
+      Schema.annotate({ description: 'Whether this variable must be set (default: true)' })
     )
   ),
 
   /** Default value if the env var is not set at runtime */
   default: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Default value used when the environment variable is not set. If both required and default are provided, default acts as fallback.',
       })
     )
   ),
+
+  /**
+   * Whether `default` holds a credential. **Defaults to `true`** — omit it and
+   * the default is treated as secret.
+   *
+   * The inverted default is deliberate and is the whole safety property. Every
+   * config authored before this field existed keeps its current behaviour
+   * (`default` redacted), so adding the field widens nothing on upgrade; making
+   * a default visible is an explicit `secret: false` the author has to type.
+   * The opposite polarity — visible unless marked — would silently expose every
+   * existing `default` to the admin tier the moment this shipped.
+   *
+   * Why a per-declaration flag rather than a schema-level annotation: the
+   * `secret` ANNOTATION flagged as the longer-term fix in
+   * `[internal ref]` marks a FIELD as always-credential-bearing
+   * (`clientSecret`, `hmac.secret`, `password`). `app.env[].default` is not
+   * statically one or the other — `default: '3000'` on `PORT` and
+   * `default: 'sk_live_…'` on `STRIPE_KEY` are the same field, and only the
+   * author knows which. A static annotation cannot express that, so the two
+   * mechanisms are complementary rather than competing and this one does not
+   * pre-empt that decision.
+   *
+   * Scope: this governs the config REFLECTION surface
+   * (`GET /api/admin/config/schema` → `/_admin/schema`). `GET /api/admin/env`
+   * is unaffected — it reports presence via `hasDefault` and never echoes the
+   * literal, and widening that contract is its own decision.
+   */
+  secret: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        description:
+          'Whether `default` holds a credential. Defaults to TRUE — omit it and the default is redacted wherever the config is reflected to an operator. Set `secret: false` to let a harmless default (a port, a region, a base URL) render verbatim on /_admin/schema instead of ***.',
+      })
+    )
+  ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'EnvVar',
     title: 'Environment Variable',
     description: 'Environment variable definition for use in automation actions',
     examples: [
       { key: 'API_KEY', description: 'External API authentication key', required: true },
       { key: 'SLACK_WEBHOOK_URL', description: 'Slack incoming webhook URL' },
+      // A default the operator is meant to READ on /_admin/schema. Without
+      // `secret: false` it renders as `***`, which says "a credential lives
+      // here" about a port number.
+      { key: 'PORT', description: 'HTTP listen port', default: '3000', secret: false },
     ],
   })
 )
@@ -65,16 +104,18 @@ export type EnvVar = Schema.Schema.Type<typeof EnvVarSchema>
  * Environment Variables Array
  */
 export const EnvVarsSchema = Schema.Array(EnvVarSchema).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'EnvVars',
     title: 'Environment Variables',
     description: 'List of environment variables available to automations. Values are never logged.',
   }),
-  Schema.filter((vars) => {
-    const keys = vars.map((v) => v.key)
-    const uniqueKeys = new Set(keys)
-    return keys.length === uniqueKeys.size || 'Environment variable keys must be unique'
-  })
+  Schema.check(
+    Schema.makeFilter((vars) => {
+      const keys = vars.map((v) => v.key)
+      const uniqueKeys = new Set(keys)
+      return keys.length === uniqueKeys.size || 'Environment variable keys must be unique'
+    })
+  )
 )
 
 /** @public */

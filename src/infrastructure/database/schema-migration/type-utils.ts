@@ -6,6 +6,7 @@
  */
 
 import { mapFieldTypeToPostgres } from '../sql/sql-generators'
+import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
 /**
@@ -59,10 +60,49 @@ export const normalizeDataType = (dataType: string): string => {
 }
 
 /**
- * Check if column data type matches the expected type from schema
+ * The SQL type a field's column is EXPECTED to declare.
+ *
+ * For every field type but one this is the plain field-type mapping. The
+ * exception is `relationship`: its mapping is the hardcoded `INTEGER`, which is
+ * only correct when the referenced table keeps the default serial primary key.
+ * A parent with a `text` / `uuid` / `bigserial` primary key — including the
+ * implicit `text` one `applySchemaDefaults` grants every `auth.scopeTables`
+ * member — needs an FK column of the MATCHING type, so the expectation must be
+ * resolved through {@link resolvePrimaryKeyColumnType} exactly as the CREATE
+ * path does.
+ *
+ * Without this, the migrate path measured a correctly-typed TEXT foreign key
+ * against the INTEGER mapping, called it a type mismatch, and emitted
+ * `ALTER COLUMN <fk> TYPE INTEGER USING <fk>::INTEGER` against a live column
+ * carrying string parent ids — failing the boot.
+ *
+ * Falls back to the field-type mapping when the map has no entry for the
+ * related table (unknown parent), preserving the historical INTEGER default.
  */
-export const doesColumnTypeMatch = (field: Fields[number], existingDataType: string): boolean => {
-  const expectedType = mapFieldTypeToPostgres(field)
+const resolveExpectedColumnType = (
+  field: Fields[number],
+  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
+): string =>
+  field.type === 'relationship' &&
+  'relatedTable' in field &&
+  typeof field.relatedTable === 'string' &&
+  tablePrimaryKeyTypes?.has(field.relatedTable) === true
+    ? resolvePrimaryKeyColumnType(tablePrimaryKeyTypes.get(field.relatedTable))
+    : mapFieldTypeToPostgres(field)
+
+/**
+ * Check if column data type matches the expected type from schema
+ *
+ * @param tablePrimaryKeyTypes - Map of table name → `primaryKey.type`, so a
+ *   `relationship` field is measured against the referenced table's primary-key
+ *   type rather than the hardcoded INTEGER mapping.
+ */
+export const doesColumnTypeMatch = (
+  field: Fields[number],
+  existingDataType: string,
+  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
+): boolean => {
+  const expectedType = resolveExpectedColumnType(field, tablePrimaryKeyTypes)
   const normalizedExpected = normalizeDataType(expectedType)
   const normalizedExisting = normalizeDataType(existingDataType)
 
@@ -151,9 +191,10 @@ const resolveUsingClause = (
 export const generateAlterColumnTypeStatement = (
   tableName: string,
   field: Fields[number],
-  existingDataType: string
+  existingDataType: string,
+  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string => {
-  const targetType = mapFieldTypeToPostgres(field)
+  const targetType = resolveExpectedColumnType(field, tablePrimaryKeyTypes)
   const usingClause = resolveUsingClause(
     field.name,
     targetType,

@@ -88,7 +88,42 @@ export const connectionTokens = systemTable(
   ]
 )
 
+/**
+ * Connection App Tokens Table — sqlite-core mirror of
+ * `schema/connection.ts`'s `connectionAppTokens`. See that file for why the
+ * shared credential lives in its own table rather than as a nullable
+ * `user_id` on `connection_tokens` (a change that would require recreating
+ * the one SQLite table holding every stored credential).
+ */
+export const connectionAppTokens = systemTable(
+  'connection_app_tokens',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token').notNull(),
+    refreshToken: text('refresh_token'),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    // Exactly one shared token row per connection, so the upsert stays a
+    // single atomic INSERT ... ON CONFLICT DO UPDATE.
+    uniqueIndex('connection_app_tokens_connection_unique').on(table.connectionId),
+  ]
+)
+
 // Type inference
 export type Connection = typeof connections.$inferSelect
 export type NewConnection = typeof connections.$inferInsert
 export type ConnectionToken = typeof connectionTokens.$inferSelect
+export type ConnectionAppToken = typeof connectionAppTokens.$inferSelect

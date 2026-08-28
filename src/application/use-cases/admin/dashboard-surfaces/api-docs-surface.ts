@@ -37,8 +37,15 @@ export interface ApiDocsOptions {
   readonly appName?: string
   /** Operator config version (`app.version`); seeds the sidebar version chip. */
   readonly appVersion?: string
-  /** Operator published config; seeds the read-through count badges. */
-  readonly publishedSnapshot: Readonly<Record<string, unknown>>
+  /**
+   * The instance's resolved public origin (no trailing slash), prefixing every
+   * address this page prints so each block is runnable as written. Resolved by
+   * the route handler from `BASE_URL` → proxy/`Host` headers → the request URL
+   * (`resolveRequestBaseUrl`), and already defaulted by the surface builder to a
+   * placeholder label for the non-HTTP caller that has no request to resolve
+   * from — so this is always safe to interpolate.
+   */
+  readonly origin: string
 }
 
 /** A quiet section heading (the recurring "micro-label over a card" pattern). */
@@ -117,21 +124,53 @@ function intro(): Component {
 }
 
 /**
- * The base-URL + auth-scheme card. The base URL is shown relative
- * (`<adresse de l’instance>/api`) because this page server-renders — it cannot
- * read `window.location` — and a relative form stays correct behind any
- * reverse proxy / custom domain the operator runs the instance under.
+ * The base-URL + auth-scheme card, stating the API root at the instance's
+ * RESOLVED origin so an operator can read it off and hand it to a developer.
  */
-function endpointCard(): Component {
+function endpointCard(origin: string, app: App): Component {
   return card([
     sectionLabel('Access'),
-    keyValueRow('Base URL', '<your instance address>/api'),
+    keyValueRow('Base URL', `${origin}/api`),
     keyValueRow(
       'Authentication',
       'Better Auth session (login cookie). A request sent from this browser, ' +
         'signed in as an administrator, is authenticated automatically.'
     ),
+    ...apiKeysPointer(app),
   ])
+}
+
+/**
+ * The one-line pointer to `/_admin/api-keys` (D6).
+ *
+ * A script has no browser and therefore no login cookie, so the sentence above
+ * is only half the story for the readers this page is written for. The other
+ * half is a long-lived key — but MINTING one is a write, and this page is a
+ * config-REFLECTION surface with no writes anywhere in it. Pointing at the
+ * surface that owns the write keeps that shape intact; putting a create form
+ * here would need an [internal ref] amendment.
+ *
+ * Rendered only when the app opted in (`auth.apiKeys`). Without the opt-in the
+ * endpoints and the page both answer 404, and a link to a 404 is worse than no
+ * link at all.
+ */
+function apiKeysPointer(app: App): ReadonlyArray<Component> {
+  if (app.auth?.apiKeys !== true) return []
+  return [
+    keyValueRow(
+      'API keys',
+      'A script has no browser session. Give it a long-lived key instead and ' +
+        'send it in the x-api-key header.'
+    ),
+    {
+      type: 'link',
+      content: 'Manage my API keys',
+      props: {
+        href: '/_admin/api-keys',
+        className: 'w-fit text-sm underline-offset-4 hover:underline',
+      },
+    } as unknown as Component,
+  ]
 }
 
 /** The app's first few tables; the source of every config-derived example. */
@@ -166,11 +205,11 @@ function httpExample(app: App): string {
  * The same list call rendered as a copy-pasteable cURL command against the
  * operator's first table — the shell most operators reach for first.
  */
-function curlExample(app: App): string {
+function curlExample(app: App, origin: string): string {
   const table = firstTableName(app)
   return (
     `# List “${table}” (this browser’s admin session authenticates the call)\n` +
-    `curl '<your instance address>/api/tables/${table}/records' \\\n` +
+    `curl '${origin}/api/tables/${table}/records' \\\n` +
     `  --header 'Accept: application/json' \\\n` +
     `  --cookie "$SOVRIUM_SESSION"`
   )
@@ -207,7 +246,7 @@ function exampleTab(label: string, body: Component): Component {
  * The default (HTTP) tab carries the `api-docs-examples` testid and the
  * config-derived GET/POST lines.
  */
-function examplesCard(app: App): Component {
+function examplesCard(app: App, origin: string): Component {
   return card([
     sectionLabel('Request examples'),
     {
@@ -221,7 +260,7 @@ function examplesCard(app: App): Component {
           content: { label: 'HTTP' },
           children: [codeBlock(httpExample(app), 'http', 'api-docs-examples')],
         } as unknown as Component,
-        exampleTab('cURL', codeBlock(curlExample(app), 'bash')),
+        exampleTab('cURL', codeBlock(curlExample(app, origin), 'bash')),
         exampleTab('JavaScript', codeBlock(jsExample(app), 'javascript')),
       ],
     } as unknown as Component,
@@ -243,10 +282,10 @@ function examplesCard(app: App): Component {
  * runnable `POST /api/auth/admin/create-user` carrying the email / password /
  * role body an operator (or an MCP client) supplies to provision an account.
  */
-function createUserExample(): string {
+function createUserExample(origin: string): string {
   return (
     '# POST /api/auth/admin/create-user — create an account (replaces the removed form)\n' +
-    "curl -X POST '<your instance address>/api/auth/admin/create-user' \\\n" +
+    `curl -X POST '${origin}/api/auth/admin/create-user' \\\n` +
     "  --header 'Content-Type: application/json' \\\n" +
     '  --cookie "$SOVRIUM_SESSION" \\\n' +
     "  --data '{\n" +
@@ -262,7 +301,7 @@ function createUserExample(): string {
  * affordance, `data-testid="api-docs-create-user"`) documenting the admin
  * create-user endpoint that superseded the dropped in-dashboard create form.
  */
-function createUserCard(): Component {
+function createUserCard(origin: string): Component {
   return card([
     sectionLabel('Create user'),
     {
@@ -274,7 +313,7 @@ function createUserCard(): Component {
         'it goes through Better Auth’s admin API (or the MCP server). A strong ' +
         'password is required; the person resets it afterwards.',
     } as unknown as Component,
-    codeBlock(createUserExample(), 'bash', 'api-docs-create-user'),
+    codeBlock(createUserExample(origin), 'bash', 'api-docs-create-user'),
   ])
 }
 
@@ -324,13 +363,19 @@ function header(): Component {
 }
 
 /** The full API docs body: header + the four cards. */
-function apiDocsBody(app: App): ReadonlyArray<Component> {
+function apiDocsBody(app: App, origin: string): ReadonlyArray<Component> {
   return [
     {
       type: 'container',
       element: 'div',
       props: { className: 'flex max-w-3xl flex-col gap-6' },
-      children: [header(), endpointCard(), examplesCard(app), createUserCard(), scalarCard()],
+      children: [
+        header(),
+        endpointCard(origin, app),
+        examplesCard(app, origin),
+        createUserCard(origin),
+        scalarCard(),
+      ],
     } as unknown as Component,
   ]
 }
@@ -345,18 +390,17 @@ function apiDocsBody(app: App): ReadonlyArray<Component> {
  * @param options - tier + shell concerns
  */
 export function buildApiDocsPage(title: string, operatorApp: App, options: ApiDocsOptions): Page {
-  const { canEdit, appName, appVersion, publishedSnapshot } = options
+  const { canEdit, appName, appVersion, origin } = options
   return {
     id: 'dashboard-api-docs',
     name: 'dashboard-api-docs',
     path: '/api',
     meta: { title },
-    components: wrapInShell(apiDocsBody(operatorApp), {
+    components: wrapInShell(apiDocsBody(operatorApp, origin), {
       canEdit,
       appName,
       appVersion,
       breadcrumb: [homeCrumb(appName), { label: 'API' }],
-      publishedSnapshot,
     }),
   } as Page
 }

@@ -21,48 +21,51 @@ export const HttpRequestActionSchema = Schema.Struct({
   operator: Schema.Literal('request'),
   props: Schema.Struct({
     url: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Request URL (supports template variables)' })
+      Schema.annotate({ description: 'Request URL (supports template variables)' })
     ),
     // Accepts a literal HTTP verb OR a template string (`{{…}}` /
     // `$env.…`) so operators can drive the method off trigger data
     //. Plain free-form strings
     // are rejected at decode time so a typo like `'PSOT'` still fails
     // before a request is dispatched.
-    method: Schema.Union(
-      Schema.Literal('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'),
-      Schema.String.pipe(Schema.filter((s) => s.includes('{{') || s.includes('$env')))
-    ).pipe(Schema.annotations({ description: 'HTTP method (literal or template string)' })),
+    method: Schema.Union([
+      Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']),
+      Schema.String.pipe(
+        Schema.check(Schema.makeFilter((s) => s.includes('{{') || s.includes('$env')))
+      ),
+    ]).pipe(Schema.annotate({ description: 'HTTP method (literal or template string)' })),
     headers: Schema.optional(
-      Schema.Record({ key: Schema.String, value: TemplateStringSchema }).pipe(
-        Schema.annotations({
+      Schema.Record(Schema.String, TemplateStringSchema).pipe(
+        Schema.annotate({
           description: 'Request headers (values support template variables and $env)',
         })
       )
     ),
     body: Schema.optional(
-      Schema.Union(
-        Schema.String,
-        Schema.Record({ key: Schema.String, value: Schema.Unknown })
-      ).pipe(Schema.annotations({ description: 'Request body — string or JSON object' }))
+      Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
+        Schema.annotate({ description: 'Request body — string or JSON object' })
+      )
     ),
     contentType: Schema.optional(
-      Schema.Literal('json', 'form', 'text', 'xml').pipe(
-        Schema.annotations({ description: 'Content-Type shorthand (default: json)' })
+      Schema.Literals(['json', 'form', 'text', 'xml']).pipe(
+        Schema.annotate({
+          description:
+            'Content-Type shorthand. No default: when omitted, http/request sends no Content-Type header of its own',
+        })
       )
     ),
     timeout: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1000, 120_000),
-        Schema.annotations({
-          description: 'Request timeout in ms (1000-120000, default: 30000)',
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 120_000 })),
+        Schema.annotate({
+          description: 'Request timeout in ms (1000-120000, default: 15000)',
         })
       )
     ),
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description:
             'Connection name for authentication (must reference app.connections[]). Auth headers are auto-injected.',
         })
@@ -70,7 +73,7 @@ export const HttpRequestActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'HttpRequestAction',
     title: 'HTTP Request Action',
     description: 'Send configurable HTTP requests to external services',

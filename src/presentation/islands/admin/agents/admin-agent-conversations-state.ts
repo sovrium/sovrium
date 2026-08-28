@@ -61,25 +61,47 @@ export interface AgentConversationsController {
   readonly onPickNewAgent: (value: string) => void
 }
 
-/** Narrow the conversation list by the agent filter + a title/session search (client-side). */
+/**
+ * How long the search box waits before asking the server.
+ *
+ * The box had NO debounce while it filtered in memory, where a keystroke cost
+ * nothing. It now fans a request out to every declared agent, so an undebounced
+ * box would issue one request per agent per keystroke. 300 ms matches the
+ * data-table's own search default (`search.debounceMs ?? 300`) so the two
+ * search boxes in the console feel the same.
+ */
+const SEARCH_DEBOUNCE_MS = 300
+
+/**
+ * Narrow the merged list by the AGENT filter only.
+ *
+ * The title/sessionId half of this predicate is gone: the server now applies it
+ * (`?q=` over `title` + `sessionId`), and re-applying it here would re-impose
+ * the very ceiling the server fix removed — a thread found beyond the 200-row
+ * window would be fetched and then dropped again on the way to the screen.
+ * Exactly one layer filters, and for those two fields it is the server.
+ *
+ * The agent filter legitimately stays client-side: it partitions a list already
+ * merged from per-agent responses, so no request can express it.
+ */
 function filterConversations(
   conversations: ReadonlyArray<ConversationRow>,
-  agent: string,
-  search: string
+  agent: string
 ): ReadonlyArray<ConversationRow> {
-  const needle = search.trim().toLowerCase()
-  return conversations.filter((conversation) => {
-    if (agent && conversation.agentName !== agent) return false
-    if (!needle) return true
-    return (
-      conversation.title.toLowerCase().includes(needle) ||
-      conversation.sessionId.toLowerCase().includes(needle)
-    )
-  })
+  if (!agent) return conversations
+  return conversations.filter((conversation) => conversation.agentName === agent)
 }
 
-/** Load + expose the merged all-agents conversation list with a manual reload. */
-function useConversationList(agentNames: ReadonlyArray<string>): {
+/**
+ * Load + expose the merged all-agents conversation list with a manual reload.
+ *
+ * `search` is a REQUEST parameter here, not a post-filter: it is threaded into
+ * every per-agent fetch, so changing it re-reads rather than re-narrowing.
+ */
+function useConversationList(
+  agentNames: ReadonlyArray<string>,
+  search: string
+): {
   readonly list: ListState
   readonly reloadList: () => void
 } {
@@ -88,8 +110,8 @@ function useConversationList(agentNames: ReadonlyArray<string>): {
   const namesKey = agentNames.join(' ')
   const reloadList = useCallback(() => {
     setList(LIST_LOADING)
-    void loadAllConversations(namesKey ? namesKey.split(' ') : []).then(setList)
-  }, [namesKey])
+    void loadAllConversations(namesKey ? namesKey.split(' ') : [], search).then(setList)
+  }, [namesKey, search])
   useEffect(() => {
     reloadList()
   }, [reloadList])
@@ -115,25 +137,32 @@ function useConversationList(agentNames: ReadonlyArray<string>): {
  * picker, picking an agent that opens the composer, and a `composerKey` bumped
  * on each new conversation so the composer remounts with a fresh sessionId.
  */
-function useNewConversation(): {
+function useNewConversation(agentNames: ReadonlyArray<string>): {
   readonly newConversation: NewConversationState
   readonly onStartNewConversation: () => void
   readonly onPickNewAgent: (value: string) => void
   readonly cancelNewConversation: () => void
 } {
+  // With exactly one agent in scope there is nothing to pick: preselect it so
+  // "New conversation" opens straight onto the composer. Starting empty made
+  // the operator re-choose the agent whose page they were already on — the
+  // composer stayed hidden behind a one-option `select` until they did. (The
+  // conversation FILTER hides itself below two agents; this is the compose
+  // PICKER, a different control, and it was still rendering.)
+  const soleAgent = agentNames.length === 1 ? (agentNames[0] ?? '') : ''
   const [active, setActive] = useState(false)
-  const [agent, setAgent] = useState('')
+  const [agent, setAgent] = useState(soleAgent)
   const [composerKey, setComposerKey] = useState(0)
   const onStartNewConversation = useCallback(() => {
-    setAgent('')
+    setAgent(soleAgent)
     setComposerKey((k) => k + 1)
     setActive(true)
-  }, [])
+  }, [soleAgent])
   const onPickNewAgent = useCallback((value: string) => setAgent(value), [])
   const cancelNewConversation = useCallback(() => {
     setActive(false)
-    setAgent('')
-  }, [])
+    setAgent(soleAgent)
+  }, [soleAgent])
   return {
     newConversation: { active, agent, composerKey },
     onStartNewConversation,
@@ -173,13 +202,22 @@ function useSelectedThread(
 export function useAgentConversations(
   agentNames: ReadonlyArray<string>
 ): AgentConversationsController {
-  const { list, reloadList } = useConversationList(agentNames)
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
+  // Two search values, deliberately. `search` is what the operator sees in the
+  // box and updates on every keystroke; `debouncedSearch` is what reaches the
+  // network. Binding the fetch straight to `search` would fan one request per
+  // declared agent out on every character typed.
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [search])
+  const { list, reloadList } = useConversationList(agentNames, debouncedSearch)
   const [agent, setAgent] = useState('')
   const { thread, reloadThread } = useSelectedThread(list, selectedId)
   const { newConversation, onStartNewConversation, onPickNewAgent, cancelNewConversation } =
-    useNewConversation()
+    useNewConversation(agentNames)
 
   // Picking an existing conversation leaves the compose flow (the thread column
   // shows the selected transcript, not the composer).
@@ -191,9 +229,11 @@ export function useAgentConversations(
     [cancelNewConversation]
   )
   const onResetSearch = useCallback(() => setSearch(''), [])
+  // Agent partitioning only — the term was already applied by the server on the
+  // way in (see `filterConversations`).
   const visibleConversations = useMemo(
-    () => filterConversations(list.conversations, agent, search),
-    [list.conversations, agent, search]
+    () => filterConversations(list.conversations, agent),
+    [list.conversations, agent]
   )
 
   return {

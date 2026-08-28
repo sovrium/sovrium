@@ -12,7 +12,6 @@ import {
   DataSourceDatabaseError,
 } from '@/application/ports/repositories/tables/data-source-repository'
 import { toFiniteCount } from '@/domain/utils/database/count-coercion'
-import { formatLikePattern, formatSqlValue } from '@/domain/utils/database/sql-formatting'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database/drizzle/db-bun'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -25,11 +24,18 @@ import type { SQL } from 'drizzle-orm'
 /** Wrap a DB promise, adapting failures to DataSourceDatabaseError. */
 const wrap = makeDbWrap((error) => new DataSourceDatabaseError({ cause: error }))
 
+/**
+ * Return type of `sql.identifier()` — a safely-escaped SQL identifier chunk.
+ * Same alias as `table-queries/filter-operators.ts`, and for the same reason:
+ * `Name` is not a `SQL`, so a helper that accepts one has to say so.
+ */
+type SqlIdentifier = Readonly<ReturnType<typeof sql.identifier>>
+
 // ============================================================================
 // SQL query builders (pure functions — no DB access)
 // ============================================================================
 
-const DATA_SOURCE_OPERATOR_MAP: Record<string, string> = {
+const DATA_SOURCE_OPERATOR_MAP: Readonly<Record<string, string>> = {
   eq: '=',
   neq: '!=',
   gt: '>',
@@ -38,8 +44,43 @@ const DATA_SOURCE_OPERATOR_MAP: Record<string, string> = {
   lte: '<=',
 }
 
-function buildFilterCondition(filter: DataFilter): string {
-  const field = `"${sanitizeTableName(filter.field)}"`
+/**
+ * Bind an arbitrary filter value as a DRIVER PARAMETER rather than escaping it
+ * into SQL text.
+ *
+ * Mirrors `formatSqlValue`'s type handling exactly, so switching from escaping
+ * to binding changes no result: strings, numbers, booleans and `null` bind as
+ * themselves (a bound `null` compares the way the `NULL` literal did — never
+ * true), and every other shape binds as its JSON encoding, which is precisely
+ * the string `formatSqlValue` used to quote.
+ */
+const bindValue = (value: unknown): Readonly<SQL> => {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return sql`${value}`
+  }
+  return sql`${JSON.stringify(value)}`
+}
+
+/**
+ * A `contains` LIKE pattern as a BOUND value.
+ *
+ * `formatLikePattern` escaped the value and wrapped the result in quotes; a
+ * bound parameter needs neither, so the wildcards concatenate onto the raw
+ * value. Note this leaves `%` and `_` inside the value as wildcards, exactly as
+ * the escaped form did — `escapeSqlString` never touched LIKE metacharacters.
+ */
+const bindLikePattern = (value: unknown): Readonly<SQL> => {
+  const stringValue = typeof value === 'string' ? value : String(value)
+  return sql`${`%${stringValue}%`}`
+}
+
+export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
+  const field = sql.identifier(sanitizeTableName(filter.field))
   const { operator, value } = filter
 
   if (operator === 'contains') {
@@ -47,19 +88,21 @@ function buildFilterCondition(filter: DataFilter): string {
     // and case-INSENSITIVE on SQLite, so the same page `dataSource.filters`
     // block would bind different rows depending on the engine. Matches the
     // records-API decision in `table-queries/filter-operators.ts`.
-    return `LOWER(${field}) LIKE LOWER(${formatLikePattern(value, 'contains')})`
+    return sql`LOWER(${field}) LIKE LOWER(${bindLikePattern(value)})`
   }
 
   if (operator === 'in') {
     return buildInClause(field, value)
   }
 
+  // The comparison operator reaches SQL only through this closed literal map,
+  // never as caller text; an unrecognised operator falls through to `=`.
   const sqlOp = DATA_SOURCE_OPERATOR_MAP[operator]
   if (sqlOp) {
-    return `${field} ${sqlOp} ${formatSqlValue(value)}`
+    return sql`${field} ${sql.raw(sqlOp)} ${bindValue(value)}`
   }
 
-  return `${field} = ${formatSqlValue(value)}`
+  return sql`${field} = ${bindValue(value)}`
 }
 
 /**
@@ -67,47 +110,77 @@ function buildFilterCondition(filter: DataFilter): string {
  *
  * - Empty array  → `1 = 0` (always-false predicate, returns zero rows)
  * - Non-array    → `field = value` (single-value short-hand)
- * - Array        → `field IN (v1, v2, ...)`
+ * - Array        → `field IN ($1, $2, ...)` — one bound parameter per element
  *
  * Used by `$currentUser.assignments.<table>` resolution where the value is
  * the flattened record-id list from the multi-tenant `user_access` rows.
  */
-function buildInClause(field: string, value: unknown): string {
+function buildInClause(field: SqlIdentifier, value: unknown): Readonly<SQL> {
   if (Array.isArray(value)) {
-    if (value.length === 0) return '1 = 0'
-    const literals = value.map((v) => formatSqlValue(v)).join(', ')
-    return `${field} IN (${literals})`
+    if (value.length === 0) return sql`1 = 0`
+    return sql`${field} IN (${sql.join(
+      value.map((element) => bindValue(element)),
+      sql.raw(', ')
+    )})`
   }
-  return `${field} = ${formatSqlValue(value)}`
+  return sql`${field} = ${bindValue(value)}`
 }
 
-function buildOrderByClause(sort: readonly DataSort[]): string {
-  if (sort.length === 0) return ''
-  const terms = sort.map((s) => {
-    const field = `"${sanitizeTableName(s.field)}"`
-    const dir = s.direction === 'desc' ? 'DESC' : 'ASC'
-    return `${field} ${dir}`
-  })
-  return `ORDER BY ${terms.join(', ')}`
+function buildOrderByClause(sort: readonly DataSort[]): Readonly<SQL> | undefined {
+  if (sort.length === 0) return undefined
+  const terms = sort.map(
+    (s) =>
+      sql`${sql.identifier(sanitizeTableName(s.field))} ${s.direction === 'desc' ? sql.raw('DESC') : sql.raw('ASC')}`
+  )
+  return sql`ORDER BY ${sql.join(terms, sql.raw(', '))}`
 }
 
-function buildSelectQuery(sanitized: string, options: DataSourceQueryOptions): string {
+/**
+ * `LIMIT`/`OFFSET` as inlined integer literals.
+ *
+ * These stay literals rather than bound parameters for the same reason the MCP
+ * internal-list tool inlines its limit: `LIMIT $1` round-trips poorly through
+ * bun:sql's binding path. Both operands are numbers by the time they arrive and
+ * are floored here, so neither can carry SQL text. The offset arithmetic is
+ * preserved verbatim from the string form it replaces.
+ */
+function buildLimitClause(pageSize?: number, page?: number): Readonly<SQL> | undefined {
+  if (!pageSize || pageSize <= 0) return undefined
+  const size = Math.floor(pageSize)
+  const offset = Math.floor(((page ?? 1) - 1) * size)
+  return sql`LIMIT ${sql.raw(String(size))} OFFSET ${sql.raw(String(offset))}`
+}
+
+/** Join the present clauses with a single space, dropping the absent ones. */
+const joinClauses = (clauses: ReadonlyArray<Readonly<SQL> | undefined>): Readonly<SQL> =>
+  sql.join(
+    clauses.filter((clause): clause is SQL => clause !== undefined),
+    sql.raw(' ')
+  )
+
+export function buildSelectQuery(
+  sanitized: string,
+  options: DataSourceQueryOptions
+): Readonly<SQL> {
   const { fields, filter, sort, pageSize, page } = options
   const columns =
-    fields && fields.length > 0 ? fields.map((f) => `"${sanitizeTableName(f)}"`).join(', ') : '*'
-  const whereClause =
-    filter && filter.length > 0 ? `WHERE ${filter.map(buildFilterCondition).join(' AND ')}` : ''
-  const orderByClause = sort && sort.length > 0 ? buildOrderByClause(sort) : ''
-  const limitClause =
-    pageSize && pageSize > 0 ? `LIMIT ${pageSize} OFFSET ${((page ?? 1) - 1) * pageSize}` : ''
-  return [`SELECT ${columns} FROM "${sanitized}"`, whereClause, orderByClause, limitClause]
-    .filter(Boolean)
-    .join(' ')
+    fields && fields.length > 0
+      ? sql.join(
+          fields.map((f) => sql.identifier(sanitizeTableName(f))),
+          sql.raw(', ')
+        )
+      : sql.raw('*')
+  return joinClauses([
+    sql`SELECT ${columns} FROM ${sql.identifier(sanitized)}`,
+    filter && filter.length > 0 ? buildWhereClause(filter) : undefined,
+    sort && sort.length > 0 ? buildOrderByClause(sort) : undefined,
+    buildLimitClause(pageSize, page),
+  ])
 }
 
-function buildWhereClause(filter: readonly DataFilter[]): string {
-  if (filter.length === 0) return ''
-  return `WHERE ${filter.map(buildFilterCondition).join(' AND ')}`
+export function buildWhereClause(filter: readonly DataFilter[]): Readonly<SQL> | undefined {
+  if (filter.length === 0) return undefined
+  return sql`WHERE ${sql.join(filter.map(buildFilterCondition), sql.raw(' AND '))}`
 }
 
 // ============================================================================
@@ -132,20 +205,15 @@ function buildWhereClause(filter: readonly DataFilter[]): string {
  * `executeRaw` picks `.execute()` or `.all()` for the active dialect and
  * normalizes both to a rows array.
  */
-async function executeQuery<T>(query: string): Promise<T> {
-  return (await executeRaw(db, sql.raw(query))) as unknown as T
-}
-
 /**
- * Run a Drizzle `SQL` fragment — the parameter-binding counterpart of
- * {@link executeQuery}.
+ * Run a Drizzle `SQL` fragment against the active connection.
  *
- * `executeQuery` takes a finished string and has to launder it back through
- * `sql.raw`, which discards any distinction between identifier, literal and
- * operator. This variant keeps the fragment intact all the way to the driver,
- * so `${value}` holes stay bound parameters (`$1` / `?`) instead of becoming
- * SQL text. Prefer it for anything new; see the class docstring below for why
- * the list/count builders still use the string form.
+ * Every query in this repository goes through here. The fragment stays intact
+ * all the way to the driver, so `${value}` holes are bound parameters
+ * (`$1` / `?`) rather than SQL text. A string-taking sibling used to exist for
+ * the list/count builders and had to launder its argument back through
+ * `sql.raw`, discarding any distinction between identifier, literal and
+ * operator; it was removed when those builders were converted to bind.
  */
 async function executeSqlQuery<T>(query: Readonly<SQL>): Promise<T> {
   return (await executeRaw(db, query)) as unknown as T
@@ -228,47 +296,54 @@ const toRecordIdList = (value: unknown): readonly string[] => {
  * Runs through the shared, memoized `db` client (see `executeQuery` above) — it
  * no longer opens its own connection per query.
  *
- * **Known deviation from standing rule S3, now confined to the list/count
- * builders — do not copy that pattern.** `fetchRecords` and `countRecords` go
- * through `buildSelectQuery` / `buildWhereClause` / `buildFilterCondition` /
- * `buildInClause` / `buildOrderByClause`, which assemble a SQL *string*:
- * identifiers are reduced to `[a-z0-9_]` by `sanitizeTableName` and values are
- * escaped by `formatSqlValue` (single-quote doubling). No injection is currently
- * reachable through them. But escaping is a weaker guarantee than binding — it
- * depends on every builder remembering to apply it, and it assumes
- * `standard_conforming_strings` is on, a Postgres setting this app never
- * asserts and which, when off, lets `\'` escape a doubled quote.
+ * **Every method now binds its values (standing rule S3).** The list/count
+ * builders — `buildSelectQuery` / `buildWhereClause` / `buildFilterCondition` /
+ * `buildInClause` / `buildOrderByClause` — used to assemble a SQL *string*,
+ * escaping values with `formatSqlValue` (single-quote doubling) and reducing
+ * identifiers to `[a-z0-9_]` with `sanitizeTableName`. They now return Drizzle
+ * `SQL` fragments end to end: identifiers go through `sql.identifier()`, values
+ * through `${...}` holes that reach the driver as parameters.
  *
- * The three chainless methods below (`fetchSingleRecord`, `fetchUserAssignments`,
- * `fetchUserAccessRoles`) now bind their values via `executeSqlQuery`. They were
- * separable because none of them calls a builder; the builder chain cannot be
- * converted one leaf at a time, since the moment `buildFilterCondition` returns
- * a bound fragment every ancestor's return type has to change too — you cannot
- * `.join()` a string with a Drizzle `SQL`.
+ * The conversion had to happen in one pass, which is why it lagged the three
+ * chainless methods (`fetchSingleRecord`, `fetchUserAssignments`,
+ * `fetchUserAccessRoles`): the moment `buildFilterCondition` returns a bound
+ * fragment, every ancestor's return type changes too — you cannot `.join()` a
+ * string with a `SQL`.
  *
- * This docstring previously claimed every OTHER runtime query path in `src/`
- * binds its values. That was wrong; at least two others also escape a value at
+ * Why it mattered even though no injection was demonstrated through the string
+ * form. Escaping is a weaker guarantee than binding: it depends on every
+ * builder remembering to apply it, and it assumes `standard_conforming_strings`
+ * is on — a Postgres setting this app never asserts, and under which `\'`
+ * escapes a doubled quote. The reachability was also not purely config-side, as
+ * the old comment implied: `substituteRecordInDataSource`
+ * (`presentation/rendering/data-source-resolver.ts`) expands `$record.<field>`
+ * from DATABASE ROW VALUES before these builders run, and those rows are
+ * writable through the records API. The filter shape was author-controlled; the
+ * filter VALUE was not.
+ *
+ * Note this docstring once claimed every OTHER runtime query path in `src/`
+ * binds its values. That was wrong; at least two others still escape a value at
  * runtime — `table-queries/query-helpers/aggregation-helpers.ts`
  * (`buildSingleSelectCaseExpression`, a runtime ORDER BY) and
  * `repositories/automations/automation-digest-repository-live.ts` (a JSONB sort
- * key). No uniqueness claim is made here now.
+ * key). No uniqueness claim is made here.
  */
 export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
   fetchRecords: (tableName, options = {}) =>
     wrap(async () => {
       const sanitized = sanitizeTableName(tableName)
       const query = buildSelectQuery(sanitized, options)
-      return await executeQuery<Record<string, unknown>[]>(query)
+      return await executeSqlQuery<Record<string, unknown>[]>(query)
     }),
 
   countRecords: (tableName, filter) =>
     wrap(async () => {
       const sanitized = sanitizeTableName(tableName)
-      const whereClause = filter && filter.length > 0 ? buildWhereClause(filter) : ''
-      const query = [`SELECT COUNT(*) AS count FROM "${sanitized}"`, whereClause]
-        .filter(Boolean)
-        .join(' ')
-      const rows = await executeQuery<Array<{ count: number | string }>>(query)
+      const query = joinClauses([
+        sql`SELECT COUNT(*) AS count FROM ${sql.identifier(sanitized)}`,
+        filter && filter.length > 0 ? buildWhereClause(filter) : undefined,
+      ])
+      const rows = await executeSqlQuery<Array<{ count: number | string }>>(query)
       return toFiniteCount(rows[0]?.count)
     }),
 

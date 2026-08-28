@@ -73,6 +73,12 @@ export function markRecordCommentsRead(config: {
  * row — `COUNT(*)` is exact. The `created_at > last_read_at` comparison is
  * column-to-column and unit-consistent across dialects (both stored as
  * TIMESTAMPTZ on pg / epoch-ms on SQLite).
+ *
+ * The `record_comments.table_id` clause in the WHERE is what confines the
+ * count to THIS table's record. `tableId` used to appear only in the
+ * watermark JOIN, so the counted set spanned every same-numbered record in
+ * the app (record ids are per-table sequences) and an unrelated table's
+ * comments inflated the badge. See `activeCommentsByRecordId`.
  */
 export function getUnreadCommentCount(config: {
   readonly session: Readonly<Session>
@@ -96,6 +102,7 @@ export function getUnreadCommentCount(config: {
         )
         .where(
           and(
+            eq(recordComments.tableId, tableId),
             eq(recordComments.recordId, recordId),
             isNull(recordComments.deletedAt),
             eq(recordComments.status, 'approved'),

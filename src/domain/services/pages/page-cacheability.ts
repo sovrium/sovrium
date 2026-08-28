@@ -185,7 +185,7 @@ const formHasQueryPrefill = (form: Readonly<Form>): boolean => {
  * complexity within the project cap.
  */
 function nodeEmbedsQueryPrefillForm(
-  node: Record<string, unknown>,
+  node: Readonly<Record<string, unknown>>,
   forms: readonly Form[]
 ): boolean {
   if (node.type !== 'form' && node.type !== 'dialog') return false

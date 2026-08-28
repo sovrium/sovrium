@@ -14,6 +14,7 @@ import { AutomationActionSchema } from './automation'
 import { CodeActionSchema } from './code'
 import { CryptoActionSchema } from './crypto'
 import { DataActionSchema } from './data'
+import { DateActionSchema } from './date'
 import { DelayActionSchema } from './delay'
 import { DigestActionSchema } from './digest'
 import { EmailActionSchema } from './email'
@@ -25,6 +26,7 @@ import { LoopActionSchema } from './loop'
 import { PathActionSchema } from './path'
 import { RecordActionSchema } from './record'
 import { ActionRefSchema } from './ref'
+import { SovriumActionSchema } from './sovrium'
 import { StateActionSchema } from './state'
 import { WebhookActionSchema } from './webhook'
 import type { ConditionGroup } from '../conditions'
@@ -54,6 +56,13 @@ export interface PathBranch {
 }
 
 type Props<T> = { readonly props: T }
+
+/** Column definition shared by the `generateXlsx` single- and multi-sheet forms. */
+type XlsxColumnDef = {
+  readonly key?: string
+  readonly field?: string
+  readonly header?: string
+}
 
 /**
  * Action type — manually defined union of all action variants.
@@ -112,7 +121,7 @@ export type Action =
         readonly timeout?: number
         readonly connection?: string
       }>)
-  // ── record (4 operator variants) ──
+  // ── record (5 single-record operator variants) ──
   | (ActionBase & {
       readonly type: 'record'
       readonly operator: 'create'
@@ -143,6 +152,20 @@ export type Action =
     } & Props<{
         readonly table: string
         readonly filter: ConditionGroup
+      }>)
+  | (ActionBase & {
+      readonly type: 'record'
+      readonly operator: 'upsert'
+    } & Props<{
+        readonly table: string
+        readonly data: { readonly [key: string]: unknown }
+        // `id` and `filter` are mutually exclusive — enforced by the
+        // cross-validation layer, not by this type (a union of the two
+        // shapes would make the common `{ table, data }` prefix awkward
+        // to write and would not model the "exactly one" rule any better).
+        readonly id?: string
+        readonly filter?: ConditionGroup
+        readonly runAs?: 'system' | 'triggering-user'
       }>)
   // ── filter ──
   | (ActionBase & {
@@ -248,6 +271,14 @@ export type Action =
         readonly duration?: string
         readonly until?: string
       }>)
+  | (ActionBase & {
+      readonly type: 'delay'
+      readonly operator: 'queue'
+    } & Props<{
+        // Duration string — number + unit (ms, s, m, h), e.g. '2s'.
+        readonly interval: string
+        readonly maxQueueSize?: number
+      }>)
   // ── automation ──
   | (ActionBase & {
       readonly type: 'automation'
@@ -258,12 +289,22 @@ export type Action =
         readonly waitForCompletion?: boolean
         readonly timeout?: number
       }>)
+  | (ActionBase & {
+      readonly type: 'automation'
+      readonly operator: 'return'
+    } & Props<{
+        readonly data: { readonly [key: string]: unknown }
+      }>)
   // ── ai (3 operator variants) ──
   | (ActionBase & {
       readonly type: 'ai'
       readonly operator: 'generate'
     } & Props<{
-        readonly provider: 'openai' | 'anthropic' | 'ollama' | 'custom'
+        // Optional and ADVISORY — see `ai/provider.ts`. Derived from
+        // SUPPORTED_AI_PROVIDERS ('custom' is a deprecated back-compat value);
+        // the provider actually used comes from the AI_PROVIDER env var.
+        readonly provider?:
+          'anthropic' | 'openai' | 'mistral' | 'google' | 'ollama' | 'openai-compatible' | 'custom'
         readonly model: string
         readonly prompt: string
         readonly systemPrompt?: string
@@ -277,7 +318,11 @@ export type Action =
       readonly type: 'ai'
       readonly operator: 'classify'
     } & Props<{
-        readonly provider: 'openai' | 'anthropic' | 'ollama' | 'custom'
+        // Optional and ADVISORY — see `ai/provider.ts`. Derived from
+        // SUPPORTED_AI_PROVIDERS ('custom' is a deprecated back-compat value);
+        // the provider actually used comes from the AI_PROVIDER env var.
+        readonly provider?:
+          'anthropic' | 'openai' | 'mistral' | 'google' | 'ollama' | 'openai-compatible' | 'custom'
         readonly model: string
         readonly input: string
         readonly categories: readonly string[]
@@ -288,7 +333,11 @@ export type Action =
       readonly type: 'ai'
       readonly operator: 'extract'
     } & Props<{
-        readonly provider: 'openai' | 'anthropic' | 'ollama' | 'custom'
+        // Optional and ADVISORY — see `ai/provider.ts`. Derived from
+        // SUPPORTED_AI_PROVIDERS ('custom' is a deprecated back-compat value);
+        // the provider actually used comes from the AI_PROVIDER env var.
+        readonly provider?:
+          'anthropic' | 'openai' | 'mistral' | 'google' | 'ollama' | 'openai-compatible' | 'custom'
         readonly model: string
         readonly input: string
         readonly schema: { readonly [key: string]: unknown }
@@ -334,6 +383,15 @@ export type Action =
         readonly table: string
         readonly filter: ConditionGroup
         readonly limit?: number
+      }>)
+  | (ActionBase & {
+      readonly type: 'record'
+      readonly operator: 'batchUpsert'
+    } & Props<{
+        readonly table: string
+        readonly items: string
+        readonly matchField: string
+        readonly continueOnItemError?: boolean
       }>)
   // ── file (14 operator variants) ──
   // Phase 1 — Storage Operations
@@ -452,15 +510,9 @@ export type Action =
         readonly source: string
         readonly width?: number
         readonly height?: number
-        readonly fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
-        readonly format?: 'jpeg' | 'png' | 'webp' | 'avif'
+        readonly fit?: 'fill' | 'inside'
+        readonly format?: 'jpeg' | 'png' | 'webp'
         readonly quality?: number
-        readonly crop?: {
-          readonly x: number
-          readonly y: number
-          readonly width: number
-          readonly height: number
-        }
         readonly destination?: string
       }>)
   | (ActionBase & {
@@ -471,7 +523,37 @@ export type Action =
         readonly filename: string
         readonly destination?: string
       }>)
-  // ── data (10 operator variants) ──
+  // Phase 3 — Spreadsheets (closed OOXML subset)
+  // `source` and `key` are both optional HERE because they are aliases and the
+  // schema's own filter enforces that at least one is present; TypeScript
+  // cannot express "exactly one of" without collapsing the arm into a union.
+  | (ActionBase & {
+      readonly type: 'file'
+      readonly operator: 'parseXlsx'
+    } & Props<{
+        readonly source?: string
+        readonly key?: string
+        readonly sheet?: string | number
+        readonly header?: boolean
+        readonly range?: string
+        readonly skipRows?: number
+      }>)
+  | (ActionBase & {
+      readonly type: 'file'
+      readonly operator: 'generateXlsx'
+    } & Props<{
+        readonly data?: string
+        readonly sheets?: readonly {
+          readonly name: string
+          readonly data: string
+          readonly columns?: readonly XlsxColumnDef[]
+        }[]
+        readonly columns?: readonly XlsxColumnDef[]
+        readonly sheetName?: string
+        readonly filename: string
+        readonly destination?: string
+      }>)
+  // ── data (9 operator variants) ──
   | (ActionBase & {
       readonly type: 'data'
       readonly operator: 'set'
@@ -540,13 +622,6 @@ export type Action =
         readonly key: string
         readonly value: string
       }>)
-  | (ActionBase & {
-      readonly type: 'data'
-      readonly operator: 'validate-config'
-    } & Props<{
-        readonly config: string
-        readonly format?: 'json' | 'yaml'
-      }>)
   // ── state (5 operator variants) ──
   | (ActionBase & {
       readonly type: 'state'
@@ -592,7 +667,7 @@ export type Action =
       readonly type: 'digest'
       readonly operator: 'collect'
     } & Props<{
-        readonly bucket: string
+        readonly digestKey: string
         readonly item: string
         readonly deduplicateBy?: string
       }>)
@@ -600,7 +675,7 @@ export type Action =
       readonly type: 'digest'
       readonly operator: 'release'
     } & Props<{
-        readonly bucket: string
+        readonly digestKey: string
         readonly sort?: { readonly field: string; readonly direction?: 'asc' | 'desc' }
         readonly limit?: number
       }>)
@@ -622,6 +697,86 @@ export type Action =
         readonly algorithm: 'sha256' | 'sha512'
         readonly encoding?: 'hex' | 'base64'
       }>)
+  // ── date (8 operator variants) ──
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'format'
+    } & Props<{
+        readonly input: string
+        readonly pattern: string
+        readonly timezone?: string
+        readonly locale?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'parse'
+    } & Props<{
+        readonly input: string
+        readonly pattern: string
+        readonly timezone?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'add'
+    } & Props<{
+        readonly input: string
+        readonly years?: number
+        readonly months?: number
+        readonly weeks?: number
+        readonly days?: number
+        readonly hours?: number
+        readonly minutes?: number
+        readonly seconds?: number
+        readonly timezone?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'subtract'
+    } & Props<{
+        readonly input: string
+        readonly years?: number
+        readonly months?: number
+        readonly weeks?: number
+        readonly days?: number
+        readonly hours?: number
+        readonly minutes?: number
+        readonly seconds?: number
+        readonly timezone?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'diff'
+    } & Props<{
+        readonly from: string
+        readonly to: string
+        readonly unit:
+          'year' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second' | 'millisecond'
+        readonly timezone?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'startOf'
+    } & Props<{
+        readonly input: string
+        readonly unit: 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second'
+        readonly timezone?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'endOf'
+    } & Props<{
+        readonly input: string
+        readonly unit: 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second'
+        readonly timezone?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'date'
+      readonly operator: 'now'
+    } & Props<{
+        readonly pattern?: string
+        readonly timezone?: string
+        readonly locale?: string
+      }>)
   // ── flow ──
   | (ActionBase & {
       readonly type: 'flow'
@@ -630,6 +785,14 @@ export type Action =
         readonly message?: string
         readonly status?: 'success' | 'error'
         readonly output?: { readonly [key: string]: unknown }
+      }>)
+  // ── sovrium ──
+  | (ActionBase & {
+      readonly type: 'sovrium'
+      readonly operator: 'validateConfig'
+    } & Props<{
+        readonly config: string | { readonly [key: string]: unknown }
+        readonly format?: 'json' | 'yaml' | 'auto'
       }>)
   // ── delay:webhook (new operator) ──
   | (ActionBase & {
@@ -668,7 +831,7 @@ export type Action =
  * Each type folder exports a union of its operators.
  * The top-level union composes all type unions.
  */
-export const ActionSchema: Schema.Schema<Action, unknown> = Schema.Union(
+export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   CodeActionSchema,
   HttpActionSchema,
   RecordActionSchema,
@@ -688,10 +851,12 @@ export const ActionSchema: Schema.Schema<Action, unknown> = Schema.Union(
   StateActionSchema,
   DigestActionSchema,
   CryptoActionSchema,
+  DateActionSchema,
   FlowActionSchema,
-  ActionRefSchema
-).pipe(
-  Schema.annotations({
+  SovriumActionSchema,
+  ActionRefSchema,
+]).pipe(
+  Schema.annotate({
     // MUST stay distinct from the component-action union's `Action` identifier
     // (`src/domain/models/app/pages/components/action.ts`). Effect keys JSON
     // Schema `$defs` by `identifier`, so two schemas sharing one identifier
@@ -707,7 +872,7 @@ export const ActionSchema: Schema.Schema<Action, unknown> = Schema.Union(
     description:
       'An individual step in an automation workflow. Structure: type + operator + props.',
   })
-) as Schema.Schema<Action, unknown>
+) as Schema.Codec<Action, unknown>
 
 // Re-export all action type schemas
 export * from './ai'
@@ -719,6 +884,7 @@ export * from './base'
 export * from './code'
 export * from './crypto'
 export * from './data'
+export * from './date'
 export * from './delay'
 export * from './digest'
 export * from './email'
@@ -730,5 +896,6 @@ export * from './loop'
 export * from './path'
 export * from './record'
 export * from './ref'
+export * from './sovrium'
 export * from './state'
 export * from './webhook'

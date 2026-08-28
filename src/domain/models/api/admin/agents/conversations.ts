@@ -25,7 +25,7 @@
  * (`{ totals, by_*, series }`) that powers the Agents Analytique tab. This is
  * the *content* drill-in: the Data tab where an operator reads the actual
  * conversation threads an agent held. They share the `/api/admin/agents/:name/*`
- * namespace and the `hasAgent` anti-enum 404, but the metrics endpoint answers
+ * namespace and the `isConversationSourceAgent` anti-enum 404, but the metrics endpoint answers
  * "how much did this agent run" while this one answers "what did it actually
  * say".
  *
@@ -49,7 +49,12 @@
  */
 
 import { z } from '@hono/zod-openapi'
-import { cursorPaginationQuerySchema, cursorPaginationResponseSchema } from '../../_shared'
+import {
+  appliedQuerySchema,
+  cursorPaginationQuerySchema,
+  cursorPaginationResponseSchema,
+  searchTermSchema,
+} from '../../_shared'
 
 /**
  * A single conversation row in the list. Flat projection of
@@ -117,6 +122,23 @@ export const agentConversationListItemSchema = z
  * Both omitted = "all time". The bounds filter on the same `updated_at` column
  * the list orders + the cursor seeks on, so a date window composes cleanly with
  * pagination (the cursor never escapes the window).
+ *
+ * ...plus an optional free-text `q`:
+ *
+ * ## What `q` searches here, and what it deliberately does not
+ *
+ * `title` and `sessionId` — EXACTLY the two fields the viewer already filtered
+ * on client-side (`admin-agent-conversations-state.ts` → `filterConversations`).
+ * Moving the same two fields server-side means the operator's mental model of
+ * what the box matches does not change; only its reach does, from "the first
+ * 200 conversations the island happened to load" to the whole store.
+ *
+ * Message `content` is deliberately NOT searched. Searching transcripts is a
+ * genuinely different and much heavier capability, and folding it in silently
+ * would be its own small lie: a conversation would appear in the results with a
+ * title that plainly does not match the term, and nothing on the row would
+ * explain why. If full-transcript search is wanted it should arrive as its own
+ * declared capability, with its own affordance.
  */
 export const agentConversationsListQuerySchema = cursorPaginationQuerySchema.extend({
   from: z
@@ -133,6 +155,9 @@ export const agentConversationsListQuerySchema = cursorPaginationQuerySchema.ext
     .describe(
       'Optional inclusive ISO 8601 upper bound on `lastActivityAt` (the conversation `updated_at`). Omit for no upper bound.'
     ),
+  q: searchTermSchema.describe(
+    'Optional free-text search over the conversation `title` and `sessionId`, as a case-insensitive literal substring. Composes with the `from`/`to` window (AND) and with the cursor, so the page is a page of MATCHES. Message `content` is intentionally not searched — transcript search is a separate capability. Empty / whitespace-only means "no search".'
+  ),
 })
 
 /**
@@ -144,7 +169,9 @@ export const agentConversationsListQuerySchema = cursorPaginationQuerySchema.ext
  */
 export const agentConversationsListResponseSchema = cursorPaginationResponseSchema(
   agentConversationListItemSchema
-).openapi('AgentConversationsListResponse')
+)
+  .extend({ appliedQuery: appliedQuerySchema })
+  .openapi('AgentConversationsListResponse')
 
 /**
  * A single message in a conversation transcript. Flat projection of

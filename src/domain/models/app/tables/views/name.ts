@@ -20,9 +20,8 @@ import { Schema } from 'effect'
  * ```
  */
 export const ViewNameSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(100),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(100)),
+  Schema.annotate({
     title: 'View Name',
     description: 'Human-readable name for the view. Must be non-empty.',
     examples: ['All Records', 'Active Tasks', 'Completed Orders'],

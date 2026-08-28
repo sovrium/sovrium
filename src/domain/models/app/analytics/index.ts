@@ -41,7 +41,7 @@ import { Schema } from 'effect'
  * }
  * ```
  */
-export const BuiltInAnalyticsSchema = Schema.Union(
+export const BuiltInAnalyticsSchema = Schema.Union([
   Schema.Boolean,
   Schema.Struct({
     /**
@@ -51,10 +51,9 @@ export const BuiltInAnalyticsSchema = Schema.Union(
      * Defaults to 365 days. Data older than this is automatically purged.
      */
     retentionDays: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 730),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 730 })),
+        Schema.annotate({
           title: 'Retention Days',
           description: 'Number of days to retain analytics data (1-730)',
         })
@@ -69,7 +68,7 @@ export const BuiltInAnalyticsSchema = Schema.Union(
      */
     excludedPaths: Schema.optional(
       Schema.Array(Schema.String).pipe(
-        Schema.annotations({
+        Schema.annotate({
           title: 'Excluded Paths',
           description: 'Glob patterns for paths excluded from tracking',
         })
@@ -91,18 +90,17 @@ export const BuiltInAnalyticsSchema = Schema.Union(
      * Must be between 1 and 120 minutes. Defaults to 30 minutes.
      */
     sessionTimeout: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 120),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 120 })),
+        Schema.annotate({
           title: 'Session Timeout',
           description: 'Session timeout in minutes (1-120)',
         })
       )
     ),
-  })
-).pipe(
-  Schema.annotations({
+  }),
+]).pipe(
+  Schema.annotate({
     identifier: 'BuiltInAnalytics',
     title: 'Built-in Analytics Configuration',
     description:
@@ -128,6 +126,6 @@ export type BuiltInAnalytics = Schema.Schema.Type<typeof BuiltInAnalyticsSchema>
  * Encoded type of BuiltInAnalyticsSchema (what goes in before validation)
  * @public
  */
-export type BuiltInAnalyticsEncoded = Schema.Schema.Encoded<typeof BuiltInAnalyticsSchema>
+export type BuiltInAnalyticsEncoded = Schema.Codec.Encoded<typeof BuiltInAnalyticsSchema>
 
 export * from './event-type'

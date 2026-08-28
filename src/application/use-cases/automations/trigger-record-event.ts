@@ -8,12 +8,15 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from './build-guest-session'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import { evaluateRecordTriggerCondition } from './record-trigger-filters'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -59,8 +62,8 @@ export interface TriggerRecordEventInput {
  */
 const watchFieldsChanged = (
   watchFields: readonly string[],
-  record: Record<string, unknown>,
-  previousRecord: Record<string, unknown> | undefined
+  record: Readonly<Record<string, unknown>>,
+  previousRecord: Readonly<Record<string, unknown>> | undefined
 ): boolean => {
   if (previousRecord === undefined) return true
   return watchFields.some((field) => {
@@ -81,20 +84,22 @@ interface RecordEventMatchInput {
   readonly event: 'create' | 'update' | 'delete'
   readonly record: Record<string, unknown>
   readonly previousRecord: Record<string, unknown> | undefined
+  readonly pausedNames: ReadonlySet<string>
 }
 
 /**
  * Filter app.automations down to record-triggered automations whose trigger
  * config matches the (tableName, event) tuple AND, for `update` events,
- * passes `watchFields`/`condition` gates if configured. Disabled automations
- * are excluded so an admin can pause a misbehaving workflow without uninstall.
+ * passes `watchFields`/`condition` gates if configured. Automations that are
+ * OFF — config-disabled OR operationally paused — are excluded, so an operator
+ * can stop a misbehaving workflow without editing config or uninstalling.
  */
 const findMatchingRecordAutomations = (
   input: RecordEventMatchInput
 ): readonly NonNullable<App['automations']>[number][] => {
-  const { app, tableName, event, record, previousRecord } = input
+  const { app, tableName, event, record, previousRecord, pausedNames } = input
   return (app.automations ?? []).filter((automation) => {
-    if (automation.enabled === false) return false
+    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
     const { trigger } = automation
     if (trigger.type !== 'record') return false
     if (trigger.table !== tableName) return false
@@ -166,7 +171,10 @@ const singleUserFieldNames = (app: App, tableName: string): readonly string[] =>
  * so the id lives on the PROTOTYPE (non-enumerable: JSON serialization of the
  * envelope and Object.keys/spread behavior are unaffected).
  */
-const withIdToString = (columns: Record<string, unknown>, id: string): Record<string, unknown> =>
+const withIdToString = (
+  columns: Readonly<Record<string, unknown>>,
+  id: string
+): Readonly<Record<string, unknown>> =>
   Object.assign(Object.create({ toString: () => id }), columns) as Record<string, unknown>
 
 /**
@@ -194,7 +202,7 @@ const withIdToString = (columns: Record<string, unknown>, id: string): Record<st
  */
 const firstReverseRowOrEmpty = (
   rows: readonly Record<string, unknown>[]
-): Record<string, unknown> => rows[0] ?? {}
+): Readonly<Record<string, unknown>> => rows[0] ?? {}
 
 /**
  * Generic single-field hydration core shared by the user (GAP-20) and
@@ -246,11 +254,11 @@ const hydrateUserFields = (input: {
       Effect.gen(function* () {
         const value = record[fieldName]
         if (typeof value !== 'string' || value.length === 0) return undefined
-        const metaResult = yield* Effect.either(
+        const metaResult = yield* Effect.result(
           comments.getUserMetadataById({ session, userId: value })
         )
-        if (metaResult._tag === 'Left' || !metaResult.right) return undefined
-        return [fieldName, withIdToString({ ...metaResult.right }, value)] as const
+        if (metaResult._tag === 'Failure' || !metaResult.success) return undefined
+        return [fieldName, withIdToString({ ...metaResult.success }, value)] as const
       })
     )
     return overlay === undefined ? record : { ...record, ...overlay }
@@ -389,18 +397,18 @@ const hydrateReverseCollections = (input: {
       reverseFields,
       ({ field, relatedTable: childTable, reverseFk }) =>
         Effect.gen(function* () {
-          const rowsResult = yield* Effect.either(
+          const rowsResult = yield* Effect.result(
             dataSource.fetchRecords(childTable, {
               filter: [{ field: reverseFk, operator: 'eq', value: parentId }],
             })
           )
           // On a fetch error, omit the collection (leave the raw miss).
-          if (rowsResult._tag === 'Left') return undefined
+          if (rowsResult._tag === 'Failure') return undefined
           // Attach the FIRST reverse row's column map (or `{}` when empty) so
           // `<collection>.<column>` resolves the configured sink in both the
           // Handlebars and legacy resolvers — and survives the JSON round-trip
           // into `trigger_data` that a retry/replay re-reads.
-          const collection = firstReverseRowOrEmpty(rowsResult.right)
+          const collection = firstReverseRowOrEmpty(rowsResult.success)
           return [field, collection] as const
         })
     )
@@ -444,17 +452,17 @@ const hydrateRelationshipFields = (input: {
         if ((typeof value !== 'string' && typeof value !== 'number') || value === '') {
           return undefined
         }
-        const rowResult = yield* Effect.either(
+        const rowResult = yield* Effect.result(
           dataSource.fetchSingleRecord(relatedTable, 'id', String(value))
         )
-        if (rowResult._tag === 'Left' || rowResult.right === undefined) return undefined
+        if (rowResult._tag === 'Failure' || rowResult.success === undefined) return undefined
         // GAP-J2: extend the GAP-J1 column map with the related table's
         // one-to-many reciprocal collections, keyed on reverseFk = parentId.
         const columns = yield* hydrateReverseCollections({
           app,
           relatedTable,
           parentId: String(value),
-          columns: rowResult.right,
+          columns: rowResult.success,
         })
         return [field, withIdToString(columns, String(value))] as const
       })
@@ -478,16 +486,22 @@ export const triggerRecordEventAutomations = (
 ): Effect.Effect<
   void,
   never,
-  ExecuteAutomationRunRequirements | CommentRepository | DataSourceRepository
+  | ExecuteAutomationRunRequirements
+  | CommentRepository
+  | DataSourceRepository
+  | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
     const { app, tableName, event, record, previousRecord, processEnv, userId } = input
+    // Entry point: one read of the operational pauses per record event.
+    const pausedNames = yield* loadPausedAutomationNames
     const matching = findMatchingRecordAutomations({
       app,
       tableName,
       event,
       record,
       previousRecord,
+      pausedNames,
     })
     if (matching.length === 0) return
 
@@ -517,7 +531,7 @@ export const triggerRecordEventAutomations = (
       { concurrency: 1, discard: true }
     )
   }).pipe(
-    Effect.catchAllCause((cause) =>
+    Effect.catchCause((cause) =>
       Effect.sync(() => {
         logError('[automation:record-event] dispatch failure', cause)
       })

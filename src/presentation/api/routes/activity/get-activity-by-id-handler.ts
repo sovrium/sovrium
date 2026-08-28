@@ -34,10 +34,10 @@ export async function getActivityByIdHandler(c: Context) {
 
   const program = GetActivityById(activityId).pipe(provideActivityLive)
 
-  const result = await runRequestEffect(c, program.pipe(Effect.either))
+  const result = await runRequestEffect(c, program.pipe(Effect.result))
 
-  if (result._tag === 'Left') {
-    const error = result.left
+  if (result._tag === 'Failure') {
+    const error = result.failure
 
     // Handle specific error types
     if (error._tag === 'InvalidActivityIdError') {
@@ -74,7 +74,7 @@ export async function getActivityByIdHandler(c: Context) {
     )
   }
 
-  const activity = result.right
+  const activity = result.success
 
   return c.json(activity, 200)
 }

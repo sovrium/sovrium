@@ -46,7 +46,7 @@ import { emitTelemetryLog, type LogAttributes } from '@/infrastructure/telemetry
  * - warn: Warning messages for potential issues
  * - error: Error messages for failures
  */
-export class Logger extends Context.Tag('Logger')<
+export class Logger extends Context.Service<
   Logger,
   {
     readonly debug: (message: string, attributes?: LogAttributes) => Effect.Effect<void>
@@ -58,7 +58,7 @@ export class Logger extends Context.Tag('Logger')<
       attributes?: LogAttributes
     ) => Effect.Effect<void>
   }
->() {}
+>()('Logger') {}
 
 /**
  * Live logger implementation.

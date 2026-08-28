@@ -42,7 +42,7 @@
  * middleware envelope.
  */
 
-import { Effect, Stream } from 'effect'
+import { Effect, Queue, Stream } from 'effect'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
 import {
   joinPresence,
@@ -106,17 +106,30 @@ export async function handlePresence(c: Context, app: App): Promise<Response> {
   const appId = app.name
   const snapshot = joinPresence({ appId, connectionId, pagePath, entry })
 
-  // Stream.async lifts the channel-manager's listener-callback shape into an
-  // Effect.Stream. The returned cleanup Effect unsubscribes the listener
-  // when the stream is interrupted (which the bridge does on lifetime /
-  // abort / drain failure via `Effect.race`'s interruption).
-  const source = Stream.async<Record<string, unknown>>((emit) => {
-    const unsubscribe = addChannelListener(presenceChannel(appId, pagePath), (event) => {
-      // eslint-disable-next-line functional/no-expression-statements -- emit is the Stream.async side-effect API
-      void emit.single(event)
+  // Stream.callback lifts the channel-manager's listener-callback shape into an
+  // Effect.Stream. The registered finalizer unsubscribes the listener when the
+  // stream is interrupted (which the bridge does on lifetime / abort / drain
+  // failure via `Effect.race`'s interruption).
+  // EFFECT 4: `Stream.async(emit => cleanupEffect)` is replaced by
+  // `Stream.callback(queue => effect)` (migration/v3-to-v4.md:14924). Two
+  // things change, not one:
+  //   - the push handle is a Queue, so `emit.single(x)` becomes
+  //     `Queue.offerUnsafe(queue, x)` — still synchronous, which the
+  //     listener callback requires;
+  //   - the RETURNED effect is no longer the cleanup. v3 treated it as the
+  //     finalizer; v4 just runs it, so the unsubscribe has to be registered
+  //     with `Effect.addFinalizer` against the stream's Scope or it silently
+  //     never runs and the listener leaks on every disconnect.
+  const source = Stream.callback<Record<string, unknown>>((queue) =>
+    Effect.gen(function* () {
+      const unsubscribe = addChannelListener(presenceChannel(appId, pagePath), (event) => {
+        // eslint-disable-next-line functional/no-expression-statements -- synchronous push into the stream queue
+        Queue.offerUnsafe(queue, event)
+      })
+
+      yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribe()))
     })
-    return Effect.sync(() => unsubscribe())
-  })
+  )
 
   return runEffectSse(c, source, (event) => ({ kind: 'data', payload: event }), {
     preamble: [{ type: 'presence-sync', pagePath, users: snapshot }],

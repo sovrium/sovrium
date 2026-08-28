@@ -7,10 +7,13 @@
 
 import { Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -72,15 +75,24 @@ export interface TriggerFormSubmissionInput {
 
 /**
  * Filter `app.automations` down to form-triggered automations whose
- * `trigger.form` matches the submitted form name. Disabled automations
- * are excluded so an admin can pause a misbehaving workflow.
+ * `trigger.form` matches the submitted form name. Automations that are OFF —
+ * config-disabled OR operationally paused — are excluded, so an operator can
+ * stop a misbehaving workflow without editing config.
+ *
+ * NOTE the downstream consequence at the call site: when this returns empty,
+ * the submission ledger goes straight `received` → `done`. That is the SAME
+ * lifecycle a config-disabled form automation has always produced, and it is
+ * the right one — the submission itself succeeded; there is simply no
+ * automation left to wait for. A paused automation must not strand a
+ * submission in `processing` forever.
  */
 const findMatchingFormAutomations = (
   app: App,
-  formName: string
+  formName: string,
+  pausedNames: ReadonlySet<string>
 ): readonly NonNullable<App['automations']>[number][] =>
   (app.automations ?? []).filter((automation) => {
-    if (automation.enabled === false) return false
+    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
     const { trigger } = automation
     if (trigger.type !== 'form') return false
     return trigger.form === formName
@@ -165,7 +177,7 @@ const advanceLedgerStatus = (
         statusReason: reason ?? null,
       })
       .pipe(
-        Effect.catchAllCause((cause) =>
+        Effect.catchCause((cause) =>
           Effect.sync(() => {
             logError('[automation:form-submission] ledger updateStatus failure', cause)
           })
@@ -194,10 +206,16 @@ const advanceLedgerStatus = (
  */
 export const triggerFormSubmissionAutomations = (
   input: TriggerFormSubmissionInput
-): Effect.Effect<void, never, ExecuteAutomationRunRequirements | FormSubmissionRepository> =>
+): Effect.Effect<
+  void,
+  never,
+  ExecuteAutomationRunRequirements | FormSubmissionRepository | AutomationPauseRepository
+> =>
   Effect.gen(function* () {
     const { app, formName, processEnv, userId, submissionId } = input
-    const matching = findMatchingFormAutomations(app, formName)
+    // Entry point: one read of the operational pauses per submission.
+    const pausedNames = yield* loadPausedAutomationNames
+    const matching = findMatchingFormAutomations(app, formName, pausedNames)
 
     if (matching.length === 0) {
       // No automation: lifecycle is `received` -> `done` directly.
@@ -227,7 +245,7 @@ export const triggerFormSubmissionAutomations = (
     const outcome = collapseToLedgerOutcome(results)
     yield* advanceLedgerStatus(submissionId, outcome.status, outcome.reason)
   }).pipe(
-    Effect.catchAllCause((cause) =>
+    Effect.catchCause((cause) =>
       Effect.sync(() => {
         logError('[automation:form-submission] dispatch failure', cause)
       })

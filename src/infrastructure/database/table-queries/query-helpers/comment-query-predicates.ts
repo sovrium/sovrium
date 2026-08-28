@@ -17,9 +17,31 @@ export function activeCommentById(commentId: string) {
   return and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt))
 }
 
-/** Active (non-deleted) comments by record ID */
-export function activeCommentsByRecordId(recordId: string) {
-  return and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt))
+/**
+ * Active (non-deleted) comments on one record OF ONE TABLE.
+ *
+ * The `table_id` clause is load-bearing, not decoration. Record ids are
+ * PER-TABLE sequences, so record `1` exists in every table of an app — keying
+ * a comment thread on `record_id` alone resolves the comments of every
+ * same-numbered record in the app. That leaked one table's commenter
+ * identities (and, through `listCommentAuthorEmailsForRecord`, their EMAIL
+ * ADDRESSES) into an unrelated table's thread, and it is why a
+ * comment-posted automation on `tickets` record 1 could notify the
+ * commenters of `memos` record 1. Matches the granularity
+ * {@link approvedGuestCommentByEmail} has always keyed on.
+ *
+ * `tableId` is the caller's table key as stored on the row — the raw
+ * `:tableId` URL segment, which `validateTable` accepts as either the table's
+ * numeric id or its name. Writes (`createComment`) and reads go through that
+ * same segment, so they agree; the read-state watermark
+ * (`comment_read_state`) is keyed identically.
+ */
+export function activeCommentsByRecordId(tableId: string, recordId: string) {
+  return and(
+    eq(recordComments.tableId, tableId),
+    eq(recordComments.recordId, recordId),
+    isNull(recordComments.deletedAt)
+  )
 }
 
 /**
@@ -63,11 +85,21 @@ export function approvedGuestCommentByEmail(tableId: string, guestEmail: string)
  * `includeAllStatuses: false` so the safe default (approved-only) applies.
  * The portable `eq(status, 'approved')` clause works on both Postgres and
  * SQLite.
+ *
+ * Table-scoped for the same reason as {@link activeCommentsByRecordId} —
+ * without it, listing a record's comments returns every same-numbered
+ * record's comments across the whole app, bodies and author identities
+ * included.
  */
-export function visibleCommentsByRecordId(recordId: string, includeAllStatuses: boolean) {
+export function visibleCommentsByRecordId(
+  tableId: string,
+  recordId: string,
+  includeAllStatuses: boolean
+) {
   return includeAllStatuses
-    ? activeCommentsByRecordId(recordId)
+    ? activeCommentsByRecordId(tableId, recordId)
     : and(
+        eq(recordComments.tableId, tableId),
         eq(recordComments.recordId, recordId),
         isNull(recordComments.deletedAt),
         eq(recordComments.status, 'approved')

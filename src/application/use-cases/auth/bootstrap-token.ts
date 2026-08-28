@@ -120,14 +120,14 @@ export const generateBootstrapTokenIfNeeded = (
       // env-var bootstrap is in play — the bootstrap-token window is closed.
       // Hard-purge any pre-existing pending tokens so a stale row from an
       // earlier no-config boot can't be claimed.
-      yield* repo.purgeAll()
+      yield* repo.purgeAll
       return { kind: 'skipped', reason: 'env-var-bootstrap' } as const
     }
     if (!context.userTableIsEmpty) {
       // A user already exists — the bootstrap window has closed.
       // Purge any stale tokens so the `system.sovrium_bootstrap_tokens`
       // table is empty and the route returns 404 to all callers.
-      yield* repo.purgeAll()
+      yield* repo.purgeAll
       return { kind: 'skipped', reason: 'users-exist' } as const
     }
 

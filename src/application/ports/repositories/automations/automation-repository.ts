@@ -21,7 +21,7 @@ export class AutomationDatabaseError extends Data.TaggedError('AutomationDatabas
  * Provides type-safe database operations for automation definitions.
  * Implementation lives in infrastructure layer.
  */
-export class AutomationRepository extends Context.Tag('AutomationRepository')<
+export class AutomationRepository extends Context.Service<
   AutomationRepository,
   {
     readonly findById: (
@@ -30,7 +30,7 @@ export class AutomationRepository extends Context.Tag('AutomationRepository')<
     readonly findByName: (
       name: string
     ) => Effect.Effect<Record<string, unknown> | undefined, AutomationDatabaseError>
-    readonly list: () => Effect.Effect<readonly Record<string, unknown>[], AutomationDatabaseError>
+    readonly list: Effect.Effect<readonly Record<string, unknown>[], AutomationDatabaseError>
     readonly create: (definition: {
       readonly name: string
       readonly trigger: Record<string, unknown>
@@ -43,4 +43,4 @@ export class AutomationRepository extends Context.Tag('AutomationRepository')<
     ) => Effect.Effect<Record<string, unknown>, AutomationDatabaseError>
     readonly delete: (id: string) => Effect.Effect<void, AutomationDatabaseError>
   }
->() {}
+>()('AutomationRepository') {}

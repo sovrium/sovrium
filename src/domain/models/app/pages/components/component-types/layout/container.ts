@@ -16,7 +16,7 @@ import { visibilityFields } from '../modules/visibility'
 
 export const ContainerTypeLiteral = Schema.Literal('container')
 
-export const ContainerElementSchema = Schema.Literal(
+export const ContainerElementSchema = Schema.Literals([
   'div',
   'section',
   'main',
@@ -24,8 +24,8 @@ export const ContainerElementSchema = Schema.Literal(
   'nav',
   'header',
   'footer',
-  'article'
-).annotations({
+  'article',
+]).annotate({
   title: 'Container Element',
   description: 'HTML element to render. Defaults to "div".',
 })

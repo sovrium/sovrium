@@ -99,7 +99,9 @@ export const TOOL_FILTER_OPERATORS = [
  * `sort.field` are enums of those columns so the model is steered to valid args
  * (the server still re-validates as the security boundary).
  */
-const buildQueryParameters = (columns: ReadonlyArray<string>): Record<string, unknown> => {
+const buildQueryParameters = (
+  columns: ReadonlyArray<string>
+): Readonly<Record<string, unknown>> => {
   const columnEnum = [...columns]
   return {
     type: 'object',
@@ -150,7 +152,9 @@ const buildQueryParameters = (columns: ReadonlyArray<string>): Record<string, un
  * accepts only an optional `filters` array (same shape as the query tool); an
  * empty / filter-only args object counts all readable rows.
  */
-const buildCountParameters = (columns: ReadonlyArray<string>): Record<string, unknown> => {
+const buildCountParameters = (
+  columns: ReadonlyArray<string>
+): Readonly<Record<string, unknown>> => {
   const columnEnum = [...columns]
   return {
     type: 'object',

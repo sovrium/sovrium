@@ -28,9 +28,8 @@ import { BucketPermissionsSchema } from './permissions'
  * ```
  */
 export const BucketNameSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z][a-z0-9-]*$/),
-  Schema.maxLength(63),
-  Schema.annotations({
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(63)),
+  Schema.annotate({
     title: 'Bucket Name',
     description:
       'Bucket name: lowercase, alphanumeric, hyphens. Must start with a letter. Max 63 characters.',
@@ -86,7 +85,7 @@ export const BucketSchema = Schema.Struct({
    *  Defaults to false (private). Public buckets serve files without signed URLs. */
   public: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Whether files are publicly accessible. Defaults to false (private). Public buckets serve files without signed URLs.',
       })
@@ -97,8 +96,8 @@ export const BucketSchema = Schema.Struct({
    *  Overrides the global STORAGE_MAX_FILE_SIZE env var for this bucket. */
   maxFileSize: Schema.optional(
     Schema.Int.pipe(
-      Schema.greaterThanOrEqualTo(1),
-      Schema.annotations({
+      Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+      Schema.annotate({
         description: 'Maximum file size in bytes. Overrides global STORAGE_MAX_FILE_SIZE.',
         examples: [2_097_152, 10_485_760, 52_428_800],
       })
@@ -109,8 +108,8 @@ export const BucketSchema = Schema.Struct({
    *  When omitted, all file types are accepted. */
   allowedMimeTypes: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           "Allowed MIME types for uploads. Supports wildcards (e.g., 'image/*'). When omitted, all types accepted.",
         examples: [
@@ -125,7 +124,7 @@ export const BucketSchema = Schema.Struct({
   /** Per-bucket permission configuration */
   permissions: Schema.optional(BucketPermissionsSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Bucket',
     title: 'Bucket',
     description:

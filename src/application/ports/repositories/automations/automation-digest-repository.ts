@@ -41,7 +41,7 @@ export interface DigestReleaseSort {
  * a row with the same key already exists in the bucket, the insert is
  * skipped silently and `digestSize` reflects the pre-existing count.
  */
-export class AutomationDigestRepository extends Context.Tag('AutomationDigestRepository')<
+export class AutomationDigestRepository extends Context.Service<
   AutomationDigestRepository,
   {
     /**
@@ -78,4 +78,4 @@ export class AutomationDigestRepository extends Context.Tag('AutomationDigestRep
       readonly limit?: number
     }) => Effect.Effect<readonly unknown[], AutomationDigestDatabaseError>
   }
->() {}
+>()('AutomationDigestRepository') {}

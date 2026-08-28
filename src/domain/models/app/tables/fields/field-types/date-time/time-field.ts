@@ -27,28 +27,26 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const TimeFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('time'),
-      timeFormat: Schema.optional(
-        Schema.Literal('12-hour', '24-hour').pipe(
-          Schema.annotations({
-            description: 'Time display format (12-hour with AM/PM or 24-hour)',
-            examples: ['12-hour', '24-hour'],
-          })
-        )
-      ),
-      default: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Default time value in HH:MM:SS format',
-            examples: ['09:00:00', '17:30:00', '00:00:00'],
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('time'),
+    timeFormat: Schema.optional(
+      Schema.Literals(['12-hour', '24-hour']).pipe(
+        Schema.annotate({
+          description: 'Time display format (12-hour with AM/PM or 24-hour)',
+          examples: ['12-hour', '24-hour'],
+        })
+      )
+    ),
+    default: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Default time value in HH:MM:SS format',
+          examples: ['09:00:00', '17:30:00', '00:00:00'],
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Time Field',
     description:
       'Stores time-only values without a date component. Used for schedules, opening hours, and time slots.',

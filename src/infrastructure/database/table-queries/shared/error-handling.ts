@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Data } from 'effect'
 import {
   classifyDriverFailure,
   CONSTRAINT_MESSAGES,
@@ -13,6 +14,65 @@ import {
 import { DatabaseError, ValidationError } from '@/infrastructure/database'
 
 /* eslint-disable functional/prefer-immutable-types -- Error handler factories for Effect.tryPromise catch: returns mutable Error class instances, parameter signature fixed as (error: unknown) by Effect API */
+
+/**
+ * Tagged carrier for a rejection that an INNER `Effect.tryPromise` must hand to
+ * an OUTER handler without altering what that handler sees.
+ *
+ * Two batch validators (`batch-delete` / `batch-restore`) probe one record per
+ * id inside a transaction, and their outer wrapper is the thing that owns error
+ * mapping: it composes `Validation failed: ${original.message}` and stores the
+ * ORIGINAL driver error as `cause`. The inner probes therefore used the identity
+ * mapper `(error) => error`, which left the Effect error channel `unknown`
+ * (`unknownInEffectCatch`); narrowing to the global `Error` only traded that for
+ * `globalErrorInEffectCatch`. Both rules want a tag.
+ *
+ * Tagging on the way IN and {@link unwrapPassthrough}ing at the outer handler
+ * satisfies them while leaving the observable result byte-identical: the
+ * composed message still reads from the original, and the `DatabaseError`'s
+ * `cause` still points AT the original rather than at a carrier. That last part
+ * is a tested contract, not a nicety — `classifyDriverFailure` walks the cause
+ * chain to decide 404 vs 409 vs an alertable 500, and `driver-failure.test.ts`
+ * pins the `Validation failed: …` wrapper shape specifically.
+ *
+ * `runEffectInTx` re-throws through `Cause.squash`, which preserves identity, so
+ * the carrier constructed here is the value the outer handler receives.
+ */
+export class PassthroughError extends Data.TaggedError('PassthroughError')<{
+  readonly message: string
+  readonly cause: unknown
+}> {}
+
+/**
+ * Catch handler that tags a rejection for later {@link unwrapPassthrough}.
+ *
+ * `message` mirrors the original so that anything reading the carrier WITHOUT
+ * unwrapping still sees the real text rather than `undefined`.
+ *
+ * @param error - the thrown value from a rejected promise
+ * @returns a tagged carrier holding the original as `cause`
+ */
+export function passthroughError(error: unknown): PassthroughError {
+  return new PassthroughError({
+    message: error instanceof Error ? error.message : String(error),
+    cause: error,
+  })
+}
+
+/**
+ * Recover the value a {@link passthroughError} carried, or pass anything else
+ * through untouched.
+ *
+ * Outer handlers call this FIRST so their message composition and their `cause`
+ * both refer to the original throw, keeping the cause chain at the depth
+ * `classifyDriverFailure` was tested against.
+ *
+ * @param error - a caught value that may be a {@link PassthroughError}
+ * @returns the carried original, or `error` itself when it is not a carrier
+ */
+export function unwrapPassthrough(error: unknown): unknown {
+  return error instanceof PassthroughError ? error.cause : error
+}
 
 /**
  * Create a catch handler that preserves known error types and wraps unknowns in DatabaseError.

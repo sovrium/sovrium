@@ -74,7 +74,7 @@ interface PublishRecordChangeInput {
  */
 const toRecordPayload = (
   recordId: string | number,
-  raw: Record<string, unknown> | undefined
+  raw: Readonly<Record<string, unknown>> | undefined
 ): Readonly<{ id: string | number; fields: Readonly<Record<string, unknown>> }> | undefined => {
   if (!raw) return undefined
   const { id: _id, ...rest } = raw
@@ -90,7 +90,7 @@ const toRecordPayload = (
  */
 export const publishRecordChange = (input: PublishRecordChangeInput): void => {
   const { appId, tableName, event, recordId, record, oldRecord, origin } = input
-  const changeEvent: Record<string, unknown> = {
+  const changeEvent: Readonly<Record<string, unknown>> = {
     type: 'change',
     event,
     table: tableName,

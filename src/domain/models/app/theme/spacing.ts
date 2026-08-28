@@ -49,12 +49,14 @@ import { Schema } from 'effect'
  * ```
  *
  */
-export const SpacingConfigSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-z]+(-[a-z]+)*$/, {
-      message: () => 'Spacing key must use kebab-case (e.g., container-small, not containerSmall)',
-    }),
-    Schema.annotations({
+export const SpacingConfigSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-z]+(-[a-z]+)*$/, {
+        message: 'Spacing key must use kebab-case (e.g., container-small, not containerSmall)',
+      })
+    ),
+    Schema.annotate({
       title: 'Spacing Token Name',
       description: 'Kebab-case name for spacing token (e.g., container-small, not containerSmall)',
       examples: [
@@ -68,8 +70,8 @@ export const SpacingConfigSchema = Schema.Record({
       ],
     })
   ),
-  value: Schema.String.pipe(
-    Schema.annotations({
+  Schema.String.pipe(
+    Schema.annotate({
       title: 'Spacing Value',
       description:
         'Spacing value as Tailwind utility classes or CSS values (rem, px, em, %). Supports responsive variants (sm:, md:, lg:) and multiple classes.',
@@ -86,9 +88,9 @@ export const SpacingConfigSchema = Schema.Record({
         '1.5em',
       ],
     })
-  ),
-}).pipe(
-  Schema.annotations({
+  )
+).pipe(
+  Schema.annotate({
     title: 'Spacing Configuration',
     description: 'Spacing design tokens for consistent layout',
     examples: [

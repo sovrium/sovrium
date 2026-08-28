@@ -22,7 +22,7 @@ export const StateGetActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** State key to retrieve */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'State key to retrieve (supports template variables)',
       })
     ),
@@ -30,8 +30,8 @@ export const StateGetActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
         })
@@ -39,7 +39,7 @@ export const StateGetActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'StateGetAction',
     title: 'State Get Action',
     description: 'Retrieve a value from key-value state by key',

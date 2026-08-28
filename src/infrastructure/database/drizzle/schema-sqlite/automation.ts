@@ -46,6 +46,36 @@ export const automationDefinitions = systemTable(
 )
 
 /**
+ * Automation Pauses Table
+ *
+ * sqlite-core mirror of `schema/automation.ts` → `automationPauses`. See that
+ * file for the full rationale (why the pause is name-keyed, in its own table,
+ * and not a column on `automation_definitions` nor a runtime write to the
+ * config's `automations[].enabled`).
+ *
+ * The two dialect trees are kept in sync BY HAND — there is no parity test —
+ * so any change here must be mirrored there in the same commit, with a new
+ * incremental migration generated for BOTH dialects.
+ */
+export const automationPauses = systemTable(
+  'automation_pauses',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    /** UNIQUE — see the Postgres mirror: it is what makes "pause twice" idempotent. */
+    automationName: text('automation_name').notNull().unique(),
+    pausedByUserId: text('paused_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    pausedAt: integer('paused_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [index('automation_pauses_automationName_idx').on(table.automationName)]
+)
+
+/**
  * Automation Runs Table
  *
  * Tracks execution history of automations including status, duration, and errors.

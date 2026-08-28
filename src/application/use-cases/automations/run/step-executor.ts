@@ -21,7 +21,7 @@
 import { Duration, Effect } from 'effect'
 import {
   actionKey,
-  noopActionHandler,
+  missingActionHandler,
   type ActionHandler,
   type ActionOutcome,
 } from '../action-handlers'
@@ -88,7 +88,7 @@ const redactString = (
 const redactRecord = (
   value: Readonly<Record<string, unknown>>,
   ctx: StepContext
-): Record<string, unknown> =>
+): Readonly<Record<string, unknown>> =>
   redactSecretsForApp(
     value,
     ctx.app.env,
@@ -185,13 +185,15 @@ const withActionTimeout = (
 ): Effect.Effect<ActionOutcome, never, StepRequirements> => {
   if (timeoutMs === undefined) return invocation
   const stepName = String(action['name'] ?? 'action')
-  return Effect.timeoutTo(invocation, {
+  // EFFECT 4: see `overview-block-timeout.ts` — `timeoutTo` -> `timeoutOrElse`
+  // with an Effect fallback; `onSuccess` was the identity.
+  return Effect.timeoutOrElse(invocation, {
     duration: Duration.millis(timeoutMs),
-    onSuccess: (outcome): ActionOutcome => outcome,
-    onTimeout: (): ActionOutcome => ({
-      status: 'failure',
-      error: `action '${stepName}' timed out after ${String(timeoutMs)}ms`,
-    }),
+    orElse: (): Effect.Effect<ActionOutcome> =>
+      Effect.succeed({
+        status: 'failure',
+        error: `action '${stepName}' timed out after ${String(timeoutMs)}ms`,
+      }),
   })
 }
 
@@ -241,7 +243,7 @@ const stepRetry = (
         // `retryIndex` is 1-indexed by `dispatchWithRetry`'s `Array.from`
         // expression; attempt 1 was the first invocation, so the Nth
         // retry is attempt N+1.
-        Effect.zipRight(invoke(retryIndex + 1)),
+        Effect.andThen(invoke(retryIndex + 1)),
         Effect.map((next) => ({
           outcome: next,
           retryCount: state.retryCount + 1,
@@ -321,7 +323,7 @@ const dispatchWithRetry = (input: {
     }
     const result = yield* Effect.reduce(
       Array.from({ length: maxRetries }, (_v, i) => i + 1),
-      initial,
+      () => initial,
       (state, retryIndex) => stepRetry(state, retryIndex, retry, invoke)
     )
     return projectRetryResult(result, retry)
@@ -377,7 +379,7 @@ const shouldPropagateFailure = (
 const foldStepOutput = (
   acc: RunAccumulator,
   stepName: string,
-  out: Record<string, unknown> | undefined
+  out: Readonly<Record<string, unknown>> | undefined
 ): {
   readonly actions: RunAccumulator['actions']
   readonly lastOutput: RunAccumulator['lastOutput']
@@ -579,10 +581,15 @@ export const executeStep = (
       : { ...ctx.templateContext, ...stepsView, steps: stepsView }
     const subst = isCode ? props : resolveTriggerInValue(props, stepTemplateContext)
     const resolvedProps = resolveEnvInValue(subst, ctx.envLookup) as Record<string, unknown>
+    // An unregistered key FAILS the step rather than silently succeeding. Every
+    // action AppSchema can declare has a handler — asserted by
+    // `registry-schema-coverage.test.ts` — so no config an author can write
+    // reaches the fallback. `ref` never arrives here either: `expandRefActions`
+    // rewrites it to its target before the run loop starts.
     const handler =
       ctx.handlers.get(
         actionKey(String(rawAction['type'] ?? ''), rawAction['operator'] as string | undefined)
-      ) ?? noopActionHandler
+      ) ?? missingActionHandler
     const runContext = {
       previousSteps: acc.actions,
       triggerData: ctx.triggerData,

@@ -13,12 +13,12 @@ import { visibilityFields } from '../modules/visibility'
 
 export const ImageTypeLiteral = Schema.Literal('image')
 
-export const ImageVariantSchema = Schema.Literal(
+export const ImageVariantSchema = Schema.Literals([
   'default',
   'avatar',
   'thumbnail',
-  'hero'
-).annotations({
+  'hero',
+]).annotate({
   title: 'Image Variant',
   description: 'Image presentation variant.',
 })

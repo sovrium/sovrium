@@ -93,11 +93,13 @@ export const DataTableRowExpandSchema = Schema.Struct({
    */
   fields: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1, {
-        message: () =>
-          'rowExpand.fields must name at least one field, or be omitted to show every field of the bound table',
-      }),
-      Schema.annotations({
+      Schema.check(
+        Schema.isMinLength(1, {
+          message:
+            'rowExpand.fields must name at least one field, or be omitted to show every field of the bound table',
+        })
+      ),
+      Schema.annotate({
         description:
           "Field names shown in the expanded record, in this order (default: every declared field of the bound table). Types, labels and descriptions resolve from the table's field schema.",
         examples: [['name', 'stage', 'amount']],
@@ -106,7 +108,7 @@ export const DataTableRowExpandSchema = Schema.Struct({
   ),
   /** `false` renders a read-only record with no save affordance (default: true). */
   canEdit: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Whether the expanded record can be edited and saved (default: true)',
     })
   ),
@@ -117,14 +119,14 @@ export const DataTableRowExpandSchema = Schema.Struct({
    */
   title: Schema.optional(
     Schema.String.pipe(
-      Schema.nonEmptyString({ message: () => 'rowExpand.title must not be empty' }),
-      Schema.annotations({
+      Schema.check(Schema.isNonEmpty({ message: 'rowExpand.title must not be empty' })),
+      Schema.annotate({
         description: 'Accessible name of the expanded record panel',
         examples: ['Deal detail', "Détail de l'enregistrement"],
       })
     )
   ),
-}).annotations({
+}).annotate({
   title: 'Data Table Row Expand',
   description: 'Expanded record panel opened from a row, derived from the bound table',
 })
@@ -136,10 +138,10 @@ export const DataTableRowExpandSchema = Schema.Struct({
  * `false` is accepted and means the same as omitting the key — it exists so an
  * author can switch an expand off in place without deleting the line.
  */
-export const DataTableRowExpandConfigSchema = Schema.Union(
+export const DataTableRowExpandConfigSchema = Schema.Union([
   Schema.Boolean,
-  DataTableRowExpandSchema
-).annotations({
+  DataTableRowExpandSchema,
+]).annotate({
   title: 'Data Table Row Expand Config',
   description:
     'true to expand rows into a record panel derived from the bound table, or an object to narrow the fields, make it read-only, or name it',

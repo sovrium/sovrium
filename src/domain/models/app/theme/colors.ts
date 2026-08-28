@@ -25,11 +25,13 @@ import { Schema } from 'effect'
  * @see [internal ref]#/patternProperties
  */
 export const ColorNameSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z]+[a-z0-9]*(-[a-z0-9]+)*$/, {
-    message: () =>
-      'Color name must use kebab-case format: lowercase letters and numbers separated by hyphens (e.g., "primary", "text-muted", "gray-500")',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-z]+[a-z0-9]*(-[a-z0-9]+)*$/, {
+      message:
+        'Color name must use kebab-case format: lowercase letters and numbers separated by hyphens (e.g., "primary", "text-muted", "gray-500")',
+    })
+  ),
+  Schema.annotate({
     title: 'Color Name',
     description: 'Color name in kebab-case format',
     examples: ['primary', 'primary-hover', 'gray-500', 'text-muted'],
@@ -58,10 +60,12 @@ export const ColorNameSchema = Schema.String.pipe(
  * @see [internal ref]#/patternProperties/.../pattern
  */
 export const ColorValueSchema = Schema.String.pipe(
-  Schema.pattern(/^#[0-9A-Fa-f]{6}$|^#[0-9A-Fa-f]{8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/, {
-    message: () => 'Color value must be in hex (#RRGGBB or #RRGGBBAA), rgb(a), or hsl(a) format',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^#[0-9A-Fa-f]{6}$|^#[0-9A-Fa-f]{8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(/, {
+      message: 'Color value must be in hex (#RRGGBB or #RRGGBBAA), rgb(a), or hsl(a) format',
+    })
+  ),
+  Schema.annotate({
     title: 'Color Value',
     description: 'Color value in hex, rgb, rgba, hsl, or hsla format',
     examples: ['#007bff', '#007bff80', 'rgb(0, 123, 255)', 'hsl(210, 100%, 50%)'],
@@ -94,11 +98,8 @@ export const ColorValueSchema = Schema.String.pipe(
  * ```
  *
  */
-export const ColorsConfigSchema = Schema.Record({
-  key: ColorNameSchema,
-  value: ColorValueSchema,
-}).pipe(
-  Schema.annotations({
+export const ColorsConfigSchema = Schema.Record(ColorNameSchema, ColorValueSchema).pipe(
+  Schema.annotate({
     title: 'Color Palette',
     description: 'Color design tokens with support for semantic naming and variants',
   })

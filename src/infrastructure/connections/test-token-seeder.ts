@@ -162,7 +162,7 @@ const buildAuthorizedSeedToken = (kind: 'access' | 'refresh', userId: string): s
  * entirely in production anyway (`runSeedTestConnectionTokens` checks
  * `isProduction`).
  */
-const isLoopbackTokenUrl = (props: Record<string, unknown>): boolean => {
+const isLoopbackTokenUrl = (props: Readonly<Record<string, unknown>>): boolean => {
   const { tokenUrl } = props
   if (typeof tokenUrl !== 'string' || tokenUrl === '') return false
   return tokenUrl.includes('127.0.0.1') || tokenUrl.includes('://localhost')
@@ -223,7 +223,7 @@ interface SeederHints {
   readonly seedExpiredFor: readonly string[]
 }
 
-const readSeederHints = (props: Record<string, unknown>): SeederHints => {
+const readSeederHints = (props: Readonly<Record<string, unknown>>): SeederHints => {
   const raw = props['_test']
   if (raw === null || raw === undefined || typeof raw !== 'object') {
     return { seedExpired: false, seedExpiredFor: [] }
@@ -254,7 +254,7 @@ const readSeederHints = (props: Record<string, unknown>): SeederHints => {
  * [internal ref].
  */
 const chooseSeederTokens = (
-  props: Record<string, unknown>,
+  props: Readonly<Record<string, unknown>>,
   userId: string,
   userEmail: string | undefined
 ): {
@@ -375,23 +375,55 @@ export const seedTestConnectionTokensProgram = (input: {
  * lazily on first OAuth authorize for a connection, so the on-disk
  * shape is identical to the post-authorize state for OAuth2.
  */
+/**
+ * Is this connection `app`-scoped — i.e. does it share ONE credential across
+ * the whole installation? The default when `scope` is omitted is `app`, per
+ * the published contract and `effectiveScope` on the connection routes.
+ */
+const isAppScoped = (conn: OAuth2ConnectionShape): boolean =>
+  conn.type === 'oauth2' && (conn.props as Record<string, unknown>)['scope'] !== 'user'
+
 export const seedAllConnectionDefinitionsProgram = (input: {
   readonly connections: readonly OAuth2ConnectionShape[] | undefined
 }) =>
   Effect.gen(function* () {
     if (input.connections === undefined || input.connections.length === 0) return
     const connRepo = yield* ConnectionRepository
+    const tokenRepo = yield* ConnectionTokenRepository
     yield* Effect.forEach(
       input.connections,
       (conn) =>
         Effect.gen(function* () {
           const provider = String((conn.props as Record<string, unknown>)['provider'] ?? conn.name)
-          yield* connRepo.upsertByName({
+          const row = yield* connRepo.upsertByName({
             name: conn.name,
             provider,
             type: conn.type,
             credentials: {},
           })
+          // Upgrade repair (see `adoptLegacyUserTokenAsApp`). An installation
+          // that authorized this connection before the shared store existed
+          // has its credential filed under the operator who clicked Connect;
+          // post-upgrade the dashboard reads that row and renders "connected"
+          // while the runtime reads an empty shared store and every unattended
+          // automation fails. Nothing in the UI reports the disagreement.
+          //
+          // This has to happen HERE and not in a SQL migration: `scope` lives
+          // in app config, not in the database, so a migration cannot tell an
+          // app-scoped connection's rows from genuine per-user ones it must
+          // not touch. This seeder already iterates `app.connections[]` and so
+          // already has the config in scope.
+          //
+          // Idempotent and non-destructive — a no-op once adopted, and the
+          // injection path repeats the attempt for databases that reach the
+          // pre-upgrade shape after boot (an older backup restored, a `scope`
+          // flipped while the process is running).
+          if (!isAppScoped(conn)) return
+          const connectionId = String(row['id'] ?? '')
+          if (connectionId === '') return
+          yield* tokenRepo
+            .adoptLegacyUserTokenAsApp({ connectionId })
+            .pipe(Effect.orElseSucceed(() => false))
         }),
       { concurrency: 1 }
     )
@@ -408,11 +440,11 @@ export const runSeedAllConnectionDefinitions = async (input: {
 }): Promise<void> => {
   if (input.connections === undefined || input.connections.length === 0) return
   const program = seedAllConnectionDefinitionsProgram(input).pipe(
-    Effect.provide(ConnectionRepositoryLive)
+    Effect.provide(Layer.mergeAll(ConnectionRepositoryLive, ConnectionTokenRepositoryLive))
   )
-  const result = await Effect.runPromise(Effect.either(program))
-  if (result._tag === 'Left') {
-    logError('[connections] startup connection-definition seed failed', result.left)
+  const result = await Effect.runPromise(Effect.result(program))
+  if (result._tag === 'Failure') {
+    logError('[connections] startup connection-definition seed failed', result.failure)
   }
 }
 
@@ -435,11 +467,11 @@ export const runSeedTestConnectionTokens = async (input: {
 
   const layers = Layer.mergeAll(ConnectionRepositoryLive, ConnectionTokenRepositoryLive)
   const program = seedTestConnectionTokensProgram(input).pipe(Effect.provide(layers))
-  const result = await Effect.runPromise(Effect.either(program))
-  if (result._tag === 'Left') {
+  const result = await Effect.runPromise(Effect.result(program))
+  if (result._tag === 'Failure') {
     // Don't throw — user creation must succeed even if the test seeder
     // fails (e.g. because the schema migration hasn't run yet). Log so
     // the failure surfaces in the test output.
-    logError('[connections] test-token seed failed', result.left)
+    logError('[connections] test-token seed failed', result.failure)
   }
 }

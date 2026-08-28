@@ -29,8 +29,8 @@ export const RecordReadActionSchema = Schema.Struct({
   operator: Schema.Literal('read'),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Target table name' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Target table name' })
     ),
     /**
      * Primary key shorthand. Equivalent to a single-condition filter
@@ -42,7 +42,7 @@ export const RecordReadActionSchema = Schema.Struct({
      */
     id: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({ description: 'Record id (or template) for primary-key reads' })
+        Schema.annotate({ description: 'Record id (or template) for primary-key reads' })
       )
     ),
     /**
@@ -53,14 +53,16 @@ export const RecordReadActionSchema = Schema.Struct({
     filter: Schema.optional(ConditionGroupSchema),
   }),
 }).pipe(
-  Schema.filter((action) => {
-    const { id, filter } = action.props
-    if (id === undefined && filter === undefined) {
-      return 'record/read requires either props.id or props.filter to be provided'
-    }
-    return true
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.makeFilter((action) => {
+      const { id, filter } = action.props
+      if (id === undefined && filter === undefined) {
+        return 'record/read requires either props.id or props.filter to be provided'
+      }
+      return true
+    })
+  ),
+  Schema.annotate({
     identifier: 'RecordReadAction',
     title: 'Record Read Action',
     description: 'Query records from a table by primary key or filter conditions',

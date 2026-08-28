@@ -21,6 +21,6 @@ export const tabsFields = {
   ...i18nFields,
   tabsOrientation: Schema.optional(TabsOrientationSchema),
   defaultTab: Schema.optional(
-    Schema.String.annotations({ description: 'ID of the tab that is active by default' })
+    Schema.String.annotate({ description: 'ID of the tab that is active by default' })
   ),
 } as const

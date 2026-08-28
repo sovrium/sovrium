@@ -96,13 +96,13 @@ const handleDirectory = async (c: Context): Promise<Response> => {
     return yield* repository.listPickableUsers({ term, limit })
   }).pipe(Effect.provide(UserDirectoryRepositoryLive))
 
-  const result = await runRequestEffect(c, program.pipe(Effect.either))
-  if (result._tag === 'Left') {
-    logError('[users] directory read failed', result.left, requestLogAttributes(c))
+  const result = await runRequestEffect(c, program.pipe(Effect.result))
+  if (result._tag === 'Failure') {
+    logError('[users] directory read failed', result.failure, requestLogAttributes(c))
     return c.json({ error: 'Failed to read the user directory' }, 500)
   }
 
-  return c.json({ users: result.right }, 200)
+  return c.json({ users: result.success }, 200)
 }
 
 /**

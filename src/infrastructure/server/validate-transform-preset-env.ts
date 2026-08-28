@@ -15,7 +15,11 @@ import { TransformPresetError } from '@/infrastructure/errors/transform-preset-e
  * An operator misconfiguring image-transform presets must be caught at startup,
  * not on the first `?preset=` request.
  */
-export const validateTransformPresetEnv = (): Effect.Effect<void, TransformPresetError> => {
-  const result = parsePresetEnv(process.env.STORAGE_TRANSFORM_PRESETS)
-  return result.ok ? Effect.void : Effect.fail(new TransformPresetError(result.error))
-}
+export const validateTransformPresetEnv: Effect.Effect<void, TransformPresetError> =
+  // `Effect.suspend`, not a bare expression: `parsePresetEnv` reads `process.env`
+  // EAGERLY, so hoisting it to module scope would both run it at import time and
+  // freeze the value a test sets afterwards. Suspending keeps the read per-run.
+  Effect.suspend(() => {
+    const result = parsePresetEnv(process.env.STORAGE_TRANSFORM_PRESETS)
+    return result.ok ? Effect.void : Effect.fail(new TransformPresetError(result.error))
+  })

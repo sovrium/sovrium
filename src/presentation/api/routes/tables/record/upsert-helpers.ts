@@ -6,8 +6,13 @@
  */
 
 import { Effect } from 'effect'
-import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
-import { hasCreatePermission, hasUpdatePermission } from '@/domain/validators/permission-evaluators'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { isResolvableColumnName } from '@/domain/models/shared/system-fields'
+import { filterReadableFields } from '@/domain/validators/field-read-filter'
+import {
+  hasCreatePermissionForRoles,
+  hasUpdatePermissionForRoles,
+} from '@/domain/validators/permission-evaluators'
 import { findMissingRequiredFieldNames } from '@/domain/validators/required-fields'
 import { checkForExistingRecords } from '@/infrastructure/layers/table-layer'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
@@ -41,27 +46,82 @@ export async function validateUpsertRequiredFields(
 }
 
 /**
+ * The first merge field that resolves to no column of `table`, or undefined when
+ * every one of them does — including when the table itself is unknown, which is
+ * the TABLE lookup's verdict to give, not this one's.
+ *
+ * System columns (`id`, the timestamps, the authorship columns) exist without
+ * appearing in `fields[]`, so the shared `isResolvableColumnName` predicate is
+ * used rather than a bare `fields[]` lookup — the same predicate both halves of
+ * the record-filter field check already share, so the two cannot come to
+ * opposite verdicts about one name.
+ */
+function unresolvableMergeField(
+  table: NonNullable<App['tables']>[number] | undefined,
+  fieldsToMergeOn: readonly string[]
+): string | undefined {
+  if (!table) return undefined
+  const declaredFieldNames = new Set(table.fields.map((f) => f.name))
+  return fieldsToMergeOn.find((name) => !isResolvableColumnName(declaredFieldNames, name))
+}
+
+/**
  * Check upsert permissions including update permission check
  * This function determines if records will be created or updated, then checks appropriate permissions
  * Note: Field-level permissions should be checked separately before calling this function
+ *
+ * The create-vs-update decision is made by asking the database whether the merge
+ * fields already match a row, and BOTH of that question's "no match" answers
+ * used to be reachable by a merge field naming no column — the caller supplies
+ * `fieldsToMergeOn` under a bare `z.array(z.string())`. A name absent from the
+ * record drops it out of the WHERE-clause builder, so the helper answers "no
+ * match" without issuing any SQL; a name present in the record reaches SQL as an
+ * identifier, and SQLite — the zero-config default engine — resolves a
+ * double-quoted name matching no column to a string LITERAL, so the comparison
+ * counts zero rows. Either way the update gate was skipped.
+ *
+ * The gate now fails CLOSED: a merge field that cannot be shown to name a column
+ * cannot be shown not to match a row either, so the stricter permission is
+ * demanded. The caller-visible effect is what makes it a security fix rather
+ * than tidying — a correctly-spelled merge field earned a 404 (S1
+ * anti-enumeration) while a misspelled one earned a 500 out of the database
+ * layer, so the pair told an unauthorised caller which names are real columns.
+ * The two are now indistinguishable.
  */
 
 export async function checkUpsertPermissionsWithUpdateCheck(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** Group names the caller belongs to (un-prefixed) — group-aware RBAC. */
+  readonly userGroups: readonly string[]
   readonly records: readonly { fields: Record<string, unknown> }[]
   readonly fieldsToMergeOn: readonly string[]
   readonly c: Context
 }): Promise<{ allowed: true } | { allowed: false; response: Response }> {
-  const { app, tableName, userRole, records, fieldsToMergeOn, c } = config
+  const { app, tableName, userRole, userGroups, records, fieldsToMergeOn, c } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Check if any records will be updated
-  const hasExistingRecords = await checkForExistingRecords(tableName, records, fieldsToMergeOn)
+  // Both gates below evaluate the caller's EFFECTIVE ROLES — their global role
+  // plus a `group:<name>` entry per membership — not a bare role string. A bare
+  // string can never match a `group:` permission entry, because that overlay
+  // exists only in the set `buildEffectiveRoles` produces. The create branch is
+  // the sharper miss of the two: its batch-create sibling
+  // (`batch/batch-routes.ts:225`) was already group-aware, and upsert was simply
+  // missed by that sweep.
+  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
+
+  const unresolvable = unresolvableMergeField(table, fieldsToMergeOn)
+
+  // Check if any records will be updated. An unresolvable merge field skips the
+  // query outright: its answer would be "no match" on SQLite and a rejected
+  // promise on Postgres, and neither is evidence that no row matches.
+  const hasExistingRecords =
+    unresolvable !== undefined ||
+    (await checkForExistingRecords(tableName, records, fieldsToMergeOn))
 
   // If records will be updated, check update permission
-  if (hasExistingRecords && !hasUpdatePermission(table, userRole, app.tables)) {
+  if (hasExistingRecords && !hasUpdatePermissionForRoles(table, effectiveRoles, app.tables)) {
     return {
       allowed: false,
       response: c.json(
@@ -76,10 +136,28 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   }
 
   // Check table-level create permission (for new records)
-  if (!hasCreatePermission(table, userRole, app.tables)) {
+  if (!hasCreatePermissionForRoles(table, effectiveRoles, app.tables)) {
     return {
       allowed: false,
       response: forbiddenCreateResponse(c),
+    }
+  }
+
+  // Both gates cleared, so the caller may already read and write this table and
+  // naming the bad field reveals nothing they cannot see. Answering here also
+  // keeps a caller's typo from reaching the database layer, which used to blame
+  // the operator for it with a 500.
+  if (unresolvable !== undefined) {
+    return {
+      allowed: false,
+      response: c.json(
+        {
+          success: false,
+          message: `Merge field '${unresolvable}' does not exist in table '${tableName}'`,
+          code: 'VALIDATION_ERROR',
+        },
+        400
+      ),
     }
   }
 
@@ -342,10 +420,11 @@ export async function validateUpsertRequest(config: {
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  readonly userGroups: readonly string[]
   readonly records: readonly { fields: Record<string, unknown> }[]
   readonly fieldsToMergeOn: readonly string[]
 }) {
-  const { c, app, tableName, userRole, records, fieldsToMergeOn } = config
+  const { c, app, tableName, userRole, userGroups, records, fieldsToMergeOn } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Single-record upsert: reject if ANY protected fields present
@@ -381,6 +460,7 @@ export async function validateUpsertRequest(config: {
     app,
     tableName,
     userRole,
+    userGroups,
     records: strippedRecords,
     fieldsToMergeOn,
     c,
@@ -391,9 +471,7 @@ export async function validateUpsertRequest(config: {
 
   // Validate required fields
   const requiredCheck = await checkRequiredFields(table, strippedRecords, c)
-  if (!requiredCheck.success) {
-    return { success: false as const, response: requiredCheck.response }
-  }
+  if (!requiredCheck.success) return { success: false as const, response: requiredCheck.response }
 
   return { success: true as const, strippedRecords }
 }

@@ -32,11 +32,11 @@ export const ApprovalRequestActionSchema = Schema.Struct({
      * implemented; do not read it as a security guarantee today.
      */
     approvers: Schema.optional(
-      Schema.Union(
+      Schema.Union([
         Schema.Literal('all-admins'),
-        Schema.Array(TemplateStringSchema).pipe(Schema.minItems(1))
-      ).pipe(
-        Schema.annotations({
+        Schema.Array(TemplateStringSchema).pipe(Schema.check(Schema.isMinLength(1))),
+      ]).pipe(
+        Schema.annotate({
           description: 'Who can approve: "all-admins" or an array of email addresses / role names',
         })
       )
@@ -44,7 +44,7 @@ export const ApprovalRequestActionSchema = Schema.Struct({
 
     /** Message shown to approvers */
     message: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Message displayed to approvers (supports template variables)',
       })
     ),
@@ -54,17 +54,17 @@ export const ApprovalRequestActionSchema = Schema.Struct({
       Schema.Array(
         Schema.Struct({
           value: Schema.String.pipe(
-            Schema.annotations({ description: 'Option value returned as step output' })
+            Schema.annotate({ description: 'Option value returned as step output' })
           ),
           label: Schema.optional(
             Schema.String.pipe(
-              Schema.annotations({ description: 'Human-readable label for this option' })
+              Schema.annotate({ description: 'Human-readable label for this option' })
             )
           ),
         })
       ).pipe(
-        Schema.minItems(2),
-        Schema.annotations({
+        Schema.check(Schema.isMinLength(2)),
+        Schema.annotate({
           description:
             'Approval options (minimum 2). Default: [{ value: "approve" }, { value: "reject" }]',
         })
@@ -74,8 +74,8 @@ export const ApprovalRequestActionSchema = Schema.Struct({
     /** Timeout before automatic action */
     timeout: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^\d+\s*(m|h|d)$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^\d+\s*(m|h|d)$/)),
+        Schema.annotate({
           description: 'How long to wait for approval (e.g., "24h", "7d"). No timeout by default.',
         })
       )
@@ -83,8 +83,8 @@ export const ApprovalRequestActionSchema = Schema.Struct({
 
     /** What happens when timeout is reached */
     onTimeout: Schema.optional(
-      Schema.Literal('approve', 'reject', 'escalate').pipe(
-        Schema.annotations({
+      Schema.Literals(['approve', 'reject', 'escalate']).pipe(
+        Schema.annotate({
           description:
             'Action on timeout: approve (auto-approve), reject (auto-reject), escalate (notify escalation)',
         })
@@ -93,15 +93,15 @@ export const ApprovalRequestActionSchema = Schema.Struct({
 
     /** How to notify approvers */
     notifyVia: Schema.optional(
-      Schema.Literal('email', 'webhook', 'both').pipe(
-        Schema.annotations({
+      Schema.Literals(['email', 'webhook', 'both']).pipe(
+        Schema.annotate({
           description: 'Notification channel for approvers (default: email)',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ApprovalRequestAction',
     title: 'Approval Request Action',
     description: 'Pause execution and request human approval. Requires app.auth to be configured.',

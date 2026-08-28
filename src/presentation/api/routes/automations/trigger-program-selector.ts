@@ -13,6 +13,7 @@ import {
 } from '@/application/use-cases/automations/run-automation'
 import { runCronAutomationOnDemand } from '@/application/use-cases/automations/run-cron-automation'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -32,7 +33,11 @@ export function selectTriggerProgram(input: {
   readonly userRole: string | undefined
   readonly body: unknown
   readonly userId: string | undefined
-}): Effect.Effect<RunAutomationResult, RunAutomationError, ExecuteAutomationRunRequirements> {
+}): Effect.Effect<
+  RunAutomationResult,
+  RunAutomationError,
+  ExecuteAutomationRunRequirements | AutomationPauseRepository
+> {
   const { name, app, userRole, body, userId } = input
   const shared = {
     name,

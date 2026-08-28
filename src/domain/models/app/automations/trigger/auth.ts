@@ -15,13 +15,13 @@ import { Schema } from 'effect'
 export const AuthTriggerSchema = Schema.Struct({
   type: Schema.Literal('auth'),
   events: Schema.Array(
-    Schema.Literal('signUp', 'signIn', 'signOut', 'passwordReset', 'emailVerified')
+    Schema.Literals(['signUp', 'signIn', 'signOut', 'passwordReset', 'emailVerified'])
   ).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'Authentication events that trigger this automation' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Authentication events that trigger this automation' })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AuthTrigger',
     title: 'Auth Trigger',
     description: 'Trigger automation on authentication events (sign-up, sign-in, etc.)',

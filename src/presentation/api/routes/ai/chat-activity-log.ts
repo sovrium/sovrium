@@ -43,7 +43,7 @@ export interface ChatActivityLogEntry {
  */
 export const recordActivityLogRow = async (row: AiActivityLogRow): Promise<void> =>
   Effect.runPromise(
-    recordAiActivity(row).pipe(provideAiActivityLogRepoLive, Effect.either, Effect.asVoid)
+    recordAiActivity(row).pipe(provideAiActivityLogRepoLive, Effect.result, Effect.asVoid)
   )
 
 /**

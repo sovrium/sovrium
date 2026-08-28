@@ -25,17 +25,21 @@ import { commonFieldProps } from '../../../shared/form-field-props'
 export const TableBoundFieldSchema = Schema.Struct({
   kind: Schema.Literal('table-field'),
   /** Column name on `submitTo.table`. */
-  column: Schema.String.pipe(Schema.minLength(1)),
+  column: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
   /** Comma-separated MIME types or extensions for attachment inputs. */
   accept: Schema.optional(Schema.String),
   /** Maximum file size (bytes) for each uploaded file. */
-  maxFileSize: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+  maxFileSize: Schema.optional(
+    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+  ),
   /** Maximum number of files for `multiple-attachments` columns. */
-  maxFiles: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+  maxFiles: Schema.optional(
+    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+  ),
   /** Render a drag-and-drop zone alongside the file picker. */
   dropZone: Schema.optional(Schema.Boolean),
   ...commonFieldProps,
-}).annotations({
+}).annotate({
   identifier: 'TableBoundField',
   title: 'Table-Bound Form Field',
   description: 'Form field bound to a column on submitTo.table',

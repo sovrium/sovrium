@@ -53,7 +53,7 @@ import { Schema } from 'effect'
  * `GET /api/auth/get-session`. Doubles as the `<field>` segment of the
  * `$session.<field>` interpolation token.
  */
-export const SessionFieldSchema = Schema.Literal('email', 'name', 'role', 'id').annotations({
+export const SessionFieldSchema = Schema.Literals(['email', 'name', 'role', 'id']).annotate({
   identifier: 'SessionField',
   title: 'Session Field',
   description:
@@ -73,7 +73,7 @@ export const sessionFields = {
    * placeholder). Anonymous callers render nothing (the surface stays calm).
    */
   session: Schema.optional(
-    SessionFieldSchema.annotations({
+    SessionFieldSchema.annotate({
       description:
         "Render the signed-in caller's OWN session field (email/name/role/id), resolved client-side from GET /api/auth/get-session. Generic: any app showing 'logged in as X'. Renders nothing for anonymous callers.",
     })

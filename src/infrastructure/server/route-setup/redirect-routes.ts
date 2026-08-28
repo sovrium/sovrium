@@ -24,6 +24,7 @@
  */
 
 import { resolveRedirect } from '@/domain/utils/matching/redirect-matcher'
+import { requestSearch } from '@/infrastructure/server/request-search'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -41,12 +42,9 @@ export function setupRedirectRoutes(honoApp: Readonly<Hono>, app: App): Readonly
   const languageCodes = app.languages?.supported.map((language) => language.code) ?? []
 
   return honoApp.get('*', (c, next) => {
-    // Read the query string off the raw URL rather than re-serializing parsed
-    // params: the target must carry exactly the string the visitor arrived with.
-    const queryIndex = c.req.url.indexOf('?')
-    const search = queryIndex === -1 ? '' : c.req.url.slice(queryIndex)
-
-    const resolution = resolveRedirect(rules, languageCodes, c.req.path, search)
+    // The target must carry exactly the string the visitor arrived with — see
+    // `requestSearch` for why the parsed params are not usable here.
+    const resolution = resolveRedirect(rules, languageCodes, c.req.path, requestSearch(c))
     if (resolution === undefined) return next()
 
     return c.redirect(resolution.location, resolution.status)

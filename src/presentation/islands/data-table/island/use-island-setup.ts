@@ -22,6 +22,7 @@ import {
   type SavedViewConfigPayload,
 } from '../../hooks/use-saved-views'
 import { useSharedFilter } from '../../hooks/use-shared-filter'
+import { useGridRefresh, useSortRefusal } from '../../hooks/use-sort-refusal'
 import {
   densityToHeight,
   heightToDensity,
@@ -304,10 +305,14 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
       pollIntervalMs: dataSource.pollIntervalMs,
     })
 
-  const handleRefresh = useCallback(
-    () => void queryClient.invalidateQueries({ queryKey }),
-    [queryClient, queryKey]
-  )
+  // A sort is adopted optimistically: the header click writes state, and that
+  // state feeds the request. This makes the adoption REVERSIBLE — a read that
+  // fails puts the previous sort back, so the last good page returns from cache
+  // and `aria-sort` stops claiming an ordering the server refused — and leaves a
+  // notice the island renders ABOVE the grid rather than in place of it.
+  const sortRefusal = useSortRefusal(isError, error, tableState)
+
+  const handleRefresh = useGridRefresh(queryClient, queryKey, sortRefusal.clearReadError)
 
   // PG-04: when a sibling crud-form (e.g. inside
   // a quick-edit drawer) completes a successful mutation against this table,
@@ -423,7 +428,9 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     records,
     allColumns,
     sorting: effectiveSorting,
-    setSorting: tableState.setSorting,
+    // Not the raw setter: every header click goes through the refusal guard, so
+    // a sort the server declines can be taken back off the header it is drawn on.
+    setSorting: sortRefusal.onSortingChange,
     columnFilters: tableState.columnFilters,
     setColumnFilters: tableState.setColumnFilters,
     globalFilter: tableState.globalFilter,
@@ -440,6 +447,14 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     setColumnSizing: tableState.setColumnSizing,
     selectionConfig,
     totalRecords,
+    // The response's OWN declaration that it already applied the term. Absent
+    // (`undefined`) on every endpoint that does not search — the system
+    // endpoints not yet migrated, and the DB-table TRASH branch, which ignores
+    // `?q=` outright — so those grids keep narrowing the page in memory exactly
+    // as before. The DB-table LIST branch DOES declare it (`null` when no term
+    // was supplied), which is what stops it re-filtering a page the server has
+    // already filtered.
+    serverFiltered: data?.appliedQuery !== undefined,
   })
 
   // Column-width persistence is preferences-backed (DB-table-only). For a
@@ -607,6 +622,12 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     isLoading,
     isError,
     error,
+    // The last read failure the operator has not yet acted on. Distinct from
+    // `isError` deliberately: a refused sort is reverted, which returns the
+    // query to its previous cached key and clears `isError` within a frame, so
+    // a banner keyed on the live status would flash past unread — see
+    // `useSortRefusal`.
+    readError: sortRefusal.readError,
     inlineEditing,
     inlineAutoSave,
     saveIndicator,

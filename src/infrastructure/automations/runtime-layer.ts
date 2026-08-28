@@ -11,6 +11,7 @@ import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { AutomationApprovalRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-approval-repository-live'
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
+import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
 import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-repository-live'
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
@@ -39,8 +40,8 @@ import { StorageServiceLive } from '@/infrastructure/storage/storage-service-liv
  *   `http/request` handler's `connection: <name>` injection (oauth2 token
  *   lookup; static auth types do not need DB access).
  * - `ImageTransformService` (via `ImageTransformServiceLive`) for the
- *   `file/transformImage` handler's composed sharp pipeline (resize / crop
- *   + optional format conversion).
+ *   `file/transformImage` handler's composed image pipeline (resize + optional
+ *   format conversion).
  * - `AutomationApprovalRepository` (via `AutomationApprovalRepositoryLive`) for
  *   the `approval/request` handler's pending-row INSERT.
  * - `AuthRepository` (via `AuthRepositoryLive`) for the `auth/*` handlers
@@ -58,6 +59,11 @@ import { StorageServiceLive } from '@/infrastructure/storage/storage-service-liv
 export const AutomationRuntimeLayer = Layer.mergeAll(
   TableLive,
   AutomationRepositoryLive,
+  // `AutomationPauseRepository` — the operational-pause read every trigger
+  // entry point performs before dispatch (`loadPausedAutomationNames`). It
+  // belongs to the runtime layer rather than to each caller so that adding a
+  // gate to a new trigger path cannot compile-fail for want of wiring.
+  AutomationPauseRepositoryLive,
   AutomationRunRepositoryLive,
   AutomationApprovalRepositoryLive,
   AuthRepositoryLive,

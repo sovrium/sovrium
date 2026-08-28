@@ -68,15 +68,36 @@ const presentOrUndefined = (value: string | undefined): string | undefined => {
  *
  * - `trustedProxyHops === 0` — no proxy is declared, so NO forwarding header is
  *   believed at all. This is the zero-config default.
- * - `trustedProxyHops >= 1` — a proxy is declared. Single-valued headers set by
- *   the nearest proxy (`CF-Connecting-IP`, then `X-Real-IP`) win, because a
- *   client cannot append to them the way it can to a list. Otherwise the
- *   forwarding chain is read right-to-left at `chain[length - hops]`.
+ * - `trustedProxyHops >= 1` — a proxy is declared. The HOP-COUNTED
+ *   `X-Forwarded-For` chain is read first, right-to-left at
+ *   `chain[length - hops]`. Only when that yields nothing do the single-valued
+ *   headers (`CF-Connecting-IP`, then `X-Real-IP`) apply.
  *
- * A chain shorter than the declared hop count yields `undefined`: the request
- * did not arrive through the expected proxies (misconfiguration, or a caller
- * sending its own header straight to a direct-bound port), so there is nothing
- * here worth trusting and the caller decides what to do instead.
+ * WHY THE CHAIN WINS, and why the previous order was a bypass.
+ *
+ * This function used to return `CF-Connecting-IP`, then `X-Real-IP`,
+ * unconditionally and AHEAD of the chain, justified by "a client cannot append
+ * to them the way it can to a list". That reasoning conflates *appending* with
+ * *setting*. Both are ordinary request headers: nothing strips them, and
+ * `TRUSTED_PROXY_HOPS` is read as "some proxy exists", never as "this header
+ * came from it". So a caller behind the documented Caddy deployment could
+ * simply SEND its own `X-Real-IP` and shout over the chain — picking a fresh
+ * rate-limit bucket per request on every limiter that keys on this value. It
+ * did not need to forge the chain, only to out-rank it.
+ *
+ * `TRUSTED_PROXY_HOPS` is a depth, and depth is a property of the CHAIN alone:
+ * it is the one header shape whose trustworthiness the operator has actually
+ * parameterised, and `chain[length - hops]` is the entry the operator's own
+ * proxy appended — the one position a caller cannot write. The single-valued
+ * headers carry no depth information at all, so they can only be believed when
+ * the declared signal is absent: a proxy that sets `X-Real-IP` without
+ * appending to `X-Forwarded-For` (some nginx configurations) still works, but
+ * it can no longer override a chain that IS present.
+ *
+ * A chain shorter than the declared hop count yields `undefined` rather than
+ * reaching further left: the request did not arrive through the expected
+ * proxies (misconfiguration, or a caller sending its own header straight to a
+ * direct-bound port), so there is nothing there worth trusting.
  *
  * Exposed separately from {@link resolveClientIp} for the callers that must
  * distinguish "a proxy vouched for this address" from "this is merely who
@@ -90,14 +111,14 @@ export const resolveTrustedForwardedIp = (input: {
 }): string | undefined => {
   if (input.trustedProxyHops <= 0) return undefined
 
+  const chain = parseForwardedForChain(input.forwardedFor)
+  const hopCounted = chain[chain.length - input.trustedProxyHops]
+  if (hopCounted !== undefined) return hopCounted
+
   const cloudflare = presentOrUndefined(input.cfConnectingIp)
   if (cloudflare !== undefined) return cloudflare
 
-  const realIp = presentOrUndefined(input.realIp)
-  if (realIp !== undefined) return realIp
-
-  const chain = parseForwardedForChain(input.forwardedFor)
-  return chain[chain.length - input.trustedProxyHops]
+  return presentOrUndefined(input.realIp)
 }
 
 /**

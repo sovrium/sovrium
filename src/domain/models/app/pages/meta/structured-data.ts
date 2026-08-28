@@ -16,14 +16,14 @@ import { Schema } from 'effect'
  *
  * Required in all Schema.org structured data to indicate the vocabulary being used.
  */
-export const SchemaOrgContext = Schema.Literal('https://schema.org').annotations({
+export const SchemaOrgContext = Schema.Literal('https://schema.org').annotate({
   description: 'Schema.org context',
 })
 
 /**
  * Email address field
  */
-export const SchemaOrgEmail = Schema.String.annotations({
+export const SchemaOrgEmail = Schema.String.annotate({
   description: 'Email address',
   format: 'email',
 })
@@ -31,7 +31,7 @@ export const SchemaOrgEmail = Schema.String.annotations({
 /**
  * Telephone number field
  */
-export const SchemaOrgTelephone = Schema.String.annotations({
+export const SchemaOrgTelephone = Schema.String.annotate({
   description: 'Phone number',
 })
 
@@ -39,11 +39,11 @@ export const SchemaOrgTelephone = Schema.String.annotations({
  * Array of social media profile URLs
  */
 export const SchemaOrgSameAs = Schema.Array(
-  Schema.String.annotations({
+  Schema.String.annotate({
     description: 'Social media profile URL',
     format: 'uri',
   })
-).annotations({
+).annotate({
   description: 'Social media profile URLs',
   examples: [
     [
@@ -57,7 +57,7 @@ export const SchemaOrgSameAs = Schema.Array(
 /**
  * URL field for web resources
  */
-export const SchemaOrgUrl = Schema.String.annotations({
+export const SchemaOrgUrl = Schema.String.annotate({
   description: 'URL',
   format: 'uri',
 })
@@ -65,7 +65,7 @@ export const SchemaOrgUrl = Schema.String.annotations({
 /**
  * Image URL field
  */
-export const SchemaOrgImageUrl = Schema.String.annotations({
+export const SchemaOrgImageUrl = Schema.String.annotate({
   description: 'Image URL',
   format: 'uri',
 })
@@ -73,13 +73,13 @@ export const SchemaOrgImageUrl = Schema.String.annotations({
 /**
  * Helper: Create optional field
  */
-export const optional = <A, I, R>(schema: Schema.Schema<A, I, R>) => Schema.optional(schema)
+export const optional = <A, I, R>(schema: Schema.Codec<A, I, R>) => Schema.optional(schema)
 
 /**
  * Helper: Create Schema.org @type field
  */
 export const schemaType = <T extends string>(type: T) =>
-  Schema.Literal(type).annotations({
+  Schema.Literal(type).annotate({
     description: 'Schema.org type',
   })
 
@@ -87,7 +87,7 @@ export const schemaType = <T extends string>(type: T) =>
  * Helper: Create positive integer field
  */
 export const positiveInt = (description: string) =>
-  Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+  Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))).annotate({
     description,
   })
 
@@ -99,11 +99,13 @@ export const positiveInt = (description: string) =>
  * ISO 3166-1 alpha-2 country code
  */
 export const CountryCodeSchema = Schema.String.pipe(
-  Schema.pattern(/^[A-Z]{2}$/, {
-    message: () =>
-      'Country code must be ISO 3166-1 alpha-2 format (2 uppercase letters, e.g., US, FR, GB, DE, JP)',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^[A-Z]{2}$/, {
+      message:
+        'Country code must be ISO 3166-1 alpha-2 format (2 uppercase letters, e.g., US, FR, GB, DE, JP)',
+    })
+  )
+).annotate({
   description: 'ISO 3166-1 alpha-2 country code',
   examples: ['US', 'FR', 'GB', 'DE'],
 })
@@ -114,27 +116,27 @@ export const CountryCodeSchema = Schema.String.pipe(
 export const PostalAddressSchema = Schema.Struct({
   '@type': schemaType('PostalAddress'),
   streetAddress: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Street address',
     })
   ),
   addressLocality: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'City or locality',
     })
   ),
   addressRegion: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'State or region',
     })
   ),
   postalCode: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Postal or ZIP code',
     })
   ),
   addressCountry: Schema.optional(CountryCodeSchema),
-}).annotations({
+}).annotate({
   title: 'Postal Address',
   description: 'Schema.org PostalAddress structured data',
 })
@@ -151,36 +153,36 @@ export type PostalAddress = Schema.Schema.Type<typeof PostalAddressSchema>
 /**
  * Article type
  */
-export const ArticleTypeSchema = Schema.Literal(
+export const ArticleTypeSchema = Schema.Literals([
   'Article',
   'NewsArticle',
-  'BlogPosting'
-).annotations({
+  'BlogPosting',
+]).annotate({
   description: 'Article type',
 })
 
 /**
  * Article author
  */
-export const ArticleAuthorSchema = Schema.Union(
+export const ArticleAuthorSchema = Schema.Union([
   Schema.String,
   Schema.Struct({
-    '@type': Schema.Literal('Person', 'Organization').annotations({
+    '@type': Schema.Literals(['Person', 'Organization']).annotate({
       description: 'Author type',
     }),
     name: Schema.optional(
-      Schema.String.annotations({
+      Schema.String.annotate({
         description: 'Author name',
       })
     ),
     url: Schema.optional(
-      Schema.String.annotations({
+      Schema.String.annotate({
         description: 'Author profile URL',
         format: 'uri',
       })
     ),
-  })
-).annotations({
+  }),
+]).annotate({
   description: 'Article author',
 })
 
@@ -190,12 +192,12 @@ export const ArticleAuthorSchema = Schema.Union(
 export const PublisherLogoSchema = Schema.Struct({
   '@type': schemaType('ImageObject'),
   url: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Logo URL',
       format: 'uri',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Publisher logo',
 })
 
@@ -205,12 +207,12 @@ export const PublisherLogoSchema = Schema.Struct({
 export const ArticlePublisherSchema = Schema.Struct({
   '@type': schemaType('Organization'),
   name: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Publisher name',
     })
   ),
   logo: Schema.optional(PublisherLogoSchema),
-}).annotations({
+}).annotate({
   description: 'Article publisher',
 })
 
@@ -220,51 +222,51 @@ export const ArticlePublisherSchema = Schema.Struct({
 export const ArticleSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': ArticleTypeSchema,
-  headline: Schema.String.annotations({
+  headline: Schema.String.annotate({
     description: 'Article title',
   }),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Article summary',
     })
   ),
   image: Schema.optional(
-    Schema.Union(
-      Schema.String.annotations({
+    Schema.Union([
+      Schema.String.annotate({
         description: 'Article image URL',
         format: 'uri',
       }),
       Schema.Array(
-        Schema.String.annotations({
+        Schema.String.annotate({
           description: 'Article image URL',
           format: 'uri',
         })
-      )
-    ).annotations({
+      ),
+    ]).annotate({
       description: 'Article image(s)',
     })
   ),
   author: Schema.optional(ArticleAuthorSchema),
   datePublished: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Publication date',
       format: 'date-time',
     })
   ),
   dateModified: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Last modification date',
       format: 'date-time',
     })
   ),
   publisher: Schema.optional(ArticlePublisherSchema),
   mainEntityOfPage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Article's canonical URL",
       format: 'uri',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Article Schema',
   description: 'Schema.org Article structured data',
 })
@@ -290,16 +292,16 @@ export type Article = Schema.Schema.Type<typeof ArticleSchema>
 export const BreadcrumbListItemSchema = Schema.Struct({
   '@type': schemaType('ListItem'),
   position: positiveInt('Item position in breadcrumb trail'),
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: 'Breadcrumb label',
   }),
   item: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'URL to the breadcrumb page',
       format: 'uri',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Breadcrumb list item',
 })
 
@@ -309,10 +311,10 @@ export const BreadcrumbListItemSchema = Schema.Struct({
 export const BreadcrumbSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('BreadcrumbList'),
-  itemListElement: Schema.Array(BreadcrumbListItemSchema).annotations({
+  itemListElement: Schema.Array(BreadcrumbListItemSchema).annotate({
     description: 'Array of breadcrumb items',
   }),
-}).annotations({
+}).annotate({
   title: 'Breadcrumb Schema',
   description: 'Schema.org BreadcrumbList structured data',
 })
@@ -331,10 +333,10 @@ export type Breadcrumb = Schema.Schema.Type<typeof BreadcrumbSchema>
  */
 export const FaqAnswerSchema = Schema.Struct({
   '@type': schemaType('Answer'),
-  text: Schema.String.annotations({
+  text: Schema.String.annotate({
     description: 'The answer text',
   }),
-}).annotations({
+}).annotate({
   description: 'FAQ answer',
 })
 
@@ -343,11 +345,11 @@ export const FaqAnswerSchema = Schema.Struct({
  */
 export const FaqQuestionSchema = Schema.Struct({
   '@type': schemaType('Question'),
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: 'The question text',
   }),
   acceptedAnswer: FaqAnswerSchema,
-}).annotations({
+}).annotate({
   description: 'FAQ question',
 })
 
@@ -357,10 +359,10 @@ export const FaqQuestionSchema = Schema.Struct({
 export const FaqPageSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('FAQPage'),
-  mainEntity: Schema.Array(FaqQuestionSchema).annotations({
+  mainEntity: Schema.Array(FaqQuestionSchema).annotate({
     description: 'Array of questions and answers',
   }),
-}).annotations({
+}).annotate({
   title: 'FAQ Page Schema',
   description: 'Schema.org FAQPage structured data',
 })
@@ -382,11 +384,11 @@ export type FaqPage = Schema.Schema.Type<typeof FaqPageSchema>
 export const ProductBrandSchema = Schema.Struct({
   '@type': schemaType('Brand'),
   name: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Brand name',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Product brand',
 })
 
@@ -394,11 +396,13 @@ export const ProductBrandSchema = Schema.Struct({
  * ISO 4217 currency code
  */
 export const CurrencyCodeSchema = Schema.String.pipe(
-  Schema.pattern(/^[A-Z]{3}$/, {
-    message: () =>
-      'Currency code must be ISO 4217 format (3 uppercase letters, e.g., USD, EUR, GBP, JPY)',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^[A-Z]{3}$/, {
+      message:
+        'Currency code must be ISO 4217 format (3 uppercase letters, e.g., USD, EUR, GBP, JPY)',
+    })
+  )
+).annotate({
   description: 'ISO 4217 currency code',
   examples: ['USD', 'EUR', 'GBP'],
 })
@@ -409,23 +413,23 @@ export const CurrencyCodeSchema = Schema.String.pipe(
 export const ProductOfferSchema = Schema.Struct({
   '@type': schemaType('Offer'),
   price: Schema.optional(
-    Schema.Union(Schema.String, Schema.Number).annotations({
+    Schema.Union([Schema.String, Schema.Finite]).annotate({
       description: 'Product price',
     })
   ),
   priceCurrency: Schema.optional(CurrencyCodeSchema),
   availability: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Stock availability status',
     })
   ),
   url: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'URL to purchase page',
       format: 'uri',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Product offer',
 })
 
@@ -435,16 +439,16 @@ export const ProductOfferSchema = Schema.Struct({
 export const AggregateRatingSchema = Schema.Struct({
   '@type': schemaType('AggregateRating'),
   ratingValue: Schema.optional(
-    Schema.Number.annotations({
+    Schema.Finite.annotate({
       description: 'Average rating value',
     })
   ),
   reviewCount: Schema.optional(
-    Schema.Int.annotations({
+    Schema.Int.annotate({
       description: 'Total number of reviews',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Aggregate rating',
 })
 
@@ -454,44 +458,44 @@ export const AggregateRatingSchema = Schema.Struct({
 export const ProductSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('Product'),
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: 'Product name',
   }),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Product description',
     })
   ),
   image: Schema.optional(
-    Schema.Union(
-      Schema.String.annotations({
+    Schema.Union([
+      Schema.String.annotate({
         description: 'Product image URL',
         format: 'uri',
       }),
       Schema.Array(
-        Schema.String.annotations({
+        Schema.String.annotate({
           description: 'Product image URL',
           format: 'uri',
         })
-      )
-    ).annotations({
+      ),
+    ]).annotate({
       description: 'Product image(s)',
     })
   ),
   brand: Schema.optional(ProductBrandSchema),
   sku: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Stock Keeping Unit',
     })
   ),
   gtin: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Global Trade Item Number (UPC, EAN, ISBN)',
     })
   ),
   offers: Schema.optional(ProductOfferSchema),
   aggregateRating: Schema.optional(AggregateRatingSchema),
-}).annotations({
+}).annotate({
   title: 'Product Schema',
   description: 'Schema.org Product structured data',
 })
@@ -514,23 +518,23 @@ export type Product = Schema.Schema.Type<typeof ProductSchema>
 /**
  * Event attendance mode
  */
-export const EventAttendanceModeSchema = Schema.Literal(
+export const EventAttendanceModeSchema = Schema.Literals([
   'https://schema.org/OfflineEventAttendanceMode',
   'https://schema.org/OnlineEventAttendanceMode',
-  'https://schema.org/MixedEventAttendanceMode'
-).annotations({
+  'https://schema.org/MixedEventAttendanceMode',
+]).annotate({
   description: 'Event attendance mode',
 })
 
 /**
  * Event status
  */
-export const EventStatusSchema = Schema.Literal(
+export const EventStatusSchema = Schema.Literals([
   'https://schema.org/EventScheduled',
   'https://schema.org/EventCancelled',
   'https://schema.org/EventPostponed',
-  'https://schema.org/EventRescheduled'
-).annotations({
+  'https://schema.org/EventRescheduled',
+]).annotate({
   description: 'Event status',
 })
 
@@ -540,12 +544,12 @@ export const EventStatusSchema = Schema.Literal(
 export const EventLocationSchema = Schema.Struct({
   '@type': schemaType('Place'),
   name: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Venue name',
     })
   ),
   address: Schema.optional(PostalAddressSchema),
-}).annotations({
+}).annotate({
   description: 'Event location',
 })
 
@@ -553,33 +557,33 @@ export const EventLocationSchema = Schema.Struct({
  * Event organizer
  */
 export const EventOrganizerSchema = Schema.Struct({
-  '@type': Schema.Literal('Organization', 'Person').annotations({
+  '@type': Schema.Literals(['Organization', 'Person']).annotate({
     description: 'Organizer type',
   }),
   name: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Organizer name',
     })
   ),
   url: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Organizer URL',
       format: 'uri',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Event organizer',
 })
 
 /**
  * Ticket availability status
  */
-export const TicketAvailabilitySchema = Schema.Literal(
+export const TicketAvailabilitySchema = Schema.Literals([
   'https://schema.org/InStock',
   'https://schema.org/OutOfStock',
   'https://schema.org/PreOrder',
-  'https://schema.org/SoldOut'
-).annotations({
+  'https://schema.org/SoldOut',
+]).annotate({
   description: 'Ticket availability status',
 })
 
@@ -589,19 +593,19 @@ export const TicketAvailabilitySchema = Schema.Literal(
 export const EventOfferSchema = Schema.Struct({
   '@type': schemaType('Offer'),
   price: Schema.optional(
-    Schema.Union(Schema.String, Schema.Number).annotations({
+    Schema.Union([Schema.String, Schema.Finite]).annotate({
       description: 'Ticket price',
     })
   ),
   priceCurrency: Schema.optional(CurrencyCodeSchema),
   availability: Schema.optional(TicketAvailabilitySchema),
   url: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Ticket purchase URL',
       format: 'uri',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Event ticket offer',
 })
 
@@ -610,20 +614,20 @@ export const EventOfferSchema = Schema.Struct({
  */
 export const EducationEventSchema = Schema.Struct({
   '@type': schemaType('EducationEvent'),
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: 'Event name',
   }),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Event description',
     })
   ),
-  startDate: Schema.String.annotations({
+  startDate: Schema.String.annotate({
     description: 'Event start date/time (ISO 8601)',
     format: 'date-time',
   }),
   endDate: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Event end date/time (ISO 8601)',
       format: 'date-time',
     })
@@ -635,7 +639,7 @@ export const EducationEventSchema = Schema.Struct({
   offers: Schema.optional(EventOfferSchema),
   maximumAttendeeCapacity: Schema.optional(positiveInt('Maximum number of attendees')),
   minimumAttendeeCapacity: Schema.optional(positiveInt('Minimum number of attendees')),
-}).annotations({
+}).annotate({
   title: 'Education Event Schema',
   description: 'Schema.org EducationEvent structured data',
 })
@@ -665,11 +669,11 @@ export type EducationEvent = Schema.Schema.Type<typeof EducationEventSchema>
 export const PersonWorksForSchema = Schema.Struct({
   '@type': schemaType('Organization'),
   name: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Organization name',
     })
   ),
-}).annotations({
+}).annotate({
   description: "Person's employer organization",
 })
 
@@ -679,40 +683,40 @@ export const PersonWorksForSchema = Schema.Struct({
 export const PersonSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('Person'),
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: "Person's full name",
   }),
   givenName: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'First name',
     })
   ),
   familyName: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Last name',
     })
   ),
   email: Schema.optional(SchemaOrgEmail),
   telephone: Schema.optional(SchemaOrgTelephone),
   url: Schema.optional(
-    SchemaOrgUrl.annotations({
+    SchemaOrgUrl.annotate({
       description: "Person's website or profile",
     })
   ),
   image: Schema.optional(
-    SchemaOrgImageUrl.annotations({
+    SchemaOrgImageUrl.annotate({
       description: "Person's photo URL",
     })
   ),
   jobTitle: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Professional role',
     })
   ),
   worksFor: Schema.optional(PersonWorksForSchema),
   sameAs: Schema.optional(SchemaOrgSameAs),
   address: Schema.optional(PostalAddressSchema),
-}).annotations({
+}).annotate({
   title: 'Person Schema',
   description: 'Schema.org Person structured data',
 })
@@ -729,15 +733,15 @@ export type Person = Schema.Schema.Type<typeof PersonSchema>
 /**
  * Day of week for opening hours
  */
-export const DayOfWeekSchema = Schema.Literal(
+export const DayOfWeekSchema = Schema.Literals([
   'Monday',
   'Tuesday',
   'Wednesday',
   'Thursday',
   'Friday',
   'Saturday',
-  'Sunday'
-).annotations({
+  'Sunday',
+]).annotate({
   description: 'Day of the week',
 })
 
@@ -745,10 +749,12 @@ export const DayOfWeekSchema = Schema.Literal(
  * Time in HH:MM format (24-hour)
  */
 export const TimeSchema = Schema.String.pipe(
-  Schema.pattern(/^[0-9]{2}:[0-9]{2}$/, {
-    message: () => 'Time must be in HH:MM format (24-hour, e.g., 09:00, 18:30, 23:59)',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^[0-9]{2}:[0-9]{2}$/, {
+      message: 'Time must be in HH:MM format (24-hour, e.g., 09:00, 18:30, 23:59)',
+    })
+  )
+).annotate({
   description: 'Time in HH:MM format',
   examples: ['09:00', '18:00'],
 })
@@ -759,13 +765,13 @@ export const TimeSchema = Schema.String.pipe(
 export const OpeningHoursSpecificationSchema = Schema.Struct({
   '@type': schemaType('OpeningHoursSpecification'),
   dayOfWeek: Schema.optional(
-    Schema.Array(DayOfWeekSchema).annotations({
+    Schema.Array(DayOfWeekSchema).annotate({
       description: 'Days these hours apply to',
     })
   ),
-  opens: Schema.optional(TimeSchema.annotations({ description: 'Opening time' })),
-  closes: Schema.optional(TimeSchema.annotations({ description: 'Closing time' })),
-}).annotations({
+  opens: Schema.optional(TimeSchema.annotate({ description: 'Opening time' })),
+  closes: Schema.optional(TimeSchema.annotate({ description: 'Closing time' })),
+}).annotate({
   description: 'Opening hours specification',
 })
 
@@ -775,16 +781,16 @@ export const OpeningHoursSpecificationSchema = Schema.Struct({
 export const GeoCoordinatesSchema = Schema.Struct({
   '@type': schemaType('GeoCoordinates'),
   latitude: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Latitude',
     })
   ),
   longitude: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Longitude',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Geographic coordinates',
 })
 
@@ -794,55 +800,55 @@ export const GeoCoordinatesSchema = Schema.Struct({
 export const LocalBusinessSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('LocalBusiness'),
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: 'Business name',
   }),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Business description',
     })
   ),
   url: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Business website URL',
       format: 'uri',
     })
   ),
   logo: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Business logo URL',
       format: 'uri',
     })
   ),
   image: Schema.optional(
-    Schema.Union(
-      Schema.String.annotations({
+    Schema.Union([
+      Schema.String.annotate({
         description: 'Business image URL',
         format: 'uri',
       }),
       Schema.Array(
-        Schema.String.annotations({
+        Schema.String.annotate({
           description: 'Business image URL',
           format: 'uri',
         })
-      )
-    ).annotations({
+      ),
+    ]).annotate({
       description: 'Business image(s)',
     })
   ),
   email: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Contact email',
       format: 'email',
     })
   ),
   telephone: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Contact phone number',
     })
   ),
   priceRange: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Price range (e.g., '$-$$$$')",
     })
   ),
@@ -850,20 +856,20 @@ export const LocalBusinessSchema = Schema.Struct({
   geo: Schema.optional(GeoCoordinatesSchema),
   sameAs: Schema.optional(
     Schema.Array(
-      Schema.String.annotations({
+      Schema.String.annotate({
         description: 'Social media profile URL',
         format: 'uri',
       })
-    ).annotations({
+    ).annotate({
       description: 'Social media profile URLs',
     })
   ),
   openingHoursSpecification: Schema.optional(
-    Schema.Array(OpeningHoursSpecificationSchema).annotations({
+    Schema.Array(OpeningHoursSpecificationSchema).annotate({
       description: 'Opening hours specifications',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Local Business Schema',
   description: 'Schema.org LocalBusiness structured data',
 })
@@ -889,87 +895,87 @@ export type LocalBusiness = Schema.Schema.Type<typeof LocalBusinessSchema>
 export const OrganizationSchema = Schema.Struct({
   '@context': SchemaOrgContext,
   '@type': schemaType('Organization'),
-  name: Schema.String.annotations({
+  name: Schema.String.annotate({
     description: 'Organization name',
   }),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Organization description',
     })
   ),
   url: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Organization website URL',
       format: 'uri',
     })
   ),
   logo: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Organization logo URL',
       format: 'uri',
     })
   ),
   image: Schema.optional(
-    Schema.Union(
-      Schema.String.annotations({
+    Schema.Union([
+      Schema.String.annotate({
         description: 'Organization image URL',
         format: 'uri',
       }),
       Schema.Array(
-        Schema.String.annotations({
+        Schema.String.annotate({
           description: 'Organization image URL',
           format: 'uri',
         })
-      )
-    ).annotations({
+      ),
+    ]).annotate({
       description: 'Organization image(s)',
     })
   ),
   email: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Contact email',
       format: 'email',
     })
   ),
   telephone: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Contact phone number',
     })
   ),
   address: Schema.optional(PostalAddressSchema),
   sameAs: Schema.optional(
     Schema.Array(
-      Schema.String.annotations({
+      Schema.String.annotate({
         description: 'Social media profile URL',
         format: 'uri',
       })
-    ).annotations({
+    ).annotate({
       description: 'Social media profile URLs',
       examples: [['https://facebook.com/myorg', 'https://twitter.com/myorg']],
     })
   ),
   founder: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Organization founder name',
     })
   ),
   foundingDate: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Date organization was founded',
       format: 'date',
     })
   ),
   employees: Schema.optional(
-    Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+    Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))).annotate({
       description: 'Number of employees',
     })
   ),
   event: Schema.optional(
-    EducationEventSchema.annotations({
+    EducationEventSchema.annotate({
       description: 'Associated event hosted or organized by the organization',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Organization Schema',
   description: 'Schema.org Organization structured data',
 })
@@ -995,7 +1001,7 @@ export const StructuredDataSchema = Schema.Struct({
   breadcrumb: Schema.optional(BreadcrumbSchema),
   faqPage: Schema.optional(FaqPageSchema),
   educationEvent: Schema.optional(EducationEventSchema),
-}).annotations({
+}).annotate({
   title: 'Structured Data',
   description: 'Schema.org structured data for search engine understanding',
 })

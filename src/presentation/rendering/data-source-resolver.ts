@@ -5,17 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable max-lines -- data-source-resolver is the single per-section dataSource resolution surface (read-permission gate, field-level filtering, single/list/search modes, $record substitution, collection-page expansion). The [internal ref] create-permission gate added the `withCanCreateGate` stamp (2 lines past the cap); the modes share the field-filter + substitution composition, so a split would lose that cohesion. */
+/* eslint-disable max-lines -- data-source-resolver is the single per-section dataSource resolution surface (read-permission gate, field-level filtering, single/list/search modes, $record substitution, collection-page expansion). The [internal ref] create-permission gate added the `withWritePermissionGates` stamp (2 lines past the cap); the modes share the field-filter + substitution composition, so a split would lose that cohesion. */
 
 import { resolveSystemSource } from '@/domain/models/app/systemSources'
-import { hasCreatePermission, hasReadPermission } from '@/domain/validators/permission-evaluators'
+import {
+  hasCreatePermission,
+  hasInlineEditDefault,
+} from '@/domain/validators/permission-evaluators'
+import {
+  buildReadAccessPlan,
+  CANONICAL_READ_POLICY,
+  readPrincipalFromSession,
+  type ReadAccessPlan,
+  type TableLike,
+} from '@/domain/validators/read-access-plan'
 import { isListIslandMode } from '@/presentation/utils/list-island-mode'
 import {
   isRecordDrawerSystemMode,
   isRecordFieldSystemMode,
 } from '@/presentation/utils/system-detail-mode'
 import { resolveFilters, hasCurrentUserRef, scopeTablesOf } from './current-user-resolver'
-import { applyFieldLevelPermissions, getRestrictedFields } from './field-permission-filter'
+import { applyFieldLevelPermissions } from './field-permission-filter'
 import { buildRecordTemplatePatch, substituteRecordInProps } from './record-template-substitution'
 import type { App } from '@/domain/models/app'
 import type {
@@ -116,13 +126,135 @@ export function validateDataSourceFields(
   )
 }
 
-/** Replaces $record.fieldName placeholders with actual field values from a record. */
-export function substituteRecordVars(text: string, record: Record<string, unknown>): string {
+/**
+ * Replaces $record.fieldName placeholders with actual field values from a record.
+ *
+ * `transformValue` is applied to each substituted VALUE and never to the
+ * surrounding template — that asymmetry is the whole point. It is what lets
+ * {@link substituteRecordInContent} escape record data inside an author-written
+ * HTML template while leaving the author's own markup byte-identical. By the
+ * time the two are one string, provenance is gone and no downstream consumer
+ * can tell them apart.
+ */
+export function substituteRecordVars(
+  text: string,
+  record: Record<string, unknown>,
+  transformValue?: (value: string) => string
+): string {
   return text.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_, fieldName: string) => {
     const value = record[fieldName]
-    return value !== undefined ? String(value) : ''
+    const rendered = value !== undefined ? String(value) : ''
+    return transformValue ? transformValue(rendered) : rendered
   })
 }
+
+/**
+ * Private resolver→renderer signal: "the AUTHOR wrote a TEXT template here, so
+ * whatever the record put into it must render as text."
+ *
+ * Spelled as a `data-*` attribute deliberately. Element props are spread onto
+ * the DOM node by every renderer, and `convertCustomPropsToDataAttributes`
+ * (ui/sections/props/prop-conversion.ts) rewrites any non-`data-` custom prop
+ * into one anyway — so a `data-` name is the only spelling that neither trips a
+ * React unknown-attribute warning nor gets silently renamed in transit.
+ * `renderHTMLElement` strips it before it reaches the element. Renderers that
+ * pass content through React children are already safe and simply ignore it.
+ *
+ * Mirrors the existing `_dataSourceError` resolver→renderer channel.
+ */
+const CONTENT_PLAIN_TEXT_ATTR = 'data-content-plain-text'
+
+/** Does this template's OWN first character make it HTML, before any record data? */
+const templateIsAuthorHtml = (template: string): boolean => template.trim().startsWith('<')
+
+/**
+ * HTML-escape a record value that is being interpolated into an author's HTML
+ * template — a destination where entities genuinely DO decode.
+ *
+ * The full five-character escape, not just the tag delimiters, because an
+ * author HTML template may interpolate into either a text or an ATTRIBUTE
+ * context and the resolver cannot tell which:
+ *
+ *     content: '<p>$record.bio</p>'          → text context
+ *     content: '<img alt="$record.bio">'     → attribute context
+ *
+ * Escaping only `<` and `>` closes the first and leaves the second wide open: a
+ * stored value of `" onerror="alert(1)` walks straight out of the `alt`
+ * attribute and adds an event handler to the author's own tag. Quotes are what
+ * shut that door, and `&` must be escaped first or the escaping is itself
+ * forgeable (`&lt;` in the data would otherwise decode to a real `<`).
+ */
+const escapeRecordValueForHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+/**
+ * Substitutes `$record.*` into a component's `content` WITHOUT letting record
+ * data decide whether the result is rendered as HTML or as text.
+ *
+ * WHY THIS EXISTS. `renderHTMLElement`
+ * (ui/sections/renderers/element-renderers/html-element-renderer.tsx) renders
+ * `content` through `dangerouslySetInnerHTML` when it starts with `<`. That
+ * test used to run on the POST-substitution string — so the config author wrote
+ * the literal `'$record.bio'`, which plainly is not HTML, and the RECORD then
+ * decided at request time which branch that config took. A stored value
+ * beginning with `<` flipped the element out of React's escaped-children path
+ * into the raw-HTML path: stored XSS against every later visitor, plantable
+ * through whatever ordinary write path the app exposes, no authentication
+ * required. The renderer's own docstring asserted the opposite ("content is
+ * from server configuration, not user input"), which is precisely why the
+ * branch read as safe to every previous reader.
+ *
+ * THE DECISION IS TAKEN FROM THE AUTHOR'S TEMPLATE ALONE. Two cases:
+ *
+ *  - Author wrote HTML (`'<p>$record.bio</p>'`) — the markup is theirs and
+ *    stays byte-identical, but each substituted VALUE is HTML-escaped, so
+ *    record data contributes text and never markup. Entities decode at this
+ *    destination, so `Smith & Sons` renders as `Smith & Sons`.
+ *  - Author wrote TEXT (`'$record.bio'`, `'Bio: $record.bio'`) — the value is
+ *    substituted VERBATIM and {@link CONTENT_PLAIN_TEXT_ATTR} pins the text
+ *    branch. React escapes it on output, so the payload survives as readable
+ *    text. Escaping here instead would be wrong twice over: React children do
+ *    NOT decode entities, so `&lt;` would render as the visible characters
+ *    `&lt;` rather than as `<`, corrupting every legitimate `a < b` and
+ *    `Q4 > Q3` in every bound record — and double-escaping is a display defect
+ *    wearing a security fix's clothes.
+ *
+ * THE EXPOSURE WAS NEVER UNIFORM, and nothing in the schema signalled it:
+ * `text` ends in `renderParagraph`/`renderHeading` (React children — always
+ * escaped, always safe), while `container`, `flex`, `grid`, `card`,
+ * `accordion`, `modal`, `sidebar`, `toast`, `list-item` and the unknown-type
+ * fallback all route through the sniffing sink. This function runs for every
+ * content site regardless, so the posture no longer depends on which component
+ * type an author happened to wrap the value in.
+ */
+function substituteRecordInContent(
+  content: Component['content'],
+  record: Record<string, unknown>
+): { readonly content: Component['content']; readonly forcePlainText: boolean } {
+  if (typeof content !== 'string') return { content, forcePlainText: false }
+  if (templateIsAuthorHtml(content)) {
+    return {
+      content: substituteRecordVars(content, record, escapeRecordValueForHtml),
+      forcePlainText: false,
+    }
+  }
+  const substituted = substituteRecordVars(content, record)
+  // Only flag the case that would actually flip the sink — an author TEXT
+  // template whose substituted result now begins with `<`.
+  return { content: substituted, forcePlainText: templateIsAuthorHtml(substituted) }
+}
+
+/** Adds the plain-text pin to a component's props when the sink would flip. */
+const withPlainTextPin = (
+  props: Component['props'],
+  forcePlainText: boolean
+): Component['props'] =>
+  forcePlainText ? { ...(props ?? {}), [CONTENT_PLAIN_TEXT_ATTR]: true } : props
 
 /**
  * Substitutes `$record.<field>` tokens inside `dataSource.filter[].value`
@@ -185,16 +317,23 @@ export function substituteRecordInComponent(
   if (component.type === 'record-field') {
     return injectRecordFieldValue(component, record, tableName)
   }
+  const resolvedContent = substituteRecordInContent(component.content, record)
   return {
     ...component,
-    props: component.props ? substituteRecordInProps(component.props, record) : component.props,
-    content:
-      typeof component.content === 'string'
-        ? substituteRecordVars(component.content, record)
-        : component.content,
+    props: withPlainTextPin(
+      component.props ? substituteRecordInProps(component.props, record) : component.props,
+      resolvedContent.forcePlainText
+    ),
+    content: resolvedContent.content,
     dataSource: component.dataSource
       ? substituteRecordInDataSource(component.dataSource, record)
       : component.dataSource,
+    // A STRING CHILD needs no escaping and must not get any. Children are
+    // rendered by `renderChildren` (ui/sections/component-renderer.tsx) as React
+    // children, which escape on output and never reach a
+    // `dangerouslySetInnerHTML` sink — only `content` is sniffed. Escaping here
+    // too would double-escape: `<` would become `&lt;`, which React then emits
+    // as `&amp;lt;`, so the visitor sees the literal characters `&lt;`.
     children: component.children?.map((child: Component | string) =>
       typeof child === 'string'
         ? substituteRecordVars(child, record)
@@ -260,13 +399,12 @@ export function substituteRecordInCollectionTemplate(
     return injectRecordFieldValue(component, record, tableName)
   }
 
-  const baseProps = component.props
-    ? substituteRecordInProps(component.props, record)
-    : component.props
-  const baseContent =
-    typeof component.content === 'string'
-      ? substituteRecordVars(component.content, record)
-      : component.content
+  const resolvedContent = substituteRecordInContent(component.content, record)
+  const baseProps = withPlainTextPin(
+    component.props ? substituteRecordInProps(component.props, record) : component.props,
+    resolvedContent.forcePlainText
+  )
+  const baseContent = resolvedContent.content
   const templatePatch = buildRecordTemplatePatch(component, record)
 
   if (component.dataSource) {
@@ -285,6 +423,8 @@ export function substituteRecordInCollectionTemplate(
     props: baseProps,
     content: baseContent,
     ...templatePatch,
+    // String children render as React children (escaped) — see the note in
+    // `substituteRecordInComponent`. No escaping here, or they double-escape.
     children: component.children?.map((child: Component | string) =>
       typeof child === 'string'
         ? substituteRecordVars(child, record)
@@ -322,6 +462,9 @@ export function expandDataSourceChildren(
 
   const expandedChildren: readonly (Component | string)[] = records.map((record) => ({
     type: 'li' as Component['type'],
+    // String children render as React children (escaped) — see the note in
+    // `substituteRecordInComponent`. Component children route through it, which
+    // is where the content pin is applied.
     children: component.children!.map((child: Component | string) =>
       typeof child === 'string'
         ? substituteRecordVars(child, record)
@@ -573,20 +716,34 @@ async function resolveSearchMode(
   return { ...component, props: buildSearchProps(component, records) }
 }
 
-/** Checks whether the current session has read permission for the given table. */
-function canReadTable(
-  matchedTable: Readonly<{
-    name: string
-    permissions?: Readonly<{ read?: unknown; inherit?: string; override?: { read?: unknown } }>
-  }>,
-  session: SessionInfo | undefined,
-  hasAuth: boolean
-): boolean {
-  // When auth is not configured, all tables are readable
-  if (!hasAuth) return true
-
-  const userRole = session?.role ?? ''
-  return hasReadPermission(matchedTable, userRole)
+/**
+ * The composed read plan for an SSR data-bound component.
+ *
+ * `undefined` means "auth is not configured" — the full-access model, under
+ * which every table is readable and no column is restricted.
+ *
+ * ROW-LEVEL SCOPING IS NOT PART OF THIS PLAN, and its absence is deliberate
+ * rather than forgotten: resolving `rowLevelPermissions.read.when` needs a
+ * per-request database round-trip to load assignment scopes, which page render
+ * has no seam for today. `rowContext` is therefore omitted, the plan reports
+ * `'unresolved'`, and this caller does NOT consult it — which preserves the
+ * pre-existing behaviour rather than blanking every row-level-scoped page. The
+ * gap is real and tracked; see the report accompanying this change. Collection
+ * pages have their own row-level gate (`page-collection-resolver.ts`,
+ * [internal ref]) and are unaffected.
+ */
+function resolveRenderPlan(ctx: {
+  readonly matchedTable: TableLike | undefined
+  readonly app: App
+  readonly session: SessionInfo | undefined
+}): ReadAccessPlan | undefined {
+  if (!ctx.app.auth) return undefined
+  return buildReadAccessPlan({
+    app: ctx.app,
+    table: ctx.matchedTable,
+    principal: readPrincipalFromSession(ctx.session),
+    policy: CANONICAL_READ_POLICY,
+  })
 }
 
 /** Returns a permission-denied data-bound component with no children or data. */
@@ -599,22 +756,38 @@ function emptyDataBoundComponent(component: Component): Component {
 }
 
 /**
- * Stamp the render-time create-permission gate (`_canCreate`) into a data-table
- * component's props so the island offers the
- * toolbar "Nouvel enregistrement" affordance only when the current role may
- * create — absent (not disabled) otherwise, anti-enumeration. A no-op for
- * non-data-tables or when auth is not configured (island then defaults to
- * offering it; full-access model).
+ * Stamp the render-time write-permission gates into a data-table component's
+ * props, where the session role is known and the island's is not.
+ *
+ * `_canCreate` offers the toolbar "Nouvel
+ * enregistrement" affordance only when the current role may create — absent,
+ * not disabled, otherwise: anti-enumeration.
+ *
+ * `_canUpdate` is the permission-derived default
+ * behind a column's `editable`, the one its schema annotation has always
+ * promised ("default: from table permissions") and never delivered. It is
+ * computed from {@link hasInlineEditDefault} rather than re-derived in the
+ * browser for two reasons: the island never receives the session role, so it
+ * could not answer `update: ['engineer']` at all; and a second permission
+ * model in the client bundle is exactly what the `Permission Evaluator Drift`
+ * gate exists to prevent.
+ *
+ * Both are a no-op for non-data-tables and when auth is not configured. The two
+ * absent-value defaults differ, deliberately: create is OFFERED when unknown
+ * (full-access model), edit is WITHHELD when unknown (fail-closed, and the
+ * behaviour every grid has today).
  */
-function withCanCreateGate(ctx: {
+function withWritePermissionGates(ctx: {
   readonly component: Component
   readonly app: App
   readonly table: NonNullable<ReturnType<NonNullable<App['tables']>['find']>>
   readonly session: SessionInfo | undefined
 }): Component {
   if (ctx.component.type !== 'data-table' || !ctx.app.auth) return ctx.component
-  const _canCreate = hasCreatePermission(ctx.table, ctx.session?.role ?? '', ctx.app.tables)
-  return { ...ctx.component, props: { ...(ctx.component.props ?? {}), _canCreate } }
+  const role = ctx.session?.role ?? ''
+  const _canCreate = hasCreatePermission(ctx.table, role, ctx.app.tables)
+  const _canUpdate = hasInlineEditDefault(ctx.table, role, ctx.app.tables)
+  return { ...ctx.component, props: { ...(ctx.component.props ?? {}), _canCreate, _canUpdate } }
 }
 
 /** Resolves a validated component by mode (list/single/search) with field-level filtering. */
@@ -625,12 +798,17 @@ function resolveByMode(ctx: {
   readonly session: SessionInfo | undefined
   readonly routeParams: Readonly<Record<string, string>>
   readonly db: DataSourceDb
+  readonly plan: ReadAccessPlan | undefined
 }): Promise<DataSourceSectionResult> {
   const { table: tableName, fields: requestedFields, mode, param } = ctx.component.dataSource!
-  const restricted = ctx.app.auth
-    ? getRestrictedFields(ctx.table.permissions, ctx.session?.role ?? '')
-    : new Set<string>()
-  const gated = withCanCreateGate(ctx)
+  // The plan's restricted set, NOT a locally re-derived one. The predecessor
+  // (`getRestrictedFields`) early-returned an empty set whenever the table
+  // declared no `permissions.fields` — which is exactly when the built-in
+  // default rules are the only field-level control there is, so a `viewer`
+  // granted table read saw every column on a page while the records API
+  // stripped all but name/title from the same table.
+  const restricted = ctx.plan?.restrictedColumns ?? new Set<string>()
+  const gated = withWritePermissionGates(ctx)
   const { component: fc, fields: ff } = applyFieldLevelPermissions(
     gated,
     requestedFields,
@@ -655,14 +833,14 @@ function validateDataSourcePrereqs(
   ctx: {
     readonly matchedTable: ReturnType<NonNullable<App['tables']>['find']>
     readonly tableName: string
-    readonly session: SessionInfo | undefined
-    readonly hasAuth: boolean
+    readonly plan: ReadAccessPlan | undefined
   }
 ): Component | undefined {
   if (!ctx.matchedTable) {
     return withDataSourceError(component, `Error: table "${ctx.tableName}" not found`)
   }
-  if (!canReadTable(ctx.matchedTable, ctx.session, ctx.hasAuth)) {
+  // `plan === undefined` is the auth-not-configured full-access model.
+  if (ctx.plan !== undefined && !ctx.plan.allowed) {
     return emptyDataBoundComponent(component)
   }
   return undefined
@@ -717,12 +895,12 @@ async function resolveComponent(
 
   const { table: tableName, fields: requestedFields } = component.dataSource
   const matchedTable = (app.tables ?? []).find((t) => t.name === tableName)
-  const prereqResult = validateDataSourcePrereqs(component, {
-    matchedTable,
-    tableName,
+  const plan = resolveRenderPlan({
+    matchedTable: matchedTable as TableLike | undefined,
+    app,
     session,
-    hasAuth: !!app.auth,
   })
+  const prereqResult = validateDataSourcePrereqs(component, { matchedTable, tableName, plan })
   if (prereqResult) return prereqResult
 
   const fieldError = checkFieldErrors(component, tableName, requestedFields, matchedTable!.fields)
@@ -750,6 +928,7 @@ async function resolveComponent(
     session,
     routeParams,
     db,
+    plan,
   })
 }
 

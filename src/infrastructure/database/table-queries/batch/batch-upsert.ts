@@ -298,7 +298,7 @@ function validateAllRecordsHaveRequiredFields(
   return Effect.gen(function* () {
     const allErrors = yield* Effect.reduce(
       recordsData,
-      [] as readonly string[],
+      () => [] as readonly string[],
       (acc, record, index) =>
         Effect.tryPromise({
           try: () => validateRequiredFieldsInRecord(tx, tableName, record, index),
@@ -354,7 +354,7 @@ export function upsertRecords(
           return await runEffectInTx(
             Effect.reduce(
               recordsData,
-              { records: [], created: 0, updated: 0 } as UpsertResult,
+              () => ({ records: [], created: 0, updated: 0 }) as UpsertResult,
               (acc, fields) =>
                 processSingleUpsert(tx, { session, tableName, fields, fieldsToMergeOn, acc })
             )

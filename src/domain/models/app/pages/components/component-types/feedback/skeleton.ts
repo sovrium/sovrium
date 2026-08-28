@@ -15,13 +15,13 @@ export const skeletonFields = {
   ...coreFields,
   skeletonVariant: Schema.optional(SkeletonVariantSchema),
   skeletonWidth: Schema.optional(
-    Schema.String.annotations({ description: 'CSS width for skeleton (e.g. "200px", "100%")' })
+    Schema.String.annotate({ description: 'CSS width for skeleton (e.g. "200px", "100%")' })
   ),
   skeletonHeight: Schema.optional(
-    Schema.String.annotations({ description: 'CSS height for skeleton (e.g. "20px", "3rem")' })
+    Schema.String.annotate({ description: 'CSS height for skeleton (e.g. "20px", "3rem")' })
   ),
   animate: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Enable pulse animation on skeleton (default: true)',
     })
   ),

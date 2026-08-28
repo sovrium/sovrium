@@ -39,16 +39,11 @@ import { MirrorApprovalCreate, MirrorApprovalUpdate } from '@/application/use-ca
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAiProviderConfigured } from '@/domain/models/env/ai/ai-providers'
 import { checkPermissionWithAdminOverride, isAdminRole } from '@/domain/models/shared/permissions'
-import {
-  checkChatRateLimit,
-  resolveChatRateLimitConfig,
-} from '@/presentation/api/routes/ai/chat-rate-limit'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { recordAgentActivity } from './agent-activity-log'
 import { callAgentAi } from './agent-ai-call'
+import { checkExecutionGates, checkLimitGates } from './agent-execution-gates'
 import {
-  acquireConcurrencySlot,
-  checkActionRateLimit,
   getAgentUsage,
   isTokenBudgetExhausted,
   recordTokenUsage,
@@ -57,8 +52,12 @@ import {
 } from './agent-limits'
 import { agentNotFound, findAgent } from './agent-lookup'
 import { serializeAgent } from './agent-presenter'
-import { checkAgentRateLimit } from './agent-rate-limit'
 import { resolveRoleLevel } from './agent-roles'
+import {
+  checkAgentListPermission,
+  checkTriggerPermission,
+  mayTriggerAgent,
+} from './agent-trigger-guard'
 import { buildApprovalRecord, serializeApproval } from './approval-presenter'
 import {
   appendActivityEntry,
@@ -103,42 +102,6 @@ const requiresApproval = (agent: Agent, action: string): boolean => {
     return (agent.approval?.required ?? []).includes(action)
   }
   return false
-}
-
-/**
- * Pre-flight gates for `POST /api/agents/:name/execute`.
- *
- * Returns a short-circuit `Response` when execution must be denied — a
- * disabled agent (CROSS-004) or one that has tripped its action rate limit
- * (CROSS-005). Both gates run BEFORE the request body is parsed and before
- * any AI round-trip, so the AI provider is never called on a denied request.
- * Returns `undefined` when execution may proceed.
- */
-const checkExecutionGates = (c: Readonly<Context>, agent: Agent): Response | undefined => {
-  if (agent.enabled === false) {
-    return c.json({ error: `Agent '${agent.name}' is disabled and cannot execute actions.` }, 403)
-  }
-  // When the operator has configured the shared AI-chat rate limit
-  // (`AI_CHAT_RATE_LIMIT`), agent API calls are throttled under the SAME
-  // limiter as human chat — keyed by agent name so
-  // each agent gets an independent counter. Otherwise fall back to the
-  // role-proportional per-agent action ceiling.
-  if (resolveChatRateLimitConfig().limit !== undefined) {
-    const chatLimit = checkChatRateLimit(`agent:${agent.name}`)
-    if (chatLimit.limited) {
-      return c.json({ error: `Agent '${agent.name}' has exceeded its action rate limit.` }, 429, {
-        'Retry-After': chatLimit.retryAfter.toString(),
-      })
-    }
-    return undefined
-  }
-  const rateLimit = checkAgentRateLimit(agent.name, agent.role)
-  if (rateLimit.limited) {
-    return c.json({ error: `Agent '${agent.name}' has exceeded its action rate limit.` }, 429, {
-      'Retry-After': rateLimit.retryAfter.toString(),
-    })
-  }
-  return undefined
 }
 
 /**
@@ -230,38 +193,6 @@ const isToolAccessDenied = (
   // RBAC gate: a role that lacks the table-level CRUD permission is denied
   // even when the table/action are allowlisted.
   return isRbacDenied(agent, table, action, app)
-}
-
-/**
- * Operational-limit pre-flight gate.
- *
- * Checked BEFORE the AI round-trip so an over-budget action never reaches the
- * provider. Returns a 202 `queued` response when the agent has exhausted its
- * `maxActionsPerMinute` window or has no free `maxConcurrentTasks` slot;
- * returns `undefined` when the action may proceed.
- *
- * A `queued` decision claims neither an action-window slot nor a concurrency
- * slot — the action is deferred, not dropped.
- */
-const checkLimitGates = (c: Readonly<Context>, agent: Agent): Response | undefined => {
-  const limits = resolveAgentLimits(agent.limits)
-
-  const rate = checkActionRateLimit(agent.name, limits.maxActionsPerMinute)
-  if (rate.queued) {
-    return c.json(
-      { status: 'queued', agent: agent.name, reason: 'maxActionsPerMinute exceeded' },
-      202
-    )
-  }
-
-  if (!acquireConcurrencySlot(agent.name, limits.maxConcurrentTasks)) {
-    return c.json(
-      { status: 'queued', agent: agent.name, reason: 'maxConcurrentTasks reached' },
-      202
-    )
-  }
-
-  return undefined
 }
 
 /**
@@ -367,7 +298,15 @@ const handleExecute =
   async (c: Readonly<Context>): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c, agentName)
+    if (!agent) return agentNotFound(c)
+
+    // [internal ref]: `permissions.trigger` governs
+    // who may invoke this agent. FIRST of every gate — see the placement note on
+    // `checkTriggerPermission`. Both the 503 below and the limiters after it
+    // answer differently for a declared agent than an undeclared one, and the
+    // limiters record the attempts they admit.
+    const triggerRefusal = await checkTriggerPermission(c, agent)
+    if (triggerRefusal) return triggerRefusal
 
     // [internal ref]: with no AI provider configured at all, the declared agent is
     // INERT — discoverable but not runnable. Degrade the execute path gracefully
@@ -407,18 +346,39 @@ const handleExecute =
     return runAgentAction(c, agent, body, action)
   }
 
+/**
+ * [internal ref]: the agent collection.
+ *
+ * Two gates, because this path has no `:name` segment and therefore never runs
+ * under the `/api/agents/*` middleware wildcard, and no single `trigger` grant
+ * to consult. A session is required to see the inventory at all; the inventory
+ * is then narrowed to the agents this caller may actually trigger, so the
+ * collection cannot hand a member the `systemPrompt` that
+ * `GET /api/agents/:name` withholds from them.
+ */
 const handleListAgents =
   (app: App | undefined) =>
-  (c: Readonly<Context>): Response =>
-    c.json((app?.agents ?? []).map(serializeAgent), 200)
+  async (c: Readonly<Context>): Promise<Response> => {
+    const listRefusal = await checkAgentListPermission(c)
+    if (listRefusal) return listRefusal
+    const agents = app?.agents ?? []
+    const visible = await Promise.all(agents.map((agent) => mayTriggerAgent(c, agent)))
+    return c.json(
+      agents.filter((_agent, index) => visible[index] === true).map(serializeAgent),
+      200
+    )
+  }
 
 const handleGetAgent =
   (app: App | undefined) =>
-  (c: Readonly<Context>): Response => {
+  async (c: Readonly<Context>): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c, agentName)
-    return c.json(serializeAgent(agent), 200)
+    if (!agent) return agentNotFound(c)
+    // The readback serves `systemPrompt`, `instructions` and the tool
+    // allowlist — the exact material a prompt injection is built from, so it
+    // carries the same gate as invocation.
+    return (await checkTriggerPermission(c, agent)) ?? c.json(serializeAgent(agent), 200)
   }
 
 /**
@@ -429,19 +389,29 @@ const handleGetAgent =
  */
 const handleGetUsage =
   (app: App | undefined) =>
-  (c: Readonly<Context>): Response => {
+  async (c: Readonly<Context>): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c, agentName)
+    if (!agent) return agentNotFound(c)
+    // Token spend is the operator's cost ledger for this agent; an anonymous
+    // caller has no business reading it.
+    const refusal = await checkTriggerPermission(c, agent)
+    if (refusal) return refusal
     const limits = resolveAgentLimits(agent.limits)
     return c.json(getAgentUsage(agentName, limits.maxTokensPerDay), 200)
   }
 
 const handleListApprovals =
   (app: App | undefined) =>
-  (c: Readonly<Context>): Response => {
+  async (c: Readonly<Context>): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
-    if (!findAgent(app, agentName)) return agentNotFound(c, agentName)
+    const agent = findAgent(app, agentName)
+    if (!agent) return agentNotFound(c)
+    // A pending approval carries the queued action's payload — table, record id
+    // and field values the agent is about to write. At least as sensitive as
+    // the `systemPrompt` the readback gate withholds.
+    const refusal = await checkTriggerPermission(c, agent)
+    if (refusal) return refusal
     const statusFilter = c.req.query('status')
     const all = listApprovalsForAgent(agentName).map((record) => refreshApproval(record))
     const filtered =
@@ -451,9 +421,12 @@ const handleListApprovals =
 
 const handleGetApproval =
   (app: App | undefined) =>
-  (c: Readonly<Context>): Response => {
+  async (c: Readonly<Context>): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
-    if (!findAgent(app, agentName)) return agentNotFound(c, agentName)
+    const agent = findAgent(app, agentName)
+    if (!agent) return agentNotFound(c)
+    const refusal = await checkTriggerPermission(c, agent)
+    if (refusal) return refusal
     const approvalId = c.req.param('id') ?? ''
     const record = getApproval(approvalId)
     if (!record || record.agentName !== agentName) {
@@ -469,7 +442,7 @@ const handleDecision =
   async (c: Readonly<Context>): Promise<Response> => {
     const agentName = c.req.param('name') ?? ''
     const agent = findAgent(app, agentName)
-    if (!agent) return agentNotFound(c, agentName)
+    if (!agent) return agentNotFound(c)
     const approvalId = c.req.param('id') ?? ''
     const stored = getApproval(approvalId)
     if (!stored || stored.agentName !== agentName) {

@@ -49,9 +49,9 @@ export async function handleGetRecordHistory(c: Context, app: App) {
 
   const result = await runTableProgram(program)
 
-  if (result._tag === 'Left') {
-    return handleRouteError(c, result.left)
+  if (result._tag === 'Failure') {
+    return handleRouteError(c, result.failure)
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }

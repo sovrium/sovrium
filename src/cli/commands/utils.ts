@@ -104,7 +104,7 @@ export const reloadServer = async (
   const { clearCSSCache } = await import('@/infrastructure/css/cache/css-cache-service')
   const { clearPageCache } = await import('@/infrastructure/server/cache/page-cache-service')
   // eslint-disable-next-line functional/no-expression-statements
-  await Effect.runPromise(Effect.all([clearCSSCache(), clearPageCache()]))
+  await Effect.runPromise(Effect.all([clearCSSCache, clearPageCache]))
 
   // Rebind the same port deterministically: wait for the just-stopped listener
   // to release it, then pass it explicitly so the reload never drifts to a

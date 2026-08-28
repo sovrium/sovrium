@@ -335,109 +335,98 @@ const allComponents = [
  */
 export const ComponentTypeSchema = Schema.Union(
   // Layout
-  ContainerTypeLiteral,
-  SplitPaneTypeLiteral,
-  FlexTypeLiteral,
-  GridTypeLiteral,
-  ResponsiveGridTypeLiteral,
-  SidebarTypeLiteral,
-  TabPanelTypeLiteral,
-  CardTypeLiteral,
-  HeroTypeLiteral,
-  ModalTypeLiteral,
-  // Content
-  TextTypeLiteral,
-  IconTypeLiteral,
-  ImageTypeLiteral,
-  VideoTypeLiteral,
-  AudioTypeLiteral,
-  IframeTypeLiteral,
-  CodeElementTypeLiteral,
-  TocTypeLiteral,
-  SearchInputTypeLiteral,
-  PageSearchTypeLiteral,
-  // Data
-  DataTableTypeLiteral,
-  KanbanTypeLiteral,
-  CalendarTypeLiteral,
-  ChartTypeLiteral,
-  KpiTypeLiteral,
-  GalleryTypeLiteral,
-  FormTypeLiteral,
-  DataFormTypeLiteral,
-  ListTypeLiteral,
-  DataTimelineTypeLiteral,
-  // Form Controls
-  InputTypeLiteral,
-  CheckboxTypeLiteral,
-  RadioGroupTypeLiteral,
-  SelectTypeLiteral,
-  TextareaTypeLiteral,
-  DatePickerTypeLiteral,
-  SliderTypeLiteral,
-  FieldTypeLiteral,
-  ToggleTypeLiteral,
-  ToggleGroupTypeLiteral,
-  SwitchTypeLiteral,
-  // Interactive
-  ButtonTypeLiteral,
-  BadgeTypeLiteral,
-  AlertTypeLiteral,
-  LinkTypeLiteral,
-  ButtonGroupTypeLiteral,
-  ThemeToggleTypeLiteral,
-  // Navigation
-  BreadcrumbTypeLiteral,
-  DropdownMenuTypeLiteral,
-  ContextMenuTypeLiteral,
-  MenubarTypeLiteral,
-  NavigationMenuTypeLiteral,
-  PaginationTypeLiteral,
-  // Overlays
-  AlertDialogTypeLiteral,
-  DialogTypeLiteral,
-  DrawerTypeLiteral,
-  RecordDrawerTypeLiteral,
-  PopoverTypeLiteral,
-  TooltipTypeLiteral,
-  HoverCardTypeLiteral,
-  ToastTypeLiteral,
-  // Display
-  StaticTableTypeLiteral,
-  EmptyStateTypeLiteral,
-  MarqueeTypeLiteral,
-  ScrollAreaTypeLiteral,
-  AccordionTypeLiteral,
-  TabsTypeLiteral,
-  TimelineTypeLiteral,
-  ListItemTypeLiteral,
-  SpeechBubbleTypeLiteral,
-  RecordFieldTypeLiteral,
-  // Feedback
-  SkeletonTypeLiteral,
-  ProgressTypeLiteral,
-  SpinnerTypeLiteral,
-  // Specialty
-  FileUploadTypeLiteral,
-  NumberInputTypeLiteral,
-  TimePickerTypeLiteral,
-  ReorderableListTypeLiteral,
-  LanguageSwitcherTypeLiteral,
-  CommentsTypeLiteral,
-  CommentCountTypeLiteral,
-  // Structural
-  DividerTypeLiteral,
-  SpacerTypeLiteral,
-  // AI
-  AiChatTypeLiteral,
-  // Editors (schema/config authoring) — islands deferred (red contract)
-  SchemaJsonEditorTypeLiteral,
-  SchemaYamlEditorTypeLiteral,
-  SchemaFormEditorTypeLiteral,
-  SchemaAiAgentTypeLiteral,
-  // Custom
-  CustomHtmlTypeLiteral
-).annotations({
+  [
+    ContainerTypeLiteral,
+    SplitPaneTypeLiteral,
+    FlexTypeLiteral,
+    GridTypeLiteral,
+    ResponsiveGridTypeLiteral,
+    SidebarTypeLiteral,
+    TabPanelTypeLiteral,
+    CardTypeLiteral,
+    HeroTypeLiteral,
+    ModalTypeLiteral,
+    TextTypeLiteral,
+    IconTypeLiteral,
+    ImageTypeLiteral,
+    VideoTypeLiteral,
+    AudioTypeLiteral,
+    IframeTypeLiteral,
+    CodeElementTypeLiteral,
+    TocTypeLiteral,
+    SearchInputTypeLiteral,
+    PageSearchTypeLiteral,
+    DataTableTypeLiteral,
+    KanbanTypeLiteral,
+    CalendarTypeLiteral,
+    ChartTypeLiteral,
+    KpiTypeLiteral,
+    GalleryTypeLiteral,
+    FormTypeLiteral,
+    DataFormTypeLiteral,
+    ListTypeLiteral,
+    DataTimelineTypeLiteral,
+    InputTypeLiteral,
+    CheckboxTypeLiteral,
+    RadioGroupTypeLiteral,
+    SelectTypeLiteral,
+    TextareaTypeLiteral,
+    DatePickerTypeLiteral,
+    SliderTypeLiteral,
+    FieldTypeLiteral,
+    ToggleTypeLiteral,
+    ToggleGroupTypeLiteral,
+    SwitchTypeLiteral,
+    ButtonTypeLiteral,
+    BadgeTypeLiteral,
+    AlertTypeLiteral,
+    LinkTypeLiteral,
+    ButtonGroupTypeLiteral,
+    ThemeToggleTypeLiteral,
+    BreadcrumbTypeLiteral,
+    DropdownMenuTypeLiteral,
+    ContextMenuTypeLiteral,
+    MenubarTypeLiteral,
+    NavigationMenuTypeLiteral,
+    PaginationTypeLiteral,
+    AlertDialogTypeLiteral,
+    DialogTypeLiteral,
+    DrawerTypeLiteral,
+    RecordDrawerTypeLiteral,
+    PopoverTypeLiteral,
+    TooltipTypeLiteral,
+    HoverCardTypeLiteral,
+    ToastTypeLiteral,
+    StaticTableTypeLiteral,
+    EmptyStateTypeLiteral,
+    MarqueeTypeLiteral,
+    ScrollAreaTypeLiteral,
+    AccordionTypeLiteral,
+    TabsTypeLiteral,
+    TimelineTypeLiteral,
+    ListItemTypeLiteral,
+    SpeechBubbleTypeLiteral,
+    RecordFieldTypeLiteral,
+    SkeletonTypeLiteral,
+    ProgressTypeLiteral,
+    SpinnerTypeLiteral,
+    FileUploadTypeLiteral,
+    NumberInputTypeLiteral,
+    TimePickerTypeLiteral,
+    ReorderableListTypeLiteral,
+    LanguageSwitcherTypeLiteral,
+    CommentsTypeLiteral,
+    CommentCountTypeLiteral,
+    DividerTypeLiteral,
+    SpacerTypeLiteral,
+    AiChatTypeLiteral,
+    SchemaJsonEditorTypeLiteral,
+    SchemaYamlEditorTypeLiteral,
+    SchemaFormEditorTypeLiteral,
+    SchemaAiAgentTypeLiteral,
+    CustomHtmlTypeLiteral,
+  ]
+).annotate({
   title: 'Component Type',
   description: 'Component type for page building',
 })
@@ -561,10 +550,10 @@ type InjectableFields = Record<string, any>
  * @param extraFields - Additional fields to add to every branch (e.g. `name` for templates)
  */
 export function buildComponentUnion(
-  childrenField: InjectableFields,
+  childrenField: Readonly<InjectableFields>,
   extraFields: InjectableFields = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- huge discriminated union exceeds the .d.ts serialization limit (TS7056); every consumer already widens to Schema.Schema<any, any, never>
-): Schema.Schema<any, any, never> {
+): Schema.Codec<any, any, never> {
   const branches = allComponents.map(([typeLiteral, fields]) => {
     // Extract the type string from the Schema.Literal AST to check container membership
     const { ast } = typeLiteral
@@ -579,8 +568,10 @@ export function buildComponentUnion(
     })
   })
 
-  // Schema.Union requires at least 2 members
-  return Schema.Union(
-    ...(branches as [(typeof branches)[0], (typeof branches)[0], ...typeof branches])
-  )
+  // Schema.Union requires at least 2 members.
+  // v4 takes the members as ONE array — `branches` IS that array, so it is
+  // passed directly. Wrapping it (`Union([branches])`) builds a one-member
+  // union whose member is an Array rather than a Schema; the `as` cast makes
+  // that type-check, and it throws only later inside `SchemaAST.toType`.
+  return Schema.Union(branches as [(typeof branches)[0], (typeof branches)[0], ...typeof branches])
 }

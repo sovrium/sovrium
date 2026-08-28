@@ -155,14 +155,14 @@ function PaletteDialog({
     <div
       role="dialog"
       aria-modal="true"
-      // Accessible name carries the short shell affordance copy ("Search",
-      // [internal ref]), the descriptive palette title ("Recherche de
-      // commandes", [internal ref]), AND the config-native palette
-      // name ("Command palette", the Consoles-as-Config C3 conversion contract) so
-      // each US resolves the dialog by its own name (Playwright substring-matches
-      // the accessible name). This single island is now hosted by the config-native
-      // `command-palette` component (admin mode), so it must answer to all three.
-      aria-label="Search — Command search — Command palette"
+      // ONE accessible name. It used to concatenate three strings — "Search",
+      // a descriptive palette title, and the config-native component name —
+      // purely so that three separate specs could each substring-match the
+      // dialog by their own preferred name. A screen reader announced all
+      // three. Test locators are not a reason to degrade an accessible name;
+      // the specs now agree on this one, and a `data-testid` is the right
+      // tool if a test ever needs a handle of its own.
+      aria-label="Search"
       className="border-border bg-background mx-auto mt-[12vh] flex w-full max-w-xl flex-col gap-2 rounded-lg border p-4 shadow-xl"
     >
       <PaletteSearchbox

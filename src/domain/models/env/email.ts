@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Schema, SchemaGetter } from 'effect'
 
 /**
  * Email (SMTP) environment configuration.
@@ -15,35 +15,43 @@ import { Schema } from 'effect'
 export const EmailEnvSchema = Schema.Struct({
   smtpHost: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'SMTP server hostname (SMTP_HOST)',
         examples: ['smtp.gmail.com'],
       })
     )
   ),
   smtpPort: Schema.optional(
-    Schema.NumberFromString.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(1),
-      Schema.lessThanOrEqualTo(65_535),
-      Schema.annotations({ description: 'SMTP server port (SMTP_PORT)', examples: [587] })
+    Schema.FiniteFromString.pipe(
+      Schema.check(
+        Schema.isInt(),
+        Schema.isGreaterThanOrEqualTo(1),
+        Schema.isLessThanOrEqualTo(65_535)
+      ),
+      Schema.annotate({ description: 'SMTP server port (SMTP_PORT)', examples: [587] })
     )
   ),
   smtpSecure: Schema.optional(
-    Schema.transform(Schema.String, Schema.Boolean, {
-      decode: (s) => s === 'true',
-      encode: (b) => (b ? 'true' : 'false'),
-    }).pipe(Schema.annotations({ description: 'Use TLS (SMTP_SECURE)' }))
+    // EFFECT 4: `Schema.transform(from, to, {decode, encode})` ->
+    // `from.pipe(Schema.decodeTo(to, {decode, encode}))` with each side a
+    // `SchemaGetter` (migration/v3-to-v4.md:14284).
+    Schema.String.pipe(
+      Schema.decodeTo(Schema.Boolean, {
+        decode: SchemaGetter.transform((s: string) => s === 'true'),
+        encode: SchemaGetter.transform((b: boolean) => (b ? 'true' : 'false')),
+      }),
+      Schema.annotate({ description: 'Use TLS (SMTP_SECURE)' })
+    )
   ),
   smtpUser: Schema.optional(
-    Schema.String.pipe(Schema.annotations({ description: 'SMTP username (SMTP_USER)' }))
+    Schema.String.pipe(Schema.annotate({ description: 'SMTP username (SMTP_USER)' }))
   ),
   smtpPass: Schema.optional(
-    Schema.String.pipe(Schema.annotations({ description: 'SMTP password (SMTP_PASS)' }))
+    Schema.String.pipe(Schema.annotate({ description: 'SMTP password (SMTP_PASS)' }))
   ),
   smtpFrom: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Sender email address (SMTP_FROM)',
         examples: ['noreply@yourdomain.com'],
       })
@@ -51,7 +59,7 @@ export const EmailEnvSchema = Schema.Struct({
   ),
   smtpFromName: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Sender display name (SMTP_FROM_NAME)',
         examples: ['Your App Name'],
       })

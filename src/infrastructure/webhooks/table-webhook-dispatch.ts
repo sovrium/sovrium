@@ -158,7 +158,7 @@ const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined>
 }
 
 /** Base headers always sent with a delivery, before any auth headers. */
-const BASE_HEADERS: Record<string, string> = {
+const BASE_HEADERS: Readonly<Record<string, string>> = {
   'Content-Type': 'application/json',
   'User-Agent': 'Sovrium-Webhook/1.0',
 }
@@ -189,8 +189,8 @@ interface DeliveryOutcomeFields {
  * set used when the transport did not echo the actual headers sent.
  */
 const outcomeFromResult = (
-  result: Record<string, unknown>,
-  expectedHeaders: Record<string, string>
+  result: Readonly<Record<string, unknown>>,
+  expectedHeaders: Readonly<Record<string, string>>
 ): DeliveryOutcomeFields => {
   const ok = result['success'] === true
   const sentHeaders = result['requestHeaders']

@@ -73,6 +73,10 @@ export const analyticsEvents = systemSchema.table(
     index('analytics_events_properties_gin_idx').using('gin', table.properties),
 
     // Unique visitor counting
+    // Serves the event-name narrowing the six readers gained: "this link's
+    // clicks", "this form's submissions". Also what makes the maxClicks count
+    // index-served rather than a scan within the app+type range.
+    index('analytics_events_app_type_name_idx').on(table.appName, table.eventType, table.eventName),
     index('analytics_events_app_visitor_idx').on(table.appName, table.visitorHash),
 
     // Session grouping

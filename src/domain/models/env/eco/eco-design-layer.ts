@@ -30,20 +30,31 @@
  * (saves ~30KB on the compiled CSS but means tenants cannot override role
  * tokens via the `--sv-*` channel).
  */
+import { parseEcoEnum } from './eco-env-parsing'
+
 export type EcoDesignLayerMode = 'on' | 'off'
+
+const ECO_DESIGN_LAYER_MODES: readonly EcoDesignLayerMode[] = ['on', 'off']
 
 /** Default when `ECO_DESIGN_LAYER` is unset (override-channel-aligned). */
 export const DEFAULT_ECO_DESIGN_LAYER: EcoDesignLayerMode = 'on'
 
 /**
- * Resolve `ECO_DESIGN_LAYER` from a snapshot of env vars. Only an explicit
- * `off` (case-insensitive, surrounding whitespace ignored) disables the
- * layer — an unset, empty, or unrecognised value resolves to the
- * override-channel-aligned default (`on`). Operators opt out, they never opt in.
+ * Resolve `ECO_DESIGN_LAYER` from a snapshot of env vars. An unset or empty
+ * value resolves to the override-channel-aligned default (`on`); only an
+ * explicit `off` (case-insensitive, surrounding whitespace ignored) disables
+ * the layer.
+ *
+ * A SET-but-unrecognised value throws — `ECO_DESIGN_LAYER=false`
+ * used to read as `on`, so an operator disabling the layer got the opposite of
+ * what they asked for, with a ~30KB CSS bundle as the only evidence.
+ *
+ * @throws Error when set to anything other than `on` or `off`.
  */
 export const parseEcoDesignLayer = (
   processEnv: Readonly<Record<string, string | undefined>>
-): EcoDesignLayerMode => {
-  const raw = processEnv['ECO_DESIGN_LAYER']?.trim().toLowerCase()
-  return raw === 'off' ? 'off' : DEFAULT_ECO_DESIGN_LAYER
-}
+): EcoDesignLayerMode =>
+  parseEcoEnum('ECO_DESIGN_LAYER', processEnv['ECO_DESIGN_LAYER'], {
+    allowed: ECO_DESIGN_LAYER_MODES,
+    fallback: DEFAULT_ECO_DESIGN_LAYER,
+  })

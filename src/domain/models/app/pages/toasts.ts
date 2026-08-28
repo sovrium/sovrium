@@ -10,14 +10,14 @@ import { Schema } from 'effect'
 /**
  * Toast position on the page
  */
-export const ToastPositionSchema = Schema.Literal(
+export const ToastPositionSchema = Schema.Literals([
   'top-right',
   'top-left',
   'top-center',
   'bottom-right',
   'bottom-left',
-  'bottom-center'
-).annotations({
+  'bottom-center',
+]).annotate({
   title: 'Toast Position',
   description: 'Position of toast notifications on the page',
 })
@@ -39,15 +39,14 @@ export const PageToastConfigSchema = Schema.Struct({
   position: Schema.optional(ToastPositionSchema),
   /** Default auto-dismiss duration in milliseconds */
   duration: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Default toast duration in ms (default: 5000)',
       })
     )
   ),
-}).annotations({
+}).annotate({
   title: 'Page Toast Config',
   description: 'Page-level toast notification configuration',
 })

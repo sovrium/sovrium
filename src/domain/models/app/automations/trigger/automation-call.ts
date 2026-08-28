@@ -21,15 +21,15 @@ import { Schema } from 'effect'
 export const AutomationCallTriggerSchema = Schema.Struct({
   type: Schema.Literal('automation-call'),
   inputSchema: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({
+    Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({
         description:
           'Expected input data contract (JSON Schema-like). If omitted, accepts any inputData from the caller.',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AutomationCallTrigger',
     title: 'Automation Call Trigger',
     description:

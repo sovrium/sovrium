@@ -21,9 +21,9 @@ export const alertDialogFields = {
   ...actionFields,
   ...i18nFields,
   cancelLabel: Schema.optional(
-    Schema.String.annotations({ description: 'Cancel button text (default: "Cancel")' })
+    Schema.String.annotate({ description: 'Cancel button text (default: "Cancel")' })
   ),
   confirmLabel: Schema.optional(
-    Schema.String.annotations({ description: 'Confirm button text (default: "Continue")' })
+    Schema.String.annotate({ description: 'Confirm button text (default: "Continue")' })
   ),
 } as const

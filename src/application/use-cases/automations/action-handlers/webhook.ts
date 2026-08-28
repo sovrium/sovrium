@@ -47,7 +47,7 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
 
     // Webhook send defaults to POST; Slack/Discord/PagerDuty all expect POST.
     const method = String(props['method'] ?? 'POST')
-    const baseHeaders: Record<string, string> = {
+    const baseHeaders: Readonly<Record<string, string>> = {
       'Content-Type': 'application/json',
       ...((props['headers'] as Record<string, string> | undefined) ?? {}),
     }
@@ -68,9 +68,9 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
     // semantics treat `null` like an absent body, so we normalise before
     // delegating serialisation.
     const rawBody = props['body'] === null ? undefined : props['body']
-    const bodyResult = yield* Effect.either(serializeActionBody(rawBody))
-    if (bodyResult._tag === 'Left') {
-      return { status: 'failure', error: bodyResult.left.message } as const
+    const bodyResult = yield* Effect.result(serializeActionBody(rawBody))
+    if (bodyResult._tag === 'Failure') {
+      return { status: 'failure', error: bodyResult.failure.message } as const
     }
 
     // When a `secret` is configured, sign the serialized body with
@@ -82,10 +82,10 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
     const secret = stringProp(props, 'secret')
     const signedHeaders =
       secret !== ''
-        ? { ...merged.headers, 'X-Webhook-Signature': signBody(bodyResult.right, secret) }
+        ? { ...merged.headers, 'X-Webhook-Signature': signBody(bodyResult.success, secret) }
         : merged.headers
 
-    return yield* Effect.promise(() => sendWebhook(url, method, signedHeaders, bodyResult.right))
+    return yield* Effect.promise(() => sendWebhook(url, method, signedHeaders, bodyResult.success))
   })
 
 /**
@@ -127,7 +127,7 @@ const signBody = (body: string | undefined, secret: string): string =>
 export const handleWebhookResponse: ActionHandler = (action) =>
   Effect.sync(() => {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const responseOverride: Record<string, unknown> = {
+    const responseOverride: Readonly<Record<string, unknown>> = {
       ...(props['status'] !== undefined ? { status: props['status'] } : {}),
       ...(props['body'] !== undefined ? { body: props['body'] } : {}),
       ...(props['headers'] !== undefined ? { headers: props['headers'] } : {}),
@@ -144,7 +144,7 @@ export const handleWebhookResponse: ActionHandler = (action) =>
 const sendWebhook = async (
   url: string,
   method: string,
-  headers: Record<string, string>,
+  headers: Readonly<Record<string, string>>,
   body: string | undefined
 ): Promise<ActionOutcome> => {
   // SSRF guard: same threat model as `http/*` action — a misconfigured

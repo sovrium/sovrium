@@ -49,12 +49,12 @@ export const hasPageSearchComponent = (app: App): boolean => {
   )
 
   return (app.pages ?? []).some((page) =>
-    componentTreeHasPageSearch(page.components, sharedByName, new Set())
+    componentTreeHasPageSearch(page.components ?? [], sharedByName, new Set())
   )
 }
 
 /** Read the reference name from `{ $ref }` or `{ component }`, if present. */
-const readRefName = (node: Record<string, unknown>): string | undefined => {
+const readRefName = (node: Readonly<Record<string, unknown>>): string | undefined => {
   if (typeof node.$ref === 'string') return node.$ref
   if (typeof node.component === 'string') return node.component
   return undefined
@@ -62,7 +62,7 @@ const readRefName = (node: Record<string, unknown>): string | undefined => {
 
 /** Recurse into `children` (when an array); otherwise the subtree is empty. */
 const recurseChildren = (
-  node: Record<string, unknown>,
+  node: Readonly<Record<string, unknown>>,
   sharedByName: ReadonlyMap<string, unknown>,
   visiting: ReadonlySet<string>
 ): boolean => {

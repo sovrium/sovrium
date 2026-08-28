@@ -314,7 +314,6 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
   // eslint-disable-next-line functional/no-expression-statements
   await mkdir(tempDir, { recursive: true })
 
-  const archivePath = join(tempDir, archive)
   const response = await fetch(url)
   if (!response.ok) {
     printFailure({
@@ -338,18 +337,23 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
   )
 
   const archiveBuffer = Buffer.from(await response.arrayBuffer())
-  // eslint-disable-next-line functional/no-expression-statements
-  await writeFile(archivePath, archiveBuffer)
 
   printProgress('Verifying the checksum')
   const checksumVerified = await verifyChecksum(archiveBuffer, version, target)
 
   printProgress('Extracting')
-  const tar = Bun.spawnSync(['tar', 'xzf', archivePath, '-C', tempDir])
-  if (tar.exitCode !== 0) {
+  try {
+    // `Bun.Archive` un-gzips and untars in-process, so a self-update no longer
+    // needs a `tar` binary on PATH — an assumption that holds on a typical Linux
+    // host but not on Windows or in a minimal image. The bytes are already in
+    // memory for the checksum above, so the archive never round-trips to disk.
+    // eslint-disable-next-line functional/no-expression-statements
+    await new Bun.Archive(archiveBuffer).extract(tempDir)
+  } catch (error) {
     printFailure({
       headline: `Could not extract ${archive}. Nothing was replaced.`,
-      guidance: `Check that 'tar' is available and that ${tempDir} is writable.`,
+      detail: [error instanceof Error ? error.message : String(error)],
+      guidance: `Retry the update — the download may be truncated or corrupt. If it persists, check that ${tempDir} is writable.`,
     })
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)

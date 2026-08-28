@@ -15,23 +15,33 @@
  * adapted to per-response byte budgets. Frugal-by-default: the header is
  * `on` unless an operator explicitly opts out.
  */
+import { parseEcoEnum } from './eco-env-parsing'
+
 export type EcoIndexHeaderMode = 'on' | 'off'
+
+const ECO_INDEX_HEADER_MODES: readonly EcoIndexHeaderMode[] = ['on', 'off']
 
 /** Default when `ECO_INDEX_HEADER` is unset (eco-aligned). */
 export const DEFAULT_ECO_INDEX_HEADER: EcoIndexHeaderMode = 'on'
 
 /**
- * Resolve `ECO_INDEX_HEADER` from a snapshot of env vars. Only an explicit
- * `off` (case-insensitive, surrounding whitespace ignored) disables the
- * header — an unset, empty, or unrecognised value resolves to the
- * eco-aligned default (`on`). Operators opt out, they never opt in.
+ * Resolve `ECO_INDEX_HEADER` from a snapshot of env vars. An unset or empty
+ * value resolves to the eco-aligned default (`on`); only an explicit `off`
+ * (case-insensitive, surrounding whitespace ignored) disables the header.
+ *
+ * A SET-but-unrecognised value throws — `ECO_INDEX_HEADER=disabled`
+ * used to leave the header on, so an operator who meant to stop emitting it
+ * kept emitting it.
+ *
+ * @throws Error when set to anything other than `on` or `off`.
  */
 export const parseEcoIndexHeader = (
   processEnv: Readonly<Record<string, string | undefined>>
-): EcoIndexHeaderMode => {
-  const raw = processEnv['ECO_INDEX_HEADER']?.trim().toLowerCase()
-  return raw === 'off' ? 'off' : DEFAULT_ECO_INDEX_HEADER
-}
+): EcoIndexHeaderMode =>
+  parseEcoEnum('ECO_INDEX_HEADER', processEnv['ECO_INDEX_HEADER'], {
+    allowed: ECO_INDEX_HEADER_MODES,
+    fallback: DEFAULT_ECO_INDEX_HEADER,
+  })
 
 /**
  * EcoIndex letter grade alphabet. `A` is the lowest-impact grade; `G` is the
@@ -49,8 +59,8 @@ export type EcoIndexGrade = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
  * even a tiny default-homepage render grades at least one letter better
  * than its full sibling (: the spec
  * compares grade letters between full and low-data fetches of the same
- * URL). The largest threshold sits at the `ECO_PAGE_WEIGHT_BUDGET_KB=500`
- * default, beyond which the page is unambiguously over budget.
+ * URL). The largest threshold sits at 500 KB, beyond which a page is
+ * unambiguously over budget.
  */
 const ECO_INDEX_THRESHOLDS: readonly {
   readonly maxBytes: number

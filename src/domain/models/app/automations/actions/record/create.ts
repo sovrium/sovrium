@@ -19,15 +19,15 @@ export const RecordCreateActionSchema = Schema.Struct({
   operator: Schema.Literal('create'),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Target table name' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Target table name' })
     ),
-    data: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({ description: 'Record field values (supports template variables)' })
+    data: Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({ description: 'Record field values (supports template variables)' })
     ),
     runAs: Schema.optional(
-      Schema.Literal('system', 'triggering-user').pipe(
-        Schema.annotations({
+      Schema.Literals(['system', 'triggering-user']).pipe(
+        Schema.annotate({
           description:
             "Action-ownership attribution for the write. 'system' (default): authorship (created-by / updated-by fields) is attributed to the durable system actor. 'triggering-user': attribute authorship — and the write session — to the user who triggered the automation when one exists (form submitter, record-event actor, authenticated webhook caller), falling back to the system actor for user-less triggers (cron, automation-call). Omitting the field is byte-identical to 'system'.",
         })
@@ -35,7 +35,7 @@ export const RecordCreateActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordCreateAction',
     title: 'Record Create Action',
     description: 'Insert a new record into a table',

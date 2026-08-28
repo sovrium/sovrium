@@ -24,7 +24,7 @@
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
-import { AiEmbeddingRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
+import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { aiErrorOutcome } from './ai'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -55,6 +55,13 @@ const DEFAULT_KNOWLEDGE_SIMILARITY_THRESHOLD = 0.7
  *
  * A provider/DB failure resolves to an empty list — knowledge retrieval is a
  * best-effort augmentation that must never break the agent invocation.
+ *
+ * That tolerance is precisely why the repository Layer must be the
+ * dialect-gated `AiEmbeddingRepositoryActive` and never the Postgres-only
+ * `AiEmbeddingRepositoryLive`: on SQLite the latter's pgvector `<=>` search is
+ * invalid SQL, and `orElseSucceed` would convert every retrieval into a silent
+ * zero-chunk result. The WRITE side (`embed-pipeline.ts`) already gates
+ * correctly, so the index would keep filling and never be read.
  */
 const retrieveKnowledgeChunks = (input: {
   readonly task: string
@@ -72,13 +79,13 @@ const retrieveKnowledgeChunks = (input: {
     const sources = memory.sources ?? []
 
     const ai = yield* AiService
-    const embedResult = yield* Effect.either(ai.embed({ text: input.task }))
-    if (embedResult._tag === 'Left') return []
+    const embedResult = yield* Effect.result(ai.embed({ text: input.task }))
+    if (embedResult._tag === 'Failure') return []
 
     const searchProgram = Effect.gen(function* () {
       const repo = yield* AiEmbeddingRepository
       return yield* repo.search({
-        embedding: embedResult.right.embedding,
+        embedding: embedResult.success.embedding,
         // Document knowledge is stored with `agent_name = null` (global). The
         // agent's `sources` allowlist is applied as a sourceRef-prefix filter
         // post-search rather than at the SQL layer.
@@ -87,8 +94,8 @@ const retrieveKnowledgeChunks = (input: {
         maxResults: limit,
       })
     }).pipe(
-      Effect.provide(AiEmbeddingRepositoryLive),
-      Effect.catchAll(() => Effect.succeed([] as ReadonlyArray<never>))
+      Effect.provide(AiEmbeddingRepositoryActive),
+      Effect.orElseSucceed(() => [] as ReadonlyArray<never>)
     )
     const results = yield* searchProgram
 
@@ -276,11 +283,11 @@ const runAgentLoop = (
   Effect.gen(function* () {
     if (state.stepsExecuted >= input.maxSteps) return state
     const ai = yield* AiService
-    const result = yield* Effect.either(ai.chat(buildStepChatInput(state, input)))
-    if (result._tag === 'Left') {
+    const result = yield* Effect.result(ai.chat(buildStepChatInput(state, input)))
+    if (result._tag === 'Failure') {
       return aiErrorOutcome({
         code: 'agent_provider_error',
-        message: result.left.message,
+        message: result.failure.message,
         retryable: true,
       })
     }
@@ -288,12 +295,12 @@ const runAgentLoop = (
     // allowlist BEFORE acting on it. An unknown action or an out-of-allowlist
     // table aborts the loop with a structured `agent_error`-class outcome
     // rather than being silently acknowledged.
-    const toolCalls = result.right.toolCalls ?? []
+    const toolCalls = result.success.toolCalls ?? []
     const rejection = toolCalls
       .map((call) => validateToolCall(call, input))
       .find((outcome): outcome is ActionOutcome => outcome !== undefined)
     if (rejection !== undefined) return rejection
-    const next = advanceState(state, result.right, input.allowedActions)
+    const next = advanceState(state, result.success, input.allowedActions)
     const stopped = toolCalls.length === 0
     return stopped ? next : yield* runAgentLoop(next, input)
   })

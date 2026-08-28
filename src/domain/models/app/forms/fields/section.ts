@@ -20,7 +20,7 @@ export const SectionFieldSchema = Schema.Struct({
   description: Schema.optional(Schema.String),
   /** Visibility rule for the entire section. */
   visibleWhen: Schema.optional(VisibleWhenSchema),
-}).annotations({
+}).annotate({
   identifier: 'SectionField',
   title: 'Section Divider',
   description: 'Visual section divider with an optional heading and description',

@@ -21,13 +21,13 @@ export const FileDeleteActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Storage key of the file to delete */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key of the file to delete',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileDeleteAction',
     title: 'File Delete Action',
     description: 'Delete a file from storage by key',

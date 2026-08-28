@@ -9,7 +9,10 @@ description: A headless Sovrium app that exposes tables to an LLM client via MCP
 #
 #   MCP_ENABLED=true
 #   MCP_TRANSPORT=streamable-http
-#   MCP_AUTH_STRATEGY=oauth
+#
+# There is no credential variable: /mcp authenticates on the header a request carries — an
+# API key on `x-api-key`, or an OAuth access token on `Authorization: Bearer`. Both are
+# issued by the auth layer, which is why MCP_ENABLED=true requires the `auth` block below.
 #
 # Schema author declares intent; operator activates. README.md ("Turning MCP on") lists the
 # tools this exposes once MCP_ENABLED=true — and why there is nothing to add under config/.

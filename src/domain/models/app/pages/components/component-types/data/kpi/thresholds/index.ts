@@ -8,11 +8,11 @@
 import { Schema } from 'effect'
 
 export const KPIThresholdSchema = Schema.Struct({
-  value: Schema.Number.annotations({ description: 'Threshold boundary value' }),
-  color: Schema.String.annotations({
+  value: Schema.Finite.annotate({ description: 'Threshold boundary value' }),
+  color: Schema.String.annotate({
     description: 'Color name or hex applied when metric meets this threshold',
   }),
-}).annotations({
+}).annotate({
   title: 'KPI Threshold',
   description:
     'Conditional color threshold — applied when the metric value meets or exceeds the boundary',

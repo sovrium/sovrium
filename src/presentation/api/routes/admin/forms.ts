@@ -217,6 +217,12 @@ async function handleListSubmissions(
 
   // Parse the query string against the canonical schema (so the cursor,
   // limit, status, from/to, include_deleted defaults all apply).
+  //
+  // This object literal is an ALLOW-LIST: Hono drops any parameter not named
+  // here without complaint, so a request carrying an unlisted knob comes back
+  // as a confident 200 over the unfiltered first page. `q` was exactly that
+  // omission. NOT to be confused with the forms CATALOG endpoint's `?search`,
+  // which filters form names and has never touched submissions.
   const parsedQuery = formsSubmissionsListQuerySchema.safeParse({
     cursor: c.req.query('cursor'),
     limit: c.req.query('limit'),
@@ -224,6 +230,7 @@ async function handleListSubmissions(
     from: c.req.query('from'),
     to: c.req.query('to'),
     include_deleted: c.req.query('include_deleted'),
+    q: c.req.query('q'),
   })
   if (!parsedQuery.success) {
     return c.json({ success: false, message: 'Invalid query', code: 'BAD_REQUEST' }, 400)
@@ -238,6 +245,7 @@ async function handleListSubmissions(
       status: query.status,
       from: query.from,
       to: query.to,
+      q: query.q,
       cursor: query.cursor,
       limit: query.limit,
     }).pipe(provideAdminFormsLive)

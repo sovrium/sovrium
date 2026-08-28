@@ -216,16 +216,16 @@ export const refineAiComputeField = (
     }
 
     const ai = yield* AiService
-    const replyResult = yield* ai.chat(request).pipe(Effect.either)
-    if (replyResult._tag === 'Left') {
-      const { message } = replyResult.left
+    const replyResult = yield* ai.chat(request).pipe(Effect.result)
+    if (replyResult._tag === 'Failure') {
+      const { message } = replyResult.failure
       logDebug(`[ai-compute] refinement failed for ${tableName}.${fieldName}: ${message}`)
       yield* Effect.promise(() => upsertAiComputeStatus(key, 'failed', { attempt, error: message }))
       return 'failed'
     }
 
     // 3–4. Override re-check + origin-marked write-back.
-    return yield* applyRefinement(input, key, attempt, replyResult.right.content)
+    return yield* applyRefinement(input, key, attempt, replyResult.success.content)
   })
 
 /** Carry the baseline value through as the categorize prompt's chosen hint. */

@@ -21,11 +21,8 @@ import { Schema } from 'effect'
  *   subject: Default Subject
  * ```
  */
-export const ActionTemplateVariablesSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.Unknown,
-}).pipe(
-  Schema.annotations({
+export const ActionTemplateVariablesSchema = Schema.Record(Schema.String, Schema.Unknown).pipe(
+  Schema.annotate({
     identifier: 'ActionTemplateVariables',
     title: 'Action Template Variables',
     description: 'Variable declarations with default values. Override via $vars when referenced.',

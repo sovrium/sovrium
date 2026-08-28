@@ -129,7 +129,7 @@ export const toFieldValue = (value: unknown): FieldValue => {
 export const buildConditionValueMap = (
   form: Readonly<FormFieldsShape>,
   body: Readonly<Record<string, unknown>>
-): Record<string, FieldValue> =>
+): Readonly<Record<string, FieldValue>> =>
   form.fields.reduce<Record<string, FieldValue>>((acc, field) => {
     const identifier = fieldSubmitIdentifier(field)
     if (identifier === undefined) return acc

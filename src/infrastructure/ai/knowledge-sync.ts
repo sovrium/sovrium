@@ -124,7 +124,7 @@ const loadKnowledgeRecords = (input: {
       })
     },
     catch: () => [],
-  }).pipe(Effect.catchAll(() => Effect.succeed([] as ReadonlyArray<KnowledgeRecord>)))
+  }).pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<KnowledgeRecord>))
 
 /** A chunk awaiting embedding, carrying its provenance. */
 interface PendingChunk {
@@ -193,9 +193,7 @@ const syncAgentKnowledge = (input: {
     const repo = yield* AiEmbeddingRepository
     const { agent } = input
 
-    yield* repo
-      .deleteBySourceIdPrefix(`table-agent:${agent.name}:`)
-      .pipe(Effect.catchAll(() => Effect.void))
+    yield* repo.deleteBySourceIdPrefix(`table-agent:${agent.name}:`).pipe(Effect.ignore)
 
     const pendingGroups = yield* Effect.forEach(agent.tables, (entry) =>
       loadKnowledgeRecords({
@@ -213,7 +211,7 @@ const syncAgentKnowledge = (input: {
     const rows = yield* embedChunksToRows(pending, (chunk, embedding) =>
       toTableEmbeddingRow(agent.name, chunk, embedding)
     )
-    yield* repo.insertMany(rows).pipe(Effect.catchAll(() => Effect.void))
+    yield* repo.insertMany(rows).pipe(Effect.ignore)
 
     const tables = countRowsBy(rows, (row) => String((row.metadata ?? {})['table'] ?? ''))
     return { tables, totalChunks: rows.length } satisfies SyncKnowledgeStats
@@ -322,7 +320,7 @@ export const embedKnowledgeRecord = async (input: {
   const program = Effect.gen(function* () {
     const repo = yield* AiEmbeddingRepository
     // Clear the record's prior embeddings (idempotent re-embed).
-    yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.catchAll(() => Effect.void))
+    yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.ignore)
 
     const record = yield* Effect.promise(() =>
       loadSingleRecord({
@@ -348,7 +346,7 @@ export const embedKnowledgeRecord = async (input: {
     const rows = yield* embedChunksToRows(chunks, (chunk, embedding) =>
       toTableEmbeddingRow(input.agentName, chunk, embedding)
     )
-    yield* repo.insertMany(rows).pipe(Effect.catchAll(() => Effect.void))
+    yield* repo.insertMany(rows).pipe(Effect.ignore)
   }).pipe(Effect.provide(RagSyncLayer))
   // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)
@@ -366,7 +364,7 @@ export const removeKnowledgeRecordEmbeddings = async (input: {
   const sourceId = `table-agent:${input.agentName}:${input.table}:${input.recordId}`
   const program = Effect.gen(function* () {
     const repo = yield* AiEmbeddingRepository
-    yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.catchAll(() => Effect.void))
+    yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.ignore)
   }).pipe(Effect.provide(RagSyncLayer))
   // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)

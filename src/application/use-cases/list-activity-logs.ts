@@ -109,7 +109,7 @@ export const ListActivityLogs = (
     }
 
     // List all activity logs
-    const logs = yield* activityLogRepo.listAll()
+    const logs = yield* activityLogRepo.listAll
 
     // Map to presentation-friendly format
     return logs.map(mapActivityLog)

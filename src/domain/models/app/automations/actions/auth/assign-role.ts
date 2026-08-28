@@ -19,13 +19,13 @@ export const AuthAssignRoleActionSchema = Schema.Struct({
   type: Schema.Literal('auth'),
   operator: Schema.Literal('assignRole'),
   props: Schema.Struct({
-    userId: TemplateStringSchema.pipe(Schema.annotations({ description: 'Target user ID' })),
+    userId: TemplateStringSchema.pipe(Schema.annotate({ description: 'Target user ID' })),
     role: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Role to assign (admin, member, viewer, or custom)' })
+      Schema.annotate({ description: 'Role to assign (admin, member, viewer, or custom)' })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AuthAssignRoleAction',
     title: 'Auth Assign Role Action',
     description: 'Assign a role to an existing user',

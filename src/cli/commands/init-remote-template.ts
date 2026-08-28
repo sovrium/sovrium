@@ -15,7 +15,8 @@
  * `#ref` (branch / tag / sha). Only github.com is supported.
  *
  * The tree is fetched as a codeload tarball (no git dependency — the same
- * fetch → temp file → `tar xzf` pattern as `update.ts`), then copied with
+ * fetch → `Bun.Archive` extraction pattern as `update.ts`, which needs no
+ * system `tar` on PATH), then copied with
  * init's additive rules: an existing file is never clobbered (`--force`
  * clobbers `app.yaml` only) and `.git/` never lands. The published
  * `sovrium/<slug>-template` mirrors ship their own `CLAUDE.md`,
@@ -136,11 +137,17 @@ const downloadTarball = async (refSpec: RemoteTemplateRef, tempDir: string): Pro
     return fail(`template download failed (HTTP ${response.status}) for ${url}`)
   }
 
-  const archivePath = join(tempDir, 'template.tar.gz')
-  // eslint-disable-next-line functional/no-expression-statements
-  await writeFile(archivePath, Buffer.from(await response.arrayBuffer()))
-  const tar = Bun.spawnSync(['tar', 'xzf', archivePath, '-C', tempDir])
-  if (tar.exitCode !== 0) return fail('failed to extract the template archive')
+  // `Bun.Archive` un-gzips and untars in-process, so scaffolding no longer needs
+  // a `tar` binary on PATH, and the tarball goes straight from the response into
+  // `tempDir` without landing on disk first.
+  try {
+    // eslint-disable-next-line functional/no-expression-statements
+    await new Bun.Archive(await response.arrayBuffer()).extract(tempDir)
+  } catch (error) {
+    return fail(
+      `failed to extract the template archive (${error instanceof Error ? error.message : String(error)}) — the download may be truncated or corrupt`
+    )
+  }
 
   const entries = await readdir(tempDir, { withFileTypes: true })
   const rootDir = entries.find((entry) => entry.isDirectory())

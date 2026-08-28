@@ -7,8 +7,12 @@
 
 import { markUserAuthoredAiFieldsForRecords } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import { batchDeleteProgram, batchUpdateProgram } from '@/application/use-cases/tables/programs'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
-import { hasDeletePermission, hasUpdatePermission } from '@/domain/validators/permission-evaluators'
+import {
+  hasDeletePermissionForRoles,
+  hasUpdatePermissionForRoles,
+} from '@/domain/validators/permission-evaluators'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { formatValidationError } from '@/presentation/api/validation'
@@ -46,12 +50,21 @@ function parseJsonField<T>(value: unknown, fallback: T): T {
  * the browser proceeds (eliminates race conditions in E2E tests).
  */
 export async function handleFormBulkDelete(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
   const guard = await resolveGuardForTable(session, userRole, table, app)
 
-  if (!guard && !hasDeletePermission(table, userRole, app.tables)) {
+  // Effective roles, not a bare role: the guarded branch below evaluates
+  // `guard.effectiveRoles`, while this unguarded branch used a bare `userRole`
+  // that no `group:<name>` permission entry could ever match. The 403 below is
+  // pre-existing and deliberately preserved — every sibling authz denial
+  // answers 404 (S1 anti-enumeration) and these two bulk-form gates do not, but
+  // normalising that divergence is a separate decision and nothing pins it.
+  if (
+    !guard &&
+    !hasDeletePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)
+  ) {
     return c.json(
       {
         success: false,
@@ -178,14 +191,21 @@ async function resolveBulkUpdateGates(input: {
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableName: string
   readonly userRole: string
+  /** Group names the caller belongs to (un-prefixed) — group-aware RBAC. */
+  readonly userGroups: readonly string[]
   readonly ids: readonly string[]
 }): Promise<Response | undefined> {
-  const { c, app, session, tableName, userRole, ids } = input
+  const { c, app, session, tableName, userRole, userGroups, ids } = input
 
   const table = app.tables?.find((t) => t.name === tableName)
   const guard = await resolveGuardForTable(session, userRole, table, app)
 
-  if (!guard && !hasUpdatePermission(table, userRole, app.tables)) {
+  // Effective roles, not a bare role — same contract, and same deliberately
+  // preserved 403, as the bulk-delete gate above.
+  if (
+    !guard &&
+    !hasUpdatePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)
+  ) {
     return c.json(
       {
         success: false,
@@ -218,14 +238,22 @@ async function resolveBulkUpdateGates(input: {
  * the browser proceeds (eliminates race conditions in E2E tests).
  */
 export async function handleFormBulkUpdate(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const body = await c.req.parseBody()
   const ids = parseJsonField<readonly string[]>(body['_ids'], [])
   const data = parseJsonField<Record<string, unknown>>(body['_data'], {})
   const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
 
-  const gateError = await resolveBulkUpdateGates({ c, app, session, tableName, userRole, ids })
+  const gateError = await resolveBulkUpdateGates({
+    c,
+    app,
+    session,
+    tableName,
+    userRole,
+    userGroups,
+    ids,
+  })
   if (gateError) return gateError
 
   // Per-FIELD and per-VALUE rules, after the authz gates above so an

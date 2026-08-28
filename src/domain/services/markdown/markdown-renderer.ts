@@ -176,6 +176,7 @@ export const parseDirectiveHeader = (
   const name = nameMatch[1]
   if (name === undefined) return undefined
   const rest = trimmed.slice(name.length)
+  // eslint-disable-next-line functional/prefer-immutable-types -- per-call accumulator, filled in place by the loop below (see the paired functional/immutable-data disable); a Readonly<> annotation would reject that assignment
   const attrs: Record<string, string> = {}
   // eslint-disable-next-line functional/no-loop-statements -- regex /g iteration is the FP-idiomatic way to walk a global match; reduce-over-matchAll allocates an array per call
   for (const match of rest.matchAll(DIRECTIVE_ATTR_RE)) {

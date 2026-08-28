@@ -30,6 +30,35 @@ import type { DatabaseError } from '@/infrastructure/database'
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
 /**
+ * Distinct USER IDS of every comment author on a given record of a given
+ * table (excluding soft-deleted comments and guest authors). The user-id twin
+ * of {@link listCommentAuthorEmailsForRecord}; lives here rather than in
+ * `comment-queries.ts`, which is at its 400-line cap.
+ *
+ * Scoped to `(tableId, recordId)`: a record id alone is not an identity —
+ * record ids are per-table sequences. See `activeCommentsByRecordId`.
+ */
+export function listCommentAuthorsForRecord(config: {
+  readonly session: Readonly<Session>
+  readonly tableId: string
+  readonly recordId: string
+}): Effect.Effect<readonly string[], DatabaseError> {
+  const { tableId, recordId } = config
+  return Effect.tryPromise({
+    try: async () => {
+      const rows = await db
+        .selectDistinct({ userId: recordComments.userId })
+        .from(recordComments)
+        .where(activeCommentsByRecordId(tableId, recordId))
+      return rows
+        .map((row) => row.userId)
+        .filter((userId): userId is string => typeof userId === 'string' && userId.length > 0)
+    },
+    catch: wrapDatabaseError('Failed to list comment authors'),
+  })
+}
+
+/**
  * Distinct EMAIL ADDRESSES of every comment author on a given record
  * (excluding soft-deleted comments and guest authors). Powers GAP-13: the
  * comment-posted trigger's `threadParticipants` must be email-addressable so
@@ -37,12 +66,18 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  * `to`. JOINs `recordComments.userId` → `auth.user.email`; the resulting
  * list is filtered to drop the newly-created comment's own author by the
  * trigger so the notification fans out to the OTHER participants only.
+ *
+ * Scoped to `tableId` as well as `recordId`: record ids are per-table
+ * sequences, so keying on the record alone returned the email addresses of
+ * every same-numbered record's commenters across the whole app — personal
+ * data crossing a table boundary. See {@link activeCommentsByRecordId}.
  */
 export function listCommentAuthorEmailsForRecord(config: {
   readonly session: Readonly<Session>
+  readonly tableId: string
   readonly recordId: string
 }): Effect.Effect<readonly { readonly userId: string; readonly email: string }[], DatabaseError> {
-  const { recordId } = config
+  const { tableId, recordId } = config
   return Effect.tryPromise({
     try: async () => {
       const users = authUsersTable()
@@ -50,7 +85,7 @@ export function listCommentAuthorEmailsForRecord(config: {
         .selectDistinct({ userId: recordComments.userId, email: users.email })
         .from(recordComments)
         .innerJoin(users, eq(recordComments.userId, users.id))
-        .where(activeCommentsByRecordId(recordId))
+        .where(activeCommentsByRecordId(tableId, recordId))
       return rows
         .filter(
           (row): row is { userId: string; email: string } =>

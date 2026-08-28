@@ -20,16 +20,16 @@ export const RecordUpdateActionSchema = Schema.Struct({
   operator: Schema.Literal('update'),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Target table name' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Target table name' })
     ),
-    data: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({ description: 'Fields to update (supports template variables)' })
+    data: Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({ description: 'Fields to update (supports template variables)' })
     ),
     filter: ConditionGroupSchema,
     runAs: Schema.optional(
-      Schema.Literal('system', 'triggering-user').pipe(
-        Schema.annotations({
+      Schema.Literals(['system', 'triggering-user']).pipe(
+        Schema.annotate({
           description:
             "Action-ownership attribution for the write. 'system' (default): the updated-by field is attributed to the durable system actor. 'triggering-user': attribute the updated-by field — and the write session — to the user who triggered the automation when one exists (form submitter, record-event actor, authenticated webhook caller), falling back to the system actor for user-less triggers (cron, automation-call). Omitting the field is byte-identical to 'system'.",
         })
@@ -37,7 +37,7 @@ export const RecordUpdateActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordUpdateAction',
     title: 'Record Update Action',
     description: 'Update records matching filter conditions',

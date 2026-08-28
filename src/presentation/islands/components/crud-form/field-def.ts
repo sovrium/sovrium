@@ -41,6 +41,12 @@ export interface FieldDef {
   readonly type: FieldType
   readonly required?: boolean
   readonly options?: readonly string[]
+  /**
+   * The bound column's declared `format` (`barcode`). Carried into the island
+   * because it decides whether an untouched empty value may be written at all
+   * — a formatted column has a CHECK that `''` fails. See `omitsEmptyValue`.
+   */
+  readonly format?: string
   readonly language?: string
   readonly lineNumbers?: boolean
   readonly readOnly?: boolean

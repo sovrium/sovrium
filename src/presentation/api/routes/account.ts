@@ -16,7 +16,11 @@ import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { accountDeleteRequestSchema } from '@/domain/models/api/account/account'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { purgeDueAccounts } from '@/infrastructure/database/account-purge'
+import {
+  purgeDueAccounts,
+  resolvePurgeTableAuthorship,
+} from '@/infrastructure/database/account-purge'
+import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAccountLive } from '@/presentation/api/routes/account/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
@@ -32,6 +36,7 @@ import type { Context, Hono } from 'hono'
  *                                           GDPR pending-erasure data-table)
  *   - `POST /api/account/delete`          — GDPR Art. 17 (D5)
  *   - `POST /api/account/purge-due`       — runs the D3 hard-delete scheduler
+ *   - `POST /api/account/retention-due`   — runs the activity-log retention sweep
  *
  * `export`, `pending-erasure`, and `delete` operate only on the authenticated
  * caller. There is no
@@ -56,6 +61,11 @@ import type { Context, Hono } from 'hono'
  * anonymous internet client can trigger hard deletes. `purgeDueAccounts` is
  * itself already an infrastructure helper (its own `db.transaction` hard-delete
  * path), so it is invoked directly rather than through the repository port.
+ *
+ * `retention-due` is the same shape for the same reason: an internal trigger for
+ * the activity-log retention sweep, gated by the SAME token and unreachable in
+ * production, where the sweep runs on the daily cron armed by
+ * `register-activity-log-retention.ts`.
  */
 
 /**
@@ -95,7 +105,13 @@ async function handleExport(c: Context, app: App): Promise<Response> {
     c,
     ExportAccount(
       userId,
-      (app.tables ?? []).map((t) => t.name)
+      // Candidate authorship columns resolved from the DECLARED FIELD TYPES,
+      // matching the erasure sweep. Probing the literal `created_by` alone made
+      // the export blind to a config that names the field anything else.
+      (app.tables ?? []).map((t) => {
+        const resolved = resolvePurgeTableAuthorship(app.tables, t.name)
+        return { tableName: resolved.name, columns: resolved.createdByColumns }
+      })
     ).pipe(provideAccountLive)
   )
   if (outcome._tag === 'Unauthorized') return unauthorized(c)
@@ -236,8 +252,45 @@ async function handlePurgeDue(c: Context, app: App): Promise<Response> {
     return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
   }
 
-  const purgedCount = await purgeDueAccounts((app.tables ?? []).map((t) => t.name))
+  // Authorship columns are resolved from the table's DECLARED FIELD TYPES, not
+  // assumed to be the literal `created_by`. A `{ name: 'author',
+  // type: 'created-by' }` field is valid config and generates an `author`
+  // column; matching by literal name deleted nothing for such a config while
+  // still reporting `purgedCount: 1`.
+  const purgedCount = await purgeDueAccounts(
+    (app.tables ?? []).map((t) => resolvePurgeTableAuthorship(app.tables, t.name))
+  )
   return c.json({ status: 'ok', purgedCount }, 200)
+}
+
+/**
+ * `POST /api/account/retention-due` — run the activity-log retention sweep.
+ *
+ * The sibling of {@link handlePurgeDue}, gated by the same
+ * `INTERNAL_SCHEDULER_TOKEN` shared secret and 404-ing identically when the
+ * variable is unset (which is the production posture — the production retention
+ * path is the daily cron armed by `registerActivityLogRetentionScheduler`).
+ *
+ * A SEPARATE route rather than an extra sweep folded into `purge-due`: the two
+ * answer different questions. `purge-due` erases the accounts of people who
+ * asked to be forgotten; this expires rows past a retention window regardless of
+ * whose they are. Merging them would make one endpoint whose failure mode is
+ * ambiguous and whose name describes half of what it does.
+ */
+async function handleRetentionDue(c: Context): Promise<Response> {
+  const expectedToken = process.env[SCHEDULER_TOKEN_ENV]
+  // No token configured (production) → the route is effectively disabled.
+  if (expectedToken === undefined || expectedToken.length === 0) {
+    return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+  }
+
+  const providedToken = c.req.header(SCHEDULER_TOKEN_HEADER)
+  if (providedToken === undefined || !tokensMatch(providedToken, expectedToken)) {
+    return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
+  }
+
+  const deletedCount = await purgeExpiredActivityLogs()
+  return c.json({ status: 'ok', deletedCount }, 200)
 }
 
 /**
@@ -259,5 +312,6 @@ export function chainAccountRoutes<T extends Hono>(honoApp: T, app: App): T {
     .get('/api/account/export', async (c) => handleExport(c, app))
     .get('/api/account/pending-erasure', async (c) => handlePendingErasure(c))
     .post('/api/account/delete', async (c) => handleDelete(c))
-    .post('/api/account/purge-due', async (c) => handlePurgeDue(c, app)) as T
+    .post('/api/account/purge-due', async (c) => handlePurgeDue(c, app))
+    .post('/api/account/retention-due', async (c) => handleRetentionDue(c)) as T
 }

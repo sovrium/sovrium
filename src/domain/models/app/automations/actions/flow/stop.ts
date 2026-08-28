@@ -23,7 +23,7 @@ export const FlowStopActionSchema = Schema.Struct({
     /** Human-readable message explaining why execution was stopped */
     message: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Message explaining why execution was stopped (supports template variables)',
         })
       )
@@ -31,8 +31,8 @@ export const FlowStopActionSchema = Schema.Struct({
 
     /** Stop status: success or error */
     status: Schema.optional(
-      Schema.Literal('success', 'error').pipe(
-        Schema.annotations({
+      Schema.Literals(['success', 'error']).pipe(
+        Schema.annotate({
           description: 'Stop status: success or error (default: error)',
         })
       )
@@ -40,15 +40,15 @@ export const FlowStopActionSchema = Schema.Struct({
 
     /** Output data to return to the caller */
     output: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-        Schema.annotations({
+      Schema.Record(Schema.String, Schema.Unknown).pipe(
+        Schema.annotate({
           description: 'Output data to return to the caller as key-value pairs',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FlowStopAction',
     title: 'Flow Stop Action',
     description: 'Immediately stop automation execution with optional status and output',

@@ -41,11 +41,14 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { type Context } from 'hono'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { db } from '@/infrastructure/database'
+import { executeRaw, executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
+import { systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logError } from '@/infrastructure/logging/logger'
+import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller, McpCallerRole } from '@/infrastructure/server/route-setup/mcp/auth'
 
 // ---------------------------------------------------------------------------
@@ -54,7 +57,7 @@ import type { McpCaller, McpCallerRole } from '@/infrastructure/server/route-set
 
 /**
  * Captured outcome of a `tools/call` dispatch — extracted from the JSON-RPC
- * response envelope built by `jsonRpcSuccess` / `jsonRpcError`. Either the
+ * result built by `toolSuccess` / `toolFailure`. Either the
  * `result` slot (success) or the `error` slot (failure) is populated; the
  * other is undefined.
  */
@@ -65,32 +68,31 @@ interface DispatchOutcome {
 }
 
 /**
- * Extract the success result or error message from a JSON-RPC response body.
- * The body is the parsed JSON read off the Response returned by `handleToolsCall`
- * — either `{ result: { content: [...] } }` for success or
- * `{ error: { code, message } }` for failure.
+ * The `created_at` value the hand-written audit INSERT must supply.
  *
- * Failure path is detected by the presence of an `error` key — we never trust
- * the HTTP status code because Hono returns 200 for both shapes (per the
- * JSON-RPC convention that the envelope, not the transport, carries the
- * error). When the body is malformed (parse error, unexpected shape) we fall
- * back to recording the call as a success with `result: undefined` so the
- * audit row still lands; missing audit rows are worse than rough ones for an
- * operational log.
+ * `id` and `created_at` are `NOT NULL` on both dialects, but only Postgres
+ * backs them with a SQL-level `DEFAULT` (`gen_random_uuid()` / `now()`). The
+ * SQLite mirror declares them as Drizzle `$defaultFn`s — application-level
+ * generators the ORM runs while *building* an insert — and a raw `INSERT` like
+ * this one never goes through that path. Left out, SQLite rejects the row with
+ * `NOT NULL constraint failed`. Supplying both keeps ONE column list correct on
+ * both engines.
+ *
+ * `created_at` is the half that cannot be shared, because the two dialects do
+ * not merely format it differently — they store different types:
+ * `timestamptz` on Postgres, an INTEGER of epoch **milliseconds** on SQLite
+ * (`integer('created_at', { mode: 'timestamp_ms' })` in `schema-sqlite/ai.ts`).
+ *
+ * Deliberately NOT `nowExpr()` from `sql/dialect-sql.ts`, which is the
+ * obvious-looking helper and the wrong one here: its SQLite arm emits an
+ * ISO-8601 **TEXT** value, the right choice for the dynamic-table `TEXT`
+ * timestamp family and the wrong one for this INTEGER column. SQLite's loose
+ * typing would store that string without complaint, after which it sorts after
+ * every genuine integer under the `ORDER BY created_at DESC` this table is read
+ * with, and decodes to garbage through `timestamp_ms`. That failure is silent,
+ * which is why it is called out rather than left to be rediscovered.
  */
-const extractDispatchOutcome = (body: unknown): DispatchOutcome => {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    return { result: undefined, errorCode: undefined, errorMessage: undefined }
-  }
-  const envelope = body as { readonly result?: unknown; readonly error?: unknown }
-  if (envelope.error !== undefined && envelope.error !== null) {
-    const err = envelope.error as { readonly code?: unknown; readonly message?: unknown }
-    const message = typeof err.message === 'string' ? err.message : 'Unknown error'
-    const code = typeof err.code === 'number' ? err.code : undefined
-    return { result: undefined, errorCode: code, errorMessage: message }
-  }
-  return { result: envelope.result, errorCode: undefined, errorMessage: undefined }
-}
+const auditCreatedAt = () => (isSqliteRuntime() ? sql`${Date.now()}` : sql.raw('now()'))
 
 /**
  * Insert a single audit row. Errors during insert are swallowed and logged to
@@ -138,11 +140,21 @@ const insertAuditRow = async (input: {
     input.outcome.errorCode === undefined ? sql.raw('NULL') : sql`${input.outcome.errorCode}`
 
   try {
+    // `executeRaw` picks the dialect's execution method: `.execute()` on the
+    // Postgres client, `.all()` on SQLite. `db.execute` does not exist on
+    // `bun-sqlite` at all, so the previous direct call threw
+    // `TypeError: db.execute is not a function` — and because this catch
+    // swallows everything, the request still returned 200 while the trail
+    // stayed empty on the zero-config default engine.
+    //
     // eslint-disable-next-line functional/no-expression-statements -- side-effecting INSERT into the audit log
-    await db.execute(
-      sql`INSERT INTO system.ai_tool_calls
-          (tool_name, caller_type, caller_id, caller_role, input, output, error_message, error_code, latency_ms, transport)
+    await executeRaw(
+      db,
+      sql`INSERT INTO ${systemTableRef('ai_tool_calls')}
+          (id, created_at, tool_name, caller_type, caller_id, caller_role, input, output, error_message, error_code, latency_ms, transport)
           VALUES (
+            ${crypto.randomUUID()},
+            ${auditCreatedAt()},
             ${input.toolName},
             ${input.callerType},
             ${input.callerId},
@@ -164,11 +176,22 @@ const insertAuditRow = async (input: {
 }
 
 /**
- * Derive the `(caller_type, caller_id)` pair from a resolved caller. The
- * static-token strategy never carries a `userId`, so we tag the caller as
- * `'token'` and use a fixed `'token'` id (we deliberately do NOT log the
- * bearer value — leaking it into the audit log would defeat the auth
- * gate). OAuth callers always carry a real `userId` from Better Auth.
+ * Derive the `(caller_type, caller_id)` pair from a resolved caller.
+ *
+ * Both credentials `/mcp` accepts — an API key and an OAuth access token —
+ * resolve to a real Better Auth user, so the `'oauth'` branch is the live one
+ * and `caller_id` is always a real subject. That is the audit property the
+ * static tokens could not offer: having no identity, they wrote the literal
+ * `'token'` as their own id, and every caller holding the same secret was
+ * indistinguishable in the log.
+ *
+ * The `'token'` branch is now unreachable and kept as a fail-closed default —
+ * a caller the auth gate somehow let through without a subject is recorded as
+ * unidentified rather than attributed to someone. Note the label lags the
+ * vocabulary: `'oauth'` now means "a Better Auth subject" rather than "arrived
+ * over OAuth", and narrowing it to distinguish the two credentials would change
+ * the meaning of a column that already holds rows written under the old
+ * vocabulary.
  */
 const deriveCallerIdentity = (
   caller: Readonly<McpCaller>
@@ -188,36 +211,31 @@ export interface AuditDispatchInput {
   readonly caller: McpCaller
   readonly toolName: string
   readonly args: Record<string, unknown>
-  readonly dispatch: () => Promise<Response> | Response
+  readonly dispatch: () => Promise<McpToolResult>
 }
 
 /**
  * Wrap a `tools/call` dispatch with audit logging.
  *
- * Captures the start timestamp, runs `dispatch()` to produce the JSON-RPC
- * Response, clones the Response to read the body without consuming the
- * stream the caller will send to the client, and persists an audit row.
+ * Under the SDK v2 handler a tool dispatch either RETURNS an
+ * {@link McpToolResult} or THROWS a `ProtocolError` (the only way to surface a
+ * JSON-RPC protocol error — see `toolFailure`). Both outcomes must be audited,
+ * so the failure path catches, records, and re-throws rather than swallowing:
+ * a denied call is exactly the kind of event the trail exists to capture.
  *
- * Returns the original Response unmodified so the wire format is byte-for-byte
- * identical with or without auditing. When `auditEnabled` is false the
- * dispatch runs straight through with no clone, no body read, and no insert.
+ * When `auditEnabled` is false the dispatch runs straight through with no
+ * body read and no insert.
  */
-export const auditedToolsCallDispatch = async (input: AuditDispatchInput): Promise<Response> => {
+export const auditedToolsCallDispatch = async (
+  input: AuditDispatchInput
+): Promise<McpToolResult> => {
   if (!input.auditEnabled) {
     return input.dispatch()
   }
 
   const start = Date.now()
-  const response = await input.dispatch()
+  const settled = await runDispatchToOutcome(input.dispatch)
   const latencyMs = Date.now() - start
-
-  // Clone the response so we can read its body without consuming the original.
-  // Hono's `c.json(...)` produces a fresh Response each call; cloning is safe
-  // (no consumed-body races) because the original has not been awaited yet.
-  // When parsing fails (non-JSON body, stream error) the outcome stays empty
-  // and the audit row still lands with `output: null, error_message: null` so
-  // we have a record the call happened.
-  const outcome = await readResponseOutcome(response)
   const identity = deriveCallerIdentity(input.caller)
 
   // The `await` here is intentional: it ensures the audit row is committed
@@ -232,25 +250,51 @@ export const auditedToolsCallDispatch = async (input: AuditDispatchInput): Promi
     callerType: identity.callerType,
     toolName: input.toolName,
     inputArgs: input.args,
-    outcome,
+    outcome: settled.outcome,
     latencyMs,
   })
 
-  return response
+  if (settled.thrown !== undefined) {
+    // eslint-disable-next-line functional/no-throw-statements -- re-raise the protocol error after the audit row lands
+    throw settled.thrown
+  }
+  return settled.result as McpToolResult
+}
+
+interface SettledDispatch {
+  readonly outcome: DispatchOutcome
+  readonly result: McpToolResult | undefined
+  readonly thrown: unknown | undefined
 }
 
 /**
- * Read and parse the JSON body of a cloned Response, returning the
- * extracted outcome. Failures (non-JSON body, stream error) collapse to the
- * empty outcome so the audit row still lands.
+ * Run the dispatch and normalize both outcomes into an auditable shape.
+ *
+ * A thrown `ProtocolError` carries `code` / `message`, which map onto the
+ * `error_code` / `error_message` audit columns exactly as the hand-built
+ * JSON-RPC error envelope used to.
  */
-const readResponseOutcome = async (response: Readonly<Response>): Promise<DispatchOutcome> => {
+const runDispatchToOutcome = async (
+  dispatch: () => Promise<McpToolResult>
+): Promise<SettledDispatch> => {
   try {
-    const clone = response.clone()
-    const body = await clone.json()
-    return extractDispatchOutcome(body)
-  } catch {
-    return { result: undefined, errorCode: undefined, errorMessage: undefined }
+    const result = await dispatch()
+    return {
+      outcome: { result, errorCode: undefined, errorMessage: undefined },
+      result,
+      thrown: undefined,
+    }
+  } catch (error) {
+    const err = error as { readonly code?: unknown; readonly message?: unknown }
+    return {
+      outcome: {
+        result: undefined,
+        errorCode: typeof err.code === 'number' ? err.code : undefined,
+        errorMessage: typeof err.message === 'string' ? err.message : 'Unknown error',
+      },
+      result: undefined,
+      thrown: error,
+    }
   }
 }
 
@@ -263,16 +307,25 @@ const readResponseOutcome = async (response: Readonly<Response>): Promise<Dispat
 // `mcp-internals.ts`) along with the rest of the InternalTableRegistry
 // surface. The audit-list tool is special-cased in `mcp-routes.ts` and
 // routed to `handleAuditListCall` (below) BEFORE the generic internals
-// dispatcher claims it — that anti-recursion gate ensures an admin
-// audit-read does NOT log a row into the same `system.ai_tool_calls` table
-// it just queried (which would announce its own creation and swamp the log).
+// dispatcher claims it — because that dispatcher answers `SELECT *`, and
+// `ai_tool_calls` declares `denylistFields: []`, so it would put `session_id`
+// and `request_id` on the wire. The 12-column projection below is the whole
+// point of the ordering, and `[internal ref]` pins it.
+//
+// Until 2026-08-27 this comment called that an anti-recursion gate — the claim
+// that an audit-read would otherwise log a row for itself. It would not: the
+// generic dispatcher is invoked outside `auditedToolsCallDispatch` too, so
+// neither path writes an audit row. The constraint is real, but it
+// is about data exposure, not bookkeeping.
 
 /**
  * True when the given tool name is the internal audit-list tool for `appName`.
  * Used by `mcp-routes.ts` to route the dispatcher to `handleAuditListCall`
- * before it reaches the M-14 generic internals dispatcher (which would
- * otherwise also claim this tool name and run a SELECT through that path,
- * adding an audit row mid-read).
+ * before it reaches the M-14 generic internals dispatcher, which would
+ * otherwise also claim this tool name and answer it with `SELECT *` —
+ * exposing `session_id` and `request_id`, since `ai_tool_calls` declares
+ * `denylistFields: []`. It does NOT add an audit row (the wording here until
+ * 2026-08-27): that path writes none either..
  */
 export const isInternalAuditListTool = (toolName: string, appName: string): boolean =>
   toolName === `${appName}_system_ai_tool_calls_list`
@@ -298,20 +351,11 @@ interface AuditListRow {
  * a viewer who hand-crafts the tool name gets a -32603 instead of a 200.
  */
 export const handleAuditListCall = async (input: {
-  readonly c: Readonly<Context>
   readonly caller: McpCaller
-  readonly responseId: number | string
   readonly args: Record<string, unknown>
-}): Promise<Response> => {
+}): Promise<McpToolResult> => {
   if (!isAdminRole(input.caller.role)) {
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      error: {
-        code: -32_603,
-        message: 'Internal tool system.ai_tool_calls is admin-only',
-      },
-    })
+    return toolFailure(-32_603, 'Internal tool system.ai_tool_calls is admin-only')
   }
 
   const limitArg = input.args['limit']
@@ -324,38 +368,27 @@ export const handleAuditListCall = async (input: {
     // clamped to the `[1, 1000]` range above, so SQL injection is not a
     // concern.
     const safeLimit = Math.floor(limit)
-    const result = (await db.execute(
-      sql.raw(
-        `SELECT id, created_at, caller_role, caller_id, caller_type, tool_name, input, output, error_message, error_code, latency_ms, transport
-         FROM system.ai_tool_calls
-         ORDER BY created_at DESC
-         LIMIT ${safeLimit}`
-      )
-    )) as unknown as { readonly rows?: ReadonlyArray<AuditListRow> }
 
-    // Bun's bun:sql driver returns rows directly as an array (no `.rows`
-    // wrapper); the pg driver wraps in `.rows`. Handle both shapes for
-    // forward compatibility.
-    const rows = Array.isArray(result)
-      ? (result as ReadonlyArray<AuditListRow>)
-      : (result.rows ?? [])
+    // The 12-column projection is load-bearing and must stay explicit: it is
+    // the only thing that distinguishes this tier-1 handler from the M-14
+    // generic internals dispatcher, which answers `SELECT *` and — because
+    // `ai_tool_calls` declares `denylistFields: []` — would put `session_id`
+    // and `request_id` on the wire. [internal ref] pins that difference.
+    //
+    // `executeRawTyped` selects the dialect's execution method AND normalizes
+    // both driver result shapes, which is why no `.rows` unwrap follows: the
+    // hand-rolled one that used to live here is now dead code.
+    const rows = await executeRawTyped<AuditListRow>(
+      db,
+      sql`SELECT id, created_at, caller_role, caller_id, caller_type, tool_name, input, output, error_message, error_code, latency_ms, transport
+          FROM ${systemTableRef('ai_tool_calls')}
+          ORDER BY created_at DESC
+          LIMIT ${sql.raw(String(safeLimit))}`
+    )
 
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      result: {
-        content: [{ type: 'text', text: JSON.stringify(rows, undefined, 2) }],
-      },
-    })
+    return toolSuccess(rows)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      error: {
-        code: -32_603,
-        message: `Audit-list query failed: ${message}`,
-      },
-    })
+    return toolFailure(-32_603, `Audit-list query failed: ${message}`)
   }
 }

@@ -7,6 +7,7 @@
 
 import { eq, and, asc, gte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { activityLogRetentionCutoff } from '@/domain/services/activity-log-retention'
 import { DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import {
@@ -23,11 +24,18 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
 /**
- * Build where condition for activity log queries (with 1-year retention policy)
+ * Build where condition for activity log queries (with 1-year retention policy).
+ *
+ * The cutoff comes from the shared `activityLogRetentionCutoff` rather than being
+ * recomputed here. This filter used to BE the retention policy — it hid expired
+ * rows while nothing deleted them, so the data was retained forever behind a
+ * query that claimed otherwise. Now that `purgeExpiredActivityLogs` removes
+ * them, the two must agree on one boundary: a filter that ran ahead of the sweep
+ * would recreate the same gap, and a sweep that ran ahead of the filter would
+ * silently shorten visible history.
  */
 function buildActivityWhereCondition(tableName: string, recordId: string) {
-  const now = new Date()
-  const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+  const oneYearAgo = activityLogRetentionCutoff(new Date())
   return and(
     eq(activityLogs.tableName, tableName),
     eq(activityLogs.recordId, recordId),

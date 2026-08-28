@@ -243,24 +243,35 @@ export const stopAiKnowledgeListener = async (): Promise<void> => {
  * startup. Single entry point so the server composition root has one call
  * instead of three.
  *
- * SQLite skip: the RAG knowledge pipeline is PostgreSQL-only — it writes
- * `pgvector` embeddings to `system.ai_embeddings` and reads knowledge tables
- * via raw `db.execute(sql\`…\`)`, which the SQLite `db` facade does not expose.
- * Self-skip the whole pipeline (documents + table knowledge + change listener)
- * on the SQLite runtime so it degrades cleanly instead of emitting a
- * `db.execute is not a function` warning per knowledge table. `startAiKnowledge\
- * Listener` already self-skips on SQLite; guarding the parent makes the whole
- * boot-path RAG step a clean no-op and keeps the skip in one place.
+ * SQLite skip — PARTIAL, and deliberately so. Two of the three steps are
+ * genuinely PostgreSQL-only and stay skipped:
+ *
+ *   - `runSyncKnowledgeAtStartup` reads the user's knowledge TABLES through a
+ *     raw `db.execute(sql\`…\`)` (`knowledge-sync.ts`), which the SQLite `db`
+ *     facade does not expose.
+ *   - `startAiKnowledgeListener` is built on `LISTEN`/`NOTIFY`; it already
+ *     self-skips, and the boot banner reports it as degraded.
+ *
+ * `runSyncDocumentsAtStartup` is NOT one of them. It reads files from
+ * `AI_KNOWLEDGE_DIR`, chunks them, embeds via the eco-routed `AiService`, and
+ * persists through `RagSyncLayer` — which provides the dialect-gated
+ * `AiEmbeddingRepositoryActive`, whose SQLite arm is pinned by
+ * `[internal ref]`. Skipping it too left the shipped default
+ * engine with an agent that retrieves from an index nothing ever wrote, and
+ * the earlier blanket guard's rationale ("writes pgvector embeddings") was
+ * only ever true of the Postgres arm of a repository that has two.
  */
 export const runRagKnowledgeStartup = async (
   agents: ReadonlyArray<RagAgent> | undefined,
   databaseUrl: string
 ): Promise<void> => {
+  await runSyncDocumentsAtStartup()
   if (isSqliteRuntime()) {
-    logDebug('[ai-rag] knowledge startup disabled — requires PostgreSQL (SQLite runtime)')
+    logDebug(
+      '[ai-rag] table-knowledge sync and change listener disabled — require PostgreSQL (SQLite runtime); document knowledge still embedded'
+    )
     return
   }
-  await runSyncDocumentsAtStartup()
   await runSyncKnowledgeAtStartup({ agents })
   await startAiKnowledgeListener(databaseUrl, buildKnowledgeBindings(agents))
 }

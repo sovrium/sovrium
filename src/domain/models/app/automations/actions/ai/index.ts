@@ -14,13 +14,13 @@ import { AiGenerateActionSchema } from './generate'
 /**
  * AI Action — union of all AI/LLM operators
  */
-export const AiActionSchema = Schema.Union(
+export const AiActionSchema = Schema.Union([
   AiGenerateActionSchema,
   AiClassifyActionSchema,
   AiExtractActionSchema,
-  AiAgentActionSchema
-).pipe(
-  Schema.annotations({
+  AiAgentActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'AiAction',
     title: 'AI Action',
     description:

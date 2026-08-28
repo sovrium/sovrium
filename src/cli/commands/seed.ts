@@ -37,6 +37,7 @@ import { dirname, join, resolve } from 'node:path'
 import { Console, Effect } from 'effect'
 import { buildSeedPlan } from '@/application/use-cases/seed/seed-plan'
 import { SEED_MODES, parseSeedMode } from '@/domain/models/seed'
+import { formatDiscoveredConfigNotice } from '@/domain/utils'
 import { printDocument } from '@/infrastructure/logging/cli-output'
 import { loadSeedFiles } from './seed-load'
 import { lazyImportSchema } from './utils'
@@ -130,6 +131,24 @@ const requireSeedDir = async (raw: string | undefined, configFile: string): Prom
   )
 }
 
+/**
+ * Resolve the config when no positional one was given.
+ *
+ * The terminal `?? DEFAULT_CONFIG_FILE` is deliberate: when nothing is found,
+ * `requireApp` keeps printing the byte-identical `Error: File not found:
+ * ./app.yaml` it printed before discovery existed, so seed's failure contract is
+ * untouched. The change is purely additive — `app.yaml` still resolves (it is
+ * candidate #1) and `app.yml` / `app.ts` now resolve too.
+ */
+const discoverConfigFile = async (): Promise<string> => {
+  const { discoverDefaultConfigFile } = await lazyImportSchema()
+  const discovered = await discoverDefaultConfigFile(process.cwd())
+  if (discovered === undefined) return DEFAULT_CONFIG_FILE
+
+  Effect.runSync(Console.error(formatDiscoveredConfigNotice(discovered)))
+  return discovered
+}
+
 /** Load and decode the app config, refusing with the path the operator typed. */
 const requireApp = async (configFile: string): Promise<App> => {
   if (!(await Bun.file(configFile).exists())) {
@@ -182,7 +201,7 @@ const migrate = async (app: App): Promise<void> => {
  */
 export const handleSeedCommand = async (options: SeedCommandOptions): Promise<void> => {
   const mode = requireMode(options.mode)
-  const configFile = options.configFile ?? DEFAULT_CONFIG_FILE
+  const configFile = options.configFile ?? (await discoverConfigFile())
   const app = await requireApp(configFile)
   const seedDir = await requireSeedDir(options.seedDir, configFile)
 

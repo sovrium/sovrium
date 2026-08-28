@@ -32,8 +32,8 @@ export const BUILT_IN_ROLE_LEVELS: Readonly<Record<string, number>> = {
  *
  * The three built-in roles with predefined hierarchy levels.
  */
-export const BuiltInRoleSchema = Schema.Literal('admin', 'member', 'viewer').pipe(
-  Schema.annotations({
+export const BuiltInRoleSchema = Schema.Literals(['admin', 'member', 'viewer']).pipe(
+  Schema.annotate({
     title: 'Built-in Role',
     description: 'Built-in role with predefined hierarchy. Levels: admin=80, member=40, viewer=10',
     examples: ['admin', 'member', 'viewer'],
@@ -58,8 +58,8 @@ export type BuiltInRole = Schema.Schema.Type<typeof BuiltInRoleSchema>
  * ```
  */
 export const RoleNameSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z][a-z0-9-]*$/),
-  Schema.annotations({
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+  Schema.annotate({
     title: 'Role Name',
     description: 'Role name: lowercase, alphanumeric, hyphens. Must start with a letter.',
     examples: ['editor', 'content-manager', 'moderator'],
@@ -124,11 +124,13 @@ const validateLandingUrlTokens = (
  * ```
  */
 export const DefaultLandingSchema = Schema.String.pipe(
-  Schema.pattern(/^\//),
-  Schema.filter((value) =>
-    validateLandingUrlTokens('defaultLanding', value, { allowToken: true, requireToken: false })
+  Schema.check(Schema.isPattern(/^\//)),
+  Schema.check(
+    Schema.makeFilter((value) =>
+      validateLandingUrlTokens('defaultLanding', value, { allowToken: true, requireToken: false })
+    )
   ),
-  Schema.annotations({
+  Schema.annotate({
     title: 'Default Landing URL',
     description:
       'Per-role landing URL evaluated when a session navigates to auth.landingPath. Must start with /. Supports at most one $currentUser.assignments.<table>[0] token. Token presence selects single-record landing; absence is unconditional.',
@@ -158,11 +160,13 @@ export const DefaultLandingSchema = Schema.String.pipe(
  * ```
  */
 export const PickerLandingSchema = Schema.String.pipe(
-  Schema.pattern(/^\//),
-  Schema.filter((value) =>
-    validateLandingUrlTokens('pickerLanding', value, { allowToken: false, requireToken: false })
+  Schema.check(Schema.isPattern(/^\//)),
+  Schema.check(
+    Schema.makeFilter((value) =>
+      validateLandingUrlTokens('pickerLanding', value, { allowToken: false, requireToken: false })
+    )
   ),
-  Schema.annotations({
+  Schema.annotate({
     title: 'Picker Landing URL',
     description:
       'Multi-record fallback URL for the role. Used when defaultLanding has a $currentUser.assignments.<table>[0] token and the user has more than one assignment in that scope. Must start with /. Must not contain any assignment tokens.',
@@ -200,8 +204,8 @@ export const PickerLandingSchema = Schema.String.pipe(
  *
  * `admin-editor ⊇ admin-viewer`. See {@link resolveDashboardTier}.
  */
-export const DashboardTierSchema = Schema.Literal('admin-editor', 'admin-viewer').pipe(
-  Schema.annotations({
+export const DashboardTierSchema = Schema.Literals(['admin-editor', 'admin-viewer']).pipe(
+  Schema.annotate({
     title: 'Dashboard Tier',
     description:
       'Native Admin Dashboard access tier. admin-editor = full read + write (publish); admin-viewer = read-only. admin-editor ⊇ admin-viewer.',
@@ -215,13 +219,11 @@ export type DashboardTier = Schema.Schema.Type<typeof DashboardTierSchema>
 export const RoleDefinitionSchema = Schema.Struct({
   name: RoleNameSchema,
   description: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotations({ description: 'Human-readable description of the role' })
-    )
+    Schema.String.pipe(Schema.annotate({ description: 'Human-readable description of the role' }))
   ),
   level: Schema.optional(
-    Schema.Number.pipe(
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.annotate({
         description:
           'Hierarchy level (higher = more permissions). Built-in: admin=80, member=40, viewer=10',
       })
@@ -231,22 +233,24 @@ export const RoleDefinitionSchema = Schema.Struct({
   pickerLanding: Schema.optional(PickerLandingSchema),
   dashboardTier: Schema.optional(DashboardTierSchema),
 }).pipe(
-  Schema.filter((role) => {
-    if (role.pickerLanding && !role.defaultLanding) {
-      return `Role '${role.name}' has pickerLanding but no defaultLanding. pickerLanding is the multi-record fallback for a templated defaultLanding.`
-    }
-    if (role.pickerLanding && role.defaultLanding) {
-      // Use match() instead of test() — test() on a /g regex has stateful
-      // lastIndex which would mutate the shared pattern (rejected by ESLint
-      // functional/immutable-data). match() returns null or an array.
-      const hasToken = role.defaultLanding.match(ASSIGNMENT_TOKEN_PATTERN) !== null
-      if (!hasToken) {
-        return `Role '${role.name}' has pickerLanding but defaultLanding has no $currentUser.assignments.<table>[0] token. pickerLanding is only meaningful when defaultLanding is templated.`
+  Schema.check(
+    Schema.makeFilter((role) => {
+      if (role.pickerLanding && !role.defaultLanding) {
+        return `Role '${role.name}' has pickerLanding but no defaultLanding. pickerLanding is the multi-record fallback for a templated defaultLanding.`
       }
-    }
-    return undefined
-  }),
-  Schema.annotations({
+      if (role.pickerLanding && role.defaultLanding) {
+        // Use match() instead of test() — test() on a /g regex has stateful
+        // lastIndex which would mutate the shared pattern (rejected by ESLint
+        // functional/immutable-data). match() returns null or an array.
+        const hasToken = role.defaultLanding.match(ASSIGNMENT_TOKEN_PATTERN) !== null
+        if (!hasToken) {
+          return `Role '${role.name}' has pickerLanding but defaultLanding has no $currentUser.assignments.<table>[0] token. pickerLanding is only meaningful when defaultLanding is templated.`
+        }
+      }
+      return undefined
+    })
+  ),
+  Schema.annotate({
     title: 'Role Definition',
     description:
       'Custom role definition with name, optional description, hierarchy level, and post-login landing rules.',
@@ -282,24 +286,26 @@ export type RoleDefinition = Schema.Schema.Type<typeof RoleDefinitionSchema>
  * ```
  */
 export const RolesConfigSchema = Schema.Array(RoleDefinitionSchema).pipe(
-  Schema.filter((roles) => {
-    // Check for duplicate names
-    const names = roles.map((r) => r.name)
-    const uniqueNames = new Set(names)
-    if (uniqueNames.size !== names.length) {
-      const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
-      return `Duplicate role names: ${duplicates.join(', ')}`
-    }
+  Schema.check(
+    Schema.makeFilter((roles) => {
+      // Check for duplicate names
+      const names = roles.map((r) => r.name)
+      const uniqueNames = new Set(names)
+      if (uniqueNames.size !== names.length) {
+        const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
+        return `Duplicate role names: ${duplicates.join(', ')}`
+      }
 
-    // Check for conflicts with built-in roles
-    const conflicts = names.filter((name) => (BUILT_IN_ROLES as readonly string[]).includes(name))
-    if (conflicts.length > 0) {
-      return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}`
-    }
+      // Check for conflicts with built-in roles
+      const conflicts = names.filter((name) => (BUILT_IN_ROLES as readonly string[]).includes(name))
+      if (conflicts.length > 0) {
+        return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}`
+      }
 
-    return undefined
-  }),
-  Schema.annotations({
+      return undefined
+    })
+  ),
+  Schema.annotate({
     title: 'Roles Configuration',
     description: 'Array of custom role definitions. Built-in roles are always available.',
     examples: [
@@ -328,7 +334,7 @@ export type RolesConfig = Schema.Schema.Type<typeof RolesConfigSchema>
  * ```
  */
 export const DefaultRoleSchema = Schema.String.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Default Role',
     description:
       'Role assigned to new users by default. Accepts built-in roles or custom role names. Defaults to member.',
@@ -459,13 +465,14 @@ export const isAdminEquivalent = (roleName: string, app: AdminRoleResolvable): b
  * 2. A role literally NAMED `admin-editor` / `admin-viewer` → that tier — the
  *    per-user operator role, provisioned at runtime via the admin create-user
  *    API (no schema field needed; the role name IS the tier).
- * 3. The legacy `operator` role → `admin-viewer` — the historical admin-tier
- *    role; preserved so existing operator-tier installs keep their access.
- * 4. A role declared in `app.auth.roles` with an explicit `dashboardTier`
+ * 3. A role declared in `app.auth.roles` with an explicit `dashboardTier`
  *    → that tier.
- * 5. The RESOLVED TOP custom role ({@link resolveAdminRole}) → `admin-editor`
+ * 4. The RESOLVED TOP custom role ({@link resolveAdminRole}) → `admin-editor`
  *    IMPLICITLY — the zero-config win: the strictly-highest-`level` custom role
  *    becomes admin-capable with no config edit.
+ * 5. The legacy `operator` role → `admin-viewer`, but ONLY for an app that does
+ *    not declare the name. See {@link LEGACY_OPERATOR_ROLE} for why this rung
+ *    sits below the config and not above it.
  * 6. Otherwise → `undefined` (no access → 404, S1 anti-enumeration).
  *
  * SECURITY: every role NOT covered by rules 1–5 returns `undefined` and is
@@ -473,17 +480,31 @@ export const isAdminEquivalent = (roleName: string, app: AdminRoleResolvable): b
  * attack surface stays fixed and auditable.
  */
 /**
- * App-independent tier mapping for the built-in `admin` carve-out, the per-user
- * `admin-editor`/`admin-viewer` operator tiers (the role name IS the tier), and
- * the legacy `operator` read-tier. Returns `undefined` when `roleName` is none
- * of these — leaving the app-config-dependent rules (explicit mapping + implicit
- * top-role) to {@link resolveDashboardTier}. Extracted to keep the resolver's
+ * The historical admin-tier role name, kept as an ALIAS for installs that
+ * predate the per-user `admin-editor`/`admin-viewer` tiers.
+ *
+ * It is an alias, not a reserved word: `RolesConfigSchema` accepts `operator`
+ * in `app.auth.roles[]` like any other name. Read ABOVE the config — as it was
+ * — the alias silently overrode whatever the app said the role meant, so an app
+ * declaring `operator` as its LOWEST-privilege role handed that role the
+ * operator plane by choosing an unlucky word.
+ * Declaring the name is the app stating its own meaning, and that statement
+ * wins; an app that never claimed the name keeps the alias untouched.
+ */
+const LEGACY_OPERATOR_ROLE = 'operator'
+
+/**
+ * App-independent tier mapping: the built-in `admin` carve-out and the per-user
+ * `admin-editor`/`admin-viewer` operator tiers (the role name IS the tier).
+ * Returns `undefined` when `roleName` is neither — leaving every
+ * config-dependent rule (explicit mapping, implicit top-role, and the legacy
+ * alias, which is config-dependent precisely because a config may claim the
+ * name) to {@link resolveDashboardTier}. Extracted to keep the resolver's
  * cyclomatic complexity under the lint cap.
  */
 const resolveBuiltInTier = (roleName: string): DashboardTier | undefined => {
   if (isAdminRole(roleName)) return 'admin-editor'
   if (roleName === 'admin-editor' || roleName === 'admin-viewer') return roleName
-  if (roleName === 'operator') return 'admin-viewer'
   return undefined
 }
 
@@ -491,16 +512,21 @@ export const resolveDashboardTier = (
   roleName: string,
   app: AdminRoleResolvable
 ): DashboardTier | undefined => {
-  // Rules 1–3: app-independent built-in / per-user / legacy tiers.
+  // Rules 1–2: app-independent built-in / per-user tiers.
   const builtIn = resolveBuiltInTier(roleName)
   if (builtIn !== undefined) return builtIn
-  // Rule 4: explicit per-role dashboardTier mapping in the config.
-  const declared = (app.auth?.roles ?? []).find((r) => r.name === roleName)
+  const declaredRoles = app.auth?.roles ?? []
+  const declared = declaredRoles.find((r) => r.name === roleName)
+  // Rule 3: explicit per-role dashboardTier mapping in the config.
   if (declared?.dashboardTier) return declared.dashboardTier
-  // Rule 5: the resolved top custom role → admin-editor implicitly.
-  if ((app.auth?.roles ?? []).length > 0 && roleName === resolveAdminRole(app)) {
+  // Rule 4: the resolved top custom role → admin-editor implicitly.
+  if (declaredRoles.length > 0 && roleName === resolveAdminRole(app)) {
     return 'admin-editor'
   }
+  // Rule 5: the legacy alias, LAST — a declared role of the same name has
+  // already had rules 3 and 4 applied to it on its own terms, so reaching here
+  // with `declared` set means the app gave that role no dashboard claim at all.
+  if (roleName === LEGACY_OPERATOR_ROLE && declared === undefined) return 'admin-viewer'
   // Rule 6: no tier.
   return undefined
 }
@@ -535,14 +561,16 @@ export const isAdminTier = (roleName: string, app: AdminRoleResolvable): boolean
  * declared in `app.auth.roles[]`.
  *
  * These are provisioned per-user at runtime (the role name IS the tier — see
- * {@link resolveDashboardTier} rules 2–3), so they never appear in a config
- * file and are therefore absent from {@link BUILT_IN_ROLES}. They must still be
+ * {@link resolveDashboardTier} rule 2, and rule 5 for the legacy
+ * {@link LEGACY_OPERATOR_ROLE} alias), so they never appear in a config file
+ * and are therefore absent from {@link BUILT_IN_ROLES}. They must still be
  * ASSIGNABLE: the admin API is the only way to grant them.
  *
  * SECURITY: this list is the operator-plane provisioning vocabulary. Adding a
  * name here makes it assignable through `/api/auth/admin/*`; it does NOT by
- * itself grant a tier — {@link resolveBuiltInTier} owns that mapping. The two
- * must stay in lockstep, which the co-located unit test asserts.
+ * itself grant a tier — {@link resolveDashboardTier} owns that mapping. The two
+ * must stay in lockstep, which the co-located unit test asserts against an app
+ * declaring no roles, the only shape in which `operator` still means the alias.
  */
 export const ADMIN_TIER_ROLE_NAMES = ['admin-editor', 'admin-viewer', 'operator'] as const
 

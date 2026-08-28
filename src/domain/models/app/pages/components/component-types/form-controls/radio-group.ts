@@ -20,7 +20,7 @@ export const radioGroupFields = {
   options: Schema.optional(OptionsSchema),
   orientation: Schema.optional(OrientationSchema),
   defaultValue: Schema.optional(
-    Schema.Union(Schema.String, Schema.Number, Schema.Boolean).annotations({
+    Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
       description: 'Default value for form controls (select, radio-group, slider, etc.)',
     })
   ),

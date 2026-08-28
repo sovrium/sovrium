@@ -21,6 +21,7 @@
 
 import { readFileSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeBinaryBuildStamp } from './binary-build-stamp'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 
@@ -196,6 +197,24 @@ run(
 // Compile each target
 for (const target of targets) {
   compileBinary(target, version)
+}
+
+// Record the input fingerprint the DEFAULT (current-platform `./sovrium`) build
+// was produced from, so `scripts/build/ensure-binary.ts` can tell a current
+// binary from a stale one without rebuilding to find out.
+//
+// Written AFTER the compile, deliberately: the asset-generation steps above
+// rewrite inputs in place (`generated-css-assets.ts` and the three
+// `*.generated.ts` embed manifests), so a fingerprint taken earlier would
+// describe a tree that no longer exists and would mark this very binary stale.
+//
+// Only for the default build — `--target` / `--all` emit platform-suffixed
+// artifacts (`sovrium-linux-x64`, …), not `./sovrium`, so stamping them would
+// claim a freshness the un-built `./sovrium` does not have.
+const isDefaultBuild = targets.length === 1 && targets[0]?.outfile === 'sovrium'
+if (isDefaultBuild) {
+  const stamp = writeBinaryBuildStamp()
+  console.log(`  \u2713 build stamp ${stamp.fingerprint.slice(0, 12)} (${stamp.platform})`)
 }
 
 console.log(`\n\u2713 Done! Built ${targets.length} binary/binaries.`)

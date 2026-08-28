@@ -79,7 +79,7 @@ export interface AggregationResult {
  * })
  * ```
  */
-export class TableRepository extends Context.Tag('TableRepository')<
+export class TableRepository extends Context.Service<
   TableRepository,
   {
     readonly listRecords: (config: {
@@ -205,4 +205,4 @@ export class TableRepository extends Context.Tag('TableRepository')<
       }[]
     ) => Effect.Effect<Record<string, Record<string, string>>, DatabaseError>
   }
->() {}
+>()('TableRepository') {}

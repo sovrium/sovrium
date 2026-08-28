@@ -26,7 +26,7 @@ export const McpToolWireAnnotationsSchema = Schema.Struct({
   openWorldHint: Schema.optional(Schema.Boolean),
   title: Schema.optional(Schema.String),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'McpToolWireAnnotations',
     title: 'MCP Tool Wire Annotations',
     description:
@@ -58,21 +58,21 @@ export type McpToolWireAnnotations = typeof McpToolWireAnnotationsSchema.Type
  */
 export const mcpToolDefinitionSchema = Schema.Struct({
   name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description:
         'Tool name with appName prefix (e.g. crm_contacts_list, crm_action_archive_record).',
     })
   ),
   description: Schema.String.pipe(
-    Schema.annotations({ description: 'Human-readable description of what the tool does.' })
+    Schema.annotate({ description: 'Human-readable description of what the tool does.' })
   ),
-  inputSchema: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-    Schema.annotations({ description: 'JSON Schema describing the tool input parameters.' })
+  inputSchema: Schema.Record(Schema.String, Schema.Unknown).pipe(
+    Schema.annotate({ description: 'JSON Schema describing the tool input parameters.' })
   ),
   annotations: Schema.optional(McpToolWireAnnotationsSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'McpToolDefinition',
     title: 'MCP Tool Definition (wire format)',
     description:
@@ -88,10 +88,10 @@ export type McpToolDefinition = typeof mcpToolDefinitionSchema.Type
 // ---------------------------------------------------------------------------
 
 export const McpToolResultContentBlockSchema = Schema.Struct({
-  type: Schema.Literal('text', 'image', 'resource'),
+  type: Schema.Literals(['text', 'image', 'resource']),
   text: Schema.optional(Schema.String),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'McpToolResultContentBlock',
     title: 'MCP Tool Result Content Block',
     description: 'Single content block returned by a tool invocation.',
@@ -104,11 +104,11 @@ export const McpToolResultContentBlockSchema = Schema.Struct({
  */
 export const mcpToolResultSchema = Schema.Struct({
   content: Schema.Array(McpToolResultContentBlockSchema).pipe(
-    Schema.annotations({ description: 'Content blocks returned by the tool.' })
+    Schema.annotate({ description: 'Content blocks returned by the tool.' })
   ),
   isError: Schema.optional(Schema.Boolean),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'McpToolResult',
     title: 'MCP Tool Result (wire format)',
     description: 'Wire-format result envelope for tools/call.',
@@ -132,7 +132,7 @@ export const mcpServerInfoSchema = Schema.Struct({
     tools: Schema.optional(Schema.Boolean),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'McpServerInfo',
     title: 'MCP Server Info (handshake)',
     description: 'Server metadata + capabilities returned during the initialize handshake.',

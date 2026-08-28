@@ -57,20 +57,31 @@ export const isInsecureOptOut = (): boolean => isFlagSet(env['SOVRIUM_ALLOW_INSE
 
 /**
  * True when `host` is a loopback / non-routable bind that only the local
- * operator can reach — `localhost`, the IPv4 loopback `127.0.0.0/8`, the IPv6
- * loopback `::1`, and the unspecified `0.0.0.0` / `::` (which, for a *bind*
- * host, is treated as loopback-equivalent only insofar as it is the default
- * dev shape; a deployment that genuinely binds `0.0.0.0` publicly should
- * declare a public `BASE_URL`, which `resolveBindHostname` honours first).
+ * operator can reach — `localhost`, the IPv4 loopback `127.0.0.0/8` and the
+ * IPv6 loopback `::1`.
  *
- * Empty / undefined → treated as loopback (the unset dev default).
+ * The UNSPECIFIED addresses `0.0.0.0` and `::` are deliberately NOT loopback.
+ * They are the wildcard bind — every interface the machine has — which is the
+ * single most public bind a server can choose, the exact opposite of "only the
+ * local operator can reach it". Classifying them as loopback fed
+ * `isTransportRelaxed`, which drives `useSecureCookies: !relaxed` and
+ * `disableCSRFCheck: relaxed` in `better-auth/auth.ts`, so an operator running
+ * the ordinary container shape (`HOSTNAME=0.0.0.0`) silently got CSRF
+ * protection disabled and session cookies served without `Secure` — on the
+ * most exposed bind there is.
+ *
+ * The codebase already carried the correct twin: `isLoopbackOrigin`
+ * (`server/route-setup/auth-routes.ts`) accepts only `localhost`, `127.0.0.1`
+ * and `[::1]`, and has never accepted `0.0.0.0`. The two helpers now agree.
+ *
+ * Empty / undefined → treated as loopback (the unset dev default; `server.ts`
+ * itself falls back to `localhost` when no hostname is configured).
  */
 export const isLoopbackHost = (host: string | undefined): boolean => {
   if (host === undefined || host === '') return true
   const normalized = stripIpv6Brackets(host.trim().toLowerCase())
   if (normalized === 'localhost' || normalized === 'localhost.localdomain') return true
-  if (normalized === '::1' || normalized === '::') return true
-  if (normalized === '0.0.0.0') return true
+  if (normalized === '::1') return true
   // IPv4 loopback 127.0.0.0/8
   return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(normalized)
 }

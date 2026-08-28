@@ -23,7 +23,7 @@ export const DigestReleaseActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Digest bucket identifier to release */
     digestKey: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Digest bucket identifier to release (supports template variables)',
       })
     ),
@@ -33,21 +33,21 @@ export const DigestReleaseActionSchema = Schema.Struct({
       Schema.Struct({
         /** Field to sort by */
         field: TemplateStringSchema.pipe(
-          Schema.annotations({
+          Schema.annotate({
             description: 'Field name to sort by (supports template variables)',
           })
         ),
 
         /** Sort direction */
         direction: Schema.optional(
-          Schema.Literal('asc', 'desc').pipe(
-            Schema.annotations({
+          Schema.Literals(['asc', 'desc']).pipe(
+            Schema.annotate({
               description: 'Sort direction: asc (default) or desc',
             })
           )
         ),
       }).pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Sort configuration for the released items',
         })
       )
@@ -55,17 +55,16 @@ export const DigestReleaseActionSchema = Schema.Struct({
 
     /** Maximum number of items to release */
     limit: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.positive(),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+        Schema.annotate({
           description: 'Maximum number of items to release from the bucket',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DigestReleaseAction',
     title: 'Digest Release Action',
     description: 'Release all collected items from a digest bucket',

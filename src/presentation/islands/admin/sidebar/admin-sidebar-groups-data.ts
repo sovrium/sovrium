@@ -8,12 +8,19 @@
 /**
  * Lazy-load data for the Application-section sidebar disclosures
  *. Each Application destination
- * (Records / Submissions / Files) is a Notion-style toggle that
+ * (Records / Submissions / Files / Conversations) is a Notion-style toggle that
  * fetches its object list on FIRST expand — tables from
  * `GET /api/admin/tables/overview`, forms from `GET /api/admin/forms`, buckets
- * from `GET /api/admin/buckets`. This module owns the three reads + their shared
- * load-state shape so the disclosure component stays a thin render. Every read is
- * admin-only (S1: a non-admin gets a 404 envelope, surfaced as the error state).
+ * from `GET /api/admin/buckets`, agents from `GET /api/admin/agents`. This module
+ * owns the four reads + their shared load-state shape so the disclosure component
+ * stays a thin render. Every read is admin-only (S1: a non-admin gets a 404
+ * envelope, surfaced as the error state).
+ *
+ * The object list is an HTTP read, NOT the app config the surface builder sees.
+ * That is the whole reason each endpoint projects its names through the SAME
+ * shared function the surface uses (`declaredBucketNames`, `declaredAgentNames`):
+ * two independent enumerations would let the sidebar advertise an object the page
+ * cannot open.
  */
 
 /** A loaded object in a sidebar group: a name that deep-links to `/_admin/{key}/{name}`. */
@@ -65,12 +72,13 @@ async function fetchItems(url: string, arrayKey: 'by_table' | 'items'): Promise<
 /**
  * Fetch the object list for a sidebar group key. Returns a `loaded` state (with
  * items, possibly empty) or an `error` state — never throws, so the disclosure
- * can render a calm state for any outcome. Only the three Application toggles
+ * can render a calm state for any outcome. Only the four Application toggles
  * have a list source; any other key resolves to an empty `loaded` state.
  */
 export async function fetchGroupItems(key: string): Promise<GroupLoadState> {
   if (key === 'tables') return fetchItems('/api/admin/tables/overview', 'by_table')
   if (key === 'forms') return fetchItems('/api/admin/forms', 'items')
   if (key === 'buckets') return fetchItems('/api/admin/buckets', 'items')
+  if (key === 'agents') return fetchItems('/api/admin/agents', 'items')
   return { phase: 'loaded', items: [] }
 }

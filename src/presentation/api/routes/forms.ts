@@ -510,10 +510,10 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   // table write. JSON / urlencoded bodies pass through untouched.
   const uploadResult = await runRequestEffect(
     c,
-    provideFormsLive(transformMultipartFiles(app, form, rawBody)).pipe(Effect.either)
+    provideFormsLive(transformMultipartFiles(app, form, rawBody)).pipe(Effect.result)
   )
-  if (uploadResult._tag === 'Left') {
-    return respondSubmissionFailure(c, isJsonClient, uploadResult.left)
+  if (uploadResult._tag === 'Failure') {
+    return respondSubmissionFailure(c, isJsonClient, uploadResult.failure)
   }
 
   // Y-5: Inline-prefill revalidation runs after the upload step so a
@@ -539,7 +539,7 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
     c,
     app,
     formName: name,
-    body: uploadResult.right,
+    body: uploadResult.success,
     isJsonClient,
     ...(session !== undefined ? { submitterUserId: session.userId } : {}),
   })
@@ -583,11 +583,11 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
     ...(userAgent !== undefined ? { userAgent } : {}),
     ...(submitterUserId !== undefined ? { submitterUserId } : {}),
   })
-  const result = await runRequestEffect(c, provideFormsLive(program).pipe(Effect.either))
-  if (result._tag === 'Left') {
-    return respondSubmissionFailure(c, isJsonClient, result.left)
+  const result = await runRequestEffect(c, provideFormsLive(program).pipe(Effect.result))
+  if (result._tag === 'Failure') {
+    return respondSubmissionFailure(c, isJsonClient, result.failure)
   }
-  return respondSubmissionSuccess(c, isJsonClient, result.right)
+  return respondSubmissionSuccess(c, isJsonClient, result.success)
 }
 
 /**

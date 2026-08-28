@@ -102,7 +102,7 @@ const isValidPassword = (password: string): boolean => {
  * @returns Effect that yields { alreadyExists: boolean, userId?: string }
  */
 const createAdminUser = (
-  auth: Context.Tag.Service<typeof Auth>,
+  auth: Context.Service.Shape<typeof Auth>,
   config: Readonly<AdminBootstrapConfig>,
   requireEmailVerification: boolean
 ): Effect.Effect<
@@ -131,7 +131,7 @@ const createAdminUser = (
       },
       catch: (error) => new BootstrapDatabaseError({ cause: error }),
     }).pipe(
-      Effect.catchAll((dbError) => {
+      Effect.catch((dbError) => {
         // If user already exists, return success (idempotent behavior)
         // Check the original error cause
         const originalError = dbError.cause
@@ -301,7 +301,7 @@ export const bootstrapAdmin = (
     // env-var admin bootstrap wrongly no-op for any agent-bearing app, leaving
     // the operator with no admin account to sign in as.
     const authRepo = yield* AuthRepository
-    const existingUserCount = yield* authRepo.countHumanUsers()
+    const existingUserCount = yield* authRepo.countHumanUsers
     if (existingUserCount > 0) {
       logDebug(
         '[bootstrap-admin] skipped — human user(s) already exist (env-var bootstrap no-op)',

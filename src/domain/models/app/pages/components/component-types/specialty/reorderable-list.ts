@@ -20,7 +20,7 @@ export const reorderableListFields = {
   ...actionFields,
   ...i18nFields,
   reorderable: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Enable drag-and-drop reordering of list items',
     })
   ),

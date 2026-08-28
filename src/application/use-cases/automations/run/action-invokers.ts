@@ -17,7 +17,7 @@
 
 import { Effect } from 'effect'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
-import { actionKey, noopActionHandler } from '../action-handlers'
+import { actionKey, missingActionHandler } from '../action-handlers'
 import { applyTemplateVars } from '../expand-action-refs'
 import { findTemplate, resolveActionPropsForDispatch } from './prop-substitution'
 import type { RunAccumulator, StepContext } from './types'
@@ -46,7 +46,12 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
     String(action['type'] ?? ''),
     action['operator'] as string | undefined
   )
-  const handler = ctx.handlers.get(handlerKey) ?? noopActionHandler
+  // `buildNativeActionInvoker` already rejects an unregistered key before it
+  // gets here; the template path (`buildTemplateInvoker`) does not, so this
+  // fallback is what stops a template referencing a bad type/operator from
+  // silently reporting success. Failure here surfaces as a rejected promise
+  // (see below), which the calling handler records as its own failure.
+  const handler = ctx.handlers.get(handlerKey) ?? missingActionHandler
   const subRunContext = {
     previousSteps: acc.actions,
     triggerData: ctx.triggerData,
@@ -153,7 +158,7 @@ export const buildNativeActionInvoker = (
         )
       )
     }
-    const synthetic: Record<string, unknown> = {
+    const synthetic: Readonly<Record<string, unknown>> = {
       name: `inline:${type}.${operator}`,
       type,
       operator,

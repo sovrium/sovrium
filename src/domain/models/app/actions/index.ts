@@ -19,10 +19,12 @@ import { ActionTemplateVariablesSchema } from './variables'
 export const ActionTemplateSchema = Schema.Struct({
   /** Unique template name for $ref referencing */
   name: Schema.String.pipe(
-    Schema.pattern(/^[a-z][a-z0-9-]*$/),
-    Schema.minLength(1),
-    Schema.maxLength(100),
-    Schema.annotations({
+    Schema.check(
+      Schema.isPattern(/^[a-z][a-z0-9-]*$/),
+      Schema.isMinLength(1),
+      Schema.isMaxLength(100)
+    ),
+    Schema.annotate({
       description: 'Unique action template name for $ref referencing (kebab-case)',
     })
   ),
@@ -66,7 +68,7 @@ export const ActionTemplateSchema = Schema.Struct({
    */
   aiAccess: Schema.optional(AiAccessSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ActionTemplate',
     title: 'Reusable Action Template',
     description: 'Preconfigured action template reusable across automations via $ref',
@@ -89,22 +91,24 @@ const RESERVED_TEMPLATE_NAMES: ReadonlySet<string> = new Set(['ref'])
  * Action Templates Array (top-level property on AppSchema)
  */
 export const ActionTemplatesSchema = Schema.Array(ActionTemplateSchema).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ActionTemplates',
     title: 'Reusable Action Templates',
     description:
       'Library of preconfigured action templates reusable across automations via $ref pattern',
   }),
-  Schema.filter((templates) => {
-    const names = templates.map((t) => t.name)
-    const uniqueNames = new Set(names)
-    if (names.length !== uniqueNames.size) return 'Action template names must be unique'
-    const reserved = names.find((n) => RESERVED_TEMPLATE_NAMES.has(n))
-    if (reserved !== undefined) {
-      return `Action template name '${reserved}' is reserved (collides with the runtime context.actions.${reserved}() method exposed to code action bodies). Rename the template.`
-    }
-    return true
-  })
+  Schema.check(
+    Schema.makeFilter((templates) => {
+      const names = templates.map((t) => t.name)
+      const uniqueNames = new Set(names)
+      if (names.length !== uniqueNames.size) return 'Action template names must be unique'
+      const reserved = names.find((n) => RESERVED_TEMPLATE_NAMES.has(n))
+      if (reserved !== undefined) {
+        return `Action template name '${reserved}' is reserved (collides with the runtime context.actions.${reserved}() method exposed to code action bodies). Rename the template.`
+      }
+      return true
+    })
+  )
 )
 
 /** @public */

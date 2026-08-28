@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
+import { filterReadableFields } from '@/domain/validators/field-read-filter'
 import type { FilterStructure } from './row-level-read-helpers'
 import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -79,6 +79,24 @@ export interface SearchFilterInput {
 }
 
 /**
+ * The `?q=` term this request will actually be filtered by — trimmed, with an
+ * empty or whitespace-only value meaning "no search" rather than "match
+ * nothing".
+ *
+ * Exported because TWO things must agree about it and they live in different
+ * functions: the filter built below, and the `appliedQuery` the response echoes
+ * back so the grid knows not to narrow the page a second time
+ * (`src/domain/models/api/_shared/search.ts`). Deriving the term twice is how
+ * they drift — a route that filtered on `'Zinc'` while reporting `'  Zinc  '`
+ * would still switch the client filter off, but would be lying about which
+ * question it answered.
+ */
+export const readSearchTerm = (c: Context): string | undefined => {
+  const term = c.req.query('q')?.trim()
+  return term ? term : undefined
+}
+
+/**
  * Build the `?q=` search filter, or `undefined` when the request carries no
  * search term.
  *
@@ -90,7 +108,7 @@ export interface SearchFilterInput {
 export const buildSearchFilter = (input: SearchFilterInput): FilterStructure => {
   const { c, app, tableName, userRole, table } = input
 
-  const term = c.req.query('q')?.trim()
+  const term = readSearchTerm(c)
   if (!term) return undefined
 
   const columns = resolveSearchableColumns(app, tableName, userRole, table)

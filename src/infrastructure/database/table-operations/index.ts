@@ -28,10 +28,12 @@ export {
   generateCreatedAtColumn,
   generateUpdatedAtColumn,
   generateDeletedAtColumn,
+  resolvePrimaryKeyColumnType,
+  buildTablePrimaryKeyTypesMap,
 } from './column-generators'
 
 // CREATE TABLE SQL generation
-export { generateCreateTableSQL } from './create-table-sql'
+export { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 
 // Table features (indexes, triggers, RLS policies)
 export { applyTableFeatures, applyTableFeaturesWithoutIndexes } from './table-features'

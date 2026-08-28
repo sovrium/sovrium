@@ -256,7 +256,7 @@ const fileExists = (filePath: string): Effect.Effect<boolean> =>
     // mapping the failure channel to `false`.
     try: () => fs.access(filePath).then(() => true),
     catch: () => false as const,
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+  }).pipe(Effect.orElseSucceed(() => false))
 
 const resolveHtmlPath = (inputDir: string, pagePath: string): Effect.Effect<string | undefined> =>
   Effect.gen(function* () {
@@ -393,7 +393,7 @@ const buildIndex = (pages: readonly PageTokens[]): SearchIndex => {
   // Sort each postings list desc by score. We use insertion-sort via reduce
   // (rather than `[...arr].sort(...)`) because Sovrium's `no-restricted-syntax`
   // forbids `.sort()` outright — even on a freshly-spread copy.
-  const sortedTokens: Record<string, readonly TokenPosting[]> = Object.fromEntries(
+  const sortedTokens: Readonly<Record<string, readonly TokenPosting[]>> = Object.fromEntries(
     Object.entries(groupedTokens).map(([token, postings]) => [
       token,
       insertionSortByScoreDesc(postings),

@@ -25,10 +25,10 @@ export const kanbanFields = {
   card: Schema.optional(KanbanCardSchema),
   drag: Schema.optional(KanbanDragSchema),
   emptyColumnMessage: Schema.optional(
-    Schema.String.annotations({ description: 'Message when a kanban column has no records' })
+    Schema.String.annotate({ description: 'Message when a kanban column has no records' })
   ),
   colorField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Field whose values map to colors (kanban cards)',
     })
   ),

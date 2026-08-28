@@ -30,7 +30,14 @@ export class SentinelTokenInProductionError extends Data.TaggedError(
   'SentinelTokenInProductionError'
 )<{
   readonly connectionId: string
-  readonly userId: string
+  /**
+   * The user the rejected write was keyed to, or `undefined` for an
+   * `app`-scoped (shared) write, which by construction has no user. Recording
+   * `undefined` rather than a placeholder keeps the security log honest — a
+   * synthetic id here would send an operator looking for an account that was
+   * never involved.
+   */
+  readonly userId: string | undefined
 }> {}
 
 /**
@@ -48,6 +55,37 @@ export interface ConnectionTokenPlaintext {
   readonly userId: string
   readonly accessToken: string
   readonly refreshToken: string | undefined
+  readonly expiresAt: Date | undefined
+  readonly createdAt: Date
+  readonly updatedAt: Date
+}
+
+/**
+ * Plaintext shape of an `app`-scoped connection's SHARED credential.
+ *
+ * Deliberately has no `userId`: the whole point of the shared store is that
+ * the credential belongs to the installation, not to whoever happened to
+ * click Connect. Backs `system.connection_app_tokens`.
+ */
+export interface ConnectionAppTokenPlaintext {
+  readonly id: string
+  readonly connectionId: string
+  readonly accessToken: string
+  readonly refreshToken: string | undefined
+  readonly expiresAt: Date | undefined
+  readonly createdAt: Date
+  readonly updatedAt: Date
+}
+
+/**
+ * Secret-free metadata for the shared app token — the app-scope counterpart
+ * of {@link ConnectionUserSummary}, used by the admin connection list so a
+ * shared credential counts toward `tokenCount` and contributes its expiry to
+ * the connection's health badge. Never carries token plaintext, and reading
+ * it never decrypts (so a key-mismatched install still renders its dashboard
+ * instead of 500ing).
+ */
+export interface ConnectionAppTokenSummary {
   readonly expiresAt: Date | undefined
   readonly createdAt: Date
   readonly updatedAt: Date
@@ -82,7 +120,7 @@ export interface ConnectionUserSummary {
  * back to plaintext for content assertions, OR assert that the raw
  * column does not contain the plaintext substring.
  */
-export class ConnectionTokenRepository extends Context.Tag('ConnectionTokenRepository')<
+export class ConnectionTokenRepository extends Context.Service<
   ConnectionTokenRepository,
   {
     readonly findForUser: (input: {
@@ -128,5 +166,67 @@ export class ConnectionTokenRepository extends Context.Tag('ConnectionTokenRepos
     readonly listUsersForConnection: (input: {
       readonly connectionId: string
     }) => Effect.Effect<readonly ConnectionUserSummary[], ConnectionTokenDatabaseError>
+
+    // ── `app`-scoped (shared) credential — system.connection_app_tokens ──────
+    //
+    // Extends THIS port rather than introducing a second one: the refresh path
+    // re-provides `ConnectionTokenRepositoryLive` dynamically inside
+    // `withRefreshLock` (see auth-headers.ts), and a separate port would have
+    // to be merged in at three separate composition sites for no gain.
+
+    /** The shared credential for a connection, decrypted, or undefined. */
+    readonly findForApp: (input: {
+      readonly connectionId: string
+    }) => Effect.Effect<ConnectionAppTokenPlaintext | undefined, ConnectionTokenDatabaseError>
+
+    /**
+     * Write the shared credential, replacing any existing one. Atomic against
+     * the `(connection_id)` unique index, so two operators completing consent
+     * concurrently resolve to exactly one row.
+     */
+    readonly upsertForApp: (input: {
+      readonly connectionId: string
+      readonly accessToken: string
+      readonly refreshToken?: string
+      readonly expiresAt?: Date
+    }) => Effect.Effect<
+      ConnectionAppTokenPlaintext,
+      ConnectionTokenDatabaseError | SentinelTokenInProductionError
+    >
+
+    /** Drop the shared credential. `true` when a row was actually removed. */
+    readonly deleteForApp: (input: {
+      readonly connectionId: string
+    }) => Effect.Effect<boolean, ConnectionTokenDatabaseError>
+
+    /** Secret-free metadata for the shared credential, without decrypting. */
+    readonly findAppSummary: (input: {
+      readonly connectionId: string
+    }) => Effect.Effect<ConnectionAppTokenSummary | undefined, ConnectionTokenDatabaseError>
+
+    /**
+     * Upgrade path: adopt a PRE-UPGRADE, user-keyed credential as this
+     * connection's shared one.
+     *
+     * An installation that authorized an `app`-scoped connection before the
+     * shared store existed has its credential filed under the `user_id` of
+     * whoever clicked Connect. Post-upgrade the dashboard still sees that row
+     * and renders "connected" while the runtime reads an empty shared store
+     * and every unattended automation fails — a disagreement nothing in the UI
+     * reports. A SQL migration cannot repair it, because `scope` lives in app
+     * config and not in the database, so a migration cannot tell an app-scoped
+     * connection's rows from genuine per-user ones it must not touch.
+     *
+     * Copies the most-recently-updated row's ciphertext VERBATIM — never
+     * decrypt-then-re-encrypt — so the adoption is byte-preserving and works
+     * even on an install whose encryption key no longer matches.
+     *
+     * Idempotent and non-destructive: no-op when a shared row already exists
+     * or when there is nothing to adopt, and the source row is left in place.
+     * Returns `true` only when a row was actually adopted.
+     */
+    readonly adoptLegacyUserTokenAsApp: (input: {
+      readonly connectionId: string
+    }) => Effect.Effect<boolean, ConnectionTokenDatabaseError>
   }
->() {}
+>()('ConnectionTokenRepository') {}

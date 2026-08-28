@@ -11,10 +11,10 @@
  * Phase-0 admin list endpoint that enumerates the storage buckets configured
  * for this Sovrium instance, augmented with the canonical `_admin` envelope.
  * Greenfield list (no public counterpart at the bucket-listing level), but
- * paired with a sibling reshape (`/api/admin/buckets/quota` → `/overview`,
- * see `./overview.ts`) so the admin dashboard's storage tab can render the
- * full picture in two queries: list of buckets with per-bucket metadata,
- * plus an aggregate overview chart.
+ * paired with the sibling `/api/admin/buckets/overview` endpoint (see
+ * `./overview.ts`; it replaced the retired `/quota` route) so the admin
+ * dashboard's storage tab can render the full picture in two queries: list of
+ * buckets with per-bucket metadata, plus an aggregate overview chart.
  *
  * Source story: [internal ref]
  *
@@ -125,7 +125,7 @@ export const bucketAdminItemSchema = bucketSchema
               .int()
               .nonnegative()
               .describe(
-                "Sum of stored file sizes in bytes for this bucket. Mirrors today's `/api/admin/buckets/quota.totalBytes` but per-bucket instead of global."
+                'Sum of stored file sizes in bytes for this bucket. Mirrors the retired `/api/admin/buckets/quota.totalBytes` but per-bucket instead of global.'
               ),
           })
           .describe(

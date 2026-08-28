@@ -25,8 +25,14 @@ import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
  *
  * PostgreSQL supports `DROP VIEW … CASCADE` (drops dependents transitively).
  * SQLite has no `CASCADE` clause on `DROP VIEW`; a plain `DROP VIEW IF EXISTS`
- * is used there. (SQLite views are filtered out of the dynamic-table set by
- * `shouldUseView` degradation, so cascade dependents do not arise in practice.)
+ * is used there.
+ *
+ * A previous version of this note claimed SQLite views are "filtered out of the
+ * dynamic-table set by `shouldUseView` degradation". That was FALSE and is
+ * corrected here: `shouldUseView` (lookup/lookup-view-generators.ts) is
+ * `hasLookupFields || hasRollupFields || hasCountFields` — it has no dialect
+ * awareness whatsoever and never inspects `materialized`. SQLite really does
+ * create views, so this branch is load-bearing rather than defensive.
  */
 const dropViewStatement = (viewName: string): string => {
   // Quote the identifier — view IDs are kebab-case and must be quoted.
@@ -131,11 +137,36 @@ const generateOrderByClause = (sorts: View['sorts'], groupBy: View['groupBy']): 
 }
 
 /**
+ * Whether this view is emitted as a MATERIALIZED VIEW on the ACTIVE dialect.
+ *
+ * `materialized: true` is a plain AppSchema flag with no dialect precondition
+ * anywhere in the config surface, so nothing warns an author that it is
+ * Postgres-only — and SQLite has no MATERIALIZED VIEW object at all. Reading
+ * `view.materialized` directly therefore emitted `CREATE MATERIALIZED VIEW` on
+ * the ZERO-CONFIG DEFAULT engine, which is a syntax error, which aborts schema
+ * init, which means one config flag bricked the boot of the whole app.
+ *
+ * The degradation is deliberate and it is a DEGRADATION, not a skip: on SQLite
+ * the view is still created, as a plain VIEW. SQLite's query planner makes the
+ * two observationally equivalent for reads (only the refresh semantics differ,
+ * and there is nothing to refresh when the view is always live), so honouring
+ * the declaration loses nothing an author can observe. Dropping the view
+ * instead would be a silent data-shape change wearing the same green tick.
+ *
+ * This predicate is the single place that decision is made. Every site that
+ * used to branch on `view.materialized` — the CREATE here, the DROP form and
+ * the REFRESH in `table-operations/table-effects.ts` — must go through it, or
+ * they disagree about which objects exist.
+ */
+export const emitsMaterializedView = (view: Readonly<{ materialized?: boolean }>): boolean =>
+  view.materialized === true && !isSqliteRuntime()
+
+/**
  * Generate CREATE VIEW or CREATE MATERIALIZED VIEW statement for a table view
  * PostgreSQL doesn't support IF NOT EXISTS for CREATE VIEW, so we drop first
  */
 export const generateViewSQL = (table: Table, view: View): string => {
-  const viewType = view.materialized ? 'MATERIALIZED VIEW' : 'VIEW'
+  const viewType = emitsMaterializedView(view) ? 'MATERIALIZED VIEW' : 'VIEW'
   // Convert view.id to string (ViewId can be number or string).
   // Kebab-case view IDs (e.g. `active-orders`) need double-quoting — an
   // unquoted hyphen is a SQL syntax error.

@@ -25,6 +25,7 @@ import {
   automationRuns as automationRunsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
 
 // Dialect-aware schema resolution for `automation_runs` / `automation_definitions`
 // — moved verbatim from the former presentation/api/routes/admin/automations.ts.
@@ -38,6 +39,33 @@ const automationDefinitions = resolveDialectSchema(
 
 /** Wrap a DB promise, adapting failures to AdminAutomationsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminAutomationsDatabaseError({ cause }))
+
+/**
+ * The `?q=` predicate: the term occurs in the automation NAME or the run's
+ * failure `error` text.
+ *
+ * `error` is the reason this search exists at all — it is the one column that
+ * answers "which runs blew up on ECONNREFUSED", and the run-history grid renders
+ * Automation / Status / Started / Duration, so it appears in NO cell. A
+ * client-side filter over the visible cells cannot reach it even on the page it
+ * holds, which is why the response must also echo `appliedQuery` (see the
+ * use case) so the grid suppresses its own in-memory pass.
+ *
+ * Deliberately excluded: `status` (it has `?status` AND a combobox — folding it
+ * in makes `?q=failed` a category match that buries the wanted row, and the cell
+ * is client-localised so a text match would agree only by accident of language),
+ * `createdAt` / `startedAt` (bounded by `?from` / `?to` — substring-matching a
+ * formatted timestamp is not a search), `triggerData` (an unbounded JSON blob
+ * whose text form differs per dialect) and `id` (addressed exactly by the detail
+ * endpoint; a substring over a UUID is noise).
+ *
+ * {@link searchAnyColumn} owns the rest of the contract — the portable
+ * `lower(col) LIKE lower(pattern)` spelling, `%` / `_` escaped to literals, and
+ * an absent term contributing NO condition so clearing the box restores the
+ * whole history rather than emptying it.
+ */
+const buildSearchConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> =>
+  searchAnyColumn(filters.q, automationDefinitions.name, automationRuns.error)
 
 /**
  * Build the WHERE-clause condition list for the runs-list read. Spreads each
@@ -66,7 +94,15 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
     filters.to !== undefined ? [lt(automationRuns.createdAt, filters.to)] : []
   const cursorFilter: ReadonlyArray<SQL> =
     filters.cursorBefore !== undefined ? [lt(automationRuns.createdAt, filters.cursorBefore)] : []
-  return [...statusFilter, ...nameFilter, ...idFilter, ...fromFilter, ...toFilter, ...cursorFilter]
+  return [
+    ...statusFilter,
+    ...nameFilter,
+    ...idFilter,
+    ...fromFilter,
+    ...toFilter,
+    ...buildSearchConditions(filters),
+    ...cursorFilter,
+  ]
 }
 
 /**

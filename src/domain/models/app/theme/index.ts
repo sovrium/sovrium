@@ -55,7 +55,7 @@ export const ThemeSchema = Schema.Struct({
    * or replace it with a neutral, unstyled floor. Defaults to `'extend'`.
    */
   baseline: Schema.optional(
-    Schema.Literal('extend', 'replace').annotations({
+    Schema.Literals(['extend', 'replace']).annotate({
       title: 'Theme Baseline',
       description:
         "Extend Sovrium's v1 default look ('extend', default) or replace it with a neutral floor ('replace').",
@@ -75,7 +75,7 @@ export const ThemeSchema = Schema.Struct({
    * default once the no-FOUC head script runs.
    */
   colorScheme: Schema.optional(
-    Schema.Literal('light', 'dark', 'system').annotations({
+    Schema.Literals(['light', 'dark', 'system']).annotate({
       title: 'Default Color Scheme',
       description:
         "Default color scheme before content renders: 'light', 'dark', or 'system' (follow prefers-color-scheme).",
@@ -97,7 +97,7 @@ export const ThemeSchema = Schema.Struct({
   /** Syntax-highlighting theme for markdown fenced code blocks */
   codeBlock: Schema.optional(CodeBlockConfigSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Theme',
     title: 'Theme Configuration',
     description: 'Design tokens for colors, typography, spacing, and animations',

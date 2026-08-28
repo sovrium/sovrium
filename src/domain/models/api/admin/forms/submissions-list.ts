@@ -10,6 +10,7 @@ import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
 } from '@/domain/models/api/_shared/cursor-pagination'
+import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/_shared/search'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/_shared/admin-envelope'
 
 /**
@@ -126,6 +127,43 @@ export const formSubmissionAdminItemSchema = formSubmissionSchema
  *   `from`, exclusive of `to` (same convention as the audit-log list).
  * - `include_deleted` — opt-in toggle to surface soft-deleted submissions
  *   (default false). Locks D2 for forms.
+ * - `q` — optional free-text search (see below).
+ *
+ * ## What `q` searches here, and the one thing it must never search
+ *
+ * A submissions inbox is triaged by PERSON: "find the submission Alice sent".
+ * `q` therefore matches the SUBMITTER'S IDENTITY — the account `email` and
+ * `name` behind `form_submissions.submitter_user_id` — plus the submission `id`
+ * an operator pastes out of a support ticket or an audit-log `resource.id`.
+ * Neither is a rendered column (the inbox grid shows Status and Received and
+ * nothing else), which is precisely why the response echoes
+ * {@link appliedQuerySchema}: a client re-filtering the visible cells would
+ * throw away every row the server matched on the submitter.
+ *
+ * **`body` is NEVER searched.** This is the D7 redaction lock expressed as a
+ * query contract, not a scoping preference. The body is withheld from every
+ * list response and is revealed only by the detail endpoint under
+ * `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND an admin
+ * role — so an OPERATOR can list submissions they may not read. A `q` that
+ * matched body content would turn this list into a confirm/deny oracle over
+ * exactly that withheld content: a caller could recover a submitted password or
+ * e-mail address one substring at a time, never once calling the endpoint that
+ * gates it. Widening the haystack to `body` is therefore an [internal ref] D7 change,
+ * not an implementation detail.
+ *
+ * Also excluded: `status` (it has `?status`), `submittedAt` (bounded by
+ * `?from` / `?to`), `formName` (constant — the list is already scoped to one
+ * form by the path), `submitter_ip_hash` (a hash; an operator typing a real IP
+ * would get zero rows and conclude, wrongly, that nothing came from it), and
+ * `user_agent` (a machine string where `Mozilla` matches nearly everything —
+ * a search that answers "all" answers nothing).
+ *
+ * Honest limit, stated because it fails SOFT: an ANONYMOUS submission has no
+ * `submitter_user_id`, so only its `id` is searchable. A term that is somebody's
+ * e-mail address will not surface the anonymous rows that merely CONTAIN that
+ * address in their (unsearched) body.
+ *
+ * @see ../../_shared/search.ts — the shared `?q=` / `appliedQuery` contract
  */
 export const formsSubmissionsListQuerySchema = cursorPaginationQuerySchema.extend({
   status: formSubmissionStatusSchema.optional().describe('Filter to one lifecycle state'),
@@ -145,6 +183,9 @@ export const formsSubmissionsListQuerySchema = cursorPaginationQuerySchema.exten
     .describe(
       'When true, include soft-deleted submissions (`deletedAt` non-null) in the response. Default false.'
     ),
+  q: searchTermSchema.describe(
+    'Optional free-text search over the SUBMITTER identity (the account `email` and `name` behind `submitter_user_id`) and the submission `id`, as a case-insensitive literal substring. Composes with `status` / `from` / `to` / the cursor (AND), so a page is a page of MATCHES. The submitted `body` is NEVER searched — the D7 redaction lock; searching it would make this list an oracle over content the caller may not be permitted to reveal. Empty / whitespace-only means "no search".'
+  ),
 })
 
 /**
@@ -155,7 +196,9 @@ export const formsSubmissionsListQuerySchema = cursorPaginationQuerySchema.exten
  */
 export const formsSubmissionsListResponseSchema = cursorPaginationResponseSchema(
   formSubmissionAdminItemSchema
-).openapi('FormsSubmissionsListResponse')
+)
+  .extend({ appliedQuery: appliedQuerySchema })
+  .openapi('FormsSubmissionsListResponse')
 
 /** @public */
 export type FormSubmissionStatus = z.infer<typeof formSubmissionStatusSchema>

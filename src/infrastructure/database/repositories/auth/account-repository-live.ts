@@ -14,6 +14,8 @@ import {
   type AccountLinkedRow,
   type AccountSessionRow,
   type AccountUserRow,
+  type AuthoredTableCandidate,
+  type AuthoredTableColumn,
 } from '@/application/ports/repositories/auth/account-repository'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
@@ -28,7 +30,6 @@ import {
   type RawSqlRunner,
 } from '@/infrastructure/database/sql/dialect-execute'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
-import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 /** Wrap a DB promise, adapting failures to AccountDatabaseError. */
@@ -57,7 +58,13 @@ function toOptionalDate(value: unknown) {
 }
 
 /**
- * Probe ONE table for a `created_by` column, yielding the name when present.
+ * Probe ONE table for whichever of its CANDIDATE authorship columns is real,
+ * yielding the `(table, column)` pair when one matches.
+ *
+ * The candidates come from the table's declared `created-by` field TYPES unioned
+ * with the literal `created_by`. Probing the literal alone made the export blind
+ * to a config that names the field anything else — `authoredRecords` came back
+ * empty and the caller was told, with a 200, that they had authored nothing.
  *
  * DIALECT-AWARE introspection: `getExistingColumnNames` queries
  * `information_schema.columns` on Postgres and `pragma_table_info(...)` on
@@ -70,10 +77,14 @@ function toOptionalDate(value: unknown) {
  */
 const probeCreatedByColumn = async (
   runner: Readonly<RawSqlRunner>,
-  name: string
-): Promise<string | undefined> => {
-  const columns = await getExistingColumnNames(runner, name, [AUTHORSHIP_FIELDS.CREATED_BY])
-  return columns.has(AUTHORSHIP_FIELDS.CREATED_BY) ? name : undefined
+  candidate: Readonly<AuthoredTableCandidate>
+): Promise<AuthoredTableColumn | undefined> => {
+  const existing = await getExistingColumnNames(runner, candidate.tableName, candidate.columns)
+  // Candidate ORDER is the caller's preference order and is preserved: the
+  // literal `created_by` is offered first, so a table carrying both it and a
+  // custom-named field exports through the literal exactly as it always did.
+  const column = candidate.columns.find((name) => existing.has(name))
+  return column === undefined ? undefined : { tableName: candidate.tableName, column }
 }
 
 /**
@@ -100,17 +111,31 @@ const probeCreatedByColumn = async (
  * with the identical cause. Wrapping moved from one outer `wrap` to one `wrap`
  * per probe, which is the same tagged error either way.
  */
-const tablesWithCreatedByEffect = (tableNames: readonly string[]) => {
-  const sanitized = [...new Set(tableNames.map(sanitizeTableName))].filter((n) => n.length > 0)
+const tablesWithCreatedByEffect = (candidates: readonly AuthoredTableCandidate[]) => {
+  // De-duped by sanitized table name via a Map rather than a mutated Set —
+  // last-wins, and `Map` preserves insertion order, so the fan-out order (and
+  // therefore the ordering of the export's per-table sections) is unchanged.
+  const sanitized = [
+    ...new Map(
+      candidates
+        .map((candidate) => ({ ...candidate, tableName: sanitizeTableName(candidate.tableName) }))
+        .filter((candidate) => candidate.tableName.length > 0)
+        .map((candidate) => [candidate.tableName, candidate] as const)
+    ).values(),
+  ]
 
   // The `db` facade drives `getExistingColumnNames` as a `RawSqlRunner` — it
   // carries `execute()` (Postgres) or `all()` (SQLite); the helper picks
   // whichever the active dialect needs (never the Postgres-only `db.execute`).
   const runner = db as unknown as RawSqlRunner
   return Effect.all(
-    sanitized.map((name) => wrap(() => probeCreatedByColumn(runner, name))),
+    sanitized.map((candidate) => wrap(() => probeCreatedByColumn(runner, candidate))),
     { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
-  ).pipe(Effect.map((matched) => matched.filter((name): name is string => name !== undefined)))
+  ).pipe(
+    Effect.map((matched) =>
+      matched.filter((entry): entry is AuthoredTableColumn => entry !== undefined)
+    )
+  )
 }
 
 /**
@@ -192,13 +217,13 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
       return toOptionalDate(rows[0]?.scheduledErasureAt)
     }),
 
-  tablesWithCreatedBy: (tableNames) => tablesWithCreatedByEffect(tableNames),
+  tablesWithCreatedBy: (candidates) => tablesWithCreatedByEffect(candidates),
 
-  readAuthoredRecords: (tableName, userId) =>
+  readAuthoredRecords: (tableName, column, userId) =>
     wrap(async () =>
       executeRawTyped<Record<string, unknown>>(
         db,
-        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${sql.identifier(AUTHORSHIP_FIELDS.CREATED_BY)} = ${userId}`
+        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${sql.identifier(column)} = ${userId}`
       )
     ),
 

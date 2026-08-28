@@ -22,25 +22,24 @@ export const calendarFields = {
   ...i18nFields,
   ...dataBoundFields,
   dateField: Schema.optional(
-    Schema.String.annotations({ description: 'Date/datetime field for calendar event position' })
+    Schema.String.annotate({ description: 'Date/datetime field for calendar event position' })
   ),
   endDateField: Schema.optional(
-    Schema.String.annotations({ description: 'End date field for multi-day calendar events' })
+    Schema.String.annotate({ description: 'End date field for multi-day calendar events' })
   ),
   defaultView: Schema.optional(CalendarViewSchema),
   labelField: Schema.optional(
-    Schema.String.annotations({ description: 'Field to use as event label on calendar' })
+    Schema.String.annotate({ description: 'Field to use as event label on calendar' })
   ),
   colorField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Field whose values map to colors (calendar events)',
     })
   ),
   maxEventsPerDay: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Max events visible per day cell before "+N more"' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Max events visible per day cell before "+N more"' })
     )
   ),
   calendarEvent: Schema.optional(CalendarEventConfigSchema),

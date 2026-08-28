@@ -87,7 +87,7 @@ export interface ServerFactoryConfig {
  * Use this service via Effect Context to create server instances
  * with type-safe dependency injection.
  */
-export class ServerFactory extends Context.Tag('ServerFactory')<
+export class ServerFactory extends Context.Service<
   ServerFactory,
   {
     /**
@@ -108,4 +108,4 @@ export class ServerFactory extends Context.Tag('ServerFactory')<
       | Error
     >
   }
->() {}
+>()('ServerFactory') {}

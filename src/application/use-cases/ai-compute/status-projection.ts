@@ -56,8 +56,8 @@ const toProjectionEntry = (
 })
 
 const toProjection = (
-  forRecord: Record<string, AiComputeFieldStatus> | undefined
-): AiComputeProjection | undefined => {
+  forRecord: Readonly<Record<string, AiComputeFieldStatus>> | undefined
+): Readonly<AiComputeProjection> | undefined => {
   if (!forRecord || Object.keys(forRecord).length === 0) return undefined
   return Object.fromEntries(
     Object.entries(forRecord).map(([field, status]) => [field, toProjectionEntry(status)])

@@ -1,0 +1,2 @@
+ALTER TABLE `system_automation_runs` ADD `triggered_by_user_id` text REFERENCES auth_user(id) ON DELETE SET NULL;--> statement-breakpoint
+CREATE INDEX `automation_runs_triggeredByUserId_idx` ON `system_automation_runs` (`triggered_by_user_id`);

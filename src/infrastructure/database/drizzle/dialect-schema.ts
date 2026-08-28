@@ -18,9 +18,11 @@ import {
   organizations as authOrganizationsPg,
   oauthClients as authOauthClientsPg,
   oauthAccessTokens as authOauthAccessTokensPg,
+  oauthClientResources as authOauthClientResourcesPg,
 } from '@/infrastructure/auth/better-auth/schema'
 import { formSubmissions as formSubmissionsPg } from './schema/form-submissions'
 import { fileStorageMetadata as fileStorageMetadataPg } from './schema/storage'
+import { oauthClientResources as authOauthClientResourcesSqlite } from './schema-sqlite/auth-oauth-resource-tables'
 import {
   users as authUsersSqlite,
   sessions as authSessionsSqlite,
@@ -251,6 +253,18 @@ export const authOauthAccessTokensTable = (): typeof authOauthAccessTokensPg =>
   parseDatabaseDialectConfig().dialect === 'sqlite'
     ? (authOauthAccessTokensSqlite as unknown as typeof authOauthAccessTokensPg)
     : authOauthAccessTokensPg
+
+/**
+ * The Better Auth `oauth_client_resource` join table for the active dialect.
+ * Both of its columns hold semantic strings — `client_id` is the public OAuth
+ * client identifier and `resource_id` the resource identifier URL — not row
+ * primary keys. Same rationale as {@link authUsersTable}.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- a Drizzle table object is the upstream-mutable shape; the query builder reads it without mutating, same rationale as getDb()'s return in db-bun.ts
+export const authOauthClientResourcesTable = (): typeof authOauthClientResourcesPg =>
+  parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? (authOauthClientResourcesSqlite as unknown as typeof authOauthClientResourcesPg)
+    : authOauthClientResourcesPg
 
 /**
  * Build a raw-SQL fragment that references a Better Auth table by name, picking

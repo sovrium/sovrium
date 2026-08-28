@@ -9,9 +9,11 @@ import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { Effect, Layer } from 'effect'
 import ts from 'typescript'
+import { collectCodeActions } from './collect-code-actions'
 import { TS_LIB_FILES as RAW_TS_LIB_FILES } from './embedded-ts-lib-types.generated'
 import { TSValidationError } from './errors'
 import { TypeScriptValidator } from './service'
+import type { CodeActionEntry } from './collect-code-actions'
 
 /**
  * Map of `lib.*.d.ts` basename → embedded path.
@@ -57,9 +59,20 @@ const getTsLibContents = (): ReadonlyMap<string, string> => {
  * an external module — declaration-emit + module-resolution would slow
  * startup unnecessarily.
  *
- * IMPORTANT: keep this in sync with `packages/types/src/index.ts` —
- * both must describe the same shape so the operator's IDE
- * (`@sovrium/types`-resolved) matches the server-startup validator.
+ * IMPORTANT: keep the `CodeContext` interface below in sync with
+ * `packages/types/src/index.ts` — both must describe the same shape so
+ * the operator's IDE (`@sovrium/types`-resolved) matches the
+ * server-startup validator.
+ *
+ * The sync contract covers `CodeContext` ONLY. The `Buffer` declaration
+ * that follows it is deliberately OUTSIDE that contract: `Buffer` is not
+ * a member of `CodeContext`, it is a sandbox global (see the globals
+ * allowlist in `src/application/use-cases/automations/action-handlers/code.ts`)
+ * that the operator's IDE already resolves from `@types/node`. Adding it
+ * to `@sovrium/types` would ship a competing `Buffer` declaration into
+ * every consumer's project and collide with the real Node types. So:
+ * `Buffer` lives BESIDE the sync contract, not inside it — do not
+ * "resync" it into `packages/types/src/index.ts`.
  */
 // CodeContext exposes 5 properties to user code: `inputData`, `actions`,
 // `env`, `log`, `run`. Trigger payloads and prior step outputs are
@@ -84,6 +97,40 @@ const getTsLibContents = (): ReadonlyMap<string, string> => {
 // Note: the `any` below is in a string literal compiled by tsc against
 // user code, NOT a TypeScript expression in our source — ESLint's
 // no-explicit-any rule does not apply to template-literal contents.
+//
+// ── Sandbox globals ───────────────────────────────────────────────────
+// The prelude declares every sandbox global the ES standard library does
+// NOT: `Buffer`, `console`, `URL`, `URLSearchParams`, `setTimeout`,
+// `clearTimeout` and `crypto`.
+//
+// That list used to be just `Buffer`, because `COMPILER_OPTIONS` left
+// `lib` unset and a bare `target: ES2020` makes tsc load
+// `lib.es2020.full.d.ts` — which pulls in `lib.dom.d.ts`. A code action
+// does not run in a DOM, so that default silently declared the ENTIRE DOM
+// surface (`document`, `window`, `fetch`, `localStorage`, `alert`, …) to
+// operator code that cannot reach any of it. Each of those names
+// type-checked cleanly at boot and threw `ReferenceError` at request time
+// — the "declared but ungranted" failure mode, unbounded. `lib` is now
+// pinned to `lib.es2020.d.ts` (see COMPILER_OPTIONS) so the ambient
+// surface is exactly ES2020 plus what this prelude spells out.
+//
+// The consequence is that adding a global is now always a deliberate act:
+// anything outside ES2020 must be declared here, and `Sandbox Globals
+// Drift` fails the build if a declaration and a grant disagree.
+//
+// Do NOT declare a name the ES lib already provides (`Map`, `Symbol`,
+// `Promise`, `Intl`, …) — duplicating a lib type can conflict with it.
+//
+// Shapes here are honest SUBSETS, not full host typings (same caveat as
+// `Buffer`): a member that exists at runtime but is omitted below fails
+// type-check, which is the safe direction. The unsafe direction —
+// declaring something the runtime lacks — is what the drift check guards.
+//
+// The declaration is module-scoped (the prelude opens with `export {};`,
+// making each synthetic file a module) rather than a `declare global`
+// block. Module scope shadows any ambient global of the same name, so
+// this stays inert even if a future host change causes `@types/node` to
+// be auto-included.
 const CODE_CONTEXT_PRELUDE = `export {};
 interface CodeContext {
   readonly inputData: Record<string, any>;
@@ -106,7 +153,194 @@ interface CodeContext {
     readonly attempt: number;
   };
 }
+type BufferEncoding =
+  | 'ascii'
+  | 'utf8'
+  | 'utf-8'
+  | 'utf16le'
+  | 'utf-16le'
+  | 'ucs2'
+  | 'ucs-2'
+  | 'base64'
+  | 'base64url'
+  | 'latin1'
+  | 'binary'
+  | 'hex';
+interface Buffer extends Uint8Array {
+  toString(encoding?: BufferEncoding, start?: number, end?: number): string;
+  toJSON(): { type: 'Buffer'; data: number[] };
+  equals(otherBuffer: Uint8Array): boolean;
+  write(value: string, encoding?: BufferEncoding): number;
+  subarray(start?: number, end?: number): Buffer;
+}
+interface BufferConstructor {
+  from(value: string, encoding?: BufferEncoding): Buffer;
+  from(value: ArrayBuffer | ArrayBufferView | ReadonlyArray<number>): Buffer;
+  alloc(size: number, fill?: string | number, encoding?: BufferEncoding): Buffer;
+  concat(list: ReadonlyArray<Uint8Array>, totalLength?: number): Buffer;
+  byteLength(value: string, encoding?: BufferEncoding): number;
+  isBuffer(value: unknown): boolean;
+}
+declare const Buffer: BufferConstructor;
+interface Console {
+  log(...data: any[]): void;
+  info(...data: any[]): void;
+  warn(...data: any[]): void;
+  error(...data: any[]): void;
+  debug(...data: any[]): void;
+  trace(...data: any[]): void;
+  dir(item?: any): void;
+  table(data: any): void;
+  group(...data: any[]): void;
+  groupEnd(): void;
+  time(label?: string): void;
+  timeEnd(label?: string): void;
+  count(label?: string): void;
+  assert(condition?: boolean, ...data: any[]): void;
+}
+declare const console: Console;
+interface URLSearchParams {
+  readonly size: number;
+  append(name: string, value: string): void;
+  delete(name: string, value?: string): void;
+  get(name: string): string | null;
+  getAll(name: string): string[];
+  has(name: string, value?: string): boolean;
+  set(name: string, value: string): void;
+  sort(): void;
+  toString(): string;
+  forEach(callback: (value: string, key: string, parent: URLSearchParams) => void): void;
+  keys(): IterableIterator<string>;
+  values(): IterableIterator<string>;
+  entries(): IterableIterator<[string, string]>;
+  [Symbol.iterator](): IterableIterator<[string, string]>;
+}
+interface URLSearchParamsConstructor {
+  new (init?: string | string[][] | Record<string, string> | URLSearchParams): URLSearchParams;
+}
+declare const URLSearchParams: URLSearchParamsConstructor;
+interface URL {
+  hash: string;
+  host: string;
+  hostname: string;
+  href: string;
+  readonly origin: string;
+  password: string;
+  pathname: string;
+  port: string;
+  protocol: string;
+  search: string;
+  readonly searchParams: URLSearchParams;
+  username: string;
+  toString(): string;
+  toJSON(): string;
+}
+interface URLConstructor {
+  new (url: string | URL, base?: string | URL): URL;
+  canParse(url: string | URL, base?: string): boolean;
+}
+declare const URL: URLConstructor;
+declare function setTimeout(handler: (...args: any[]) => void, timeout?: number, ...args: any[]): any;
+declare function clearTimeout(handle?: any): void;
+interface Crypto {
+  randomUUID(): string;
+  getRandomValues<T extends ArrayBufferView>(array: T): T;
+  readonly subtle: SubtleCrypto;
+}
+interface SubtleCrypto {
+  digest(algorithm: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  encrypt(algorithm: any, key: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  decrypt(algorithm: any, key: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  sign(algorithm: any, key: any, data: ArrayBuffer | ArrayBufferView): Promise<ArrayBuffer>;
+  verify(algorithm: any, key: any, signature: ArrayBuffer | ArrayBufferView, data: ArrayBuffer | ArrayBufferView): Promise<boolean>;
+  importKey(format: string, keyData: any, algorithm: any, extractable: boolean, keyUsages: string[]): Promise<any>;
+  exportKey(format: string, key: any): Promise<any>;
+  generateKey(algorithm: any, extractable: boolean, keyUsages: string[]): Promise<any>;
+  deriveBits(algorithm: any, baseKey: any, length: number): Promise<ArrayBuffer>;
+  deriveKey(algorithm: any, baseKey: any, derivedKeyType: any, extractable: boolean, keyUsages: string[]): Promise<any>;
+}
+declare const crypto: Crypto;
 `
+
+/**
+ * The globals the runtime sandbox actually binds, quoted back to the
+ * operator when a code action names something that does not resolve.
+ *
+ * This is a MESSAGE list, not a source of truth: the authoritative
+ * allowlist is the `sandbox` object literal in
+ * `src/application/use-cases/automations/action-handlers/code.ts`, which
+ * the infrastructure layer must not import. `Sandbox Globals Drift`
+ * (`[internal ref]`, run by `bun run quality`)
+ * fails if this list stops matching that literal — a hint that
+ * misreports the available surface is worse than no hint at all.
+ */
+const SANDBOX_GLOBAL_NAMES: ReadonlyArray<string> = [
+  'console',
+  'JSON',
+  'Math',
+  'Date',
+  'Promise',
+  'Number',
+  'String',
+  'Boolean',
+  'Array',
+  'Object',
+  'Error',
+  'RegExp',
+  'Map',
+  'Set',
+  'Symbol',
+  'Buffer',
+  'URL',
+  'URLSearchParams',
+  'setTimeout',
+  'clearTimeout',
+  'crypto',
+  'Intl',
+]
+
+/**
+ * Matches tsc's unresolved-identifier family: TS2304 (`Cannot find name
+ * 'x'.`) and its "do you need to install type definitions" variants
+ * (TS2580/2583/2584/2591), which append advice that is actively
+ * misleading here.
+ *
+ * The advice is wrong because this compiler runs IN-PROCESS at server
+ * startup, not in the operator's editor — no `npm i --save-dev
+ * @types/node` they run can change the outcome. That dead end is what
+ * made the `Buffer` boot failure expensive to diagnose, so we replace
+ * the tail of the message with the one thing that IS actionable: what
+ * the sandbox actually provides.
+ */
+const UNRESOLVED_NAME_PATTERN = /^Cannot find name '([A-Za-z_$][\w$]*)'\./
+
+/**
+ * Rewrite an unresolved-identifier diagnostic into sandbox terms. Every
+ * other diagnostic passes through untouched.
+ */
+const explainUnresolvedName = (message: string): string => {
+  const match = UNRESOLVED_NAME_PATTERN.exec(message)
+  if (match === null) return message
+  const name = match[1] ?? ''
+  if (SANDBOX_GLOBAL_NAMES.includes(name)) {
+    // Should be unreachable: `Sandbox Globals Drift` fails the quality
+    // gate when a granted global does not resolve. If it ever fires it
+    // is a Sovrium bug, and saying so beats sending the operator after
+    // a dependency that cannot help.
+    return (
+      `Cannot find name '${name}'. '${name}' IS provided by the code-action sandbox but the ` +
+      `startup validator cannot resolve it — this is a Sovrium bug, not a problem with your ` +
+      `config. Please report it.`
+    )
+  }
+  return (
+    `Cannot find name '${name}'. Code actions run in a restricted sandbox that provides only: ` +
+    `${SANDBOX_GLOBAL_NAMES.join(', ')}. Node/Bun APIs (fetch, process, require, fs, …) and ` +
+    `module imports are deliberately absent — pass any value the code needs through the ` +
+    `action's \`inputData\`, and reach other steps via \`context.actions\`. Installing type ` +
+    `definitions cannot help: this compiler runs in-process at server startup, not in your editor.`
+  )
+}
 
 /**
  * Number of source lines added by `CODE_CONTEXT_PRELUDE`. Used to
@@ -115,48 +349,10 @@ interface CodeContext {
  */
 const PRELUDE_LINE_COUNT = CODE_CONTEXT_PRELUDE.split('\n').length - 1
 
-interface CodeActionEntry {
-  readonly automationId: string
-  readonly actionIndex: number
-  readonly code: string
-}
-
 interface VirtualFile {
   readonly path: string
   readonly content: string
   readonly entry: CodeActionEntry
-}
-
-/**
- * Walk the validated app config collecting every `runTypescript` (or
- * legacy `run`-on-`code`) action body alongside its automation id +
- * positional index. Index is 1-based for human-friendly error messages
- * (`action #1`, not `action #0`).
- */
-const collectCodeActions = (root: unknown): ReadonlyArray<CodeActionEntry> => {
-  const automations = (root as { readonly automations?: ReadonlyArray<unknown> } | undefined)
-    ?.automations
-  if (!Array.isArray(automations)) return []
-  return automations.flatMap((automation, automationOffset) => {
-    if (typeof automation !== 'object' || automation === undefined || automation === null) {
-      return []
-    }
-    const auto = automation as Record<string, unknown>
-    const { name } = auto as { readonly name?: unknown }
-    const automationId = typeof name === 'string' ? name : `automation-${String(automationOffset)}`
-    const { actions } = auto as { readonly actions?: unknown }
-    if (!Array.isArray(actions)) return []
-    return actions.flatMap((action, actionIndex): ReadonlyArray<CodeActionEntry> => {
-      if (typeof action !== 'object' || action === undefined || action === null) return []
-      const a = action as Record<string, unknown>
-      if (a['type'] !== 'code') return []
-      const { props } = a as { readonly props?: unknown }
-      if (typeof props !== 'object' || props === undefined || props === null) return []
-      const { code } = props as { readonly code?: unknown }
-      if (typeof code !== 'string' || code === '') return []
-      return [{ automationId, actionIndex: actionIndex + 1, code }]
-    })
-  })
 }
 
 const buildVirtualFile = (entry: CodeActionEntry): VirtualFile => ({
@@ -237,6 +433,20 @@ const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | u
 // eslint-disable-next-line functional/prefer-immutable-types -- ts API requires mutable CompilerOptions
 const COMPILER_OPTIONS: ts.CompilerOptions = {
   target: ts.ScriptTarget.ES2020,
+  // Pinned DELIBERATELY. Without an explicit `lib`, `target: ES2020` makes
+  // tsc load `lib.es2020.full.d.ts`, which chains in `lib.dom.d.ts` — so
+  // every DOM global (`document`, `window`, `fetch`, `localStorage`,
+  // `alert`, `caches`, …) became nameable inside a code action. None of
+  // them is bound by `vm.createContext`, so each type-checked at boot and
+  // threw `ReferenceError` at request time, in production, with no gate in
+  // between. Pinning to the non-`full` ES2020 lib removes that entire class
+  // at the source: the ambient surface is now ES2020 plus exactly what
+  // `CODE_CONTEXT_PRELUDE` spells out, and every future addition has to be
+  // written down. `Sandbox Globals Drift` holds the two in agreement.
+  //
+  // The corpus embeds every `lib.*.d.ts` TypeScript ships, so the file this
+  // names is always resolvable in both source and binary mode.
+  lib: ['lib.es2020.d.ts'],
   module: ts.ModuleKind.ESNext,
   moduleResolution: ts.ModuleResolutionKind.Bundler,
   strict: false,
@@ -332,7 +542,7 @@ const diagnosticToError = (
     file: match.path,
     line: adjustedLine > 0 ? adjustedLine : lineAndChar.line + 1,
     column: lineAndChar.character + 1,
-    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+    message: explainUnresolvedName(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')),
   })
 }
 /* eslint-enable functional/prefer-immutable-types */

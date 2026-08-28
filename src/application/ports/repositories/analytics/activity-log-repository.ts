@@ -46,10 +46,10 @@ export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatab
  * Provides type-safe database operations for activity logs.
  * Implementation lives in infrastructure layer (activity-log-repository-live.ts).
  */
-export class ActivityLogRepository extends Context.Tag('ActivityLogRepository')<
+export class ActivityLogRepository extends Context.Service<
   ActivityLogRepository,
   {
-    readonly listAll: () => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
+    readonly listAll: Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
     readonly create: (log: {
       readonly userId: string
       readonly action: 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete'
@@ -65,4 +65,4 @@ export class ActivityLogRepository extends Context.Tag('ActivityLogRepository')<
       readonly userAgent?: string
     }) => Effect.Effect<ActivityLog, ActivityLogDatabaseError>
   }
->() {}
+>()('ActivityLogRepository') {}

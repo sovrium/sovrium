@@ -28,50 +28,47 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const CodeFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('code'),
-      language: Schema.String.pipe(
-        Schema.annotations({
-          description:
-            'Programming language for syntax highlighting (e.g., javascript, typescript, yaml, json, python, sql, html, css, markdown)',
+  Schema.fieldsAssign({
+    type: Schema.Literal('code'),
+    language: Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Programming language for syntax highlighting (e.g., javascript, typescript, yaml, json, python, sql, html, css, markdown)',
+      })
+    ),
+    lineNumbers: Schema.optional(
+      Schema.Boolean.pipe(
+        Schema.annotate({
+          description: 'Show line numbers in the editor',
         })
-      ),
-      lineNumbers: Schema.optional(
-        Schema.Boolean.pipe(
-          Schema.annotations({
-            description: 'Show line numbers in the editor',
-          })
-        )
-      ),
-      minLines: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({
-            description: 'Minimum visible lines in the editor',
-          })
-        )
-      ),
-      maxLines: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({
-            description: 'Maximum visible lines before scrolling',
-          })
-        )
-      ),
-      tabSize: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.lessThanOrEqualTo(8),
-          Schema.annotations({
-            description: 'Tab size in spaces (1-8, default: 2)',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+    minLines: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+        Schema.annotate({
+          description: 'Minimum visible lines in the editor',
+        })
+      )
+    ),
+    maxLines: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+        Schema.annotate({
+          description: 'Maximum visible lines before scrolling',
+        })
+      )
+    ),
+    tabSize: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(8)),
+        Schema.annotate({
+          description: 'Tab size in spaces (1-8, default: 2)',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Code Field',
     description:
       'Stores source code as plain text with syntax highlighting. Rendered with CodeMirror 6 editor in UI.',

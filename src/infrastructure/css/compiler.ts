@@ -43,6 +43,7 @@ import {
   generateThemeFonts,
   generateThemeShadows,
   generateThemeSpacing,
+  generateThemeTypeScale,
 } from '@/infrastructure/css/theme/theme-generators'
 import { generateBaseLayer } from '@/infrastructure/css/theme/theme-layer-generators'
 import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
@@ -50,6 +51,7 @@ import { logDebug, logError, logWarning } from '@/infrastructure/logging/logger'
 import { isDevCacheDisabled, isProduction as checkIsProduction } from '@/infrastructure/utils/env'
 import { isCompiled, SOVRIUM_PACKAGE_ROOT } from '@/infrastructure/utils/package-paths'
 import type { App } from '@/domain/models/app'
+import type { TypeScale } from '@/domain/models/app/design/type-scale'
 import type { Theme } from '@/domain/models/app/theme'
 import type { AcceptedPlugin, Result as PostcssResult } from 'postcss'
 
@@ -57,18 +59,40 @@ import type { AcceptedPlugin, Result as PostcssResult } from 'postcss'
 export type { CompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
 
 /**
- * Generate complete Tailwind @theme CSS from app theme
+ * Generate complete Tailwind @theme CSS from app theme and type scale.
+ *
+ * `typeScale` arrives as a SECOND parameter rather than off `theme`, because it
+ * lives at `design.typeScale` — a sibling of `design.theme`, not a member of
+ * it. The split is deliberate and mirrors `design.colorRoles`: `theme.*` is the
+ * primitive token layer (raw values under names the author invents), while
+ * `design.*` carries the SEMANTIC layer laid over it (`h1`, `body` — a closed,
+ * ordered vocabulary binding several primitives into one named role). Folding
+ * it into `theme` would also have grown the deprecated top-level `theme` alias
+ * with a brand-new field, which is the one thing a deprecated surface must
+ * never do.
+ *
+ * NOTE the guard below is `!theme && !typeScale`, not `!theme`. An app
+ * declaring a type scale and no theme is entirely legitimate, and an early
+ * `if (!theme) return ''` would have made every one of its steps silently
+ * reach nothing — reproducing, in the replacement, the exact defect the
+ * replacement exists to fix.
  */
-function generateThemeCSS(theme?: Theme): string {
-  if (!theme) return ''
+function generateThemeCSS(theme?: Theme, typeScale?: TypeScale): string {
+  if (!theme && !typeScale) return ''
+
+  // Narrow ONCE rather than optional-chaining each generator: every `Theme`
+  // field is itself optional, so an empty object is a faithful stand-in for
+  // "no theme declared" and each generator already guards its own absent input.
+  const declared: Theme = theme ?? {}
 
   const themeTokens = [
-    generateThemeColors(theme.colors),
-    generateThemeFonts(theme.fonts),
-    generateThemeSpacing(theme.spacing),
-    generateThemeShadows(theme.shadows),
-    generateThemeBorderRadius(theme.borderRadius),
-    generateThemeBreakpoints(theme.breakpoints),
+    generateThemeColors(declared.colors),
+    generateThemeFonts(declared.fonts),
+    generateThemeSpacing(declared.spacing),
+    generateThemeShadows(declared.shadows),
+    generateThemeBorderRadius(declared.borderRadius),
+    generateThemeBreakpoints(declared.breakpoints),
+    generateThemeTypeScale(typeScale),
   ].filter(Boolean)
 
   // [internal ref] / Phase 5 follow-up: the author-`--sv-*` bridge block, emitted as
@@ -79,14 +103,14 @@ function generateThemeCSS(theme?: Theme): string {
   // (ROLE_TOKEN_BRIDGE → author bridge) ensures the tenant value beats the
   // bridge's neutral fallback by ordinary "later wins" cascade semantics. See
   // `generateAuthorSvBridge` for the full rationale.
-  const authorSvBridge = generateAuthorSvBridge(theme.colors)
+  const authorSvBridge = generateAuthorSvBridge(declared.colors)
 
   // `theme.darkColors` — the authored dark palette. Emitted LAST so its
   // `html:is(.dark, …)` block sits after both the `@theme static` tokens and
   // the default theme layer's own dark cascade (`V1_ROOT_DARK`), which it ties
   // with on specificity and must therefore beat on source order. See
   // `generateDarkColorOverrides` for the full cascade rationale.
-  const darkColorOverrides = generateDarkColorOverrides(theme.darkColors)
+  const darkColorOverrides = generateDarkColorOverrides(declared.darkColors)
 
   if (themeTokens.length === 0 && !authorSvBridge && !darkColorOverrides) return ''
 
@@ -354,8 +378,8 @@ function buildDefaultLayer(theme?: Theme): string {
  * Build dynamic SOURCE_CSS with theme tokens
  * Generates Tailwind CSS with @theme directive based on app theme
  */
-function buildSourceCSS(theme?: Theme): string {
-  const themeCSS = generateThemeCSS(theme)
+function buildSourceCSS(theme?: Theme, typeScale?: TypeScale): string {
+  const themeCSS = generateThemeCSS(theme, typeScale)
   const animationCSS = generateAnimationStyles(theme?.animations, theme)
   const defaultLayerCSS = buildDefaultLayer(theme)
   const baseLayerCSS = generateBaseLayer(theme)
@@ -508,7 +532,15 @@ const isProduction = checkIsProduction()
  * candidate-set check is the only gate that matters in both layer states.
  */
 const canServePrecompiledFile = (app?: App): boolean =>
-  app?.theme === undefined && !appAddsCandidatesBeyondBuiltin(app)
+  app?.theme === undefined &&
+  // `design.typeScale` emits `--text-*` tokens into `@theme static` exactly as
+  // `theme.*` does, so an app declaring one is NOT the default-theme app — even
+  // when it declares no `theme` at all. Without this clause the precompiled
+  // default stylesheet would be served and every declared step would silently
+  // reach nothing, which is precisely the inert-field defect `typeScale` was
+  // added to end.
+  app?.design?.typeScale === undefined &&
+  !appAddsCandidatesBeyondBuiltin(app)
 
 /**
  * Internal CSS compilation logic (without caching)
@@ -525,7 +557,7 @@ const canServePrecompiledFile = (app?: App): boolean =>
 export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
     const theme = app?.theme
-    const sourceCSS = buildSourceCSS(theme)
+    const sourceCSS = buildSourceCSS(theme, app?.design?.typeScale)
 
     logDebug(`[CSS] Source CSS length: ${sourceCSS.length} bytes`)
     logDebug(`[CSS] Contains @import 'tailwindcss': ${sourceCSS.includes("@import 'tailwindcss'")}`)
@@ -543,7 +575,7 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
     // native-free output can be verified without compiling a binary.
     if (isCompiled || process.env.SOVRIUM_FORCE_NATIVE_FREE_CSS === '1') {
       return yield* compileCSSNativeFree(sourceCSS, app).pipe(
-        Effect.catchAll((error) => {
+        Effect.catch((error) => {
           logError(
             '[CSS] Native-free compilation failed inside the compiled binary. ' +
               'This is a Sovrium bug — please report it at ' +
@@ -623,7 +655,7 @@ const resolveProductionCSS = (
     cacheKey,
     Effect.gen(function* () {
       if (canServePrecompiledFile(app)) {
-        const precompiled = yield* loadPrecompiledCSS()
+        const precompiled = yield* loadPrecompiledCSS
         if (precompiled) {
           logDebug('[CSS] Loaded from pre-compiled file')
           return precompiled
@@ -659,7 +691,7 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
     // (test servers set SOVRIUM_CSS_FILE).
     if (isDevCacheDisabled()) {
       if (canUsePrecompiledFile && process.env.SOVRIUM_CSS_FILE) {
-        const precompiled = yield* loadPrecompiledCSS()
+        const precompiled = yield* loadPrecompiledCSS
         if (precompiled) {
           logDebug('[CSS] Loaded from pre-compiled file (dev, cache bypassed)')
           return precompiled
@@ -674,7 +706,7 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
       Effect.gen(function* () {
         // For default theme, try loading from pre-compiled file first (e.g. test servers)
         if (canUsePrecompiledFile && process.env.SOVRIUM_CSS_FILE) {
-          const precompiled = yield* loadPrecompiledCSS()
+          const precompiled = yield* loadPrecompiledCSS
           if (precompiled) {
             logDebug('[CSS] Loaded from pre-compiled file (dev mode)')
             return precompiled

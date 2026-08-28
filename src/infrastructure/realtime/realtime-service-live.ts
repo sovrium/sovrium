@@ -48,7 +48,7 @@ import { addSubscription, removeSubscription, getSubscribers } from './channel-m
 export const RealtimeServiceLive = Layer.succeed(
   RealtimeService,
   RealtimeService.of({
-    subscribe: (channel: string, callback: (event: Record<string, unknown>) => void) =>
+    subscribe: (channel: string, callback: (event: Readonly<Record<string, unknown>>) => void) =>
       Effect.try({
         try: () => {
           void callback
@@ -65,7 +65,7 @@ export const RealtimeServiceLive = Layer.succeed(
         catch: (error: unknown) => new RealtimeError({ cause: error }),
       }),
 
-    broadcast: (channel: string, event: string, _data: Record<string, unknown>) =>
+    broadcast: (channel: string, event: string, _data: Readonly<Record<string, unknown>>) =>
       Effect.try({
         try: () => {
           const subscribers = getSubscribers(channel)

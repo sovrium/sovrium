@@ -51,7 +51,14 @@ const resolveHreflangOrigin = (canonical: string | undefined): string => {
  * Uses dual-pattern approach:
  * - hreflang attribute: Full locale (e.g., 'en-US', 'fr-FR') for SEO standards
  * - href attribute: ABSOLUTE URL sharing the canonical's origin, short-code path
- *   segment (e.g. `https://example.com/en/products/`) for routing
+ *   segment (e.g. `https://example.com/en/products`) for routing
+ *
+ * TRAILING SLASH — emitted ONLY for the language root. Every alternate
+ * carried one until trailing-slash normalization shipped; from then on
+ * `/en/products/` 301s to `/en/products`, and Google requires an hreflang
+ * alternate to be non-redirecting or it discards the annotation. The language
+ * root `/en/` keeps its slash because that IS its canonical form — the one path
+ * the normalizer exempts, since `/en` already 301s TO `/en/`.
  *
  * Includes x-default link pointing to the default language for undefined locales.
  */
@@ -66,7 +73,10 @@ function HreflangLinks({
     return undefined
   }
 
-  const basePath = page.path === '/' ? '' : page.path
+  // The homepage's alternate is the language ROOT (`/en/`), which is canonical
+  // WITH its slash; every other page's alternate is the slash-free canonical
+  // form the trailing-slash normalizer redirects to.
+  const basePath = page.path === '/' ? '/' : page.path
   const origin = resolveHreflangOrigin(page.meta?.canonical)
 
   return (
@@ -81,7 +91,7 @@ function HreflangLinks({
             key={lang.code}
             rel="alternate"
             hrefLang={hreflang}
-            href={`${origin}/${lang.code}${basePath}/`}
+            href={`${origin}/${lang.code}${basePath}`}
           />
         )
       })}
@@ -89,7 +99,7 @@ function HreflangLinks({
         key="x-default"
         rel="alternate"
         hrefLang="x-default"
-        href={`${origin}/${languages.default}${basePath}/`}
+        href={`${origin}/${languages.default}${basePath}`}
       />
     </>
   )

@@ -47,12 +47,17 @@
 
 import { Schema } from 'effect'
 import { buildDashboardSurfaceApp } from '@/application/use-cases/admin/dashboard-surface-builder'
+import {
+  parseDesignSystemCatalogRoute,
+  parseDesignSystemPreviewRoute,
+} from '@/application/use-cases/admin/dashboard-surface-routes'
 import { isDataObjectRedirect } from '@/application/use-cases/admin/dashboard-surfaces/data-object-rail'
-import { AppSchema, isAdminTier } from '@/domain/models/app'
+import { AppSchema, isAdminEquivalent, isAdminTier } from '@/domain/models/app'
 import { readEmbeddedDashboardConfig } from '@/infrastructure/assets/embedded-static-assets'
 import { isEmailConfigured } from '@/infrastructure/email/email-config'
 import { logError } from '@/infrastructure/logging/logger'
 import { extractSurfaceContent, isPartialRequest } from './admin-dashboard-partial'
+import { resolveRequestBaseUrl } from './resolve-base-url'
 import type { HonoAppConfig } from './page-routes'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
@@ -194,8 +199,13 @@ const pruneRecoveryEntryPoints = (app: App): App => {
  * `Bun.file()` — works in dev and in the compiled binary's `$bunfs`), then
  * decodes it against `AppSchema`. Returns `undefined` if the artifact is
  * missing or fails to decode, so the mount fails closed.
+ *
+ * Exported because the console is a SECOND app this server serves, and the CSS
+ * route needs it too: a request for the console's stylesheet hash must compile
+ * from THIS config, not from the operator's — whose theme would otherwise
+ * repaint Sovrium's own chrome. The memo makes that second consumer free.
  */
-const resolveDashboardApp = async (): Promise<App | undefined> => {
+export const resolveDashboardApp = async (): Promise<App | undefined> => {
   if (dashboardAppCache.tried) {
     return dashboardAppCache.app
   }
@@ -238,6 +248,22 @@ const toDashboardPath = (requestPath: string): string => {
 }
 
 /**
+ * The two independent postures a `/_admin` caller carries.
+ *
+ * `hasAccess` is REACHABILITY (`isAdminTier`) — may this caller open the
+ * console at all. `canAdministerAccounts` is CAPABILITY
+ * (`isAdminEquivalent`) — will the admin plane actually honour the account
+ * writes the console can paint. They are orthogonal by design: a read-only
+ * operational data console admits roles that hold no write power,
+ * and the whole point of carrying the second flag is that a surface must not
+ * render an affordance the first flag alone would have justified.
+ */
+interface CallerPosture {
+  readonly hasAccess: boolean
+  readonly canAdministerAccounts: boolean
+}
+
+/**
  * Resolve whether the caller may reach the `/_admin` mount.
  *
  * Uses the OPERATOR's `App` (`config.app`) to resolve custom-role access so a
@@ -250,10 +276,19 @@ const resolveCallerHasAccess = async (
   config: HonoAppConfig,
   // eslint-disable-next-line functional/prefer-immutable-types
   c: Context
-): Promise<boolean> => {
+): Promise<CallerPosture> => {
   const session = config.getSession ? await config.getSession(c.req.raw.headers) : undefined
-  if (!session) return false
-  return isAdminTier(session.role, config.app)
+  if (!session) return { hasAccess: false, canAdministerAccounts: false }
+  return {
+    hasAccess: isAdminTier(session.role, config.app),
+    // The ACCOUNT-administration posture, resolved from the same predicate the
+    // admin plane's own guards apply (`isAdminEquivalent`). It is deliberately
+    // NOT `isAdminTier`: an `admin-viewer` reaches the console (read) and is
+    // 404ed by `applyAdminRoleCheckMiddleware` on every `/api/auth/admin/*`
+    // write, so painting them "Change role" / "Ban" renders a control their own
+    // backend refuses. Consulted by the Users surface to omit those actions.
+    canAdministerAccounts: isAdminEquivalent(session.role, config.app),
+  }
 }
 
 /**
@@ -275,8 +310,8 @@ const resolveAccess = async (
   config: HonoAppConfig,
   // eslint-disable-next-line functional/prefer-immutable-types
   c: Context
-): Promise<Response | { readonly canEdit: boolean }> => {
-  const hasAccess = await resolveCallerHasAccess(config, c)
+): Promise<Response | { readonly canEdit: boolean; readonly canAdministerAccounts: boolean }> => {
+  const { hasAccess, canAdministerAccounts } = await resolveCallerHasAccess(config, c)
   const { path } = c.req
   if (hasAccess && ADMIN_SIGNED_IN_REDIRECT_PATHS.has(path)) {
     return c.redirect(ADMIN_PREFIX, 302)
@@ -301,7 +336,56 @@ const resolveAccess = async (
   // with write access. Those two sets and {@link ADMIN_PUBLIC_PATHS} must stay
   // free of any shared key. Widening the carve-out widens this too — it covered
   // one path before the recovery pair was added.
-  return { canEdit: true }
+  //
+  // `canAdministerAccounts`, unlike `canEdit`, is a REAL per-caller value and is
+  // false for that anonymous carve-out caller — so if a public path ever did
+  // resolve to a live surface, it would at least not be painted account-write
+  // controls.
+  return { canEdit: true, canAdministerAccounts }
+}
+
+/**
+ * Answer a rendered surface: the SPA partial, the framed preview, or the page.
+ *
+ * SPA content-only partial: a partial request
+ * (header `X-Sovrium-Partial: content` or `?_partial=1`) returns ONLY the inner
+ * HTML of `#admin-surface-content` — the shell (`<html>`/sidebar/palette) is
+ * stripped so the client nav module swaps just that region. The partial reuses
+ * the full render verbatim; if the content marker is missing it falls back to
+ * the full document (never an empty partial).
+ *
+ * A design-system preview exists to be EMBEDDED by the console page. The
+ * platform default (`frame-ancestors 'none'` + `X-Frame-Options: DENY`) would
+ * have the browser refuse the frame while the server happily answered 200 — a
+ * failure that shows up as empty panels and no error anywhere. Narrowed to
+ * `'self'`, on routes already behind `requireAdminTier`; see `securityHeaders`
+ * for why this is where the decision belongs.
+ */
+const respondWithSurface = (
+  // eslint-disable-next-line functional/prefer-immutable-types
+  c: Context,
+  dashboardPath: string,
+  rendered: string
+): Response => {
+  if (isPartialRequest(c)) {
+    const content = extractSurfaceContent(rendered)
+    if (content !== undefined) return c.html(content, 200)
+  }
+  // Both preview shapes: the v1 sections AND the per-category component
+  // catalog. The catalog is reached by LINK rather than by frame, but it lives
+  // in the same namespace and a reader may well open it beside the console, so
+  // it takes the same narrowing rather than inheriting the platform default by
+  // accident.
+  if (
+    parseDesignSystemPreviewRoute(dashboardPath) !== undefined ||
+    parseDesignSystemCatalogRoute(dashboardPath) !== undefined
+  ) {
+    return c.html(rendered, 200, {
+      'Content-Security-Policy': "frame-ancestors 'self'",
+      'X-Frame-Options': 'SAMEORIGIN',
+    })
+  }
+  return c.html(rendered, 200)
 }
 
 /**
@@ -313,10 +397,27 @@ const renderDashboardSurface = async (
   // eslint-disable-next-line functional/prefer-immutable-types
   c: Context,
   dashboardApp: App,
-  canEdit: boolean
+  posture: { readonly canEdit: boolean; readonly canAdministerAccounts: boolean }
 ): Promise<Response> => {
   const dashboardPath = toDashboardPath(c.req.path)
-  const surface = await buildDashboardSurfaceApp(dashboardApp, config.app, dashboardPath, canEdit)
+  // The Developers docs surfaces (`/_admin/api`, `/_admin/mcp`) print addresses an
+  // operator copies into a terminal or an AI client, so they need the instance's
+  // real origin — which only this layer knows, from the live request.
+  const surface = await buildDashboardSurfaceApp(dashboardApp, config.app, dashboardPath, {
+    ...posture,
+    origin: resolveRequestBaseUrl(c),
+    // `?scheme=dark` on a design-system preview. Read from the REQUEST and
+    // never stored: a scheme the operator asked to look at must not become a
+    // preference their whole console then inherits.
+    scheme: c.req.query('scheme'),
+    // `?period=24h|7d|30d` on an analytics-shaped surface. Read from the
+    // REQUEST for the same reason `scheme` is: the window is URL-derived, so
+    // back/forward move between periods with no client state and a shared link
+    // carries the window it was read at. `toDashboardPath` drops the query
+    // string, so path matching is untouched by it
+    // ([internal ref]..018).
+    period: c.req.query('period'),
+  })
   // A bare object-page path (`/_admin/tables`, ≥1 object) resolves to a 302 to its
   // first object (`/_admin/tables/{first}`) — Pass 1 item 1.5a. Emit the redirect
   // before rendering any page (the same `{ redirect }` channel as a page result).
@@ -326,19 +427,7 @@ const renderDashboardSurface = async (
   const surfaceApp = surface ?? dashboardApp
   const result: PageRenderResult = await config.renderPage(surfaceApp, dashboardPath)
   if (typeof result === 'string') {
-    // SPA content-only partial: a partial request
-    // (header `X-Sovrium-Partial: content` or `?_partial=1`) returns ONLY the
-    // inner HTML of `#admin-surface-content` — the shell (`<html>`/sidebar/
-    // palette) is stripped so the client nav module swaps just that region. The
-    // partial reuses this full render verbatim; if the content marker is missing
-    // it falls back to the full document (never an empty partial).
-    if (isPartialRequest(c)) {
-      const content = extractSurfaceContent(result)
-      if (content !== undefined) {
-        return c.html(content, 200)
-      }
-    }
-    return c.html(result, 200)
+    return respondWithSurface(c, dashboardPath, result)
   }
   if (result && typeof result === 'object' && 'redirect' in result) {
     return c.redirect(result.redirect, 302)
@@ -361,7 +450,7 @@ const handleAdminDashboard =
     }
 
     try {
-      return await renderDashboardSurface(config, c, dashboardApp, access.canEdit)
+      return await renderDashboardSurface(config, c, dashboardApp, access)
     } catch (error) {
       logError(`[ADMIN-DASHBOARD] ${c.req.method} ${c.req.path} → 500`, error)
       return c.html(await config.renderErrorPage(dashboardApp), 500)

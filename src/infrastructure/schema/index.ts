@@ -14,3 +14,4 @@
 export { loadSchemaFromFile, fileExists, readFileContent } from './file-loader'
 export { fetchRemoteSchema } from './remote-loader'
 export { resolveRefs, collectRefSources } from './ref-resolver'
+export { discoverDefaultConfigFile } from './config-discovery'

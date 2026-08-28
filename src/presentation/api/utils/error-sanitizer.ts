@@ -40,6 +40,20 @@ export interface SanitizedError {
   readonly code: ErrorCode
   readonly message?: string
   readonly details?: readonly string[]
+  /**
+   * The submitted column a constraint rejection was about, when the write path
+   * attributed it. Always a key of the caller's own payload — the guard lives
+   * where the payload does (`wrapCreateRecordFailure`), because this seam
+   * cannot see it (standing rule S4).
+   */
+  readonly field?: string
+  /**
+   * The same attribution in the accumulating shape every other field-scoped
+   * rejection on this API already uses (`fieldErrorSchema`), so one client
+   * decoder handles a rule refused ahead of the write and a rule refused BY
+   * the write alike.
+   */
+  readonly errors?: readonly { readonly field: string; readonly message: string }[]
 }
 
 /**
@@ -303,10 +317,22 @@ function mapDriverFailure(error: unknown): SanitizedError | undefined {
   switch (failure.origin) {
     case 'constraint': {
       const code = CONSTRAINT_ERROR_CODES[failure.violation]
+      const message = CONSTRAINT_MESSAGES[failure.violation]
+      // The offending column, when the write path could attribute it to one the
+      // caller actually submitted. Read structurally rather than by class so
+      // any producer that recovers a column surfaces it the same way; absent
+      // means "not attributed", and the class-level wording answers alone.
+      const { fieldName } = error as { readonly fieldName?: unknown }
+      const field = typeof fieldName === 'string' && fieldName.length > 0 ? fieldName : undefined
       return {
         error: SANITIZED_ERROR_TITLES[code],
         code,
-        message: CONSTRAINT_MESSAGES[failure.violation],
+        message,
+        // Never derived from the driver's own text — `message` is the same
+        // client-safe constant the class always answered with, so nothing here
+        // can echo the constraint name, the CHECK expression, or the caller's
+        // bound values (standing rule S4).
+        ...(field ? { field, errors: [{ field, message }] } : {}),
       }
     }
     case 'caller-input':

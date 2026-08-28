@@ -17,6 +17,7 @@ import {
   batchRestoreProgram,
   upsertProgram,
 } from '@/application/use-cases/tables/programs'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   batchCreateRecordsRequestSchema,
   batchUpdateRecordsRequestSchema,
@@ -30,11 +31,15 @@ import {
   batchDeleteRecordsResponseSchema,
   upsertRecordsResponseSchema,
 } from '@/domain/models/api/tables/tables'
+import { applyAiComputeBaseline } from '@/domain/services/ai-compute/apply-baseline'
 import {
-  hasCreatePermission,
-  hasUpdatePermission,
+  hasCreatePermissionForRoles,
+  hasReadPermissionForRoles,
+  hasUpdatePermissionForRoles,
   hasDeletePermission,
+  hasDeletePermissionForRoles,
 } from '@/domain/validators/permission-evaluators'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { runTableProgram, provideTableLive } from '@/infrastructure/layers/table-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { runEffect } from '@/presentation/api/utils'
@@ -59,6 +64,7 @@ import {
   checkRecordLimitExceeded,
   applyBatchReadFiltering,
   checkBatchFieldPermissions,
+  validateBulkMultiSelectOptions,
   validateStrippedRecordsNotEmpty,
 } from './batch-permission-helpers'
 import type { App } from '@/domain/models/app'
@@ -112,11 +118,11 @@ async function handleBatchRestore(c: Context, app: App) {
     batchRestoreProgram(session, tableName, result.data.ids)
   )
 
-  if (programResult._tag === 'Left') {
-    return handleBatchRestoreError(c, programResult.left)
+  if (programResult._tag === 'Failure') {
+    return handleBatchRestoreError(c, programResult.failure)
   }
 
-  return c.json(programResult.right, 200)
+  return c.json(programResult.success, 200)
 }
 
 /**
@@ -171,16 +177,39 @@ async function resolveBatchMutationAuth(input: {
  * Resolve the create-authorisation gate for batch create. Returns the
  * guard context (when the table is row-level scoped) so callers can chain
  * the per-row predicate check, or `undefined` for non-row-level tables.
+ *
+ * PARITY WITH THE SINGLE-RECORD PATH IS THE CONTRACT, and it is a three-part
+ * contract — this gate used to satisfy none of it, and each omission is its own
+ * defect. `checkCreateGate` (`../record/record-write-handlers.ts`) is the
+ * reference implementation:
+ *
+ *  1. INHERITANCE. `app.tables` is the resolution set. Without it a table
+ *     declaring `permissions: { inherit: '<parent>' }` resolves as if it had no
+ *     create rule at all, so an inherited admin-only grant read as UNRESTRICTED
+ *     on the batch path while the single-record path refused — the same request,
+ *     two verdicts.
+ *  2. GROUP GRANTS. A bare `userRole` can never match a `group:<name>` entry,
+ *     because the group overlay exists only in the effective-role set built by
+ *     `buildEffectiveRoles`. Passing the raw role leaves every group grant
+ *     silently inert here while it works on the single-record route.
+ *  3. S1 ANTI-ENUMERATION. A caller who also lacks READ access gets 404, not
+ *     403 — a 403 confirms the table exists to someone with no business knowing
+ *     it does.
+ *
+ * Fixing (1) alone is the trap: it closes the inheritance hole and leaves the
+ * group hole open, while looking like the finding is closed.
  */
 async function resolveBatchCreateAuth(input: {
   readonly c: Context
   readonly app: App
   readonly tableName: string
   readonly userRole: string
+  /** Group names the user belongs to (un-prefixed) — group-aware RBAC. */
+  readonly userGroups: readonly string[]
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly records: readonly { readonly fields: Record<string, unknown> }[]
 }): Promise<Response | undefined> {
-  const { c, app, tableName, userRole, session, records } = input
+  const { c, app, tableName, userRole, userGroups, session, records } = input
   const table = app.tables?.find((t) => t.name === tableName)
   const guard = await resolveGuardForTable(session, userRole, table, app)
 
@@ -192,18 +221,48 @@ async function resolveBatchCreateAuth(input: {
       records: records.map((r) => r.fields),
     })
   }
-  if (!hasCreatePermission(table, userRole)) {
+  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
+  if (!hasCreatePermissionForRoles(table, effectiveRoles, app.tables)) {
+    // S1 anti-enumeration, mirroring the single-record path: no read access
+    // collapses the denial to 404 so the table's existence is not disclosed.
+    if (!hasReadPermissionForRoles(table, effectiveRoles, app.tables)) {
+      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    }
     return forbiddenCreateResponse(c)
   }
   return undefined
 }
 
 /**
+ * Merge the [internal ref] Phase 2 deterministic `ai-*` baseline into each row of a
+ * batch create, mirroring the single-record path in
+ * `../record/record-write-handlers.ts`.
+ *
+ * Postgres computes the baseline in a synchronous BEFORE trigger, so it lands
+ * whichever route inserted the row. SQLite has no procedural language, so the
+ * merge is an in-process CALL — and only the single-record handler made it,
+ * leaving a batch-created row with every `ai-*` column NULL and nothing queued
+ * to fill it later. No-op on Postgres, and on tables with no AI-compute fields.
+ */
+const withAiComputeBaseline = (
+  table: ReturnType<NonNullable<App['tables']>['find']>,
+  records: readonly { readonly fields: Record<string, unknown> }[]
+): ReadonlyArray<Record<string, unknown>> =>
+  records.map((record) =>
+    table && isSqliteRuntime()
+      ? {
+          ...record.fields,
+          ...applyAiComputeBaseline({ table, op: 'insert', incoming: record.fields }),
+        }
+      : record.fields
+  )
+
+/**
  * Handle batch create endpoint
  */
 async function handleBatchCreate(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   // Authorization check BEFORE validation (viewer role cannot create)
   const viewerCheck = checkViewerPermission(userRole, c)
@@ -220,12 +279,13 @@ async function handleBatchCreate(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Z-3: row-level role+predicate gate when the table declares it. Falls
-  // back to canonical hasCreatePermission for non-row-level-enforced tables.
+  // back to the group-aware hasCreatePermissionForRoles for non-row-level tables.
   const authError = await resolveBatchCreateAuth({
     c,
     app,
     tableName,
     userRole,
+    userGroups,
     session,
     records: result.data.records,
   })
@@ -241,12 +301,16 @@ async function handleBatchCreate(c: Context, app: App) {
   })
   if (fieldPermCheck) return fieldPermCheck
 
-  // Validate readonly fields
-  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
-  if (readonlyValidation) return readonlyValidation
+  // Readonly-field and multi-select declared-option enforcement. The
+  // single-record route gets the latter from `validateRecordCreation`; a bulk
+  // route has to ask for it, and until it did, an undeclared option reached the
+  // database — where only Postgres had a CHECK to stop it.
+  const fieldGuard =
+    validateReadonlyFields(table, result.data.records, c) ??
+    (await validateBulkMultiSelectOptions(c, app, result.data.records))
+  if (fieldGuard) return fieldGuard
 
-  // Extract flat field objects from records for database layer
-  const flatRecordsData = result.data.records.map((record) => record.fields)
+  const flatRecordsData = withAiComputeBaseline(table, result.data.records)
 
   // Execute batch create with returnRecords parameter and app for numeric coercion
   const program = batchCreateProgram({
@@ -289,8 +353,9 @@ const signalUserAuthoredAiFields =
  * Handle batch update endpoint
  */
 async function handleBatchUpdate(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = getTableContext(c)
+  // Session, tableName, userRole and userGroups are guaranteed by middleware chain
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
+  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
 
   // Authorization check BEFORE validation (viewer role cannot update)
   const viewerCheck = checkViewerPermission(userRole, c)
@@ -311,19 +376,25 @@ async function handleBatchUpdate(c: Context, app: App) {
     table,
     ids: result.data.records.map((r) => r.id),
     op: 'write',
-    canonicalCheck: () => hasUpdatePermission(table, userRole, app.tables),
+    // Effective roles, not a bare role: a `group:<name>` permission entry lives
+    // only in the resolved set `buildEffectiveRoles` produces, so a bare string
+    // could never match one and every `group:` update grant was silently inert
+    // on this path while the sibling create gate (`:225`) honoured it.
+    canonicalCheck: () => hasUpdatePermissionForRoles(table, effectiveRoles, app.tables),
     forbiddenAction: 'update',
   })
   if (authError) return authError
 
-  // Validate readonly fields BEFORE permission checks
-  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
-  if (readonlyValidation) return readonlyValidation
+  // Readonly-field and multi-select enforcement, BEFORE permission checks. An
+  // update reaches the same column as a create and needs the same guard.
+  const fieldGuard =
+    validateReadonlyFields(table, result.data.records, c) ??
+    (await validateBulkMultiSelectOptions(c, app, result.data.records))
+  if (fieldGuard) return fieldGuard
 
-  // Authorization: Check field-level write permissions and strip unwritable fields
+  // Field-level write permissions: strip unwritable fields, then require that
+  // at least one writable field survives.
   const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
-
-  // Validate at least some writable fields remain after stripping
   const strippedValidation = validateStrippedRecordsNotEmpty({
     strippedRecords,
     originalRecords: result.data.records,
@@ -334,10 +405,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   })
   if (strippedValidation) return strippedValidation
 
-  const recordsData = strippedRecords.map((record) => ({
-    id: record.id,
-    fields: record.fields,
-  }))
+  const recordsData = strippedRecords.map((record) => ({ id: record.id, fields: record.fields }))
 
   // Execute batch update with field-level read filtering on response
   const filteredProgram = batchUpdateProgram({
@@ -365,8 +433,9 @@ async function handleBatchUpdate(c: Context, app: App) {
  * so a hard delete is now declared in exactly one place.
  */
 async function handleBatchDelete(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = getTableContext(c)
+  // Session, tableName, userRole and userGroups are guaranteed by middleware chain
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
+  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
 
   // Authorization check BEFORE validation (viewer role cannot delete)
   const viewerCheck = checkViewerPermission(userRole, c, 'delete records in this table')
@@ -393,7 +462,10 @@ async function handleBatchDelete(c: Context, app: App) {
     table,
     ids: result.data.ids,
     op: 'delete',
-    canonicalCheck: () => hasDeletePermission(table, userRole, app.tables),
+    // Effective roles, not a bare role — same contract as the update gate
+    // above. Serves BOTH `DELETE /records/batch` and
+    // `POST /records/batch/delete`, which share this handler.
+    canonicalCheck: () => hasDeletePermissionForRoles(table, effectiveRoles, app.tables),
     forbiddenAction: 'delete',
   })
   if (authError) return authError
@@ -416,7 +488,7 @@ async function handleBatchDelete(c: Context, app: App) {
  * Handle upsert endpoint
  */
 async function handleUpsert(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   // Authorization check BEFORE validation (viewer role cannot upsert)
   const viewerCheck = checkViewerPermission(userRole, c)
@@ -440,9 +512,12 @@ async function handleUpsert(c: Context, app: App) {
     )
   }
 
-  // Validate readonly fields BEFORE permission checks
-  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
-  if (readonlyValidation) return readonlyValidation
+  // Readonly-field and multi-select enforcement, BEFORE permission checks.
+  // Upsert is the third route onto the same column.
+  const fieldGuard =
+    validateReadonlyFields(table, result.data.records, c) ??
+    (await validateBulkMultiSelectOptions(c, app, result.data.records))
+  if (fieldGuard) return fieldGuard
 
   // Validate permissions and required fields
   const validation = await validateUpsertRequest({
@@ -450,6 +525,7 @@ async function handleUpsert(c: Context, app: App) {
     app,
     tableName,
     userRole,
+    userGroups,
     records: result.data.records,
     fieldsToMergeOn: result.data.fieldsToMergeOn,
   })

@@ -37,21 +37,21 @@ import { buildComponentUnion } from '../pages/components/component-types'
  * ```
  *
  */
-export const ComponentChildrenSchema: Schema.Schema<
+export const ComponentChildrenSchema: Schema.Codec<
   ReadonlyArray<unknown>,
   ReadonlyArray<unknown>,
   never
 > = Schema.Array(
-  Schema.Union(
+  Schema.Union([
     Schema.suspend(() => ComponentChildElementSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         identifier: 'ComponentChildElement',
       })
     ),
-    Schema.String
-  )
+    Schema.String,
+  ])
 ).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component Children',
     description: 'Child elements array for component templates (components or strings)',
   })
@@ -96,16 +96,16 @@ export const ComponentChildrenSchema: Schema.Schema<
  * @see [internal ref]#/items
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended children requires any for circular reference resolution
-export const ComponentChildElementSchema: Schema.Schema<any, any, never> = buildComponentUnion({
+export const ComponentChildElementSchema: Schema.Codec<any, any, never> = buildComponentUnion({
   children: Schema.optional(
     Schema.suspend(() => ComponentChildrenSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         identifier: 'ComponentChildren',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component Child Element',
     description: 'Component element in a component template',
   })

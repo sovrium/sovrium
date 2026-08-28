@@ -442,6 +442,7 @@ export function DataTableView({
           onRemoveFilter={ui.removeFilter}
           onClearAll={ui.clearAllFilters}
           onToggleConjunction={ui.toggleConjunction}
+          onClose={ui.onCloseFilterOverlay}
         />
       )}
       {!ui.importDialogOpen && ui.sortOverlayOpen && (

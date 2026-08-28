@@ -89,7 +89,7 @@ const buildArticle = (
   config: ContentDirStructuredDataConfig,
   frontmatter: Readonly<Record<string, string>>,
   url: string
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const { title: headline, description } = frontmatter
   const datePublished = parseDatePublished(frontmatter)
   return {
@@ -160,7 +160,7 @@ const buildBreadcrumbList = (
   url: string,
   groupBy: string | undefined,
   rootCrumb: BreadcrumbRootCrumb | undefined
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const sectionField = groupBy ?? 'category'
   const rawSection = frontmatter[sectionField] ?? frontmatter['section'] ?? frontmatter['category']
   const pageName = frontmatter['title'] ?? url

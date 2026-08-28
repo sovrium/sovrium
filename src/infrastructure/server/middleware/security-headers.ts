@@ -68,33 +68,58 @@ const structuralSecureHeaders = secureHeaders({
 })
 
 /**
- * Wraps the structural `secureHeaders` middleware so that a stricter,
- * per-route `Content-Security-Policy` set by a downstream handler is NOT
- * clobbered by the platform-wide structural CSP.
+ * The framing headers a route may override, and the CSP.
+ *
+ * `X-Frame-Options` joins the CSP here because the two express ONE decision in
+ * two vocabularies: a route that has decided it may be framed has to say so in
+ * both, or a browser honouring the legacy header refuses what the modern one
+ * allows.
+ */
+const ROUTE_OVERRIDABLE_HEADERS = ['Content-Security-Policy', 'X-Frame-Options'] as const
+
+/**
+ * Wraps the structural `secureHeaders` middleware so that a per-route framing
+ * decision set by a downstream handler is NOT clobbered by the platform-wide
+ * structural policy.
  *
  * `hono/secure-headers` applies its headers in the POST-`next()` phase
- * (`setHeaders` → `ctx.res.headers.set('Content-Security-Policy', …)`), so when
- * a route handler sets its own CSP on the response it returns (e.g. the signed
- * bucket-download path streams bytes under `default-src 'none'`), the
- * structural middleware — registered as the first `*` middleware — would
- * overwrite it with the looser structural policy. Here we capture whatever CSP
- * the handler produced (inside the inner `next()`, before the structural phase
- * runs) and restore it afterwards. Per-route stricter CSP wins; responses that
- * do not set their own CSP keep the structural default, and SSR pages keep
- * their inline `<script>`/`<style>` working (structural CSP omits `default-src`
- * / `script-src` / `style-src`).
+ * (`setHeaders` → `ctx.res.headers.set(…)`), so a route handler that sets its
+ * own policy on the response it returns would be overwritten by the structural
+ * middleware, which is registered as the first `*` middleware. Here we capture
+ * whatever the handler produced (inside the inner `next()`, before the
+ * structural phase runs) and restore it afterwards.
+ *
+ * ## This is not a hole; it is where a framing decision belongs
+ *
+ * Both directions of override are legitimate, and both are in use:
+ *
+ *  - **Stricter.** The signed bucket-download path streams untrusted bytes
+ *    under `default-src 'none'`, which must survive.
+ *  - **Looser, and narrowly.** The design-system previews
+ *    (`/_admin/design-system/preview/:section`) exist to be embedded by the
+ *    console page one origin over, so they answer with `frame-ancestors 'self'`
+ *    and the matching `SAMEORIGIN`. That is not a weakening of clickjacking
+ *    protection: the routes sit behind `requireAdminTier` (404 for everyone
+ *    else), and `'self'` still refuses every origin an attacker could control
+ *    without already controlling this app.
+ *
+ * A route that says nothing keeps the platform default —
+ * `frame-ancestors 'none'` + `X-Frame-Options: DENY` — so the safe answer
+ * remains the one you get by not thinking about it.
  */
 export const securityHeaders: MiddlewareHandler = async (c, next) => {
   // eslint-disable-next-line functional/no-let
-  let routeCsp: string | undefined
+  let routeHeaders: ReadonlyArray<readonly [string, string]> = []
   // eslint-disable-next-line functional/no-expression-statements
   await structuralSecureHeaders(c, async () => {
     // eslint-disable-next-line functional/no-expression-statements
     await next()
     // eslint-disable-next-line functional/no-expression-statements
-    routeCsp = c.res.headers.get('Content-Security-Policy') ?? undefined
+    routeHeaders = ROUTE_OVERRIDABLE_HEADERS.flatMap((name) => {
+      const value = c.res.headers.get(name)
+      return value === null ? [] : [[name, value] as const]
+    })
   })
-  if (routeCsp !== undefined) {
-    c.res.headers.set('Content-Security-Policy', routeCsp)
-  }
+
+  routeHeaders.forEach(([name, value]) => c.res.headers.set(name, value))
 }

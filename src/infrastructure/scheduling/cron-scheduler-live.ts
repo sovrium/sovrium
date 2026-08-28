@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Cron, DateTime, Effect, Either, Layer } from 'effect'
+import { Cron, DateTime, Effect, Result, Layer } from 'effect'
 import { CronScheduler, CronSchedulerError } from '@/application/ports/services/cron-scheduler'
 import { logError } from '@/infrastructure/logging/logger'
 
@@ -137,10 +137,10 @@ export const defaultArmTimerDeps: ArmTimerDeps = {
     // Run the callback fire-and-forget. Failures are logged but never
     // propagated — a misbehaving automation must not stop the scheduler
     // from re-arming for the next tick.
-    Effect.runPromise(Effect.either(callback() as Effect.Effect<void, unknown, never>)).then(
+    Effect.runPromise(Effect.result(callback() as Effect.Effect<void, unknown, never>)).then(
       (result) => {
-        if (result._tag === 'Left') {
-          logError('[cron-scheduler] callback failed', result.left, { jobId })
+        if (result._tag === 'Failure') {
+          logError('[cron-scheduler] callback failed', result.failure, { jobId })
         }
       },
       (err) => {
@@ -199,7 +199,7 @@ const scheduleImpl = (
   callback: () => Effect.Effect<void, unknown>,
   options?: { readonly jobId?: string; readonly timezone?: string }
 ): Effect.Effect<string, CronSchedulerError> =>
-  // The `Cron.parse + zoneUnsafeMakeNamed` triplet is duplicated here, in the
+  // The `Cron.parse + zoneMakeNamedUnsafe` triplet is duplicated here, in the
   // domain Schema filter (`cron.ts`), and in `presentation/api/routes/automations/index.ts`.
   // Kept inline because this site needs the original throw/Either.left wrapped
   // in `CronSchedulerError({ cause })` so callers can inspect the underlying
@@ -210,13 +210,13 @@ const scheduleImpl = (
     const jobId = options?.jobId ?? generateJobId()
 
     const zoneResult = yield* Effect.try({
-      try: () => DateTime.zoneUnsafeMakeNamed(timezone),
+      try: () => DateTime.zoneMakeNamedUnsafe(timezone),
       catch: (cause) => new CronSchedulerError({ cause }),
     })
 
     const parsed = Cron.parse(cronExpression, zoneResult)
-    if (Either.isLeft(parsed)) {
-      return yield* new CronSchedulerError({ cause: parsed.left })
+    if (Result.isFailure(parsed)) {
+      return yield* new CronSchedulerError({ cause: parsed.failure })
     }
 
     // Replace any existing job with the same id so re-registration on app
@@ -227,7 +227,7 @@ const scheduleImpl = (
         jobId,
         expression: cronExpression,
         timezone,
-        cron: parsed.right,
+        cron: parsed.success,
         callback,
       })
     })
@@ -239,7 +239,7 @@ const cancelImpl = (jobId: string): Effect.Effect<void, CronSchedulerError> =>
     cancelTimer(jobId)
   })
 
-const listJobsImpl = (): Effect.Effect<readonly Record<string, unknown>[], CronSchedulerError> =>
+const listJobsImpl: Effect.Effect<readonly Record<string, unknown>[], CronSchedulerError> =
   Effect.sync(() =>
     Array.from(jobs.values()).map((job) => ({
       jobId: job.jobId,

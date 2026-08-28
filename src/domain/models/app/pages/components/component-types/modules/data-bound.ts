@@ -28,16 +28,16 @@ import { SystemSourceSchema } from '../../system-source'
  */
 export const dataBoundFields = {
   dataSource: Schema.optional(
-    Schema.Union(
+    Schema.Union([
       DataSourceSchema,
       Schema.Struct({
         /** System read-endpoint binding (mutually exclusive with the DB-table form) */
         system: SystemSourceSchema,
-      }).annotations({
+      }).annotate({
         title: 'Data-Bound System Data Source',
         description: 'System read-endpoint binding for a data-bound component',
-      })
-    ).annotations({
+      }),
+    ]).annotate({
       identifier: 'DataBoundComponentDataSource',
       title: 'Data-Bound Data Source',
       description: 'DB-table binding (DataSource) OR a system read-endpoint binding',

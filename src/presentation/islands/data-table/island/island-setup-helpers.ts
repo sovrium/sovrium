@@ -34,6 +34,11 @@ export function buildGroupByParam(groupBy: DataTableGroupBy | undefined): string
 /**
  * Ordered list of editable field names from explicit column config.
  * Used by auto-save Tab navigation to find the next editable cell.
+ *
+ * It reads the SAME `editable` the column defs read, because the
+ * permission-derived default is already resolved into `columnConfig` at the
+ * island boundary. Re-deriving it here would let Tab navigation and
+ * double-click disagree about which cells can be edited.
  */
 export function resolveEditableFields(
   columnConfig: readonly DataTableColumn[] | undefined

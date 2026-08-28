@@ -52,7 +52,7 @@ export interface OAuthStateEntry {
  * and `infrastructure/server/route-setup/auth-route-utils.ts` for similar
  * short-lived state.
  */
-export class OAuthStateStore extends Context.Tag('OAuthStateStore')<
+export class OAuthStateStore extends Context.Service<
   OAuthStateStore,
   {
     /**
@@ -76,6 +76,6 @@ export class OAuthStateStore extends Context.Tag('OAuthStateStore')<
      * Test-only utility: clear all stored states. Used by specs that
      * exercise multiple OAuth flows in one server process.
      */
-    readonly clear: () => Effect.Effect<void, OAuthStateError>
+    readonly clear: Effect.Effect<void, OAuthStateError>
   }
->() {}
+>()('OAuthStateStore') {}

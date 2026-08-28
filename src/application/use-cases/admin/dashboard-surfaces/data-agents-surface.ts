@@ -6,54 +6,67 @@
  */
 
 /**
- * The Data-tab **Conversations** page — Pass 2b of
- * the pure operational data console.
+ * The Data-tab **Conversations** page — an
+ * Application-section object page of the pure operational data console.
  *
- * `/_admin/data/agents` opens a two-pane workspace: a left rail of the operator's
- * declared AI agents (`app.agents`) + a right pane with the selected agent's
- * ChatGPT-style conversation viewer. Picking an agent
- * (`/_admin/data/agents/{name}`) mounts the `admin-agent-conversations` island — a
- * read-only two-column viewer (a conversation list + the selected conversation's
- * message thread) over the agent-scoped admin read endpoints
- * (`GET /api/admin/agents/:name/conversations` and `.../conversations/:id`).
+ * Conversations is scoped by URL, exactly like Files: `/_admin/agents/{name}`
+ * opens ONE agent's ChatGPT-style viewer, and a bare `/_admin/agents` 302s to
+ * the first agent. There is always a first agent — `declaredAgentNames` leads
+ * with the reserved general-purpose `default`, whose view is the conversations
+ * no declared agent claimed — so the page can never be a whole-page empty
+ * state, and the old "No agents" body it used to render is unreachable.
  *
- * Selection is a path segment, so it is URL-derived — back/forward + the SPA
- * content swap + the sidebar's active-row highlight compose for free, no separate
- * client state. When the operator declares no agents the page shows an honest
- * whole-page empty state (there is nothing to pick) rather than an empty rail.
+ * The name projection is shared verbatim with `GET /api/admin/agents`, which is
+ * what the sidebar disclosure lazy-loads. One projection, two consumers: the
+ * sidebar cannot advertise an agent whose page 404s, nor omit one that opens.
+ *
+ * Selection being a path segment makes it URL-derived — back/forward + the SPA
+ * content swap + the sidebar's active-row highlight compose for free, with no
+ * separate client state.
  */
 
-import { homeCrumb, wrapInShell } from './dashboard-shell-surface'
-import { dataPageEmptyState, dataPageIntro } from './data-object-rail'
+import { declaredAgentNames, isDefaultAgentName } from '@/domain/utils/agent-identity'
+import { objectScopedPage, firstObjectRedirect, dataPageIntro } from './data-object-rail'
 import type { DataShellOptions } from './data-landing-surface'
+import type { DataObjectRedirect } from './data-object-rail'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
-/** An operator agent (the conversation-source name list). */
-type OperatorAgent = App['agents'] extends ReadonlyArray<infer T> | undefined ? T : never
-
-/** The declared agent names — the agents whose conversations the viewer merges. */
-function agentNames(agents: ReadonlyArray<OperatorAgent>): ReadonlyArray<string> {
-  return agents.flatMap((agent): ReadonlyArray<string> => {
-    const { name } = agent as { readonly name?: unknown }
-    return typeof name === 'string' ? [name] : []
-  })
-}
-
-/** The page intro: heading + orienting one-liner. */
-function intro(): Component {
+/**
+ * The page intro: heading + orienting one-liner, scoped to the SELECTED agent.
+ *
+ * "no declared agent claimed" is worded from the ROW (`agent_name IS NULL`),
+ * not from the caller's intent, and stays that way even though the two now
+ * agree. They did not always: `POST /api/ai/chat { agent: 'x' }` used to
+ * persist NULL despite naming a declared agent, which is why this sentence
+ * describes the row in the first place. Attribution is now transport-independent
+ *, so the sets coincide.
+ *
+ * Kept row-worded regardless: this copy names what the operator will actually
+ * find in the list, and that stays true whatever a future transport does with
+ * the caller's `agent` field. Re-wording it from intent would re-couple the
+ * user-facing sentence to a behaviour that has already changed once.
+ */
+function intro(selected: string): Component {
   return dataPageIntro(
     'Conversations',
-    'Review the conversation history between your users and your AI agents. By default every conversation is listed — filter by agent, then open one to read its messages.'
+    isDefaultAgentName(selected)
+      ? 'The general-purpose agent: every conversation no declared agent claimed. Open one to read the full thread.'
+      : 'Every conversation your users had with this agent. Open one to read the full thread.'
   )
 }
 
 /**
  * The conversation-viewer body: the `admin-agent-conversations` island host
- * carrying ALL agent names (the viewer merges every agent's conversations and
- * filters by agent — [internal ref]). The SSR skeleton ships the "Conversations"
- * landmark so the static fallback is queryable before hydration.
+ * carrying the agent names in scope — now exactly ONE, the selected agent,
+ * because scoping moved from an in-pane filter to the URL.
+ *
+ * That single-element list is also what retires the in-pane "Agent" filter with
+ * no UI branch: the island's `AgentFilter` already returns `null` below two
+ * names, so the affordance disappears rather than lingering as a one-option
+ * select that cannot change anything. The SSR skeleton ships the
+ * "Conversations" landmark so the static fallback is queryable before hydration.
  */
 function conversationViewerBody(names: ReadonlyArray<string>): Component {
   return {
@@ -83,39 +96,35 @@ function conversationViewerBody(names: ReadonlyArray<string>): Component {
 }
 
 /**
- * Build the Conversations page. The viewer defaults to ALL
- * agents' conversations merged newest-first, with an agent filter in the list
- * column — there is no left-rail agent picker. When the operator declares no
- * agents the whole page is an honest empty state. The `object` route segment is
- * ignored (agent selection is now a filter, not a path).
+ * Build the Conversations page — or a 302 redirect to the first agent.
+ *
+ * A bare `/_admin/agents` ALWAYS returns a {@link DataObjectRedirect} to the
+ * first agent's viewer: `declaredAgentNames` is never empty, so there is always
+ * a first agent. With a `selected` agent the body mounts that agent's viewer.
+ *
+ * The `Page` is assembled by {@link objectScopedPage} rather than by hand, which
+ * is what fixes the render-404: the dashboard route matches `Page.path` against
+ * the stripped path, and a hand-written `path: '/agents'` meant a request for
+ * `/_admin/agents/{name}` parsed fine and then matched nothing.
  */
 export function buildDataAgentsPage(
   operatorApp: App,
-  _object: string | undefined,
+  selected: string | undefined,
   options: DataShellOptions
-): Page {
-  const agents = (operatorApp.agents ?? []) as ReadonlyArray<OperatorAgent>
-  const names = agentNames(agents)
-  const body =
-    names.length === 0
-      ? dataPageEmptyState(
-          'No agents',
-          'This app declares no AI agents. Declare an agent in your config (app.agents) for it to appear here with its conversations.',
-          'Configuration lives in code — conversations follow.'
-        )
-      : conversationViewerBody(names)
+): Page | DataObjectRedirect {
+  const names = declaredAgentNames(operatorApp.agents)
 
-  return {
-    id: 'dashboard-data-agents',
-    name: 'dashboard-data-agents',
-    path: '/agents',
-    meta: { title: 'Sovrium — Data · Conversations' },
-    components: wrapInShell([intro(), body], {
-      canEdit: options.canEdit,
-      appName: options.appName,
-      appVersion: options.appVersion,
-      breadcrumb: [homeCrumb(options.appName), { label: 'Conversations', href: '/_admin/agents' }],
-      publishedSnapshot: options.publishedSnapshot ?? {},
-    }),
-  } as Page
+  // Bare object-page path → 302-redirect to the first agent's viewer (always
+  // present: the reserved `default` leads the projection).
+  if (selected === undefined && names[0] !== undefined) {
+    return firstObjectRedirect('agents', names[0])
+  }
+
+  const agent = selected ?? names[0]!
+  return objectScopedPage(
+    { key: 'agents', label: 'Conversations', intro: intro(agent) },
+    agent,
+    conversationViewerBody([agent]),
+    options
+  )
 }

@@ -21,13 +21,13 @@ export const emptyStateFields = {
   ...actionFields,
   ...i18nFields,
   emptyIcon: Schema.optional(
-    Schema.String.annotations({ description: 'Lucide icon name for empty state illustration' })
+    Schema.String.annotate({ description: 'Lucide icon name for empty state illustration' })
   ),
   emptyTitle: Schema.optional(
-    Schema.String.annotations({ description: 'Title text displayed in empty state' })
+    Schema.String.annotate({ description: 'Title text displayed in empty state' })
   ),
   emptyDescription: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Description text displayed below the empty state title',
     })
   ),

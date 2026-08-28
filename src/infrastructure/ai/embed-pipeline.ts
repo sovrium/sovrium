@@ -61,7 +61,7 @@ export const embedChunksToRows = <Chunk extends TextChunk>(
         // A per-chunk provider failure is skipped (never fatal): recover with
         // the `void`/`undefined` outcome so the failed chunk drops out of the
         // `filter` below — one bad chunk never aborts a whole sync.
-        Effect.catchAll(() => Effect.void)
+        Effect.catch(() => Effect.void)
       )
     )
     return maybeRows.filter((row): row is NewEmbedding => row !== undefined)

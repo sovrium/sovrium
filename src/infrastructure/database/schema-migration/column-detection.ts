@@ -8,6 +8,7 @@
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isViewComputedFormula } from '../formula/formula-utils'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
+import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import { shouldCreateDatabaseColumn } from '../table-queries/shared/field-utils'
 import {
   normalizeDataType,
@@ -26,17 +27,50 @@ export type ExistingColumnInfo = {
 }
 
 /**
- * Check if id column needs to be recreated due to type mismatch
+ * Canonical form of a primary-key column type, additionally collapsing each
+ * sequence-backed spelling onto the plain integer type it stores.
+ *
+ * `SERIAL` / `BIGSERIAL` are DDL shorthands for an INTEGER / BIGINT column plus
+ * a sequence default; `information_schema` reports the underlying `integer` /
+ * `bigint`. Collapsing them keeps the declared side (which speaks the shorthand)
+ * comparable with the live side (which does not).
+ */
+const normalizePrimaryKeyType = (dataType: string): string => {
+  const normalized = normalizeDataType(dataType)
+  if (normalized === 'serial') return 'integer'
+  if (normalized === 'bigserial') return 'bigint'
+  return normalized
+}
+
+/**
+ * Whether the protected automatic `id` column disagrees with the primary-key
+ * type the config DECLARES, and so must be rebuilt.
+ *
+ * The declared type is the reference, not a hardcoded integer. Until this took
+ * `declaredPrimaryKeyType` the predicate asked only whether the live `id` was
+ * integer-ish and called every other type incompatible — so a table that
+ * declares `primaryKey: { type: 'text' }` (explicitly, or implicitly via
+ * `auth.scopeTables`, which `applySchemaDefaults` grants a TEXT id) was
+ * classified as needing a full recreate on EVERY migrating boot, even though
+ * its TEXT id was exactly what the config asked for. That churned data forever
+ * and re-ran the riskiest path in the migrator for no reason.
+ *
+ * @param declaredPrimaryKeyType - the table's `primaryKey.type` (`undefined` ⇒
+ *   the default serial id). Resolved through the same
+ *   {@link resolvePrimaryKeyColumnType} the DDL generator uses, so the two can
+ *   never drift apart.
  */
 export const needsIdColumnRecreation = (
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
-  shouldProtectIdColumn: boolean
+  shouldProtectIdColumn: boolean,
+  declaredPrimaryKeyType?: string
 ): boolean => {
   if (!shouldProtectIdColumn) return false
   if (!existingColumns.has('id')) return false
 
-  const idType = normalizeDataType(existingColumns.get('id')!.dataType)
-  return idType !== 'integer' && idType !== 'serial'
+  const liveType = normalizePrimaryKeyType(existingColumns.get('id')!.dataType)
+  const declaredType = normalizePrimaryKeyType(resolvePrimaryKeyColumnType(declaredPrimaryKeyType))
+  return liveType !== declaredType
 }
 
 /**
@@ -127,15 +161,18 @@ export const filterModifiableFields = (
 export const findTypeChanges = (
   table: Table,
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
-  renamedNewNames: ReadonlySet<string>
+  renamedNewNames: ReadonlySet<string>,
+  tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
 ): readonly string[] =>
   filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
     const existing = existingColumns.get(field.name)!
-    if (doesColumnTypeMatch(field, existing.dataType)) return []
+    if (doesColumnTypeMatch(field, existing.dataType, tablePrimaryKeyTypes)) return []
     if (isGatedTimestamptzConversion(field, existing.dataType)) return []
 
     // Type mismatch detected - generate ALTER COLUMN TYPE statement
-    return [generateAlterColumnTypeStatement(table.name, field, existing.dataType)]
+    return [
+      generateAlterColumnTypeStatement(table.name, field, existing.dataType, tablePrimaryKeyTypes),
+    ]
   })
 
 /**
@@ -281,6 +318,11 @@ export const findDefaultValueChanges = (
 
 /**
  * Build drop/add column statements from the computed columns to modify
+ *
+ * `tablePrimaryKeyTypes` is REQUIRED for the same reason it is on
+ * `generateCreateTableSQL`: this is the generator behind `ADD COLUMN`, and an
+ * omitted map silently sizes a `relationship` foreign key as INTEGER, which the
+ * follow-on constraint sync then cannot build against a TEXT/UUID parent key.
  */
 export const buildColumnStatements = (options: {
   readonly tableName: string
@@ -288,7 +330,8 @@ export const buildColumnStatements = (options: {
   readonly columnsToAdd: readonly Fields[number][]
   readonly primaryKeyFields: readonly string[]
   readonly allFields: readonly Fields[number][]
-  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+  readonly hasAuthConfig?: boolean
 }): { readonly dropStatements: readonly string[]; readonly addStatements: readonly string[] } => {
   const {
     tableName,
@@ -297,6 +340,7 @@ export const buildColumnStatements = (options: {
     primaryKeyFields,
     allFields,
     tablePrimaryKeyTypes,
+    hasAuthConfig = true,
   } = options
   // Dialect-aware: `ALTER TABLE … DROP COLUMN … CASCADE` is PG-only. SQLite
   // supports `DROP COLUMN` since 3.35 but without `CASCADE` — dependent FK
@@ -311,7 +355,7 @@ export const buildColumnStatements = (options: {
       field,
       isPrimaryKey,
       allFields,
-      true,
+      hasAuthConfig,
       tablePrimaryKeyTypes
     )
     return `ALTER TABLE ${tableName} ADD COLUMN ${columnDef}`

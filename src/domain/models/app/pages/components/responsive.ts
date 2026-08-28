@@ -27,39 +27,41 @@ import { Schema } from 'effect'
  */
 export const VariantOverridesSchema = Schema.Struct({
   props: Schema.optional(
-    Schema.Record({
-      key: Schema.String.pipe(
-        Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-          message: () => 'Property key must be camelCase starting with a letter',
-        })
+    Schema.Record(
+      Schema.String.pipe(
+        Schema.check(
+          Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+            message: 'Property key must be camelCase starting with a letter',
+          })
+        )
       ),
-      value: Schema.Union(
+      Schema.Union([
         Schema.String,
-        Schema.Number,
+        Schema.Finite,
         Schema.Boolean,
-        Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-        Schema.Array(Schema.Unknown)
-      ),
-    }).annotations({
+        Schema.Record(Schema.String, Schema.Unknown),
+        Schema.Array(Schema.Unknown),
+      ])
+    ).annotate({
       description: 'Props to override',
     })
   ),
   content: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Content to display at this breakpoint',
     })
   ),
   visible: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Show/hide component at this breakpoint',
     })
   ),
   children: Schema.optional(
-    Schema.Array(Schema.Unknown).annotations({
+    Schema.Array(Schema.Unknown).annotate({
       description: 'Different children at this breakpoint',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Variant Overrides',
   description: 'Component properties to override at this breakpoint',
 })
@@ -105,7 +107,7 @@ export const ResponsiveSchema = Schema.Struct({
   lg: Schema.optional(VariantOverridesSchema),
   xl: Schema.optional(VariantOverridesSchema),
   '2xl': Schema.optional(VariantOverridesSchema),
-}).annotations({
+}).annotate({
   title: 'Responsive Variants',
   description: 'Breakpoint-specific component overrides for responsive design',
 })

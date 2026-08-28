@@ -80,6 +80,12 @@ export type ResolvedFieldDef = {
   readonly required?: boolean
   /** Choice-field option VALUES, already unwrapped from `status`'s `{ value, color }` objects. */
   readonly options?: readonly string[]
+  /**
+   * The bound column's declared `format` (`barcode`). Forwarded to the island
+   * because it decides whether an untouched empty value may be written at all
+   * — a formatted column carries a CHECK that `''` fails.
+   */
+  readonly format?: string
   readonly displayLabel: string
   /**
    * Author-written guidance rendered as persistent help text under the control

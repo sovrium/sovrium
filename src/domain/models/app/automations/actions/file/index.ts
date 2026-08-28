@@ -13,10 +13,12 @@ import { FileDownloadActionSchema } from './download'
 import { FileExtractTextActionSchema } from './extract-text'
 import { FileGenerateCsvActionSchema } from './generate-csv'
 import { FileGeneratePdfActionSchema } from './generate-pdf'
+import { FileGenerateXlsxActionSchema } from './generate-xlsx'
 import { FileGetMetadataActionSchema } from './get-metadata'
 import { FileListActionSchema } from './list'
 import { FileMoveActionSchema } from './move'
 import { FileParseCsvActionSchema } from './parse-csv'
+import { FileParseXlsxActionSchema } from './parse-xlsx'
 import { FileSignUrlActionSchema } from './sign-url'
 import { FileTransformImageActionSchema } from './transform-image'
 import { FileUploadActionSchema } from './upload'
@@ -30,25 +32,27 @@ import { FileUploadActionSchema } from './upload'
  */
 export const FileActionSchema = Schema.Union(
   // Phase 1 — Storage Operations
-  FileUploadActionSchema,
-  FileDownloadActionSchema,
-  FileDeleteActionSchema,
-  FileCopyActionSchema,
-  FileMoveActionSchema,
-  FileListActionSchema,
-  // Phase 1 — Metadata & Access
-  FileGetMetadataActionSchema,
-  FileSignUrlActionSchema,
-  // Phase 1 — Generation (enhanced with destination)
-  FileGenerateCsvActionSchema,
-  FileGeneratePdfActionSchema,
-  // Phase 2 — Advanced
-  FileParseCsvActionSchema,
-  FileExtractTextActionSchema,
-  FileTransformImageActionSchema,
-  FileCompressActionSchema
+  [
+    FileUploadActionSchema,
+    FileDownloadActionSchema,
+    FileDeleteActionSchema,
+    FileCopyActionSchema,
+    FileMoveActionSchema,
+    FileListActionSchema,
+    FileGetMetadataActionSchema,
+    FileSignUrlActionSchema,
+    FileGenerateCsvActionSchema,
+    FileGeneratePdfActionSchema,
+    FileParseCsvActionSchema,
+    FileExtractTextActionSchema,
+    FileTransformImageActionSchema,
+    FileCompressActionSchema,
+    // Phase 3 — Spreadsheets (closed OOXML subset)
+    FileParseXlsxActionSchema,
+    FileGenerateXlsxActionSchema,
+  ]
 ).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileAction',
     title: 'File Action',
     description: 'File operations: storage, generation, parsing, transformation, and compression',
@@ -73,3 +77,5 @@ export * from './parse-csv'
 export * from './extract-text'
 export * from './transform-image'
 export * from './compress'
+export * from './parse-xlsx'
+export * from './generate-xlsx'

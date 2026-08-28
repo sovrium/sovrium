@@ -5,8 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isFieldReadableByRole } from '@/application/use-cases/tables/utils/field-read-filter'
-import type { FilterStructure, FilterLeaf, FilterNode } from '../record/row-level-read-helpers'
+import { isFieldReadableByRole } from '@/domain/validators/field-read-filter'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -18,8 +17,17 @@ type AggregateParams = {
   readonly max?: readonly string[]
 }
 
-const isFilterLeaf = (node: FilterNode): node is FilterLeaf =>
-  'field' in node && typeof node.field === 'string'
+/**
+ * The three shapes a filter node can take, read structurally rather than by
+ * type. The walker below is handed raw `JSON.parse` output from `?filter=` as
+ * well as the typed `FilterStructure` the other entry points build, so it
+ * narrows on the properties it finds instead of trusting a declared type.
+ */
+type UnknownFilterNode = {
+  readonly field?: unknown
+  readonly and?: unknown
+  readonly or?: unknown
+}
 
 /**
  * Everything a field-read check needs. `app` + `tableName` (rather than a
@@ -50,26 +58,62 @@ function fieldPermissionDenied(c: Context) {
 }
 
 /**
- * Validate filter parameter - ensure user has permission to read filter fields
+ * The first field in `node` this role may not read, or `undefined` when every
+ * referenced field is readable.
+ *
+ * `FilterNode` is RECURSIVE (`row-level-read-helpers.ts`) and the SQL builder
+ * walks the whole tree, so this check has to as well. A flat-leaf-only version
+ * is escaped by one level of nesting: `{and:[{or:[{field:'salary',…}]}]}` has no
+ * `field` at the top, an undeclared field permission is OPEN, and the identical
+ * predicate that answers 404 flat answers 200 wrapped.
+ *
+ * `unknown` rather than `FilterStructure` on purpose — the `?filter=` entry
+ * point is a bare `JSON.parse`, so the declared type is a claim about this
+ * value, not a fact about it.
  */
-export function validateFilterParam(filter: FilterStructure, access: FieldAccessContext) {
+function findForbiddenFilterField(
+  app: App,
+  tableName: string,
+  userRole: string,
+  node: unknown
+): string | undefined {
+  if (Array.isArray(node)) {
+    return (node as readonly unknown[])
+      .map((child) => findForbiddenFilterField(app, tableName, userRole, child))
+      .find((forbidden) => forbidden !== undefined)
+  }
+  if (typeof node !== 'object' || node === null) return undefined
+
+  const { field, and, or } = node as UnknownFilterNode
+  if (typeof field === 'string') {
+    return isFieldReadableByRole(app, tableName, userRole, field) ? undefined : field
+  }
+  return (
+    findForbiddenFilterField(app, tableName, userRole, and) ??
+    findForbiddenFilterField(app, tableName, userRole, or)
+  )
+}
+
+/**
+ * Validate a CALLER-SUPPLIED filter — ensure the role may read every field it
+ * references. 404 rather than 403 per S1: a field the caller cannot read must
+ * be indistinguishable from one that does not exist.
+ *
+ * ⚠️ Hand this the RAW request filter, never the merged one. `buildListFilter`
+ * AND-merges the row-level READ PREDICATE — a clause the SERVER wrote to
+ * constrain this caller — onto the caller's filter. Validating that tree checks
+ * the server's own scoping column against the scoped caller's read permission,
+ * which inverts the guarantee: partitioning a table by tenant and hiding the
+ * tenant column then EMPTIES the table instead of scoping it, on a plain list
+ * with no filter in the request at all. The `?q=` search group is likewise
+ * server-derived (`buildSearchFilter` only ever names readable columns).
+ */
+export function validateFilterParam(filter: unknown, access: FieldAccessContext) {
   const { app, tableName, userRole, c } = access
 
   if (!filter) return undefined
-
-  // Extract field names from filter structure. Only flat leaf clauses carry
-  // a `field` to validate; nested AND/OR groups (composite row-level
-  // predicates) never reach this request-filter validation path.
-  const filterFields = filter.and?.filter(isFilterLeaf).map((leaf) => leaf.field) ?? []
-
-  // Check if user has permission to read each filter field using find instead of for loop
-  const inaccessibleField = filterFields.find(
-    (fieldName) => !isFieldReadableByRole(app, tableName, userRole, fieldName)
-  )
-
-  if (inaccessibleField) return fieldPermissionDenied(c)
-
-  return undefined
+  if (findForbiddenFilterField(app, tableName, userRole, filter) === undefined) return undefined
+  return fieldPermissionDenied(c)
 }
 
 /**

@@ -22,36 +22,36 @@ export const CryptoHmacActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Input string to sign */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Input string to sign (supports template variables)',
       })
     ),
 
     /** Secret key for HMAC computation */
     secret: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Secret key for HMAC computation (supports template variables)',
       })
     ),
 
     /** HMAC algorithm */
-    algorithm: Schema.Literal('sha256', 'sha512').pipe(
-      Schema.annotations({
+    algorithm: Schema.Literals(['sha256', 'sha512']).pipe(
+      Schema.annotate({
         description: 'HMAC algorithm: sha256 or sha512',
       })
     ),
 
     /** Output encoding */
     encoding: Schema.optional(
-      Schema.Literal('hex', 'base64').pipe(
-        Schema.annotations({
+      Schema.Literals(['hex', 'base64']).pipe(
+        Schema.annotate({
           description: 'Output encoding: hex (default) or base64',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'CryptoHmacAction',
     title: 'Crypto HMAC Action',
     description: 'Compute an HMAC for secure message authentication',

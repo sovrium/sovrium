@@ -7,13 +7,13 @@
 
 import { Schema } from 'effect'
 
-export const KPIFormatTypeSchema = Schema.Literal(
+export const KPIFormatTypeSchema = Schema.Literals([
   'number',
   'currency',
   'percentage',
   'compact',
-  'bytes'
-).annotations({
+  'bytes',
+]).annotate({
   title: 'KPI Format Type',
   description: 'Display format for the KPI metric value',
 })
@@ -21,11 +21,11 @@ export const KPIFormatTypeSchema = Schema.Literal(
 export const KPIFormatSchema = Schema.Struct({
   type: KPIFormatTypeSchema,
   options: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
+    Schema.Record(Schema.String, Schema.String).annotate({
       description: 'Additional format options (e.g., { currency: "USD" })',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'KPI Format',
   description: 'Display formatting configuration for the KPI metric value',
 })

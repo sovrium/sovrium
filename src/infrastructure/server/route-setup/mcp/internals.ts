@@ -37,26 +37,47 @@
  * AND the snake_case database column — so no matter which casing the
  * driver returns, the secret never crosses the JSON-RPC wire.
  *
- * Sibling to `mcp-audit.ts` (which keeps the audit-list dispatcher for
- * its anti-recursion gate — that single tool name is special-cased in
- * `mcp-routes.ts` so the audit-write path doesn't infinite-loop into
- * itself when an admin queries `system.ai_tool_calls`).
+ * Sibling to `mcp-audit.ts`, which keeps its own audit-list dispatcher: that
+ * single tool name is special-cased in `mcp-routes.ts` and never reaches this
+ * module, because the handler there projects 12 named columns while the
+ * generic `_list` below answers `SELECT *` — and `ai_tool_calls` declares
+ * `denylistFields: []`, so `session_id` and `request_id` would survive to the
+ * wire. `[internal ref]` pins the difference.
+ *
+ * Until 2026-08-27 this said the special-casing stops the audit-write path
+ * "infinite-looping into itself". No such loop exists or ever did: dispatch
+ * here happens outside `auditedToolsCallDispatch`, so this module writes no
+ * audit row at all. The constraint is data exposure, not recursion.
  *
  * Schema source-of-truth: `src/domain/models/shared/internal-tables.ts`
  * (`InternalTableRegistry` + per-entry `denylistFields`).
  */
 
 import { sql } from 'drizzle-orm'
-import { type Context } from 'hono'
 import {
   InternalTableRegistry,
   type InternalTableEntry,
 } from '@/domain/models/shared/internal-tables'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { db } from '@/infrastructure/database'
-import { extractRows } from '@/infrastructure/database/sql/sql-utils'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { authTableRef, systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
+import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from '@/infrastructure/server/route-setup/mcp/auth'
 import type { CompiledTool } from '@/infrastructure/server/route-setup/mcp/tool-compiler'
+
+/**
+ * A dialect-aware, safely-quoted table reference for an internal registry entry.
+ *
+ * Delegates to the same `authTableRef` / `systemTableRef` helpers the GDPR
+ * erasure sweep uses, so the reference is correct on BOTH dialects:
+ * `auth.session` / `system."links"` on Postgres, `auth_session` /
+ * `system_links` on SQLite. The previous hand-spliced
+ * `${entry.schema}.${entry.name}` form was Postgres-only and raised
+ * "no such table" on the zero-config SQLite default.
+ */
+const internalTableRef = (entry: Readonly<InternalTableEntry>) =>
+  entry.schema === 'auth' ? authTableRef(entry.name) : systemTableRef(entry.name)
 
 // ---------------------------------------------------------------------------
 // Tool generator
@@ -201,8 +222,12 @@ export const resolveInternalTool = (
  *
  * The audit-list tool (`_system_ai_tool_calls_list`) is intentionally NOT
  * routed here — `mcp-routes.ts` special-cases it and delegates to
- * `handleAuditListCall` in `mcp-audit.ts` so the anti-recursion gate
- * (no audit row is written for an audit-read) stays intact.
+ * `handleAuditListCall` in `mcp-audit.ts`, whose explicit 12-column projection
+ * withholds `session_id` and `request_id`. The `SELECT *` below would expose
+ * both, since `ai_tool_calls` declares `denylistFields: []`. That is the
+ * reason for the ordering — not the "no audit row is written for an
+ * audit-read" property claimed here until 2026-08-27, which holds on this
+ * path too and so distinguishes nothing.
  *
  * Errors during the SELECT collapse to a structured -32603 error with
  * the underlying message redacted to `Internal query failed` so we never
@@ -211,21 +236,15 @@ export const resolveInternalTool = (
  * Hono handler when `c.json` serializes the error envelope.
  */
 export const handleInternalToolCall = async (input: {
-  readonly c: Readonly<Context>
   readonly caller: McpCaller
-  readonly responseId: number | string
   readonly resolved: ResolvedInternalTool
   readonly args: Record<string, unknown>
-}): Promise<Response> => {
+}): Promise<McpToolResult> => {
   if (!isAdminRole(input.caller.role)) {
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      error: {
-        code: -32_603,
-        message: `Internal tool ${input.resolved.entry.schema}.${input.resolved.entry.name} is admin-only`,
-      },
-    })
+    return toolFailure(
+      -32_603,
+      `Internal tool ${input.resolved.entry.schema}.${input.resolved.entry.name} is admin-only`
+    )
   }
 
   if (input.resolved.operation === 'list') {
@@ -235,96 +254,62 @@ export const handleInternalToolCall = async (input: {
 }
 
 const executeInternalList = async (input: {
-  readonly c: Readonly<Context>
-  readonly responseId: number | string
   readonly resolved: ResolvedInternalTool
   readonly args: Record<string, unknown>
-}): Promise<Response> => {
+}): Promise<McpToolResult> => {
   const limitArg = input.args['limit']
   const limit = typeof limitArg === 'number' && limitArg > 0 ? Math.min(limitArg, 1000) : 50
   const safeLimit = Math.floor(limit)
 
   try {
-    // Inline `LIMIT` as a SQL literal (after clamping + type-checking) so
-    // the bun-sql driver doesn't try to bind it — `LIMIT $1` round-trips
-    // poorly through bun:sql's param-binding path. The value is admin-only
-    // and clamped to `[1, 1000]`, so SQL injection is not a concern.
+    // The table reference goes through `internalTableRef`, which quotes it and
+    // resolves the dialect's namespacing rule. `LIMIT` stays an inlined SQL
+    // literal (after `Math.min` + `Math.floor` clamp it to an integer in
+    // `[1, 1000]`) because `LIMIT $1` round-trips poorly through bun:sql's
+    // param-binding path; the value can never be anything but a small integer.
     //
     // No `ORDER BY` because not every internal table has a stable ordering
     // column (e.g. `auth.organization` lacks `created_at`). The MCP spec
     // does not promise list-ordering for internal tools, so leaving this
     // unsorted is honest.
-    const result = (await db.execute(
-      sql.raw(
-        `SELECT * FROM ${input.resolved.entry.schema}.${input.resolved.entry.name} LIMIT ${safeLimit}`
-      )
-    )) as unknown
-    const rows = extractRows(result)
+    const rows = await executeRaw(
+      db,
+      sql`SELECT * FROM ${internalTableRef(input.resolved.entry)} LIMIT ${sql.raw(String(safeLimit))}`
+    )
     const stripped = rows.map((row) => stripDenylistedColumns(row, input.resolved.entry))
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      result: {
-        content: [{ type: 'text', text: JSON.stringify(stripped, undefined, 2) }],
-      },
-    })
+    return toolSuccess(stripped)
   } catch {
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      error: { code: -32_603, message: 'Internal query failed' },
-    })
+    return toolFailure(-32_603, 'Internal query failed')
   }
 }
 
 const executeInternalRead = async (input: {
-  readonly c: Readonly<Context>
-  readonly responseId: number | string
   readonly resolved: ResolvedInternalTool
   readonly args: Record<string, unknown>
-}): Promise<Response> => {
+}): Promise<McpToolResult> => {
   const recordId = String(input.args['id'] ?? '')
   if (recordId.length === 0) {
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      error: { code: -32_602, message: "Missing 'id' parameter" },
-    })
+    return toolFailure(-32_602, "Missing 'id' parameter")
   }
 
   try {
-    // Parameterized id binding — admin-controlled but still untrusted as a
-    // SQL identifier. Use `sql` template tag (not `sql.raw`) so the driver
-    // binds `recordId` as a value rather than splicing it as text.
-    const result = (await db.execute(
-      sql.raw(
-        `SELECT * FROM ${input.resolved.entry.schema}.${input.resolved.entry.name} WHERE id = '${recordId.replace(/'/g, "''")}' LIMIT 1`
-      )
-    )) as unknown
-    const rows = extractRows(result)
+    // `recordId` is first-order user input (`args.id` off the JSON-RPC
+    // envelope), so it is bound as a VALUE through the `sql` template tag —
+    // never spliced as text. The previous form used `sql.raw` with hand-rolled
+    // quote-doubling directly beneath a comment claiming the opposite; quote
+    // doubling is not an escaping strategy, it is a coincidence that holds
+    // until the first backslash or dollar-quote (S3).
+    const rows = await executeRaw(
+      db,
+      sql`SELECT * FROM ${internalTableRef(input.resolved.entry)} WHERE id = ${recordId} LIMIT 1`
+    )
     if (rows.length === 0) {
-      return input.c.json({
-        jsonrpc: '2.0',
-        id: input.responseId,
-        result: {
-          content: [{ type: 'text', text: JSON.stringify(undefined) }],
-        },
-      })
+      return toolSuccess(undefined)
     }
     const stripped = stripDenylistedColumns(rows[0] ?? {}, input.resolved.entry)
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      result: {
-        content: [{ type: 'text', text: JSON.stringify(stripped, undefined, 2) }],
-      },
-    })
+    return toolSuccess(stripped)
   } catch {
-    return input.c.json({
-      jsonrpc: '2.0',
-      id: input.responseId,
-      error: { code: -32_603, message: 'Internal query failed' },
-    })
+    return toolFailure(-32_603, 'Internal query failed')
   }
 }
 
@@ -349,7 +334,7 @@ const executeInternalRead = async (input: {
 const stripDenylistedColumns = (
   row: Readonly<Record<string, unknown>>,
   entry: InternalTableEntry
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   if (entry.denylistFields.length === 0) return { ...row }
   // Build the denial set immutably — each denylist field expands to BOTH
   // the camelCase TS spelling AND its snake_case equivalent so the strip

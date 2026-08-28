@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { optStr } from '../../shared-schemas'
 import { contentFields } from '../modules/content'
 import { coreFields } from '../modules/core'
@@ -21,7 +21,7 @@ export const CodeElementTypeLiteral = Schema.Literal('code')
  * - `terminal` — a header bar marking the block as a shell session, so a reader
  *   knows the content is a command to run rather than a file to save.
  */
-export const CodeFrameSchema = Schema.Literal('none', 'file', 'terminal').annotations({
+export const CodeFrameSchema = Schema.Literals(['none', 'file', 'terminal']).annotate({
   title: 'Code Frame',
   description:
     'Chrome drawn around the code block: none (bare pre), file (filename header), or terminal (shell-session header). Omit to let the frame be inferred — see the precedence rule on codeElementFields.',
@@ -67,13 +67,10 @@ export const codeElementFields = {
   terminalLabel: optStr(
     'Label for a terminal frame header (default: "terminal"). Plain text, no prompt glyph — a "$" would be copied along with the command.'
   ),
-  copy: Schema.optionalWith(
-    Schema.Boolean.annotations({
-      description:
-        'Show a copy-to-clipboard button on the block (default true). The payload is the COMMAND only: a framed block with `output` excludes the output, and the frame header excludes the filename.',
-    }),
-    { default: () => true }
-  ),
+  copy: Schema.Boolean.annotate({
+    description:
+      'Show a copy-to-clipboard button on the block (default true). The payload is the COMMAND only: a framed block with `output` excludes the output, and the frame header excludes the filename.',
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
   copyLabel: optStr('Accessible name and visible label of the copy button (default: "Copy")'),
   copiedLabel: optStr(
     'Visible label shown briefly after a successful copy (default: "Copied"). The button keeps its `copyLabel` accessible name across the flip, so a screen-reader user does not lose the control.'

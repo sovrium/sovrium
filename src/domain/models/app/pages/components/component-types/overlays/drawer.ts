@@ -30,7 +30,7 @@ export const drawerFields = {
    * referenced this way so the hydrated island defaults to `open=false`.
    */
   id: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Drawer identifier referenced by `onRowClick: { action: 'openDrawer', component: <id> }` (PG-04).",
     })

@@ -21,7 +21,7 @@ export const StateDeleteActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** State key to delete */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'State key to delete (supports template variables)',
       })
     ),
@@ -29,8 +29,8 @@ export const StateDeleteActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
         })
@@ -38,7 +38,7 @@ export const StateDeleteActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'StateDeleteAction',
     title: 'State Delete Action',
     description: 'Remove a value from key-value state by key',

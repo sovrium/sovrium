@@ -28,27 +28,29 @@ import { Schema } from 'effect'
  * ```
  *
  */
-export const BorderRadiusConfigSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^(DEFAULT|[a-z0-9]+(-[a-z0-9]+)*)$/, {
-      message: () =>
-        'Border radius key must be DEFAULT or use kebab-case format (lowercase letters/numbers)',
-    }),
-    Schema.annotations({
+export const BorderRadiusConfigSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^(DEFAULT|[a-z0-9]+(-[a-z0-9]+)*)$/, {
+        message:
+          'Border radius key must be DEFAULT or use kebab-case format (lowercase letters/numbers)',
+      })
+    ),
+    Schema.annotate({
       title: 'Border Radius Key',
       description: 'Semantic radius name (kebab-case with numbers) or DEFAULT for base radius',
       examples: ['DEFAULT', 'none', 'sm', 'md', 'lg', '2xl', '3xl', 'full'],
     })
   ),
-  value: Schema.String.pipe(
-    Schema.annotations({
+  Schema.String.pipe(
+    Schema.annotate({
       title: 'Border Radius Value',
       description: 'CSS border-radius value',
       examples: ['0', '0.125rem', '0.5rem', '9999px'],
     })
-  ),
-}).pipe(
-  Schema.annotations({
+  )
+).pipe(
+  Schema.annotate({
     title: 'Border Radius',
     description: 'Border radius design tokens',
   })

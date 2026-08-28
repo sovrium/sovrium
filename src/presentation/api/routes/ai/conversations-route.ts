@@ -46,13 +46,13 @@ const handleListConversations = async (c: Readonly<Context>): Promise<Response> 
   }
   const result = await runRequestEffect(
     c,
-    listUserConversations({ userId }).pipe(provideAiMemoryRepoLive, Effect.either)
+    listUserConversations({ userId }).pipe(provideAiMemoryRepoLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    logError('[ai] list-conversations failed', result.left)
+  if (result._tag === 'Failure') {
+    logError('[ai] list-conversations failed', result.failure)
     return c.json({ error: 'Failed to load conversations.' }, 500)
   }
-  const conversations = result.right.map((conv) => ({
+  const conversations = result.success.map((conv) => ({
     sessionId: conv.sessionId,
     title: conv.title,
     agentName: conv.agentName,
@@ -74,16 +74,16 @@ const handleGetConversation = async (c: Readonly<Context>): Promise<Response> =>
   }
   const result = await runRequestEffect(
     c,
-    loadChatHistory({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.either)
+    loadChatHistory({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    logError('[ai] get-conversation failed', result.left)
+  if (result._tag === 'Failure') {
+    logError('[ai] get-conversation failed', result.failure)
     return c.json({ error: 'Failed to load conversation.' }, 500)
   }
-  if (result.right.length === 0) {
+  if (result.success.length === 0) {
     return c.json({ error: 'Conversation not found.' }, 404)
   }
-  const messages = result.right.map((msg) => ({
+  const messages = result.success.map((msg) => ({
     role: msg.role,
     content: msg.content,
     status: msg.status,
@@ -104,10 +104,10 @@ const handleDeleteConversation = async (c: Readonly<Context>): Promise<Response>
   }
   const result = await runRequestEffect(
     c,
-    deleteUserConversation({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.either)
+    deleteUserConversation({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    logError('[ai] delete-conversation failed', result.left)
+  if (result._tag === 'Failure') {
+    logError('[ai] delete-conversation failed', result.failure)
     return c.json({ error: 'Failed to delete conversation.' }, 500)
   }
   return c.json({ deleted: true, sessionId }, 200)

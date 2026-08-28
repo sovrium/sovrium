@@ -75,16 +75,16 @@ export function createHandleGetTablesOverview(app: App) {
       now: new Date(),
     }).pipe(Effect.provide(Layer.merge(TablesOverviewRepositoryLive, Layer.empty)))
 
-    const exitEither = await runRequestEffect(c, program.pipe(Effect.either))
-    if (exitEither._tag === 'Left') {
-      logError('[admin] tables/overview failed', exitEither.left, requestLogAttributes(c))
+    const exitEither = await runRequestEffect(c, program.pipe(Effect.result))
+    if (exitEither._tag === 'Failure') {
+      logError('[admin] tables/overview failed', exitEither.failure, requestLogAttributes(c))
       return c.json(
         { success: false, message: 'Failed to build tables overview', code: 'INTERNAL_ERROR' },
         500
       )
     }
 
-    const parsed = tablesOverviewResponseSchema.safeParse(exitEither.right)
+    const parsed = tablesOverviewResponseSchema.safeParse(exitEither.success)
     if (!parsed.success) {
       return c.json(
         { success: false, message: 'Failed to validate response', code: 'INTERNAL_ERROR' },

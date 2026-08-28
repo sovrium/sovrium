@@ -12,8 +12,9 @@ import {
   updateCommentProgram,
   updateCommentStatusProgram,
 } from '@/application/use-cases/tables/comment-programs'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
-import { hasReadPermission } from '@/domain/validators/permission-evaluators'
+import { hasReadPermissionForRoles } from '@/domain/validators/permission-evaluators'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { handleRouteError } from '../error-handlers'
@@ -69,8 +70,8 @@ export async function handleDeleteComment(c: Context, app: App) {
 
   const result = await runTableProgram(program)
 
-  if (result._tag === 'Left') {
-    return handleDeleteCommentError(c, result.left)
+  if (result._tag === 'Failure') {
+    return handleDeleteCommentError(c, result.failure)
   }
 
   // Return 204 No Content on success
@@ -82,7 +83,7 @@ export async function handleDeleteComment(c: Context, app: App) {
  * Handle get comment by ID
  */
 export async function handleGetComment(c: Context, app: App) {
-  const { session, userRole } = getTableContext(c)
+  const { session, userRole, userGroups } = getTableContext(c)
   const tableId = c.req.param('tableId')!
   const commentId = c.req.param('commentId')!
 
@@ -92,8 +93,9 @@ export async function handleGetComment(c: Context, app: App) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
-  // Check read permission
-  if (!hasReadPermission(table, userRole, app.tables)) {
+  // Check read permission (group-aware — a bare role can never match a
+  // `group:<name>` entry, so `userRole` alone left group grants inert here)
+  if (!hasReadPermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)) {
     // S1 anti-enumeration: read-permission denial returns 404.
     return c.json(
       {
@@ -114,11 +116,11 @@ export async function handleGetComment(c: Context, app: App) {
 
   const result = await runTableProgram(program)
 
-  if (result._tag === 'Left') {
+  if (result._tag === 'Failure') {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -214,13 +216,13 @@ async function handleModerationStatusUpdate(input: {
     })
   )
 
-  if (result._tag === 'Left') {
-    return handleUpdateCommentError(c, result.left)
+  if (result._tag === 'Failure') {
+    return handleUpdateCommentError(c, result.failure)
   }
 
   // Comment exists → echo the persisted envelope; missing → genuine 404.
-  if (result.right !== undefined) {
-    return c.json(result.right, 200)
+  if (result.success !== undefined) {
+    return c.json(result.success, 200)
   }
   return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
 }
@@ -272,11 +274,11 @@ export async function handleUpdateComment(c: Context, app: App) {
 
   const result = await runTableProgram(program)
 
-  if (result._tag === 'Left') {
-    return handleUpdateCommentError(c, result.left)
+  if (result._tag === 'Failure') {
+    return handleUpdateCommentError(c, result.failure)
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -306,10 +308,10 @@ function resolveTableForListing(
   c: Context,
   app: App,
   tableId: string,
-  userRole: string
+  effectiveRoles: readonly string[]
 ): NonNullable<App['tables']>[number] | Response {
   const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
-  if (!table || !hasReadPermission(table, userRole, app.tables)) {
+  if (!table || !hasReadPermissionForRoles(table, effectiveRoles, app.tables)) {
     return notFoundResponse(c)
   }
   return table
@@ -319,11 +321,16 @@ function resolveTableForListing(
  * Handle list comments for a record
  */
 export async function handleListComments(c: Context, app: App) {
-  const { session, userRole } = getTableContext(c)
+  const { session, userRole, userGroups } = getTableContext(c)
   const tableId = c.req.param('tableId')!
   const recordId = c.req.param('recordId')!
 
-  const tableOrResponse = resolveTableForListing(c, app, tableId, userRole)
+  const tableOrResponse = resolveTableForListing(
+    c,
+    app,
+    tableId,
+    buildEffectiveRoles(userRole, userGroups)
+  )
   if (tableOrResponse instanceof Response) return tableOrResponse
   const table = tableOrResponse
 
@@ -360,7 +367,7 @@ export async function handleListComments(c: Context, app: App) {
     })
   )
 
-  if (result._tag === 'Left') {
+  if (result._tag === 'Failure') {
     // B3: previously a record-not-found rejection against a comments-configured
     // table returned a fabricated empty list + pagination skeleton (so fixtures
     // could list comments on a literal `test-record-id`). That hid genuine
@@ -369,5 +376,5 @@ export async function handleListComments(c: Context, app: App) {
     return notFoundResponse(c)
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }

@@ -28,9 +28,24 @@ import {
   ApprovalDatabaseError,
 } from '@/application/ports/repositories/ai/approval-repository'
 import { db } from '@/infrastructure/database'
-import { users } from '@/infrastructure/database/drizzle/schema'
-import { automationApprovalRequests } from '@/infrastructure/database/drizzle/schema/automation'
+import {
+  authUsersTable,
+  resolveDialectSchema,
+} from '@/infrastructure/database/drizzle/dialect-schema'
+import { automationApprovalRequests as automationApprovalRequestsPg } from '@/infrastructure/database/drizzle/schema/automation'
+import { automationApprovalRequests as automationApprovalRequestsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+/**
+ * The approval table for the active dialect — `system.automation_approval_requests`
+ * on Postgres, the flat `system_automation_approval_requests` on SQLite. The
+ * route-side runner discards this repository's failures by design, so a dialect
+ * mismatch here leaves the API returning a correct 202 over an empty audit table.
+ */
+const automationApprovalRequests = resolveDialectSchema(
+  automationApprovalRequestsPg,
+  automationApprovalRequestsSqlite
+)
 
 /** Wrap a DB promise, adapting failures to ApprovalDatabaseError. */
 const wrap = makeDbWrap((cause) => new ApprovalDatabaseError({ cause }))
@@ -74,6 +89,9 @@ export const ApprovalRepositoryLive = Layer.succeed(ApprovalRepository, {
 
   lookupUserEmail: (userId) =>
     wrap(async () => {
+      // Resolve the dialect-correct auth users table per call — `auth.user` on
+      // Postgres, `auth_user` on SQLite.
+      const users = authUsersTable()
       const rows = await db
         .select({ email: users.email })
         .from(users)

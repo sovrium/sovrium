@@ -10,7 +10,7 @@
  * (`buildAdminOverview`, `GET /api/admin/overview`).
  *
  * The roll-up fans six per-domain projections out concurrently, and each one
- * already ends in `Effect.catchAll(() => zeroBlock)` — so a domain that *fails*
+ * already ends in `Effect.catch(() => zeroBlock)` — so a domain that *fails*
  * degrades to its zero tile. That covers FAILURE but NOT LATENCY: `catchAll`
  * rescues errors, not slowness, so a domain that is merely slow in production
  * can still push the whole concurrent request past the Hono `API_TIMEOUT_MS`
@@ -30,7 +30,7 @@
  * via the block's own `catchAll`. `ms` stays an explicit parameter so the
  * combinator is unit-testable in isolation (see `overview-block-timeout.test.ts`).
  *
- * Uses the codebase `Effect.timeoutTo` idiom (see
+ * Uses the codebase `Effect.timeoutOrElse` idiom (see
  * `application/use-cases/automations/run/step-executor.ts`).
  */
 
@@ -48,8 +48,11 @@ export const withBlockTimeout = <A>(
   zero: A,
   ms: number
 ): Effect.Effect<A> =>
-  Effect.timeoutTo(effect, {
+  // EFFECT 4: `timeoutTo({duration, onSuccess, onTimeout})` -> `timeoutOrElse`,
+  // whose fallback is an EFFECT rather than a plain value
+  // (migration/v3-to-v4.md:9837). `onSuccess` was the identity here, so no
+  // `Effect.map` is required.
+  Effect.timeoutOrElse(effect, {
     duration: Duration.millis(ms),
-    onSuccess: (value: A): A => value,
-    onTimeout: (): A => zero,
+    orElse: (): Effect.Effect<A> => Effect.succeed(zero),
   })

@@ -86,18 +86,16 @@ export const createAppLayer = (authConfig?: AuthConfig) => {
  * This prevents subprocess hangs when `build()` is called without
  * DATABASE_URL (e.g., in E2E tests or CI static generation).
  */
-export const createStaticBuildLayer = () => {
-  // PageRendererLive requires DataSourceRepository — provide it
-  // Static builds may not have DATABASE_URL, so the live implementation
-  // gracefully returns empty results when no database is available
-  const PageRendererWithDeps = PageRendererLive.pipe(Layer.provide(DataSourceRepositoryLive))
+// PageRendererLive requires DataSourceRepository — provide it.
+// Static builds may not have DATABASE_URL, so the live implementation
+// gracefully returns empty results when no database is available.
+const PageRendererWithDeps = PageRendererLive.pipe(Layer.provide(DataSourceRepositoryLive))
 
-  return Layer.mergeAll(
-    ServerFactoryLive,
-    PageRendererWithDeps,
-    CSSCompilerLive,
-    StaticSiteGeneratorLive,
-    DevToolsLayerOptional,
-    LoggerLive
-  )
-}
+export const createStaticBuildLayer = Layer.mergeAll(
+  ServerFactoryLive,
+  PageRendererWithDeps,
+  CSSCompilerLive,
+  StaticSiteGeneratorLive,
+  DevToolsLayerOptional,
+  LoggerLive
+)

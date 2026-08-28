@@ -27,13 +27,11 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const UserFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('user'),
-      allowMultiple: Schema.optional(Schema.Boolean),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('user'),
+    allowMultiple: Schema.optional(Schema.Boolean),
+  }),
+  Schema.annotate({
     title: 'User Field',
     description:
       'Reference field linking to users from authentication system. Supports single or multiple user selection.',

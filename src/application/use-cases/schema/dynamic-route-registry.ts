@@ -70,7 +70,7 @@ export interface DynamicRouteEntry {
  */
 export interface DynamicRouteRegistry {
   readonly addEntry: (entry: DynamicRouteEntry) => Effect.Effect<void>
-  readonly entries: () => Effect.Effect<readonly DynamicRouteEntry[]>
+  readonly entries: Effect.Effect<readonly DynamicRouteEntry[]>
   readonly replaceAll: (entries: readonly DynamicRouteEntry[]) => Effect.Effect<void>
 }
 
@@ -78,16 +78,17 @@ export interface DynamicRouteRegistry {
  * Construct an empty registry. Each call yields its own Ref so the
  * Hono app, the test fixture, etc. each have isolated state.
  */
-export const makeDynamicRouteRegistry = (): Effect.Effect<DynamicRouteRegistry> =>
-  Effect.gen(function* () {
+export const makeDynamicRouteRegistry: Effect.Effect<DynamicRouteRegistry> = Effect.gen(
+  function* () {
     const ref = yield* Ref.make<readonly DynamicRouteEntry[]>([])
     const registry: DynamicRouteRegistry = {
       addEntry: (entry) => Ref.update(ref, (current) => [...current, entry]),
-      entries: () => Ref.get(ref),
+      entries: Ref.get(ref),
       replaceAll: (next) => Ref.set(ref, next),
     }
     return registry
-  })
+  }
+)
 
 /**
  * Re-register every entry in the given registry against the new App.
@@ -104,7 +105,7 @@ export const reRegisterDynamicRoutes = (
   hono: Hono
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
-    const entries = yield* registry.entries()
+    const entries = yield* registry.entries
     // eslint-disable-next-line functional/no-loop-statements -- ordered side-effect dispatch (unregister/register pair per entry)
     for (const entry of entries) {
       entry.unregister(hono)

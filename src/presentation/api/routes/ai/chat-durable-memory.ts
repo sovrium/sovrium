@@ -71,10 +71,10 @@ export const loadDurableHistory = async (
 ): Promise<ReadonlyArray<ConversationMessage>> => {
   if (userId === 'anonymous') return getConversationHistory(sessionId)
   const result = await Effect.runPromise(
-    loadChatHistory({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.either)
+    loadChatHistory({ userId, sessionId }).pipe(provideAiMemoryRepoLive, Effect.result)
   )
-  if (result._tag === 'Left') return getConversationHistory(sessionId)
-  const all: ReadonlyArray<ConversationMessage> = result.right
+  if (result._tag === 'Failure') return getConversationHistory(sessionId)
+  const all: ReadonlyArray<ConversationMessage> = result.success
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({ role: m.role as ConversationMessage['role'], content: m.content }))
   const limit = resolveMemoryContextLimit()
@@ -94,7 +94,7 @@ export const applyRetentionPolicy = async (userId: string): Promise<void> => {
   return Effect.runPromise(
     enforceRetentionPolicy({ userId, maxAgeDays }).pipe(
       provideAiMemoryRepoLive,
-      Effect.either,
+      Effect.result,
       Effect.asVoid
     )
   )
@@ -112,32 +112,31 @@ export const persistTurnDurably = async (
   sessionId: string,
   userMessage: string,
   assistantReply: string
-): Promise<void> => {
-  if (userId === 'anonymous') return
-  return Effect.runPromise(
-    persistChatTurn({ userId, sessionId, userMessage, assistantReply }).pipe(
-      provideAiMemoryRepoLive,
-      Effect.either,
-      Effect.asVoid
-    )
-  )
-}
+): Promise<void> => persistChatTurnDurably({ userId, sessionId, userMessage, assistantReply })
 
 /**
- * Persist a completed agent-bound user/assistant exchange, tagging the
- * conversation row with `agentName` so agent threads are distinguished from
- * generic chat turns in the conversation list. Best-effort
- * and `anonymous`-skipped, exactly like {@link persistTurnDurably}.
+ * Persist a completed user/assistant exchange, optionally tagging the
+ * conversation row with the `agentName` that produced it so agent threads are
+ * distinguished from generic chat turns in the conversation list
+ *. Best-effort and `anonymous`-skipped.
+ *
+ * The single implementation — {@link persistTurnDurably} is a positional
+ * convenience over it. Attribution being an OPTIONAL field of one writer,
+ * rather than a second writer, is what keeps it transport-independent: an
+ * agent-bound turn is attributed whether it arrived on
+ * `/api/agents/:name/chat` or on `/api/ai/chat` with `{ agent }`
+ *. Two writers is exactly how the two transports came to
+ * disagree — one of them simply had no parameter to pass.
  */
-export const persistAgentTurnDurably = async (input: {
+export const persistChatTurnDurably = async (input: {
   readonly userId: string
   readonly sessionId: string
   readonly userMessage: string
   readonly assistantReply: string
-  readonly agentName: string
+  readonly agentName?: string
 }): Promise<void> => {
   if (input.userId === 'anonymous') return
   return Effect.runPromise(
-    persistChatTurn(input).pipe(provideAiMemoryRepoLive, Effect.either, Effect.asVoid)
+    persistChatTurn(input).pipe(provideAiMemoryRepoLive, Effect.result, Effect.asVoid)
   )
 }

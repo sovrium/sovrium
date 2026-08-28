@@ -26,12 +26,10 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const CreatedAtFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('created-at'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('created-at'),
+  }),
+  Schema.annotate({
     title: 'Created At Field',
     description:
       'Automatically captures the timestamp when a record is created. System-managed field that cannot be manually edited.',

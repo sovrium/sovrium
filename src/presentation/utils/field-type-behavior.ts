@@ -52,36 +52,59 @@ export type FieldWidget =
    */
   | 'button'
 
+/**
+ * What an UNTOUCHED field must do with the browser's `''` sentinel.
+ *
+ * - `send` — `''` is an ordinary legal value for the backing column (a plain
+ *   TEXT/VARCHAR with no CHECK), so it is written as-is.
+ * - `omit` — `''` can NEVER be legal for this type, so the field is dropped
+ *   from the write payload and the column stays NULL / takes its DB default.
+ * - `omit-when-formatted` — neither answer is a property of the TYPE. The
+ *   column only acquires a CHECK when the FIELD declares a `format`, so the
+ *   decision has to read the field's own config. See {@link omitsEmptyValue}.
+ *
+ * The third arm is not a hedge: it is the only honest encoding of an OPT-IN
+ * constraint. Collapsing it either way is wrong for half the fields of that
+ * type — `omit` writes NULL over a column that would have accepted `''`, and
+ * `send` fails the whole INSERT on the CHECK.
+ */
+export type EmptyValuePolicy = 'send' | 'omit' | 'omit-when-formatted'
+
 /** How a field type behaves in a CRUD form. */
 export interface FieldTypeBehavior {
   /** Control used to edit the field, in BOTH the SSR skeleton and the island. */
   readonly widget: FieldWidget
   /**
-   * `true` when an empty string is NOT a legal value for the backing column,
-   * so an untouched field must be OMITTED from the write payload (letting the
-   * column stay NULL / take its DB default) rather than sent as `''`.
+   * What an untouched (empty-string) value for this type must do on write.
    *
    * Established empirically against a live server: posting `''` to each column
    * type returns 500 (type/constraint rejection: numeric, temporal, array,
    * relationship, progress, geolocation, checkbox), 409 (CHECK-constraint
    * membership: single-select, status, color — see the note below), or 422
-   * (format validation: url). Every such type is marked `true` here; the types
-   * that legitimately accept `''` (free text, rich text, code, json, barcode,
-   * attachments) are marked `false`.
+   * (format validation: url). Every such type is `omit` here; the types that
+   * legitimately accept `''` (free text, rich text, code, json, attachments)
+   * are `send`.
    *
-   * NOTE on 409: a CHECK-constraint violation is currently MISREPORTED as a
+   * `barcode` is neither, and used to be recorded here as `send` on the stated
+   * ground that a barcode column "legitimately accepts `''`". That was true of
+   * a bare `barcode` field and FALSE of one declaring `format`, which emits
+   * `check_<field>_format` — a CHECK that `''` fails on both dialects. Per-type
+   * granularity is structurally too coarse for a type whose constraint is
+   * opt-in, so it is `omit-when-formatted`.
+   *
+   * NOTE on 409: a CHECK-constraint violation was MISREPORTED as a
    * unique-constraint conflict on PostgreSQL (whose driver error carries a
-   * `constraint` name for CHECK violations too) while SQLite surfaces the same
-   * logical failure as a 500. That misclassification is tracked separately; it
-   * does not change which types must be omitted.
+   * `constraint` name for CHECK violations too) while SQLite surfaced the same
+   * logical failure as a 500. That is fixed (`classifyDriverFailure`); it never
+   * changed which types must be omitted.
    */
-  readonly omitWhenEmpty: boolean
+  readonly emptyValuePolicy: EmptyValuePolicy
 }
 
-const TEXT_SENDS_EMPTY: FieldTypeBehavior = { widget: 'text', omitWhenEmpty: false }
-const TEXT_OMITS_EMPTY: FieldTypeBehavior = { widget: 'text', omitWhenEmpty: true }
-const SELECT_OMITS_EMPTY: FieldTypeBehavior = { widget: 'select', omitWhenEmpty: true }
-const NUMBER_OMITS_EMPTY: FieldTypeBehavior = { widget: 'number', omitWhenEmpty: true }
+const TEXT_SENDS_EMPTY: FieldTypeBehavior = { widget: 'text', emptyValuePolicy: 'send' }
+const TEXT_OMITS_EMPTY: FieldTypeBehavior = { widget: 'text', emptyValuePolicy: 'omit' }
+const SELECT_OMITS_EMPTY: FieldTypeBehavior = { widget: 'select', emptyValuePolicy: 'omit' }
+const NUMBER_OMITS_EMPTY: FieldTypeBehavior = { widget: 'number', emptyValuePolicy: 'omit' }
 
 /**
  * TOTAL field-type dispatch table.
@@ -95,15 +118,18 @@ const NUMBER_OMITS_EMPTY: FieldTypeBehavior = { widget: 'number', omitWhenEmpty:
 const FIELD_TYPE_BEHAVIOR = {
   // ── Text ────────────────────────────────────────────────────────────────
   'single-line-text': TEXT_SENDS_EMPTY,
-  'long-text': { widget: 'textarea', omitWhenEmpty: false },
-  'rich-text': { widget: 'rich-text', omitWhenEmpty: false },
-  code: { widget: 'code', omitWhenEmpty: false },
-  email: { widget: 'email', omitWhenEmpty: false },
+  'long-text': { widget: 'textarea', emptyValuePolicy: 'send' },
+  'rich-text': { widget: 'rich-text', emptyValuePolicy: 'send' },
+  code: { widget: 'code', emptyValuePolicy: 'send' },
+  email: { widget: 'email', emptyValuePolicy: 'send' },
   // A blank URL fails format validation (422) — omit so an untouched optional
   // link never blocks the submit.
-  url: { widget: 'url', omitWhenEmpty: true },
+  url: { widget: 'url', emptyValuePolicy: 'omit' },
   'phone-number': TEXT_SENDS_EMPTY,
-  barcode: TEXT_SENDS_EMPTY,
+  // The one type whose column constraint is OPT-IN: a bare `barcode` is a
+  // plain VARCHAR that accepts '', while one declaring `format` carries
+  // `check_<field>_format`, which '' fails. Decided per FIELD, not per type.
+  barcode: { widget: 'text', emptyValuePolicy: 'omit-when-formatted' },
 
   // ── Numeric (NUMERIC / INTEGER columns reject '') ───────────────────────
   integer: NUMBER_OMITS_EMPTY,
@@ -114,16 +140,16 @@ const FIELD_TYPE_BEHAVIOR = {
   // CHECK (col >= 1 AND col <= max), so the scale is clicked, never typed —
   // and it clears to NULL, because the implicit minimum is 1 and 0 would
   // violate that CHECK.
-  rating: { widget: 'rating', omitWhenEmpty: true },
+  rating: { widget: 'rating', emptyValuePolicy: 'omit' },
   duration: NUMBER_OMITS_EMPTY,
   // 0..100 range CHECK constraint.
   progress: NUMBER_OMITS_EMPTY,
 
   // ── Temporal (DATE / TIMESTAMP / TIME columns reject '') ────────────────
-  date: { widget: 'date', omitWhenEmpty: true },
+  date: { widget: 'date', emptyValuePolicy: 'omit' },
   // TIMESTAMPTZ on Postgres / ISO text on SQLite. Edited as an instant in the
   // field's declared `timeZone`, never as free text.
-  datetime: { widget: 'datetime', omitWhenEmpty: true },
+  datetime: { widget: 'datetime', emptyValuePolicy: 'omit' },
   time: TEXT_OMITS_EMPTY,
 
   // ── Choice (option-membership CHECK constraints) ────────────────────────
@@ -131,11 +157,11 @@ const FIELD_TYPE_BEHAVIOR = {
   status: SELECT_OMITS_EMPTY,
   // A SET, stored as `text[]` on Postgres. A text box would join it with
   // commas and write the string back, which is a different value.
-  'multi-select': { widget: 'multi-select', omitWhenEmpty: true },
+  'multi-select': { widget: 'multi-select', emptyValuePolicy: 'omit' },
 
   // ── Structured / constrained scalars ────────────────────────────────────
   // BOOLEAN column rejects ''.
-  checkbox: { widget: 'checkbox', omitWhenEmpty: true },
+  checkbox: { widget: 'checkbox', emptyValuePolicy: 'omit' },
   // Hex-format CHECK constraint.
   color: TEXT_OMITS_EMPTY,
   geolocation: TEXT_OMITS_EMPTY,
@@ -146,12 +172,12 @@ const FIELD_TYPE_BEHAVIOR = {
   // Both store a key the operator never sees. The control offers labels —
   // `displayField` for a record, the account's display name for a user — and
   // writes the key behind them.
-  relationship: { widget: 'record-picker', omitWhenEmpty: true },
-  user: { widget: 'user-picker', omitWhenEmpty: true },
+  relationship: { widget: 'record-picker', emptyValuePolicy: 'omit' },
+  user: { widget: 'user-picker', emptyValuePolicy: 'omit' },
 
   // ── Attachments (an empty string is not a storage key) ──────────────────
-  'single-attachment': { widget: 'file-single', omitWhenEmpty: true },
-  'multiple-attachments': { widget: 'file-multiple', omitWhenEmpty: true },
+  'single-attachment': { widget: 'file-single', emptyValuePolicy: 'omit' },
+  'multiple-attachments': { widget: 'file-multiple', emptyValuePolicy: 'omit' },
 
   // ── Computed / system-managed: never writable, so never send a blank ────
   formula: TEXT_OMITS_EMPTY,
@@ -161,7 +187,7 @@ const FIELD_TYPE_BEHAVIOR = {
   autonumber: TEXT_OMITS_EMPTY,
   // Not a readout either: a button field renders as the button it declares.
   // It has no column and no value, so nothing is ever sent for it.
-  button: { widget: 'button', omitWhenEmpty: true },
+  button: { widget: 'button', emptyValuePolicy: 'omit' },
   'created-at': TEXT_OMITS_EMPTY,
   'created-by': TEXT_OMITS_EMPTY,
   'updated-at': TEXT_OMITS_EMPTY,
@@ -186,7 +212,27 @@ const FIELD_TYPE_BEHAVIOR = {
  * its field list from a JSON blob. Behaves like a plain text box that posts
  * whatever it holds — the pre-existing behavior for an unmapped type.
  */
-const UNKNOWN_FIELD_BEHAVIOR: FieldTypeBehavior = { widget: 'text', omitWhenEmpty: false }
+const UNKNOWN_FIELD_BEHAVIOR: FieldTypeBehavior = { widget: 'text', emptyValuePolicy: 'send' }
+
+/**
+ * The slice of a form field this module's per-FIELD decisions read.
+ *
+ * Structural rather than an import of `FieldDef`: this module is shared by the
+ * SSR resolver and the hydrated island, which hold two different field shapes,
+ * and neither may depend on the other.
+ */
+export interface EmptyValueField {
+  readonly type: string
+  /**
+   * The field's own declared `format`, when it declares one. PRESENCE is what
+   * matters, deliberately — not membership of the recognised-format list. A
+   * format Sovrium does not recognise still emits a CHECK (SQLite degrades the
+   * unexpressible ones to `LENGTH(col) > 0`, which `''` fails), so keying on
+   * the known list would under-omit and fail the write. Keying on presence
+   * can only ever over-omit into NULL, which every optional column accepts.
+   */
+  readonly format?: string
+}
 
 /** Look up a field type's form behavior, degrading safely for unknown types. */
 export function fieldTypeBehavior(type: string): FieldTypeBehavior {
@@ -243,9 +289,16 @@ export function showsDeclaredDefault(type: string): boolean {
 }
 
 /**
- * True when an empty value for this field type must be dropped from a
- * create/update payload instead of written as `''`.
+ * True when an empty value for this FIELD must be dropped from a create/update
+ * payload instead of written as `''`.
+ *
+ * Takes the field rather than its type because one type — `barcode` — carries
+ * an opt-in CHECK, so the answer is not a property of the type alone. Every
+ * other type ignores the extra argument; the signature simply stops a caller
+ * from asking a question that cannot be answered from a type name.
  */
-export function omitsEmptyValue(type: string): boolean {
-  return fieldTypeBehavior(type).omitWhenEmpty
+export function omitsEmptyValue(field: EmptyValueField): boolean {
+  const policy = fieldTypeBehavior(field.type).emptyValuePolicy
+  if (policy === 'omit-when-formatted') return (field.format ?? '') !== ''
+  return policy === 'omit'
 }

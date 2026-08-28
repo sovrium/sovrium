@@ -9,10 +9,17 @@
  * Shared per-agent AI request configuration resolvers.
  *
  * The agent execution path (`agent-ai-call.ts`) and the agent-bound chat path
- * (`agent-chat.ts`) both resolve the effective model + temperature from the
- * agent's per-agent overrides falling back to env vars. The override-vs-env
- * precedence is shared here; each caller applies its own default policy for
- * an absent temperature (see {@link resolveAgentTemperature}).
+ * (`agents/agent-chat.ts`) share the override-vs-env PRECEDENCE; each applies
+ * its own default policy for an absent temperature (see
+ * {@link resolveAgentTemperature}).
+ *
+ * They no longer share the MODEL resolver. `resolveAgentModel` ends in a
+ * hard-coded `'mock-model'`, which the raw-fetch execution path needs because
+ * it must always put some model on the wire. The chat path goes through the
+ * `AiService` port, where an absent model means "use the provider's own
+ * default" (`llama3.1` on Ollama) — strictly better than shipping a model name
+ * no real provider serves. It therefore resolves `agent.model ?? AI_MODEL`
+ * itself and deliberately does NOT call {@link resolveAgentModel}.
  */
 
 import type { Agent } from '@/domain/models/app/agents/agent'

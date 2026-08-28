@@ -33,9 +33,9 @@ export const AnimationConfigObjectSchema = Schema.Struct({
   duration: Schema.optional(DurationSchema),
   easing: Schema.optional(EasingFunctionSchema),
   delay: Schema.optional(DurationSchema),
-  keyframes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  keyframes: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Animation Configuration Object',
     description: 'Detailed animation configuration',
   })
@@ -62,12 +62,12 @@ export const AnimationConfigObjectSchema = Schema.Struct({
  *
  * @see [internal ref]#/patternProperties/.../oneOf
  */
-export const AnimationValueSchema = Schema.Union(
+export const AnimationValueSchema = Schema.Union([
   Schema.Boolean,
   Schema.String,
-  AnimationConfigObjectSchema
-).pipe(
-  Schema.annotations({
+  AnimationConfigObjectSchema,
+]).pipe(
+  Schema.annotate({
     title: 'Animation Value',
     description: 'Animation configuration (boolean, string, or object)',
   })
@@ -87,15 +87,16 @@ export const AnimationValueSchema = Schema.Union(
  * }
  * ```
  */
-const DurationTokensSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-      message: () =>
-        'Duration key must start with a letter and contain only alphanumeric characters',
-    })
+const DurationTokensSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+        message: 'Duration key must start with a letter and contain only alphanumeric characters',
+      })
+    )
   ),
-  value: DurationSchema,
-})
+  DurationSchema
+)
 
 /**
  * Easing function design tokens schema
@@ -110,14 +111,16 @@ const DurationTokensSchema = Schema.Record({
  * }
  * ```
  */
-const EasingTokensSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-      message: () => 'Easing key must start with a letter and contain only alphanumeric characters',
-    })
+const EasingTokensSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+        message: 'Easing key must start with a letter and contain only alphanumeric characters',
+      })
+    )
   ),
-  value: EasingFunctionSchema,
-})
+  EasingFunctionSchema
+)
 
 /**
  * Keyframes design tokens schema
@@ -139,15 +142,16 @@ const EasingTokensSchema = Schema.Record({
  * }
  * ```
  */
-const KeyframesTokensSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-      message: () =>
-        'Keyframe key must start with a letter and contain only alphanumeric characters',
-    })
+const KeyframesTokensSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+        message: 'Keyframe key must start with a letter and contain only alphanumeric characters',
+      })
+    )
   ),
-  value: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-})
+  Schema.Record(Schema.String, Schema.Unknown)
+)
 
 /**
  * Animation configuration (animation and transition design tokens)
@@ -177,26 +181,27 @@ const KeyframesTokensSchema = Schema.Record({
  * ```
  *
  */
-export const AnimationsConfigSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-      message: () =>
-        'Animation key must start with a letter and contain only alphanumeric characters',
-    }),
-    Schema.annotations({
+export const AnimationsConfigSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+        message: 'Animation key must start with a letter and contain only alphanumeric characters',
+      })
+    ),
+    Schema.annotate({
       title: 'Animation Key',
       description: 'Animation name (alphanumeric)',
       examples: ['fadeIn', 'slideUp', 'modalOpen', 'duration', 'easing', 'keyframes'],
     })
   ),
-  value: Schema.Union(
+  Schema.Union([
     AnimationValueSchema,
     DurationTokensSchema,
     EasingTokensSchema,
-    KeyframesTokensSchema
-  ),
-}).pipe(
-  Schema.annotations({
+    KeyframesTokensSchema,
+  ])
+).pipe(
+  Schema.annotate({
     title: 'Animation Configuration',
     description: 'Animation and transition design tokens',
   })

@@ -32,7 +32,7 @@ export const handleStateSet: ActionHandler = (action, _app, automation) =>
     }
 
     const repo = yield* AutomationStateRepository
-    const result = yield* Effect.either(
+    const result = yield* Effect.result(
       repo.set({
         automationId: automation.id,
         key,
@@ -40,8 +40,8 @@ export const handleStateSet: ActionHandler = (action, _app, automation) =>
         ...(ttlMs !== undefined ? { ttlMs } : {}),
       })
     )
-    if (result._tag === 'Left') {
-      return { status: 'failure', error: String(result.left.cause) } as const
+    if (result._tag === 'Failure') {
+      return { status: 'failure', error: String(result.failure.cause) } as const
     }
     return { status: 'success' } as const
   })
@@ -57,11 +57,11 @@ export const handleStateGet: ActionHandler = (action, _app, automation) =>
     if (!key) return { status: 'failure', error: 'state.get requires a key' } as const
 
     const repo = yield* AutomationStateRepository
-    const result = yield* Effect.either(repo.get({ automationId: automation.id, key }))
-    if (result._tag === 'Left') {
-      return { status: 'failure', error: String(result.left.cause) } as const
+    const result = yield* Effect.result(repo.get({ automationId: automation.id, key }))
+    if (result._tag === 'Failure') {
+      return { status: 'failure', error: String(result.failure.cause) } as const
     }
-    return { status: 'success', output: { value: result.right } } as const
+    return { status: 'success', output: { value: result.success } } as const
   })
 
 /**
@@ -75,11 +75,11 @@ export const handleStateList: ActionHandler = (action, _app, automation) =>
     const prefix = stringProp(props, 'prefix')
 
     const repo = yield* AutomationStateRepository
-    const result = yield* Effect.either(repo.list({ automationId: automation.id, prefix }))
-    if (result._tag === 'Left') {
-      return { status: 'failure', error: String(result.left.cause) } as const
+    const result = yield* Effect.result(repo.list({ automationId: automation.id, prefix }))
+    if (result._tag === 'Failure') {
+      return { status: 'failure', error: String(result.failure.cause) } as const
     }
-    const entries = result.right
+    const entries = result.success
     return {
       status: 'success',
       output: {
@@ -100,9 +100,9 @@ export const handleStateDelete: ActionHandler = (action, _app, automation) =>
 
     const repo = yield* AutomationStateRepository
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- false positive: this is a port method, not a Drizzle call; the repo's delete impl uses a where clause internally.
-    const result = yield* Effect.either(repo.delete({ automationId: automation.id, key }))
-    if (result._tag === 'Left') {
-      return { status: 'failure', error: String(result.left.cause) } as const
+    const result = yield* Effect.result(repo.delete({ automationId: automation.id, key }))
+    if (result._tag === 'Failure') {
+      return { status: 'failure', error: String(result.failure.cause) } as const
     }
     return { status: 'success' } as const
   })
@@ -120,11 +120,11 @@ export const handleStateIncrement: ActionHandler = (action, _app, automation) =>
     const amount = numberProp(props, 'amount', 1)
 
     const repo = yield* AutomationStateRepository
-    const result = yield* Effect.either(
+    const result = yield* Effect.result(
       repo.increment({ automationId: automation.id, key, amount })
     )
-    if (result._tag === 'Left') {
-      return { status: 'failure', error: String(result.left.cause) } as const
+    if (result._tag === 'Failure') {
+      return { status: 'failure', error: String(result.failure.cause) } as const
     }
-    return { status: 'success', output: { value: result.right } } as const
+    return { status: 'success', output: { value: result.success } } as const
   })

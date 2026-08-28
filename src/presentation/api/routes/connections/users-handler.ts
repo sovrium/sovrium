@@ -11,7 +11,7 @@ import { ConnectionTokenRepository } from '@/application/ports/repositories/conn
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { notFound, requireSession, unauthorized } from '@/presentation/api/utils/auth-helpers'
+import { notFound, requireSession } from '@/presentation/api/utils/auth-helpers'
 import { provideConnectionLive } from './effect-runner'
 import { connectionError } from './error-envelopes'
 import type { App } from '@/domain/models/app'
@@ -93,8 +93,9 @@ const dropAdminUsers = async <T extends { readonly userId: string }>(
 }
 
 export async function handleListUsers(c: Context, app: App) {
-  const session = requireSession(c)
-  if (session === undefined) return unauthorized(c)
+  const auth = requireSession(c)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const name = c.req.param('name')
   if (name === undefined) return connectionError(c, 400, 'connection_name_required')
   const conn = findConnection(app, name)
@@ -140,12 +141,12 @@ export async function handleListUsers(c: Context, app: App) {
       )
   })
 
-  const result = await runRequestEffect(c, provideConnectionLive(program).pipe(Effect.either))
-  if (result._tag === 'Left') {
-    logError('[connections] list users failed', result.left)
+  const result = await runRequestEffect(c, provideConnectionLive(program).pipe(Effect.result))
+  if (result._tag === 'Failure') {
+    logError('[connections] list users failed', result.failure)
     return connectionError(c, 500, 'list_users_failed')
   }
-  const memberEntries = await dropAdminUsers(result.right)
+  const memberEntries = await dropAdminUsers(result.success)
   const users = memberEntries.map((entry) => ({
     userId: entry.userId,
     status: deriveAdminStatus(entry.expiresAt),

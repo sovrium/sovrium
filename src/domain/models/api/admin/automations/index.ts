@@ -6,4 +6,5 @@
  */
 
 export * from './overview'
+export * from './pause'
 export * from './runs-list'

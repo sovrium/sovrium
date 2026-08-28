@@ -41,47 +41,44 @@ import { validateMinMaxRange } from '../validation-utils'
  * ```
  */
 export const DecimalFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('decimal').pipe(
-        Schema.annotations({
-          description: "Constant value 'decimal' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('decimal').pipe(
+      Schema.annotate({
+        description: "Constant value 'decimal' for type discrimination in discriminated unions",
+      })
+    ),
+    precision: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(10)),
+        Schema.annotate({
+          description: 'Number of decimal places (1-10)',
         })
-      ),
-      precision: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThan(0),
-          Schema.lessThanOrEqualTo(10),
-          Schema.annotations({
-            description: 'Number of decimal places (1-10)',
-          })
-        )
-      ),
-      min: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Minimum allowed value (inclusive)',
-          })
-        )
-      ),
-      max: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Maximum allowed value (inclusive)',
-          })
-        )
-      ),
-      default: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Default decimal value when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.filter(validateMinMaxRange),
-  Schema.annotations({
+      )
+    ),
+    min: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Minimum allowed value (inclusive)',
+        })
+      )
+    ),
+    max: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Maximum allowed value (inclusive)',
+        })
+      )
+    ),
+    default: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Default decimal value when creating new records',
+        })
+      )
+    ),
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange)),
+  Schema.annotate({
     title: 'Decimal Field',
     description:
       'Numeric field for numbers with decimal places. Supports configurable precision (1-10 decimal places) and min/max range validation. Uses exact DECIMAL storage.',

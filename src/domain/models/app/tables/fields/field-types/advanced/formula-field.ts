@@ -16,65 +16,63 @@ import {
 } from '../currency-display'
 
 export const FormulaFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('formula'),
-      formula: Schema.String.pipe(
-        Schema.nonEmptyString({ message: () => 'formula is required' }),
-        Schema.annotations({
-          description:
-            'Formula expression to compute the value. Supports field references, operators, and functions.',
-          examples: [
-            'price * quantity',
-            "CONCAT(first_name, ' ', last_name)",
-            "IF(status = 'active', 'Yes', 'No')",
-            'ROUND(total * 0.15, 2)',
-          ],
+  Schema.fieldsAssign({
+    type: Schema.Literal('formula'),
+    formula: Schema.String.pipe(
+      Schema.check(Schema.isNonEmpty({ message: 'formula is required' })),
+      Schema.annotate({
+        description:
+          'Formula expression to compute the value. Supports field references, operators, and functions.',
+        examples: [
+          'price * quantity',
+          "CONCAT(first_name, ' ', last_name)",
+          "IF(status = 'active', 'Yes', 'No')",
+          'ROUND(total * 0.15, 2)',
+        ],
+      })
+    ),
+    resultType: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({ description: 'Expected data type of the formula result' })
+      )
+    ),
+    format: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Display format for the result (e.g., currency, percentage)',
+          examples: ['currency', 'percentage', 'decimal', 'date'],
         })
-      ),
-      resultType: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({ description: 'Expected data type of the formula result' })
-        )
-      ),
-      format: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Display format for the result (e.g., currency, percentage)',
-            examples: ['currency', 'percentage', 'decimal', 'date'],
-          })
-        )
-      ),
-      /**
-       * The currency a monetary result is rendered in.
-       *
-       * A formula over money is still money, but the renderer took the SYMBOL
-       * from the field type rather than from a declared code, so a computed
-       * `unit_price * stock_on_hand` printed `$224,430.90` beside the `€28.63`
-       * it was multiplied from — and no valid config could correct it, because
-       * `sovrium validate` rejects undeclared keys.
-       *
-       * Explicit, never inferred. There is deliberately no "inherit the code
-       * from the field the formula references": a formula is an arbitrary
-       * expression that may touch several fields or none, so any such rule
-       * would have to pick one silently and would repoint the symbol the day
-       * somebody edits the expression. Undeclared means the existing USD
-       * defaults, exactly as before.
-       */
-      currency: Schema.optional(
-        CurrencyCodeSchema.annotations({
-          description:
-            'ISO 4217 code the computed amount is rendered in (e.g., USD, EUR, GBP). Applies when the value is displayed as currency; undeclared falls back to USD.',
-          examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
-        })
-      ),
-      precision: Schema.optional(CurrencyPrecisionSchema),
-      symbolPosition: Schema.optional(CurrencySymbolPositionSchema),
-      negativeFormat: Schema.optional(CurrencyNegativeFormatSchema),
-      thousandsSeparator: Schema.optional(CurrencyThousandsSeparatorSchema),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+    /**
+     * The currency a monetary result is rendered in.
+     *
+     * A formula over money is still money, but the renderer took the SYMBOL
+     * from the field type rather than from a declared code, so a computed
+     * `unit_price * stock_on_hand` printed `$224,430.90` beside the `€28.63`
+     * it was multiplied from — and no valid config could correct it, because
+     * `sovrium validate` rejects undeclared keys.
+     *
+     * Explicit, never inferred. There is deliberately no "inherit the code
+     * from the field the formula references": a formula is an arbitrary
+     * expression that may touch several fields or none, so any such rule
+     * would have to pick one silently and would repoint the symbol the day
+     * somebody edits the expression. Undeclared means the existing USD
+     * defaults, exactly as before.
+     */
+    currency: Schema.optional(
+      CurrencyCodeSchema.annotate({
+        description:
+          'ISO 4217 code the computed amount is rendered in (e.g., USD, EUR, GBP). Applies when the value is displayed as currency; undeclared falls back to USD.',
+        examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
+      })
+    ),
+    precision: Schema.optional(CurrencyPrecisionSchema),
+    symbolPosition: Schema.optional(CurrencySymbolPositionSchema),
+    negativeFormat: Schema.optional(CurrencyNegativeFormatSchema),
+    thousandsSeparator: Schema.optional(CurrencyThousandsSeparatorSchema),
+  }),
+  Schema.annotate({
     title: 'Formula Field',
     description: 'Computed field that calculates values based on formula expressions.',
     examples: [

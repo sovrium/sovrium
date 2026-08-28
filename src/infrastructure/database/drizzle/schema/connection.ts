@@ -81,7 +81,56 @@ export const connectionTokens = systemSchema.table(
   ]
 )
 
+/**
+ * Connection App Tokens Table
+ *
+ * The SHARED credential of an `app`-scoped connection: one row per
+ * connection, owned by the installation rather than by whoever clicked
+ * Connect. Every automation reads it, including the ones that have no user
+ * behind them at all — cron, unauthenticated webhooks, approval-resume.
+ *
+ * ── Why this is a separate table, not a nullable `user_id` ────────────────
+ * Reusing `connection_tokens` with a nullable `user_id` fails twice. On
+ * Postgres, NULLs are distinct under a unique index, so
+ * `ON CONFLICT (connection_id, user_id)` never matches an existing shared
+ * row and the upsert degenerates into unbounded inserts. On SQLite, making
+ * an existing NOT NULL column nullable requires a full table recreate — of
+ * the one table holding every stored credential.
+ *
+ * Reusing "any row for this connection" needs no migration at all, and is
+ * worse: `connection_tokens.user_id` is `ON DELETE cascade`, so offboarding
+ * the operator who happened to authorize the connection silently deletes the
+ * company's shared credential — weeks later, with nothing linking the two
+ * events. This table has no `user_id`, and therefore no such cascade.
+ */
+export const connectionAppTokens = systemSchema.table(
+  'connection_app_tokens',
+  {
+    id: text('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token').notNull(),
+    refreshToken: text('refresh_token'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    // Exactly one shared token row per connection, so the upsert stays a
+    // single atomic INSERT ... ON CONFLICT DO UPDATE — the same rationale as
+    // the per-user table's (connection_id, user_id) index.
+    uniqueIndex('connection_app_tokens_connection_unique').on(table.connectionId),
+  ]
+)
+
 // Type inference
 export type Connection = typeof connections.$inferSelect
 export type NewConnection = typeof connections.$inferInsert
 export type ConnectionToken = typeof connectionTokens.$inferSelect
+export type ConnectionAppToken = typeof connectionAppTokens.$inferSelect

@@ -19,15 +19,15 @@ export const AuthBanUserActionSchema = Schema.Struct({
   type: Schema.Literal('auth'),
   operator: Schema.Literal('banUser'),
   props: Schema.Struct({
-    userId: TemplateStringSchema.pipe(Schema.annotations({ description: 'User ID to ban' })),
+    userId: TemplateStringSchema.pipe(Schema.annotate({ description: 'User ID to ban' })),
     reason: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({ description: 'Ban reason (stored for audit trail)' })
+        Schema.annotate({ description: 'Ban reason (stored for audit trail)' })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AuthBanUserAction',
     title: 'Auth Ban User Action',
     description: 'Ban a user account',

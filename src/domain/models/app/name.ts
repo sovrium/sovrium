@@ -33,13 +33,15 @@ import { Schema } from 'effect'
  * ```
  */
 export const NameSchema = Schema.String.pipe(
-  Schema.minLength(1, { message: () => 'Name must not be empty' }),
-  Schema.maxLength(214, { message: () => 'Name must not exceed 214 characters' }),
-  Schema.pattern(/^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/, {
-    message: () =>
-      'Name must be lowercase and follow npm package naming conventions (no leading/trailing spaces, no dots/underscores at start, URL-safe characters only)',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isMinLength(1, { message: 'Name must not be empty' }),
+    Schema.isMaxLength(214, { message: 'Name must not exceed 214 characters' }),
+    Schema.isPattern(/^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/, {
+      message:
+        'Name must be lowercase and follow npm package naming conventions (no leading/trailing spaces, no dots/underscores at start, URL-safe characters only)',
+    })
+  ),
+  Schema.annotate({
     title: 'Application Name',
     description: 'The name of the application (follows npm package naming conventions)',
     examples: ['my-app', 'todo-app', '@myorg/my-app', 'blog-system', 'dashboard-admin'],
@@ -65,4 +67,4 @@ export type Name = Schema.Schema.Type<typeof NameSchema>
  * In this case, it's the same as Name since we don't use transformations.
  * @public
  */
-export type NameEncoded = Schema.Schema.Encoded<typeof NameSchema>
+export type NameEncoded = Schema.Codec.Encoded<typeof NameSchema>

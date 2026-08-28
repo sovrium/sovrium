@@ -10,7 +10,7 @@ import { Schema } from 'effect'
 /**
  * Scalar accepted by the comparison operators.
  */
-const ConditionValueSchema = Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
+const ConditionValueSchema = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
 
 /** Array of values for the set-membership operators (`in` / `notIn`). */
 const ConditionValueArraySchema = Schema.Array(ConditionValueSchema)
@@ -53,7 +53,7 @@ export const ConditionOperatorsSchema = Schema.Struct({
   gte: Schema.optional(ConditionValueSchema),
   /** Less than or equal */
   lte: Schema.optional(ConditionValueSchema),
-}).annotations({
+}).annotate({
   title: 'Condition Operators',
   description:
     'Condition matcher: { operator: value }. Supports eq, neq, in, notIn, contains, gt, lt, gte, lte.',
@@ -81,11 +81,11 @@ export type ConditionOperators = Schema.Schema.Type<typeof ConditionOperatorsSch
  */
 export const FieldConditionSchema = Schema.Struct({
   /** Record field whose value the predicate is matched against */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Record field whose value the visibility predicate is matched against',
   }),
   ...ConditionOperatorsSchema.fields,
-}).annotations({
+}).annotate({
   title: 'Field Condition',
   description:
     'Per-record predicate: the target renders only on records whose `field` value satisfies the operator(s). Reuses the shared condition vocabulary (eq, neq, in, notIn, contains, gt, lt, gte, lte). Omit to show on every record.',
@@ -109,7 +109,7 @@ const matchesCondition = (
   strValue: string,
   numValue: number
 ): boolean => {
-  const matchers: Record<string, () => boolean> = {
+  const matchers: Readonly<Record<string, () => boolean>> = {
     eq: () => strValue === String(expected),
     neq: () => strValue !== String(expected),
     in: () => Array.isArray(expected) && expected.some((entry) => String(entry) === strValue),

@@ -43,7 +43,7 @@ export class DataSourceDatabaseError extends Data.TaggedError('DataSourceDatabas
  * Uses dynamic SQL because table/column names come from user app configuration
  * and cannot be expressed as static Drizzle schema references.
  */
-export class DataSourceRepository extends Context.Tag('DataSourceRepository')<
+export class DataSourceRepository extends Context.Service<
   DataSourceRepository,
   {
     readonly fetchRecords: (
@@ -89,4 +89,4 @@ export class DataSourceRepository extends Context.Tag('DataSourceRepository')<
       userId: string
     ) => Effect.Effect<readonly string[], DataSourceDatabaseError>
   }
->() {}
+>()('DataSourceRepository') {}

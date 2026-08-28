@@ -6,7 +6,7 @@
  */
 
 import { SQL } from 'bun'
-import { Effect, Runtime } from 'effect'
+import { Effect, type Context } from 'effect'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
@@ -50,7 +50,7 @@ interface SchemaInitJob {
   readonly tables: readonly Table[]
   readonly app: App
   readonly runMigrationSteps: RunMigrationSteps
-  readonly runtime: Runtime.Runtime<never>
+  readonly runtime: Context.Context<never>
 }
 
 /**
@@ -65,15 +65,15 @@ interface SchemaInitJob {
 export const logRollbackError = (
   config: DatabaseDialectConfig,
   errorMessage: string,
-  runtime: Runtime.Runtime<never>
+  runtime: Context.Context<never>
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     logDebug('[schema] schema init failed — recording rollback')
 
     const runLogged = (logTx: TransactionLike): Promise<void> =>
-      Runtime.runPromise(runtime)(
+      Effect.runPromiseWith(runtime)(
         logRollbackOperation(logTx, errorMessage).pipe(
-          Effect.catchAll(() => {
+          Effect.catch(() => {
             logDebug('[schema] failed to record rollback (non-fatal)')
             return Effect.void
           })
@@ -116,7 +116,7 @@ const executeSchemaInitSqlite = (
         try: () =>
           runSqliteSchemaTransaction(db, async (tx) => {
             /* eslint-disable-next-line functional/no-expression-statements */
-            await Runtime.runPromise(runtime)(
+            await Effect.runPromiseWith(runtime)(
               runMigrationSteps(tx, tables, app) as Effect.Effect<void, never, never>
             )
           }),
@@ -126,7 +126,7 @@ const executeSchemaInitSqlite = (
             cause: error,
           }),
       }).pipe(
-        Effect.catchAll((error) =>
+        Effect.catch((error) =>
           Effect.gen(function* () {
             yield* logRollbackError(config, error.message, runtime)
             return yield* error
@@ -153,7 +153,7 @@ const executeSchemaInitPostgres = (
           /* eslint-disable-next-line functional/no-expression-statements */
           await db.begin(async (tx) => {
             /* eslint-disable-next-line functional/no-expression-statements */
-            await Runtime.runPromise(runtime)(
+            await Effect.runPromiseWith(runtime)(
               runMigrationSteps(tx, tables, app) as Effect.Effect<void, never, never>
             )
           })
@@ -164,7 +164,7 @@ const executeSchemaInitPostgres = (
             cause: error,
           }),
       }).pipe(
-        Effect.catchAll((error) =>
+        Effect.catch((error) =>
           Effect.gen(function* () {
             yield* logRollbackError(config, error.message, runtime)
             return yield* error
@@ -195,7 +195,7 @@ export const executeSchemaInit = (
   runMigrationSteps: RunMigrationSteps
 ): Effect.Effect<void, SchemaInitializationError, never> =>
   Effect.gen(function* () {
-    const runtime = yield* Effect.runtime<never>()
+    const runtime = yield* Effect.context<never>()
     yield* config.dialect === 'sqlite'
       ? executeSchemaInitSqlite({ config, tables, app, runMigrationSteps, runtime })
       : executeSchemaInitPostgres({ config, tables, app, runMigrationSteps, runtime })
@@ -394,4 +394,4 @@ export const checkShouldSkipMigration = (
         message: 'Failed to check schema checksum',
         cause: undefined,
       }),
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+  }).pipe(Effect.orElseSucceed(() => false))

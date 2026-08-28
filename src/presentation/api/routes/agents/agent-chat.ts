@@ -26,30 +26,33 @@
  * - [internal ref]: the resolved system prompt is NEVER echoed back
  *    in the JSON response — only the model's `reply` is returned.
  *
- * This module performs a direct OpenAI-compatible `fetch` (mirroring
- * `agent-ai-call.ts` and `ai-mcp-status.ts`) rather than routing through the
- * `AiService` Effect port, because the per-agent `model` / `temperature`
- * overrides must reach the wire so the AI mock server's request recorder
- * (`ai.getChatRequests()`) can assert them.
+ * TRANSPORT: this module resolves the agent BINDING only — it performs no
+ * provider round-trip. The turn is dispatched by `ai-chat.ts` through the
+ * `AiService` port, exactly like a generic turn.
+ *
+ * It used to `fetch` `${baseUrl}/chat/completions` directly, on the rationale
+ * that the per-agent `model` / `temperature` overrides had to reach the wire.
+ * That rationale was wrong on both counts. `ChatInput` carries `model`,
+ * `temperature`, `maxTokens` and `tools`, so the port puts every override on
+ * the wire; and hard-coding the OpenAI-compatible path made the agent path
+ * unreachable on Ollama — the sovereignty-default provider — which serves chat
+ * at the native `/api/chat`. There is no `OLLAMA_BASE_URL` an operator can set
+ * that satisfies both a hard-coded `/chat/completions` and the native
+ * `/api/chat`: one of the two always 404s. Only the port knows which shape a
+ * provider speaks.
+ *
+ * Going through the port also earns the agent path the three things the raw
+ * fetch structurally could not have: the tool-EXECUTION loop (it read replies
+ * via `choices[0].message.content`, which is empty on a `tool_calls` reply, so
+ * every tool call was silently dropped — [internal ref]), a populated
+ * `actions[]` instead of a hard-coded `[]`, and durable turns attributed to
+ * the agent that produced them.
  */
 
-import {
-  buildChatToolDefinitions,
-  type ChatToolDefinition,
-} from '@/domain/services/ai-chat/ai-chat-tools'
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
-import { resolveAgentChatBackend } from '@/presentation/api/utils/agent-chat-env'
-import { readableColumnsForRole } from '../ai/chat-table-projection'
-import { resolveAgentModel, resolveAgentTemperature } from './agent-ai-config'
-import { postChatCompletion } from './openai-chat-fetch'
+import { resolveAgentTemperature } from './agent-ai-config'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
-
-interface AgentChatRequest {
-  readonly message: string
-  readonly sessionId: string
-  readonly agentName: string
-}
 
 /**
  * Resolve `{{appName}}` and `{{userRole}}` template variables in an agent's
@@ -98,48 +101,32 @@ const buildAgentSystemPrompt = (app: App, agent: Agent): string => {
 }
 
 /**
- * Build the OpenAI-compatible `tools[]` array for an agent-bound chat turn —
- * one `query_<table>` definition per table the agent's role can read AND, when
- * an explicit `agent.tools.tables` allowlist is declared, that the allowlist
- * names. Implements the double-gate model documented on
- * `AgentCapabilitiesSchema`: RBAC gate (role-level read permission) AND
- * allowlist gate (per-agent capability). An agent without an allowlist falls
- * back to the RBAC-only restriction so the agent-LESS chat behavior is
- * preserved for unrestricted agents.
+ * The table-name allowlist an agent-bound turn narrows its tools to, or
+ * `undefined` when the agent declares none.
+ *
+ * Implements the allowlist half of the double-gate model documented on
+ * `AgentCapabilitiesSchema`. The RBAC half — role-level
+ * table read permission AND field-level column scoping — is applied by the
+ * shared `toToolCallTables` in the chat route, driven by `agent.role`, so it is
+ * NOT duplicated here: one gate, one implementation, no drift between the agent
+ * path and the generic one. An agent without an allowlist falls through to the
+ * RBAC-only scoping the agent-LESS chat already applies.
+ *
+ * The list is intersected with the readable tables rather than trusted: an
+ * allowlist naming a table the agent's role cannot read grants nothing.
  */
-const buildAgentChatTools = (app: App, agent: Agent): ReadonlyArray<ChatToolDefinition> => {
+const resolveAgentToolTables = (app: App, agent: Agent): ReadonlyArray<string> | undefined => {
+  const allowlist = agent.tools?.tables
+  if (allowlist === undefined) return undefined
   const tables = app.tables ?? []
-  const readableTables = tables.filter((table) =>
+  const readable = tables.filter((table) =>
     hasReadPermission(
       table as { name: string; permissions?: { read?: unknown } },
       agent.role,
       tables as readonly { name: string }[]
     )
   )
-  const allowlist = agent.tools?.tables
-  const allowedReadableTables =
-    allowlist === undefined
-      ? readableTables
-      : readableTables.filter((table) => allowlist.includes(table.name))
-  return buildChatToolDefinitions(
-    allowedReadableTables.map((table) => {
-      // Project the raw schema fields onto the minimal {name,type} shape the
-      // readable-columns helper consumes, then apply field-level read scoping
-      // for the agent's role ([internal ref] parity for the agent path).
-      const fields = table.fields.map((field) => ({
-        name: (field as { name: string }).name,
-        type: (field as { type: string }).type,
-      }))
-      return {
-        name: table.name,
-        columns: readableColumnsForRole(
-          fields,
-          (table as { permissions?: unknown }).permissions,
-          agent.role
-        ),
-      }
-    })
-  )
+  return readable.filter((table) => allowlist.includes(table.name)).map((table) => table.name)
 }
 
 /**
@@ -150,134 +137,59 @@ const buildAgentChatTools = (app: App, agent: Agent): ReadonlyArray<ChatToolDefi
  */
 const DEFAULT_TEMPERATURE = 0.7
 
-interface ChatCompletionResponse {
-  readonly choices?: ReadonlyArray<{
-    readonly message?: { readonly content?: string | null }
-  }>
-}
-
-/** Inputs for a single agent-bound AI provider round-trip. */
-interface AgentProviderCall {
-  readonly baseUrl: string
-  readonly apiKey: string
-  readonly agent: Agent
+/**
+ * Everything an agent-bound turn contributes on top of a generic one: the
+ * composed system prompt, the per-agent provider overrides, the tool-table
+ * allowlist, and the agent's name (for RBAC scoping and for durable
+ * attribution). Deliberately data, not behaviour — the dispatch itself is the
+ * generic path's, unchanged.
+ */
+export interface AgentTurnBinding {
+  /** The agent's declared name — RBAC role source and attribution key. */
+  readonly name: string
+  /** The agent's RBAC role — scopes the tables the turn's tools may reach. */
+  readonly role: string
+  /** Agent prompt + auto-generated table context, template-resolved. */
   readonly systemPrompt: string
-  readonly message: string
-  /**
-   * RBAC-scoped tool definitions advertised to the AI provider — one
-   * `query_<table>` per table the agent's role can read
-   *. Empty when the agent has no readable tables; the
-   * provider call then omits the `tools` field entirely.
-   */
-  readonly tools: ReadonlyArray<ChatToolDefinition>
-}
-
-/** Read the model's text reply from an OpenAI-compatible chat response. */
-const extractReply = (payload: ChatCompletionResponse | undefined): string => {
-  const content = payload?.choices?.[0]?.message?.content
-  return typeof content === 'string' && content.length > 0 ? content : ''
+  /** Per-agent model override, when declared. */
+  readonly model?: string
+  /** Effective temperature — always defined, so it always reaches the wire. */
+  readonly temperature: number
+  /** Per-agent output-token cap, when declared. */
+  readonly maxTokens?: number
+  /** Tool-table allowlist, or `undefined` for RBAC-only scoping. */
+  readonly toolTables?: ReadonlyArray<string>
 }
 
 /**
- * Outcome of an agent-bound AI provider round-trip: either the model's text
- * reply, or a `failed` marker when the provider was unreachable or returned a
- * non-2xx status. The caller maps `failed` onto an HTTP error status so the
- * chat surface can show its error banner.
+ * Resolve the binding for an agent-bound chat turn, or `undefined` when the
+ * app declares no agent by that name (the caller maps that onto HTTP 404).
+ *
+ * The composed system prompt is never echoed back in the response
+ * — it is an input to the provider call only.
  */
-type AgentProviderOutcome = { readonly ok: true; readonly reply: string } | { readonly ok: false }
-
-/**
- * Perform the agent-bound AI provider round-trip. The system prompt, model,
- * and temperature carry the agent's configuration so the AI mock server's
- * request recorder observes them. Returns the model's text reply, or
- * `{ ok: false }` when the provider is unreachable or errored — provider
- * failures are surfaced (not silently degraded) so the chat UI can render an
- * error state and offer retry.
- */
-const callAgentProvider = async (call: AgentProviderCall): Promise<AgentProviderOutcome> => {
-  const { baseUrl, apiKey, agent, systemPrompt, message, tools } = call
-  const body: Record<string, unknown> = {
-    model: resolveAgentModel(agent),
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: message },
-    ],
-    // The chat path always puts a temperature on the wire so PROMPT-005 can
-    // assert it regardless of configuration.
-    temperature: resolveAgentTemperature(agent, DEFAULT_TEMPERATURE),
-    ...(agent.maxTokens !== undefined && { max_tokens: agent.maxTokens }),
-    // RBAC-scoped tool advertising. Omit the field
-    // entirely when the agent's role can read no tables — sending `tools: []`
-    // would still surface the key in the recorded request, which the spec
-    // contract treats as "no agent-scoped tools".
-    ...(tools.length > 0 && { tools }),
-  }
-
-  const response = await postChatCompletion({ baseUrl, apiKey }, body)
-
-  if (response === undefined || !response.ok) {
-    return { ok: false }
-  }
-  const payload = (await response.json().catch(() => undefined)) as
-    ChatCompletionResponse | undefined
-  return { ok: true, reply: extractReply(payload) }
-}
-
-/**
- * Outcome of resolving an agent-bound chat request — a ready-to-send JSON
- * body paired with the HTTP status the caller should respond with.
- */
-export interface AgentChatResult {
-  readonly status: 200 | 404 | 502 | 503
-  readonly body: Record<string, unknown>
-}
-
-/**
- * Handle an agent-bound `/api/ai/chat` turn. The system prompt is composed
- * from the agent's configuration plus auto-generated table context; it is
- * never included in the response.
- */
-export const handleAgentChat = async (
+export const resolveAgentTurnBinding = (
   app: App,
-  req: AgentChatRequest
-): Promise<AgentChatResult> => {
-  const agent = app.agents?.find((candidate) => candidate.name === req.agentName)
-  if (agent === undefined) {
-    return {
-      status: 404,
-      body: { error: `Agent '${req.agentName}' is not declared in the app schema.` },
-    }
-  }
-
-  const aiEnv = resolveAgentChatBackend(process.env)
-  if ('error' in aiEnv) {
-    return { status: 503, body: { error: aiEnv.error } }
-  }
-  const { baseUrl, apiKey } = aiEnv
-
-  const systemPrompt = buildAgentSystemPrompt(app, agent)
-  const tools = buildAgentChatTools(app, agent)
-  const outcome = await callAgentProvider({
-    baseUrl,
-    apiKey,
-    agent,
-    systemPrompt,
-    message: req.message,
-    tools,
-  })
-
-  // A provider failure surfaces as HTTP 502 so the chat UI renders its error
-  // banner and retry button instead of silently
-  // degrading the failure into a 200 fallback reply.
-  if (!outcome.ok) {
-    return {
-      status: 502,
-      body: { error: 'The assistant is temporarily unavailable. Please try again.' },
-    }
-  }
-
+  agentName: string
+): AgentTurnBinding | undefined => {
+  const agent = app.agents?.find((candidate) => candidate.name === agentName)
+  if (agent === undefined) return undefined
+  // Deliberately NOT `resolveAgentModel`: that helper ends in a hard-coded
+  // `'mock-model'`, which the raw-fetch path needed because it always had to put
+  // SOME model on the wire. Through the port an absent model means "use the
+  // provider's own default" (`llama3.1` on Ollama, the configured default on a
+  // cloud provider) — strictly better than shipping a model name no real
+  // provider serves. The agent override still wins, then `AI_MODEL`
+  //.
+  const model = agent.model ?? process.env.AI_MODEL
+  const toolTables = resolveAgentToolTables(app, agent)
   return {
-    status: 200,
-    body: { reply: outcome.reply, actions: [], sessionId: req.sessionId },
+    name: agent.name,
+    role: agent.role,
+    systemPrompt: buildAgentSystemPrompt(app, agent),
+    temperature: resolveAgentTemperature(agent, DEFAULT_TEMPERATURE),
+    ...(model !== undefined && { model }),
+    ...(agent.maxTokens !== undefined && { maxTokens: agent.maxTokens }),
+    ...(toolTables !== undefined && { toolTables }),
   }
 }

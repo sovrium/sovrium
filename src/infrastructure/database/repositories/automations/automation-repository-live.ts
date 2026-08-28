@@ -60,11 +60,10 @@ export const AutomationRepositoryLive = Layer.succeed(AutomationRepository, {
       return rows[0] as Record<string, unknown> | undefined
     }),
 
-  list: () =>
-    wrap(async () => {
-      const rows = await db.select().from(automationDefinitions)
-      return rows as readonly Record<string, unknown>[]
-    }),
+  list: wrap(async () => {
+    const rows = await db.select().from(automationDefinitions)
+    return rows as readonly Record<string, unknown>[]
+  }),
 
   create: (definition) =>
     wrap(async () => {

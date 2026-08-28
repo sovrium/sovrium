@@ -19,9 +19,14 @@ import type { Page } from './page'
  *    `access` is missing / `'all'` / `{ require: 'all' }`).
  *
  * This is the single source of truth for the "static emission + search index"
- * page set. It is intentionally NOT the same as the sitemap filter
- * (`sitemap-builder.ts` adds the `sitemap !== false` check) — those concerns
- * sit at a higher level and may layer their own constraints on top.
+ * page set. It is NOT the sitemap filter, and never was: `isPageInSitemap`
+ * (`sitemap-builder.ts`) is an independent predicate that shares the
+ * `isPublicPage` and `/_`-prefix conditions but adds `meta.noindex`,
+ * `meta.robots: noindex` and `sitemap: false` — an indexing concern this set
+ * has no opinion on. Reading that as "this set plus one check" is what let the
+ * sitemap ship for months without consulting `access` at all; the
+ * two filters agree on the access question by calling the SAME `isPublicPage`,
+ * not by one being derived from the other.
  *
  * ## Why a helper, not 3 inline copies
  *

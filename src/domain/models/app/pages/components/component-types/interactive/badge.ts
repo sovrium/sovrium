@@ -23,7 +23,7 @@ export const BadgeTypeLiteral = Schema.Literal('badge')
  * text label, with an optional pulsing animation. This merges the formerly
  * separate `status-indicator` component into badge per the merged user-story.
  */
-export const BadgeModeSchema = Schema.Literal('status').annotations({
+export const BadgeModeSchema = Schema.Literal('status').annotate({
   title: 'Badge Mode',
   description: 'Specialized rendering mode for badge (e.g. status indicator)',
 })
@@ -34,14 +34,14 @@ export const BadgeModeSchema = Schema.Literal('status').annotations({
  * the renderer can resolve each value to a CSS variable without arbitrary
  * color inputs.
  */
-export const StatusDotColorSchema = Schema.Literal(
+export const StatusDotColorSchema = Schema.Literals([
   'green',
   'red',
   'amber',
   'yellow',
   'blue',
-  'gray'
-).annotations({
+  'gray',
+]).annotate({
   title: 'Status Dot Color',
   description: 'Color token for the status-indicator dot',
 })
@@ -63,7 +63,7 @@ export const badgeFields = {
    * Only applies when `variant === 'status'`.
    */
   status: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Status label text displayed next to the dot (variant: status)',
     })
   ),
@@ -78,7 +78,7 @@ export const badgeFields = {
    * statuses. Only applies when `variant === 'status'`.
    */
   pulse: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Enable pulsing animation on the status dot (variant: status)',
     })
   ),

@@ -16,11 +16,11 @@ import { GalleryGridColumnsSchema } from './grid-columns'
 /**
  * Gallery pagination style.
  */
-export const GalleryPaginationStyleSchema = Schema.Literal(
+export const GalleryPaginationStyleSchema = Schema.Literals([
   'loadMore',
   'numbered',
-  'infinite'
-).annotations({
+  'infinite',
+]).annotate({
   title: 'Gallery Pagination Style',
   description: 'Pagination interaction style for the gallery',
 })
@@ -42,12 +42,12 @@ export const galleryFields = {
   gridColumns: Schema.optional(GalleryGridColumnsSchema),
   galleryCard: Schema.optional(GalleryCardSchema),
   layout: Schema.optional(
-    Schema.Literal('grid', 'masonry').annotations({
+    Schema.Literals(['grid', 'masonry']).annotate({
       description: 'Gallery layout mode: grid | masonry',
     })
   ),
   emptyMessage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Message displayed when no records match the data source query',
       examples: ['No products found', 'No items match your filters'],
     })

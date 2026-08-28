@@ -23,7 +23,7 @@ export class ConnectionDatabaseError extends Data.TaggedError('ConnectionDatabas
  * admin); per-user tokens are stored separately in `connection_tokens`
  * via {@link ../connection-token-repository}.
  */
-export class ConnectionRepository extends Context.Tag('ConnectionRepository')<
+export class ConnectionRepository extends Context.Service<
   ConnectionRepository,
   {
     readonly findById: (
@@ -32,7 +32,7 @@ export class ConnectionRepository extends Context.Tag('ConnectionRepository')<
     readonly findByName: (
       name: string
     ) => Effect.Effect<Record<string, unknown> | undefined, ConnectionDatabaseError>
-    readonly list: () => Effect.Effect<readonly Record<string, unknown>[], ConnectionDatabaseError>
+    readonly list: Effect.Effect<readonly Record<string, unknown>[], ConnectionDatabaseError>
     readonly create: (input: {
       readonly name: string
       readonly provider: string
@@ -61,4 +61,4 @@ export class ConnectionRepository extends Context.Tag('ConnectionRepository')<
     ) => Effect.Effect<Record<string, unknown>, ConnectionDatabaseError>
     readonly delete: (id: string) => Effect.Effect<void, ConnectionDatabaseError>
   }
->() {}
+>()('ConnectionRepository') {}

@@ -10,8 +10,8 @@ import { Schema } from 'effect'
 /**
  * Font weight (100-900 in increments of 100)
  */
-export const FontWeightSchema = Schema.Literal(100, 200, 300, 400, 500, 600, 700, 800, 900).pipe(
-  Schema.annotations({
+export const FontWeightSchema = Schema.Literals([100, 200, 300, 400, 500, 600, 700, 800, 900]).pipe(
+  Schema.annotate({
     title: 'Font Weight',
     description: 'Font weight value (100-900 in increments of 100)',
   })
@@ -20,8 +20,8 @@ export const FontWeightSchema = Schema.Literal(100, 200, 300, 400, 500, 600, 700
 /**
  * Font style (normal, italic, oblique)
  */
-export const FontStyleSchema = Schema.Literal('normal', 'italic', 'oblique').pipe(
-  Schema.annotations({
+export const FontStyleSchema = Schema.Literals(['normal', 'italic', 'oblique']).pipe(
+  Schema.annotate({
     title: 'Font Style',
     description: 'Font style',
   })
@@ -30,13 +30,13 @@ export const FontStyleSchema = Schema.Literal('normal', 'italic', 'oblique').pip
 /**
  * Text transformation (none, uppercase, lowercase, capitalize)
  */
-export const FontTransformSchema = Schema.Literal(
+export const FontTransformSchema = Schema.Literals([
   'none',
   'uppercase',
   'lowercase',
-  'capitalize'
-).pipe(
-  Schema.annotations({
+  'capitalize',
+]).pipe(
+  Schema.annotate({
     title: 'Text Transform',
     description: 'Text transformation',
   })
@@ -46,10 +46,12 @@ export const FontTransformSchema = Schema.Literal(
  * Font category name (alphabetic characters only: title, body, mono, etc.)
  */
 export const FontCategoryKeySchema = Schema.String.pipe(
-  Schema.pattern(/^[a-zA-Z]+$/, {
-    message: () => 'Font category key must contain only alphabetic characters (a-zA-Z)',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-zA-Z]+$/, {
+      message: 'Font category key must contain only alphabetic characters (a-zA-Z)',
+    })
+  ),
+  Schema.annotate({
     title: 'Font Category Key',
     description: 'Semantic font category name (alphabetic characters only)',
     examples: ['title', 'body', 'mono', 'heading', 'label'],
@@ -63,14 +65,14 @@ export const FontCategoryKeySchema = Schema.String.pipe(
  */
 export const FontConfigItemSchema = Schema.Struct({
   family: Schema.String.pipe(
-    Schema.annotations({
+    Schema.annotate({
       title: 'Font Family',
       description: 'Primary font family name',
     })
   ),
   fallback: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Fallback Font Stack',
         description: 'Fallback font stack',
         examples: ['system-ui, sans-serif', 'Georgia, serif', 'monospace'],
@@ -79,7 +81,7 @@ export const FontConfigItemSchema = Schema.Struct({
   ),
   weights: Schema.optional(
     Schema.Array(FontWeightSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Font Weights',
         description: 'Available font weights',
         examples: [
@@ -91,14 +93,14 @@ export const FontConfigItemSchema = Schema.Struct({
   ),
   style: Schema.optional(
     FontStyleSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         default: 'normal',
       })
     )
   ),
   size: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Font Size',
         description: 'Default font size',
         examples: ['16px', '1rem', '14px'],
@@ -107,7 +109,7 @@ export const FontConfigItemSchema = Schema.Struct({
   ),
   lineHeight: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Line Height',
         description: 'Default line height',
         examples: ['1.5', '1.75', '24px'],
@@ -116,7 +118,7 @@ export const FontConfigItemSchema = Schema.Struct({
   ),
   letterSpacing: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Letter Spacing',
         description: 'Letter spacing',
         examples: ['0', '0.05em', '-0.01em'],
@@ -126,7 +128,7 @@ export const FontConfigItemSchema = Schema.Struct({
   transform: Schema.optional(FontTransformSchema),
   url: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Font URL',
         description: 'Font file URL or Google Fonts URL',
         examples: ['https://fonts.googleapis.com/css2?family=Inter', '/fonts/bely-display.woff2'],
@@ -134,7 +136,7 @@ export const FontConfigItemSchema = Schema.Struct({
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Font Configuration Item',
     description: 'Individual font configuration with family and optional properties',
   })
@@ -144,11 +146,8 @@ export const FontConfigItemSchema = Schema.Struct({
  * Font configuration (map of semantic font categories to font configurations)
  *
  */
-export const FontsConfigSchema = Schema.Record({
-  key: FontCategoryKeySchema,
-  value: FontConfigItemSchema,
-}).pipe(
-  Schema.annotations({
+export const FontsConfigSchema = Schema.Record(FontCategoryKeySchema, FontConfigItemSchema).pipe(
+  Schema.annotate({
     title: 'Font Configuration',
     description: 'Typography design tokens for font families and styles',
   })

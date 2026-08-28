@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { createDatabaseIdentifierSchema } from '@/domain/validators/database-identifier'
 import { BaseFieldSchema } from '../base-field'
 
@@ -31,76 +31,72 @@ const columnReference = (description: string) =>
   createDatabaseIdentifierSchema('column', description)
 
 export const RelationshipFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('relationship'),
-      relatedTable: Schema.String.pipe(
-        Schema.nonEmptyString({ message: () => 'relatedTable is required' }),
-        Schema.annotations({
-          description: 'Name of the related table',
+  Schema.fieldsAssign({
+    type: Schema.Literal('relationship'),
+    relatedTable: Schema.String.pipe(
+      Schema.check(Schema.isNonEmpty({ message: 'relatedTable is required' })),
+      Schema.annotate({
+        description: 'Name of the related table',
+      })
+    ),
+    relationType: Schema.String.pipe(
+      Schema.check(Schema.isNonEmpty({ message: 'relationType is required' })),
+      Schema.annotate({
+        description: 'Type of relationship (defaults to many-to-one if not specified)',
+      }),
+      Schema.withDecodingDefaultKey(Effect.succeed('many-to-one' as const))
+    ),
+    foreignKey: Schema.optional(
+      columnReference(
+        'Name of the foreign key field in the related table for one-to-many relationships'
+      )
+    ),
+    displayField: Schema.optional(
+      Schema.String.pipe(
+        Schema.check(Schema.isNonEmpty({ message: 'displayField is required' })),
+        Schema.annotate({
+          description: 'Field from related table to display in UI',
         })
-      ),
-      relationType: Schema.optionalWith(
-        Schema.String.pipe(
-          Schema.nonEmptyString({ message: () => 'relationType is required' }),
-          Schema.annotations({
-            description: 'Type of relationship (defaults to many-to-one if not specified)',
-          })
-        ),
-        { default: () => 'many-to-one' as const }
-      ),
-      foreignKey: Schema.optional(
-        columnReference(
-          'Name of the foreign key field in the related table for one-to-many relationships'
-        )
-      ),
-      displayField: Schema.optional(
-        Schema.String.pipe(
-          Schema.nonEmptyString({ message: () => 'displayField is required' }),
-          Schema.annotations({
-            description: 'Field from related table to display in UI',
-          })
-        )
-      ),
-      onDelete: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Action to take when the related record is deleted',
-          })
-        )
-      ),
-      onUpdate: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: "Action to take when the related record's key is updated",
-          })
-        )
-      ),
-      reciprocalField: Schema.optional(
-        columnReference(
-          'Name of the reciprocal link field in the related table for bidirectional relationships'
-        )
-      ),
-      allowMultiple: Schema.optional(
-        Schema.Boolean.pipe(
-          Schema.annotations({
-            description:
-              'Whether to allow linking to multiple records (default: true for many-to-many)',
-          })
-        )
-      ),
-      relatedField: Schema.optional(
-        Schema.String.pipe(
-          Schema.nonEmptyString({ message: () => 'relatedField is required' }),
-          Schema.annotations({
-            description:
-              'Name of the field in the related table to reference (defaults to id). The referenced field must have a primary key or unique constraint.',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+    onDelete: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Action to take when the related record is deleted',
+        })
+      )
+    ),
+    onUpdate: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: "Action to take when the related record's key is updated",
+        })
+      )
+    ),
+    reciprocalField: Schema.optional(
+      columnReference(
+        'Name of the reciprocal link field in the related table for bidirectional relationships'
+      )
+    ),
+    allowMultiple: Schema.optional(
+      Schema.Boolean.pipe(
+        Schema.annotate({
+          description:
+            'Whether to allow linking to multiple records (default: true for many-to-many)',
+        })
+      )
+    ),
+    relatedField: Schema.optional(
+      Schema.String.pipe(
+        Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' })),
+        Schema.annotate({
+          description:
+            'Name of the field in the related table to reference (defaults to id). The referenced field must have a primary key or unique constraint.',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Relationship Field',
     description: 'Links records to another table with referential integrity.',
     examples: [

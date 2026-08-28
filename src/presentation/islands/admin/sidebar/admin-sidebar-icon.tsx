@@ -33,6 +33,10 @@ const ICON_PATHS: Readonly<Record<FamilyIcon, string>> = {
   component: 'M4 4h7v7H4zM13 4h7v7h-7zM13 13h7v7h-7zM4 13h7v7H4z',
   action: 'M13 2 3 14h9l-1 8 10-12h-9z',
   connection: 'M9 12a3 3 0 0 1 3-3h2a3 3 0 0 1 0 6h-1M15 12a3 3 0 0 1-3 3h-2a3 3 0 0 1 0-6h1',
+  // Lucide `link` — two interlocking half-chains. Deliberately distinct from
+  // `connection` (which is the same motif at a different angle): the two sit
+  // in the same sidebar list, so a shared glyph would make them unscannable.
+  link: 'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7',
   notification: 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
   script: 'M16 18l4-4-4-4M8 6l-4 4 4 4M14 4l-4 16',
   env: 'M14.5 2a3.5 3.5 0 0 0-3.3 4.6L3 14.8V21h6.2l8.2-8.2A3.5 3.5 0 1 0 14.5 2zM16 7.5a1 1 0 1 0 0-.01',

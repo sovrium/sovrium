@@ -22,6 +22,7 @@ import { stripHtmlToText } from '@/domain/utils/html-sanitization'
 import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { db } from '@/infrastructure/database'
+import * as authOauthResourceSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-oauth-resource-tables'
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
 import { logError } from '@/infrastructure/logging/logger'
 import { isTransportRelaxed } from '@/infrastructure/utils/security-posture'
@@ -29,6 +30,7 @@ import { applyAdminRoleGuards } from './admin-role-guards'
 import { createEmailHandlers } from './email-handlers'
 import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
 import { buildAdminPlugin } from './plugins/admin'
+import { buildApiKeyPlugin } from './plugins/api-key'
 import { buildEmailOtpPlugin } from './plugins/email-otp'
 import { buildMagicLinkPlugin } from './plugins/magic-link'
 import { buildOauthServerPlugin } from './plugins/oauth-server'
@@ -40,6 +42,7 @@ import {
   accounts,
   verifications,
   twoFactors,
+  apiKeys,
   organizations,
   members,
   invitations,
@@ -50,6 +53,9 @@ import {
   oauthAccessTokens,
   oauthRefreshTokens,
   oauthConsents,
+  oauthResources,
+  oauthClientResources,
+  oauthClientAssertions,
 } from './schema'
 import type { AuthHookDeps } from './admin-role-guards'
 import type { App } from '@/domain/models/app'
@@ -101,6 +107,10 @@ const drizzleSchemaPg = {
   account: accounts,
   verification: verifications,
   twoFactor: twoFactors,
+  // Model name is `apikey` (one word, no separator) — the plugin's own
+  // `API_KEY_TABLE_NAME`. The PHYSICAL table is `auth.api_key`; the key here is
+  // what the adapter resolves against (GitHub #5879).
+  apikey: apiKeys,
   organization: organizations,
   member: members,
   invitation: invitations,
@@ -111,6 +121,9 @@ const drizzleSchemaPg = {
   oauthAccessToken: oauthAccessTokens,
   oauthRefreshToken: oauthRefreshTokens,
   oauthConsent: oauthConsents,
+  oauthResource: oauthResources,
+  oauthClientResource: oauthClientResources,
+  oauthClientAssertion: oauthClientAssertions,
 }
 
 /**
@@ -129,6 +142,7 @@ const drizzleSchemaSqlite = {
   account: authSchemaSqlite.accounts,
   verification: authSchemaSqlite.verifications,
   twoFactor: authSchemaSqlite.twoFactors,
+  apikey: authSchemaSqlite.apiKeys,
   organization: authSchemaSqlite.organizations,
   member: authSchemaSqlite.members,
   invitation: authSchemaSqlite.invitations,
@@ -139,6 +153,9 @@ const drizzleSchemaSqlite = {
   oauthAccessToken: authSchemaSqlite.oauthAccessTokens,
   oauthRefreshToken: authSchemaSqlite.oauthRefreshTokens,
   oauthConsent: authSchemaSqlite.oauthConsents,
+  oauthResource: authOauthResourceSqlite.oauthResources,
+  oauthClientResource: authOauthResourceSqlite.oauthClientResources,
+  oauthClientAssertion: authOauthResourceSqlite.oauthClientAssertions,
 }
 
 /**
@@ -179,6 +196,7 @@ export const buildAuthPlugins = (
 ) => [
   openAPI({ disableDefaultReference: true }),
   ...buildAdminPlugin(authConfig),
+  ...buildApiKeyPlugin(authConfig),
   ...buildMagicLinkPlugin(handlers.magicLink, authConfig),
   ...buildEmailOtpPlugin(handlers.emailOtp, authConfig),
   ...buildOauthServerPlugin(authConfig),

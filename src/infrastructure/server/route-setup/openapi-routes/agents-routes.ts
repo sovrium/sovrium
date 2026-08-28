@@ -36,7 +36,7 @@ const routes: readonly RouteSpec[] = [
     operationIdBase: 'getAgent',
     responses: {
       200: jsonResponse(serializedAgentSchema, 'Agent configuration'),
-      404: errorResponse('Agent not found'),
+      404: errorResponse('Agent not found, or the caller lacks permission to read it back'),
     },
   },
   {
@@ -65,7 +65,7 @@ const routes: readonly RouteSpec[] = [
       202: jsonResponse(executeResultSchema, 'Action pending approval or queued'),
       400: errorResponse('Neither action nor message provided'),
       403: errorResponse('Agent disabled'),
-      404: errorResponse('Agent not found or access denied'),
+      404: errorResponse('Agent not found, or the caller lacks permission to invoke it'),
       429: errorResponse('Rate limit or daily token budget exceeded'),
     },
   },
@@ -84,7 +84,7 @@ const routes: readonly RouteSpec[] = [
         }),
         'Agent usage'
       ),
-      404: errorResponse('Agent not found'),
+      404: errorResponse('Agent not found, or the caller lacks permission to read it back'),
     },
   },
   {
@@ -103,7 +103,7 @@ const routes: readonly RouteSpec[] = [
         z.object({ approvals: z.array(serializedApprovalSchema) }),
         'Approval list'
       ),
-      404: errorResponse('Agent not found'),
+      404: errorResponse('Agent not found, or the caller lacks permission to read it back'),
     },
   },
   {
@@ -115,7 +115,9 @@ const routes: readonly RouteSpec[] = [
     request: { params: z.object({ id: z.string().describe('Approval identifier') }) },
     responses: {
       200: jsonResponse(serializedApprovalSchema, 'Approval detail'),
-      404: errorResponse('Agent or approval not found'),
+      404: errorResponse(
+        'Agent or approval not found, or the caller lacks permission to read it back'
+      ),
     },
   },
   {
@@ -171,7 +173,9 @@ const routes: readonly RouteSpec[] = [
         }),
         'Agent schedule'
       ),
-      404: errorResponse('Agent not found or no schedule configured'),
+      404: errorResponse(
+        'Agent not found, no schedule configured, or the caller lacks permission to read it back'
+      ),
     },
   },
   {
@@ -184,7 +188,11 @@ const routes: readonly RouteSpec[] = [
       200: jsonResponse(executeResultSchema, 'Scheduled task completed'),
       202: jsonResponse(executeResultSchema, 'Scheduled task pending approval'),
       403: errorResponse('Agent disabled'),
-      404: errorResponse('Agent not found or no schedule configured'),
+      404: errorResponse(
+        'Agent not found, no schedule configured, or the caller lacks permission to invoke it'
+      ),
+      429: errorResponse('Rate limit or daily token budget exceeded'),
+      503: errorResponse('AI provider not configured'),
     },
   },
   {
@@ -211,7 +219,7 @@ const routes: readonly RouteSpec[] = [
         'Agent reply'
       ),
       400: errorResponse('Missing agent name or empty message'),
-      404: errorResponse('Agent not found'),
+      404: errorResponse('Agent not found, or the caller lacks permission to invoke it'),
       503: errorResponse('AI provider not configured'),
     },
   },
@@ -220,7 +228,7 @@ const routes: readonly RouteSpec[] = [
 /** Per-agent route group — resource-scoped to the configured agents. */
 export const agentGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Agent',
-  genericTag: 'agents',
+  genericTag: 'Agents',
   genericTagDescription: 'AI agent execution, approval, and schedule endpoints',
   collection: (app) => app.agents ?? [],
   resourcePlaceholder: '{agentSlug}',
@@ -231,7 +239,7 @@ export const agentGroupSpec: ResourceGroupSpec = {
 
 /** Agent collection route group — not scoped to one agent. */
 export const agentCollectionGroup: StaticGroupSpec = {
-  tag: 'agents',
+  tag: 'Agents',
   tagDescription: 'AI agent execution, approval, and schedule endpoints',
   routes: [
     {

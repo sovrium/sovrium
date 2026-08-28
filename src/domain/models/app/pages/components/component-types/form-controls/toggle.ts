@@ -19,7 +19,7 @@ export const toggleFields = {
   ...visibilityFields,
   ...i18nFields,
   pressed: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Default pressed/active state for toggle',
     })
   ),

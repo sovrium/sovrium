@@ -10,11 +10,13 @@ import { StorageService } from '@/application/ports/services/storage-service'
 import {
   autoDelimiter,
   csvCell,
+  decodeCsvBytes,
+  dropLeadingLines,
   extOf,
+  isSelfContainedSource,
   mimeByExt,
+  parseCsvDocument,
   resolveSource,
-  splitCsvLine,
-  splitNonEmptyLines,
   tempKey,
   uploadArtifact,
 } from './file-support'
@@ -64,11 +66,11 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
     // Surface it as an explicit `error` outcome (mirroring the `http.ts` /
     // `webhook.ts` `invalid_outbound_url_${reason}` shape) and DO NOT proceed
     // to store — the bytes were never fetched.
-    const resolved = yield* Effect.either(resolveSource(source))
-    if (resolved._tag === 'Left') {
-      return errorOutcome(`invalid_outbound_url_${resolved.left.reason}`)
+    const resolved = yield* Effect.result(resolveSource(source))
+    if (resolved._tag === 'Failure') {
+      return errorOutcome(`invalid_outbound_url_${resolved.failure.reason}`)
     }
-    const { bytes, detectedMime } = resolved.right
+    const { bytes, detectedMime } = resolved.success
     const mime =
       explicitContentType || detectedMime || mimeByExt(path) || 'application/octet-stream'
     const hasPath = path !== undefined && path.trim() !== ''
@@ -95,10 +97,10 @@ export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
     if (!key) return errorOutcome('file.download requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.either(storage.download(key))
-    if (downloaded._tag === 'Left') return errorOutcome(`file not found: ${key}`)
+    const downloaded = yield* Effect.result(storage.download(key))
+    if (downloaded._tag === 'Failure') return errorOutcome(`file not found: ${key}`)
 
-    const bytes = downloaded.right
+    const bytes = downloaded.success
     const mime = mimeByExt(key) ?? 'application/octet-stream'
     const target = tempKey(extOf(key))
     const wrote = yield* uploadArtifact(storage, target, bytes, mime)
@@ -158,9 +160,13 @@ const renderCsv = (
   delimiter: string,
   includeHeaders: boolean
 ): string => {
+  // Quoting is delimiter-driven: a value containing the ACTIVE delimiter must
+  // be quoted or it splits into two fields when the file is read back.
   const lineFor = (row: unknown): string =>
-    columns.map((c) => csvCell(asRecord(row)[c.key])).join(delimiter)
-  const headerLine = includeHeaders ? [columns.map((c) => csvCell(c.header)).join(delimiter)] : []
+    columns.map((c) => csvCell(asRecord(row)[c.key], delimiter)).join(delimiter)
+  const headerLine = includeHeaders
+    ? [columns.map((c) => csvCell(c.header, delimiter)).join(delimiter)]
+    : []
   return [...headerLine, ...rows.map(lineFor)].join('\n')
 }
 
@@ -201,79 +207,115 @@ export const handleFileGenerateCsv: ActionHandler = (action, _app, _automation, 
 // parseCsv
 // ---------------------------------------------------------------------------
 
+type CsvRecords = ReadonlyArray<ReadonlyArray<string>>
+
 const parseWithColumnDefs = (
-  rows: readonly string[],
-  delimiter: string,
+  records: CsvRecords,
   defs: ReadonlyArray<Record<string, unknown>>
 ): ReadonlyArray<Record<string, unknown>> =>
-  rows.map((line) => {
-    const cells = splitCsvLine(line, delimiter)
-    return Object.fromEntries(
+  records.map((cells) =>
+    Object.fromEntries(
       defs.map((c, i) => {
         const name = String(c['name'] ?? c['key'] ?? c['header'] ?? `col${i}`)
         const idx = typeof c['index'] === 'number' ? (c['index'] as number) : i
         return [name, cells[idx] ?? ''] as const
       })
     )
-  })
-
-const parseHeaderless = (
-  rows: readonly string[],
-  delimiter: string
-): ReadonlyArray<Record<string, unknown>> =>
-  rows.map((line) =>
-    Object.fromEntries(splitCsvLine(line, delimiter).map((value, i) => [`col${i}`, value] as const))
   )
 
-const parseWithHeaderRow = (
-  rows: readonly string[],
-  delimiter: string
-): ReadonlyArray<Record<string, unknown>> => {
-  const header = rows.length > 0 ? splitCsvLine(rows[0] as string, delimiter) : []
-  return rows.slice(1).map((line) => {
-    const cells = splitCsvLine(line, delimiter)
-    return Object.fromEntries(header.map((h, i) => [h, cells[i] ?? ''] as const))
-  })
+const parseWithHeaderRow = (records: CsvRecords): ReadonlyArray<Record<string, unknown>> => {
+  const header = records[0] ?? []
+  return records
+    .slice(1)
+    .map((cells) => Object.fromEntries(header.map((h, i) => [h, cells[i] ?? ''] as const)))
 }
 
 const intProp = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
+/**
+ * Shape parsed records into objects.
+ *
+ * `skipRows` is deliberately ABSENT here: it is applied to the document text
+ * upstream, so skipping a preamble no longer switches the output shape from
+ * header-keyed objects to `col0`/`col1`. Explicit `columns` still consume every
+ * record as data (there is no header row to interpret when the mapping is
+ * given); otherwise the first surviving record is the header.
+ */
 const csvRows = (
-  rows: readonly string[],
-  delimiter: string,
-  columnDefs: ReadonlyArray<Record<string, unknown>> | undefined,
-  skipRows: number
+  records: CsvRecords,
+  columnDefs: ReadonlyArray<Record<string, unknown>> | undefined
 ): ReadonlyArray<Record<string, unknown>> =>
-  columnDefs
-    ? parseWithColumnDefs(rows, delimiter, columnDefs)
-    : skipRows > 0
-      ? parseHeaderless(rows, delimiter)
-      : parseWithHeaderRow(rows, delimiter)
+  columnDefs ? parseWithColumnDefs(records, columnDefs) : parseWithHeaderRow(records)
+
+type CsvBytes =
+  | { readonly ok: true; readonly bytes: Uint8Array }
+  | { readonly ok: false; readonly message: string }
+
+/**
+ * Load the bytes to parse from a `data:` URI, an `http(s)://` URL or a storage
+ * key — the same three shapes the sibling `file:upload` already accepts.
+ *
+ * Plain storage keys keep going through `storage.download` rather than
+ * `resolveSource` on purpose: `resolveSource` degrades a missing key to empty
+ * bytes, which would turn "file not found" into a silent empty parse.
+ */
+const loadCsvBytes = (ref: string): Effect.Effect<CsvBytes, never, StorageService> =>
+  Effect.gen(function* () {
+    if (isSelfContainedSource(ref)) {
+      const resolved = yield* Effect.result(resolveSource(ref))
+      return resolved._tag === 'Failure'
+        ? ({ ok: false, message: `invalid_outbound_url_${resolved.failure.reason}` } as const)
+        : ({ ok: true, bytes: resolved.success.bytes } as const)
+    }
+    const storage = yield* StorageService
+    const downloaded = yield* Effect.result(storage.download(ref))
+    return downloaded._tag === 'Failure'
+      ? ({ ok: false, message: `file not found: ${ref}` } as const)
+      : ({ ok: true, bytes: downloaded.success } as const)
+  })
+
+/** Resolve the CSV text from inline `content`, or from `key`/`source` bytes. */
+const csvText = (
+  p: Readonly<Record<string, unknown>>
+): Effect.Effect<CsvBytes | { readonly ok: true; readonly text: string }, never, StorageService> =>
+  Effect.gen(function* () {
+    const inline = p['content'] !== undefined ? stringProp(p, 'content') : undefined
+    if (inline !== undefined && inline !== '') return { ok: true, text: inline } as const
+
+    const ref = p['key'] !== undefined ? stringProp(p, 'key') : stringProp(p, 'source')
+    if (!ref) {
+      return inline !== undefined
+        ? ({ ok: true, text: '' } as const)
+        : ({ ok: false, message: 'file.parseCsv requires a key' } as const)
+    }
+    return yield* loadCsvBytes(ref)
+  })
 
 export const handleFileParseCsv: ActionHandler = (action, _app, _automation) =>
   Effect.gen(function* () {
     const p = props(action)
-    const key = p['key'] !== undefined ? stringProp(p, 'key') : stringProp(p, 'source')
-    if (!key) return errorOutcome('file.parseCsv requires a key')
+    const loaded = yield* csvText(p)
+    if (!loaded.ok) return errorOutcome(loaded.message)
 
-    const storage = yield* StorageService
-    const downloaded = yield* Effect.either(storage.download(key))
-    if (downloaded._tag === 'Left') return errorOutcome(`file not found: ${key}`)
+    // Decode BEFORE anything else: line boundaries and delimiters have to be
+    // read out of correctly-decoded text, not raw bytes.
+    const decoded = 'text' in loaded ? loaded.text : decodeCsvBytes(loaded.bytes)
 
-    const skipRows = intProp(p['skipRows'], 0)
-    const rows = splitNonEmptyLines(Buffer.from(downloaded.right).toString('utf-8')).slice(skipRows)
+    // `skipRows` first, THEN detection — a preamble line carries none of the
+    // candidate delimiters, so sampling the raw document would fall through to
+    // the comma default and mis-parse the real header underneath it.
+    const body = dropLeadingLines(decoded, intProp(p['skipRows'], 0))
     const delimiterRaw = p['delimiter']
     const delimiter =
-      typeof delimiterRaw === 'string' && delimiterRaw !== ''
-        ? delimiterRaw
-        : autoDelimiter(rows[0])
+      typeof delimiterRaw === 'string' && delimiterRaw !== '' ? delimiterRaw : autoDelimiter(body)
+
+    const records = parseCsvDocument(body, delimiter)
+    if (records === undefined) return errorOutcome('failed to parse csv: malformed quoting')
+
     const columnDefs = Array.isArray(p['columns'])
       ? (p['columns'] as ReadonlyArray<Record<string, unknown>>)
       : undefined
 
-    return {
-      status: 'success',
-      output: { data: csvRows(rows, delimiter, columnDefs, skipRows) },
-    } as const
+    return { status: 'success', output: { data: csvRows(records, columnDefs) } } as const
   })

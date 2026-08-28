@@ -10,27 +10,25 @@ import { ViewFiltersSchema } from '../../../views/filters'
 import { BaseFieldSchema } from '../base-field'
 
 export const CountFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('count'),
-      relationshipField: Schema.String.pipe(
-        Schema.nonEmptyString({ message: () => 'relationshipField is required' }),
-        Schema.annotations({
-          description:
-            'Name of the relationship field in the same table to count linked records from',
+  Schema.fieldsAssign({
+    type: Schema.Literal('count'),
+    relationshipField: Schema.String.pipe(
+      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' })),
+      Schema.annotate({
+        description:
+          'Name of the relationship field in the same table to count linked records from',
+      })
+    ),
+    filters: Schema.optional(
+      ViewFiltersSchema.pipe(
+        Schema.annotate({
+          title: 'Count Filters',
+          description: 'Filters to apply when counting linked records',
         })
-      ),
-      filters: Schema.optional(
-        ViewFiltersSchema.pipe(
-          Schema.annotations({
-            title: 'Count Filters',
-            description: 'Filters to apply when counting linked records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Count Field',
     description:
       'Counts the number of linked records from a relationship field. Optionally filters records before counting.',

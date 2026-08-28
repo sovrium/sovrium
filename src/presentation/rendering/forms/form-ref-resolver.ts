@@ -186,6 +186,41 @@ function readHeadingLevel(originalProps: Record<string, unknown> | undefined): '
 }
 
 /**
+ * Apply the host component's `props.label` submit-button override to the form
+ * being embedded.
+ *
+ * `label` is one of the four display-layer overrides the criterion names as
+ * honored, alongside `props.variant`, `responsive` and `visibility`. It was the
+ * only one of the four with no reader: `buildWrapperProps` surfaces `variant`
+ * (and `className`/`id`/`data-testid`) onto the wrapper `<div>`, and
+ * `readHeadingLevel` above reads `headingLevel`, but nothing consulted `label`.
+ * The published example in `as-developer/pages/data-components/data-form.md`
+ * (`props: { label: Subscribe }`) was therefore inert config — accepted by the
+ * schema, documented as honored, and silently discarded at render time.
+ *
+ * Expressed as a shallow clone whose `display.submitLabel` carries the override,
+ * rather than as a new render-time parameter threaded through `FormBody`.
+ * `display.submitLabel` IS the submit-button label, so the override is the same
+ * kind of thing as the value it replaces, and it then flows through the one
+ * `resolveText(form.display?.submitLabel, …)` call `buildFormBodyShared` already
+ * makes — which means a `$t:` token in the override localizes to the host page's
+ * active language for free, with no second resolution path to keep in step.
+ *
+ * The clone is local to this render: `app.forms[]` is never mutated, so the same
+ * form embedded on another page (or served standalone at `/forms/:name`) keeps
+ * its own label. A non-string or empty override is ignored — an override has to
+ * say something to override.
+ */
+function applySubmitLabelOverride(
+  form: Readonly<Form>,
+  originalProps: Record<string, unknown> | undefined
+): Readonly<Form> {
+  const raw = originalProps?.['label']
+  if (typeof raw !== 'string' || raw.length === 0) return form
+  return { ...form, display: { ...form.display, submitLabel: raw } }
+}
+
+/**
  * True when a component is a `formRef` embedding (`{ type: 'form' | 'dialog',
  * formRef: <name> }`). Only these nodes are expanded — and only these are
  * candidates for the session-visibility skip below.
@@ -231,7 +266,7 @@ function expandFormRefComponent(
 
   const formBodyHtml = renderEmbeddedFormBody(
     app,
-    form,
+    applySubmitLabelOverride(form, formRefInfo.originalProps),
     { prefill: resolvedPrefill, lockPrefill },
     ctx.activeLang,
     { titleAs }
@@ -327,6 +362,11 @@ function expandDialogFormRef(
   const lockPrefill = inlinePrefill?.lockPrefill === true
   const titleAs = readHeadingLevel(component.props)
 
+  // `props.label` is deliberately NOT forwarded on the dialog path. On a
+  // `{ type: 'form', formRef }` component `props.label` is unambiguously the
+  // submit button; on a dialog it reads as the
+  // TRIGGER's label, so repurposing it for the modal's submit button would
+  // silently relabel existing dialogs.
   const formBodyHtml = renderEmbeddedFormBody(
     app,
     form,

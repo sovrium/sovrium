@@ -10,7 +10,7 @@ import { Schema } from 'effect'
 /**
  * Filter operator for data source queries
  */
-export const FilterOperatorSchema = Schema.Literal(
+export const FilterOperatorSchema = Schema.Literals([
   'eq',
   'neq',
   'contains',
@@ -18,8 +18,8 @@ export const FilterOperatorSchema = Schema.Literal(
   'lt',
   'gte',
   'lte',
-  'in'
-).annotations({
+  'in',
+]).annotate({
   title: 'Filter Operator',
   description:
     'Comparison operator for filtering records. "in" expects an array value (e.g. resolved $currentUser.assignments.<table>).',
@@ -39,19 +39,19 @@ export const FilterOperatorSchema = Schema.Literal(
  * The `tableSlug` segment of an `assignment` path is validated against
  * `auth.scopeTables` at startup.
  */
-export const CurrentUserPathSchema = Schema.Union(
+export const CurrentUserPathSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal('scalar'),
-    name: Schema.Literal('id', 'email', 'role', 'isUnrestricted'),
+    name: Schema.Literals(['id', 'email', 'role', 'isUnrestricted']),
   }),
   Schema.Struct({
     kind: Schema.Literal('assignment'),
-    tableSlug: Schema.String.pipe(Schema.minLength(1)),
+    tableSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
   }),
   Schema.Struct({
     kind: Schema.Literal('activeAssignment'),
-  })
-).annotations({
+  }),
+]).annotate({
   identifier: 'CurrentUserPath',
   title: 'Current-User Path',
   description: 'Typed path into the request-time-resolved session user',
@@ -66,7 +66,7 @@ export type CurrentUserPath = Schema.Schema.Type<typeof CurrentUserPathSchema>
 export const CurrentUserRefSchema = Schema.Struct({
   kind: Schema.Literal('currentUser'),
   path: CurrentUserPathSchema,
-}).annotations({
+}).annotate({
   identifier: 'CurrentUserRef',
   title: 'Current-User Reference',
   description:
@@ -82,13 +82,13 @@ export type CurrentUserRef = Schema.Schema.Type<typeof CurrentUserRefSchema>
  * field against the resolved record-id list from
  * `$currentUser.assignments.<table>`).
  */
-export const FilterLiteralSchema = Schema.Union(
+export const FilterLiteralSchema = Schema.Union([
   Schema.String,
-  Schema.Number,
+  Schema.Finite,
   Schema.Boolean,
   Schema.Array(Schema.String),
-  Schema.Array(Schema.Number)
-)
+  Schema.Array(Schema.Finite),
+])
 
 /**
  * Filter value — either a literal or a `$currentUser` reference.
@@ -99,7 +99,7 @@ export const FilterLiteralSchema = Schema.Union(
  * - `'$currentUser.assignments.<table>'` -> `{ kind: 'currentUser', path: { kind: 'assignment', tableSlug: '<table>' } }`
  * - `'$currentUser.activeAssignment'` -> `{ kind: 'currentUser', path: { kind: 'activeAssignment' } }`
  */
-export const FilterValueSchema = Schema.Union(FilterLiteralSchema, CurrentUserRefSchema)
+export const FilterValueSchema = Schema.Union([FilterLiteralSchema, CurrentUserRefSchema])
 
 /** @public */
 export type FilterValue = Schema.Schema.Type<typeof FilterValueSchema>
@@ -122,7 +122,7 @@ export type FilterLiteral = Schema.Schema.Type<typeof FilterLiteralSchema>
  */
 export const DataFilterSchema = Schema.Struct({
   /** Field name to filter on */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Field name from the data source table',
   }),
   /** Comparison operator */
@@ -137,11 +137,11 @@ export const DataFilterSchema = Schema.Struct({
    *   loader): `'$currentUser.id'`, `'$currentUser.assignments.<table>'`,
    *   `'$currentUser.activeAssignment'`
    */
-  value: FilterValueSchema.annotations({
+  value: FilterValueSchema.annotate({
     description:
       'Literal value, $currentUser reference, or template string. $currentUser refs resolve per-request from session.',
   }),
-}).annotations({
+}).annotate({
   title: 'Data Filter',
   description: 'Single filter condition for data source queries',
 })
@@ -149,7 +149,7 @@ export const DataFilterSchema = Schema.Struct({
 /**
  * Sort direction for data source queries
  */
-export const SortDirectionSchema = Schema.Literal('asc', 'desc').annotations({
+export const SortDirectionSchema = Schema.Literals(['asc', 'desc']).annotate({
   title: 'Sort Direction',
   description: 'Sort order: ascending or descending',
 })
@@ -166,12 +166,12 @@ export const SortDirectionSchema = Schema.Literal('asc', 'desc').annotations({
  */
 export const DataSortSchema = Schema.Struct({
   /** Field name to sort by */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Field name to sort by',
   }),
   /** Sort direction */
   direction: SortDirectionSchema,
-}).annotations({
+}).annotate({
   title: 'Data Sort',
   description: 'Single sort rule for data source queries',
 })
@@ -179,7 +179,7 @@ export const DataSortSchema = Schema.Struct({
 /**
  * Pagination style
  */
-export const PaginationStyleSchema = Schema.Literal('numbered', 'loadMore', 'infinite').annotations(
+export const PaginationStyleSchema = Schema.Literals(['numbered', 'loadMore', 'infinite']).annotate(
   {
     title: 'Pagination Style',
     description: 'How pagination controls are displayed',
@@ -198,17 +198,16 @@ export const PaginationStyleSchema = Schema.Literal('numbered', 'loadMore', 'inf
  */
 export const PaginationSchema = Schema.Struct({
   /** Number of records per page */
-  pageSize: Schema.Number.pipe(
-    Schema.int(),
-    Schema.greaterThan(0),
-    Schema.annotations({
+  pageSize: Schema.Finite.pipe(
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+    Schema.annotate({
       description: 'Number of records per page',
       examples: [10, 20, 50],
     })
   ),
   /** Pagination UI style */
   style: Schema.optional(PaginationStyleSchema),
-}).annotations({
+}).annotate({
   title: 'Pagination',
   description: 'Pagination configuration for data source',
 })
@@ -221,7 +220,7 @@ export const PaginationSchema = Schema.Struct({
  * - `trigram`: PostgreSQL pg_trgm (fuzzy matching, typo-tolerance)
  * - `hybrid`: Combined FTS for relevance + trigram for fuzzy fallback
  */
-export const SearchEngineSchema = Schema.Literal('client', 'fts', 'trigram', 'hybrid').annotations({
+export const SearchEngineSchema = Schema.Literals(['client', 'fts', 'trigram', 'hybrid']).annotate({
   identifier: 'SearchEngine',
   title: 'Search Engine',
   description:
@@ -235,7 +234,7 @@ export const SearchEngineSchema = Schema.Literal('client', 'fts', 'trigram', 'hy
  * - `single`: Fetches one record by route parameter
  * - `search`: Interactive search with debounce
  */
-export const DataSourceModeSchema = Schema.Literal('list', 'single', 'search').annotations({
+export const DataSourceModeSchema = Schema.Literals(['list', 'single', 'search']).annotate({
   title: 'Data Source Mode',
   description:
     "Data fetching mode: 'list' (multiple), 'single' (one record), 'search' (interactive)",
@@ -257,7 +256,7 @@ export const DataSourceModeSchema = Schema.Literal('list', 'single', 'search').a
  * section type that uses a `dataSource` (data-table, list, chart, kanban,
  * calendar, kpi, gallery, form).
  */
-export const RefreshModeSchema = Schema.Literal('none', 'poll', 'realtime').annotations({
+export const RefreshModeSchema = Schema.Literals(['none', 'poll', 'realtime']).annotate({
   identifier: 'RefreshMode',
   title: 'Refresh Mode',
   description:
@@ -313,15 +312,15 @@ export const SharedFilterBindingSchema = Schema.Struct({
    */
   params: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           "Request-param keys this subscriber consumes from the shared publisher's value bag (omit to merge the full bag verbatim)",
         examples: [['status'], ['automationName', 'status'], ['from', 'to']],
       })
     )
   ),
-}).annotations({
+}).annotate({
   identifier: 'SharedFilterBinding',
   title: 'Shared Filter Binding',
   description:
@@ -378,14 +377,14 @@ export type SharedFilterBinding = Schema.Schema.Type<typeof SharedFilterBindingS
  */
 export const DataSourceSchema = Schema.Struct({
   /** Table name to query (must exist in app.tables) */
-  table: Schema.String.annotations({
+  table: Schema.String.annotate({
     description: 'Table name to bind to (validated against app.tables)',
   }),
   /** Optional subset of fields to fetch (validated against table schema) */
   fields: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Specific fields to fetch from the table',
         examples: [['title', 'author', 'createdAt']],
       })
@@ -395,13 +394,13 @@ export const DataSourceSchema = Schema.Struct({
   mode: Schema.optional(DataSourceModeSchema),
   /** Filter conditions (AND logic) */
   filter: Schema.optional(
-    Schema.Array(DataFilterSchema).annotations({
+    Schema.Array(DataFilterSchema).annotate({
       description: 'Filter conditions applied with AND logic',
     })
   ),
   /** Sort rules (applied in order) */
   sort: Schema.optional(
-    Schema.Array(DataSortSchema).annotations({
+    Schema.Array(DataSortSchema).annotate({
       description: 'Sort rules applied in order',
     })
   ),
@@ -409,14 +408,14 @@ export const DataSourceSchema = Schema.Struct({
   pagination: Schema.optional(PaginationSchema),
   /** Route parameter name for single-record mode */
   param: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Route parameter name for single mode (e.g., slug, id)',
       examples: ['slug', 'id'],
     })
   ),
   /** Search engine backend (search mode only) */
   searchEngine: Schema.optional(
-    SearchEngineSchema.annotations({
+    SearchEngineSchema.annotate({
       description:
         "Search backend for this data source (default: 'client'). Same table can use different engines on different pages.",
     })
@@ -424,8 +423,8 @@ export const DataSourceSchema = Schema.Struct({
   /** Fields to search across (search mode only) */
   searchFields: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Fields to search across in search mode',
         examples: [['name', 'description']],
       })
@@ -433,10 +432,9 @@ export const DataSourceSchema = Schema.Struct({
   ),
   /** Debounce delay for search input in milliseconds */
   debounceMs: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+      Schema.annotate({
         description: 'Debounce delay for search input (ms)',
         examples: [300, 500],
       })
@@ -444,10 +442,9 @@ export const DataSourceSchema = Schema.Struct({
   ),
   /** Maximum number of results (search mode) */
   limit: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum number of results to return',
         examples: [10, 20, 50],
       })
@@ -455,14 +452,14 @@ export const DataSourceSchema = Schema.Struct({
   ),
   /** Publisher-side identifier for cross-component references */
   targetId: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Publisher-side identifier for cross-component references — addressable by a FilterAction (targetDataSource) and by a sibling subscriber's bindTo (shared filter/period state)",
     })
   ),
   /** ID of a publisher component whose value drives this data source */
   bindTo: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'ID of a publisher component whose value drives this data source (cross-component binding). By default a searchInput whose query string drives the search; when sharedFilter is also set, a shared filter/period selector whose published params are merged into every request',
     })
@@ -473,14 +470,14 @@ export const DataSourceSchema = Schema.Struct({
    * published params are merged into every request. Inert without `bindTo`.
    */
   sharedFilter: Schema.optional(
-    SharedFilterBindingSchema.annotations({
+    SharedFilterBindingSchema.annotate({
       description:
         'Companion to bindTo: the bound publisher is a shared filter/period selector whose published params are merged into every request this data source issues. One selector can drive many sibling subscribers. Inert without bindTo.',
     })
   ),
   /** How the bound data is refreshed after the initial load (default: none) */
   refreshMode: Schema.optional(
-    RefreshModeSchema.annotations({
+    RefreshModeSchema.annotate({
       description:
         "Data refresh strategy for this binding (default: 'none'). 'poll' uses pollIntervalMs; 'realtime' subscribes to live change events.",
     })
@@ -494,17 +491,16 @@ export const DataSourceSchema = Schema.Struct({
    * `poll`.
    */
   pollIntervalMs: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.between(1000, 300_000),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 })),
+      Schema.annotate({
         description:
           'Polling interval in milliseconds for refreshMode: poll (min 1000, max 300000)',
         examples: [3000, 5000, 10_000],
       })
     )
   ),
-}).annotations({
+}).annotate({
   identifier: 'DataSource',
   title: 'Data Source',
   description:

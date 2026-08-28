@@ -24,9 +24,9 @@ import { Schema } from 'effect'
  */
 export const SuccessPageActionSchema = Schema.Struct({
   /** Button label shown on the success screen. Supports `$t:` keys. */
-  label: Schema.String.pipe(Schema.minLength(1)),
+  label: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
   /** Behavior when the button is clicked. */
-  action: Schema.Literal('reset', 'navigate'),
+  action: Schema.Literals(['reset', 'navigate']),
   /**
    * Navigation target — required when `action: 'navigate'`.
    *
@@ -37,7 +37,7 @@ export const SuccessPageActionSchema = Schema.Struct({
    * `RedirectOnSuccessSchema.url` are interpolated.
    */
   url: Schema.optional(Schema.String),
-}).annotations({
+}).annotate({
   identifier: 'SuccessPageAction',
   title: 'Success Page Action',
 })
@@ -67,7 +67,7 @@ export const SuccessPageOnSuccessSchema = Schema.Struct({
    * read permissions before listing values.
    */
   showSummary: Schema.optional(Schema.Boolean),
-}).annotations({
+}).annotate({
   identifier: 'SuccessPageOnSuccess',
   title: 'Success Page (onSuccess)',
 })
@@ -96,15 +96,15 @@ export const RedirectOnSuccessSchema = Schema.Struct({
    * Unresolved variables substitute to an empty string (never the literal
    * token).
    */
-  url: Schema.String.pipe(Schema.minLength(1)),
+  url: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
   /**
    * Delay before the navigation fires, in seconds. Default 2 — gives the
    * submitter a moment to read any flash UI rendered before the redirect.
    * `0` triggers an immediate navigation (used by tests that need a
    * deterministic post-submit URL assertion).
    */
-  delaySeconds: Schema.optional(Schema.Number.pipe(Schema.greaterThanOrEqualTo(0))),
-}).annotations({
+  delaySeconds: Schema.optional(Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
+}).annotate({
   identifier: 'RedirectOnSuccess',
   title: 'Redirect (onSuccess)',
 })
@@ -121,7 +121,7 @@ export const ResetOnSuccessSchema = Schema.Struct({
    * user does not retype it).
    */
   preserveFields: Schema.optional(Schema.Array(Schema.String)),
-}).annotations({
+}).annotate({
   identifier: 'ResetOnSuccess',
   title: 'Reset (onSuccess)',
 })
@@ -133,8 +133,8 @@ export const ToastOnSuccessSchema = Schema.Struct({
   type: Schema.Literal('toast'),
   message: Schema.String,
   /** Toast variant. */
-  variant: Schema.optional(Schema.Literal('success', 'info')),
-}).annotations({
+  variant: Schema.optional(Schema.Literals(['success', 'info'])),
+}).annotate({
   identifier: 'ToastOnSuccess',
   title: 'Toast (onSuccess)',
 })
@@ -145,7 +145,7 @@ export const ToastOnSuccessSchema = Schema.Struct({
 export const MessageOnSuccessSchema = Schema.Struct({
   type: Schema.Literal('message'),
   message: Schema.String,
-}).annotations({
+}).annotate({
   identifier: 'MessageOnSuccess',
   title: 'Inline Message (onSuccess)',
 })
@@ -153,13 +153,13 @@ export const MessageOnSuccessSchema = Schema.Struct({
 /**
  * Form onSuccess — discriminated union of post-submit behaviors.
  */
-export const FormOnSuccessSchema = Schema.Union(
+export const FormOnSuccessSchema = Schema.Union([
   SuccessPageOnSuccessSchema,
   RedirectOnSuccessSchema,
   ResetOnSuccessSchema,
   ToastOnSuccessSchema,
-  MessageOnSuccessSchema
-).annotations({
+  MessageOnSuccessSchema,
+]).annotate({
   identifier: 'FormOnSuccess',
   title: 'Form onSuccess',
   description: 'Post-submit behavior. Discriminated by `type`.',

@@ -19,8 +19,8 @@ import { visibilityFields } from '../../modules/visibility'
 /**
  * Supported zoom levels for the time axis of a data-timeline component.
  */
-export const TimelineZoomSchema = Schema.Literal('day', 'week', 'month', 'quarter', 'year').pipe(
-  Schema.annotations({
+export const TimelineZoomSchema = Schema.Literals(['day', 'week', 'month', 'quarter', 'year']).pipe(
+  Schema.annotate({
     title: 'Timeline Zoom',
     description: 'Time-axis granularity for the data-timeline component',
   })

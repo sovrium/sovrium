@@ -52,6 +52,8 @@ export interface QueryTurnInput {
   readonly sessionId: string
   /** The acting user's role — drives table-level read RBAC. */
   readonly userRole: string
+  /** Role + `group:<name>` overlay the read gate is actually evaluated against. */
+  readonly effectiveRoles: readonly string[]
   /** Optional page scope narrowing the visible table list (allowedTables). */
   readonly pageContext?: ContextPageScope | undefined
 }
@@ -101,7 +103,12 @@ export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTur
   const intent = parseQueryIntent(input.message, tables, fallback)
   if (intent === undefined) return { kind: 'none' }
 
-  const outcome = await runQuery({ intent, userRole: input.userRole, tables })
+  const outcome = await runQuery({
+    intent,
+    userRole: input.userRole,
+    effectiveRoles: input.effectiveRoles,
+    tables,
+  })
   if (outcome.status === 'forbidden') {
     return { kind: 'forbidden', message: outcome.message }
   }

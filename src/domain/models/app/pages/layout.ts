@@ -30,13 +30,13 @@ import { DataFilterSchema, DataSortSchema } from './components/data-source'
 const SidebarTemplateSchema = Schema.Struct({
   /** Label expression — `$record.<field>` substitutions are resolved per-row. */
   label: Schema.String.pipe(
-    Schema.annotations({
+    Schema.annotate({
       description: 'Label expression for each entry. Supports $record.<field> substitution.',
     })
   ),
   /** Href expression — `$record.<field>` substitutions are resolved per-row. */
   href: Schema.String.pipe(
-    Schema.annotations({
+    Schema.annotate({
       description: 'Anchor href for each entry. Supports $record.<field> substitution.',
     })
   ),
@@ -47,13 +47,13 @@ const SidebarTemplateSchema = Schema.Struct({
    */
   archivedField: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Field name whose truthy value hides the entry from the sidebar.',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'SidebarTemplate',
     title: 'Sidebar Template',
     description: 'Per-record rendering template for sidebar navigation entries',
@@ -72,24 +72,24 @@ export type SidebarTemplate = Schema.Schema.Type<typeof SidebarTemplateSchema>
 const SidebarDataSourceSchema = Schema.Struct({
   /** Table name to query (must exist in app.tables) */
   table: Schema.String.pipe(
-    Schema.annotations({
+    Schema.annotate({
       description: 'Table name to bind to (validated against app.tables)',
     })
   ),
   /** Optional filters — typically `$currentUser.assignments.<table>` for scoped sidebars. */
   filter: Schema.optional(
     Schema.Array(DataFilterSchema).pipe(
-      Schema.annotations({ description: 'Filter conditions applied before rendering entries.' })
+      Schema.annotate({ description: 'Filter conditions applied before rendering entries.' })
     )
   ),
   /** Optional sort rules. */
   sort: Schema.optional(
     Schema.Array(DataSortSchema).pipe(
-      Schema.annotations({ description: 'Sort rules applied to the resulting entries.' })
+      Schema.annotate({ description: 'Sort rules applied to the resulting entries.' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'SidebarDataSource',
     title: 'Sidebar Data Source',
     description: 'Data source binding for sidebar entries (table + filter + sort)',
@@ -137,14 +137,14 @@ const SidebarItemSchema = Schema.Struct({
    */
   activeIndicator: Schema.optional(
     Schema.Literal('$currentUser.activeAssignment').pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Expression that resolves to the recordId currently considered "active". Marks the matching entry with data-active="true".',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'SidebarItem',
     title: 'Sidebar Item',
     description: 'A sidebar section bound to a table for scoped navigation',
@@ -172,13 +172,13 @@ export const PageLayoutSchema = Schema.Struct({
    */
   sidebar: Schema.optional(
     Schema.Array(SidebarItemSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Data-bound navigation sections rendered inside the page <aside>',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'PageLayout',
     title: 'Page Layout',
     description: 'Layout configuration with named sections (sidebar)',

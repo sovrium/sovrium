@@ -74,13 +74,12 @@ export const OAuthStateStoreLive = Layer.succeed(
         catch: (cause: unknown) => new OAuthStateError({ cause }),
       }),
 
-    clear: () =>
-      Effect.try({
-        try: () => {
-          store.clear()
-        },
-        catch: (cause: unknown) => new OAuthStateError({ cause }),
-      }),
+    clear: Effect.try({
+      try: () => {
+        store.clear()
+      },
+      catch: (cause: unknown) => new OAuthStateError({ cause }),
+    }),
   })
 )
 

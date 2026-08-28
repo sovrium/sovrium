@@ -37,12 +37,14 @@ import {
   updateAllDynamicRecords,
   updateDynamicRecordById,
 } from '@/application/use-cases/ai/dynamic-record-query'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { parseAiConfirmationTtlMs } from '@/domain/models/env/ai/ai-confirmation-ttl'
 import { isAdminRole } from '@/domain/models/shared/permissions'
 import {
   evaluateFieldPermissions,
-  hasCreatePermission,
-  hasDeletePermission,
-  hasUpdatePermission,
+  hasCreatePermissionForRoles,
+  hasDeletePermissionForRoles,
+  hasUpdatePermissionForRoles,
 } from '@/domain/validators/permission-evaluators'
 import { provideDynamicRecordRepoLive } from '@/presentation/api/routes/ai/effect-runner'
 import { recordActivityLogRow } from './chat-activity-log'
@@ -78,11 +80,25 @@ export interface ApplyMutationInput {
   readonly intent: MutationIntent
   /** The acting user's role — used for table-level RBAC checks. */
   readonly userRole: string
+  /**
+   * Group names the acting user belongs to, un-prefixed. Permissions
+   * name a group as `group:<name>`, an overlay that exists only in the
+   * effective-role set; a bare `userRole` can never match one, so without this
+   * every `group:` grant was inert here while working on the records API.
+   */
+  readonly userGroups: readonly string[]
   /** The acting user's email — written to the activity log. */
   readonly userEmail: string
   /** The full set of app tables (carries permissions + field metadata). */
   readonly tables: ReadonlyArray<MutationTable & { readonly permissions?: unknown }>
 }
+
+/**
+ * The acting user's identity as the permission gates consume it: their global
+ * role plus a `group:<name>` entry per membership, most-permissive-wins.
+ */
+const effectiveRolesOf = (input: ApplyMutationInput): readonly string[] =>
+  buildEffectiveRoles(input.userRole, input.userGroups)
 
 // ---------------------------------------------------------------------------
 // Pending-confirmation store
@@ -91,12 +107,26 @@ export interface ApplyMutationInput {
 /**
  * A confirmation entry stashed when a destructive action is proposed. It is
  * re-applied when the next request on the same session carries its token.
+ *
+ * Every authorization input the commit runs on is CAPTURED here ([internal ref],
+ * decision 3) — `userRole`, `userGroups`, and the `tables` snapshot — and
+ * `commitConfirmedMutation` re-resolves none of them. `tables` must be frozen
+ * regardless: the intent was parsed against it and the `affectedCount` already
+ * quoted to the user was computed under it. Given one input is necessarily
+ * frozen, freezing the identity beside it is the only combination describing a
+ * verdict that was ever actually true — re-resolving groups alone would pair a
+ * stale role and stale table permissions with fresh memberships, a state that
+ * held at neither instant.
  */
 interface StoredConfirmation {
   readonly intent: MutationIntent
   readonly userRole: string
+  /** Group memberships as they stood when the token was issued. */
+  readonly userGroups: readonly string[]
   readonly userEmail: string
   readonly tables: ReadonlyArray<MutationTable & { readonly permissions?: unknown }>
+  /** `Date.now` at issue time — the TTL anchor ([internal ref], decision 4). */
+  readonly issuedAt: number
 }
 
 /**
@@ -107,13 +137,27 @@ interface StoredConfirmation {
  */
 const pendingConfirmations = new Map<string, StoredConfirmation>()
 
-/** Look up (and consume) a stored confirmation by its token. */
+/**
+ * Look up (and consume) a stored confirmation by its token.
+ *
+ * An entry older than `AI_CONFIRMATION_TTL_MS` is treated as ABSENT and dropped
+ * on the way past. That bounds the captured-identity semantic above: without an
+ * expiry an unconsumed token survives the process lifetime, so a verdict reached
+ * under a role, a membership and a config that have all since changed would stay
+ * committable forever. One TTL closes all three staleness windows; re-resolving
+ * any single input closes only its own.
+ *
+ * `undefined` rather than a distinct "expired" outcome is what the caller
+ * already handles: an unknown token falls through to the intent path, where a
+ * bare "yes" parses as no intent at all. Nothing is mutated.
+ */
 export const consumeConfirmation = (token: string): StoredConfirmation | undefined => {
   const stored = pendingConfirmations.get(token)
-  if (stored !== undefined) {
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- module-local mutable Map, not a Drizzle table; mirrors conversation store
-    pendingConfirmations.delete(token)
-  }
+  if (stored === undefined) return undefined
+  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data, drizzle/enforce-delete-with-where -- module-local mutable Map, not a Drizzle table; mirrors conversation store
+  pendingConfirmations.delete(token)
+  const ttlMs = parseAiConfirmationTtlMs(process.env)
+  if (Date.now() - stored.issuedAt > ttlMs) return undefined
   return stored
 }
 
@@ -168,23 +212,33 @@ const extractFieldPermissions = (permissions: unknown): TableFieldPermissions | 
 
 /**
  * Enforce field-level write RBAC: for every field present in the mutation
- * payload, the acting role must hold `write` on that field's declared
+ * payload, the acting identity must hold `write` on that field's declared
  * field-level permission. A field with no declared permission is unrestricted.
+ *
+ * Evaluated over the caller's EFFECTIVE roles, most-permissive-wins — the same
+ * combining rule the table-level `*ForRoles` gates use, so a field
+ * granted to `group:finance` is writable by that group's members.
  *
  * Returns the name of the first field the user may not write, or `undefined`
  * when the whole payload is permitted.
  */
 const findForbiddenWriteField = (
   permissions: unknown,
-  userRole: string,
+  effectiveRoles: readonly string[],
   data: Readonly<Record<string, unknown>>
 ): string | undefined => {
   const fieldPerms = extractFieldPermissions(permissions)
   if (fieldPerms === undefined) return undefined
-  const evaluated = evaluateFieldPermissions(fieldPerms, userRole, isAdminRole(userRole))
+  const evaluated = effectiveRoles.map((role) =>
+    evaluateFieldPermissions(fieldPerms, role, isAdminRole(role))
+  )
   return Object.keys(data).find((fieldName) => {
-    const perm = evaluated[fieldName]
-    return perm !== undefined && !perm.write
+    // A field absent from the declared permissions is unrestricted. Presence is
+    // role-independent (the declaration list is the same for every role), so
+    // any one evaluation answers it.
+    const declared = evaluated.some((perms) => perms[fieldName] !== undefined)
+    if (!declared) return false
+    return !evaluated.some((perms) => perms[fieldName]?.write === true)
   })
 }
 
@@ -284,12 +338,38 @@ const resolveTable = (
 ): (MutationTable & { readonly permissions?: unknown }) | undefined =>
   input.tables.find((table) => table.name === input.intent.table)
 
+/**
+ * The argument triple every table-level gate on this path takes, spread into
+ * `has{Create,Update,Delete}PermissionForRoles` at the three call sites. Both
+ * of the last two arguments close a hole this surface actually had:
+ *
+ *  - the EFFECTIVE ROLES, not a bare role, so a `group:<name>` grant can match
+ *    at all — a bare role never can, because the `group:` overlay exists only
+ *    in the effective-role set;
+ *  - the INHERITANCE resolution set, so a table declaring
+ *    `permissions: { inherit: '<parent>' }` resolves its parent's rule instead
+ *    of reading as if it declared nothing.
+ *
+ * Fixing either alone is the trap: `applyCreate` was corrected for inheritance
+ * in the 2026-08-26 audit wave (finding F5) and still let every group grant
+ * fall through, which looked like the finding was closed.
+ */
+const gateArgs = (
+  table: MutationTable & { readonly permissions?: unknown },
+  input: ApplyMutationInput
+) =>
+  [
+    table as { name: string },
+    effectiveRolesOf(input),
+    input.tables as Parameters<typeof hasCreatePermissionForRoles>[2],
+  ] as const
+
 const applyCreate = async (
   input: ApplyMutationInput,
   table: MutationTable & { readonly permissions?: unknown }
 ): Promise<MutationOutcome> => {
   if (input.intent.kind !== 'create') return { status: 'forbidden', message: 'Unsupported intent.' }
-  if (!hasCreatePermission(table as { name: string }, input.userRole)) {
+  if (!hasCreatePermissionForRoles(...gateArgs(table, input))) {
     return {
       status: 'forbidden',
       message: `You do not have permission to create records in "${table.name}".`,
@@ -297,7 +377,7 @@ const applyCreate = async (
   }
   const forbiddenField = findForbiddenWriteField(
     table.permissions,
-    input.userRole,
+    effectiveRolesOf(input),
     input.intent.data
   )
   if (forbiddenField !== undefined) {
@@ -387,7 +467,7 @@ const applyUpdate = async (
   table: MutationTable & { readonly permissions?: unknown }
 ): Promise<MutationOutcome> => {
   if (input.intent.kind !== 'update') return { status: 'forbidden', message: 'Unsupported intent.' }
-  if (!hasUpdatePermission(table as { name: string }, input.userRole)) {
+  if (!hasUpdatePermissionForRoles(...gateArgs(table, input))) {
     return {
       status: 'forbidden',
       message: `You do not have permission to update records in "${table.name}".`,
@@ -405,7 +485,7 @@ const applyUpdate = async (
   }
   // Field-level write RBAC: deny before the bulk
   // confirmation gate so a forbidden field never reaches a stashed intent.
-  const forbiddenField = findForbiddenWriteField(table.permissions, input.userRole, data)
+  const forbiddenField = findForbiddenWriteField(table.permissions, effectiveRolesOf(input), data)
   if (forbiddenField !== undefined) {
     return {
       status: 'forbidden',
@@ -434,7 +514,7 @@ const applyDelete = async (
   table: MutationTable & { readonly permissions?: unknown }
 ): Promise<MutationOutcome> => {
   if (input.intent.kind !== 'delete') return { status: 'forbidden', message: 'Unsupported intent.' }
-  if (!hasDeletePermission(table as { name: string }, input.userRole)) {
+  if (!hasDeletePermissionForRoles(...gateArgs(table, input))) {
     return {
       status: 'forbidden',
       message: `You do not have permission to delete records in "${table.name}".`,
@@ -462,8 +542,10 @@ const stashConfirmation = (
   pendingConfirmations.set(confirmationToken, {
     intent: input.intent,
     userRole: input.userRole,
+    userGroups: input.userGroups,
     userEmail: input.userEmail,
     tables: input.tables,
+    issuedAt: Date.now(),
   })
   return {
     action,
@@ -512,6 +594,7 @@ export const commitConfirmedMutation = async (
   const input: ApplyMutationInput = {
     intent: stored.intent,
     userRole: stored.userRole,
+    userGroups: stored.userGroups,
     userEmail: stored.userEmail,
     tables: stored.tables,
   }

@@ -20,7 +20,7 @@ export const FormAvailabilitySchema = Schema.Struct({
   /** ISO 8601 timestamp at which the form starts accepting submissions. */
   opensAt: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'ISO 8601 timestamp at which the form opens for submissions',
       })
     )
@@ -28,7 +28,7 @@ export const FormAvailabilitySchema = Schema.Struct({
   /** ISO 8601 timestamp at which the form stops accepting submissions. */
   closesAt: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'ISO 8601 timestamp at which the form closes',
       })
     )
@@ -38,10 +38,9 @@ export const FormAvailabilitySchema = Schema.Struct({
    * submission is rejected with a clear "form closed" message.
    */
   maxSubmissions: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum number of submissions accepted before the form auto-closes',
       })
     )
@@ -54,33 +53,35 @@ export const FormAvailabilitySchema = Schema.Struct({
   closedPage: Schema.optional(
     Schema.Struct({
       type: Schema.optional(Schema.Literal('page')),
-      title: Schema.optional(Schema.String.pipe(Schema.minLength(1))),
+      title: Schema.optional(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
       message: Schema.optional(Schema.String),
       cta: Schema.optional(
         Schema.Struct({
-          label: Schema.String.pipe(Schema.minLength(1)),
-          href: Schema.String.pipe(Schema.minLength(1)),
+          label: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+          href: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
         })
       ),
-    }).annotations({
+    }).annotate({
       description: 'Custom closed-form UI block (title, message, optional CTA link)',
     })
   ),
 }).pipe(
-  Schema.filter((a) => {
-    if (a.opensAt && a.closesAt) {
-      const open = Date.parse(a.opensAt)
-      const close = Date.parse(a.closesAt)
-      if (Number.isNaN(open) || Number.isNaN(close)) {
-        return 'opensAt and closesAt must be valid ISO 8601 timestamps'
+  Schema.check(
+    Schema.makeFilter((a) => {
+      if (a.opensAt && a.closesAt) {
+        const open = Date.parse(a.opensAt)
+        const close = Date.parse(a.closesAt)
+        if (Number.isNaN(open) || Number.isNaN(close)) {
+          return 'opensAt and closesAt must be valid ISO 8601 timestamps'
+        }
+        if (open >= close) {
+          return `opensAt (${a.opensAt}) must be strictly before closesAt (${a.closesAt})`
+        }
       }
-      if (open >= close) {
-        return `opensAt (${a.opensAt}) must be strictly before closesAt (${a.closesAt})`
-      }
-    }
-    return true
-  }),
-  Schema.annotations({
+      return true
+    })
+  ),
+  Schema.annotate({
     identifier: 'FormAvailability',
     title: 'Form Availability',
     description: 'Controls when a form accepts submissions (opensAt / closesAt / maxSubmissions)',

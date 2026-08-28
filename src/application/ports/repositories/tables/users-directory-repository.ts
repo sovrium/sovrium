@@ -36,12 +36,14 @@ import type { Effect } from 'effect'
 
 /**
  * A raw `auth.user` row needed by the directory. `role` is the raw column value
- * (NULL is coalesced to the app default role by the use case); `banned` is the
- * raw nullable ban flag (NULL → not banned).
+ * (NULL is coalesced to the app default role by the use case); `name` is the raw
+ * nullable display name (NULL → empty string); `banned` is the raw nullable ban
+ * flag (NULL → not banned).
  */
 export interface DirectoryUserRow {
   readonly id: string
   readonly email: string
+  readonly name: string | null
   readonly role: string | null
   readonly banned: boolean | null
 }
@@ -54,23 +56,39 @@ export class UsersDirectoryDatabaseError extends Data.TaggedError('UsersDirector
 }> {}
 
 /**
+ * Read filters for the directory scan.
+ *
+ * `q` is the operator's free-text term, already trimmed and length-checked by
+ * `searchTermSchema` — absent means "no search", never "match nothing".
+ * Matching is a case-insensitive literal substring over `email` AND `name`, and
+ * it runs in SQL rather than over the returned rows: `name` was not even sent to
+ * the client before this contract, so no in-memory filter could ever have found
+ * an account by the name its operator knows it by.
+ */
+export interface DirectoryFilters {
+  readonly q?: string | undefined
+}
+
+/**
  * Users Directory Repository Port.
  *
  * The single method maps to one raw read; all projection / role-coalescing
  * lives in the use case.
  */
-export class UsersDirectoryRepository extends Context.Tag('UsersDirectoryRepository')<
+export class UsersDirectoryRepository extends Context.Service<
   UsersDirectoryRepository,
   {
     /**
-     * Load every human `auth.user` `{ id, email, role, banned }` row. The only
-     * server-side predicate excludes agent-mirrored accounts (an agent is not a
-     * person); the table is otherwise small — the whole account population of
-     * one self-hosted app — and the directory filters client-side.
+     * Load the human `auth.user` `{ id, email, name, role, banned }` rows.
+     *
+     * Two server-side predicates, AND-ed: agent-mirrored accounts are always
+     * excluded (an agent is not a person), and — when `filters.q` is present —
+     * the term must occur in `email` or `name`. The table is small (the whole
+     * account population of one self-hosted app), so the scan stays unpaginated;
+     * `q` narrows the body rather than paginating it.
      */
-    readonly listAllUsers: () => Effect.Effect<
-      readonly DirectoryUserRow[],
-      UsersDirectoryDatabaseError
-    >
+    readonly listAllUsers: (
+      filters?: DirectoryFilters
+    ) => Effect.Effect<readonly DirectoryUserRow[], UsersDirectoryDatabaseError>
   }
->() {}
+>()('UsersDirectoryRepository') {}

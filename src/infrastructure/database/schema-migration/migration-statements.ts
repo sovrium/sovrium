@@ -11,7 +11,7 @@ import {
   generateDeletedAtColumn,
   generateUpdatedAtColumn,
 } from '../table-operations/column-generators'
-import { generateCreateTableSQL } from '../table-operations/create-table-sql'
+import { generateCreateTableSQL, type TableDdlInputs } from '../table-operations/create-table-sql'
 import {
   needsIdColumnRecreation,
   findColumnsToAdd,
@@ -153,16 +153,19 @@ const computeIdProtection = (
  * version upgrade — fatally on Postgres, where the temp table re-created a
  * pre-existing named UNIQUE constraint.
  *
- * Currently the only incompatible change is an `id` column whose type is not the
- * required integer/serial primary key (see `needsIdColumnRecreation`). Dialect-
- * agnostic: the same decision holds on Postgres and SQLite.
+ * Currently the only incompatible change is an `id` column that disagrees with
+ * the primary-key type the config DECLARES (see `needsIdColumnRecreation`) — the
+ * declared type is the reference, NOT a fixed integer/serial. A table that asks
+ * for `primaryKey: { type: 'text' }`, explicitly or implicitly via
+ * `auth.scopeTables`, is already correct with a TEXT id and must not be
+ * recreated. Dialect-agnostic: the same decision holds on Postgres and SQLite.
  */
 export const needsTableRecreation = (
   table: Table,
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>
 ): boolean => {
   const { shouldProtectIdColumn } = computeIdProtection(table)
-  return needsIdColumnRecreation(existingColumns, shouldProtectIdColumn)
+  return needsIdColumnRecreation(existingColumns, shouldProtectIdColumn, table.primaryKey?.type)
 }
 
 /** Recursively sort object keys for order-independent structural comparison. */
@@ -231,12 +234,9 @@ export const isTableDefinitionUnchanged = (
  * since removed) yields `undefined`, which callers read as "cannot prove
  * equivalence" and fall back to reconciling.
  */
-const tableDdlFingerprint = (
-  table: object,
-  tableUsesView?: ReadonlyMap<string, boolean>
-): string | undefined => {
+const tableDdlFingerprint = (table: object, options: TableDdlInputs): string | undefined => {
   try {
-    return generateCreateTableSQL(table as Table, tableUsesView)
+    return generateCreateTableSQL(table as Table, options)
   } catch {
     return undefined
   }
@@ -270,53 +270,139 @@ const tableDdlFingerprint = (
  * either side's DDL cannot be generated, it returns `true` (reconcile) — exactly
  * the behaviour before this predicate existed.
  */
-export const needsDefinitionReconciliation = (
-  table: Table,
-  previousSchema?: { readonly tables: readonly object[] },
-  tableUsesView?: ReadonlyMap<string, boolean>
-): boolean => {
+export const needsDefinitionReconciliation = (options: {
+  readonly table: Table
+  readonly previousSchema?: { readonly tables: readonly object[] }
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+  readonly hasAuthConfig?: boolean
+}): boolean => {
+  const { table, previousSchema, tableUsesView, tablePrimaryKeyTypes, hasAuthConfig } = options
+  const ddlOptions: TableDdlInputs = {
+    tablePrimaryKeyTypes,
+    tableUsesView,
+    ...(hasAuthConfig === undefined ? {} : { hasAuthConfig }),
+  }
   if (isTableDefinitionUnchanged(table, previousSchema)) return false
   const previousTable = findPreviousTable(table.name, previousSchema)
   if (!previousTable) return true
-  const previousDdl = tableDdlFingerprint(previousTable, tableUsesView)
-  const currentDdl = tableDdlFingerprint(table, tableUsesView)
+  // Both sides are fingerprinted with the SAME map and auth flag: the question
+  // is whether the two DEFINITIONS differ, so any input that is not part of the
+  // definition must be held constant across the pair or it would manufacture a
+  // difference of its own.
+  const previousDdl = tableDdlFingerprint(previousTable, ddlOptions)
+  const currentDdl = tableDdlFingerprint(table, ddlOptions)
   if (previousDdl === undefined || currentDdl === undefined) return true
   return previousDdl !== currentDdl
 }
 
-/** Generate ALTER TABLE statements for schema migrations */
-export const generateAlterTableStatements = (
+/**
+ * Per-column `ALTER COLUMN` reshaping (TYPE change, SET/DROP NOT NULL,
+ * SET/DROP DEFAULT).
+ *
+ * PostgreSQL-only — SQLite's `ALTER TABLE` has no `ALTER COLUMN` clause at all,
+ * so these forms crash schema-init with `near "ALTER": syntax error`. On SQLite
+ * these changes are reconciled by the recreate-and-copy path instead: when a
+ * type/nullability/default change is the *only* change to a table, this returns
+ * nothing, so `migrateExistingTableEffect` falls through to
+ * `needsDefinitionReconciliation → recreateTableWithDataEffect`, which rebuilds
+ * the table from the current schema (new column shapes inline) and copies the
+ * data across. Renames / column adds / column drops remain expressible as
+ * supported SQLite ALTERs and stay on both dialects.
+ */
+const generateColumnReshapeStatements = (params: {
+  readonly table: Table
+  readonly existingColumns: ReadonlyMap<string, ExistingColumnInfo>
+  readonly renamedNewNames: ReadonlySet<string>
+  readonly primaryKeyFields: readonly string[]
+  readonly previousSchema?: { readonly tables: readonly object[] }
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+}): readonly string[] => {
+  if (isSqliteRuntime()) return []
+  const {
+    table,
+    existingColumns,
+    renamedNewNames,
+    primaryKeyFields,
+    previousSchema,
+    tablePrimaryKeyTypes,
+  } = params
+  return [
+    ...findTypeChanges(table, existingColumns, renamedNewNames, tablePrimaryKeyTypes),
+    ...findDefaultValueChanges(table, existingColumns, renamedNewNames, previousSchema),
+    ...findNullabilityChanges(table, existingColumns, renamedNewNames, primaryKeyFields),
+  ]
+}
+
+/**
+ * Resolve which columns are renamed, added and dropped for one table.
+ *
+ * Renames are resolved FIRST and their names excluded from the add/drop sets:
+ * a renamed column must move, not be dropped and re-created empty.
+ */
+const planColumnChanges = (
   table: Table,
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
+  shouldProtectIdColumn: boolean,
   previousSchema?: { readonly tables: readonly object[] }
-): readonly string[] => {
+): {
+  readonly renameStatements: readonly string[]
+  readonly renamedNewNames: ReadonlySet<string>
+  readonly columnsToAdd: readonly Fields[number][]
+  readonly columnsToDrop: readonly string[]
+} => {
+  const fieldRenames = detectFieldRenames(table.name, table.fields, previousSchema)
+  const renamedNewNames = new Set(fieldRenames.values())
+  const schemaFieldsByName = new Map<string, Fields[number]>(
+    table.fields.map((field) => [field.name, field])
+  )
+  return {
+    renameStatements: Array.from(fieldRenames.entries()).map(
+      ([oldName, newName]) => `ALTER TABLE ${table.name} RENAME COLUMN ${oldName} TO ${newName}`
+    ),
+    renamedNewNames,
+    columnsToAdd: findColumnsToAdd(table, existingColumns, renamedNewNames),
+    columnsToDrop: findColumnsToDrop(
+      existingColumns,
+      schemaFieldsByName,
+      shouldProtectIdColumn,
+      new Set(fieldRenames.keys())
+    ),
+  }
+}
+
+/**
+ * Generate ALTER TABLE statements for schema migrations
+ *
+ * @param tablePrimaryKeyTypes - Map of table name → `primaryKey.type`. Required
+ *   on any table carrying a `relationship` field: both the ADD COLUMN
+ *   definition and the type-drift comparison must size the foreign key to the
+ *   REFERENCED table's primary key, not to the hardcoded INTEGER mapping.
+ */
+export const generateAlterTableStatements = (options: {
+  readonly table: Table
+  readonly existingColumns: ReadonlyMap<string, ExistingColumnInfo>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+  readonly hasAuthConfig?: boolean
+}): readonly string[] => {
+  const { table, existingColumns, previousSchema, tablePrimaryKeyTypes, hasAuthConfig } = options
   const { shouldProtectIdColumn, primaryKeyFields } = computeIdProtection(table)
 
   // A table needing full recreation yields no incremental ALTERs. The migrate
   // path decides recreate-vs-alter up front via `needsTableRecreation` and only
   // reaches here on the alter path; keep this guard so a direct caller still
   // gets [] rather than statements against a column about to be recreated.
-  if (needsIdColumnRecreation(existingColumns, shouldProtectIdColumn)) return []
+  if (needsIdColumnRecreation(existingColumns, shouldProtectIdColumn, table.primaryKey?.type))
+    return []
 
   validateFieldRenameAmbiguity(table, previousSchema)
 
-  const fieldRenames = detectFieldRenames(table.name, table.fields, previousSchema)
-  const renameStatements = Array.from(fieldRenames.entries()).map(
-    ([oldName, newName]) => `ALTER TABLE ${table.name} RENAME COLUMN ${oldName} TO ${newName}`
-  )
-
-  const renamedOldNames = new Set(fieldRenames.keys())
-  const renamedNewNames = new Set(fieldRenames.values())
-  const schemaFieldsByName = new Map<string, Fields[number]>(
-    table.fields.map((field) => [field.name, field])
-  )
-
-  const columnsToAdd = findColumnsToAdd(table, existingColumns, renamedNewNames)
-  const columnsToDrop = findColumnsToDrop(
+  const { renameStatements, renamedNewNames, columnsToAdd, columnsToDrop } = planColumnChanges(
+    table,
     existingColumns,
-    schemaFieldsByName,
     shouldProtectIdColumn,
-    renamedOldNames
+    previousSchema
   )
 
   validateDestructiveOps(table, columnsToDrop)
@@ -327,26 +413,18 @@ export const generateAlterTableStatements = (
     columnsToAdd,
     primaryKeyFields,
     allFields: table.fields,
+    tablePrimaryKeyTypes,
+    ...(hasAuthConfig === undefined ? {} : { hasAuthConfig }),
   })
 
-  // Per-column `ALTER COLUMN` reshaping (TYPE change, SET/DROP NOT NULL,
-  // SET/DROP DEFAULT) is PostgreSQL-only — SQLite's `ALTER TABLE` has no
-  // `ALTER COLUMN` clause at all, so these forms crash schema-init with
-  // `near "ALTER": syntax error`. On SQLite these changes are reconciled by the
-  // recreate-and-copy path instead: when a type/nullability/default change is
-  // the *only* change to a table, this function returns no ALTER statements, so
-  // `migrateExistingTableEffect` falls through to
-  // `!isTableDefinitionUnchanged → recreateTableWithDataEffect`, which rebuilds
-  // the table from the current schema (new column shapes inline) and copies the
-  // data across. Renames / column adds / column drops remain expressible as
-  // supported SQLite ALTERs and stay on both dialects.
-  const columnReshapeStatements = isSqliteRuntime()
-    ? []
-    : [
-        ...findTypeChanges(table, existingColumns, renamedNewNames),
-        ...findDefaultValueChanges(table, existingColumns, renamedNewNames, previousSchema),
-        ...findNullabilityChanges(table, existingColumns, renamedNewNames, primaryKeyFields),
-      ]
+  const columnReshapeStatements = generateColumnReshapeStatements({
+    table,
+    existingColumns,
+    renamedNewNames,
+    primaryKeyFields,
+    previousSchema,
+    tablePrimaryKeyTypes,
+  })
 
   // ORDER: rename → drop → add → special fields → type changes → defaults → nullability
   return [

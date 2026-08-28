@@ -51,8 +51,18 @@ through the environment:
 ```bash
 MCP_ENABLED=true
 MCP_TRANSPORT=streamable-http   # or "stdio" for a client on the same machine
-MCP_AUTH_STRATEGY=oauth         # the LLM client signs in as a Sovrium user
 ```
+
+There is **no credential variable**. `/mcp` authenticates on the header a request carries:
+an API key on `x-api-key`, or an OAuth access token on `Authorization: Bearer`. Both are
+live at once, and both are issued by the auth layer — which is why `MCP_ENABLED=true`
+requires an `auth` block and refuses to boot without one. This template ships one, with
+`apiKeys: true` already set (see [`config/auth.yaml`](./config/auth.yaml)).
+
+For a non-interactive client, sign in as the user whose role it should inherit, mint a key
+at `POST /api/auth/api-key/create`, and send it on `x-api-key`. The key acts as **its
+owner**, resolved live on every call — so granting that user the `editor` role below is
+what unlocks the write tools, and demoting them narrows the same key without re-issuing it.
 
 The split is the point: the **schema author declares intent**, the **operator activates
 it**. A config file has no business switching on a network listener in someone else's
@@ -88,7 +98,7 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 (Scalingo's filesystem is ephemeral — the database keeps your data across deploys; file
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
-(see [DEPLOY.md](https://github.com/sovrium/sovrium/blob/main/DEPLOY.md)).
+(see the [deployment guides](https://sovrium.com/en/docs/installation)).
 
 ## About this repository
 

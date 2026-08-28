@@ -27,42 +27,40 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const RichTextFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('rich-text'),
-      maxLength: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({
-            description: 'Maximum length in characters',
-          })
-        )
-      ),
-      fullTextSearch: Schema.optional(
-        Schema.Boolean.pipe(
-          Schema.annotations({
-            description: 'Enable full-text search indexing for this field',
-          })
-        )
-      ),
-      toolbar: Schema.optional(
-        Schema.Array(Schema.String).pipe(
-          Schema.annotations({
-            description:
-              'Toolbar actions to display (e.g., bold, italic, link, heading, list, image, code-block, table). When omitted, all actions are available.',
-          })
-        )
-      ),
-      placeholder: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Placeholder text displayed when the editor is empty',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('rich-text'),
+    maxLength: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+        Schema.annotate({
+          description: 'Maximum length in characters',
+        })
+      )
+    ),
+    fullTextSearch: Schema.optional(
+      Schema.Boolean.pipe(
+        Schema.annotate({
+          description: 'Enable full-text search indexing for this field',
+        })
+      )
+    ),
+    toolbar: Schema.optional(
+      Schema.Array(Schema.String).pipe(
+        Schema.annotate({
+          description:
+            'Toolbar actions to display (e.g., bold, italic, link, heading, list, image, code-block, table). When omitted, all actions are available.',
+        })
+      )
+    ),
+    placeholder: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Placeholder text displayed when the editor is empty',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Rich Text Field',
     description:
       'Stores formatted text with rich formatting support. Rendered with Tiptap WYSIWYG editor in UI.',

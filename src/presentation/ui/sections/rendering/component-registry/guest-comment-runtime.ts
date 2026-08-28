@@ -26,6 +26,13 @@
  *    posted comment's author name + content to the SSR comments section
  *    so the assertion `page.getByText('Jane Doe')` resolves without a
  *    hydration island roundtrip.
+ * - [internal ref]: when the SSR renderer resolved an
+ *    authenticated session, prefill the name/email inputs from the
+ *    section's `data-comments-session-*` attributes.
+ *
+ * The script string below ships to the browser verbatim, so its inline
+ * comments describe behavior only and carry no internal spec ids — the
+ * mapping above stands in for them.
  *
  * Synchronous XHR is used for the POST so the click handler blocks
  * until the response is committed — Playwright's `getByText` is
@@ -122,7 +129,7 @@ export const GUEST_COMMENT_FORM_RUNTIME = `(function () {
       if (!validate(form)) return;
       submitForm(form);
     });
-    // APP-PAGES-PUBLIC-COMMENTS-008 prefill: if a session user is exposed
+    // Session prefill: if a session user is exposed
     // via the section's data-* attributes (set when the SSR renderer
     // resolves an authenticated session), prefill the name/email inputs
     // so the toHaveValue() assertions match without a hydration roundtrip.

@@ -41,12 +41,15 @@
  *
  * Buckets ALWAYS redirect: the bucket list is `app.buckets` when the operator
  * declares any, otherwise the single virtual **default** bucket (uploads land
- * there regardless of config — the same projection the `/api/admin/buckets` index
- * endpoint uses), so there is always a first bucket to redirect to (no whole-page
- * empty state). Selection is a path segment, so it is URL-derived — back/forward +
+ * there regardless of config). That projection is `declaredBucketNames` — the
+ * SAME function the `/api/admin/buckets` index and overview endpoints call, so
+ * the sidebar cannot enumerate a different set of buckets than the API does.
+ * There is therefore always a first bucket to redirect to (no whole-page empty
+ * state). Selection is a path segment, so it is URL-derived — back/forward +
  * the SPA content swap + the sidebar's active-row highlight compose for free.
  */
 
+import { declaredBucketNames, DEFAULT_BUCKET_NAME } from '@/domain/utils/bucket-identity'
 import {
   dataObjectFullWidth,
   dataPageIntro,
@@ -59,16 +62,6 @@ import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
-/** An operator bucket (the redirect's first-object source). */
-type OperatorBucket = App['buckets'] extends ReadonlyArray<infer T> | undefined ? T : never
-
-/**
- * The virtual default bucket offered when the operator declares none. Uploads
- * land here regardless of `app.buckets`, so the file browser always has at least
- * one bucket to open (mirrors the `/api/admin/buckets` index projection).
- */
-const DEFAULT_BUCKET_NAME = 'default'
-
 /**
  * Id of the file-list `data-table` component. The upload control's
  * `onSuccess.refetch` references it by `props.id` so a successful upload
@@ -78,18 +71,6 @@ const FILES_GRID_ID = 'admin-bucket-files-grid'
 
 /** Host id of the upload `file-upload` control (stable input id stem). */
 const UPLOAD_CONTROL_ID = 'admin-bucket-upload'
-
-/**
- * The declared bucket names, or the single virtual default bucket when none are
- * declared. The first entry is the bare-page redirect target (Pass 1 item 1.5a).
- */
-function bucketNames(buckets: ReadonlyArray<OperatorBucket>): ReadonlyArray<string> {
-  if (buckets.length === 0) return [DEFAULT_BUCKET_NAME]
-  return buckets.flatMap((bucket): ReadonlyArray<string> => {
-    const { name } = bucket as { readonly name?: unknown }
-    return typeof name === 'string' ? [name] : []
-  })
-}
 
 /** The page intro: heading + orienting one-liner. */
 function intro(): Component {
@@ -146,11 +127,54 @@ function uploadControl(bucketName: string): Component {
 }
 
 /**
+ * The per-row file controls: Download, then Delete.
+ *
+ * Both target the PUBLIC file route (an arbitrary, unrestricted target path —
+ * NOT routed through `/api/admin/*`), whose `:filename{.+}` pattern matches
+ * multi-segment storage keys, so `$record.key` resolves for path-prefixed files.
+ */
+function fileRowActions(bucketName: string): Readonly<Record<string, unknown>> {
+  const fileUrl = `/api/buckets/${encodeURIComponent(bucketName)}/files/$record.key`
+  return {
+    type: 'actions',
+    label: '',
+    actions: [
+      {
+        label: 'Download',
+        icon: 'download',
+        action: { type: 'fetch', mode: 'download', url: fileUrl, filename: '$record.filename' },
+      },
+      {
+        // Deleting a file already ships and is RBAC-gated (`buckets.ts:762`,
+        // registered via `.on('DELETE', …)`); it was simply absent from the
+        // console, so an operator could SEE a file here but had to leave the
+        // console to remove it.
+        label: 'Delete',
+        action: { type: 'fetch', method: 'DELETE', url: fileUrl },
+        // The OBJECT confirm form, not the bare string, for two reasons. It
+        // states what is destroyed and that it is irreversible, rather than
+        // asking an abstract question — this grid routinely shows near-identical
+        // rows. And it sets BOTH labels explicitly: the confirm-gate runtime
+        // defaults its buttons to the French "Confirmer" / "Annuler"
+        // (`confirm-gate-runtime.ts:181`), which would otherwise drop French
+        // into an English operator console. That default is being fixed at the
+        // root separately; these labels are correct either way.
+        confirm: {
+          title: 'Delete this file?',
+          message: 'Deleting this file removes it from the bucket. This cannot be undone.',
+          confirmLabel: 'Delete file',
+          cancelLabel: 'Cancel',
+        },
+      },
+    ],
+  }
+}
+
+/**
  * The file-list `data-table` — system-source bound to the admin file-list
  * endpoint for THIS bucket (`{ items: [...] }`, rows keyed on `key`). Columns
- * mirror the bespoke browser (File · Type · Size · Modified) with a per-row
- * download control: a CAP-3 `mode: download` `fetch` action to the PUBLIC file
- * route (an arbitrary, unrestricted target path — NOT routed through `/api/admin/*`).
+ * mirror the bespoke browser (File · Type · Size · Modified) plus the per-row
+ * Download / Delete controls from {@link fileRowActions}.
  */
 function filesDataTable(bucketName: string): Component {
   return {
@@ -168,25 +192,17 @@ function filesDataTable(bucketName: string): Component {
       { field: 'mimeType', label: 'Type' },
       { field: 'size', label: 'Size', align: 'right', format: 'compact' },
       { field: 'createdAt', label: 'Modified', format: 'short-date' },
-      {
-        type: 'actions',
-        label: '',
-        actions: [
-          {
-            label: 'Download',
-            icon: 'download',
-            action: {
-              type: 'fetch',
-              mode: 'download',
-              url: `/api/buckets/${encodeURIComponent(bucketName)}/files/$record.key`,
-              filename: '$record.filename',
-            },
-          },
-        ],
-      },
+      fileRowActions(bucketName),
     ],
+    // The file search box. `toolbar.search` alone does NOT render it — the
+    // toolbar gates the searchbox on the `search` config block being present
+    // (see the same note on `table-data-surface.ts`), so declaring only the
+    // toolbar flag left this grid with no search affordance at all while the
+    // page copy above it advertised one.
+    search: { enabled: true, placeholder: 'Search files' },
     toolbar: { search: true, filters: true, sort: true },
     emptyMessage: 'No files',
+    noMatchMessage: 'No file matches “{query}”',
   } as unknown as Component
 }
 
@@ -241,8 +257,7 @@ export function buildDataBucketsPage(
   selected: string | undefined,
   options: DataShellOptions
 ): Page | DataObjectRedirect {
-  const buckets = (operatorApp.buckets ?? []) as ReadonlyArray<OperatorBucket>
-  const names = bucketNames(buckets)
+  const names = declaredBucketNames(operatorApp.buckets)
 
   // Bare object-page path → 302-redirect to the first bucket's browser (always
   // present: declared buckets, else the virtual `default`).

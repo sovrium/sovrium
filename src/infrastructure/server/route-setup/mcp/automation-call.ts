@@ -32,7 +32,6 @@
  */
 
 import { Effect } from 'effect'
-import { type Context } from 'hono'
 import {
   type RunAutomationError,
   type RunAutomationResult,
@@ -40,7 +39,7 @@ import {
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { isAiAccessEnabled } from '@/domain/models/shared/ai-access'
 import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
-import { jsonRpcError, jsonRpcSuccess } from './tool-call-helpers'
+import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from './auth'
 import type { App } from '@/domain/models/app'
 import type { Automation } from '@/domain/models/app/automations'
@@ -48,7 +47,6 @@ import type { Automation } from '@/domain/models/app/automations'
 interface CallEnvelope {
   readonly toolName: string
   readonly args: Record<string, unknown>
-  readonly responseId: number | string
 }
 
 const AUTOMATION_INFIX = '_automation_'
@@ -105,29 +103,23 @@ const callerRoleForManualTrigger = (caller: McpCaller): string => caller.role
  *   - `AutomationRegistrySeedError` → -32603 (DB unavailable; the
  *     run-history seed step failed before any action ran)
  */
-const automationErrorToJsonRpc = (
-  c: Readonly<Context>,
-  responseId: number | string,
-  error: RunAutomationError
-): Response => {
+const automationErrorToJsonRpc = (error: RunAutomationError): never => {
   if (error._tag === 'AutomationManualRoleRequired') {
-    return jsonRpcError(
-      c,
-      responseId,
+    return toolFailure(
       -32_603,
       `Operation not permitted: this automation requires the '${error.required}' role`
     )
   }
   if (error._tag === 'AutomationNotFound' || error._tag === 'AutomationNotManualTriggered') {
-    return jsonRpcError(c, responseId, -32_601, `Automation not found: ${error.name}`)
+    return toolFailure(-32_601, `Automation not found: ${error.name}`)
   }
   if (error._tag === 'AutomationRegistrySeedError') {
-    return jsonRpcError(c, responseId, -32_603, `Failed to register automation: ${error.name}`)
+    return toolFailure(-32_603, `Failed to register automation: ${error.name}`)
   }
   // Defensive default — should not fire because RunAutomationError is a
   // closed union, but keeping a fallthrough avoids a TS exhaustiveness
   // hole if the union ever grows.
-  return jsonRpcError(c, responseId, -32_603, 'Automation execution failed')
+  return toolFailure(-32_603, 'Automation execution failed')
 }
 
 /**
@@ -157,7 +149,6 @@ const buildAutomationResultBody = (result: RunAutomationResult) => {
  * as `ExecuteToolInput` in the table-record dispatcher.
  */
 export interface HandleAutomationCallInput {
-  readonly c: Readonly<Context>
   readonly app: App
   readonly caller: McpCaller
   readonly automation: Automation
@@ -174,8 +165,10 @@ export interface HandleAutomationCallInput {
  * authorization and runtime failures are surfaced as -32603 errors per
  * MCP convention.
  */
-export const handleAutomationCall = async (input: HandleAutomationCallInput): Promise<Response> => {
-  const { c, app, caller, automation, envelope } = input
+export const handleAutomationCall = async (
+  input: HandleAutomationCallInput
+): Promise<McpToolResult> => {
+  const { app, caller, automation, envelope } = input
   const program = runManualAutomation({
     name: automation.name,
     app,
@@ -186,10 +179,10 @@ export const handleAutomationCall = async (input: HandleAutomationCallInput): Pr
   })
 
   const provided = provideAutomationRuntime(program)
-  const outcome = await Effect.runPromise(Effect.either(provided))
+  const outcome = await Effect.runPromise(Effect.result(provided))
 
-  if (outcome._tag === 'Left') {
-    return automationErrorToJsonRpc(c, envelope.responseId, outcome.left)
+  if (outcome._tag === 'Failure') {
+    return automationErrorToJsonRpc(outcome.failure)
   }
-  return jsonRpcSuccess(c, envelope.responseId, buildAutomationResultBody(outcome.right))
+  return toolSuccess(buildAutomationResultBody(outcome.success))
 }

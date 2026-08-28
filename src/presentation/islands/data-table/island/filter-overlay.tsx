@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { optionLabel, optionValue } from '@/domain/utils/select-option'
 import { getOperatorsForType, isSelectValueField } from './filter-operators'
 import type { FilterConjunction, FilterRow } from './use-ui-state'
@@ -44,6 +44,7 @@ interface FilterOverlayProps {
   readonly onRemoveFilter: (id: string) => void
   readonly onClearAll: () => void
   readonly onToggleConjunction: () => void
+  readonly onClose: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +93,21 @@ export function FilterOverlay({
   onRemoveFilter,
   onClearAll,
   onToggleConjunction,
+  onClose,
 }: FilterOverlayProps) {
+  // Escape closes the panel. The toolbar's Filter button only ever OPENS it
+  // (`onOpenFilterOverlay`), and the panel is an inline disclosure rather than a
+  // modal, so without this — and without the header Close button below — an
+  // operator who opened it had no way to dismiss it and it sat over the results.
+  // `onCloseFilterOverlay` already existed in `use-ui-state` but nothing consumed it.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
   // Draft row state — what the user is currently authoring before clicking
   // "Add filter". The committed state lives in the parent's `activeFilters`.
   const initialField = tableFields[0] ?? ''
@@ -155,16 +170,26 @@ export function FilterOverlay({
         >
           {filterConjunction}
         </button>
-        {activeFilters.length > 0 && (
+        <div className="ml-auto flex items-center gap-3">
+          {activeFilters.length > 0 && (
+            <button
+              type="button"
+              aria-label="Clear all filters"
+              onClick={onClearAll}
+              className="text-foreground-muted hover:text-foreground text-xs underline"
+            >
+              Clear all
+            </button>
+          )}
           <button
             type="button"
-            aria-label="Clear all filters"
-            onClick={onClearAll}
-            className="text-foreground-muted hover:text-foreground ml-auto text-xs underline"
+            aria-label="Close filter panel"
+            onClick={onClose}
+            className="text-foreground-muted hover:text-foreground text-xs underline"
           >
-            Clear all
+            Close
           </button>
-        )}
+        </div>
       </div>
       {activeFilters.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
@@ -196,7 +221,11 @@ export function FilterOverlay({
               key={f}
               value={f}
             >
-              {f}
+              {/* The declared display name, falling back to the raw field name.
+                  The column header already shows the label, so naming the field
+                  differently here would ask the operator to translate between
+                  the two halves of the same grid. */}
+              {fieldMeta?.[f]?.label ?? f}
             </option>
           ))}
         </select>

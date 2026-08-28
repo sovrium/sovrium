@@ -18,15 +18,15 @@ export const hoverCardFields = {
   ...contentFields,
   ...i18nFields,
   openDelay: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.annotations({ description: 'Delay in milliseconds before showing hover-card' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+      Schema.annotate({ description: 'Delay in milliseconds before showing hover-card' })
     )
   ),
   closeDelay: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.annotations({ description: 'Delay in milliseconds before hiding hover-card' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+      Schema.annotate({ description: 'Delay in milliseconds before hiding hover-card' })
     )
   ),
   floatingSide: Schema.optional(FloatingSideSchema),

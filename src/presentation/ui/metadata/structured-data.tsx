@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { serializeJsonForScript } from '@/domain/utils/json-script-serialization'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -86,14 +87,19 @@ function expandJsonLdValue(value: unknown): unknown {
  * Each structured data type is rendered as a separate <script type="application/ld+json">
  * tag for proper Schema.org validation
  *
- * SECURITY: Safe use of dangerouslySetInnerHTML
- * - Content: Schema.org structured data (JSON.stringify)
+ * SECURITY: use of dangerouslySetInnerHTML
+ * - Content: Schema.org structured data, serialized by `serializeJsonForScript`
  * - Source: Validated Page schema (page.meta.schema or page.meta.structuredData)
- * - Risk: None - JSON data cannot execute as code
- * - Validation: Schema validation ensures correct structure
  * - Purpose: Generate rich search results (SEO)
- * - XSS Protection: type="application/ld+json" prevents script execution
- * - Format: Safe serialization via JSON.stringify
+ * - Risk: a `</script>` sequence inside ANY string value. `type` does NOT
+ *   protect this — the HTML tokenizer never looks at it, it scans a raw-text
+ *   element for the literal `</script` and ends the element there, resuming
+ *   HTML parsing mid-value. A bare `JSON.stringify` leaves `</` verbatim
+ *   because JSON has no opinion about `<`, so the trailing markup is parsed
+ *   as real HTML and executes.
+ * - Mitigation: `serializeJsonForScript` (domain/utils) escapes `<` as `\u003c`,
+ *   which the delimiter scan no longer matches while the value still parses
+ *   back byte-for-byte. NEVER call `JSON.stringify` directly into a script body.
  *
  * @param page - Page configuration
  * @returns React fragment with script tags or undefined
@@ -112,7 +118,7 @@ function renderTaggedJsonLdArray(
           type="application/ld+json"
           // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(expandTaggedJsonLd(entry)),
+            __html: serializeJsonForScript(expandTaggedJsonLd(entry)),
           }}
         />
       ))}
@@ -134,7 +140,7 @@ function renderOrchestratorJsonLd(structuredData: object): Readonly<ReactElement
           type="application/ld+json"
           // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(value),
+            __html: serializeJsonForScript(value),
           }}
         />
       ))}
@@ -167,7 +173,7 @@ function renderDirectJsonLdArray(
           type="application/ld+json"
           // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(doc),
+            __html: serializeJsonForScript(doc),
           }}
         />
       ))}
@@ -198,7 +204,7 @@ function renderAuthoredStructuredData(structuredData: object): Readonly<ReactEle
         type="application/ld+json"
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script type=ld+json> rendered into <head>; never re-renders client-side
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(structuredData),
+          __html: serializeJsonForScript(structuredData),
         }}
       />
     )

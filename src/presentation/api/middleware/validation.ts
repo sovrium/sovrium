@@ -72,14 +72,14 @@ export class FieldFormatError {
 /**
  * Validation context - provides app configuration and request context
  */
-export class ValidationContext extends Context.Tag('ValidationContext')<
+export class ValidationContext extends Context.Service<
   ValidationContext,
   {
     readonly app: App
     readonly tableName: string
     readonly userRole: string
   }
->() {}
+>()('ValidationContext') {}
 
 /**
  * Every error class {@link formatValidationError} must translate into a wire

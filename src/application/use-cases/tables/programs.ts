@@ -19,6 +19,7 @@ import {
   buildUpdateAuthorshipOverrides,
 } from '@/domain/services/authorship-fields'
 import { isGuestSession } from '@/domain/services/guest-session'
+import { filterReadableFields } from '@/domain/validators/field-read-filter'
 import {
   computeGroupPartitions,
   reshapeShortcutAggregations,
@@ -29,7 +30,6 @@ import {
   enrichRecordWithAttachmentUrls,
 } from './utils/attachment-url-enricher'
 import { formatFieldForDisplay } from './utils/display-formatter'
-import { filterReadableFields } from './utils/field-read-filter'
 import { processRecords, applyPagination } from './utils/list-helpers'
 import { getManyToManyFieldSpecs, type ManyToManyFieldSpec } from './utils/many-to-many-fields'
 import { preserveIdType } from './utils/preserve-id-type'
@@ -111,7 +111,7 @@ function parseGroupByLevels(groupBy: string | undefined): readonly string[] {
 }
 
 function computeListRecordsAggregationBlock(params: {
-  readonly repo: TableRepository['Type']
+  readonly repo: TableRepository['Service']
   readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly records: readonly Readonly<Record<string, unknown>>[]
@@ -213,15 +213,15 @@ const readManyToManyLinks = (
 const mergeManyToManyFields = <V>(
   fields: Readonly<Record<string, V>>,
   recordId: string | number,
-  linkMap: ManyToManyLinkMap
-): Record<string, V | readonly (string | number)[]> => {
+  linkMap: Readonly<ManyToManyLinkMap>
+): Readonly<Record<string, V | readonly (string | number)[]>> => {
   const links = linkMap[String(recordId)]
   return links ? { ...fields, ...links } : { ...fields }
 }
 
 /** Write a create's many-to-many junction rows (no-op when there are none). */
 const writeManyToManyLinks = (
-  repo: TableRepository['Type'],
+  repo: TableRepository['Service'],
   tableName: string,
   sourceId: string | number,
   links: readonly ManyToManyWriteLink[]
@@ -568,7 +568,7 @@ const applyAuthorshipOverrides = (input: {
   readonly tables: App['tables'] | undefined
   readonly tableName: string
   readonly userId: string
-}): Record<string, unknown> => {
+}): Readonly<Record<string, unknown>> => {
   const { phase, fields, tables, tableName, userId } = input
   if (isGuestSession(userId)) return { ...fields }
   const overrides =
@@ -761,7 +761,11 @@ export function updateRecordProgram(
 export function restoreRecordProgram(
   session: Readonly<UserSession>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  params?: {
+    readonly app?: App
+    readonly userRole?: string
+  }
 ): Effect.Effect<
   RestoreRecordResponse,
   DatabaseError | NotFoundError | ValidationError,
@@ -774,7 +778,22 @@ export function restoreRecordProgram(
     if (record && '_error' in record && record._error === 'not_deleted')
       return yield* Effect.fail(new ValidationError('Record is not deleted'))
     if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
-    return { success: true as const, record: transformRecord(record) }
+
+    // The restore echo is a record-bearing response and must strip fields the
+    // caller may not read, exactly like the GET/PATCH/POST echoes. The only
+    // gate on this route is `permissions.delete`, so without this a role that
+    // may restore a row but may not read one of its columns got that column
+    // back in the echo. `restoreRecordProgram` previously took no `app` and no
+    // `userRole` and therefore structurally could not filter. Its batch sibling
+    // returns a count and has no such shape, which is why the leak survived.
+    const { app, userRole } = params ?? {}
+    const readable =
+      app && userRole ? filterReadableFields({ app, tableName, userRole, record }) : record
+
+    return {
+      success: true as const,
+      record: transformRecord(readable, app ? { app, tableName } : undefined),
+    }
   })
 }
 

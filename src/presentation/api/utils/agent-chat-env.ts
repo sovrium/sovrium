@@ -7,10 +7,17 @@
 
 /**
  * Provider-aware resolution of the agent-chat backend (`{ baseUrl, apiKey }`)
- * from the environment — the SINGLE source of truth shared by BOTH chat
- * handlers (`POST /api/agents/:name/chat` in `ai-mcp-status.ts` and the
- * agent-bound `/api/ai/chat` turn in `agents/agent-chat.ts`), so the two never
- * drift on how they read provider config.
+ * from the environment for the one handler that still resolves it itself:
+ * `POST /api/agents/:name/chat` in `ai-mcp-status.ts`.
+ *
+ * It was the shared source of truth for two handlers. The agent-bound
+ * `/api/ai/chat` turn no longer reads it — that path resolves its provider
+ * through the `AiService` port, whose own env parsing (`parseAiEnvConfig`)
+ * routes Ollama to the native `/api/chat`. The two resolvers are therefore NOT
+ * interchangeable and must not be re-merged on the assumption that they are:
+ * this one appends `/v1` for an OpenAI-compatible caller (see
+ * {@link DEFAULT_OLLAMA_BASE_URL}), and the port's resolver wants the bare host. One
+ * `OLLAMA_BASE_URL` value cannot satisfy both shapes.
  *
  * The key behaviour ([internal ref] — Ollama out-of-the-box): a local Ollama needs NO
  * API key and serves the OpenAI-compatible chat API under `/v1`, so:

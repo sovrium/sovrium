@@ -61,7 +61,8 @@ interface FoundSelectBinding {
  */
 const IMPLICIT_FIELDS: ReadonlySet<string> = new Set(['id'])
 
-const isSelectNode = (record: Record<string, unknown>): boolean => record['type'] === 'select'
+const isSelectNode = (record: Readonly<Record<string, unknown>>): boolean =>
+  record['type'] === 'select'
 
 /**
  * Recursively collect every `select` that declares a `dataSource`, together

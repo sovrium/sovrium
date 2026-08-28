@@ -52,36 +52,36 @@ import { SharedFilterBindingSchema } from './data-source'
 export const SystemSourceSchema = Schema.Struct({
   /** The named read endpoint to fetch rows from (required) */
   endpoint: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Read endpoint path to fetch rows from (e.g. /api/admin/automations/runs)',
       examples: ['/api/admin/automations/runs'],
     })
   ),
   /** Array key in the response envelope (default: 'items') */
   rowsKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Key of the rows array in the response envelope (default: 'items')",
     })
   ),
   /** Row id key used to identify rows (default: 'id') */
   idKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Key of each row's unique id (default: 'id')",
     })
   ),
   /** Optional total-count key; falls back to rows length when absent */
   totalKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Key of the total-count in the envelope; falls back to rows length if absent',
     })
   ),
   /** Static query params merged into every request to the endpoint */
   query: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-    }).annotations({
+    Schema.Record(
+      Schema.String,
+      Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+    ).annotate({
       description: 'Static query params merged into every request to the endpoint',
     })
   ),
@@ -93,7 +93,7 @@ export const SystemSourceSchema = Schema.Struct({
    * mechanism as the DB-table form's `bindTo`.
    */
   bindTo: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'ID of a sibling shared filter/period selector whose published params are merged into every request to endpoint (the dynamic counterpart to the static query)',
     })
@@ -103,12 +103,12 @@ export const SystemSourceSchema = Schema.Struct({
    * publisher's published params this subscriber merges. Inert without `bindTo`.
    */
   sharedFilter: Schema.optional(
-    SharedFilterBindingSchema.annotations({
+    SharedFilterBindingSchema.annotate({
       description:
         'Companion to bindTo: the shared selector params merged (dynamically) into every request to endpoint, alongside the static query. Inert without bindTo.',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'System Source',
   description:
     'Read-endpoint binding: feed a data-bound component from a system endpoint instead of a DB table',

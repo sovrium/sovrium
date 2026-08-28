@@ -21,7 +21,7 @@ export class SearchError extends Data.TaggedError('SearchError')<{
  * Provides full-text search, indexing, and reindexing capabilities.
  * Implementation lives in infrastructure layer.
  */
-export class SearchService extends Context.Tag('SearchService')<
+export class SearchService extends Context.Service<
   SearchService,
   {
     readonly search: (
@@ -39,4 +39,4 @@ export class SearchService extends Context.Tag('SearchService')<
       indexType: string
     ) => Effect.Effect<void, SearchError>
   }
->() {}
+>()('SearchService') {}

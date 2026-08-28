@@ -93,6 +93,7 @@ export interface AdminFormSubmissionDetailRow extends AdminFormSubmissionRow {
  * - `includeDeleted` — when false, only non-deleted rows are returned.
  * - `cursorBefore` — when set, only rows strictly older than this `submittedAt`
  *   are returned (the use case decodes the opaque cursor into this date).
+ * - `q` — the operator's free-text term (see below).
  * - `limit` — the page size; the repository fetches `limit + 1` rows so the use
  *   case can compute `hasMore` / `nextCursor`.
  */
@@ -103,10 +104,23 @@ export interface AdminSubmissionsListFilters {
   readonly from?: Date | undefined
   readonly to?: Date | undefined
   readonly cursorBefore?: Date | undefined
+  /**
+   * Free-text term over the SUBMITTER'S IDENTITY (the account `email` and
+   * `name` behind `submitter_user_id`) and the submission `id`, already trimmed
+   * and length-checked by `searchTermSchema`. `undefined` means "no search".
+   *
+   * The submitted `body` is NEVER part of this haystack. That is the [internal ref] D7
+   * redaction lock expressed as a query contract, not a scoping preference: an
+   * OPERATOR may LIST submissions whose bodies the reveal gate withholds from
+   * them, so a `q` that matched body content would turn this list into a
+   * confirm/deny oracle over exactly that withheld content — recoverable one
+   * substring at a time, never once calling the endpoint that gates it.
+   */
+  readonly q?: string | undefined
   readonly limit: number
 }
 
-export class AdminFormsRepository extends Context.Tag('AdminFormsRepository')<
+export class AdminFormsRepository extends Context.Service<
   AdminFormsRepository,
   {
     /**
@@ -171,4 +185,4 @@ export class AdminFormsRepository extends Context.Tag('AdminFormsRepository')<
       since: Date
     ) => Effect.Effect<readonly AdminFormSubmissionRow[], AdminFormsDatabaseError>
   }
->() {}
+>()('AdminFormsRepository') {}

@@ -205,7 +205,7 @@ export const buildAutomationContext = (
 ): Readonly<Record<string, unknown>> => {
   const td = triggerData as Readonly<Record<string, unknown>>
   const { body } = td
-  const fromBody: Record<string, unknown> =
+  const fromBody: Readonly<Record<string, unknown>> =
     body !== undefined && body !== null && typeof body === 'object'
       ? { ...(body as Record<string, unknown>) }
       : {}

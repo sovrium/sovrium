@@ -8,6 +8,7 @@
 import { Layer } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import {
+  listCommentAuthorsForRecord,
   listCommentAuthorEmailsForRecord,
   getUserEmailById,
   getUserMetadataById,
@@ -19,7 +20,6 @@ import {
   getCommentForAuth,
   deleteComment,
   listComments,
-  listCommentAuthorsForRecord,
   getCommentsCount,
   updateComment,
   updateCommentStatus,

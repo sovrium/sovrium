@@ -22,29 +22,29 @@ export const CryptoHashActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Input string to hash */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Input string to hash (supports template variables)',
       })
     ),
 
     /** Hash algorithm */
-    algorithm: Schema.Literal('md5', 'sha256', 'sha512').pipe(
-      Schema.annotations({
+    algorithm: Schema.Literals(['md5', 'sha256', 'sha512']).pipe(
+      Schema.annotate({
         description: 'Hash algorithm: md5, sha256, or sha512',
       })
     ),
 
     /** Output encoding */
     encoding: Schema.optional(
-      Schema.Literal('hex', 'base64').pipe(
-        Schema.annotations({
+      Schema.Literals(['hex', 'base64']).pipe(
+        Schema.annotate({
           description: 'Output encoding: hex (default) or base64',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'CryptoHashAction',
     title: 'Crypto Hash Action',
     description: 'Compute a cryptographic hash of the input string',

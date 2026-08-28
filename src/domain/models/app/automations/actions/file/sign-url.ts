@@ -22,16 +22,16 @@ export const FileSignUrlActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Storage key of the file */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key of the file',
       })
     ),
 
     /** URL expiration time in seconds */
     expiresIn: Schema.optional(
-      Schema.Number.pipe(
-        Schema.positive(),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isGreaterThan(0)),
+        Schema.annotate({
           description: 'URL expiration time in seconds (default: 3600)',
         })
       )
@@ -39,8 +39,8 @@ export const FileSignUrlActionSchema = Schema.Struct({
 
     /** URL operation type */
     operation: Schema.optional(
-      Schema.Literal('download', 'upload').pipe(
-        Schema.annotations({
+      Schema.Literals(['download', 'upload']).pipe(
+        Schema.annotate({
           description: 'URL operation type (default: download)',
         })
       )
@@ -49,14 +49,14 @@ export const FileSignUrlActionSchema = Schema.Struct({
     /** Content type to bind to an upload URL (only used when operation is 'upload') */
     contentType: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: "Content type to bind to an upload URL (operation: 'upload')",
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileSignUrlAction',
     title: 'File Sign URL Action',
     description: 'Generate a time-limited signed URL for file access',

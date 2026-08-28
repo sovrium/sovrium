@@ -55,10 +55,14 @@ export interface AuditListFilter {
  * server boot).
  *
  * The in-memory buffer it once cleared was superseded by the Drizzle-backed
- * `audit_log` table, whose own boot reset is `clearAuditLogTable()`. Retained
+ * `audit_log` table. That table is NOT reset at boot: a boot truncate once
+ * shipped for the E2E harness's benefit and erased the whole audit history on
+ * every production restart. Spec isolation comes from the per-test database
+ * the fixture duplicates, never from the product wiping its own log. Retained
  * as a stable, harmless hook so the boot sequence and its callers stay intact;
  * intentionally a no-op.
  */
 export function resetAuditEntries(): void {
-  // Intentional no-op — the live audit log resets via clearAuditLogTable().
+  // Intentional no-op — nothing in-memory is left to reset, and the DB-backed
+  // `audit_log` is a durable record no boot path may truncate.
 }

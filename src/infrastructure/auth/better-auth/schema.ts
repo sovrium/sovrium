@@ -18,6 +18,7 @@
 // Inferred types (kept here so they live alongside the public surface)
 import type {
   accounts,
+  apiKeys,
   invitations,
   jwks,
   members,
@@ -35,6 +36,7 @@ import type {
 } from './schema-tables'
 
 export * from './schema-tables'
+export * from './schema-oauth-resource-tables'
 export * from './schema-relations'
 
 export type User = typeof users.$inferSelect
@@ -61,3 +63,5 @@ export type OAuthRefreshToken = typeof oauthRefreshTokens.$inferSelect
 export type NewOAuthRefreshToken = typeof oauthRefreshTokens.$inferInsert
 export type OAuthConsent = typeof oauthConsents.$inferSelect
 export type NewOAuthConsent = typeof oauthConsents.$inferInsert
+export type ApiKey = typeof apiKeys.$inferSelect
+export type NewApiKey = typeof apiKeys.$inferInsert

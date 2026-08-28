@@ -75,9 +75,9 @@ const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
  * Field-type pass-through props extracted from the table-schema field object.
  *
  * Rich-text fields carry `toolbar`, `maxLength`, `placeholder`. Code fields
- * carry `language`, `lineNumbers`, `tabSize`, `minLines`, `maxLines`. We
- * extract a superset here and let the renderer (downstream) ignore irrelevant
- * keys.
+ * carry `language`, `lineNumbers`, `tabSize`, `minLines`, `maxLines`. Barcode
+ * fields carry `format`. We extract a superset here and let the renderer
+ * (downstream) ignore irrelevant keys.
  */
 type FieldTypePassthrough = {
   readonly placeholder?: string
@@ -88,11 +88,15 @@ type FieldTypePassthrough = {
   readonly tabSize?: number
   readonly minLines?: number
   readonly maxLines?: number
+  readonly format?: string
 }
 
 function extractFieldTypePassthrough(tableField: unknown): FieldTypePassthrough {
   const f = tableField as Record<string, unknown>
   return {
+    // Not a display concern: `format` is what tells the submit pipeline that
+    // this column carries a CHECK an untouched '' would fail.
+    format: typeof f['format'] === 'string' ? (f['format'] as string) : undefined,
     placeholder: typeof f['placeholder'] === 'string' ? (f['placeholder'] as string) : undefined,
     maxLength: typeof f['maxLength'] === 'number' ? (f['maxLength'] as number) : undefined,
     toolbar: Array.isArray(f['toolbar']) ? (f['toolbar'] as readonly string[]) : undefined,

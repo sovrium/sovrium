@@ -41,6 +41,11 @@ function handleErrorResponse(c: Context, error: unknown) {
     message: sanitized.message ?? sanitized.error,
     code: sanitized.code,
     ...(sanitized.details ? { details: sanitized.details } : {}),
+    // Both keys must also be DECLARED on `errorResponseSchema`: the parse below
+    // is a bare object schema, so an undeclared key is stripped silently and
+    // the attribution would vanish between here and the wire.
+    ...(sanitized.field ? { field: sanitized.field } : {}),
+    ...(sanitized.errors ? { errors: sanitized.errors } : {}),
   }
 
   return c.json(errorResponseSchema.parse(errorData), statusCode)
@@ -87,13 +92,13 @@ export async function runEffect<T, S>(
     // seams inside (e.g. the DB access-layer `db.query` span) chain under the
     // request root. `Effect.either` already discharged failures to `Left`, so the
     // program has no requirements and needs no `provideLayer`.
-    const either = await runRequestEffect(c, Effect.either(program))
+    const either = await runRequestEffect(c, Effect.result(program))
 
-    if (either._tag === 'Left') {
-      return handleErrorResponse(c, either.left)
+    if (either._tag === 'Failure') {
+      return handleErrorResponse(c, either.failure)
     }
 
-    const validated = schema ? schema.parse(either.right) : either.right
+    const validated = schema ? schema.parse(either.success) : either.success
     return c.json(validated, successStatus as ContentfulStatusCode)
   } catch (error) {
     // Catches defects (Effect.die), schema validation errors,

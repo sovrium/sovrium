@@ -9,6 +9,7 @@ import { Schema } from 'effect'
 import { RecordBatchCreateActionSchema } from './batch-create'
 import { RecordBatchDeleteActionSchema } from './batch-delete'
 import { RecordBatchUpdateActionSchema } from './batch-update'
+import { RecordBatchUpsertActionSchema } from './batch-upsert'
 import { RecordCreateActionSchema } from './create'
 import { RecordDeleteActionSchema } from './delete'
 import { RecordReadActionSchema } from './read'
@@ -18,7 +19,7 @@ import { RecordUpsertActionSchema } from './upsert'
 /**
  * Record Action — union of all record CRUD + batch operators
  */
-export const RecordActionSchema = Schema.Union(
+export const RecordActionSchema = Schema.Union([
   RecordCreateActionSchema,
   RecordReadActionSchema,
   RecordUpdateActionSchema,
@@ -26,9 +27,10 @@ export const RecordActionSchema = Schema.Union(
   RecordUpsertActionSchema,
   RecordBatchCreateActionSchema,
   RecordBatchUpdateActionSchema,
-  RecordBatchDeleteActionSchema
-).pipe(
-  Schema.annotations({
+  RecordBatchDeleteActionSchema,
+  RecordBatchUpsertActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'RecordAction',
     title: 'Record Action',
     description: 'CRUD and batch operations on application tables',
@@ -41,6 +43,7 @@ export type RecordAction = Schema.Schema.Type<typeof RecordActionSchema>
 export * from './batch-create'
 export * from './batch-delete'
 export * from './batch-update'
+export * from './batch-upsert'
 export * from './create'
 export * from './delete'
 export * from './read'

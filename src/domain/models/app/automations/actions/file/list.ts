@@ -22,24 +22,23 @@ export const FileListActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Storage key prefix to list files under */
     prefix: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key prefix to list files under',
       })
     ),
 
     /** Maximum number of files to return */
     limit: Schema.optional(
-      Schema.Number.pipe(
-        Schema.positive(),
-        Schema.int(),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isGreaterThan(0), Schema.isInt()),
+        Schema.annotate({
           description: 'Maximum number of files to return',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileListAction',
     title: 'File List Action',
     description: 'List files in storage by key prefix',

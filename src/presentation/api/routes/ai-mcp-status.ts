@@ -9,7 +9,10 @@ import {
   defaultModelForProvider,
   isAiProviderConfigured,
 } from '@/domain/models/env/ai/ai-providers'
-import { persistAgentTurnDurably } from '@/presentation/api/routes/ai/chat-durable-memory'
+import { logError } from '@/infrastructure/logging/logger'
+import { agentNotFound } from '@/presentation/api/routes/agents/agent-lookup'
+import { checkTriggerPermission } from '@/presentation/api/routes/agents/agent-trigger-guard'
+import { persistChatTurnDurably } from '@/presentation/api/routes/ai/chat-durable-memory'
 import { resolveAgentChatBackend } from '@/presentation/api/utils/agent-chat-env'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import {
@@ -196,7 +199,19 @@ interface AiProviderCallOptions {
   readonly timeoutMs: number
 }
 
-const callAiProvider = async (options: AiProviderCallOptions): Promise<string> => {
+/**
+ * Outcome of one provider round-trip: the model's text, or a `failed` marker.
+ *
+ * A marker rather than a string because the caller must be able to tell a
+ * provider FAILURE from an assistant REPLY. Returning the diagnostic as the
+ * reply text (`[AI provider error: HTTP 404]`) disguised every failure as a
+ * success: HTTP 200, a chat bubble a UI cannot distinguish from a real answer,
+ * no error banner and no retry offered — while `/api/health` kept reporting the
+ * provider reachable.
+ */
+type AiProviderOutcome = { readonly ok: true; readonly reply: string } | { readonly ok: false }
+
+const callAiProvider = async (options: AiProviderCallOptions): Promise<AiProviderOutcome> => {
   const messages = [
     { role: 'system' as const, content: options.systemPrompt },
     { role: 'user' as const, content: options.userMessage },
@@ -223,12 +238,11 @@ const callAiProvider = async (options: AiProviderCallOptions): Promise<string> =
   })
 
   if (!response.ok) {
-    return `[AI provider error: HTTP ${response.status.toString()}]`
+    return { ok: false }
   }
   const payload = (await response.json()) as ChatCompletionResponse
   const content = payload.choices?.[0]?.message?.content
-  if (typeof content === 'string' && content.length > 0) return content
-  return ''
+  return { ok: true, reply: typeof content === 'string' ? content : '' }
 }
 
 const isStringRecordValue = (value: unknown): value is string =>
@@ -279,18 +293,28 @@ const readAiEnv = (env: NodeJS.ProcessEnv, agent: Agent): AiEnv | { readonly err
 const FALLBACK_REPLY =
   'External MCP tools were unavailable for this turn — the agent responded without invoking them.'
 
+/**
+ * Run one agent turn against the provider.
+ *
+ * An EMPTY reply from a reachable provider is still a successful turn — MCP
+ * server unavailability surfaces that way, and the caller owes the operator a
+ * graceful note rather than an error. A provider that
+ * is unreachable, times out, or answers non-2xx is a FAILURE and is reported as
+ * one; the diagnostic is logged, never handed to the caller
+ *.
+ */
 const generateAgentReply = async (
   env: NodeJS.ProcessEnv,
   agent: Agent,
   message: string,
   aiEnv: AiEnv
-): Promise<string> => {
+): Promise<AiProviderOutcome> => {
   const servers = parseMcpClientServers(env)
   const catalog = computeAgentMcpToolCatalog(servers, agent)
   const tools = buildOpenAiTools(catalog)
   const timeoutMs = resolveTimeoutMs(env.MCP_CLIENT_TIMEOUT)
   try {
-    const reply = await callAiProvider({
+    const outcome = await callAiProvider({
       baseUrl: aiEnv.baseUrl,
       apiKey: aiEnv.apiKey,
       model: aiEnv.model,
@@ -300,14 +324,11 @@ const generateAgentReply = async (
       servers,
       timeoutMs,
     })
-    return reply.length > 0 ? reply : FALLBACK_REPLY
+    if (!outcome.ok) return outcome
+    return { ok: true, reply: outcome.reply.length > 0 ? outcome.reply : FALLBACK_REPLY }
   } catch (error) {
-    // The AI provider itself is the only synchronous dependency here; MCP
-    // server unavailability surfaces later when the LLM actually requests a
-    // tool call. Either way the agent still owes the caller a JSON reply
-    // so the UI can render a graceful fallback.
-    const detail = error instanceof Error ? error.message : 'unknown error'
-    return `Agent could not reach the AI provider: ${detail}`
+    logError('[ai] agent chat provider call failed', error)
+    return { ok: false }
   }
 }
 
@@ -321,18 +342,24 @@ type ChatPreflight =
   | { readonly ok: true; readonly agent: Agent; readonly aiEnv: AiEnv }
   | { readonly ok: false; readonly response: Response }
 
-const resolveChatPreflight = (c: Readonly<Context>, app: App | undefined): ChatPreflight => {
+const resolveChatPreflight = async (
+  c: Readonly<Context>,
+  app: App | undefined
+): Promise<ChatPreflight> => {
   const agentName = c.req.param('name')
   if (typeof agentName !== 'string' || agentName.length === 0) {
     return { ok: false, response: c.json({ error: 'Agent name is required.' }, 400) }
   }
   const agent = findAgentByName(app, agentName)
   if (!agent) {
-    return {
-      ok: false,
-      response: c.json({ error: `Agent '${agentName}' is not declared in the app schema.` }, 404),
-    }
+    return { ok: false, response: agentNotFound(c) }
   }
+  // [internal ref]: a chat turn is an agent invocation, so it carries
+  // the same `permissions.trigger` gate `/execute` does. Ahead of the 503
+  // below, which would otherwise answer differently for a declared agent than
+  // for an undeclared one and reopen the enumeration oracle the 404 closes.
+  const triggerRefusal = await checkTriggerPermission(c, agent)
+  if (triggerRefusal) return { ok: false, response: triggerRefusal }
   // [internal ref]: with no AI provider configured at all, the declared agent is
   // INERT — discoverable but not runnable. Degrade gracefully with 503 rather
   // than letting `readAiEnv` default to a local Ollama and either hang on an
@@ -358,7 +385,7 @@ const resolveChatPreflight = (c: Readonly<Context>, app: App | undefined): ChatP
 const handleAgentChat =
   (app: App | undefined) =>
   async (c: Readonly<Context>): Promise<Response> => {
-    const preflight = resolveChatPreflight(c, app)
+    const preflight = await resolveChatPreflight(c, app)
     if (!preflight.ok) return preflight.response
     const { agent, aiEnv } = preflight
     const agentName = agent.name
@@ -367,7 +394,14 @@ const handleAgentChat =
     if (message.length === 0) {
       return c.json({ error: '`message` is required and must be a non-empty string.' }, 400)
     }
-    const reply = await generateAgentReply(process.env, agent, message, aiEnv)
+    const outcome = await generateAgentReply(process.env, agent, message, aiEnv)
+    // A provider failure is reported AS a failure so the chat surface can render
+    // its error banner and offer retry — mirroring the agent-bound `/api/ai/chat`
+    // branch's 502. The provider diagnostic is never echoed to the caller.
+    if (!outcome.ok) {
+      return c.json({ error: 'The assistant is temporarily unavailable. Please try again.' }, 502)
+    }
+    const { reply } = outcome
 
     // Persist the turn to durable conversation history, tagging the
     // conversation with the agent name so agent-bound threads are
@@ -376,7 +410,7 @@ const handleAgentChat =
     const session = getSessionContext(c as unknown as Context)
     const userId = session?.userId ?? 'anonymous'
     // eslint-disable-next-line functional/no-expression-statements -- best-effort durable-persistence side effect
-    await persistAgentTurnDurably({
+    await persistChatTurnDurably({
       userId,
       sessionId: sessionId ?? 'default',
       userMessage: message,

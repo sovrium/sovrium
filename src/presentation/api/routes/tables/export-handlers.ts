@@ -7,12 +7,14 @@
 
 import { Effect } from 'effect'
 import { createListRecordsProgram } from '@/application/use-cases/tables/programs'
+import { isFieldReadableByRole } from '@/domain/validators/field-read-filter'
 import { hasReadPermission } from '@/domain/validators/permission-evaluators'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { passesTableRoleGate, resolveGuardForTable } from './record/row-level-guard'
 import { buildListFilter, type FilterStructure } from './record/row-level-read-helpers'
+import { validateFilterParam } from './validation/field-permission-validation'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -236,6 +238,29 @@ function checkExportReadGate(input: ExportReadGateInput): Response | undefined {
 }
 
 /**
+ * Every read gate the export must clear, in order: the table-level role gate,
+ * then the field-level check on the caller-supplied `?filterField=`.
+ *
+ * The second used to be missing entirely — export reached the records program
+ * with no field check on any of its filter inputs. Omitting the hidden COLUMN
+ * from the CSV is not the protection: which ROWS come back is one bit per
+ * request, so a member could sweep `filterValue` and reconstruct an admin-only
+ * column while every other route on that field answered 404.
+ */
+function checkExportGates(
+  input: ExportReadGateInput & {
+    readonly tableName: string
+    readonly filter: ReturnType<typeof buildExportFilter>
+  }
+): Response | undefined {
+  const { c, app, table, tableName, userRole, guard, filter } = input
+  return (
+    checkExportReadGate({ c, app, table, userRole, guard }) ??
+    validateFilterParam(filter, { app, tableName, userRole, c })
+  )
+}
+
+/**
  * Parse the export query string into the inputs the handler actually needs.
  * Pulled out to drop a handful of statements and one branch from the main
  * handler so its size/complexity stays under the size-limit thresholds.
@@ -274,11 +299,20 @@ export async function handleExportTableCsv(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
   const guard = await resolveGuardForTable(session, userRole, table, app)
 
-  const gateError = checkExportReadGate({ c, app, table, userRole, guard })
+  const { filter, format, visibleFields } = parseExportQuery(c)
+
+  const gateError = checkExportGates({ c, app, table, tableName, userRole, guard, filter })
   if (gateError) return gateError
 
-  const { filter, format, visibleFields } = parseExportQuery(c)
-  const tableFieldNames = table?.fields?.map((f) => f.name) ?? []
+  // Column NAMES are as much a read surface as column values: the empty-export
+  // branch below emits this list as a bare CSV header, so an unfiltered list
+  // discloses the existence of columns the caller may not read. Narrowing here
+  // also covers the populated path, where the list only supplies column ORDER
+  // for keys the (already filtered) records carry.
+  const tableFieldNames =
+    table?.fields
+      ?.map((f) => f.name)
+      .filter((name) => isFieldReadableByRole(app, tableName, userRole, name)) ?? []
 
   // Z-3 read predicate: AND-merge the row-level read clause onto the
   // request-supplied filter. Sentinels short-circuit to an empty response
@@ -301,13 +335,13 @@ export async function handleExportTableCsv(c: Context, app: App) {
     filter: finalFilter,
     limit: Number.MAX_SAFE_INTEGER,
   })
-  const either = await runRequestEffect(c, Effect.either(provideTableLive(program)))
-  if (either._tag === 'Left') {
+  const either = await runRequestEffect(c, Effect.result(provideTableLive(program)))
+  if (either._tag === 'Failure') {
     return c.json({ success: false, message: 'Export failed', code: 'INTERNAL_ERROR' }, 500)
   }
   const attachments = attachmentFieldNames(table)
-  if (format === 'json') return buildJsonResponse(either.right.records, tableName, attachments)
-  return buildCsvResponse(either.right.records, tableFieldNames, tableName, {
+  if (format === 'json') return buildJsonResponse(either.success.records, tableName, attachments)
+  return buildCsvResponse(either.success.records, tableFieldNames, tableName, {
     attachments,
     visibleFields,
   })

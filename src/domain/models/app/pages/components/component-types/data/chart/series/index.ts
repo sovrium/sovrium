@@ -13,30 +13,29 @@ import { optStr } from '../../../../shared-schemas'
  */
 export const ChartSeriesSchema = Schema.Struct({
   /** Table field for the series values */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Table field name for series data',
   }),
   /** Series display label (legend, tooltip) */
   label: optStr('Display name for the series'),
   /** Series color (theme token or hex) */
   color: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Series color — theme token name or hex value (e.g. #3b82f6)',
     })
   ),
   /** Stack group name — series with the same stack name are stacked */
   stack: Schema.optional(
-    Schema.String.annotations({ description: 'Stack group name for stacked bar/area charts' })
+    Schema.String.annotate({ description: 'Stack group name for stacked bar/area charts' })
   ),
   /** Area fill opacity (0-1, for area/donut types) */
   fillOpacity: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(1),
-      Schema.annotations({ description: 'Area fill opacity between 0 and 1' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+      Schema.annotate({ description: 'Area fill opacity between 0 and 1' })
     )
   ),
-}).annotations({
+}).annotate({
   title: 'Chart Series',
   description: 'Single data series configuration',
 })

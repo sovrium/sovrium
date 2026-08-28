@@ -101,8 +101,8 @@ const fetchAccessibleRecordIds = async (
       return yield* repo.list({ userId })
     })
   )
-  if (result._tag === 'Left') return []
-  return result.right.filter((row) => row.tableSlug === tableSlug).flatMap((row) => row.recordIds)
+  if (result._tag === 'Failure') return []
+  return result.success.filter((row) => row.tableSlug === tableSlug).flatMap((row) => row.recordIds)
 }
 
 interface PostBody {

@@ -23,7 +23,7 @@ export const StateListActionSchema = Schema.Struct({
     /** Key prefix to filter by */
     prefix: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Key prefix to filter by (supports template variables)',
         })
       )
@@ -32,8 +32,8 @@ export const StateListActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
         })
@@ -42,17 +42,16 @@ export const StateListActionSchema = Schema.Struct({
 
     /** Maximum number of keys to return */
     limit: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.positive(),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+        Schema.annotate({
           description: 'Maximum number of keys to return',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'StateListAction',
     title: 'State List Action',
     description: 'List keys in key-value state, optionally filtered by prefix',

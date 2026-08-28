@@ -7,7 +7,9 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -16,6 +18,7 @@ import {
   type RunAutomationResult,
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -53,17 +56,19 @@ export interface ReplayAutomationRunOptions {
  * Resolve the automation by name AND verify it matches the run's automation
  * id. Returns the schema definition so the run loop can drive execution.
  *
- * Disabled automations are NOT replayable — the operator presumably disabled
- * them for a reason; surfacing a 404 keeps the replay contract aligned with
- * the trigger contract (disabled = invisible).
+ * Automations that are OFF are NOT replayable — whether disabled in config or
+ * operationally paused, the operator turned them off for a reason, and a replay
+ * is a NEW run. Surfacing a 404 keeps the replay contract aligned with the
+ * trigger contract (off = invisible).
  */
 const resolveReplayTarget = (
   app: App,
-  name: string
+  name: string,
+  pausedNames: ReadonlySet<string>
 ): Effect.Effect<NonNullable<App['automations']>[number], ReplayAutomationRunError> => {
   const automation = app.automations?.find((a) => a.name === name)
   if (!automation) return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
-  if (automation.enabled === false)
+  if (!isAutomationOperationallyEnabled(automation, pausedNames))
     return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   return Effect.succeed(automation)
 }
@@ -126,7 +131,7 @@ export const replayAutomationRun = (
 ): Effect.Effect<
   RunAutomationResult,
   ReplayAutomationRunError,
-  AutomationRunRepository | ExecuteAutomationRunRequirements
+  AutomationRunRepository | ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
     const { name, runId, app, processEnv, triggerData, userId } = options
@@ -143,7 +148,9 @@ export const replayAutomationRun = (
       return yield* Effect.fail({ _tag: 'AutomationRunMismatch' as const, runId, name })
     }
 
-    const automation = yield* resolveReplayTarget(app, name)
+    // Entry point: one read of the operational pauses, threaded into the gate.
+    const pausedNames = yield* loadPausedAutomationNames
+    const automation = yield* resolveReplayTarget(app, name, pausedNames)
     const steps = yield* repo
       .findStepsByRunId(runId)
       .pipe(Effect.mapError(() => ({ _tag: 'AutomationRunNotFound' as const, runId })))

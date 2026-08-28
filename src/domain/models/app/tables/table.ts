@@ -58,17 +58,18 @@ export { SPECIAL_FIELDS }
  * Orchestrates all validation functions from extracted modules.
  *
  * IMPORTANT: This function uses a generic type parameter instead of an inline type annotation
- * to avoid narrowing the Table type when used with Schema.filter(). Inline type annotations
- * would cause TypeScript to narrow the schema's output type, removing properties like `id`,
- * `required`, etc. from fields — cascading errors to all downstream consumers.
+ * to avoid narrowing the Table type when used with Schema.check(Schema.makeFilter(...)).
+ * Inline type annotations would cause TypeScript to narrow the schema's output type, removing
+ * properties like `id`, `required`, etc. from fields — cascading errors to all downstream
+ * consumers.
  *
- * @param table - Table to validate (type inferred from Schema.filter)
+ * @param table - Table to validate (type inferred from the filter callback)
  * @returns Validation error object if invalid, true if valid
  */
 type ValidationError = { readonly message: string; readonly path: ReadonlyArray<string> }
 
 const validateStructure = (
-  table: Record<string, unknown>,
+  table: Readonly<Record<string, unknown>>,
   fieldNames: ReadonlySet<string>
 ): ValidationError | undefined => {
   if (table.primaryKey) {
@@ -91,7 +92,7 @@ const validateStructure = (
 }
 
 const validateAccessAndViews = (
-  table: Record<string, unknown>,
+  table: Readonly<Record<string, unknown>>,
   fields: ReadonlyArray<{
     readonly name: string
     readonly type: string
@@ -117,7 +118,7 @@ const validateAccessAndViews = (
   return undefined
 }
 
-const validateTableSchema = (table: Record<string, unknown>): ValidationError | true => {
+const validateTableSchema = (table: Readonly<Record<string, unknown>>): ValidationError | true => {
   const fields = table.fields as ReadonlyArray<{
     readonly name: string
     readonly type: string
@@ -189,7 +190,7 @@ const validateWebhookPayloadFields = (
  * must reference real table fields.
  */
 const validateWebhooks = (
-  table: Record<string, unknown>,
+  table: Readonly<Record<string, unknown>>,
   fieldNames: ReadonlySet<string>
 ): ValidationError | undefined => {
   const webhooks = table.webhooks as ReadonlyArray<WebhookForValidation> | undefined
@@ -243,11 +244,11 @@ export const TableSchema = Schema.Struct({
     Schema.Array(
       Schema.Struct({
         fields: Schema.Array(Schema.String).pipe(
-          Schema.minItems(1, { message: () => 'At least one field is required' })
+          Schema.check(Schema.isMinLength(1, { message: 'At least one field is required' }))
         ),
       })
     ).pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Table Unique Constraints',
         description:
           'Top-level unique-constraint declarations. Each entry covers one or more fields.',
@@ -428,7 +429,7 @@ export const TableSchema = Schema.Struct({
    */
   webhooks: Schema.optional(
     Schema.Array(WebhookSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Table Webhooks',
         description: 'Outgoing webhooks triggered on record create/update/delete events',
       })
@@ -471,7 +472,7 @@ export const TableSchema = Schema.Struct({
    */
   aiAccess: Schema.optional(AiAccessSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Table',
     title: 'Table',
     description:
@@ -503,7 +504,23 @@ export const TableSchema = Schema.Struct({
       },
     ],
   }),
-  Schema.filter(validateTableSchema)
+  Schema.check(
+    // EFFECT 4: a filter's object-form issue is `{ path, issue }`, where v3 took
+    // `{ path, message }` (`Schema.d.ts:5131` `FilterIssue`). Handing v4 the v3
+    // shape does not fail a type-check into a graceful degradation — the issue
+    // normalises with `issue: undefined` and the FORMATTER throws
+    // `TypeError: undefined is not an object (evaluating 'issue._tag')`, so a
+    // table with (say) a formula referencing a missing field crashed
+    // `sovrium validate` instead of being told what was wrong with it.
+    //
+    // `validateTableSchema` keeps its own `{ message, path }` return: it is a
+    // domain result read by its own unit tests, and adapting at the seam keeps
+    // the Effect vocabulary out of the domain helpers.
+    Schema.makeFilter((table: Readonly<Record<string, unknown>>) => {
+      const result = validateTableSchema(table)
+      return result === true ? true : { path: result.path, issue: result.message }
+    })
+  )
 )
 
 export type Table = Schema.Schema.Type<typeof TableSchema>

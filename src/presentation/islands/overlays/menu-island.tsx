@@ -57,6 +57,13 @@ interface MenuIslandProps {
    * identity bar). Not serializable, so only the React-composed path uses it.
    */
   readonly triggerContent?: ReactNode
+  /**
+   * Quiet metadata rendered inside the popup BELOW the items (React node) — for
+   * a line that reports rather than acts, so it never has to masquerade as a
+   * disabled menu item. Like {@link MenuIslandProps.triggerContent} it is not
+   * serializable, so only the React-composed path uses it.
+   */
+  readonly footerContent?: ReactNode
   readonly triggerClassName?: string
   readonly triggerAriaLabel?: string
   /**
@@ -281,6 +288,7 @@ export default function MenuIsland({
   triggerHtml,
   triggerLabel,
   triggerContent,
+  footerContent,
   triggerClassName,
   triggerAriaLabel,
   popupVariant = 'default',
@@ -324,6 +332,7 @@ export default function MenuIsland({
           >
             <Menu.Popup className={computeMenuPopupClasses({ variant: popupVariant })}>
               {menuItems.map((item, index) => renderMenuEntry(item, index, popupVariant))}
+              {footerContent}
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>

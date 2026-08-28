@@ -19,20 +19,19 @@ export const timePickerFields = {
   ...i18nFields,
   timeFormat: Schema.optional(TimeFormatSchema),
   minTime: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Minimum selectable time in HH:mm format',
     })
   ),
   maxTime: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Maximum selectable time in HH:mm format',
     })
   ),
   minuteStep: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Minute increment for time selection (default: 15)',
       })
     )

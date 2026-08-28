@@ -9,13 +9,11 @@ import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
 export const JsonFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('json'),
-      schema: Schema.optional(Schema.Struct({})),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('json'),
+    schema: Schema.optional(Schema.Struct({})),
+  }),
+  Schema.annotate({
     title: 'JSON Field',
     description: 'Stores structured JSON data with optional schema validation.',
     examples: [{ id: 1, name: 'metadata', type: 'json', required: false }],

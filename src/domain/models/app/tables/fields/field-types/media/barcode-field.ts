@@ -27,19 +27,17 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const BarcodeFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('barcode'),
-      format: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Barcode format',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('barcode'),
+    format: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Barcode format',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Barcode Field',
     description:
       'Stores barcode values with various format support. Used for product identification and inventory.',

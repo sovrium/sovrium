@@ -9,9 +9,9 @@
  * Notion-style expandable sidebar disclosures for the Application section
  *.
  *
- * Each Application destination (Records / Submissions / Files) is a
- * collapsible toggle: clicking the chevron expands the group and LAZY-LOADS its
- * object list on first expand (tables / forms / buckets — see
+ * Each Application destination (Records / Submissions / Files / Conversations)
+ * is a collapsible toggle: clicking the chevron expands the group and LAZY-LOADS
+ * its object list on first expand (tables / forms / buckets / agents — see
  * {@link fetchGroupItems}); clicking the label still SPA-navigates to the
  * destination's own page. Each loaded object is a real `<a href="/_admin/{key}/
  * {name}">` link, so the shell's SPA-nav island intercepts it for a content-only
@@ -183,8 +183,8 @@ function GroupChildList({
 /**
  * Open the group automatically when its section is the active one, and lazy-load
  * its child list on first expand. The disclosure is default-OPEN when
- * `parentActive` so an operator who lands on (or SPA-navigates into)
- * Records/Submissions/Files sees the object list without a second
+ * `parentActive` so an operator who lands on (or SPA-navigates into) any
+ * Application destination sees its object list without a second
  * click; the re-open effect is one-directional (only opens) so a manual collapse
  * on the active section is respected until the operator navigates away and back.
  */

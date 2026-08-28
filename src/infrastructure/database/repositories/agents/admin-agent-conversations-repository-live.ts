@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, asc, count, desc, eq, gte, lt, lte, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, isNull, lt, lte, or, type SQL } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AdminAgentConversationsDatabaseError,
@@ -14,6 +14,7 @@ import {
   type AdminAgentMessageRow,
   type AdminAgentConversationsListFilters,
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
+import { isDefaultAgentName } from '@/domain/utils/agent-identity'
 import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
@@ -26,6 +27,7 @@ import {
   aiMessages as aiMessagesSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
 
 /** Wrap a DB promise, adapting failures to AdminAgentConversationsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminAgentConversationsDatabaseError({ cause }))
@@ -38,6 +40,27 @@ const wrap = makeDbWrap((cause) => new AdminAgentConversationsDatabaseError({ ca
  */
 const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
 const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
+
+/**
+ * Build the agent-scope predicate for a conversation-source name.
+ *
+ * The reserved {@link DEFAULT_AGENT_NAME} is the general-purpose agent, whose
+ * view is the `agent_name IS NULL` set — the conversations no declared agent
+ * claimed (every `/api/ai/chat` write path stores NULL; see
+ * `src/domain/utils/agent-identity.ts`). Equality can never reach those rows:
+ * `agent_name = 'default'` is NULL-vs-value, which SQL evaluates to NULL and
+ * therefore never true, so before this the whole set was unreachable from the
+ * console rather than merely mis-scoped.
+ *
+ * Expressed with Drizzle's {@link isNull} rather than hand-written SQL so both
+ * dialects render the same `"agent_name" is null` — the one place PG and
+ * SQLite could have been made to differ by an `= NULL` spelling.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's `SQL` condition type is intrinsically mutable; the sibling `build*Conditions` helpers hand back the same shape inside a ReadonlyArray
+const agentScopeCondition = (agentName: string): SQL =>
+  isDefaultAgentName(agentName)
+    ? isNull(aiConversations.agentName)
+    : eq(aiConversations.agentName, agentName)
 
 /**
  * Build the optional `from`/`to` date-window conditions on the conversation
@@ -54,6 +77,29 @@ const buildDateWindowConditions = (
     filters.to !== undefined ? lte(aiConversations.updatedAt, new Date(filters.to)) : undefined
   return [fromCond, toCond].filter((cond): cond is SQL => cond !== undefined)
 }
+
+/**
+ * Build the optional `?q=` free-text predicate: the term occurs in `title` OR
+ * `sessionId` — exactly the two fields the viewer island already matched on, so
+ * moving the search to the server grows its REACH without quietly changing what
+ * the box means. Message `content` stays out of scope.
+ *
+ * {@link searchAnyColumn} carries the portable spelling the contract mandates:
+ * `lower(col) LIKE lower(pattern)` (bare `LIKE` is case-SENSITIVE on Postgres
+ * and case-INSENSITIVE on SQLite; `ILIKE` does not exist on SQLite), with `%`
+ * and `_` escaped so an operator's metacharacter stays a character, and an
+ * absent term contributing no condition at all.
+ *
+ * Both columns are NULLABLE. `LIKE` against NULL yields NULL, so an untitled or
+ * session-less thread simply does not match — the correct answer, and it needs
+ * no COALESCE.
+ *
+ * This belongs in WHERE rather than HAVING: both columns live on the outer
+ * `ai_conversations` table, not on the joined `ai_messages`, so the predicate is
+ * evaluable before the GROUP BY and filters rows rather than groups.
+ */
+const buildSearchConditions = (filters: AdminAgentConversationsListFilters): ReadonlyArray<SQL> =>
+  searchAnyColumn(filters.q, aiConversations.title, aiConversations.sessionId)
 
 /**
  * Build the deterministic newest-first cursor-seek predicate for the
@@ -125,9 +171,14 @@ const toConversationRow = (row: {
 const listConversationsImpl = async (
   filters: AdminAgentConversationsListFilters
 ): Promise<ReadonlyArray<AdminAgentConversationRow>> => {
+  // Every knob ANDs. The search sits INSIDE the same WHERE as the agent scope,
+  // the date window and the cursor seek, which is what makes the `limit + 1`
+  // overfetch an overfetch of MATCHES — so `nextCursor` walks the match stream
+  // and terminates on it, and search can never widen past the agent in the path.
   const conditions = [
-    eq(aiConversations.agentName, filters.agentName),
+    agentScopeCondition(filters.agentName),
     ...buildDateWindowConditions(filters),
+    ...buildSearchConditions(filters),
     ...buildCursorConditions(filters),
   ]
 
@@ -148,9 +199,15 @@ const listConversationsImpl = async (
 
 /**
  * Drizzle implementation for {@link AdminAgentConversationsRepository.getConversation}.
- * Agent-scoped: the WHERE binds BOTH `agent_name` and `id`, so a conversation
- * belonging to a DIFFERENT agent (or no agent) resolves to `undefined` — the use
+ * Agent-scoped: the WHERE binds BOTH the agent scope and the `id`, so a
+ * conversation belonging to a DIFFERENT agent resolves to `undefined` — the use
  * case maps that to the anti-enum 404.
+ *
+ * The scope comes from {@link agentScopeCondition}, so it cuts BOTH ways: an
+ * unclaimed (`agent_name IS NULL`) conversation is invisible under a declared
+ * agent, and a claimed one is invisible under the reserved `default`. Reading
+ * an unclaimed conversation is no longer an impossibility — it is the default
+ * agent's ordinary case.
  */
 const getConversationImpl = async (
   agentName: string,
@@ -160,7 +217,7 @@ const getConversationImpl = async (
     .select(conversationSelect)
     .from(aiConversations)
     .leftJoin(aiMessages, eq(aiMessages.conversationId, aiConversations.id))
-    .where(and(eq(aiConversations.agentName, agentName), eq(aiConversations.id, conversationId)))
+    .where(and(agentScopeCondition(agentName), eq(aiConversations.id, conversationId)))
     .groupBy(...conversationGroupBy)
     .limit(1)
 

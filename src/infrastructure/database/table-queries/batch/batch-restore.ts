@@ -15,7 +15,7 @@ import {
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { wrapDatabaseError } from '../shared/error-handling'
+import { passthroughError, unwrapPassthrough, wrapDatabaseError } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
 import { BATCH_FANOUT_CONCURRENCY, runEffectInTx } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -43,18 +43,16 @@ async function validateAndFilterRecordsForRestore(
   const validationResults = await runEffectInTx(
     Effect.all(
       recordIds.map((recordId) =>
-        // The `catch` below is the IDENTITY mapper, deliberately leaving the
-        // error channel untyped. A genuine driver rejection must reach
-        // `validateAndFilterRecordsWithEffect` UNCHANGED, because that wrapper
-        // composes `Validation failed: ${error.message}` from the original
-        // message and stores the original as `cause`. Wrapping it in a typed
-        // error here would both double the prefix and add a level to the cause
-        // chain — and `presentation/api/routes/tables/utils.ts`
-        // (`isAuthorizationError`) reads `error.cause.message` to choose 404 vs
-        // 500, so the cause chain is observable, not merely diagnostic.
+        // The `catch` TAGS the rejection into a `PassthroughError` carrier,
+        // which `validateAndFilterRecordsWithEffect` unwraps before it
+        // composes its message and stores its `cause`. That keeps the error
+        // channel TYPED here without changing what the outer handler sees: the
+        // final `DatabaseError` still reads its message from the driver error
+        // and still points its `cause` AT it, at the chain depth
+        // `classifyDriverFailure` is tested against. The plain identity mapper
+        // this replaces left the channel `unknown`.
         // A "not found" record is NOT a rejection — it is a returned marker,
         // handled below.
-        // @effect-diagnostics effect/unknownInEffectCatch:off
         Effect.tryPromise({
           try: async () => {
             const checkResult = await executeRaw(
@@ -70,7 +68,7 @@ async function validateAndFilterRecordsForRestore(
 
             return { recordId, error: undefined, isDeleted }
           },
-          catch: (error) => error,
+          catch: passthroughError,
         })
       ),
       { concurrency: BATCH_FANOUT_CONCURRENCY }
@@ -105,9 +103,14 @@ function validateAndFilterRecordsWithEffect(
       // to substring-match prose and regex the record id back out of the
       // message; preserving the tag lets the route read `_tag` and `recordId`
       // directly.
-      if (error instanceof NotFoundError) return error
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return new DatabaseError(`Validation failed: ${errorMessage}`, error)
+      // Unwrap FIRST so both the composed message and the stored `cause`
+      // refer to the original driver error, not to the carrier the inner
+      // probe tagged it with. Depth here is a tested contract — see
+      // `PassthroughError`.
+      const original = unwrapPassthrough(error)
+      if (original instanceof NotFoundError) return original
+      const errorMessage = original instanceof Error ? original.message : 'Unknown error'
+      return new DatabaseError(`Validation failed: ${errorMessage}`, original)
     },
   })
 }

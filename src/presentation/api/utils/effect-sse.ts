@@ -210,7 +210,7 @@ const drainSource = <A, E, R>({
     writeChunk
   ).pipe(
     Effect.as<DrainOutcome>({ tag: 'completed' }),
-    Effect.catchAll((error) => Effect.succeed<DrainOutcome>({ tag: 'failed', error }))
+    Effect.catch((error) => Effect.succeed<DrainOutcome>({ tag: 'failed', error }))
   )
 
   const provided: Effect.Effect<DrainOutcome, never, never> = provideLayer

@@ -14,9 +14,9 @@ import {
   buildAiHealthStatusWithEcoRouting,
   type HealthResponse,
 } from '@/domain/models/api/health/health'
+import { linkTargets } from '@/domain/models/app/links'
 import { resolveOllamaBaseUrl } from '@/domain/models/env/ai/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
-import { clearAuditLogTable } from '@/infrastructure/audit-log/drizzle-store'
 import { resetAuditEntries } from '@/infrastructure/audit-log/in-memory-store'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { resetFormRateLimitState } from '@/infrastructure/forms/form-rate-limiter'
@@ -24,13 +24,14 @@ import { FormRenderers } from '@/infrastructure/layers/form-renderer-layer'
 import { ecoIndexHeaderMiddleware } from '@/infrastructure/server/middleware/eco-index-header'
 import { lowDataModeMiddleware } from '@/infrastructure/server/middleware/low-data-mode'
 import { chainLowDataOptOutRoute } from '@/infrastructure/server/middleware/low-data-opt-out'
-import { resetEcoIndexTrackerForTesting } from '@/infrastructure/utils/eco-index-tracker'
+import { resetEcoIndexTrackerAtBoot } from '@/infrastructure/utils/eco-index-tracker'
+import { resetPageCacheStatsAtBoot } from '@/infrastructure/utils/page-cache-telemetry'
+import { resetTelemetryEpochAtBoot } from '@/infrastructure/utils/telemetry-epoch'
 import {
   authMiddleware,
   requireAuth,
   requireAuthOrGuestComment,
   requireAdmin,
-  requireAdminTier,
 } from '@/presentation/api/middleware/auth'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import {
@@ -56,11 +57,15 @@ import { chainAdminAgentsRoutes } from '@/presentation/api/routes/admin/agents'
 import { chainAdminAuditLogRoutes } from '@/presentation/api/routes/admin/audit-log'
 import { chainAdminAutomationsRoutes } from '@/presentation/api/routes/admin/automations'
 import { chainAdminBucketsRoutes } from '@/presentation/api/routes/admin/buckets'
+import { chainAdminConfigIntrospectionRoutes } from '@/presentation/api/routes/admin/config-introspection'
 import { chainAdminConnectionsRoutes } from '@/presentation/api/routes/admin/connections'
 import { chainAdminConnectionActionRoutes } from '@/presentation/api/routes/admin/connections-actions'
-import { chainAdminEcoRoutes } from '@/presentation/api/routes/admin/eco'
+import { chainAdminDesignSystemRoutes } from '@/presentation/api/routes/admin/design-system'
+import { chainAdminDesignSystemShareRoutes } from '@/presentation/api/routes/admin/design-system-shares'
+import { chainAdminFootprintRoutes } from '@/presentation/api/routes/admin/footprint'
 import { chainAdminFormsRoutes } from '@/presentation/api/routes/admin/forms'
 import { chainAdminFormsAnalyticsExportRoutes } from '@/presentation/api/routes/admin/forms-analytics-export'
+import { chainAdminLinksRoutes } from '@/presentation/api/routes/admin/links'
 import { chainAdminUsersRoutes } from '@/presentation/api/routes/admin/users-overview'
 import { chainCommandSearchRoutes } from '@/presentation/api/routes/command-search'
 import { commandSearchRateLimitMiddleware } from '@/presentation/api/routes/command-search/command-search-rate-limit'
@@ -70,6 +75,7 @@ import { chainRealtimeRoutes } from '@/presentation/api/routes/realtime'
 import { chainRecentRoutes } from '@/presentation/api/routes/recent'
 import { chainUserDirectoryRoutes } from '@/presentation/api/routes/user-directory'
 import { sharedViewsRateLimitMiddleware } from '@/presentation/api/routes/user-views/shared-views-rate-limit'
+import { chainAdminRouteGuards, chainAdminRouteGuardsWithoutAuth } from './admin-route-guards'
 import {
   isTablesRateLimitExceeded,
   recordTablesRateLimitRequest,
@@ -333,19 +339,31 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   resetAuditEntries()
 
-  // Same boot-reset rationale for the DB-backed `audit_log` table (Phase 8
-  // Cycle 1b — canonical event store). The E2E harness restarts the server
-  // between specs against the same database, so without this reset a prior
-  // spec's `account.deletion.scheduled` / `account.deletion.purged` entries
-  // would bleed into the next spec's `executeQuery` assertions. Fire-and-
-  // forget — the truncate runs once per server boot and the helper swallows
-  // any pre-migration failure mode.
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort fire-and-forget boot reset
-  void clearAuditLogTable()
+  // The DB-backed `audit_log` table is DELIBERATELY NOT reset here. A boot
+  // truncate once lived on this line, for the E2E harness's benefit, and it ran
+  // unconditionally: no env gate, no test-only guard, production took exactly
+  // the same line. Every restart — a deploy, a crash-loop, a `systemctl
+  // restart` — erased the entire audit history, so anyone who could cause a
+  // restart could erase their own trail. That is a compliance defect, not a
+  // nicety: an audit log a restart can wipe cannot answer the one question it
+  // exists to answer.
+  //
+  // The harness need it served no longer exists either. `[internal ref]`
+  // duplicates a fresh template database per TEST
+  // (`generateTestDatabaseName` → `_testDatabaseName`, and the analogous
+  // per-test file in SQLite mode), so audit rows cannot bleed between specs;
+  // isolation comes from the database, not from a truncate the product ships.
+  // (`resetAuditEntries()` above is a retained no-op hook, not a second
+  // truncate — see its own docstring.)
 
-  // Same boot-reset rationale for the X-Eco-Index tracker — the in-memory
-  // counter would otherwise leak grades across E2E spec restarts.
-  resetEcoIndexTrackerForTesting()
+  // Same boot-reset rationale for the footprint counters — the in-memory grade
+  // and page-cache tallies would otherwise leak across E2E spec restarts. The
+  // shared epoch is re-stamped FIRST, so both counter sets report an interval
+  // that starts at this boot rather than at module load (see
+  // infrastructure/utils/telemetry-epoch.ts).
+  resetTelemetryEpochAtBoot()
+  resetEcoIndexTrackerAtBoot()
+  resetPageCacheStatsAtBoot()
 
   // Same boot-reset rationale for the F-03 / PG-02 in-process rate-limit
   // sliding-window state. Without this, a comment rate-limit test that
@@ -473,7 +491,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         honoWithActivityRateLimit
       )
     : honoWithActivityRateLimit
-  const honoWithAuth = app.auth
+  const honoWithPreAdminGuards = app.auth
     ? honoWithFormPathAuth
         .use('/api/tables', authMiddleware(auth))
         .use('/api/tables', requireAuth())
@@ -492,95 +510,24 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', authMiddleware(auth))
         .use('/api/activity/*', requireAuth())
-        .use('/api/admin/storage/status', authMiddleware(auth))
-        .use('/api/admin/storage/status', requireAuth())
-        .use('/api/admin/storage/status', requireAdmin(resolveAppForTier))
-        .use('/api/admin/buckets/quota', authMiddleware(auth))
-        .use('/api/admin/buckets/quota', requireAuth())
-        .use('/api/admin/buckets/quota', requireAdmin(resolveAppForTier))
-        // Admin-tier endpoints — `requireAdminTier` enforces the anti-
-        // enumeration 404 for both missing-session and wrong-role callers,
-        // so `requireAuth` is intentionally NOT chained (it would short-
-        // circuit with 401 before the tier check could mask the route).
-        .use('/api/admin/buckets/overview', authMiddleware(auth))
-        .use('/api/admin/buckets/overview', requireAdminTier(resolveAppForTier))
-        // Admin-tier per-bucket file browser.
-        // The wildcard covers `/api/admin/buckets/:name/files`; the bare-list
-        // and overview paths above carry their own gates (middleware stacks).
-        .use('/api/admin/buckets/*', authMiddleware(auth))
-        .use('/api/admin/buckets/*', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/buckets', authMiddleware(auth))
-        .use('/api/admin/buckets', requireAdminTier(resolveAppForTier))
-        // Admin-tier forms catalog + submissions endpoints. Wildcards cover
-        // both the bare list/detail (`/api/admin/forms`, `/api/admin/forms/:name`)
-        // and the nested submissions paths (`.../submissions`,
-        // `.../submissions/:id`, `.../submissions/_bulk`).
-        .use('/api/admin/forms', authMiddleware(auth))
-        .use('/api/admin/forms', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/forms/*', authMiddleware(auth))
-        .use('/api/admin/forms/*', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/audit-log', authMiddleware(auth))
-        .use('/api/admin/audit-log', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/config/version', authMiddleware(auth))
-        .use('/api/admin/config/version', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/tables/overview', authMiddleware(auth))
-        .use('/api/admin/tables/overview', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/eco/overview', authMiddleware(auth))
-        .use('/api/admin/eco/overview', requireAdminTier(resolveAppForTier))
-        // Admin-tier automations endpoints (overview + runs list/detail).
-        // Wildcard covers /api/admin/automations/overview, /api/admin/automations/runs,
-        // and /api/admin/automations/runs/:runId.
-        .use('/api/admin/automations', authMiddleware(auth))
-        .use('/api/admin/automations', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/automations/*', authMiddleware(auth))
-        .use('/api/admin/automations/*', requireAdminTier(resolveAppForTier))
-        // Admin-tier users overview.
-        // requireAdminTier 404s for missing-session AND wrong-role callers
-        // per keystone §6.4 (anti-enumeration), so the route surface stays
-        // hidden from non-admin-tier traffic.
-        .use('/api/admin/users/overview', authMiddleware(auth))
-        .use('/api/admin/users/overview', requireAdminTier(resolveAppForTier))
-        // Bare users-directory path. The
-        // `GET /api/admin/users` account directory reads the auth `user` table
-        // directly (decoupled from Better Auth's literal-`admin` plugin gate),
-        // so a custom top-role operator reaches it. Hono needs at least one
-        // segment to match `/*`, so the segment-less bare path needs its own
-        // gate; mirrors how the bare `/api/admin/connections` sits beside the
-        // `/api/admin/connections/*` wildcard. `requireAdminTier` 404s
-        // missing-session AND non-admin callers (S1 anti-enumeration).
-        .use('/api/admin/users', authMiddleware(auth))
-        .use('/api/admin/users', requireAdminTier(resolveAppForTier))
-        // Admin read surfaces for agents + connections. `requireAdminTier` 404s
-        // missing-session AND non-admin callers (S1 anti-enum); the handlers add
-        // the per-resource unknown-name 404. The `/*` wildcards cover the agent
-        // conversations transcript viewer (`/api/admin/agents/:name/conversations`)
-        // and the connections directory detail (`/api/admin/connections/:id`).
-        // These admin read paths are distinct from the schema-author-facing
-        // `/api/agents/*` and `/api/connections/*` runtime routes (which carry
-        // their own per-(scope,role) gates).
-        .use('/api/admin/agents/*', authMiddleware(auth))
-        .use('/api/admin/agents/*', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/connections/*', authMiddleware(auth))
-        .use('/api/admin/connections/*', requireAdminTier(resolveAppForTier))
-        // Bare connection-list path. Hono
-        // requires at least one segment to match `/*`, so the segment-less
-        // `/api/admin/connections` list endpoint needs its own gate; mirrors
-        // how `/api/admin/buckets` (bare) sits beside `/api/admin/buckets/*`.
-        .use('/api/admin/connections', authMiddleware(auth))
-        .use('/api/admin/connections', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/storage/transform-cache', authMiddleware(auth))
-        .use('/api/admin/storage/transform-cache', requireAuth())
-        .use('/api/admin/storage/transform-cache', requireAdmin(resolveAppForTier))
-        // Defense-in-depth catch-all (S1). Every `/api/admin/*` path above carries
-        // its own explicit guard; this final wildcard ensures any future or
-        // currently-unlisted admin sub-path is still gated by `requireAdminTier`
-        // (anti-enumeration 404 for both missing-session AND non-admin callers)
-        // rather than shipping open if its specific `.use(...)` line is ever
-        // forgotten. Registered LAST so it never overrides the per-endpoint
-        // 401-vs-404 semantics of the specific guards above (which short-circuit
-        // first for every known path).
-        .use('/api/admin/*', authMiddleware(auth))
-        .use('/api/admin/*', requireAdminTier(resolveAppForTier))
+    : honoWithActivityRateLimit
+        .use('/api/activity', requireAuth())
+        .use('/api/activity/*', requireAuth())
+
+  // Every `/api/admin/*` guard lives in `admin-route-guards.ts` — BOTH mirrors
+  // (auth-enabled and no-auth) side by side in one purpose-named file, so an
+  // admin route can never be added to one and silently missed in the other.
+  // That omission has shipped a hole before; see the module doc there.
+  //
+  // Applied at exactly this point in the chain, between the activity guards and
+  // the analytics guards, so the registration order of every guard is unchanged
+  // from when these two blocks were inlined here.
+  const honoWithAdminGuards = app.auth
+    ? chainAdminRouteGuards(honoWithPreAdminGuards, auth, resolveAppForTier)
+    : chainAdminRouteGuardsWithoutAuth(honoWithPreAdminGuards, resolveAppForTier)
+
+  const honoWithAuth = app.auth
+    ? honoWithAdminGuards
         .use('/api/analytics/overview', authMiddleware(auth))
         .use('/api/analytics/overview', requireAuth())
         .use('/api/analytics/overview', requireAdmin(resolveAppForTier))
@@ -597,6 +544,12 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/analytics/campaigns', requireAuth())
         .use('/api/analytics/campaigns', requireAdmin(resolveAppForTier))
         .use('/api/analytics/events', authMiddleware(auth))
+        // `/api/analytics/targets` takes the session but NOT `requireAuth` /
+        // `requireAdmin`, exactly like `/events` above: its handler answers 404
+        // for a missing session and for a non-admin, which is the S1
+        // anti-enumeration contract. A `requireAuth` here would short-circuit
+        // with 401 first and confirm the endpoint exists to a prober.
+        .use('/api/analytics/targets', authMiddleware(auth))
         // Automations: extract session so manual triggers can resolve
         // the caller's role against trigger.requiredRole. Webhook triggers
         // remain anonymous-friendly — handlers gate per-trigger inside the
@@ -699,40 +652,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         // name. requireAuth is NOT chained — the handler returns 401 itself
         // so the SSE response shape stays under the handler's control.
         .use('/api/realtime/presence', authMiddleware(auth))
-    : honoWithActivityRateLimit
-        .use('/api/activity', requireAuth())
-        .use('/api/activity/*', requireAuth())
-        .use('/api/admin/storage/status', requireAuth())
-        .use('/api/admin/storage/status', requireAdmin(resolveAppForTier))
-        .use('/api/admin/buckets/quota', requireAuth())
-        .use('/api/admin/buckets/quota', requireAdmin(resolveAppForTier))
-        .use('/api/admin/buckets/overview', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/buckets', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/forms', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/forms/*', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/audit-log', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/eco/overview', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/automations', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/automations/*', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/users/overview', requireAdminTier(resolveAppForTier))
-        // Admin read surfaces for agents (conversations) + connections (list/detail).
-        .use('/api/admin/agents/*', requireAdminTier(resolveAppForTier))
-        .use('/api/admin/connections/*', requireAdminTier(resolveAppForTier))
-        // Bare connection-list path — the
-        // `/*` wildcard does not cover the segment-less list path.
-        .use('/api/admin/connections', requireAdminTier(resolveAppForTier))
-        // Defense-in-depth catch-all (S1) — the no-auth mirror of the
-        // `/api/admin/*` line in the branch above. Without it, every admin
-        // sub-path that lacks its own `.use(...)` entry here ships OPEN when
-        // `app.auth` is absent: `/api/admin/users`, `/api/admin/config/version`
-        // and `/api/admin/tables/overview` answered 200 to anonymous callers,
-        // and `/api/admin/buckets/:name/files` threw a 500 dereferencing the
-        // session its handler assumes the gate guaranteed. The admin dashboard
-        // itself already 404s without auth, so nothing legitimate reaches these
-        // routes on a no-auth app. Registered LAST so the `requireAuth()` 401s
-        // on `/api/admin/storage/*` and `/api/admin/buckets/quota` above keep
-        // short-circuiting first.
-        .use('/api/admin/*', requireAdminTier(resolveAppForTier))
+    : honoWithAdminGuards
         .use('/api/analytics/overview', requireAuth())
         .use('/api/analytics/overview', requireAdmin(resolveAppForTier))
         .use('/api/analytics/pages', requireAuth())
@@ -777,6 +697,16 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         excludedPaths: typeof app.analytics === 'object' ? app.analytics.excludedPaths : undefined,
         respectDoNotTrack:
           typeof app.analytics === 'object' ? app.analytics.respectDoNotTrack : undefined,
+        // Lets `/api/analytics/targets` name the destination each recorded
+        // `targetIndex` resolves to TODAY. Read through `resolveLiveApp` (not
+        // the boot `app`) so a reload that re-points a link is reflected without
+        // a restart; an index the current list no longer covers reports null
+        // rather than being dropped from the split.
+        resolveLinks: () =>
+          (resolveLiveApp().links ?? []).map((link) => ({
+            slug: link.slug,
+            destinations: linkTargets(link).map((target) => target.to),
+          })),
       })
     : honoWithActivity
 
@@ -813,7 +743,9 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // [internal ref]). Auth gating (admin + operator tier) is
   // applied above via authMiddleware → requireAuth → requireAdminTier on
   // /api/admin/buckets, /api/admin/buckets/overview, and /api/admin/audit-log.
-  const honoWithAdminBuckets = chainAdminBucketsRoutes(honoWithAdmin)
+  // `app` is threaded in so both endpoints enumerate the buckets the config
+  // declares (`app.buckets[]`) rather than the single env-resolved backend.
+  const honoWithAdminBuckets = chainAdminBucketsRoutes(honoWithAdmin, app)
   // Chain admin/forms routes — list/detail of `app.forms[]` + the form-
   // submissions sub-resource (list, detail, bulk). The route handler
   // resolves the live App via `resolveLiveApp` so a `POST /draft/publish`
@@ -829,17 +761,47 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithAdminForms = chainAdminFormsRoutes(honoWithAdminFormsAnalytics, resolveLiveApp)
   const honoWithAdminAuditLog = chainAdminAuditLogRoutes(honoWithAdminForms)
 
-  // Chain admin/eco routes. Auth gating
-  // (admin + operator tier) is applied above via
-  // authMiddleware → requireAdminTier on /api/admin/eco/overview.
-  const honoWithAdminEco = chainAdminEcoRoutes(honoWithAdminAuditLog, app)
+  // Chain the READ-ONLY projections of the running configuration — one family,
+  // chained together because they are gated identically and answer the same
+  // question at two levels of detail:
+  // [internal ref] A1: the App-schema reflection (`/api/admin/config/schema`) and
+  //               the declared-env viewer (`/api/admin/env`).
+  // [internal ref] A2: the design-system exports (`/api/admin/design-system.json`
+  //               and `.md`), both projecting `buildDesignSystem(app)` so the
+  //               two formats cannot describe different systems.
+  // Auth gating is applied above via authMiddleware → requireAdminTier on each
+  // of the four paths. `resolveLiveApp` (not the boot `app`) throughout, so a
+  // reload is reflected without a restart — an export describing the previous
+  // deploy's palette is worse than no export, and that promise is the point.
+  // [internal ref] A3: the design-system SHARE endpoints (mint / list / revoke).
+  //               Their anonymous counterpart, `GET /s/design-system/{token}`,
+  //               is a platform route registered in `server.ts` — these three
+  //               are admin-guarded like every other A1/A2 surface, and their
+  //               guard is EXPLICIT: `admin-route-guards.ts` lists the
+  //               `/api/admin/design-system.*` exports as exact paths with no
+  //               wildcard, so `/design-system/shares` inherits nothing.
+  const honoWithAdminConfigReads = chainAdminDesignSystemShareRoutes(
+    chainAdminDesignSystemRoutes(
+      chainAdminConfigIntrospectionRoutes(honoWithAdminAuditLog, resolveLiveApp),
+      resolveLiveApp
+    ),
+    resolveLiveApp
+  )
+
+  // Chain admin/footprint routes. Auth
+  // gating (admin + operator tier) is applied above via
+  // authMiddleware → requireAdminTier on /api/admin/footprint/overview.
+  const honoWithAdminFootprint = chainAdminFootprintRoutes(honoWithAdminConfigReads, app)
 
   // Chain admin/automations routes (overview + runs list/detail). Auth gating
   // is applied above via authMiddleware → requireAdminTier on
   // /api/admin/automations + /api/admin/automations/*. The handlers resolve
   // the live App via `resolveLiveApp` so a `POST /draft/publish` is reflected
   // in the overview's `totals.automations` count without restart.
-  const honoWithAdminAutomations = chainAdminAutomationsRoutes(honoWithAdminEco, resolveLiveApp)
+  const honoWithAdminAutomations = chainAdminAutomationsRoutes(
+    honoWithAdminFootprint,
+    resolveLiveApp
+  )
 
   // Chain admin/users routes (overview tile). Auth gating is applied above
   // via authMiddleware → requireAdminTier on /api/admin/users/overview.
@@ -848,10 +810,12 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithAdminUsers = chainAdminUsersRoutes(honoWithAdminAutomations)
 
   // Chain admin agent-conversation read endpoints:
-  // GET /api/admin/agents/:name/conversations[/:id]. Shares the
-  // `/api/admin/agents/*` wildcard (authMiddleware → requireAdminTier) with the
-  // per-agent metrics endpoint below. Resolves the live App via `resolveLiveApp`
-  // for the `hasAgent` anti-enum gate (reflects a `POST /draft/publish`, [internal ref]).
+  // GET /api/admin/agents and /api/admin/agents/:name/conversations[/:id]. Shares
+  // the `/api/admin/agents/*` wildcard (authMiddleware → requireAdminTier) with the
+  // per-agent metrics endpoint below; the segment-less index is gated by the
+  // trailing `/api/admin/*` catch-all. Resolves the live App via `resolveLiveApp`
+  // for the `isConversationSourceAgent` anti-enum gate (reflects a
+  // `POST /draft/publish`, [internal ref]).
   const honoWithAdminAgents = chainAdminAgentsRoutes(honoWithAdminUsers, resolveLiveApp)
 
   // Chain admin connection read endpoints:
@@ -877,11 +841,21 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
     app
   )
 
+  // Chain the short-link console ([internal ref] / -MUTATIONS). The
+  // catalog is a UNION of two populations — `app.links[]` entries resolved from
+  // the file and `system.links` rows minted at runtime — so `resolveLiveApp`
+  // (not the boot `app`) is threaded through: a reload that adds a config link
+  // must reserve that slug against mutation on the next request, not the next
+  // restart. Auth gating is applied above via authMiddleware → requireAdminTier
+  // on BOTH the bare `/api/admin/links` path and the `/api/admin/links/*`
+  // wildcard, which the `/:slug/{enable,disable}` state routes need.
+  const honoWithAdminLinks = chainAdminLinksRoutes(honoWithAdminConnectionActions, resolveLiveApp)
+
   // Chain generic AI chat route (POST /api/ai/chat). Always registered;
   // when AI is not configured (`AI_PROVIDER` unset) the handler returns
   // 503 with a JSON error envelope. Auth gating (401 when unauthenticated)
   // is applied above via `authMiddleware + requireAuth` on `/api/ai/chat`.
-  const honoWithAiChat = chainAiChatRoutes(honoWithAdminConnectionActions, app)
+  const honoWithAiChat = chainAiChatRoutes(honoWithAdminLinks, app)
 
   // Chain AI MCP cross-cutting status routes (X-1). Always registered: when
   // MCP_SERVER_ENABLED / MCP_ENABLED / MCP_CLIENT_SERVERS env vars are unset
@@ -900,15 +874,22 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   )
 
   // Chain RAG routes ([internal ref]-*): config / similarity-search / rebuild /
-  // agent-config readback. The rebuild handler enforces the admin role
-  // itself (so 401 vs 403 are distinguishable) — when `app.auth` is
-  // configured the session must be attached, hence `authMiddleware` on the
-  // rebuild + agent-config paths. Search and config stay open (no role
-  // model needed for read-only RAG queries).
+  // agent-config readback. `rebuild` and `search` enforce their own gates inside
+  // `rag-route.ts` (so 401 stays distinguishable from 403/404), and that
+  // requires the session to be ATTACHED first — hence `authMiddleware` on all
+  // three paths when `app.auth` is configured.
+  //
+  // `search` joined this list with [internal ref], and had to: without the middleware
+  // its own gate reads no session even for a caller holding a perfectly valid
+  // cookie, so it would 401 EVERY caller rather than only anonymous ones. The
+  // gate and its prerequisite move together.
+  //
+  // `config` and `status` stay open — pure config readback, no record data.
   const honoWithRag = chainRagRoutes(
     app.auth !== undefined
       ? (honoWithAgents
           .use('/api/ai/rag/rebuild', authMiddleware(auth))
+          .use('/api/ai/rag/search', authMiddleware(auth))
           .use('/api/ai/agents/*', authMiddleware(auth)) as typeof honoWithAgents)
       : honoWithAgents,
     app

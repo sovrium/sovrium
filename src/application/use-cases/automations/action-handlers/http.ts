@@ -10,7 +10,7 @@ import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/utils/timeouts'
 import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
 import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
 import { resolveConnectionHeaders } from './auth-headers'
-import { serializeActionBody, stringProp } from './shared'
+import { numberProp, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, BodySerializationError } from './shared'
 
 /**
@@ -43,8 +43,37 @@ const classifyHttpError = (status: number, bodyExcerpt: string | undefined): str
 }
 
 /**
- * `http/request` handler — performs an outbound HTTP request, bounded by a
- * 5s abort to keep tests deterministic when the remote is unreachable.
+ * The declared `props.timeout` window, in ms. Mirrors the schema's
+ * `Schema.between(1000, 120_000)` on all six `http/*` operators.
+ *
+ * A decoded config can never land outside the window, but the code-action
+ * dispatch path (`run/action-invokers.ts`) builds a synthetic action and
+ * dispatches it WITHOUT schema validation, so an out-of-range number reaches
+ * the handler unchecked. Clamping here — rather than falling back to the
+ * default — keeps a `timeout: 200` closest to what the author asked for
+ * instead of silently granting it the full 15s.
+ */
+const HTTP_TIMEOUT_MIN_MS = 1000
+const HTTP_TIMEOUT_MAX_MS = 120_000
+
+/**
+ * The per-request timeout budget: `props.timeout` when declared, otherwise
+ * {@link HTTP_REQUEST_TIMEOUT_MS}.
+ *
+ * 15 000 ms — not the 30 000 the annotation used to name — is the real
+ * fallback, and stays the fallback: honouring the annotation's number instead
+ * would silently double the budget of every `http/*` action that declares
+ * nothing.
+ */
+const timeoutMsOf = (props: Readonly<Record<string, unknown>>): number => {
+  const declared = numberProp(props, 'timeout', HTTP_REQUEST_TIMEOUT_MS)
+  return Math.min(Math.max(Math.trunc(declared), HTTP_TIMEOUT_MIN_MS), HTTP_TIMEOUT_MAX_MS)
+}
+
+/**
+ * `http/request` handler — performs an outbound HTTP request, bounded by
+ * `props.timeout` (default 15s) to keep a slow upstream from holding the run
+ * open.
  *
  * When `props.connection` is set, looks up the named connection in
  * `app.connections[]` and injects credentials per the connection type
@@ -54,7 +83,8 @@ const classifyHttpError = (status: number, bodyExcerpt: string | undefined): str
  * Returns the response as `output: { response: { status, headers, body } }`
  * so subsequent steps can read it via `context.steps.<name>.response.*`
  *. String bodies pass through
- * verbatim; JSON-shaped bodies are stringified on the way out.
+ * verbatim; JSON-shaped bodies are stringified on the way out — unless
+ * `props.contentType` declares another encoding.
  */
 export const handleHttpRequest: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
@@ -74,26 +104,58 @@ export const handleHttpRequest: ActionHandler = (action, app, automation) =>
     if (merged.error !== undefined) {
       return { status: 'failure', error: merged.error } as const
     }
-    const bodyResult = yield* Effect.either(serializeActionBody(props['body']))
-    if (bodyResult._tag === 'Left') {
-      return { status: 'failure', error: bodyResult.left.message } as const
+    // `http/request` declares `contentType` but has never defaulted a
+    // Content-Type header of its own, so the shorthand is applied only when
+    // the config asks for it — an absent `contentType` keeps the historical
+    // serialize-and-send-no-header behaviour byte for byte.
+    const bodyResult = yield* Effect.result(
+      applyContentTypeShorthand(props['body'], merged.headers, shorthandOf(props))
+    )
+    if (bodyResult._tag === 'Failure') {
+      return { status: 'failure', error: bodyResult.failure.message } as const
     }
+    const { body, headers } = bodyResult.success
     return yield* Effect.promise(() =>
-      performHttpWithResponseOutput(url, method, merged.headers, bodyResult.right)
+      performHttpWithResponseOutput({
+        url,
+        method,
+        headers,
+        body,
+        timeoutMs: timeoutMsOf(props),
+      })
     )
   })
+
+/** The hard cap on a captured response body, in UTF-16 code units. */
+const RESPONSE_BODY_CAP = 65_536
+
+/** A response body as captured, plus whether the cap cut it short. */
+interface CapturedBody {
+  readonly body: string | undefined
+  readonly truncated: boolean
+}
 
 /**
  * Read the response body as text, capped at 64 KiB so a misbehaving
  * upstream cannot swell run-history memory. Failures are swallowed so the
  * handler still surfaces the response status + headers when the body is
  * unreadable (some upstreams reject `.text()` after a particular code path).
+ *
+ * The cap STAYS — what changes is that hitting it is now reported. Past the
+ * cap the JSON parse of the mutilated text fails, so no structured `body` is
+ * exposed and the step reports a bare success; nothing distinguished that from
+ * an endpoint that genuinely returned nothing (the motivating case being a
+ * wide Google Sheets `values.get`). `truncated` is that distinction
+ *.
  */
-const readResponseBodySafe = async (response: Response): Promise<string | undefined> => {
+const readResponseBodySafe = async (response: Response): Promise<CapturedBody> => {
   try {
-    return (await response.text()).slice(0, 65_536)
+    const text = await response.text()
+    return text.length > RESPONSE_BODY_CAP
+      ? { body: text.slice(0, RESPONSE_BODY_CAP), truncated: true }
+      : { body: text, truncated: false }
   } catch {
-    return undefined
+    return { body: undefined, truncated: false }
   }
 }
 
@@ -103,7 +165,7 @@ const readResponseBodySafe = async (response: Response): Promise<string | undefi
  * `application/json` family and the `+json` structured-syntax suffix
  * (RFC 6839, e.g. `application/vnd.api+json`).
  */
-const isJsonContentType = (headers: Record<string, string>): boolean => {
+const isJsonContentType = (headers: Readonly<Record<string, string>>): boolean => {
   const entry = Object.entries(headers).find(([k]) => k.toLowerCase() === 'content-type')
   const value = (entry?.[1] ?? '').toLowerCase()
   return value.includes('application/json') || value.includes('+json')
@@ -121,7 +183,7 @@ const isJsonContentType = (headers: Record<string, string>): boolean => {
  */
 const parseJsonResponseBody = (
   body: string | undefined,
-  headers: Record<string, string>
+  headers: Readonly<Record<string, string>>
 ): unknown => {
   if (body === undefined || body === '') return undefined
   const looksJson = isJsonContentType(headers)
@@ -146,16 +208,18 @@ const parseJsonResponseBody = (
  * `http/request` handler above keeps its narrower contract — its specs
  * predate the response-output shape and don't assert against it.
  *
- * `requestBody` is the already-serialised payload; callers (e.g. the POST
- * handler) own the JSON-stringify + Content-Type defaulting decision so
- * this helper stays method-agnostic.
+ * `body` is the already-serialised payload; callers (e.g. the POST handler)
+ * own the encoding + Content-Type decision so this helper stays
+ * method-agnostic.
  */
-const performHttpWithResponseOutput = async (
-  url: string,
-  method: string,
-  headers: Record<string, string>,
-  requestBody?: string
-): Promise<ActionOutcome> => {
+const performHttpWithResponseOutput = async (input: {
+  readonly url: string
+  readonly method: string
+  readonly headers: Record<string, string>
+  readonly body?: string | undefined
+  readonly timeoutMs: number
+}): Promise<ActionOutcome> => {
+  const { url, method, headers, body: requestBody, timeoutMs } = input
   // SSRF guard: reject loopback / link-local / RFC1918 / non-http(s)
   // BEFORE fetch, so a misconfigured automation can't probe internal
   // services through the http/* action handler.
@@ -172,14 +236,19 @@ const performHttpWithResponseOutput = async (
         headers,
         ...(requestBody !== undefined ? { body: requestBody } : {}),
       },
-      HTTP_REQUEST_TIMEOUT_MS
+      timeoutMs
     )
-    const body = await readResponseBodySafe(response)
-    const responseHeaders: Record<string, string> = Object.fromEntries(response.headers.entries())
+    const { body, truncated } = await readResponseBodySafe(response)
+    const responseHeaders: Readonly<Record<string, string>> = Object.fromEntries(
+      response.headers.entries()
+    )
+    // `truncated` is emitted only when true: an absent key keeps the envelope
+    // of every under-cap response byte-identical to what it has always been.
     const responseEnvelope = {
       status: response.status,
       headers: responseHeaders,
       ...(body !== undefined ? { body } : {}),
+      ...(truncated ? { truncated: true } : {}),
     }
     // Expose a STRUCTURED, JSON-parsed `body` ALONGSIDE the raw-text
     // `response.body` so a later step can read a field via
@@ -227,7 +296,14 @@ export const handleHttpGet: ActionHandler = (action, app, automation) =>
     if (merged.error !== undefined) {
       return { status: 'failure', error: merged.error } as const
     }
-    return yield* Effect.promise(() => performHttpWithResponseOutput(url, 'GET', merged.headers))
+    return yield* Effect.promise(() =>
+      performHttpWithResponseOutput({
+        url,
+        method: 'GET',
+        headers: merged.headers,
+        timeoutMs: timeoutMsOf(props),
+      })
+    )
   })
 
 /**
@@ -236,8 +312,90 @@ export const handleHttpGet: ActionHandler = (action, app, automation) =>
  * field names case-insensitive — operators write `Content-Type` while the
  * `connection`-injected headers may use lowercase.
  */
-const hasContentTypeHeader = (headers: Record<string, string>): boolean =>
+const hasContentTypeHeader = (headers: Readonly<Record<string, string>>): boolean =>
   Object.keys(headers).some((k) => k.toLowerCase() === 'content-type')
+
+/**
+ * The `props.contentType` shorthand → the media type it names. Mirrors the
+ * schema's `Schema.Literal('json', 'form', 'text', 'xml')` on the four
+ * body-bearing operators (`request`, `post`, `put`, `patch`); `get` and
+ * `delete` do not declare the prop.
+ */
+const CONTENT_TYPE_BY_SHORTHAND = {
+  json: 'application/json',
+  form: 'application/x-www-form-urlencoded',
+  text: 'text/plain',
+  xml: 'application/xml',
+} as const
+
+type ContentTypeShorthand = keyof typeof CONTENT_TYPE_BY_SHORTHAND
+
+const shorthandOf = (
+  props: Readonly<Record<string, unknown>>
+): ContentTypeShorthand | undefined => {
+  const raw = props['contentType']
+  return typeof raw === 'string' && raw in CONTENT_TYPE_BY_SHORTHAND
+    ? (raw as ContentTypeShorthand)
+    : undefined
+}
+
+/**
+ * URL-encode a JSON-shaped body for `contentType: form`. Scalar values are
+ * stringified as-is; a nested object/array is JSON-encoded into its field,
+ * which is what every form-encoding receiver expects for a value that cannot
+ * be flattened.
+ */
+const encodeFormBody = (body: Readonly<Record<string, unknown>>): string =>
+  new URLSearchParams(
+    // Entry-pair form (not a Record) so declaration order survives into the
+    // encoded string — `Object.fromEntries` would hoist integer-like keys.
+    Object.entries(body).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? value : (JSON.stringify(value) ?? ''),
+    ])
+  ).toString()
+
+/**
+ * Encode `rawBody` per the declared `contentType` shorthand and stamp the
+ * matching `Content-Type` header.
+ *
+ * Two rules, both load-bearing:
+ *
+ * 1. **An explicit `Content-Type` header wins outright** — header AND
+ *    encoding. Honouring the header while still form-encoding the payload
+ *    would tell the receiver one thing and send it another, which is exactly
+ *    the failure the shorthand exists to prevent. So an explicit header falls
+ *    the whole way back to the default behaviour.
+ * 2. **The shorthand governs the encoding, not only the header.** Announcing
+ *    `application/x-www-form-urlencoded` over a JSON payload is a worse lie
+ *    than ignoring the field, which is what the handler did before
+ *.
+ *
+ * A string body always passes through verbatim: the author already serialised
+ * it and only wants the header named.
+ */
+const applyContentTypeShorthand = (
+  rawBody: unknown,
+  headers: Readonly<Record<string, string>>,
+  shorthand: ContentTypeShorthand | undefined
+): Effect.Effect<
+  { readonly body: string | undefined; readonly headers: Record<string, string> },
+  BodySerializationError
+> => {
+  if (rawBody === undefined) return Effect.succeed({ body: undefined, headers })
+  if (shorthand === undefined || hasContentTypeHeader(headers)) {
+    return serializeActionBody(rawBody).pipe(Effect.map((body) => ({ body, headers })))
+  }
+  const declared = { ...headers, 'Content-Type': CONTENT_TYPE_BY_SHORTHAND[shorthand] }
+  if (typeof rawBody === 'string') return Effect.succeed({ body: rawBody, headers: declared })
+  if (shorthand === 'form' && rawBody !== null && typeof rawBody === 'object') {
+    return Effect.succeed({
+      body: encodeFormBody(rawBody as Record<string, unknown>),
+      headers: declared,
+    })
+  }
+  return serializeActionBody(rawBody).pipe(Effect.map((body) => ({ body, headers: declared })))
+}
 
 /**
  * Serialise `props.body` for an HTTP POST and decide whether to default the
@@ -247,15 +405,23 @@ const hasContentTypeHeader = (headers: Record<string, string>): boolean =>
  * Content-Type is set, honour it and leave the body untouched (string
  * payloads pass through verbatim; JSON-shaped bodies still serialise so
  * the upstream gets a string the wire can carry).
+ *
+ * A declared `props.contentType` takes precedence over that default and is
+ * delegated to {@link applyContentTypeShorthand}; an absent one leaves the
+ * rules above exactly as they were.
  */
 const buildPostRequestBody = (
   rawBody: unknown,
-  headers: Record<string, string>
+  headers: Readonly<Record<string, string>>,
+  shorthand: ContentTypeShorthand | undefined
 ): Effect.Effect<
   { readonly body: string | undefined; readonly headers: Record<string, string> },
   BodySerializationError
 > => {
   if (rawBody === undefined) return Effect.succeed({ body: undefined, headers })
+  if (shorthand !== undefined && !hasContentTypeHeader(headers)) {
+    return applyContentTypeShorthand(rawBody, headers, shorthand)
+  }
   const explicitCt = hasContentTypeHeader(headers)
   if (typeof rawBody === 'string') {
     // Caller already serialised — assume they know the right Content-Type
@@ -298,12 +464,22 @@ const makeHttpBodyVerbHandler =
       if (merged.error !== undefined) {
         return { status: 'failure', error: merged.error } as const
       }
-      const bodyResult = yield* Effect.either(buildPostRequestBody(props['body'], merged.headers))
-      if (bodyResult._tag === 'Left') {
-        return { status: 'failure', error: bodyResult.left.message } as const
+      const bodyResult = yield* Effect.result(
+        buildPostRequestBody(props['body'], merged.headers, shorthandOf(props))
+      )
+      if (bodyResult._tag === 'Failure') {
+        return { status: 'failure', error: bodyResult.failure.message } as const
       }
-      const { body, headers } = bodyResult.right
-      return yield* Effect.promise(() => performHttpWithResponseOutput(url, method, headers, body))
+      const { body, headers } = bodyResult.success
+      return yield* Effect.promise(() =>
+        performHttpWithResponseOutput({
+          url,
+          method,
+          headers,
+          body,
+          timeoutMs: timeoutMsOf(props),
+        })
+      )
     })
 
 /**
@@ -343,11 +519,17 @@ export const handleHttpDelete: ActionHandler = (action, app, automation) =>
     if (merged.error !== undefined) {
       return { status: 'failure', error: merged.error } as const
     }
-    const bodyResult = yield* Effect.either(serializeActionBody(props['body']))
-    if (bodyResult._tag === 'Left') {
-      return { status: 'failure', error: bodyResult.left.message } as const
+    const bodyResult = yield* Effect.result(serializeActionBody(props['body']))
+    if (bodyResult._tag === 'Failure') {
+      return { status: 'failure', error: bodyResult.failure.message } as const
     }
     return yield* Effect.promise(() =>
-      performHttpWithResponseOutput(url, 'DELETE', merged.headers, bodyResult.right)
+      performHttpWithResponseOutput({
+        url,
+        method: 'DELETE',
+        headers: merged.headers,
+        body: bodyResult.success,
+        timeoutMs: timeoutMsOf(props),
+      })
     )
   })

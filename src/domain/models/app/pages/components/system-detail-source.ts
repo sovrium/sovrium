@@ -61,8 +61,8 @@ import { Schema } from 'effect'
 export const SystemDetailSourceSchema = Schema.Struct({
   /** The named detail endpoint to fetch the single record from (required) */
   endpoint: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description:
         'Detail endpoint path to fetch one record from. The bound record id is injected into the `:param` placeholder (e.g. /api/admin/automations/runs/:runId)',
       examples: ['/api/admin/automations/runs/:runId'],
@@ -74,7 +74,7 @@ export const SystemDetailSourceSchema = Schema.Struct({
    * page-level `mode: single` it is the route parameter name.
    */
   param: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Param injected into the endpoint's `:param` placeholder — the clicked row id (record-drawer) or the route parameter (page mode:single). Default 'id'.",
       examples: ['runId', 'id', 'submissionId'],
@@ -82,27 +82,27 @@ export const SystemDetailSourceSchema = Schema.Struct({
   ),
   /** Envelope key holding the single record (default: the whole response body) */
   recordKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Key of the single record in the response envelope (e.g. `run`). Falls back to the whole response body when absent.',
     })
   ),
   /** The resolved record's unique id key (default 'id') */
   idKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Key of the resolved record's unique id (default 'id')",
     })
   ),
   /** Static query params merged into the request to the detail endpoint */
   query: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-    }).annotations({
+    Schema.Record(
+      Schema.String,
+      Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+    ).annotate({
       description: 'Static query params merged into the request to the detail endpoint',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'System Detail Source',
   description:
     'Detail-endpoint binding: feed a record-bound component a single record from a system detail endpoint instead of /api/tables/:t/records/:id',

@@ -38,24 +38,22 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const PhoneNumberFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('phone-number').pipe(
-        Schema.annotations({
-          description:
-            "Constant value 'phone-number' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('phone-number').pipe(
+      Schema.annotate({
+        description:
+          "Constant value 'phone-number' for type discrimination in discriminated unions",
+      })
+    ),
+    default: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Default phone number value when creating new records',
         })
-      ),
-      default: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Default phone number value when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Phone Number Field',
     description:
       'Text field for storing phone numbers with support for international formats. Numbers are stored as plain text without automatic formatting.',

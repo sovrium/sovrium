@@ -25,7 +25,7 @@ const agentNameParam = z.object({ name: z.string().describe('Agent name') })
 
 /** AI agent facts-memory route group. */
 export const aiFactsGroup: StaticGroupSpec = {
-  tag: 'ai',
+  tag: 'AI',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',
   routes: [
     {
@@ -42,7 +42,9 @@ export const aiFactsGroup: StaticGroupSpec = {
       responses: {
         200: jsonResponse(agentFactsChatResponseSchema, 'Agent reply'),
         400: errorResponse('Missing agent name or empty message'),
-        404: errorResponse('Agent not declared in the app schema'),
+        404: errorResponse(
+          'Agent not declared in the app schema, or the caller lacks permission to invoke it'
+        ),
         502: errorResponse('AI provider temporarily unavailable'),
         503: errorResponse('AI provider not configured'),
       },

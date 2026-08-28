@@ -49,13 +49,18 @@ const withSendTimeout = <A>(
   effect: Effect.Effect<A, EmailSendActionError>
 ): Effect.Effect<A, EmailSendActionError> =>
   effect.pipe(
-    Effect.timeoutFail({
+    // EFFECT 4: `timeoutFail({duration, onTimeout})` -> `timeoutOrElse` with an
+    // `Effect.fail` fallback (migration/v3-to-v4.md:9833) — the error value
+    // becomes a failed Effect rather than a bare value.
+    Effect.timeoutOrElse({
       duration: Duration.millis(EMAIL_SEND_TIMEOUT_MS),
-      onTimeout: () =>
-        new EmailSendActionError({
-          cause: undefined,
-          message: `SMTP send exceeded ${String(EMAIL_SEND_TIMEOUT_MS)}ms`,
-        }),
+      orElse: () =>
+        Effect.fail(
+          new EmailSendActionError({
+            cause: undefined,
+            message: `SMTP send exceeded ${String(EMAIL_SEND_TIMEOUT_MS)}ms`,
+          })
+        ),
     })
   )
 
@@ -129,16 +134,16 @@ export const handleEmailSend: ActionHandler = (action, _app, _automation) =>
             message: error instanceof Error ? error.message : String(error),
           }),
       })
-    ).pipe(Effect.either)
+    ).pipe(Effect.result)
 
-    if (result._tag === 'Left') {
+    if (result._tag === 'Failure') {
       return {
         status: 'failure',
-        error: `email.send failed: ${result.left.message}`,
+        error: `email.send failed: ${result.failure.message}`,
       } as const satisfies ActionOutcome
     }
     return {
       status: 'success',
-      output: { messageId: result.right },
+      output: { messageId: result.success },
     } as const satisfies ActionOutcome
   })

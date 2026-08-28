@@ -97,9 +97,14 @@ export const KNOWN_FIELD_TYPES = [
 export const UnknownFieldSchema = Schema.Struct({
   ...BaseFieldSchema.fields,
   type: Schema.String.pipe(
-    Schema.filter((t) => !KNOWN_FIELD_TYPES.includes(t as (typeof KNOWN_FIELD_TYPES)[number]), {
-      message: () => 'Type must be an unknown field type (not a recognized field type)',
-    })
+    Schema.check(
+      Schema.makeFilter(
+        (t) => !KNOWN_FIELD_TYPES.includes(t as (typeof KNOWN_FIELD_TYPES)[number]),
+        {
+          message: 'Type must be an unknown field type (not a recognized field type)',
+        }
+      )
+    )
   ),
 })
 

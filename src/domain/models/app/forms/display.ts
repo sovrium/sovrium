@@ -24,7 +24,7 @@ export const FormDisplaySchema = Schema.Struct({
   ),
   /** Submit button label (`Submit` by default; supports `$t:` keys). */
   submitLabel: Schema.optional(Schema.String),
-}).annotations({
+}).annotate({
   identifier: 'FormDisplay',
   title: 'Form Display',
   description: 'Cosmetic display options for the form renderer',

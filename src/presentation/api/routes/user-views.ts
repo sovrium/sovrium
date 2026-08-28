@@ -113,10 +113,10 @@ const handleList = async (c: Context): Promise<Response> => {
 
   const result = await runRequestEffect(
     c,
-    listUserViews({ userId: session.userId, tableName }).pipe(provideDatabaseLive, Effect.either)
+    listUserViews({ userId: session.userId, tableName }).pipe(provideDatabaseLive, Effect.result)
   )
-  if (result._tag === 'Left') return internalError(c)
-  return c.json(userViewsListResponseSchema.parse(result.right), 200)
+  if (result._tag === 'Failure') return internalError(c)
+  return c.json(userViewsListResponseSchema.parse(result.success), 200)
 }
 
 /** POST /api/tables/:tableId/user-views — create a new view for the caller. */
@@ -134,15 +134,16 @@ const handleCreate = async (c: Context): Promise<Response> => {
     c,
     createUserView({ userId: session.userId, tableName, ...payload }).pipe(
       provideDatabaseLive,
-      Effect.either
+      Effect.result
     )
   )
-  if (result._tag === 'Left') {
-    if (result.left._tag === 'UserViewConflictError') return conflict(c)
-    if (result.left._tag === 'UserViewNotFoundError') return badRequest(c, 'Failed to create view')
+  if (result._tag === 'Failure') {
+    if (result.failure._tag === 'UserViewConflictError') return conflict(c)
+    if (result.failure._tag === 'UserViewNotFoundError')
+      return badRequest(c, 'Failed to create view')
     return internalError(c)
   }
-  return c.json(userViewResponseSchema.parse(result.right), 201)
+  return c.json(userViewResponseSchema.parse(result.success), 201)
 }
 
 /** PATCH /api/tables/:tableId/user-views/:viewId — update a view the caller owns. */
@@ -177,14 +178,14 @@ const handleUpdate = async (c: Context): Promise<Response> => {
       rowDensity: b['rowDensity'],
       columnWidths: b['columnWidths'],
       baseViewId: b['baseViewId'] as string | number | null | undefined,
-    }).pipe(provideDatabaseLive, Effect.either)
+    }).pipe(provideDatabaseLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    if (result.left._tag === 'UserViewConflictError') return conflict(c)
-    if (result.left._tag === 'UserViewNotFoundError') return notFound(c, 'View not found')
+  if (result._tag === 'Failure') {
+    if (result.failure._tag === 'UserViewConflictError') return conflict(c)
+    if (result.failure._tag === 'UserViewNotFoundError') return notFound(c, 'View not found')
     return internalError(c)
   }
-  return c.json(userViewResponseSchema.parse(result.right), 200)
+  return c.json(userViewResponseSchema.parse(result.success), 200)
 }
 
 /** DELETE /api/tables/:tableId/user-views/:viewId — delete a view the caller owns. */
@@ -199,11 +200,11 @@ const handleDelete = async (c: Context): Promise<Response> => {
     c,
     deleteUserView({ userId: session.userId, tableName, viewId }).pipe(
       provideDatabaseLive,
-      Effect.either
+      Effect.result
     )
   )
-  if (result._tag === 'Left') {
-    if (result.left._tag === 'UserViewNotFoundError') return notFound(c, 'View not found')
+  if (result._tag === 'Failure') {
+    if (result.failure._tag === 'UserViewNotFoundError') return notFound(c, 'View not found')
     return internalError(c)
   }
   return c.json({ success: true }, 200)
@@ -248,18 +249,18 @@ const handleShared = async (c: Context, app: App): Promise<Response> => {
 
   const result = await runRequestEffect(
     c,
-    getSharedView({ userId: session.userId, viewId, app }).pipe(provideDatabaseLive, Effect.either)
+    getSharedView({ userId: session.userId, viewId, app }).pipe(provideDatabaseLive, Effect.result)
   )
-  if (result._tag === 'Left') {
+  if (result._tag === 'Failure') {
     if (
-      result.left._tag === 'UserViewNotFoundError' ||
-      result.left._tag === 'UserViewForbiddenError'
+      result.failure._tag === 'UserViewNotFoundError' ||
+      result.failure._tag === 'UserViewForbiddenError'
     ) {
       return notFound(c, 'View not found')
     }
     return internalError(c)
   }
-  return c.json(userViewResponseSchema.parse(result.right), 200)
+  return c.json(userViewResponseSchema.parse(result.success), 200)
 }
 
 /**

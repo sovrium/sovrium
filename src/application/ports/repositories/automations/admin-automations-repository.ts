@@ -80,6 +80,7 @@ export interface AdminAutomationRunRow {
  *
  * - `cursorBefore` — when set, only rows strictly older than this `createdAt`
  *   are returned (the use case decodes the opaque cursor into this date).
+ * - `q` — the operator's free-text term (see below).
  * - `limit` — the page size; the repository fetches `limit + 1` rows so the
  *   use case can compute `hasMore` / `nextCursor`.
  */
@@ -90,10 +91,27 @@ export interface AdminRunsListFilters {
   readonly from?: Date | undefined
   readonly to?: Date | undefined
   readonly cursorBefore?: Date | undefined
+  /**
+   * Free-text term over the automation NAME and the failure `error` text,
+   * already trimmed and length-checked by `searchTermSchema`. `undefined` means
+   * "no search" — the unfiltered page, never "match nothing".
+   *
+   * It composes INTO the cursor seek rather than beside it, which is what turns
+   * the grid's reach from "matches among the 25 rows it holds" into "matches
+   * across the whole history".
+   *
+   * `status` is deliberately NOT in this haystack: it already has the `status`
+   * filter above AND its own combobox on the surface, so folding it in would
+   * make a term like `failed` a category match that buries the one run the
+   * operator was looking for. `automationName` is the exact-match filter above;
+   * this is its substring sibling, and the two coexist because the grid's
+   * combobox selects a name while the box searches for one.
+   */
+  readonly q?: string | undefined
   readonly limit: number
 }
 
-export class AdminAutomationsRepository extends Context.Tag('AdminAutomationsRepository')<
+export class AdminAutomationsRepository extends Context.Service<
   AdminAutomationsRepository,
   {
     /**
@@ -129,4 +147,4 @@ export class AdminAutomationsRepository extends Context.Tag('AdminAutomationsRep
       runId: string
     ) => Effect.Effect<AdminAutomationRunRow | undefined, AdminAutomationsDatabaseError>
   }
->() {}
+>()('AdminAutomationsRepository') {}

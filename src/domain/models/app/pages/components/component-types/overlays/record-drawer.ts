@@ -72,13 +72,13 @@ export const RecordDrawerTypeLiteral = Schema.Literal('record-drawer')
  * Additive/backward-compatible: omitting `renderAs` (or setting `text`) keeps
  * the exact current scalar rendering for every existing record-drawer field.
  */
-export const RecordDrawerFieldRenderAsSchema = Schema.Literal(
+export const RecordDrawerFieldRenderAsSchema = Schema.Literals([
   'text',
   'json',
   'list',
   'key-value',
-  'code'
-).annotations({
+  'code',
+]).annotate({
   title: 'Record Drawer Field Render As',
   description:
     'How a record-drawer field renders its value: text (default, String(value)), json (pretty <pre>), list (array-of-objects as a labelled list), key-value (nested object as a definition list), code (raw string in a monospace block).',
@@ -104,8 +104,8 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.nonEmptyString({ message: () => 'label must not be empty' }),
-      Schema.annotations({
+      Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' })),
+      Schema.annotate({
         description:
           "Display-name override for this drawer entry (wins over the bound field's label, then the raw name). Required to name an entry on a system-bound drawer, which has no table field schema to resolve from.",
         examples: ['Prix unitaire', 'Statut'],
@@ -120,8 +120,8 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.nonEmptyString({ message: () => 'description must not be empty' }),
-      Schema.annotations({
+      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' })),
+      Schema.annotate({
         description:
           "Guidance-text override rendered beside this drawer entry's value (wins over the bound field's description). Required to describe an entry on a system-bound drawer.",
         examples: ['Hors taxes, en euros.'],
@@ -137,7 +137,7 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    * drawer's `canEdit`.
    */
   renderAs: Schema.optional(RecordDrawerFieldRenderAsSchema),
-}).pipe(Schema.annotations({ identifier: 'RecordDrawerField', title: 'Record Drawer Field' }))
+}).pipe(Schema.annotate({ identifier: 'RecordDrawerField', title: 'Record Drawer Field' }))
 
 /**
  * A footer action button the drawer renders below the record body
@@ -189,7 +189,7 @@ export const RecordDrawerFieldSchema = Schema.Struct({
  */
 export const RecordDrawerActionSchema = Schema.Struct({
   /** Visible button text. Also the confirm affordance's label when `confirm` is set. */
-  label: Schema.String.annotations({
+  label: Schema.String.annotate({
     description: "Footer action button text (and the confirm dialog's confirm-button label).",
   }),
   /**
@@ -211,7 +211,7 @@ export const RecordDrawerActionSchema = Schema.Struct({
    * non-destructive footer action that fires immediately.
    */
   confirm: Schema.optional(ConfirmGateSchema),
-}).pipe(Schema.annotations({ identifier: 'RecordDrawerAction', title: 'Record Drawer Action' }))
+}).pipe(Schema.annotate({ identifier: 'RecordDrawerAction', title: 'Record Drawer Action' }))
 
 /**
  * Accessible role of the record-drawer surface ([internal ref] CAP-2).
@@ -227,7 +227,7 @@ export const RecordDrawerActionSchema = Schema.Struct({
  * previously unused title prop). When `props.title` is omitted the default
  * "Détail de l'enregistrement" name is kept, so existing drawers are unchanged.
  */
-export const RecordDrawerRoleSchema = Schema.Literal('dialog', 'region').annotations({
+export const RecordDrawerRoleSchema = Schema.Literals(['dialog', 'region']).annotate({
   title: 'Record Drawer Role',
   description:
     'Accessible role of the drawer surface: dialog (default) or region. Its accessible name comes from props.title.',
@@ -242,7 +242,7 @@ export const recordDrawerFields = {
    * component: <id> }` (the existing dispatch the grid emits).
    */
   id: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Record-drawer identifier referenced by `onRowClick: { action: 'openDrawer', component }`.",
     })
@@ -260,18 +260,18 @@ export const recordDrawerFields = {
    *    A system-detail drawer is READ-ONLY (no records table to PATCH).
    */
   dataSource: Schema.optional(
-    Schema.Union(
+    Schema.Union([
       Schema.Struct({ table: Schema.String }).pipe(
-        Schema.annotations({ identifier: 'RecordDrawerDataSource' })
+        Schema.annotate({ identifier: 'RecordDrawerDataSource' })
       ),
       Schema.Struct({
         /** System detail-endpoint binding (mutually exclusive with the DB-table form) */
         system: SystemDetailSourceSchema,
-      }).annotations({
+      }).annotate({
         title: 'Record Drawer System Detail Source',
         description: 'System detail-endpoint binding for the record-detail drawer',
-      })
-    ).annotations({
+      }),
+    ]).annotate({
       identifier: 'RecordDrawerDataSourceBinding',
       title: 'Record Drawer Data Source',
       description: 'DB-table single-record binding OR a system detail-endpoint binding',
@@ -289,7 +289,7 @@ export const recordDrawerFields = {
    * exactly as before.
    */
   actions: Schema.optional(
-    Schema.Array(RecordDrawerActionSchema).annotations({
+    Schema.Array(RecordDrawerActionSchema).annotate({
       title: 'Record Drawer Actions',
       description:
         "Footer action buttons rendered below the record body. Each fires against the drawer's loaded record ($record.* resolved at click time) and reuses the button action + confirm dispatch.",

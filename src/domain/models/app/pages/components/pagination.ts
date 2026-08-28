@@ -21,10 +21,9 @@ import { Schema } from 'effect'
 export const DataTablePaginationSchema = Schema.Struct({
   /** Default rows per page */
   pageSize: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Default rows per page (default: 25)',
         examples: [10, 25, 50],
       })
@@ -32,9 +31,9 @@ export const DataTablePaginationSchema = Schema.Struct({
   ),
   /** Dropdown options for page size */
   pageSizeOptions: Schema.optional(
-    Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+    Schema.Array(Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))).pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Page size dropdown options',
         examples: [[10, 25, 50, 100]],
       })
@@ -42,17 +41,17 @@ export const DataTablePaginationSchema = Schema.Struct({
   ),
   /** Position of pagination controls */
   position: Schema.optional(
-    Schema.Literal('top', 'bottom', 'both').annotations({
+    Schema.Literals(['top', 'bottom', 'both']).annotate({
       description: 'Position of pagination controls (default: bottom)',
     })
   ),
   /** Enable server-side pagination */
   serverSide: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Enable server-side pagination (default: false)',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Data Table Pagination',
   description: 'Pagination configuration for the data table',
 })

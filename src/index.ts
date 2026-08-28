@@ -17,9 +17,14 @@
  * See packages/types/ for the @sovrium/types npm package.
  */
 
-import { Effect, Either } from 'effect'
+import { Cause, Effect, Exit, Result } from 'effect'
 import { createAdminAccount } from '@/application/use-cases/auth/bootstrap-admin'
 import { decodeAppConfigObject } from '@/application/use-cases/schema/decode-app-config'
+import {
+  extractCodeActionRefusal,
+  findCodeActionRefusalInCause,
+  validateCodeActionBodies,
+} from '@/application/use-cases/schema/validate-code-actions'
 import { generateSearchIndex } from '@/application/use-cases/server/generate-search-index'
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { startServer } from '@/application/use-cases/server/start-server'
@@ -31,7 +36,7 @@ import { provisionRootSecret } from '@/infrastructure/crypto/root-secret'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
 import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
-import { withGracefulShutdown } from '@/infrastructure/server/lifecycle'
+import { installShutdownHandlers } from '@/infrastructure/server/lifecycle'
 import type { ServerInstance } from '@/application/models/server'
 import type { DecodeAppConfigResult } from '@/application/use-cases/schema/decode-app-config'
 import type {
@@ -45,6 +50,7 @@ import type { Auth } from '@/domain/models/app/auth'
 import type { Automation } from '@/domain/models/app/automations'
 import type { ComponentTemplate } from '@/domain/models/app/components/component'
 import type { Connection } from '@/domain/models/app/connections'
+import type { Design } from '@/domain/models/app/design'
 import type { EnvVar } from '@/domain/models/app/env'
 import type { Form } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
@@ -107,18 +113,51 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
 
     const program = Effect.gen(function* () {
       const server = yield* startServer(rawApp, options)
-      yield* Effect.fork(withGracefulShutdown(server))
+      // Registered on THIS fiber, deliberately. The handler used to be forked
+      // into a child that parked on `Effect.never`; Effect 4 interrupts a child
+      // when its parent completes, so `process.on(...)` never ran and the
+      // server ignored SIGTERM outright. `installShutdownHandlers` registers
+      // and returns — there is no fiber left to interrupt.
+      yield* installShutdownHandlers(server)
       return server
     }).pipe(Effect.provide(createAppLayer(validatedApp.auth)))
 
-    const server = await Effect.runPromise(program)
-    return toSimpleServer(server)
+    // EFFECT 4: run for an `Exit` rather than a Promise rejection, so the
+    // code-action guard reads the CAUSE instead of whatever `Cause.squash`
+    // chose to surface. v4's `runPromise` does reject with the squashed error
+    // value (v3's `FiberFailure` wrapper is gone), and for this pipeline that
+    // value is always the right one — `startServer` type-checks code actions in
+    // one sequential step. Depending on that is the part worth removing: a
+    // cause carrying more than one reason squashes to one of them, and if it
+    // picks the other, an author's type error silently becomes "please open an
+    // issue" again. Searching the reasons costs nothing and does not care.
+    const exit = await Effect.runPromiseExit(program)
+    if (Exit.isFailure(exit)) {
+      const causeRefusal = findCodeActionRefusalInCause(exit.cause)
+      // eslint-disable-next-line functional/no-throw-statements -- re-throw as a config refusal
+      if (causeRefusal !== undefined) throw new ConfigRejectedError(causeRefusal)
+      // Everything else keeps the exact value the old `runPromise` rejected
+      // with, so the catch block below is unchanged in what it receives.
+      // eslint-disable-next-line functional/no-throw-statements -- re-raise the squashed failure verbatim
+      throw Cause.squash(exit.cause)
+    }
+    return toSimpleServer(exit.value)
   } catch (error) {
     // A refused config is already an author-readable report. Enriching it with
     // a stack and an issue link would tell the author to file a bug about their
     // own typo, so it passes through untouched — see `ConfigRejectedError`.
     // eslint-disable-next-line functional/no-throw-statements -- re-throw the refusal verbatim
     if (isConfigRejectedError(error)) throw error
+    // A code action that does not type-check is the same kind of thing: an
+    // author's mistake in their own config, not an engine fault. It arrives
+    // here as a `TSValidationError` inside Effect's `FiberFailure` rather than
+    // as a `ConfigRejectedError` — a tagged error cannot extend that class too —
+    // so it used to fall through to the "please open an issue" wrapper below and
+    // send the author to file a bug about their own typo. Re-raise it as the
+    // refusal it is.
+    const codeActionRefusal = extractCodeActionRefusal(error)
+    // eslint-disable-next-line functional/no-throw-statements -- re-throw as a config refusal
+    if (codeActionRefusal !== undefined) throw new ConfigRejectedError(codeActionRefusal)
     const message = formatRuntimeError(error)
     // eslint-disable-next-line functional/no-throw-statements -- re-throw with enriched message
     throw new Error(
@@ -140,6 +179,18 @@ export const build = async (
     // `generateStatic` re-decodes the config it is handed, so it must receive
     // the same object `decodeOrThrow` validated — not a separately-parsed one.
     const { raw: rawApp, app: validatedApp } = decodeOrThrow(app)
+
+    // A static build never executes an automation, so refusing a code action
+    // that does not type-check buys this command nothing on its own. It is here
+    // because the contract is that all three commands agree on what a valid
+    // config IS: `build` emitting a complete site for a config `start` refuses
+    // is the same divergence as `validate` passing it, and a command that
+    // disagrees is the next one to be found disagreeing by a user.
+    const codeActionErrors = await validateCodeActionBodies(validatedApp)
+    if (codeActionErrors.length > 0) {
+      // eslint-disable-next-line functional/no-throw-statements -- surfaced by the caller's catch
+      throw new ConfigRejectedError(codeActionErrors.join('\n'))
+    }
 
     const program = Effect.gen(function* () {
       logDebug('[ssg] generating static site...')
@@ -171,7 +222,7 @@ export const build = async (
       }
 
       return result
-    }).pipe(Effect.provide(createStaticBuildLayer()))
+    }).pipe(Effect.provide(createStaticBuildLayer))
 
     return await Effect.runPromise(program)
   } catch (error) {
@@ -262,7 +313,7 @@ export const prebuildSearchIndex = async (app: AppConfig, publicDir: string): Pr
         outputDir: publicDir,
         publicPagePaths,
       })
-    }).pipe(Effect.provide(createStaticBuildLayer()))
+    }).pipe(Effect.provide(createStaticBuildLayer))
 
     // eslint-disable-next-line functional/no-expression-statements -- driver for the pure Effect program
     await Effect.runPromise(program)
@@ -318,15 +369,15 @@ export const createAdmin = async (
         password: credentials.password,
         name: credentials.name ?? 'Administrator',
       })
-    }).pipe(Effect.provide(createAppLayer(validatedApp.auth)), Effect.either)
+    }).pipe(Effect.provide(createAppLayer(validatedApp.auth)), Effect.result)
 
     const result = await Effect.runPromise(program)
 
-    if (Either.isRight(result)) {
-      return { ok: true, created: !result.right.alreadyExists, email: credentials.email }
+    if (Result.isSuccess(result)) {
+      return { ok: true, created: !result.success.alreadyExists, email: credentials.email }
     }
 
-    const error = result.left
+    const error = result.failure
     const message =
       error._tag === 'InvalidEmailError'
         ? `Invalid email address: ${error.email}`
@@ -360,8 +411,17 @@ export type TableConfig = Table
 /** Reusable component template (element of `AppConfig['components']`). */
 export type ComponentConfig = ComponentTemplate
 
-/** Theme / design tokens configuration (`AppConfig['theme']`). */
+/**
+ * Theme / design tokens configuration.
+ *
+ * The canonical position is `AppConfig['design']['theme']`; top-level
+ * `AppConfig['theme']` is a deprecated alias for the same type, removed at the
+ * next major. The alias here is unchanged — one type serves both positions.
+ */
 export type ThemeConfig = Theme
+
+/** Design-system configuration (`AppConfig['design']`) — tokens, principles, voice, usage rules. */
+export type DesignConfig = Design
 
 /** Authentication configuration (`AppConfig['auth']`). */
 export type AuthConfig = Auth
@@ -397,8 +457,7 @@ export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
 // call sites anywhere in this repository. Config validation now has exactly one
 // implementation, `decodeAppConfigObject`
 // (`@/application/use-cases/schema/decode-app-config`), reachable from a shell
-// as `sovrium validate` and from a config as the `data:validate-config`
-// automation action.
+// as `sovrium validate` and run implicitly by `sovrium start` / `sovrium build`.
 //
 // `generateAppJsonSchema` here was a dead re-export of
 // `@/domain/services/json-schema`, which the `sovrium schema` command and the

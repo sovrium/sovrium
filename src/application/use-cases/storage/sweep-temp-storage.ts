@@ -28,7 +28,7 @@ import type { StorageService } from '@/application/ports/services/storage-servic
  * which is the zero-config default and has no lifecycle rules of its own.
  */
 
-type StoragePort = Effect.Effect.Success<typeof StorageService>
+type StoragePort = Effect.Success<typeof StorageService>
 
 /**
  * The prefix handed to `list()`, without the canonical trailing slash: the
@@ -66,12 +66,12 @@ const reclaimIfAged = (
   cutoff: number
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const metadata = yield* Effect.either(storage.getMetadata(key))
+    const metadata = yield* Effect.result(storage.getMetadata(key))
     // No catalog row means the age is unknown (or the file is already gone).
     // Keeping it is the safe branch: an unsweepable file is a smaller problem
     // than a file deleted on a guess.
-    if (metadata._tag === 'Left') return
-    const lastModified = Date.parse(metadata.right.lastModified)
+    if (metadata._tag === 'Failure') return
+    const lastModified = Date.parse(metadata.success.lastModified)
     if (!Number.isFinite(lastModified) || lastModified > cutoff) return
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
     yield* Effect.ignore(storage.delete(key))
@@ -91,11 +91,11 @@ export const sweepAgedTempFiles = (
     const ttlMs = parseStorageTempCleanupAfter(options?.env ?? process.env)
     if (ttlMs <= 0) return
 
-    const listed = yield* Effect.either(storage.list(TEMP_LIST_PREFIX))
-    if (listed._tag === 'Left') return
+    const listed = yield* Effect.result(storage.list(TEMP_LIST_PREFIX))
+    if (listed._tag === 'Failure') return
 
     const cutoff = Date.now() - ttlMs
-    const candidates = listed.right.filter(
+    const candidates = listed.success.filter(
       (key) => key.startsWith(TEMP_STORAGE_PREFIX) && key !== options?.preserve
     )
     yield* Effect.forEach(candidates, (key) => reclaimIfAged(storage, key, cutoff), {

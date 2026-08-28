@@ -86,6 +86,23 @@ export interface AnalyticsQueryParams {
   readonly from: Date
   readonly to: Date
   readonly granularity: 'hour' | 'day' | 'week' | 'month'
+
+  /**
+   * Which event population to aggregate. Defaults to `'page_view'` when omitted,
+   * so every caller that predates this field is unaffected.
+   *
+   * The default is load-bearing rather than a convenience: an UNPINNED clause
+   * would blend page views with clicks, form submissions and every future event
+   * type at once, moving all six readers' historical figures in a single change
+   * that nothing would flag.
+   */
+  readonly eventType?: string
+
+  /**
+   * Narrows to one named event within that population — a link's slug, a form's
+   * name, an outbound hostname. Ignored when absent.
+   */
+  readonly eventName?: string
 }
 
 /**
@@ -144,6 +161,20 @@ export interface DeviceBreakdown {
 }
 
 /**
+ * One row of a link's per-target click split.
+ *
+ * `name` is the `targetIndex` as a STRING, matching every other breakdown entry
+ * in this file so the same reader components can render it. It is deliberately
+ * not resolved to a URL here: the event store records only the index, and the
+ * destination it currently maps to is a CONFIG question the route layer answers.
+ */
+export interface TargetBreakdownEntry {
+  readonly name: string
+  readonly count: number
+  readonly percentage: number
+}
+
+/**
  * Campaign entry
  */
 export interface CampaignEntry {
@@ -175,7 +206,7 @@ export class AnalyticsDatabaseError extends Data.TaggedError('AnalyticsDatabaseE
  * Provides type-safe database operations for analytics page views.
  * Implementation lives in infrastructure layer (analytics-repository-live.ts).
  */
-export class AnalyticsRepository extends Context.Tag('AnalyticsRepository')<
+export class AnalyticsRepository extends Context.Service<
   AnalyticsRepository,
   {
     readonly recordPageView: (input: PageViewInput) => Effect.Effect<void, AnalyticsDatabaseError>
@@ -198,6 +229,9 @@ export class AnalyticsRepository extends Context.Tag('AnalyticsRepository')<
     readonly getCampaigns: (
       params: AnalyticsQueryParams
     ) => Effect.Effect<readonly CampaignEntry[], AnalyticsDatabaseError>
+    readonly getTargets: (
+      params: AnalyticsQueryParams
+    ) => Effect.Effect<readonly TargetBreakdownEntry[], AnalyticsDatabaseError>
     readonly deleteOlderThan: (
       appName: string,
       cutoff: Date
@@ -215,4 +249,4 @@ export class AnalyticsRepository extends Context.Tag('AnalyticsRepository')<
       AnalyticsDatabaseError
     >
   }
->() {}
+>()('AnalyticsRepository') {}

@@ -12,7 +12,7 @@
 // name prefix via the `authTable()` helper. Same exported symbol names, same
 // column names, so a future barrel swap is transparent.
 
-import { index, integer, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { authTable } from './table-helpers'
 
 // Better Auth Tables (using native table names in the logical "auth" namespace)
@@ -77,6 +77,8 @@ export const accounts = authTable(
     id: text('id').primaryKey(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
+    // See the pg mirror for why this is nullable rather than NOT NULL.
+    issuer: text('issuer'),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -95,7 +97,10 @@ export const accounts = authTable(
       .$defaultFn(() => new Date())
       .$onUpdate(() => new Date()),
   },
-  (table) => [index('account_userId_idx').on(table.userId)]
+  (table) => [
+    index('account_userId_idx').on(table.userId),
+    uniqueIndex('account_issuer_accountId_uidx').on(table.issuer, table.accountId),
+  ]
 )
 
 export const verifications = authTable(
@@ -207,6 +212,7 @@ export const teams = authTable(
     organizationId: text('organization_id')
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
+    memberCount: integer('member_count').notNull().default(0),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -228,6 +234,7 @@ export const teamMembers = authTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    membershipKey: text('membership_key').unique(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
   },
   (table) => [
@@ -242,6 +249,8 @@ export const jwks = authTable('jwks', {
   id: text('id').primaryKey(),
   publicKey: text('public_key').notNull(),
   privateKey: text('private_key').notNull(),
+  alg: text('alg'),
+  crv: text('crv'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -254,7 +263,7 @@ export const oauthClients = authTable(
   'oauth_client',
   {
     id: text('id').primaryKey(),
-    clientId: text('client_id').notNull(),
+    clientId: text('client_id').notNull().unique(),
     clientSecret: text('client_secret'),
     disabled: integer('disabled', { mode: 'boolean' }),
     skipConsent: integer('skip_consent', { mode: 'boolean' }),
@@ -288,6 +297,16 @@ export const oauthClients = authTable(
     public: integer('public', { mode: 'boolean' }),
     type: text('type'),
     requirePKCE: integer('require_pkce', { mode: 'boolean' }),
+    clientDiscoveryId: text('client_discovery_id'),
+    clientCredentialsScopes: text('client_credentials_scopes', { mode: 'json' }),
+    backchannelLogoutUri: text('backchannel_logout_uri'),
+    backchannelLogoutSessionRequired: integer('backchannel_logout_session_required', {
+      mode: 'boolean',
+    }),
+    applicationType: text('application_type'),
+    jwks: text('jwks'),
+    jwksUri: text('jwks_uri'),
+    dpopBoundAccessTokens: integer('dpop_bound_access_tokens', { mode: 'boolean' }),
     metadata: text('metadata', { mode: 'json' }),
   },
   (table) => [
@@ -310,6 +329,13 @@ export const oauthRefreshTokens = authTable(
     scopes: text('scopes', { mode: 'json' }).notNull(),
     revoked: integer('revoked', { mode: 'timestamp_ms' }),
     authTime: integer('auth_time', { mode: 'timestamp_ms' }),
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources', { mode: 'json' }),
+    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }),
+    rotatedAt: integer('rotated_at', { mode: 'timestamp_ms' }),
+    rotationReplayResponse: text('rotation_replay_response'),
+    rotationReplayExpiresAt: integer('rotation_replay_expires_at', { mode: 'timestamp_ms' }),
+    confirmation: text('confirmation', { mode: 'json' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -334,6 +360,11 @@ export const oauthAccessTokens = authTable(
     userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
     referenceId: text('reference_id'),
     scopes: text('scopes', { mode: 'json' }).notNull(),
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources', { mode: 'json' }),
+    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }),
+    revoked: integer('revoked', { mode: 'timestamp_ms' }),
+    confirmation: text('confirmation', { mode: 'json' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -358,6 +389,8 @@ export const oauthConsents = authTable(
     clientId: text('client_id').notNull(),
     referenceId: text('reference_id'),
     scopes: text('scopes', { mode: 'json' }).notNull(),
+    resources: text('resources', { mode: 'json' }),
+    requestedUserInfoClaims: text('requested_user_info_claims', { mode: 'json' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -369,5 +402,49 @@ export const oauthConsents = authTable(
   (table) => [
     index('oauthConsent_userId_idx').on(table.userId),
     index('oauthConsent_clientId_idx').on(table.clientId),
+  ]
+)
+
+// API-key plugin table (`@better-auth/api-key`, model name `apikey`).
+// Faithful sqlite-core mirror of the pg `apiKeys` table: same property names,
+// same column names, `integer({ mode: 'boolean' })` for the two flags and
+// `integer({ mode: 'timestamp_ms' })` for the five dates. SQLite integers are
+// already 64-bit, so the pg `bigint` distinction collapses here.
+export const apiKeys = authTable(
+  'api_key',
+  {
+    id: text('id').primaryKey(),
+    configId: text('config_id').notNull().default('default'),
+    name: text('name'),
+    start: text('start'),
+    prefix: text('prefix'),
+    key: text('key').notNull(),
+    referenceId: text('reference_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    refillInterval: integer('refill_interval'),
+    refillAmount: integer('refill_amount'),
+    lastRefillAt: integer('last_refill_at', { mode: 'timestamp_ms' }),
+    enabled: integer('enabled', { mode: 'boolean' }).default(true),
+    rateLimitEnabled: integer('rate_limit_enabled', { mode: 'boolean' }).default(true),
+    rateLimitTimeWindow: integer('rate_limit_time_window'),
+    rateLimitMax: integer('rate_limit_max'),
+    requestCount: integer('request_count').default(0),
+    remaining: integer('remaining'),
+    lastRequest: integer('last_request', { mode: 'timestamp_ms' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+    permissions: text('permissions'),
+    metadata: text('metadata'),
+  },
+  (table) => [
+    index('apiKey_referenceId_idx').on(table.referenceId),
+    index('apiKey_configId_idx').on(table.configId),
   ]
 )

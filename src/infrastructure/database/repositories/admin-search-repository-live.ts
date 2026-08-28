@@ -58,9 +58,15 @@ const wrap = makeDbWrap((cause) => new AdminSearchDatabaseError({ cause }))
 const systemTableRef = (logical: string): SQL =>
   isSqliteRuntime() ? sql.raw(`system_${logical}`) : sql.raw(`system."${logical}"`)
 
-/** The admin-search content table reference for the active dialect. */
+/**
+ * The admin-search content table reference for the active dialect.
+ *
+ * Exported so the boot-time purge (`admin-search-index-purge.ts`) names the
+ * SAME relation this repository writes — the dialect branch must not be
+ * restated in a second place.
+ */
 // eslint-disable-next-line functional/prefer-immutable-types -- raw SQL identifier, see systemTableRef
-const contentTableRef = (): SQL =>
+export const adminSearchContentTableRef = (): SQL =>
   isSqliteRuntime() ? sql.raw(ADMIN_SEARCH_CONTENT_TABLE) : sql.raw('system."_admin_search_index"')
 
 /** Coerce an upsert row's `updatedAt` to the column's native form. */
@@ -102,11 +108,41 @@ const readTableRecords = (
     .catch(() => [])
 }
 
-/** Read form submissions into index rows. */
+/**
+ * Read form submissions into index rows — METADATA ONLY ([internal ref] R2).
+ *
+ * THE SUBMITTED BODY IS PERMANENTLY OUT OF THE FTS DOCUMENT, and the reason is
+ * a confidentiality boundary rather than a scoping preference. Revealing a
+ * submission body needs `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND
+ * `isAdminRole` (`forms-overview.ts` `BuildSubmissionDetail`); with the env var
+ * unset — the default — that endpoint 403s for EVERY caller. This index needs
+ * neither: `/api/admin/search` sits behind the `/api/admin/*` `requireAdminTier`
+ * catch-all, which admits `admin-editor` / `admin-viewer` / `operator` alike.
+ *
+ * So while the search never RETURNS body text (`toHit` projects
+ * `type/entity_id/title/href/updated_at` only), indexing the body made
+ * `?q=<substring>` a CONFIRM/DENY ORACLE: a hit iff the substring sits in a
+ * withheld body, recoverable one substring at a time by a tier that may list
+ * submissions it may not read. Sanitizing the response would not have closed
+ * it; only narrowing the haystack does.
+ *
+ * What stays searchable is what the operator can already see on the list
+ * surface: the form NAME (carried as `title`) and the submission ID (carried as
+ * `body`, since the FTS document spans `title || ' ' || body` and NOT
+ * `entity_id`). The SUBMITTER identity — the other half of the list haystack in
+ * [internal ref] D4 — is deliberately DEFERRED, not forgotten: it needs a new
+ * `auth.user` LEFT JOIN here and would bake an e-mail into a derived store the
+ * GDPR account purge does not yet cover. That widening does not belong inside a
+ * confidentiality fix; the capability survives via the `user` rows, indexed
+ * already.
+ *
+ * `status` stays out on D3's own reasoning: it is a category match that buries
+ * the one row wanted, and it is client-localized.
+ */
 const readSubmissions = (): Promise<readonly AdminSearchUpsertRow[]> =>
   executeRaw(
     db,
-    sql`SELECT id AS entity_id, form_name, CAST(data AS TEXT) AS data_text
+    sql`SELECT id AS entity_id, form_name
         FROM ${systemTableRef('form_submissions')}
         WHERE deleted_at IS NULL
         LIMIT 500`
@@ -114,12 +150,14 @@ const readSubmissions = (): Promise<readonly AdminSearchUpsertRow[]> =>
     .then((rows) =>
       rows.map((row): AdminSearchUpsertRow => {
         const formName = typeof row['form_name'] === 'string' ? row['form_name'] : 'formulaire'
-        const dataText = typeof row['data_text'] === 'string' ? row['data_text'] : ''
+        const entityId = String(row['entity_id'])
         return {
           type: 'submission',
-          entityId: String(row['entity_id']),
+          entityId,
           title: `Soumission · ${formName}`,
-          body: dataText.slice(0, 500),
+          // Metadata only — the id, so an operator holding one can still find
+          // the row. NEVER the submitted payload; see the note above.
+          body: entityId,
           href: `/_admin/forms/${formName}`,
           updatedAt: new Date(),
         }
@@ -230,7 +268,7 @@ const readConversations = (): Promise<readonly AdminSearchUpsertRow[]> =>
 const upsertRow = (row: AdminSearchUpsertRow): Promise<unknown> =>
   executeRaw(
     db,
-    sql`INSERT INTO ${contentTableRef()} (type, entity_id, title, body, href, updated_at)
+    sql`INSERT INTO ${adminSearchContentTableRef()} (type, entity_id, title, body, href, updated_at)
         VALUES (${row.type}, ${row.entityId}, ${row.title}, ${row.body}, ${row.href}, ${updatedAtValue(row.updatedAt)})
         ON CONFLICT (type, entity_id) DO UPDATE
           SET title = excluded.title,
@@ -370,7 +408,7 @@ const toFtsMatch = (query: string): string =>
     .join(' AND ')
 
 /** Map a raw index row to the port's hit shape. */
-const toHit = (row: Record<string, unknown>): AdminSearchIndexHit => ({
+const toHit = (row: Readonly<Record<string, unknown>>): AdminSearchIndexHit => ({
   type: String(row['type']) as AdminSearchEntityType,
   entityId: String(row['entity_id']),
   title: typeof row['title'] === 'string' ? row['title'] : '',
@@ -412,24 +450,23 @@ const searchPostgres = (query: string): Promise<readonly AdminSearchIndexHit[]> 
  * Admin Global Search Repository Live layer.
  */
 export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
-  indexStaleness: () =>
-    wrap(async (): Promise<AdminSearchStaleness> => {
-      const rows = await executeRaw(
-        db,
-        sql`SELECT COUNT(*) AS row_count, MAX(updated_at) AS last_built
-            FROM ${contentTableRef()}`
-      )
-      const row = rows[0] ?? {}
-      const count = toFiniteCount(row['row_count'])
-      const lastRaw = row['last_built']
-      const lastBuiltAt =
-        lastRaw === null || lastRaw === undefined
-          ? undefined
-          : lastRaw instanceof Date
-            ? lastRaw
-            : new Date(typeof lastRaw === 'number' ? lastRaw : Number(lastRaw) || String(lastRaw))
-      return { isEmpty: count === 0, lastBuiltAt }
-    }),
+  indexStaleness: wrap(async (): Promise<AdminSearchStaleness> => {
+    const rows = await executeRaw(
+      db,
+      sql`SELECT COUNT(*) AS row_count, MAX(updated_at) AS last_built
+            FROM ${adminSearchContentTableRef()}`
+    )
+    const row = rows[0] ?? {}
+    const count = toFiniteCount(row['row_count'])
+    const lastRaw = row['last_built']
+    const lastBuiltAt =
+      lastRaw === null || lastRaw === undefined
+        ? undefined
+        : lastRaw instanceof Date
+          ? lastRaw
+          : new Date(typeof lastRaw === 'number' ? lastRaw : Number(lastRaw) || String(lastRaw))
+    return { isEmpty: count === 0, lastBuiltAt }
+  }),
 
   // Three sequential stages, each a fan-out with a stated ceiling — see the
   // "Bounded rebuild fan-outs" section above. They run one after another, so the

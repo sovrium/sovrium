@@ -33,6 +33,7 @@ export type FamilyIcon =
   | 'component'
   | 'action'
   | 'connection'
+  | 'link'
   | 'notification'
   | 'script'
   | 'env'

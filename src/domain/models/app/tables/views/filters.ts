@@ -42,7 +42,15 @@ import {
 export const ViewFilterConditionSchema = Schema.Struct({
   field: Schema.String,
   operator: Schema.String,
-  value: Schema.Unknown,
+  // `Schema.optional`, not a bare `Schema.Unknown`. Effect 3 excluded an
+  // `unknown`-typed property from a struct's required keys — the published
+  // `Condition` def has `required: ['field','operator']` — and accepted
+  // `{ field, operator }` with the key absent, which is what value-less
+  // operators need. Effect 4 requires the key, so a filter written exactly as
+  // the PUBLISHED schema still blesses it was rejected by `sovrium validate`.
+  // This edit moves the DECODER back into agreement with the published
+  // `required`, which it does not change.
+  value: Schema.optional(Schema.Unknown),
 }).pipe(
   // ANNOTATIONS FIRST, REFINEMENT SECOND — the order is load-bearing, not
   // stylistic. `JSONSchema.make` renders a struct refinement from its `from`
@@ -50,21 +58,23 @@ export const ViewFilterConditionSchema = Schema.Struct({
   // below would silently strip this node's title and description out of the
   // published `app.json` every author's editor reads. Measured: it deleted five
   // `Filter Condition` blocks from the snapshot.
-  Schema.annotations({
+  Schema.annotate({
     title: 'Filter Condition',
     description:
       'A single filter condition specifying field, operator, and value. `operator` must be one of: ' +
       `${FILTER_OPERATOR_VOCABULARY.terms.join(', ')}.`,
   }),
-  Schema.filter((condition) =>
-    isVocabularyTerm(FILTER_OPERATOR_VOCABULARY, condition.operator)
-      ? undefined
-      : unknownTermRefusal({
-          kind: 'filter operator',
-          value: condition.operator,
-          subject: `field "${condition.field}"`,
-          vocabulary: FILTER_OPERATOR_VOCABULARY,
-        })
+  Schema.check(
+    Schema.makeFilter((condition) =>
+      isVocabularyTerm(FILTER_OPERATOR_VOCABULARY, condition.operator)
+        ? undefined
+        : unknownTermRefusal({
+            kind: 'filter operator',
+            value: condition.operator,
+            subject: `field "${condition.field}"`,
+            vocabulary: FILTER_OPERATOR_VOCABULARY,
+          })
+    )
   )
 )
 
@@ -140,16 +150,16 @@ export type ViewFilterNode =
  * }
  * ```
  */
-export const ViewFilterNodeSchema: Schema.Schema<ViewFilterNode> = Schema.Union(
+export const ViewFilterNodeSchema: Schema.Codec<ViewFilterNode> = Schema.Union([
   ViewFilterConditionSchema,
   Schema.Struct({
-    and: Schema.Array(Schema.suspend((): Schema.Schema<ViewFilterNode> => ViewFilterNodeSchema)),
+    and: Schema.Array(Schema.suspend((): Schema.Codec<ViewFilterNode> => ViewFilterNodeSchema)),
   }),
   Schema.Struct({
-    or: Schema.Array(Schema.suspend((): Schema.Schema<ViewFilterNode> => ViewFilterNodeSchema)),
-  })
-).pipe(
-  Schema.annotations({
+    or: Schema.Array(Schema.suspend((): Schema.Codec<ViewFilterNode> => ViewFilterNodeSchema)),
+  }),
+]).pipe(
+  Schema.annotate({
     identifier: 'ViewFilterNode',
     title: 'Filter Node',
     description: 'A filter condition or a logical group (and/or) of filter nodes.',
@@ -192,7 +202,7 @@ export const ViewFilterNodeSchema: Schema.Schema<ViewFilterNode> = Schema.Union(
  * ```
  */
 export const ViewFiltersSchema = ViewFilterNodeSchema.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'View Filters',
     description: 'Filter configuration using nested and/or groups.',
   })

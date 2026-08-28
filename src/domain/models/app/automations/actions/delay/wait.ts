@@ -29,8 +29,8 @@ export const DelayWaitActionSchema = Schema.Struct({
     /** Fixed delay duration (e.g., "30s", "5m", "24h", "7d") */
     duration: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^\d+\s*(ms|s|m|h|d)$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/)),
+        Schema.annotate({
           description:
             'Delay duration: number + unit (ms, s, m, h, d). Examples: "30s", "5m", "24h", "7d"',
         })
@@ -40,27 +40,29 @@ export const DelayWaitActionSchema = Schema.Struct({
     /** Wait until a specific datetime (ISO 8601 or template variable) */
     until: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'ISO 8601 datetime or template variable to wait until. Example: "2025-12-01T09:00:00Z"',
         })
       )
     ),
   }).pipe(
-    Schema.filter((props) => {
-      const hasDuration = props.duration !== undefined
-      const hasUntil = props.until !== undefined
-      if (hasDuration && hasUntil) {
-        return 'Provide either "duration" or "until", not both'
-      }
-      if (!hasDuration && !hasUntil) {
-        return 'One of "duration" or "until" is required'
-      }
-      return true
-    })
+    Schema.check(
+      Schema.makeFilter((props) => {
+        const hasDuration = props.duration !== undefined
+        const hasUntil = props.until !== undefined
+        if (hasDuration && hasUntil) {
+          return 'Provide either "duration" or "until", not both'
+        }
+        if (!hasDuration && !hasUntil) {
+          return 'One of "duration" or "until" is required'
+        }
+        return true
+      })
+    )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DelayWaitAction',
     title: 'Delay Wait Action',
     description: 'Pause automation execution for a fixed duration or until a specific datetime',

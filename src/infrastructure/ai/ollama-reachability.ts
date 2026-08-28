@@ -42,3 +42,60 @@ export const probeOllamaReachable = async (baseUrl: string | undefined): Promise
     clearTimeout(timer)
   }
 }
+
+/**
+ * How long a probe result is reused before the endpoint is checked again (ms).
+ *
+ * Long enough that a dashboard refresh never pays for a probe, short enough
+ * that an operator who starts or stops Ollama sees the routing panel catch up
+ * within a minute without restarting the server — the same "re-read at request
+ * time" expectation the `ECO_*` levers carry.
+ */
+const OLLAMA_REACHABILITY_TTL_MS = 60_000
+
+/** A memoised probe, keyed by the endpoint it was taken against. */
+interface CachedReachability {
+  /** The `baseUrl` this result describes; a different one is a cache MISS. */
+  readonly baseUrl: string | undefined
+  /** Epoch ms after which the result is re-probed. */
+  readonly expiresAt: number
+  /** The in-flight or settled probe. Stored unresolved so concurrent callers
+   * share one round trip instead of each starting their own. */
+  readonly result: Promise<boolean>
+}
+
+// eslint-disable-next-line functional/no-let -- process-local memo; surviving across requests is the entire point
+let cached: CachedReachability | undefined
+
+/**
+ * Reachability with a process-local TTL memo — the read path for anything that
+ * resolves AI routing on a REQUEST rather than at boot.
+ *
+ * {@link probeOllamaReachable} is a network round trip bounded by a hard 2s
+ * timeout, and against an unreachable endpoint it always spends the full
+ * budget: a configured-but-down Ollama is exactly the case where the probe is
+ * slowest. Calling it per request puts that stall on every load of a
+ * `Cache-Control: no-store` admin dashboard, so the footprint endpoint reads
+ * through here instead.
+ *
+ * Invalidation has two triggers and no others: the TTL elapses, or `baseUrl`
+ * changes (an operator repointing `OLLAMA_BASE_URL` must not be answered from
+ * a memo taken against the old endpoint). The entry holds the PROMISE, not the
+ * boolean, so a burst of concurrent requests during a cold probe collapses to
+ * a single round trip rather than N.
+ *
+ * Deliberately NOT reset between tests: the E2E fixture spawns a fresh server
+ * process per spec, so the memo is already scoped to one server's lifetime.
+ */
+export const getCachedOllamaReachable = (baseUrl: string | undefined): Promise<boolean> => {
+  const now = Date.now()
+  if (cached !== undefined && cached.baseUrl === baseUrl && cached.expiresAt > now) {
+    return cached.result
+  }
+  // `probeOllamaReachable` resolves `false` on every failure mode rather than
+  // rejecting, so a stored promise can never become an unhandled rejection.
+  const result = probeOllamaReachable(baseUrl)
+  // eslint-disable-next-line functional/no-expression-statements -- writing the memo is the point
+  cached = { baseUrl, expiresAt: now + OLLAMA_REACHABILITY_TTL_MS, result }
+  return result
+}

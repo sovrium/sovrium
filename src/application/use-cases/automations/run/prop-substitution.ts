@@ -37,7 +37,7 @@ export const findTemplate = (app: App, name: string): RuntimeActionTemplate | un
 export const resolveActionPropsForDispatch = (
   action: Readonly<Record<string, unknown>>,
   ctx: StepContext
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const isCode = String(action['type'] ?? '') === 'code'
   const subProps = (action['props'] as Record<string, unknown> | undefined) ?? {}
   const subWithTriggers = isCode

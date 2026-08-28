@@ -23,7 +23,7 @@ export const customHtmlFields = {
   ...visibilityFields,
   ...i18nFields,
   htmlSrc: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Path to external .html file (alternative to inline content property for customHTML)',
     })

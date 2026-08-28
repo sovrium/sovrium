@@ -44,14 +44,16 @@
  * get HTTP 404 before this handler ever runs.
  */
 
-import { Effect, Stream } from 'effect'
+import { Effect, Queue, Stream } from 'effect'
 import { upgradeWebSocket } from 'hono/bun'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { REALTIME_TRANSPORT_CONFIG } from '@/domain/models/api/realtime/realtime'
 import {
-  evaluateFieldPermissions,
-  hasReadPermissionForRoles,
-} from '@/domain/validators/permission-evaluators'
+  buildReadAccessPlan,
+  narrowRequestedColumns,
+  REALTIME_READ_POLICY,
+  type ReadAccessPlan,
+} from '@/domain/validators/read-access-plan'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
 import { registerConnection } from '@/infrastructure/realtime/connection-counter'
 import { tableChannel } from '@/infrastructure/realtime/record-change-publisher'
@@ -68,34 +70,41 @@ import type { Context } from 'hono'
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the column whitelist a set of roles may read on a table.
+ * Resolve the composed read plan for one subscription handshake.
  *
- * A field with no explicit `permissions.fields` entry is readable by every
- * role; a field with a `read` restriction is included only when at least one
- * of `effectiveRoles` satisfies it. Returns `undefined` when every column is
- * readable (the common case) so callers can skip filtering entirely.
+ * Delegates to the canonical {@link buildReadAccessPlan} under
+ * {@link REALTIME_READ_POLICY}, which differs from the REST record read in
+ * exactly one NAMED way: a field grant is matched against ANY of the caller's
+ * effective roles rather than the primary one. That breadth is deliberate — the
+ * whitelist is resolved once per CONNECTION and then applied to every fanned-out
+ * change event — and it is now a policy value rather than a local re-derivation.
+ *
+ * Two things the hand-rolled predecessor got wrong and the plan fixes:
+ *
+ *  - it skipped the BUILT-IN DEFAULT FIELD RULES entirely, so a `viewer` saw
+ *    columns over the stream that `GET /records` strips (a stream and a `GET`
+ *    on the same table must not disagree about which columns exist);
+ *  - it short-circuited to "no filtering" whenever the table declared no
+ *    `permissions.fields`, which is precisely when the default rules apply.
+ *
+ * No row-level context is supplied: this endpoint gates the SUBSCRIPTION, and
+ * per-row scoping of fanned-out change events is a separate, unimplemented
+ * concern (see the report accompanying this change). `rowPredicate` is therefore
+ * `'unresolved'` on a table with `rowLevelPermissions` and MUST NOT be read as
+ * "no constraint".
  */
-const resolveReadableFields = (
+const resolveReadPlan = (
   table: Table,
-  effectiveRoles: readonly string[]
-): readonly string[] | undefined => {
-  const fieldPerms = table.permissions?.fields
-  if (!fieldPerms || fieldPerms.length === 0) return undefined
-
-  const isAdmin = effectiveRoles.includes('admin')
-  // A field is readable when ANY effective role can read it.
-  const readableByAnyRole = (fieldName: string): boolean =>
-    effectiveRoles.some((role) => {
-      const evaluated = evaluateFieldPermissions(fieldPerms, role, isAdmin)
-      const entry = evaluated[fieldName]
-      // No explicit entry → readable by all.
-      return entry === undefined ? true : entry.read
-    })
-
-  const readable = table.fields.map((f) => f.name).filter(readableByAnyRole)
-  // All columns readable → undefined (no filtering needed).
-  return readable.length === table.fields.length ? undefined : readable
-}
+  effectiveRoles: readonly string[],
+  userRole: string,
+  app: App
+): ReadAccessPlan =>
+  buildReadAccessPlan({
+    app,
+    table,
+    principal: { role: userRole, effectiveRoles, isAuthenticated: true },
+    policy: REALTIME_READ_POLICY,
+  })
 
 // ---------------------------------------------------------------------------
 // Change-event payload shaping
@@ -224,14 +233,27 @@ const buildLiveResponse = (params: {
   readonly release: () => void
 }): Response => {
   const { c, appId, tableName, scope, release } = params
-  const source = Stream.async<Record<string, unknown>>((emit) => {
-    const unsubscribe = addChannelListener(tableChannel(appId, tableName), (event) => {
-      if (!changeEventMatchesFilter(event, scope.filter)) return
-      // eslint-disable-next-line functional/no-expression-statements -- emit is the Stream.async side-effect API
-      void emit.single(applyFieldSelection(event, scope.fields))
+  // EFFECT 4: `Stream.async(emit => cleanupEffect)` is replaced by
+  // `Stream.callback(queue => effect)` (migration/v3-to-v4.md:14924). Two
+  // things change, not one:
+  //   - the push handle is a Queue, so `emit.single(x)` becomes
+  //     `Queue.offerUnsafe(queue, x)` — still synchronous, which the
+  //     listener callback requires;
+  //   - the RETURNED effect is no longer the cleanup. v3 treated it as the
+  //     finalizer; v4 just runs it, so the unsubscribe has to be registered
+  //     with `Effect.addFinalizer` against the stream's Scope or it silently
+  //     never runs and the listener leaks on every disconnect.
+  const source = Stream.callback<Record<string, unknown>>((queue) =>
+    Effect.gen(function* () {
+      const unsubscribe = addChannelListener(tableChannel(appId, tableName), (event) => {
+        if (!changeEventMatchesFilter(event, scope.filter)) return
+        // eslint-disable-next-line functional/no-expression-statements -- synchronous push into the stream queue
+        Queue.offerUnsafe(queue, applyFieldSelection(event, scope.fields))
+      })
+
+      yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribe()))
     })
-    return Effect.sync(() => unsubscribe())
-  })
+  )
 
   return runEffectSse(c, source, (event) => ({ kind: 'data', payload: event }), {
     preamble: [
@@ -392,7 +414,7 @@ interface LiveTransportInput {
   readonly app: App
   readonly session: { readonly userId: string }
   readonly tableName: string
-  readonly readableFields: readonly string[] | undefined
+  readonly plan: ReadAccessPlan
 }
 
 /**
@@ -400,37 +422,49 @@ interface LiveTransportInput {
  * connection cap. Returns 429 + Retry-After when the user is already at
  * cap; otherwise upgrades to WS or opens an SSE stream that releases the
  * connection slot on teardown.
+ *
+ * BOTH transports now scope their payloads by the SERVER-resolved column
+ * whitelist. They did not: the WebSocket branch forwarded `readableFields`
+ * while the SSE branch substituted the client's own `?fields=` parameter for
+ * it, so an SSE subscriber who simply omitted the parameter received every
+ * column of every insert and update — including the `oldRecord` previous
+ * values — and the `X-Subscription-Fields` response header echoed the caller's
+ * own request back, which made the omission look enforced.
+ *
+ * A client `?fields=` selection can only ever NARROW the whitelist
+ * ({@link narrowRequestedColumns}); the echoed header now reports the
+ * EFFECTIVE selection, not the requested one.
  */
 const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
-  const { c, app, session, tableName, readableFields } = input
+  const { c, app, session, tableName, plan } = input
   const registration = registerConnection(session.userId)
   if (!registration.accepted) {
     return Promise.resolve(tooManyConnectionsResponse(c, registration.current, registration.limit))
   }
+  const requested = parseFieldSelection(c.req.query('fields'))
+  const effectiveFields = narrowRequestedColumns(plan, requested)
   if (isWebSocketUpgrade(c)) {
     return handleWebSocketUpgrade({
       c,
       appId: app.name,
       tableName,
-      readableFields,
+      readableFields: effectiveFields,
       release: registration.release,
     })
   }
-  const fields = parseFieldSelection(c.req.query('fields'))
   const filterExpr = c.req.query('filter')
   const filter = parseSubscriptionFilter(filterExpr)
-  // Echo the requested scoping back so clients can confirm the server
-  // honoured their `filter` / `fields` handshake parameters. Hono's
-  // `c.header(...)` sets headers that streamSSE carries into its
-  // 200 response without us having to construct the Response by hand.
+  // Echo the EFFECTIVE scoping back so clients can confirm what the server
+  // honoured. Hono's `c.header(...)` sets headers that streamSSE carries into
+  // its 200 response without us having to construct the Response by hand.
   if (filterExpr !== undefined) c.header('X-Subscription-Filter', filterExpr)
-  if (fields !== undefined) c.header('X-Subscription-Fields', fields.join(','))
+  if (effectiveFields !== undefined) c.header('X-Subscription-Fields', effectiveFields.join(','))
   return Promise.resolve(
     buildLiveResponse({
       c,
       appId: app.name,
       tableName,
-      scope: { fields, filter },
+      scope: { fields: effectiveFields, filter },
       release: registration.release,
     })
   )
@@ -447,7 +481,8 @@ export async function handleSubscribe(c: Context, app: App): Promise<Response> {
   }
 
   const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-  if (!hasReadPermissionForRoles(table, effectiveRoles, app.tables)) {
+  const plan = resolveReadPlan(table, effectiveRoles, userRole, app)
+  if (!plan.allowed) {
     // Anti-enumeration: a denied subscription is indistinguishable from a
     // missing table (S1 — return 404, never 403).
     return c.json({ success: false, message: 'Table not found', code: 'NOT_FOUND' }, 404)
@@ -460,19 +495,13 @@ export async function handleSubscribe(c: Context, app: App): Promise<Response> {
   // register and release on teardown.
   const acceptsEventStream = (c.req.header('accept') ?? '').includes('text/event-stream')
   if (isWebSocketUpgrade(c) || acceptsEventStream) {
-    return openLiveTransport({
-      c,
-      app,
-      session,
-      tableName,
-      readableFields: resolveReadableFields(table, effectiveRoles),
-    })
+    return openLiveTransport({ c, app, session, tableName, plan })
   }
 
   // Buffered `fetch`/Playwright (Accept: */*) caller — handshake-only stream
   // that closes immediately. Echo the requested scoping headers so callers
   // can confirm the server honoured their filter/fields handshake.
-  const fields = parseFieldSelection(c.req.query('fields'))
+  const fields = narrowRequestedColumns(plan, parseFieldSelection(c.req.query('fields')))
   const filterExpr = c.req.query('filter')
   return new Response(buildHandshakeStream(tableName), {
     status: 200,

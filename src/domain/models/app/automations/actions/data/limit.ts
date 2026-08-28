@@ -21,18 +21,17 @@ export const DataLimitActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the array of items */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the array of items' })
+      Schema.annotate({ description: 'Template reference to the array of items' })
     ),
 
     /** Maximum number of items to keep (positive integer) */
-    count: Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({ description: 'Maximum number of items to keep (positive integer)' })
+    count: Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Maximum number of items to keep (positive integer)' })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataLimitAction',
     title: 'Data Limit Action',
     description: 'Truncate an array to the first N items',

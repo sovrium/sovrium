@@ -41,7 +41,7 @@ const DEFAULT_TIMEOUT_MS = 30_000
 export const deliverWebhook = async (
   url: string,
   event: string,
-  payload: Record<string, unknown>,
+  payload: Readonly<Record<string, unknown>>,
   options?: DeliverWebhookOptions
 ): Promise<Record<string, unknown>> => {
   const secret = options?.secret
@@ -62,10 +62,10 @@ export const deliverWebhook = async (
   }
 
   const body = JSON.stringify(payload)
-  const signatureHeader: Record<string, string> = secret
+  const signatureHeader: Readonly<Record<string, string>> = secret
     ? { 'X-Webhook-Signature': await generateSignature(body, secret) }
     : {}
-  const headers: Record<string, string> = {
+  const headers: Readonly<Record<string, string>> = {
     'Content-Type': 'application/json',
     'User-Agent': 'Sovrium-Webhook/1.0',
     'X-Webhook-Event': event,

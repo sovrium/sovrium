@@ -30,8 +30,12 @@ import {
   SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
-import { generateTableViewStatements, generateReadOnlyViewTrigger } from '../views/view-generators'
-import { generateCreateTableSQL } from './create-table-sql'
+import {
+  generateTableViewStatements,
+  generateReadOnlyViewTrigger,
+  emitsMaterializedView,
+} from '../views/view-generators'
+import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import { recreateTableWithDataEffect } from './migration-utils'
 import { applyTableFeatures, applyTableFeaturesWithoutIndexes } from './table-features'
 import type { Table } from '@/domain/models/app/tables'
@@ -47,53 +51,104 @@ export type MigrationConfig = {
   readonly previousSchema?: { readonly tables: readonly object[] }
 }
 
+/** Live-column shape shared by the migrate helpers. */
+type ExistingColumns = ReadonlyMap<
+  string,
+  { dataType: string; isNullable: string; columnDefault: string | null }
+>
+
+/**
+ * Bring one existing table's STRUCTURE up to date: recreate, ALTER, or skip.
+ *
+ * Decides from EXPLICIT signals, never from an empty ALTER list alone
+ * — an empty list is ambiguous between "incompatible change → recreate",
+ * "constraint-only change → recreate" and "nothing changed → skip".
+ */
+const reconcileTableStructure = (params: {
+  readonly tx: TransactionLike
+  readonly table: Table
+  readonly existingColumns: ExistingColumns
+  readonly previousSchema?: { readonly tables: readonly object[] }
+  /**
+   * Held as ONE value so the recreate branch, the ALTER branch and the
+   * definition-fingerprint comparison below are all driven by the SAME inputs —
+   * a generator reached through one branch with a different map than another
+   * would emit a different table for the same config.
+   */
+  readonly inputs: TableDdlInputs
+}): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { tx, table, existingColumns, previousSchema, inputs } = params
+    const { tableUsesView, tablePrimaryKeyTypes, hasAuthConfig } = inputs
+
+    if (needsTableRecreation(table, existingColumns)) {
+      // Incompatible change (an `id` column whose type disagrees with the
+      // declared primary-key type) — recreate preserving data.
+      yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
+      return
+    }
+
+    const alterStatements = generateAlterTableStatements({
+      table,
+      existingColumns,
+      previousSchema,
+      tablePrimaryKeyTypes,
+      hasAuthConfig,
+    })
+    if (alterStatements.length > 0) {
+      // Incremental, column-level migration.
+      yield* executeSQLStatements(tx, alterStatements)
+      return
+    }
+
+    if (
+      needsDefinitionReconciliation({
+        table,
+        previousSchema,
+        tableUsesView,
+        tablePrimaryKeyTypes,
+        hasAuthConfig,
+      })
+    ) {
+      // No column-level ALTERs, but the table's definition changed in a way not
+      // expressible as an ALTER (e.g. a CHECK/UNIQUE constraint added or
+      // removed) — recreate to reconcile. The recreate is idempotent
+      // (temp-scoped constraint names, canonical names restored) so it never
+      // collides with the live catalog ([internal ref] fix #2).
+      yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
+    }
+    // else: the change has no DDL consequence — either the definition is
+    // byte-identical to the previous run (a genuine no-op, [internal ref] fix #1) or
+    // only a display-only property moved (e.g. a currency `thousandsSeparator`,
+    // which never leaves `formatCurrencyValue`). Do NOT recreate: recreating a
+    // structurally-unchanged table needlessly drops+rebuilds it — on Postgres
+    // crashing on the pre-existing named UNIQUE constraint (the upgrade-path
+    // incident), and on SQLite orphaning the rows of every table that
+    // references it. The caller's constraint/index sync is idempotent and still
+    // runs, so anything outside the CREATE TABLE DDL is reconciled regardless.
+  })
+
 /**
  * Migrate existing table (ALTER statements + constraints + indexes)
  */
-export const migrateExistingTableEffect = (params: {
-  readonly tx: TransactionLike
-  readonly table: Table
-  readonly existingColumns: ReadonlyMap<
-    string,
-    { dataType: string; isNullable: string; columnDefault: string | null }
-  >
-  readonly tableUsesView?: ReadonlyMap<string, boolean>
-  readonly previousSchema?: { readonly tables: readonly object[] }
-}): Effect.Effect<void, SQLExecutionError> =>
+export const migrateExistingTableEffect = (
+  params: TableDdlInputs & {
+    readonly tx: TransactionLike
+    readonly table: Table
+    readonly existingColumns: ExistingColumns
+    readonly previousSchema?: { readonly tables: readonly object[] }
+  }
+): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const { tx, table, existingColumns, tableUsesView, previousSchema } = params
-
-    // Decide recreate-vs-alter-vs-skip from EXPLICIT signals, never
-    // from an empty ALTER list alone — an empty list is ambiguous between
-    // "incompatible change → recreate", "constraint-only change → recreate" and
-    // "nothing changed → skip".
-    if (needsTableRecreation(table, existingColumns)) {
-      // Incompatible change (e.g. an `id` column whose type is not the required
-      // integer/serial PK) — recreate preserving data.
-      yield* recreateTableWithDataEffect(tx, table, existingColumns, tableUsesView)
-    } else {
-      const alterStatements = generateAlterTableStatements(table, existingColumns, previousSchema)
-      if (alterStatements.length > 0) {
-        // Incremental, column-level migration.
-        yield* executeSQLStatements(tx, alterStatements)
-      } else if (needsDefinitionReconciliation(table, previousSchema, tableUsesView)) {
-        // No column-level ALTERs, but the table's definition changed in a way not
-        // expressible as an ALTER (e.g. a CHECK/UNIQUE constraint added or
-        // removed) — recreate to reconcile. The recreate is idempotent
-        // (temp-scoped constraint names, canonical names restored) so it never
-        // collides with the live catalog ([internal ref] fix #2).
-        yield* recreateTableWithDataEffect(tx, table, existingColumns, tableUsesView)
-      }
-      // else: the change has no DDL consequence — either the definition is
-      // byte-identical to the previous run (a genuine no-op, [internal ref] fix #1) or
-      // only a display-only property moved (e.g. a currency `thousandsSeparator`,
-      // which never leaves `formatCurrencyValue`). Do NOT recreate: recreating a
-      // structurally-unchanged table needlessly drops+rebuilds it — on Postgres
-      // crashing on the pre-existing named UNIQUE constraint (the upgrade-path
-      // incident), and on SQLite orphaning the rows of every table that
-      // references it. The constraint/index sync below is idempotent and still
-      // runs, so anything outside the CREATE TABLE DDL is reconciled regardless.
+    const inputs: TableDdlInputs = {
+      tablePrimaryKeyTypes: params.tablePrimaryKeyTypes,
+      tableUsesView,
+      skipForeignKeys: params.skipForeignKeys,
+      hasAuthConfig: params.hasAuthConfig ?? true,
     }
+
+    yield* reconcileTableStructure({ tx, table, existingColumns, previousSchema, inputs })
 
     // Always add/update unique constraints for existing tables
     yield* syncUniqueConstraints(tx, table, previousSchema)
@@ -113,21 +168,17 @@ export const migrateExistingTableEffect = (params: {
 
 /**
  * Create new table (CREATE statement + indexes + triggers)
- * Note: VIEWs are created in a separate phase after all base tables exist
  *
- * @param tx - Transaction object
- * @param table - Table definition
- * @param tableUsesView - Map of table names to whether they use a VIEW
- * @param skipForeignKeys - Skip foreign key constraints (for circular dependencies)
+ * VIEWs are NOT created here: they are created in a separate phase once all
+ * base tables exist, because a lookup/rollup view body references relations
+ * this table may be declared before.
  */
-export const createNewTableEffect = (params: {
-  readonly tx: TransactionLike
-  readonly table: Table
-  readonly tableUsesView?: ReadonlyMap<string, boolean>
-  readonly skipForeignKeys?: boolean
-  readonly hasAuthConfig?: boolean
-  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
-}): Effect.Effect<void, SQLExecutionError> =>
+export const createNewTableEffect = (
+  params: TableDdlInputs & {
+    readonly tx: TransactionLike
+    readonly table: Table
+  }
+): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const {
       tx,
@@ -140,13 +191,12 @@ export const createNewTableEffect = (params: {
     // Wrap DDL generation in Effect.try to catch synchronous errors (e.g., unknown field types)
     const createTableSQL = yield* Effect.try({
       try: () =>
-        generateCreateTableSQL(
-          table,
+        generateCreateTableSQL(table, {
+          tablePrimaryKeyTypes,
           tableUsesView,
           skipForeignKeys,
           hasAuthConfig,
-          tablePrimaryKeyTypes
-        ),
+        }),
       catch: (error) =>
         new SQLExecutionError({
           message: `Failed to generate CREATE TABLE DDL: ${String(error)}`,
@@ -195,12 +245,18 @@ export const createLookupViewsEffect = (
  * Issues exactly one DROP statement; the materialized vs regular DROP form
  * is required because PostgreSQL exposes them as distinct object kinds.
  *
- * Dialect-aware: SQLite has no `CASCADE` keyword on DROP VIEW, and SQLite has
- * no MATERIALIZED VIEW concept at all. Materialized views are not produced
+ * Dialect-aware: SQLite has no `CASCADE` keyword on DROP VIEW, and no
+ * MATERIALIZED VIEW concept at all.
+ *
+ * A previous version of this note claimed materialized views "are not produced
  * under SQLite (the view generator filters them out via `shouldUseView`
- * degradation), but the dialect-aware `CASCADE` suffix is applied
- * unconditionally so this helper stays correct if a future path emits a plain
- * VIEW drop on SQLite.
+ * degradation)". That was FALSE — `shouldUseView` is
+ * `hasLookupFields || hasRollupFields || hasCountFields`, with no dialect
+ * awareness and no reference to `materialized` at all — and the claim was what
+ * let `generateViewSQL` emit `CREATE MATERIALIZED VIEW` on SQLite and abort
+ * boot. The DROP form must therefore be decided by the SAME predicate the
+ * CREATE uses (`emitsMaterializedView`), or a redeploy would try to drop an
+ * object kind that was never created.
  */
 const dropExistingView = (
   tx: TransactionLike,
@@ -212,7 +268,7 @@ const dropExistingView = (
     // invalid as bare SQL identifiers.
     const quotedId = quoteSqlIdentifier(viewIdStr)
     const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
-    if (view.materialized) {
+    if (emitsMaterializedView(view)) {
       yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${quotedId}${cascadeSuffix}`)
     } else {
       yield* executeSQL(tx, `DROP VIEW IF EXISTS ${quotedId}${cascadeSuffix}`)
@@ -239,8 +295,13 @@ const addReadOnlyTriggers = (
   })
 
 /**
- * Issue a `REFRESH MATERIALIZED VIEW` if the view is materialized AND
- * configured to refresh on migration; otherwise do nothing.
+ * Issue a `REFRESH MATERIALIZED VIEW` if the view is materialized on the ACTIVE
+ * dialect AND configured to refresh on migration; otherwise do nothing.
+ *
+ * Gated on `emitsMaterializedView`, not on `view.materialized`: under SQLite the
+ * declaration degrades to a plain VIEW, `REFRESH MATERIALIZED VIEW` is not
+ * SQLite syntax, and there is nothing to refresh anyway — a plain view is
+ * always live.
  */
 const maybeRefreshMaterializedView = (
   tx: TransactionLike,
@@ -248,7 +309,7 @@ const maybeRefreshMaterializedView = (
   viewIdStr: string
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    if (view.materialized && view.refreshOnMigration) {
+    if (emitsMaterializedView(view) && view.refreshOnMigration) {
       yield* executeSQL(tx, `REFRESH MATERIALIZED VIEW ${quoteSqlIdentifier(viewIdStr)}`)
     }
   })
@@ -290,8 +351,11 @@ export const createTableViewsEffect = (
       if (createSQL) {
         yield* executeSQL(tx, createSQL)
 
-        // For regular (non-materialized) views, add read-only triggers
-        if (!view.materialized) {
+        // For regular (non-materialized) views, add read-only triggers.
+        // `emitsMaterializedView`, not `view.materialized`: on SQLite a
+        // `materialized: true` declaration degrades to a plain VIEW, and a
+        // plain view is exactly the object that needs the INSTEAD OF guards.
+        if (!emitsMaterializedView(view)) {
           yield* addReadOnlyTriggers(tx, view.id)
         }
 
@@ -327,16 +391,14 @@ const withTableContext = (
 /**
  * Create or migrate table based on existence
  */
-export const createOrMigrateTableEffect = (params: {
-  readonly tx: BunSQLTransaction
-  readonly table: Table
-  readonly exists: boolean
-  readonly tableUsesView?: ReadonlyMap<string, boolean>
-  readonly previousSchema?: { readonly tables: readonly object[] }
-  readonly skipForeignKeys?: boolean
-  readonly hasAuthConfig?: boolean
-  readonly tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
-}): Effect.Effect<void, SQLExecutionError> =>
+export const createOrMigrateTableEffect = (
+  params: TableDdlInputs & {
+    readonly tx: BunSQLTransaction
+    readonly table: Table
+    readonly exists: boolean
+    readonly previousSchema?: { readonly tables: readonly object[] }
+  }
+): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const {
       tx,
@@ -356,6 +418,9 @@ export const createOrMigrateTableEffect = (params: {
         existingColumns,
         tableUsesView,
         previousSchema,
+        skipForeignKeys,
+        hasAuthConfig: hasAuthConfig ?? true,
+        tablePrimaryKeyTypes,
       })
     } else {
       yield* createNewTableEffect({

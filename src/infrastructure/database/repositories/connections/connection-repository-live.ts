@@ -44,11 +44,10 @@ export const ConnectionRepositoryLive = Layer.succeed(ConnectionRepository, {
       return rows[0] as Record<string, unknown> | undefined
     }),
 
-  list: () =>
-    wrap(async () => {
-      const rows = await db.select().from(connections)
-      return rows as readonly Record<string, unknown>[]
-    }),
+  list: wrap(async () => {
+    const rows = await db.select().from(connections)
+    return rows as readonly Record<string, unknown>[]
+  }),
 
   create: ({ name, provider, type, credentials, metadata, createdById }) =>
     wrap(async () => {

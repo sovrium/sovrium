@@ -84,7 +84,7 @@ export async function runRequestEffect<A, E = never, R = never>(
       : Effect.logDebug(`${method} ${route}`).pipe(Effect.annotateLogs({ 'request.id': requestId }))
 
   const rooted = requestLog.pipe(
-    Effect.zipRight(provided),
+    Effect.andThen(provided),
     Effect.withSpan(`http.server ${method} ${route}`, {
       attributes: { method, route, 'request.id': requestId },
     })

@@ -107,7 +107,7 @@ const BUILD_HELP_TEXT = [
 const SCHEMA_HELP_TEXT = [
   'Usage: sovrium schema [options]',
   '',
-  'Print the full JSON Schema (Draft-07) for a Sovrium config file.',
+  'Print the full JSON Schema (Draft 2020-12) for a Sovrium config file.',
   '',
   'Options:',
   '  --output <path>               Write the schema to a file instead of stdout',
@@ -116,6 +116,29 @@ const SCHEMA_HELP_TEXT = [
   'Examples:',
   '  sovrium schema                                # Print to stdout',
   '  sovrium schema --output app.schema.json       # Write to a file',
+].join('\n')
+
+const DESIGN_SYSTEM_HELP_TEXT = [
+  'Usage: sovrium design-system [config] [options]',
+  '',
+  "Export the app's design system: its tokens, principles, voice and usage rules.",
+  '',
+  'Markdown is the default because the intended reader is an AI agent — write it',
+  'beside your config and reference it from CLAUDE.md so a generated page comes',
+  'out on-brand the first time. Runs offline: no server, no database.',
+  '',
+  'Arguments:',
+  '  config                        Path to config file (.json, .yaml, .yml, .ts)',
+  '',
+  'Options:',
+  '  --format <md|json>            md (default): an agent brief. json: a W3C DTCG document',
+  '  --output <path>               Write to a file instead of stdout (creates parent dirs)',
+  '  --help, -h                    Show this help message',
+  '',
+  'Examples:',
+  '  sovrium design-system app.ts                       # Print the brief',
+  '  sovrium design-system app.ts --output DESIGN.md    # Commit it beside the config',
+  '  sovrium design-system app.ts --format json         # DTCG tokens, for tooling',
 ].join('\n')
 
 const VALIDATE_HELP_TEXT = [
@@ -262,6 +285,7 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   start: START_HELP_TEXT,
   build: BUILD_HELP_TEXT,
   schema: SCHEMA_HELP_TEXT,
+  'design-system': DESIGN_SYSTEM_HELP_TEXT,
   validate: VALIDATE_HELP_TEXT,
   seed: SEED_HELP_TEXT,
   init: INIT_HELP_TEXT,

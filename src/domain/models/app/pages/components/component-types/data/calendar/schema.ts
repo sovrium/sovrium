@@ -20,7 +20,7 @@ import { ActionSchema } from '../../../action'
  * - `week`: 7-day week with time slots
  * - `day`: Single day with hourly time slots
  */
-export const CalendarViewSchema = Schema.Literal('month', 'week', 'day').annotations({
+export const CalendarViewSchema = Schema.Literals(['month', 'week', 'day']).annotate({
   identifier: 'CalendarView',
   title: 'Calendar View',
   description: 'Calendar display mode: month grid, week view, or day view',
@@ -48,7 +48,7 @@ export const CalendarViewSchema = Schema.Literal('month', 'week', 'day').annotat
 export const CalendarEventConfigSchema = Schema.Struct({
   /** Action triggered when an event is clicked */
   onEventClick: Schema.optional(ActionSchema),
-}).annotations({
+}).annotate({
   identifier: 'CalendarEventConfig',
   title: 'Calendar Event Config',
   description: 'Configuration for how events are displayed and interacted with on the calendar',
@@ -80,10 +80,9 @@ export const CalendarInteractionSchema = Schema.Struct({
   onDateClick: Schema.optional(ActionSchema),
   /** Time slot interval in minutes for week/day views */
   timeSlotInterval: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Time slot interval in minutes for week/day views (default: 60)',
         examples: [15, 30, 60],
       })
@@ -91,11 +90,11 @@ export const CalendarInteractionSchema = Schema.Struct({
   ),
   /** Show a line at the current time in week/day views */
   showCurrentTimeIndicator: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Show a horizontal line at the current time in week/day views',
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'CalendarInteraction',
   title: 'Calendar Interaction',
   description: 'Configuration for calendar user interactions (date clicks, drag, time slots)',

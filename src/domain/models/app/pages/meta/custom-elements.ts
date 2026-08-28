@@ -21,13 +21,13 @@ import { Schema } from 'effect'
  * - style: Inline CSS styles
  * - base: Base URL for relative URLs
  */
-export const CustomElementTypeSchema = Schema.Literal(
+export const CustomElementTypeSchema = Schema.Literals([
   'meta',
   'link',
   'script',
   'style',
-  'base'
-).annotations({
+  'base',
+]).annotate({
   title: 'Custom Element Type',
   description: 'HTML element type',
 })
@@ -40,24 +40,26 @@ export const CustomElementTypeSchema = Schema.Literal(
 export const CustomElementSchema = Schema.Struct({
   type: CustomElementTypeSchema,
   attrs: Schema.optional(
-    Schema.Record({
-      key: Schema.String.pipe(
-        Schema.pattern(/^[a-zA-Z][a-zA-Z0-9-]*$/, {
-          message: () =>
-            'Attribute name must start with a letter and contain only letters, numbers, and hyphens (kebab-case)',
-        })
+    Schema.Record(
+      Schema.String.pipe(
+        Schema.check(
+          Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9-]*$/, {
+            message:
+              'Attribute name must start with a letter and contain only letters, numbers, and hyphens (kebab-case)',
+          })
+        )
       ),
-      value: Schema.String,
-    }).annotations({
+      Schema.String
+    ).annotate({
       description: 'Element attributes',
     })
   ),
   content: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Inner content for script or style elements',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Custom Element',
   description: 'Custom head element',
 })
@@ -67,7 +69,7 @@ export const CustomElementSchema = Schema.Struct({
  *
  * Array of custom HTML elements injected into the <head> section.
  */
-export const CustomElementsSchema = Schema.Array(CustomElementSchema).annotations({
+export const CustomElementsSchema = Schema.Array(CustomElementSchema).annotate({
   title: 'Custom Head Elements',
   description: 'Additional custom elements to add to the page head',
 })

@@ -15,7 +15,7 @@ const errorResponse = (description: string) => jsonResponse(errorResponseSchema,
 
 /** Retrieval-augmented generation (RAG) route group. */
 export const ragGroup: StaticGroupSpec = {
-  tag: 'ai',
+  tag: 'AI',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',
   routes: [
     {

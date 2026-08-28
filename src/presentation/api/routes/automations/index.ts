@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Cron, DateTime, Effect, Either } from 'effect'
+import { Cron, DateTime, Effect, Result } from 'effect'
 import {
   AutomationRunRepository,
   type PersistedRun,
@@ -21,7 +21,9 @@ import {
   type RunAutomationResult,
 } from '@/application/use-cases/automations/run-automation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { redactTriggerDataHeaders } from '@/domain/utils/http-header-redaction'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { requireSession } from '@/presentation/api/utils/auth-helpers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { provideAutomationLive } from './effect-runner'
 import { chainRunControlRoutes } from './runs-handlers'
@@ -100,7 +102,7 @@ const toPublicTriggerStatus = (s: RunAutomationResult['status']): string =>
  * whose parse defensively fails) so callers can spread it unconditionally
  * into the redacted trigger response.
  *
- * The `Cron.parse + zoneUnsafeMakeNamed` triplet is duplicated here, in the
+ * The `Cron.parse + zoneMakeNamedUnsafe` triplet is duplicated here, in the
  * domain Schema filter (`cron.ts`), and in `cron-scheduler-live.ts`. Kept
  * inline at each site because the failure contracts diverge: the schema
  * filter wants a string error, the scheduler wants a tagged `CronSchedulerError`
@@ -113,14 +115,14 @@ const computeCronNextRunOverlay = (
   if (trigger['type'] !== 'cron') return {}
   const expr = String(trigger['expression'])
   const tz = String(trigger['timezone'] ?? 'UTC')
-  const zone = Either.try({
-    try: () => DateTime.zoneUnsafeMakeNamed(tz),
+  const zone = Result.try({
+    try: () => DateTime.zoneMakeNamedUnsafe(tz),
     catch: () => undefined,
   })
-  if (Either.isLeft(zone)) return {}
-  const parsed = Cron.parse(expr, zone.right)
-  if (Either.isLeft(parsed)) return {}
-  return { nextRunAt: Cron.next(parsed.right, new Date()).toISOString() }
+  if (Result.isFailure(zone)) return {}
+  const parsed = Cron.parse(expr, zone.success)
+  if (Result.isFailure(parsed)) return {}
+  return { nextRunAt: Cron.next(parsed.success, new Date()).toISOString() }
 }
 
 function handleListAutomations(c: Context, app: App) {
@@ -217,12 +219,12 @@ async function handleManualTrigger(c: Context, app: App) {
   // Run on the observability runtime under the request-edge root `http.server`
   // span so the shared `executeAutomationRun` seam's `automation.run` child span
   // chains under the request root (`Effect.either` already discharged reqs).
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
 
-  if (result._tag === 'Left') {
-    return manualTriggerErrorResponse(c, result.left)
+  if (result._tag === 'Failure') {
+    return manualTriggerErrorResponse(c, result.failure)
   }
-  return c.json(triggerResultBody(result.right), 200)
+  return c.json(triggerResultBody(result.success), 200)
 }
 
 /**
@@ -265,7 +267,11 @@ const persistedRunToApi = (app: App, run: PersistedRun, steps?: ReadonlyArray<Pe
   automationName: run.automationName,
   status: run.status,
   triggerType: lookupTriggerType(app, run.automationName),
-  triggerData: run.triggerData,
+  // A webhook trigger captures EVERY inbound request header, the caller's own
+  // credential included. Step `output` was already scrubbed; `triggerData` was
+  // not, so the run history reflected `Authorization: Bearer <webhook secret>`
+  // back verbatim.
+  triggerData: redactTriggerDataHeaders(run.triggerData),
   startedAt: run.startedAt,
   completedAt: run.completedAt,
   durationMs: run.durationMs,
@@ -301,11 +307,11 @@ async function handleListRunsByName(c: Context, app: App) {
     )
   })
 
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
-  if (result._tag === 'Left') {
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
+  if (result._tag === 'Failure') {
     return c.json({ success: false, message: 'Failed to read run history' }, 500)
   }
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }
 
 /**
@@ -345,12 +351,12 @@ async function handleListRuns(c: Context, app: App) {
     return { ...result, stepsPerRun }
   })
 
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
-  if (result._tag === 'Left') {
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
+  if (result._tag === 'Failure') {
     return c.json({ success: false, message: 'Failed to read run history' }, 500)
   }
 
-  const { runs, total, stepsPerRun } = result.right
+  const { runs, total, stepsPerRun } = result.success
   const runsBody = {
     runs: runs.map((run, i) => persistedRunToApi(app, run, stepsPerRun[i])),
   }
@@ -409,7 +415,8 @@ const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly Persi
   automationName: run.automationName,
   status: run.status,
   triggerType: resolveTriggerType(app, run.automationName),
-  triggerData: run.triggerData,
+  // See `persistedRunToApi`: the captured inbound headers carry credentials.
+  triggerData: redactTriggerDataHeaders(run.triggerData),
   startedAt: run.startedAt,
   completedAt: run.completedAt,
   durationMs: run.durationMs,
@@ -461,10 +468,10 @@ async function handleGetRunDetail(c: Context, app: App) {
 
   const dbResult = await runRequestEffect(
     c,
-    Effect.either(provideAutomationLive(loadDbRunDetail(id)))
+    Effect.result(provideAutomationLive(loadDbRunDetail(id)))
   )
-  if (dbResult._tag === 'Right' && dbResult.right !== undefined) {
-    return c.json(buildDbRunDetailBody(app, dbResult.right.run, dbResult.right.steps), 200)
+  if (dbResult._tag === 'Success' && dbResult.success !== undefined) {
+    return c.json(buildDbRunDetailBody(app, dbResult.success.run, dbResult.success.steps), 200)
   }
   return c.json({ success: false, message: 'Run not found' }, 404)
 }
@@ -567,12 +574,12 @@ async function handleReplayRun(c: Context, app: App) {
     processEnv: process.env,
     ...(overrideTriggerData !== undefined ? { triggerData: overrideTriggerData } : {}),
   })
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
 
-  if (result._tag === 'Left') {
-    return replayErrorResponse(c, result.left)
+  if (result._tag === 'Failure') {
+    return replayErrorResponse(c, result.failure)
   }
-  return c.json(triggerResultBody(result.right), 200)
+  return c.json(triggerResultBody(result.success), 200)
 }
 
 /**
@@ -585,6 +592,32 @@ async function handleReplayRun(c: Context, app: App) {
  * can return 405 + the configured `allowed` list — Hono's
  * `app.on(['GET', 'POST', ...], path, handler)` canonical pattern.
  */
+/**
+ * Wrap a run-history handler in a session gate.
+ *
+ * `/api/automations/*` carries `authMiddleware` but NOT `requireAuth`, because
+ * `/:name/webhook` must stay anonymously callable — that is the whole point of
+ * an inbound webhook. The convention is then that each handler gates itself,
+ * and these four did not: an anonymous caller could list every run of every
+ * automation, read each one's captured trigger payload, and replay any of them
+ * — which drives record writes, outbound HTTP with stored credentials, and
+ * emails. The run list also falsified the premise replay relied on, since
+ * replay's only protection was that run ids are "unguessable" and the list
+ * hands them out.
+ *
+ * A session is the FLOOR, not the ceiling: run history is an operator surface
+ * and an admin-only rule is defensible, but that is a spec decision rather than
+ * a patch. The admin-gated twin at `/api/admin/automations/*` already exists for
+ * callers who want it.
+ */
+const withSession =
+  (handler: (c: Context, app: App) => Promise<Response> | Response, app: App) =>
+  (c: Context): Promise<Response> | Response => {
+    const auth = requireSession(c)
+    if (!auth.ok) return auth.response
+    return handler(c, app)
+  }
+
 export function chainAutomationRoutes<T extends Hono>(honoApp: T, app: App): T {
   const withCore = honoApp
     .get('/api/automations', (c) => handleListAutomations(c, app))
@@ -593,10 +626,10 @@ export function chainAutomationRoutes<T extends Hono>(honoApp: T, app: App): T {
     )
     .post('/api/automations/:name/trigger', (c) => handleManualTrigger(c, app))
     .post('/api/automations/:name/form-action', (c) => handleFormAction(c, app))
-    .get('/api/automations/runs', (c) => handleListRuns(c, app))
-    .get('/api/automations/runs/:id', (c) => handleGetRunDetail(c, app))
-    .get('/api/automations/:name/runs', (c) => handleListRunsByName(c, app))
-    .post('/api/automations/:name/runs/:id/replay', (c) => handleReplayRun(c, app))
+    .get('/api/automations/runs', withSession(handleListRuns, app))
+    .get('/api/automations/runs/:id', withSession(handleGetRunDetail, app))
+    .get('/api/automations/:name/runs', withSession(handleListRunsByName, app))
+    .post('/api/automations/:name/runs/:id/replay', withSession(handleReplayRun, app))
   // Name-less run-control + approval-resolution endpoints.
   return chainRunControlRoutes(withCore, app) as T
 }

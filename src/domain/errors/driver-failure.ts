@@ -92,6 +92,12 @@ interface DriverErrorLike {
   readonly query?: unknown
   readonly params?: unknown
   readonly cause?: unknown
+  /** PostgreSQL names the violated constraint here; SQLite never does. */
+  readonly constraint?: unknown
+  /** SQLite carries the constraint name in its wire text instead. */
+  readonly message?: unknown
+  /** PostgreSQL FK detail: `Key (col)=(value) is not present in table "ref".` */
+  readonly detail?: unknown
 }
 
 /**
@@ -335,6 +341,89 @@ export function classifyDriverFailure(error: unknown): DriverFailure {
       isOrmQueryWrapper(node) || DRIVER_MARKERS.some((markers) => markers.isDriverError(node))
   )
   return raisedByDriver ? { origin: 'operator' } : { origin: 'application' }
+}
+
+/**
+ * Suffixes Sovrium's own CHECK-constraint generator appends to a column name.
+ *
+ * Every generated constraint is `check_<column>_<suffix>`
+ * (`sql-check-constraints.ts`), which is the whole reason a column name can be
+ * recovered from a rejection at all: the name is OURS, not the driver's.
+ *
+ * `satisfies readonly string[]` is not enough to keep this honest, so the list
+ * is asserted against the generator by unit test rather than by the compiler —
+ * adding a constraint family without adding it here silently stops naming that
+ * family's column, which degrades the message but breaks nothing.
+ */
+const CHECK_CONSTRAINT_SUFFIXES = [
+  'enum',
+  'format',
+  'range',
+  'max_length',
+  'max_items',
+  'max_files',
+] as const
+
+/**
+ * Ways each dialect names the NOT-NULL column in prose rather than in a
+ * constraint name. Both capture the column in group 1.
+ */
+const NULL_COLUMN_PATTERNS: readonly RegExp[] = [
+  // SQLite: `NOT NULL constraint failed: tasks.title`
+  /NOT NULL constraint failed: [^\s.]+\.(\w+)/,
+  // PostgreSQL: `null value in column "title" of relation "tasks" …`
+  /null value in column "([^"]+)"/,
+  // PostgreSQL FK detail: `Key (owner_id)=(7) is not present in table "users".`
+  /Key \(([^)]+)\)=/,
+]
+
+/** True when `source` — a constraint name or driver message — names `column`. */
+function sourceNamesColumn(source: string, column: string): boolean {
+  return (
+    CHECK_CONSTRAINT_SUFFIXES.some((suffix) => source.includes(`check_${column}_${suffix}`)) ||
+    source.includes(`_${column}_fkey`) ||
+    source.endsWith(`_${column}_fk`) ||
+    NULL_COLUMN_PATTERNS.some((pattern) => pattern.exec(source)?.[1] === column)
+  )
+}
+
+/**
+ * Recover the COLUMN a constraint rejection was about, restricted to columns
+ * the caller actually submitted.
+ *
+ * Recovery is by TRANSLATION, never by re-validating the payload ahead of the
+ * write: the column's own constraint stays the single decider, and this only
+ * reads back which one fired. The driver hands the name over on `constraint`
+ * under PostgreSQL and inside the message text under SQLite, so both are
+ * searched across the whole `cause` chain — the real driver error sits two
+ * wrappers below the class that reaches the API.
+ *
+ * `submittedFields` is the S4 guard and is NOT optional. Two things depend on
+ * it. First, echoing a column the caller never sent turns an error answer into
+ * schema discovery, while naming one they DID send only replays their own
+ * input back at them. Second, it is what makes recovery UNAMBIGUOUS: column
+ * names may contain underscores, so `check_max_length_enum` cannot be parsed
+ * apart on its own — but testing each submitted name against the templates has
+ * exactly one answer. Longest candidate first, so a table with both `id` and
+ * `user_id` attributes `orders_user_id_fkey` to `user_id`.
+ *
+ * Returns `undefined` when nothing can be attributed confidently — the caller
+ * then answers with the class-level wording and names no field at all, which
+ * is the safe direction in both the disclosure and the correctness sense.
+ */
+export function findConstraintFieldName(
+  error: unknown,
+  submittedFields: readonly string[]
+): string | undefined {
+  const sources = collectCauseChain(error).flatMap((node) =>
+    [node.constraint, node.message, node.detail].filter(
+      (candidate): candidate is string => typeof candidate === 'string'
+    )
+  )
+  if (sources.length === 0) return undefined
+  return submittedFields
+    .toSorted((a, b) => b.length - a.length)
+    .find((column) => sources.some((source) => sourceNamesColumn(source, column)))
 }
 
 /**

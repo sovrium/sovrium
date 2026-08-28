@@ -25,7 +25,7 @@ import type { Languages } from '@/domain/models/app/languages'
  */
 export function normalizeLanguageCode(
   lang: string,
-  translations: Record<string, Record<string, string>>
+  translations: Readonly<Record<string, Record<string, string>>>
 ): string {
   // Try exact match first
   if (translations[lang]) {
@@ -61,10 +61,46 @@ const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<string, st
     en: 'Save',
     fr: 'Enregistrer',
   },
-  /** Create-record dialog footer, inline editor + confirm-gate dismissal. */
+  /**
+   * Create-record dialog footer + inline-editor dismissal.
+   *
+   * NOT the destructive confirm gate — that has its own `confirmGate.*` keys
+   * below, so an author can rename "cancel the edit I was making" without also
+   * renaming "do not delete this record". The two read alike and mean different
+   * things; sharing one key would leave the second un-nameable.
+   */
   'datatable.cancel': {
     en: 'Cancel',
     fr: 'Annuler',
+  },
+  /**
+   * Destructive-confirm gate — the AFFIRM affordance. Used when the gate's
+   * `confirm` config declares no `confirmLabel` and the trigger carries no text
+   * to borrow. Sites: `presentation/islands/shared/confirm-gate-runtime.ts`,
+   * `presentation/client.ts`, `presentation/islands/shared/inline-confirm-dialog.tsx`.
+   */
+  'confirmGate.confirm': {
+    en: 'Confirm',
+    fr: 'Confirmer',
+  },
+  /**
+   * Destructive-confirm gate — the DISMISS affordance. This is the string that
+   * was a hard-coded French `'Annuler'` on every console confirm dialog in an
+   * app of any language, rendered beside an English confirm label the author
+   * HAD supplied.
+   */
+  'confirmGate.cancel': {
+    en: 'Cancel',
+    fr: 'Annuler',
+  },
+  /**
+   * Destructive-confirm gate — the default PROMPT, used when an action declares
+   * `confirm: true` rather than a message of its own
+   * (`presentation/islands/shared/action-executor.ts`).
+   */
+  'confirmGate.message': {
+    en: 'Confirm this action?',
+    fr: 'Confirmer cette action ?',
   },
   /** Record-drawer default accessible name (when the author declares no title). */
   'recordDrawer.title': {
@@ -292,7 +328,7 @@ export function resolveTranslationTokensDeep(
 export function collectTranslationsForKey(
   key: string,
   languages?: Languages
-): Record<string, string> | undefined {
+): Readonly<Record<string, string>> | undefined {
   if (!languages?.translations) {
     return undefined
   }

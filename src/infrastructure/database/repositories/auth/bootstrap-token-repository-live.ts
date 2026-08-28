@@ -44,7 +44,7 @@ const wrap = makeDbWrap((cause) => new BootstrapTokenDatabaseError({ cause }))
  *      If the UPDATE returns 0 rows, the second caller re-reads the row
  *      to decide whether to fail with `Expired` or `AlreadyUsed`.
  */
-const decodeRow = (row: Record<string, unknown>): BootstrapToken => {
+const decodeRow = (row: Readonly<Record<string, unknown>>): BootstrapToken => {
   const { usedAt } = row
   return {
     tokenHash: String(row['tokenHash']),
@@ -110,22 +110,21 @@ export const BootstrapTokenRepositoryLive = Layer.succeed(BootstrapTokenReposito
       return yield* new BootstrapTokenExpiredError({ expiresAt: row.expiresAt })
     }),
 
-  expireAll: () =>
-    wrap(() => {
-      const now = new Date()
-      return db
-        .update(sovriumBootstrapTokens)
-        .set({ expiresAt: now })
-        .where(
-          and(
-            isNull(sovriumBootstrapTokens.usedAt),
-            // Only touch rows that haven't already expired, to keep the
-            // operation idempotent and the audit clean.
-            gt(sovriumBootstrapTokens.expiresAt, now)
-          )
+  expireAll: wrap(() => {
+    const now = new Date()
+    return db
+      .update(sovriumBootstrapTokens)
+      .set({ expiresAt: now })
+      .where(
+        and(
+          isNull(sovriumBootstrapTokens.usedAt),
+          // Only touch rows that haven't already expired, to keep the
+          // operation idempotent and the audit clean.
+          gt(sovriumBootstrapTokens.expiresAt, now)
         )
-    }).pipe(Effect.asVoid),
+      )
+  }).pipe(Effect.asVoid),
 
   // eslint-disable-next-line drizzle/enforce-delete-with-where -- intentional: purgeAll deletes EVERY row by design (bootstrap window closed)
-  purgeAll: () => wrap(() => db.delete(sovriumBootstrapTokens)).pipe(Effect.asVoid),
+  purgeAll: wrap(() => db.delete(sovriumBootstrapTokens)).pipe(Effect.asVoid),
 })

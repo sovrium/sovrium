@@ -102,3 +102,29 @@ export const isProcessRunning = (pid: number): boolean => {
     return false
   }
 }
+
+/**
+ * Poll until the process with `pid` is gone, or `timeoutMs` elapses.
+ *
+ * Signal delivery is not exit: `process.kill(pid, 'SIGTERM')` returns as soon
+ * as the signal is QUEUED, and the target still has to run its handler. A
+ * caller that reports success on the strength of the send — or of a fixed
+ * sleep — is guessing, and everything downstream (a redeploy, a `restart`, a
+ * following `start` that will refuse on a live lock) acts on the guess.
+ *
+ * @returns `true` when the process has exited, `false` on timeout.
+ */
+export const waitForProcessExit = async (
+  pid: number,
+  timeoutMs = 5000,
+  intervalMs = 50
+): Promise<boolean> => {
+  const deadline = Date.now() + timeoutMs
+  // eslint-disable-next-line functional/no-loop-statements -- polling for an external process' exit
+  while (Date.now() < deadline) {
+    if (!isProcessRunning(pid)) return true
+    // eslint-disable-next-line functional/no-expression-statements -- poll interval
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+  return !isProcessRunning(pid)
+}

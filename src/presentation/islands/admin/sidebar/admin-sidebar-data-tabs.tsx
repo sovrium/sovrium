@@ -146,7 +146,12 @@ function DataRow({
  * One nav section: a quiet uppercase heading followed by its destination rows.
  * The Application section renders Notion-style expandable {@link DataNavGroup}
  * disclosures (each lazy-loads its object list — [internal ref]); the System
- * section renders flat {@link DataRow} links (single nav items, no toggle). Both
+ * section renders flat {@link DataRow} links (single nav items, no toggle).
+ *
+ * The switch is on `section === 'app'` ALONE, so moving a destination into the
+ * Application section is what turns it into a disclosure — there is no per-key
+ * opt-in. A destination moved here without a list endpoint expands to "No
+ * items.", so the move and its endpoint belong in the same change. Both
  * stay inside the single `navigation "Data"` landmark so the section is a
  * visual grouping, not a second landmark.
  */
@@ -192,11 +197,11 @@ function DataNavSectionGroup({
 /**
  * The Data-tab page list: a single `navigation "Data"` landmark whose rows
  * are grouped into two labelled sections — the operator's own application data
- * ("Application data": Records / Submissions / Files) and the
- * platform-level system data ("System data": Runs / Conversations /
- * Users / Connections / Analytics). `activePath` (the `/_admin`-stripped
- * active path) drives the active-row highlight via each item's `/data/{key}`
- * href, including object-scoped sub-paths (see {@link isDataRowActive}).
+ * ("Application": Records / Submissions / Files / Conversations) and the
+ * platform-level system data ("System": Automations / Users / Connections /
+ * Analytics / Footprint). `activePath` (the `/_admin`-stripped active path)
+ * drives the active-row highlight via each item's `/{key}` href, including
+ * object-scoped sub-paths (see {@link isDataRowActive}).
  */
 export function DataNavList({ activePath }: { readonly activePath: string }): ReactElement {
   return (

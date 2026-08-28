@@ -23,7 +23,7 @@ import { ComponentReferenceNameSchema } from './reference'
  * const names = ['icon-badge', 'section-header', 'feature-card', 'cta-button-2']
  * ```
  */
-export const ComponentTemplateNameSchema = ComponentReferenceNameSchema.annotations({
+export const ComponentTemplateNameSchema = ComponentReferenceNameSchema.annotate({
   title: 'Component Template Name',
   description: 'Unique component template identifier in kebab-case',
   examples: ['icon-badge', 'section-header', 'feature-card', 'cta-button-2'],
@@ -62,7 +62,7 @@ export const ComponentTemplateNameSchema = ComponentReferenceNameSchema.annotati
  *
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Discriminated union with recursive children requires any
-export const ComponentTemplateSchema: Schema.Schema<any, any, never> = buildComponentUnion(
+export const ComponentTemplateSchema: Schema.Codec<any, any, never> = buildComponentUnion(
   {
     children: Schema.optional(ComponentChildrenSchema),
   },
@@ -70,7 +70,7 @@ export const ComponentTemplateSchema: Schema.Schema<any, any, never> = buildComp
     name: ComponentTemplateNameSchema,
   }
 ).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Component Template',
     description: 'A reusable UI component template with variable placeholders',
   })

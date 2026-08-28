@@ -22,18 +22,17 @@ export const DataSplitActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the array to chunk */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the array to chunk' })
+      Schema.annotate({ description: 'Template reference to the array to chunk' })
     ),
 
     /** Maximum size of each chunk (positive integer) */
-    size: Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({ description: 'Maximum size of each chunk (positive integer)' })
+    size: Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Maximum size of each chunk (positive integer)' })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataSplitAction',
     title: 'Data Split Action',
     description: 'Divide an array into chunks of the specified size',

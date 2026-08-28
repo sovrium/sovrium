@@ -14,7 +14,7 @@ import { AggregateFunctionSchema, optStr } from '../../../shared-schemas'
  * Alias of the shared `AggregateFunctionSchema` with a summary-specific
  * description annotation.
  */
-export const SummaryFunctionSchema = AggregateFunctionSchema.annotations({
+export const SummaryFunctionSchema = AggregateFunctionSchema.annotate({
   title: 'Summary Function',
   description: 'Aggregate function for summary computation',
 })
@@ -35,12 +35,12 @@ export const SummaryFunctionSchema = AggregateFunctionSchema.annotations({
  */
 export const DataTableSummaryItemSchema = Schema.Struct({
   /** Field to aggregate */
-  field: Schema.String.annotations({ description: 'Field name to compute summary on' }),
+  field: Schema.String.annotate({ description: 'Field name to compute summary on' }),
   /** Aggregate function */
   function: SummaryFunctionSchema,
   /** Display label for the summary */
   label: optStr('Summary display label'),
-}).annotations({
+}).annotate({
   title: 'Summary Item',
   description: 'Single aggregate computation for the summary row',
 })

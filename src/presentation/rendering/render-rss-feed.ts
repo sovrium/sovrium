@@ -108,7 +108,16 @@ async function renderMarkdownRssFeed(
     app,
     page
   )
-  return buildRssFeedXmlFromItems({ app, baseUrl, items, channelTitle, channelDescription })
+  return buildRssFeedXmlFromItems({
+    app,
+    baseUrl,
+    items,
+    channelTitle,
+    channelDescription,
+    // Clock injected at the boundary so the domain builder stays a pure
+    // function of its inputs.
+    now: new Date(),
+  })
 }
 
 /**
@@ -151,5 +160,7 @@ export async function renderRssFeed(
     page,
     records,
     baseUrl,
+    // Clock injected at the boundary — see the sibling call above.
+    now: new Date(),
   })
 }

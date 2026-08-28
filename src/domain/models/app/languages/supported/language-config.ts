@@ -23,10 +23,12 @@ import { Schema } from 'effect'
  * @see [internal ref]#/properties/code
  */
 export const LanguageCodeSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z]{2}$/, {
-    message: () => 'Language code must be ISO 639-1 format (2 lowercase letters, e.g., "en", "fr")',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}$/, {
+      message: 'Language code must be ISO 639-1 format (2 lowercase letters, e.g., "en", "fr")',
+    })
+  ),
+  Schema.annotate({
     title: 'Language Code',
     description: 'Short language code used for URLs and routing (ISO 639-1, 2 letters)',
     examples: ['en', 'fr', 'es', 'de', 'ar', 'he'],
@@ -49,10 +51,12 @@ export const LanguageCodeSchema = Schema.String.pipe(
  * @see [internal ref]#/properties/locale
  */
 export const LanguageLocaleSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z]{2}-[A-Z]{2}$/, {
-    message: () => 'Locale must be ISO 639-1 + ISO 3166-1 format (e.g., "en-US", "fr-FR")',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}-[A-Z]{2}$/, {
+      message: 'Locale must be ISO 639-1 + ISO 3166-1 format (e.g., "en-US", "fr-FR")',
+    })
+  ),
+  Schema.annotate({
     title: 'Language Locale',
     description: 'Full locale code used for HTML lang attribute and locale-specific formatting',
     examples: ['en-US', 'fr-FR', 'es-ES', 'de-DE', 'ar-SA', 'he-IL'],
@@ -75,7 +79,7 @@ export const LanguageLocaleSchema = Schema.String.pipe(
  * @see [internal ref]#/properties/label
  */
 export const LanguageLabelSchema = Schema.String.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Language Label',
     description: 'Human-readable language name',
     examples: ['English', 'Français', 'Español', 'العربية'],
@@ -97,8 +101,8 @@ export const LanguageLabelSchema = Schema.String.pipe(
  *
  * @see [internal ref]#/properties/direction
  */
-export const LanguageDirectionSchema = Schema.Literal('ltr', 'rtl').pipe(
-  Schema.annotations({
+export const LanguageDirectionSchema = Schema.Literals(['ltr', 'rtl']).pipe(
+  Schema.annotate({
     title: 'Text Direction',
     description: 'Text direction (left-to-right or right-to-left)',
   })
@@ -120,7 +124,7 @@ export const LanguageDirectionSchema = Schema.Literal('ltr', 'rtl').pipe(
  * @see [internal ref]#/properties/flag
  */
 export const LanguageFlagSchema = Schema.String.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Language Flag',
     description: 'Flag emoji or icon path',
     examples: ['🇺🇸', '🇫🇷', '🇪🇸', '/flags/us.svg'],
@@ -177,7 +181,7 @@ export const LanguageFlagSchema = Schema.String.pipe(
  */
 export const LanguageConfigSchema = Schema.Struct({
   code: LanguageCodeSchema,
-  locale: Schema.optional(LanguageLocaleSchema).annotations({
+  locale: Schema.optional(LanguageLocaleSchema).annotate({
     description:
       'Full locale code (optional - defaults to short code if not specified). Used for HTML lang attribute and hreflang links.',
   }),
@@ -185,7 +189,7 @@ export const LanguageConfigSchema = Schema.Struct({
   direction: Schema.optional(LanguageDirectionSchema),
   flag: Schema.optional(LanguageFlagSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Language Configuration',
     description: 'Configuration for a single supported language',
   })

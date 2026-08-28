@@ -31,8 +31,8 @@ import { Schema } from 'effect'
  *
  */
 export const PageIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     identifier: 'PageId',
     title: 'Page ID',
     description: 'Unique identifier for the page',

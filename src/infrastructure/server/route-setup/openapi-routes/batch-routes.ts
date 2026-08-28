@@ -118,7 +118,7 @@ const routes: readonly RouteSpec[] = [
 /** Batch record-operation route group — resource-scoped to the configured tables. */
 export const batchGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Table',
-  genericTag: 'records',
+  genericTag: 'Records',
   genericTagDescription: 'Record CRUD, comments, and history endpoints',
   collection: (app) => app.tables ?? [],
   resourcePlaceholder: '{tableSlug}',

@@ -32,12 +32,12 @@ import { Schema } from 'effect'
 export const AuthEmailTemplateSchema = Schema.Struct({
   /** Email subject line (can include $variables) */
   subject: Schema.String.pipe(
-    Schema.annotations({ description: 'Email subject line with optional $variable substitution' })
+    Schema.annotate({ description: 'Email subject line with optional $variable substitution' })
   ),
   /** Plain text email body (can include $variables) */
   text: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Plain text email body with optional $variable substitution',
       })
     )
@@ -45,11 +45,11 @@ export const AuthEmailTemplateSchema = Schema.Struct({
   /** HTML email body (can include $variables) */
   html: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({ description: 'HTML email body with optional $variable substitution' })
+      Schema.annotate({ description: 'HTML email body with optional $variable substitution' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Auth Email Template',
     description: 'Email template configuration with subject and body content',
     examples: [
@@ -111,7 +111,7 @@ export const AuthEmailTemplatesSchema = Schema.Struct({
    */
   invitation: Schema.optional(AuthEmailTemplateSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Auth Email Templates',
     description: 'Templates for all authentication-related emails',
     examples: [

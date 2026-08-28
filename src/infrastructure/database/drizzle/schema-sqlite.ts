@@ -33,6 +33,7 @@ import type {
 
 // Better Auth schema (sqlite-core mirror)
 export * from './schema-sqlite/auth-tables'
+export * from './schema-sqlite/auth-oauth-resource-tables'
 export * from './schema-sqlite/auth-relations'
 
 // System / application tables (sqlite-core mirrors)
@@ -46,8 +47,10 @@ export * from './schema-sqlite/automation'
 export * from './schema-sqlite/automation-digest'
 export * from './schema-sqlite/automation-state'
 export * from './schema-sqlite/connection'
+export * from './schema-sqlite/design-system-shares'
 export * from './schema-sqlite/favorites'
 export * from './schema-sqlite/form-submissions'
+export * from './schema-sqlite/links'
 export * from './schema-sqlite/migration-audit'
 export * from './schema-sqlite/record-comments'
 export * from './schema-sqlite/search'

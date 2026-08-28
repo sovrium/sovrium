@@ -116,23 +116,23 @@ export function writeCssFile(
  * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
  */
 export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: FileSystemLike) {
-  return Effect.if(enabled, {
-    onTrue: () =>
-      Effect.gen(function* () {
-        logDebug('Generating client-side hydration script...')
-        const clientJS = generateClientHydrationScript()
-        yield* Effect.tryPromise({
-          try: () => fs.writeFile(`${outputDir}/assets/client.js`, clientJS, 'utf-8'),
-          catch: (error) =>
-            new StaticGenerationError({
-              message: 'Failed to write client.js',
-              cause: error,
-            }),
+  return Effect.suspend(() =>
+    enabled
+      ? Effect.gen(function* () {
+          logDebug('Generating client-side hydration script...')
+          const clientJS = generateClientHydrationScript()
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/assets/client.js`, clientJS, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to write client.js',
+                cause: error,
+              }),
+          })
+          return ['assets/client.js'] as const
         })
-        return ['assets/client.js'] as const
-      }),
-    onFalse: () => Effect.succeed([] as readonly string[]),
-  })
+      : Effect.succeed([] as readonly string[])
+  )
 }
 
 /**
@@ -148,7 +148,7 @@ const publicDirExists = (publicDir: string): Effect.Effect<boolean, never, never
   Effect.tryPromise({
     try: () => fs.stat(publicDir).then((s) => s.isDirectory()),
     catch: () => false as const,
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+  }).pipe(Effect.orElseSucceed(() => false))
 
 /**
  * Copy static assets from public directory if provided.
@@ -158,19 +158,19 @@ const publicDirExists = (publicDir: string): Effect.Effect<boolean, never, never
  * missing `./public` is a no-op rather than a fatal error.
  */
 export function copyPublicAssets(publicDir: string | undefined, outputDir: string) {
-  return Effect.if(publicDir !== undefined, {
-    onTrue: () =>
-      Effect.gen(function* () {
-        const exists = yield* publicDirExists(publicDir!)
-        if (!exists) {
-          logDebug(`Public directory ${publicDir} not found — skipping asset copy`)
-          return [] as readonly string[]
-        }
-        logDebug(`Copying assets from ${publicDir}...`)
-        return yield* copyDirectory(publicDir!, outputDir)
-      }),
-    onFalse: () => Effect.succeed([] as readonly string[]),
-  })
+  return Effect.suspend(() =>
+    publicDir !== undefined
+      ? Effect.gen(function* () {
+          const exists = yield* publicDirExists(publicDir!)
+          if (!exists) {
+            logDebug(`Public directory ${publicDir} not found — skipping asset copy`)
+            return [] as readonly string[]
+          }
+          logDebug(`Copying assets from ${publicDir}...`)
+          return yield* copyDirectory(publicDir!, outputDir)
+        })
+      : Effect.succeed([] as readonly string[])
+  )
 }
 
 /**
@@ -245,30 +245,30 @@ export function applyHtmlOptimizations(config: {
 }) {
   return Effect.gen(function* () {
     // Step 1: Apply base path rewriting if basePath is configured
-    yield* Effect.if(config.options.basePath !== undefined && config.options.basePath !== '', {
-      onTrue: () =>
-        rewriteBasePathInHtml(
-          config.generatedFiles,
-          config.outputDir,
-          config.options.basePath!,
-          config.options.baseUrl,
-          config.fs
-        ),
-      onFalse: () => Effect.void,
-    })
+    yield* Effect.suspend(() =>
+      config.options.basePath !== undefined && config.options.basePath !== ''
+        ? rewriteBasePathInHtml(
+            config.generatedFiles,
+            config.outputDir,
+            config.options.basePath!,
+            config.options.baseUrl,
+            config.fs
+          )
+        : Effect.void
+    )
 
     // Step 2: Inject hydration script into HTML if enabled
-    yield* Effect.if(config.options.hydration ?? false, {
-      onTrue: () =>
-        injectHydrationScript(
-          config.generatedFiles,
-          config.outputDir,
-          config.options.basePath || '',
-          config.fs,
-          config.path
-        ),
-      onFalse: () => Effect.void,
-    })
+    yield* Effect.suspend(() =>
+      (config.options.hydration ?? false)
+        ? injectHydrationScript(
+            config.generatedFiles,
+            config.outputDir,
+            config.options.basePath || '',
+            config.fs,
+            config.path
+          )
+        : Effect.void
+    )
   })
 }
 
@@ -297,39 +297,39 @@ export function generateSitemapFile(
   options: GenerateStaticOptions,
   fs: FileSystemLike
 ) {
-  return Effect.if(options.generateSitemap ?? false, {
-    onTrue: () =>
-      Effect.gen(function* () {
-        logDebug('Generating sitemap.xml...')
-        const pages = app.pages || []
-        const languages = app.languages && options.languages ? options.languages : undefined
-        const hreflangConfig = buildHreflangConfig(app, options)
+  return Effect.suspend(() =>
+    (options.generateSitemap ?? false)
+      ? Effect.gen(function* () {
+          logDebug('Generating sitemap.xml...')
+          const pages = app.pages || []
+          const languages = app.languages && options.languages ? options.languages : undefined
+          const hreflangConfig = buildHreflangConfig(app, options)
 
-        const sitemap = yield* Effect.tryPromise({
-          try: () =>
-            generateSitemapContent(
-              pages,
-              options.baseUrl || 'https://example.com',
-              languages || hreflangConfig ? { languages, hreflangConfig } : undefined
-            ),
-          catch: (error) =>
-            new StaticGenerationError({
-              message: 'Failed to generate sitemap.xml',
-              cause: error,
-            }),
+          const sitemap = yield* Effect.tryPromise({
+            try: () =>
+              generateSitemapContent(
+                pages,
+                options.baseUrl || 'https://example.com',
+                languages || hreflangConfig ? { languages, hreflangConfig } : undefined
+              ),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to generate sitemap.xml',
+                cause: error,
+              }),
+          })
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to write sitemap.xml',
+                cause: error,
+              }),
+          })
+          return ['sitemap.xml'] as const
         })
-        yield* Effect.tryPromise({
-          try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),
-          catch: (error) =>
-            new StaticGenerationError({
-              message: 'Failed to write sitemap.xml',
-              cause: error,
-            }),
-        })
-        return ['sitemap.xml'] as const
-      }),
-    onFalse: () => Effect.succeed([] as readonly string[]),
-  })
+      : Effect.succeed([] as readonly string[])
+  )
 }
 
 /**
@@ -346,52 +346,52 @@ export function generateRobotsFile(
   options: GenerateStaticOptions,
   fs: FileSystemLike
 ) {
-  return Effect.if(options.generateRobotsTxt ?? false, {
-    onTrue: () =>
-      Effect.gen(function* () {
-        logDebug('Generating robots.txt...')
-        const pages = app.pages || []
-        const robots = generateRobotsContent(
-          pages,
-          options.baseUrl || 'https://example.com',
-          options.generateSitemap
-        )
-        yield* Effect.tryPromise({
-          try: () => fs.writeFile(`${outputDir}/robots.txt`, robots, 'utf-8'),
-          catch: (error) =>
-            new StaticGenerationError({
-              message: 'Failed to write robots.txt',
-              cause: error,
-            }),
+  return Effect.suspend(() =>
+    (options.generateRobotsTxt ?? false)
+      ? Effect.gen(function* () {
+          logDebug('Generating robots.txt...')
+          const pages = app.pages || []
+          const robots = generateRobotsContent(
+            pages,
+            options.baseUrl || 'https://example.com',
+            options.generateSitemap
+          )
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/robots.txt`, robots, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to write robots.txt',
+                cause: error,
+              }),
+          })
+          return ['robots.txt'] as const
         })
-        return ['robots.txt'] as const
-      }),
-    onFalse: () => Effect.succeed([] as readonly string[]),
-  })
+      : Effect.succeed([] as readonly string[])
+  )
 }
 
 /** Write `/llms-full.txt` (gated on `app.llms.full !== false`). */
 function writeLlmsFullFile(app: App, outputDir: string, fs: FileSystemLike) {
-  return Effect.if(app.llms?.full !== false, {
-    onTrue: () =>
-      Effect.gen(function* () {
-        const full = yield* Effect.tryPromise({
-          try: () => generateLlmsFullTxtContent(app),
-          catch: (error) =>
-            new StaticGenerationError({
-              message: 'Failed to generate llms-full.txt',
-              cause: error,
-            }),
+  return Effect.suspend(() =>
+    app.llms?.full !== false
+      ? Effect.gen(function* () {
+          const full = yield* Effect.tryPromise({
+            try: () => generateLlmsFullTxtContent(app),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to generate llms-full.txt',
+                cause: error,
+              }),
+          })
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/llms-full.txt`, full, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({ message: 'Failed to write llms-full.txt', cause: error }),
+          })
+          return ['llms-full.txt'] as const
         })
-        yield* Effect.tryPromise({
-          try: () => fs.writeFile(`${outputDir}/llms-full.txt`, full, 'utf-8'),
-          catch: (error) =>
-            new StaticGenerationError({ message: 'Failed to write llms-full.txt', cause: error }),
-        })
-        return ['llms-full.txt'] as const
-      }),
-    onFalse: () => Effect.succeed([] as readonly string[]),
-  })
+      : Effect.succeed([] as readonly string[])
+  )
 }
 
 /**
@@ -412,26 +412,26 @@ export function generateLlmsFiles(
   const llmsEnabled =
     app.llms?.enabled !== false && (app.pages ?? []).some((page) => page.contentDir !== undefined)
 
-  return Effect.if(llmsEnabled, {
-    onTrue: () =>
-      Effect.gen(function* () {
-        logDebug('Generating llms.txt...')
-        const baseUrl = options.baseUrl?.replace(/\/$/, '') ?? ''
-        const llms = yield* Effect.tryPromise({
-          try: () => generateLlmsTxtContent(app, baseUrl),
-          catch: (error) =>
-            new StaticGenerationError({ message: 'Failed to generate llms.txt', cause: error }),
+  return Effect.suspend(() =>
+    llmsEnabled
+      ? Effect.gen(function* () {
+          logDebug('Generating llms.txt...')
+          const baseUrl = options.baseUrl?.replace(/\/$/, '') ?? ''
+          const llms = yield* Effect.tryPromise({
+            try: () => generateLlmsTxtContent(app, baseUrl),
+            catch: (error) =>
+              new StaticGenerationError({ message: 'Failed to generate llms.txt', cause: error }),
+          })
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/llms.txt`, llms, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({ message: 'Failed to write llms.txt', cause: error }),
+          })
+          const fullFiles = yield* writeLlmsFullFile(app, outputDir, fs)
+          return ['llms.txt', ...fullFiles] as readonly string[]
         })
-        yield* Effect.tryPromise({
-          try: () => fs.writeFile(`${outputDir}/llms.txt`, llms, 'utf-8'),
-          catch: (error) =>
-            new StaticGenerationError({ message: 'Failed to write llms.txt', cause: error }),
-        })
-        const fullFiles = yield* writeLlmsFullFile(app, outputDir, fs)
-        return ['llms.txt', ...fullFiles] as readonly string[]
-      }),
-    onFalse: () => Effect.succeed([] as readonly string[]),
-  })
+      : Effect.succeed([] as readonly string[])
+  )
 }
 
 /**
@@ -444,31 +444,29 @@ export function generateGitHubPagesFiles(
 ) {
   return Effect.gen(function* () {
     // Create .nojekyll file
-    const nojekyllFiles = yield* Effect.if(options.deployment === 'github-pages', {
-      onTrue: () =>
-        Effect.gen(function* () {
-          logDebug('Creating .nojekyll file for GitHub Pages...')
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write .nojekyll',
-                cause: error,
-              }),
+    const nojekyllFiles = yield* Effect.suspend(() =>
+      options.deployment === 'github-pages'
+        ? Effect.gen(function* () {
+            logDebug('Creating .nojekyll file for GitHub Pages...')
+            yield* Effect.tryPromise({
+              try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
+              catch: (error) =>
+                new StaticGenerationError({
+                  message: 'Failed to write .nojekyll',
+                  cause: error,
+                }),
+            })
+            return ['.nojekyll'] as const
           })
-          return ['.nojekyll'] as const
-        }),
-      onFalse: () => Effect.succeed([] as readonly string[]),
-    })
+        : Effect.succeed([] as readonly string[])
+    )
 
     // Generate CNAME file for custom domains
-    const cnameFiles = yield* Effect.if(
+    const cnameFiles = yield* Effect.suspend(() =>
       options.deployment === 'github-pages' &&
-        options.baseUrl !== undefined &&
-        !isGitHubPagesUrl(options.baseUrl),
-      {
-        onTrue: () =>
-          Effect.gen(function* () {
+      options.baseUrl !== undefined &&
+      !isGitHubPagesUrl(options.baseUrl)
+        ? Effect.gen(function* () {
             const domain = new URL(options.baseUrl!).hostname
             logDebug(`Creating CNAME file for custom domain: ${domain}...`)
             yield* Effect.tryPromise({
@@ -480,9 +478,8 @@ export function generateGitHubPagesFiles(
                 }),
             })
             return ['CNAME'] as const
-          }),
-        onFalse: () => Effect.succeed([] as readonly string[]),
-      }
+          })
+        : Effect.succeed([] as readonly string[])
     )
 
     return [...nojekyllFiles, ...cnameFiles] as readonly string[]

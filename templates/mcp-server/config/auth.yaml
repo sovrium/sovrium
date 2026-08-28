@@ -1,6 +1,9 @@
 strategies:
   - type: emailAndPassword
     minPasswordLength: 12
+# Self-service API keys — the credential a non-interactive MCP client presents on the
+# `x-api-key` header. A key acts as its owner, so its role is resolved live on every call.
+apiKeys: true
 roles:
   - name: editor
     description: Can read and create documents/tags via MCP tools (the built-in `viewer` role is read-only by default)

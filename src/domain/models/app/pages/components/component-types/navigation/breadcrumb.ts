@@ -21,14 +21,14 @@ export const breadcrumbFields = {
   ...i18nFields,
   breadcrumbItems: Schema.optional(
     Schema.Array(BreadcrumbItemSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Ordered breadcrumb segments from root to current page',
       })
     )
   ),
   separator: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Separator character between breadcrumb items (default: "/")',
     })
   ),

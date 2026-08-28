@@ -22,20 +22,20 @@ export const FileMoveActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Storage key of the file to move */
     sourceKey: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key of the file to move',
       })
     ),
 
     /** New storage key */
     destinationKey: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'New storage key',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileMoveAction',
     title: 'File Move Action',
     description: 'Move a file to a new storage path (copy + delete original)',

@@ -156,6 +156,36 @@ function submissionsColumns(): ReadonlyArray<unknown> {
  * The system-source `data-table` for the submissions list. Bound to
  * `GET /api/admin/forms/:formName/submissions` (the `{ items }` envelope, rows
  * keyed on `id`). A row click opens the system-detail `record-drawer`.
+ *
+ * ## Why the search box needs BOTH `search` and `toolbar.search`
+ *
+ * The render guard is `showSearch && searchConfig` — `toolbar.search` alone
+ * renders NO box. Declaring only one is the quiet way to ship an inert control.
+ *
+ * ## Why this ships in the SAME change-set as the endpoint's `?q=`
+ *
+ * This grid renders exactly two columns (Status, Received), so the client-side
+ * filter it would otherwise fall back to can answer almost nothing — least of
+ * all "did Alice ever contact us?", where the submitter appears in no cell.
+ * Turning the box on before the server honoured the term would install that
+ * lie rather than fix it. The endpoint now applies `?q=` over the submitter
+ * identity + the submission id AND echoes `appliedQuery`, so the client's
+ * in-memory pass stands down.
+ *
+ * ## Why there is NO `pagination` block
+ *
+ * The endpoint is CURSOR-paginated (`{ items, nextCursor }`) and reports no
+ * total, while the grid's pager is page-number based and derives its total from
+ * the rows it holds. Declaring `pagination` painted three wrong answers at once,
+ * measured against 30 seeded submissions: the summary read "1–25 of 25";
+ * "Page 1 of 1" left Next permanently DISABLED; and the `page=2` that control
+ * would have sent is not on the handler's allow-list, so it re-served page 1
+ * verbatim.
+ *
+ * Removing the block removes the pager (`data-table-view.tsx` gates it on
+ * `paginationConfig`). The rows stay capped at the fetch's 25 either way — the
+ * block never controlled that — so the cap is STATED beneath the grid instead of
+ * being contradicted by a pager. Mirrors `automation-runs-surface.ts`.
  */
 function submissionsGrid(formName: string): Component {
   return {
@@ -165,8 +195,10 @@ function submissionsGrid(formName: string): Component {
       system: { endpoint: submissionsEndpoint(formName), rowsKey: 'items', idKey: 'id' },
     },
     columns: submissionsColumns(),
-    pagination: { pageSize: 25 },
+    search: { enabled: true, placeholder: 'Search submissions' },
+    toolbar: { search: true },
     emptyMessage: 'No submissions yet',
+    noMatchMessage: 'No submission matches “{query}”',
     // Row click opens the read-only system-detail drawer for the clicked row id.
     onRowClick: { action: 'openDrawer', component: DETAIL_DRAWER_ID },
   } as unknown as Component
@@ -302,6 +334,26 @@ function metricsSection(formName: string): Component {
 }
 
 /**
+ * The inbox's read-window statement, rendered directly beneath the grid.
+ *
+ * The fetch returns at most 25 submissions and the surface cannot page past
+ * them, so the window is declared rather than inferred from a row count. The
+ * second sentence names the affordance that DOES reach older submissions and
+ * admits that a narrowed result carries the same cap — otherwise removing the
+ * pager would relocate the wrong answer one interaction later rather than
+ * remove it.
+ */
+function submissionsReadWindowNote(): Component {
+  return {
+    type: 'text',
+    element: 'p',
+    props: { className: 'text-foreground-subtle mt-2 text-sm' },
+    content:
+      'Shows the 25 most recent submissions. Search queries every submission and returns the 25 most recent matches.',
+  } as unknown as Component
+}
+
+/**
  * The selected form's body: the analytics metrics region ABOVE the submissions
  * toolbar + inbox, with the read-only detail drawer mounted alongside (opened on
  * a row click). Built entirely from generic components — no bespoke island.
@@ -315,6 +367,7 @@ function selectedFormPanes(formName: string, formHref: string): Component {
       metricsSection(formName),
       submissionsHeader(formName, formHref),
       submissionsGrid(formName),
+      submissionsReadWindowNote(),
       submissionsDetailDrawer(formName),
     ],
   } as unknown as Component

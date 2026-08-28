@@ -29,7 +29,7 @@
  * `infrastructure/database/repositories/tables/tables-overview-repository-live.ts`.
  */
 
-import { Effect } from 'effect'
+import { Effect, Semaphore } from 'effect'
 import {
   TablesOverviewRepository,
   type TableAggregateRow,
@@ -67,7 +67,7 @@ const parseMaxConcurrent = (raw: string | undefined): number => {
   const parsed = raw === undefined ? Number.NaN : Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CONCURRENT_TABLES_OVERVIEWS
 }
-const tablesOverviewSemaphore = Effect.unsafeMakeSemaphore(
+const tablesOverviewSemaphore = Semaphore.makeUnsafe(
   parseMaxConcurrent(process.env.ADMIN_TABLES_OVERVIEW_MAX_CONCURRENT)
 )
 

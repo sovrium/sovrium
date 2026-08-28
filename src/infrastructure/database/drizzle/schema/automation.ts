@@ -41,6 +41,68 @@ export const automationDefinitions = systemSchema.table(
 )
 
 /**
+ * Automation Pauses Table
+ *
+ * OPERATIONAL pause state — deliberately NOT a column on
+ * `automation_definitions`, and deliberately NOT a runtime mutation of the
+ * config's `automations[].enabled`.
+ *
+ * Three verified facts force this shape:
+ *
+ *  1. `automations[].enabled` is CONFIG. Writing it at runtime is config
+ * mutation, which [internal ref] D2 forbids — the self-hosted product is
+ *     config-code-only and the Admin Space never edits configuration.
+ *
+ *  2. `automation_definitions` rows are seeded LAZILY on an automation's FIRST
+ *     RUN (`resolveAutomationId`), and an existing row is returned as-is and
+ *     never updated. An automation that has never run therefore has NO ROW —
+ *     so a pause keyed on `automation_definitions.id` could not express
+ *     "pause an automation that has never run", which is precisely the
+ *     incident case this feature exists for.
+ *
+ *  3. `automation_definitions.enabled` is WRITE-ONLY. Its sole write is the
+ *     INSERT in `automation-repository-live.ts`; nothing anywhere reads it.
+ *     Writing it would be a silent no-op.
+ *
+ * Hence: keyed on the automation NAME (the config's stable identity), in its
+ * own table, with no FK to `automation_definitions`.
+ *
+ * Presence of a row = paused. Resume = DELETE the row. Because the state is
+ * persisted rather than in-memory, an incident pause survives a redeploy or a
+ * process restart.
+ *
+ * NOT `automation_state`: that table is the app author's `state:set`/`state:get`
+ * key-value namespace. Platform-owned operational state must not share a
+ * namespace the config can write to, or an author could resume their own
+ * paused automation from inside an action.
+ *
+ * `pausedByUserId` mirrors `automation_runs.triggeredByUserId`: `ON DELETE SET
+ * NULL`, so erasing a user sheds the identifier while the pause itself
+ * survives (GDPR Art. 17 — the pause is operational state, not personal data,
+ * and an incident pause must not lift because an account was deleted).
+ */
+export const automationPauses = systemSchema.table(
+  'automation_pauses',
+  {
+    id: text('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    /**
+     * The config automation's `name`. UNIQUE — an automation is paused or it is
+     * not; there is no second pause to hold. The constraint is what makes
+     * "pause twice" idempotent at the storage layer rather than only in the
+     * handler.
+     */
+    automationName: text('automation_name').notNull().unique(),
+    pausedByUserId: text('paused_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    pausedAt: timestamp('paused_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('automation_pauses_automationName_idx').on(table.automationName)]
+)
+
+/**
  * Automation Runs Table
  *
  * Tracks execution history of automations including status, duration, and errors.
@@ -203,6 +265,8 @@ export const automationApprovalRequests = systemSchema.table(
 // Type inference
 export type AutomationDefinition = typeof automationDefinitions.$inferSelect
 export type NewAutomationDefinition = typeof automationDefinitions.$inferInsert
+export type AutomationPause = typeof automationPauses.$inferSelect
+export type NewAutomationPause = typeof automationPauses.$inferInsert
 export type AutomationRun = typeof automationRuns.$inferSelect
 export type NewAutomationRun = typeof automationRuns.$inferInsert
 export type AutomationRunStep = typeof automationRunSteps.$inferSelect

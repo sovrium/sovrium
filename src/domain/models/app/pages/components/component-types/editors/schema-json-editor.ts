@@ -33,38 +33,38 @@ export const schemaJsonEditorFields = {
   ...visibilityFields,
   ...i18nFields,
   submitToTable: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Table slug the edited config is submitted to (e.g. "config_submissions")',
     })
   ),
   configField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Column on the submit table that stores the edited config text',
     })
   ),
   formatField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Column on the submit table that stores the editor format discriminant ("json")',
     })
   ),
   initialValue: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Initial JSON document shown when the editor mounts (e.g. "$record.config")',
     })
   ),
   height: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Editor container height in pixels' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Editor container height in pixels' })
     )
   ),
   readOnly: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Whether the editor is read-only (view config without editing)',
     })
   ),
   lineNumbers: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Whether to show the line-number gutter' })
+    Schema.Boolean.annotate({ description: 'Whether to show the line-number gutter' })
   ),
   /**
    * Record-context submit fields (GAP-I2). Reuses the `InlinePrefillSchema`

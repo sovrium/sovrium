@@ -21,21 +21,21 @@ export const DataSortActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template reference to the array of records to sort */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Template reference to the array of records to sort' })
+      Schema.annotate({ description: 'Template reference to the array of records to sort' })
     ),
 
     /** Field to sort by */
-    field: TemplateStringSchema.pipe(Schema.annotations({ description: 'Field to sort by' })),
+    field: TemplateStringSchema.pipe(Schema.annotate({ description: 'Field to sort by' })),
 
     /** Sort direction (default: asc) */
     direction: Schema.optional(
-      Schema.Literal('asc', 'desc').pipe(
-        Schema.annotations({ description: 'Sort direction (default: asc)' })
+      Schema.Literals(['asc', 'desc']).pipe(
+        Schema.annotate({ description: 'Sort direction (default: asc)' })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DataSortAction',
     title: 'Data Sort Action',
     description: 'Reorder an array of records by a specified field and direction',

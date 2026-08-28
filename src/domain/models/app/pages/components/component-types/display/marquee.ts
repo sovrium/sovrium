@@ -21,7 +21,7 @@ export const MarqueeTypeLiteral = Schema.Literal('marquee')
  * renderer duplicates the child group once and translates the track by exactly
  * 50% along the axis, so the loop is seamless in either direction.
  */
-export const MarqueeDirectionSchema = Schema.Literal('left', 'right', 'up', 'down').annotations({
+export const MarqueeDirectionSchema = Schema.Literals(['left', 'right', 'up', 'down']).annotate({
   title: 'Marquee Direction',
   description: 'Direction the marquee content scrolls towards (default: left)',
 })
@@ -35,8 +35,8 @@ export const MarqueeDirectionSchema = Schema.Literal('left', 'right', 'up', 'dow
  * S3's spirit applied to style generation, not SQL).
  */
 export const MarqueeGapSchema = Schema.String.pipe(
-  Schema.pattern(/^(0|\d+(\.\d+)?(px|rem|em|%))$/),
-  Schema.annotations({
+  Schema.check(Schema.isPattern(/^(0|\d+(\.\d+)?(px|rem|em|%))$/)),
+  Schema.annotate({
     title: 'Marquee Gap',
     description:
       'CSS length separating marquee items, e.g. "2rem" or "24px". Applied to the child GROUP, not the track: a gap on the track would make the 50% translate under-shoot by half a gap and stutter once per cycle.',
@@ -66,9 +66,9 @@ export const marqueeFields = {
   ...visibilityFields,
   marqueeDirection: Schema.optional(MarqueeDirectionSchema),
   marqueeSpeed: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThan(0)),
+      Schema.annotate({
         title: 'Marquee Speed',
         description:
           'Seconds for one full loop of the track. Larger is slower. Expressed in SECONDS (not milliseconds) because it maps straight onto the CSS animation-duration of a continuous loop.',

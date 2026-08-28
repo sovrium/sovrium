@@ -115,14 +115,28 @@ function toMessage(msg: Partial<ThreadMessage>): ReadonlyArray<ThreadMessage> {
 }
 
 /**
- * Load the agent's conversation list (newest-first). Returns an `error` phase on
- * a failed fetch so the surface shows a retryable error region rather than a
- * silent empty state (a read failure is an operator observability gap).
+ * Load the agent's conversation list (newest-first), narrowed server-side by
+ * `search` when the operator has typed one.
+ *
+ * The `limit=200` window is why `search` has to reach the SERVER. The viewer
+ * loads at most 200 threads per agent and never follows `nextCursor`, so a
+ * client-side filter over what it holds can only ever see those 200: thread 201
+ * was reported as not existing. With `?q=` the cap becomes "200 MATCHES"
+ * instead of "matches among the 200 most recent" — which is the behaviour an
+ * operator already believed they had.
+ *
+ * Returns an `error` phase on a failed fetch so the surface shows a retryable
+ * error region rather than a silent empty state (a read failure is an operator
+ * observability gap).
  */
-export async function loadConversations(agentName: string): Promise<ListState> {
+export async function loadConversations(agentName: string, search = ''): Promise<ListState> {
   try {
+    const params = new URLSearchParams({ limit: '200' })
+    // Only when non-empty: a bare `?q=` is "no search" server-side anyway, but
+    // omitting it keeps the request honest about what was asked.
+    if (search.trim().length > 0) params.set('q', search.trim())
     const res = await fetch(
-      `/api/admin/agents/${encodeURIComponent(agentName)}/conversations?limit=200`
+      `/api/admin/agents/${encodeURIComponent(agentName)}/conversations?${params.toString()}`
     )
     if (!res.ok) return { phase: 'error', conversations: [] }
     const body = (await res.json()) as ListResponse
@@ -135,14 +149,21 @@ export async function loadConversations(agentName: string): Promise<ListState> {
 /**
  * Load conversations across ALL agents, tagged by agent and merged newest-first
  * ([internal ref] — the conversations viewer defaults to every agent, narrowed by
- * the agent filter). Per-agent reads run in parallel; a partial failure degrades
+ * the agent filter), each agent's slice already narrowed server-side by
+ * `search`. Per-agent reads run in parallel; a partial failure degrades
  * gracefully (the failed agent contributes no rows). The phase is `error` only
  * when EVERY agent read failed (so the surface shows a retryable error rather
  * than a misleading empty state); otherwise `ready` with the merged rows.
  */
-export async function loadAllConversations(agentNames: ReadonlyArray<string>): Promise<ListState> {
+export async function loadAllConversations(
+  agentNames: ReadonlyArray<string>,
+  search = ''
+): Promise<ListState> {
   if (agentNames.length === 0) return { phase: 'ready', conversations: [] }
-  const results = await Promise.all(agentNames.map((name) => loadConversations(name)))
+  // `search` is threaded into EVERY per-agent request. Passing it to one call
+  // site would search that agent and silently ignore the rest — a partial
+  // answer that looks exactly like a complete one.
+  const results = await Promise.all(agentNames.map((name) => loadConversations(name, search)))
   const allFailed = results.every((r) => r.phase === 'error')
   if (allFailed) return { phase: 'error', conversations: [] }
   const merged = results
@@ -183,7 +204,14 @@ export async function loadConversation(
   }
 }
 
-/** Format an ISO timestamp as a compact relative French label ("il y a 2 h"). */
+/**
+ * Format an ISO timestamp as a compact relative label ("2h ago").
+ *
+ * English, like the rest of the console: the self-hosted binary ships worldwide,
+ * so English is the honest default and French is a locale rather than a
+ * hardcode. These two formatters were the last French strings on this surface —
+ * an operator reading an otherwise-English thread saw "il y a 2 h" on every row.
+ */
 export function formatRelative(iso: string): string {
   if (!iso) return '—'
   const date = new Date(iso)
@@ -192,20 +220,20 @@ export function formatRelative(iso: string): string {
   const diff = Date.now() - ms
   const minutes = Math.round(diff / 60_000)
   if (minutes < 1) return 'just now'
-  if (minutes < 60) return `il y a ${minutes} min`
+  if (minutes < 60) return `${minutes}m ago`
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `il y a ${hours} h`
+  if (hours < 24) return `${hours}h ago`
   const days = Math.round(hours / 24)
-  if (days < 30) return `il y a ${days} j`
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (days < 30) return `${days}d ago`
+  return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-/** Format an ISO timestamp as a short French date + time for a message ("14 juin, 09:32"). */
+/** Format an ISO timestamp as a short date + time for a message ("14 Jun, 09:32"). */
 export function formatDateTime(iso: string): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString('fr-FR', {
+  return date.toLocaleString('en-US', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

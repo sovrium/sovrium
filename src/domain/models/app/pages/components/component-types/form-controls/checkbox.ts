@@ -17,10 +17,10 @@ export const checkboxFields = {
   ...visibilityFields,
   ...i18nFields,
   checked: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Default checked state for checkbox or switch' })
+    Schema.Boolean.annotate({ description: 'Default checked state for checkbox or switch' })
   ),
   indeterminate: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Show indeterminate (dash) state on checkbox',
     })
   ),

@@ -25,14 +25,14 @@ import { ChartTooltipSchema } from './tooltip'
 /**
  * Supported chart visualization types.
  */
-export const ChartTypeSchema = Schema.Literal(
+export const ChartTypeSchema = Schema.Literals([
   'bar',
   'line',
   'pie',
   'area',
   'donut',
-  'scatter'
-).annotations({
+  'scatter',
+]).annotate({
   title: 'Chart Type',
   description: 'Visualization type for the chart component',
 })
@@ -62,15 +62,15 @@ export const chartFields = {
   yAxis: Schema.optional(ChartAxisSchema),
   series: Schema.optional(
     Schema.Array(ChartSeriesSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Data series definitions for chart component' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Data series definitions for chart component' })
     )
   ),
   legend: Schema.optional(ChartLegendSchema),
   tooltip: Schema.optional(ChartTooltipSchema),
   chartAggregate: Schema.optional(ChartAggregateSchema),
   emptyMessage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Message displayed when the chart data source returns no records',
       examples: ['No sales data available', 'No metrics yet'],
     })
@@ -89,14 +89,14 @@ export const chartFields = {
       // ARIA landmark role for the empty-state region. Kept as an explicit
       // literal (currently only `'region'`) so future landmark roles widen this
       // union additively without changing existing configs.
-      role: Schema.Literal('region').annotations({
+      role: Schema.Literal('region').annotate({
         description: 'ARIA landmark role for the empty-state region (currently only "region")',
       }),
       // Accessible name (aria-label) announced to screen-reader users when the
       // chart data source returns zero rows.
       name: Schema.String.pipe(
-        Schema.minLength(1),
-        Schema.annotations({
+        Schema.check(Schema.isMinLength(1)),
+        Schema.annotate({
           description:
             'Accessible name (aria-label) for the empty-state region, rendered when the chart data source returns zero rows',
           examples: ['Aucune donnée', 'No data'],
@@ -105,13 +105,13 @@ export const chartFields = {
       // Body text rendered inside the region; falls back to `emptyMessage`, then
       // a generic default, when omitted.
       title: Schema.optional(
-        Schema.String.annotations({
+        Schema.String.annotate({
           description:
             'Body text inside the empty-state region (falls back to emptyMessage, then a default, when omitted)',
           examples: ['Aucune visite sur la période'],
         })
       ),
-    }).annotations({
+    }).annotate({
       title: 'Chart Empty State',
       description:
         'When set, the chart renders a NAMED ARIA region (role + accessible name) instead of the default unnamed empty placeholder when its data source returns zero rows. Present-when-empty, absent-when-populated.',

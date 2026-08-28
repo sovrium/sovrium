@@ -50,7 +50,7 @@ export const handleAutomationCall: ActionHandler = (action, _app, _automation, r
     Effect.map(
       ({ result }) => ({ status: 'success', output: { result } }) as const satisfies ActionOutcome
     ),
-    Effect.catchAll((error) => fail(error))
+    Effect.catch((error) => fail(error))
   )
 }
 

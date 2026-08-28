@@ -28,15 +28,15 @@ import { Schema } from 'effect'
  *
  * @see [internal ref]#/patternProperties/.../oneOf
  */
-export const ComponentPropValueSchema: Schema.Schema<
+export const ComponentPropValueSchema: Schema.Codec<
   string | number | boolean | Record<string, unknown> | readonly unknown[]
-> = Schema.Union(
+> = Schema.Union([
   Schema.String,
-  Schema.Number,
+  Schema.Finite,
   Schema.Boolean,
-  Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  Schema.Array(Schema.Unknown)
-)
+  Schema.Record(Schema.String, Schema.Unknown),
+  Schema.Array(Schema.Unknown),
+])
 
 /**
  * Component Props (properties for component templates with variable references)
@@ -63,22 +63,24 @@ export const ComponentPropValueSchema: Schema.Schema<
  * ```
  *
  */
-export const ComponentPropsSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$/, {
-      message: () =>
-        'Property key must be camelCase (e.g., className, maxWidth) or kebab-case with data-/aria- prefix (e.g., data-testid, aria-label)',
-    }),
-    Schema.annotations({
+export const ComponentPropsSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$/, {
+        message:
+          'Property key must be camelCase (e.g., className, maxWidth) or kebab-case with data-/aria- prefix (e.g., data-testid, aria-label)',
+      })
+    ),
+    Schema.annotate({
       title: 'Component Prop Key',
       description:
         'Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)',
       examples: ['className', 'size', 'enabled', 'maxWidth', 'data-testid', 'aria-label'],
     })
   ),
-  value: ComponentPropValueSchema,
-}).pipe(
-  Schema.annotations({
+  ComponentPropValueSchema
+).pipe(
+  Schema.annotate({
     title: 'Component Props',
     description: 'Properties for component templates, supporting variable references',
   })

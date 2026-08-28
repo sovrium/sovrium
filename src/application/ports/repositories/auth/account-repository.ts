@@ -26,10 +26,13 @@ import type { Effect } from 'effect'
  * the infrastructure layer (`purgeDueAccounts` in `account-purge.ts`) and is a
  * token-gated HTTP trigger; the route calls it directly.
  *
- * Note on `tablesWithCreatedBy`: the implementation is POSTGRES-ONLY — it reads
- * `information_schema.columns` to discover which dynamic app tables carry a
- * `created_by` column. That behaviour is preserved verbatim from the former
- * route (no SQLite support is added — out of scope for this extraction).
+ * Note on `tablesWithCreatedBy`: it discovers which authorship column each
+ * dynamic app table actually carries. The implementation is DIALECT-AWARE —
+ * `information_schema.columns` on Postgres, `pragma_table_info` on SQLite — so
+ * the GDPR export works on the zero-config SQLite default and not only on
+ * Postgres. (This note previously claimed the probe was Postgres-only; that
+ * stopped being true when the SQLite branch landed, and the stale claim outlived
+ * it by long enough to be worth correcting here.)
  *
  * The row types below are defined here (decoupled from Drizzle) so the
  * application layer stays free of an infrastructure dependency. The export
@@ -107,7 +110,24 @@ export interface AccountFormSubmissionRow {
   readonly submittedAt: Date
 }
 
-export class AccountRepository extends Context.Tag('AccountRepository')<
+/**
+ * One app table plus the authorship columns it MIGHT carry, resolved from the
+ * table's declared `created-by` field types unioned with the literal
+ * `created_by` (engine-generated scope tables carry the literal with no
+ * declared field to resolve from).
+ */
+export interface AuthoredTableCandidate {
+  readonly tableName: string
+  readonly columns: readonly string[]
+}
+
+/** One app table and the authorship column it actually carries. */
+export interface AuthoredTableColumn {
+  readonly tableName: string
+  readonly column: string
+}
+
+export class AccountRepository extends Context.Service<
   AccountRepository,
   {
     /**
@@ -158,24 +178,38 @@ export class AccountRepository extends Context.Tag('AccountRepository')<
     ) => Effect.Effect<Date | undefined, AccountDatabaseError>
 
     /**
-     * Discover which of `tableNames` actually carry a `created_by` column.
+     * Discover which of the candidate authorship columns each table ACTUALLY
+     * carries, returning one `(table, column)` pair per match.
      *
-     * POSTGRES-ONLY introspection over `information_schema.columns` (preserved
-     * verbatim from the former route). Names are sanitized + de-duped inside the
+     * Takes CANDIDATE COLUMNS rather than bare table names because the literal
+     * `created_by` is not a contract: `CreatedByFieldSchema` puts no constraint
+     * on `name`, so `{ name: 'author', type: 'created-by' }` generates a column
+     * called `author` and nothing creates a `created_by` beside it. Probing the
+     * literal alone returned NO tables for such a config, and the export then
+     * reported `authoredRecords: []` — an Art. 15 response that silently denies
+     * the caller's own records exist. The caller resolves the candidates from
+     * the declared field TYPES; this only reports which of them are real.
+     *
+     * Dialect-aware introspection (`information_schema` on Postgres,
+     * `pragma_table_info` on SQLite). Names are sanitized + de-duped inside the
      * implementation before interpolation.
      */
     readonly tablesWithCreatedBy: (
-      tableNames: readonly string[]
-    ) => Effect.Effect<readonly string[], AccountDatabaseError>
+      candidates: readonly AuthoredTableCandidate[]
+    ) => Effect.Effect<readonly AuthoredTableColumn[], AccountDatabaseError>
 
     /**
-     * Read every row in `tableName` authored by `userId` (dynamic
-     * `created_by = userId` scan via quoted `sql.identifier`). Returns the raw
+     * Read every row in `tableName` authored by `userId` — a dynamic
+     * `<column> = userId` scan via quoted `sql.identifier`. Returns the raw
      * rows; the use case performs the id/created_at/updated_at split + ISO
      * coercion that shapes them into the export payload.
+     *
+     * The column is PASSED IN rather than assumed, for the reason set out on
+     * {@link tablesWithCreatedBy}.
      */
     readonly readAuthoredRecords: (
       tableName: string,
+      column: string,
       userId: string
     ) => Effect.Effect<readonly Record<string, unknown>[], AccountDatabaseError>
 
@@ -198,4 +232,4 @@ export class AccountRepository extends Context.Tag('AccountRepository')<
       scheduledAt: Date
     ) => Effect.Effect<void, AccountDatabaseError>
   }
->() {}
+>()('AccountRepository') {}

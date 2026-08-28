@@ -12,12 +12,19 @@
 
 import { renderToString } from 'react-dom/server'
 import { isBadgeEnabled } from '@/domain/models/app/badge'
-import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
+import {
+  evaluatePermission,
+  isAdminRole,
+  OPEN_WHEN_UNDECLARED,
+  permits,
+  toPermissionValue,
+  type PermissionCaller,
+  type PermissionPolicy,
+} from '@/domain/models/shared/permission-evaluation'
 import { resolveLandingPath } from '@/domain/services/pages/landing-resolver'
 import { checkPageAccess, type AccessDecision } from '@/domain/services/pages/page-access-check'
+import { findDeclaredPage } from '@/domain/services/pages/page-path-resolvability'
 import { isOperatorConsoleApp } from '@/domain/utils/admin-data-nav'
-import { matchContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-match'
-import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
 import { resolveTranslationPattern } from '@/domain/utils/translation-resolver'
 import {
   evaluateRecordAgainstPredicate,
@@ -38,6 +45,7 @@ import { highlightComponentCodeBlocks } from '@/presentation/rendering/component
 import { resolveCustomHtmlSources } from '@/presentation/rendering/custom-html-resolver'
 import { resolvePageDataSources } from '@/presentation/rendering/data-source-resolver'
 import { resolveEditorContext } from '@/presentation/rendering/editors/editor-context-resolver'
+import { expandFieldSpecimens } from '@/presentation/rendering/field-specimen-resolver'
 import { evaluateEmbeddedFormRefsAccess } from '@/presentation/rendering/forms/form-ref-access-check'
 import { expandFormRefs } from '@/presentation/rendering/forms/form-ref-resolver'
 import {
@@ -64,6 +72,7 @@ import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { RowLevelWhen } from '@/domain/models/app/tables/permissions'
+import type { PermissionValue } from '@/domain/models/shared/permissions'
 import type { SessionInfo } from '@/domain/types/session-info'
 import type { DataSourceDb } from '@/presentation/rendering/data-source-resolver'
 import type { ResolvedMarkdownPage } from '@/presentation/rendering/markdown-page-resolver'
@@ -191,8 +200,59 @@ function stripUnconfiguredOAuthForms(components: Page['components'], app: App): 
 }
 
 /**
- * Checks if a session role is allowed to create records in a table.
- * Returns true if the table has no create restrictions or the role is permitted.
+ * The policy the CRUD render gate evaluates the write ladder under.
+ *
+ * `OPEN_WHEN_UNDECLARED` — a table that declares no `create`/`update` grant
+ * restricts nobody, which is what both gates already did (and what an anonymous
+ * visitor sees on the bare-table create form pinned by [internal ref]).
+ *
+ * `admin-outranks-role-list` — the records API grants an admin the write
+ * unconditionally (`hasCreatePermission`/`hasUpdatePermission` return early on
+ * `isAdminRole`), so a gate WITHOUT the override hides a form from a caller the
+ * API would serve — a dead end, not a security boundary.
+ * The override deliberately stops at the role-list rung: it never manufactures
+ * access an undeclared permission did not already grant.
+ */
+const CRUD_RENDER_GATE_POLICY: PermissionPolicy = {
+  whenUndeclared: OPEN_WHEN_UNDECLARED,
+  adminOverride: 'admin-outranks-role-list',
+}
+
+/**
+ * Read one write grant off a table as a {@link PermissionValue}.
+ *
+ * An EMPTY role array is normalised to UNDECLARED so it keeps gating nobody —
+ * the `.length === 0` escape both gates used to spell out inline. Evaluated as
+ * a declared array it would match no caller and hide the form from everyone,
+ * which no config author writing `create: []` can plausibly have meant.
+ */
+function declaredWriteGrant(
+  table: Readonly<{ permissions?: Readonly<Record<string, unknown>> }> | undefined,
+  operation: 'create' | 'update'
+): PermissionValue | undefined {
+  const value = toPermissionValue(table?.permissions?.[operation])
+  return Array.isArray(value) && value.length === 0 ? undefined : value
+}
+
+/**
+ * The acting caller for the render gate, or `undefined` for an anonymous
+ * visitor — the state that decides `'authenticated'` and
+ * that `hasCreatePermission(table, userRole: string)` cannot represent, which
+ * is why the gate evaluates the ladder rather than calling the API's helper.
+ *
+ * `groups` is forwarded so a `group:<name>` entry in an allowlist is honoured
+ * here exactly as `matchesRoleList` honours it on the write path.
+ */
+const gateCaller = (session: SessionInfo | undefined): PermissionCaller | undefined =>
+  session === undefined ? undefined : { role: session.role, groups: session.groups }
+
+/**
+ * Checks if a caller is allowed to create records in a table.
+ *
+ * The declared value is the three-rung permission ladder
+ * (`'all'` / `'authenticated'` / role array), NOT a role list: the two string
+ * rungs are rungs, never role names, so no role comparison of any kind may be
+ * performed against them.
  */
 function isCrudCreateAllowed(
   tableName: string | undefined,
@@ -200,9 +260,13 @@ function isCrudCreateAllowed(
   session: SessionInfo | undefined
 ): boolean {
   const table = tables?.find((t) => t.name === tableName)
-  if (!table?.permissions?.create || table.permissions.create.length === 0) return true
-  if (!session) return false
-  return table.permissions.create.includes(session.role)
+  return permits(
+    evaluatePermission(
+      declaredWriteGrant(table, 'create'),
+      gateCaller(session),
+      CRUD_RENDER_GATE_POLICY
+    )
+  )
 }
 
 /**
@@ -222,8 +286,11 @@ function hideComponent(component: Component): Component {
 }
 
 /**
- * Checks if a session role is allowed to update records in a table.
- * Returns true if the table has no update restrictions or the role is permitted.
+ * Checks if a caller is allowed to update records in a table.
+ *
+ * Same ladder, same policy and same anonymous handling as
+ * {@link isCrudCreateAllowed} — the two gates answer one question from one
+ * declaration, so they must not drift apart.
  */
 function isCrudUpdateAllowed(
   tableName: string | undefined,
@@ -231,9 +298,13 @@ function isCrudUpdateAllowed(
   session: SessionInfo | undefined
 ): boolean {
   const table = tables?.find((t) => t.name === tableName)
-  if (!table?.permissions?.update || table.permissions.update.length === 0) return true
-  if (!session) return false
-  return table.permissions.update.includes(session.role)
+  return permits(
+    evaluatePermission(
+      declaredWriteGrant(table, 'update'),
+      gateCaller(session),
+      CRUD_RENDER_GATE_POLICY
+    )
+  )
 }
 
 /**
@@ -426,12 +497,20 @@ function applyPageComponentFilters(input: PageComponentFilterInput): Page {
   const editorResolved = resolveEditorContext(expanded, {
     ...(parentRecord !== undefined ? { parentRecord } : {}),
   })
+  // The design-system catalog's field-type specimens: render-time-only
+  // descriptors the admin surface builder emits, expanded into the control the
+  // crud form draws for that field type. Runs AFTER `expandFormRefs` (a
+  // specimen is never inside an embedded form, but the walk is cheap and the
+  // ordering keeps every synthesizer in one contiguous block) and BEFORE
+  // `resolvePageToc`, which must see final markup. Recurses into `children` —
+  // catalog specimens sit four levels deep, unlike a top-level `formRef`.
+  const specimensExpanded = expandFieldSpecimens(editorResolved)
   // P-06: assign anchor ids to heading components and plumb them onto any
   // `type: 'toc'` components on the page. Runs AFTER expandFormRefs so
   // collection-resolved + formRef-expanded headings are visible, BEFORE the
   // synthesized `command-palette` is appended (the palette is a sibling
   // overlay and never contains author headings).
-  const withToc = resolvePageToc(editorResolved)
+  const withToc = resolvePageToc(specimensExpanded)
   // PG-04: tag any drawer referenced by a sibling `onRowClick.action ===
   // 'openDrawer'` with `_openDrawerDispatchedById` so its island starts
   // closed (defaultOpen=false). The data-table row-click handler dispatches
@@ -548,47 +627,6 @@ function toAccessDeniedResult(decision: AccessDecision): PageRenderResult | fals
   if (decision.action === 'redirect') return { redirect: decision.url }
   if (decision.action === 'error') return { error: decision.message }
   return undefined // 'not-found' → 404
-}
-
-/**
- * Locates the page declaration matching `path` and returns it together
- * with the route parameters extracted from dynamic segments. Returns
- * `undefined` when no page matches — the caller then 404s.
- *
- * When no page pattern matches directly, the path is retried against the BASE
- * PATH of every index-bearing collection (`contentDir.index`, [internal ref]): a
- * request for `/docs` resolves to the `/docs/:slug` page with the index slug
- * pre-filled, and `indexBasePathPattern` is surfaced so the markdown resolver
- * synthesises the canonical / hreflang SEO at the base path (never the slugged
- * URL).
- */
-function findPageForPath(
-  app: App,
-  path: string
-):
-  | {
-      readonly page: Page
-      readonly params: Readonly<Record<string, string>>
-      readonly indexBasePathPattern?: string
-    }
-  | undefined {
-  if (!app.pages || app.pages.length === 0) return undefined
-  const pagePatterns = app.pages.map((p) => p.path)
-  const match = findMatchingRoute(pagePatterns, path)
-  if (match) {
-    const page = app.pages[match.index]
-    return page ? { page, params: match.params } : undefined
-  }
-  // Fallback: the base path of an index-bearing collection serves its index
-  // article.
-  const indexMatch = matchContentDirIndexBasePath(app.pages, path)
-  return indexMatch
-    ? {
-        page: indexMatch.page,
-        params: indexMatch.routeParams,
-        indexBasePathPattern: indexMatch.basePathPattern,
-      }
-    : undefined
 }
 
 /**
@@ -1023,7 +1061,7 @@ export async function renderPageByPath(
     requestQuery,
     urlLanguage,
   } = options ?? {}
-  const found = findPageForPath(app, path)
+  const found = findDeclaredPage(app, path)
   if (!found) return undefined
   const { page: matchedPage, params: routeParams, indexBasePathPattern } = found
 

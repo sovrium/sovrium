@@ -28,12 +28,10 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const UpdatedByFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('updated-by'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('updated-by'),
+  }),
+  Schema.annotate({
     title: 'Updated By Field',
     description:
       'Automatically captures the user who last modified a record. System-managed field that stores user ID reference.',

@@ -15,14 +15,14 @@ import { Schema } from 'effect'
  * - `errorPage`: full error page.
  */
 export const FormOnErrorSchema = Schema.Struct({
-  type: Schema.Literal('toast', 'message', 'errorPage'),
+  type: Schema.Literals(['toast', 'message', 'errorPage']),
   /** Body message to show. Supports `$t:` keys. */
   message: Schema.String,
   /** Optional title (used by `errorPage`). */
   title: Schema.optional(Schema.String),
   /** Toast variant (only meaningful when `type: 'toast'`). */
-  variant: Schema.optional(Schema.Literal('error', 'warning')),
-}).annotations({
+  variant: Schema.optional(Schema.Literals(['error', 'warning'])),
+}).annotate({
   identifier: 'FormOnError',
   title: 'Form onError',
   description: 'What to show when a form submission fails server-side',

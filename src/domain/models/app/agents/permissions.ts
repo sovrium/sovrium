@@ -30,7 +30,7 @@ import { PermissionValueSchema } from '@/domain/models/shared/permissions'
 export const AgentPermissionsSchema = Schema.Struct({
   /** User type discriminator — always 'agent' for AI agents */
   type: Schema.Literal('agent').pipe(
-    Schema.annotations({
+    Schema.annotate({
       description: "User type discriminator — always 'agent' for AI agents",
     })
   ),
@@ -38,14 +38,14 @@ export const AgentPermissionsSchema = Schema.Struct({
   /** Who can trigger/invoke this agent (e.g., via chat, API, automations) */
   trigger: Schema.optional(
     PermissionValueSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           "Who can trigger this agent. 'all', 'authenticated', or role array ['admin', 'member'].",
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentPermissions',
     title: 'Agent Permissions',
     description:

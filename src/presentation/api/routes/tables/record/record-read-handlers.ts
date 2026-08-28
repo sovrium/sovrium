@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
   createListRecordsProgram,
   createListTrashProgram,
@@ -22,7 +23,6 @@ import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { handleRouteError } from '../error-handlers'
 import { parseListRecordsParams } from '../parsers/param-parsers'
 import {
-  validateFilterParam,
   validateAggregateParam,
   validateFieldsParam,
   validateGroupByParam,
@@ -30,7 +30,7 @@ import {
 import { validateSortPermission } from '../validation/sort-validation'
 import { validateTimezoneParam } from '../validation/timezone-validation'
 import { parseFilter } from './list-records-filter'
-import { buildSearchFilter } from './list-records-search'
+import { buildSearchFilter, readSearchTerm } from './list-records-search'
 import { resolveGuardForTable, type RowLevelGuardContext } from './row-level-guard'
 import {
   buildListFilter,
@@ -71,7 +71,6 @@ type ListRecordsValidationInput = {
     { readonly fields: readonly { readonly name: string; readonly type: string }[] } | undefined
   readonly timezone: string | undefined
   readonly sort: string | undefined
-  readonly filter: Parameters<typeof validateFilterParam>[0]
   readonly aggregate: Parameters<typeof validateAggregateParam>[0]
   readonly fields: string | undefined
   readonly groupBy: string | undefined
@@ -80,6 +79,12 @@ type ListRecordsValidationInput = {
 /**
  * Run list-records query parameter validations in order.
  * Returns the first error response, or undefined if all validations pass.
+ *
+ * The FILTER is deliberately absent from this list. It is checked by
+ * `parseFilter`, while it is still the caller's own — by the time the merged
+ * filter reaches here it also carries the saved view's clauses, the `?q=`
+ * search group and the row-level read predicate, none of which are the
+ * caller's to be judged on (see `validateFilterParam`).
  */
 function validateListRecordsParams(input: ListRecordsValidationInput) {
   const access = {
@@ -98,7 +103,6 @@ function validateListRecordsParams(input: ListRecordsValidationInput) {
       userRole: input.userRole,
       c: input.c,
     }) ??
-    validateFilterParam(input.filter, access) ??
     validateAggregateParam(input.aggregate, access) ??
     validateGroupByParam(input.groupBy, access) ??
     validateFieldsParam(input.fields, input.table, input.c)
@@ -299,12 +303,21 @@ export async function handleListRecords(c: Context, app: App) {
     table,
     timezone: params.timezone,
     sort: effectiveSort,
-    filter: finalFilter,
     aggregate: params.aggregate,
     fields: params.fields,
     groupBy: params.groupBy,
   })
   if (validationError) return validationError
+
+  // The route's own declaration that IT did the filtering, read by the grid by
+  // KEY PRESENCE (`use-island-setup.ts` → `serverFiltered`). Composed here
+  // rather than inside the program because the term is already folded into
+  // `finalFilter` by the time the program runs — passing it again would be a
+  // second, drift-prone copy of a fact the presentation layer owns. Attaching
+  // it to the LIST program only is also what keeps the trash branch silent: the
+  // omission is structural, not a conditional somebody can forget to keep.
+  // eslint-disable-next-line unicorn/no-null -- the API envelope canonically distinguishes an explicit `null` ("no term applied") from an ABSENT key ("this branch does not search"); `undefined` erases that distinction on the wire, since JSON.stringify drops the key
+  const appliedQuery = readSearchTerm(c) ?? null
 
   return runEffect(
     c,
@@ -319,7 +332,7 @@ export async function handleListRecords(c: Context, app: App) {
         sort: effectiveSort,
         origin: new URL(c.req.url).origin,
       })
-    ),
+    ).pipe(Effect.map((response) => ({ ...response, appliedQuery }))),
     listRecordsResponseSchema
   )
 }
@@ -333,6 +346,14 @@ export async function handleListTrash(c: Context, app: App) {
   const permissionError = checkReadPermission(table, effectiveRoles, c, app.tables)
   if (permissionError) return permissionError
 
+  // ROW-LEVEL SCOPING. This handler never resolved the guard, so on a table
+  // with `rowLevelPermissions.read.when` a scoped caller who could see only
+  // their own live rows could see EVERY soft-deleted row — plus each row's
+  // `deletedBy`. Its two siblings (`handleListRecords`, `handleGetRecord`) both
+  // resolve it; the omission here was the whole of the gap. Deleting a record
+  // does not widen who may read it.
+  const guard = await resolveGuardForTable(session, userRole, table, app)
+
   // Parse filter parameter
   const filter = parseFilter(c, app, tableName, userRole)
   if (filter.error) {
@@ -345,16 +366,20 @@ export async function handleListTrash(c: Context, app: App) {
     )
   }
 
+  const scopedFilter = buildListFilter(table, guard, undefined, filter.value)
+  if (scopedFilter === 'empty' || scopedFilter === 'reject') {
+    // Zero rows, WITHOUT the `appliedQuery` key the list branch carries: the
+    // trash branch ignores `?q=` entirely, so announcing a search contract it
+    // does not honour would mislead the grid.
+    return c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 } }, 200)
+  }
+
   // Parse query parameters (sort, limit, offset)
   const { sort, limit, offset } = parseListRecordsParams(c)
 
-  // Validate sort permission
+  // Validate sort permission (the filter was checked by `parseFilter` above)
   const sortError = validateSortPermission({ sort, app, tableName, userRole, c })
   if (sortError) return sortError
-
-  // Validate filter permission
-  const filterError = validateFilterParam(filter.value, { app, tableName, userRole, c })
-  if (filterError) return filterError
 
   return runEffect(
     c,
@@ -364,7 +389,7 @@ export async function handleListTrash(c: Context, app: App) {
         tableName,
         app,
         userRole,
-        filter: filter.value,
+        filter: scopedFilter,
         sort,
         limit,
         offset,

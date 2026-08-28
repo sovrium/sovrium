@@ -19,25 +19,29 @@
  * schema — same contract as `ECO_PAGE_CACHE`.
  */
 
+import { parseEcoInteger } from './eco-env-parsing'
+
 /** Default budget when `ECO_PAGE_CACHE_MAX_MB` is unset (megabytes). */
 export const DEFAULT_ECO_PAGE_CACHE_MAX_MB = 64
 
 /**
  * Resolve `ECO_PAGE_CACHE_MAX_MB` from a snapshot of env vars.
  *
- * - unset / empty            → {@link DEFAULT_ECO_PAGE_CACHE_MAX_MB}
- * - non-integer / `<= 0`     → {@link DEFAULT_ECO_PAGE_CACHE_MAX_MB}
- * - positive integer         → the integer as-is
+ * - unset / empty       → {@link DEFAULT_ECO_PAGE_CACHE_MAX_MB}
+ * - positive integer    → the integer as-is
+ * - anything else → throws
  *
- * An unrecognised value falls back to the default rather than disabling the
- * bound: a typo must never turn the cache into an unbounded allocator.
+ * A malformed budget used to fall back to the 64 MB default. That kept the
+ * cache bounded — the original concern — but at the cost of running a budget
+ * the operator never chose: `ECO_PAGE_CACHE_MAX_MB=512MB` silently ran 64,
+ * one eighth of the intent, on a host provisioned for the larger number.
+ * Refusing is the only reading that cannot be quietly wrong, and boot-time
+ * validation means the refusal lands before any page is served.
+ *
+ * @throws Error when set to a non-integer or to an integer `<= 0`.
  */
 export const parseEcoPageCacheMaxMb = (
   processEnv: Readonly<Record<string, string | undefined>>
-): number => {
-  const raw = processEnv['ECO_PAGE_CACHE_MAX_MB']?.trim()
-  if (raw === undefined || raw === '') return DEFAULT_ECO_PAGE_CACHE_MAX_MB
-  const parsed = Number.parseInt(raw, 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_ECO_PAGE_CACHE_MAX_MB
-  return parsed
-}
+): number =>
+  parseEcoInteger('ECO_PAGE_CACHE_MAX_MB', processEnv['ECO_PAGE_CACHE_MAX_MB'], 1) ??
+  DEFAULT_ECO_PAGE_CACHE_MAX_MB

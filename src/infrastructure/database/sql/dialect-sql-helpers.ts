@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, type SQL, type Column, type Name } from 'drizzle-orm'
+import { or, sql, type SQL, type Column, type Name } from 'drizzle-orm'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 
 /**
@@ -120,6 +120,11 @@ const ALLOWED_JSON_KEYS = [
   'deviceType',
   'browserName',
   'osName',
+  // Recorded on every link_click / qr_scan event as the index of the target that
+  // served it — the attribution key the per-target split groups on. A literal
+  // member of this closed enum like every other entry, so it reaches the
+  // JSONPath template no differently.
+  'targetIndex',
 ] as const
 
 type AllowedJsonKey = (typeof ALLOWED_JSON_KEYS)[number]
@@ -249,6 +254,59 @@ export const containsInsensitive = (column: LikeOperand, text: string): SQL =>
   sql`lower(${column}) LIKE lower(${`%${escapeLikeMetacharacters(text)}%`}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
 
 /**
+ * The optional `?q=` predicate for a list endpoint: the term occurs in ANY of
+ * the given columns, as a case-insensitive literal substring.
+ *
+ * Returns a `WHERE`-conditions ARRAY rather than a single condition, so a caller
+ * spreads it into its condition list and an absent term contributes NOTHING:
+ *
+ * ```ts
+ * const conditions = [
+ *   ...buildTypeConditions(filters),
+ *   ...searchAnyColumn(filters.q, files.filename, files.key),
+ *   ...buildCursorConditions(filters),
+ * ]
+ * ```
+ *
+ * ## Why an EMPTY array and not a false predicate
+ *
+ * "No term" means **no narrowing** — the unfiltered page — never "match
+ * nothing". An operator who clears the search box expects the list back, and a
+ * helper that returned `sql\`false\`` (or a `%%` pattern that matched
+ * everything) would leave them staring at a blank table, or at a search that
+ * answers "all". That distinction is the whole behaviour of the search contract
+ * (`searchTermSchema`, `src/domain/models/api/_shared/search.ts`), and it is
+ * stated HERE once rather than re-derived per endpoint.
+ *
+ * ## Why it exists at all
+ *
+ * The three-line body below was written out at each of the three admin list
+ * repositories that migrated to server-side search, and it composes two things a
+ * re-derivation gets wrong independently: {@link containsInsensitive} (whose own
+ * docblock records being mis-spelled at three call sites, once badly enough to
+ * 500 every authenticated request on SQLite), and drizzle's `or()`, which
+ * returns `SQL | undefined` and so needs a guard that is easy to drop. The next
+ * endpoint to migrate — automation runs, connections, form submissions — should
+ * inherit both by calling this, not by copying it.
+ *
+ * The CHOICE of columns deliberately stays at the call site: which fields a
+ * given endpoint searches, and which it pointedly does not (a bucket's
+ * `mimeType`, a user's `role`), is a product decision that belongs next to the
+ * endpoint it describes.
+ *
+ * @param term    - The parsed search term; `undefined` or empty means "no search"
+ * @param columns - The columns to match across (OR-ed)
+ */
+export const searchAnyColumn = (
+  term: string | undefined,
+  ...columns: readonly LikeOperand[]
+): ReadonlyArray<SQL> => {
+  if (term === undefined || term.length === 0) return []
+  const match = or(...columns.map((column) => containsInsensitive(column, term)))
+  return match !== undefined ? [match] : []
+}
+
+/**
  * Case-insensitive "does NOT end with this text", spelled `NOT LIKE` rather than
  * as drizzle's `not(...)`.
  *
@@ -271,6 +329,64 @@ export const containsInsensitive = (column: LikeOperand, text: string): SQL =>
 /* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
 export const notEndsWithInsensitive = (column: LikeOperand, suffix: string): SQL =>
   sql`lower(${column}) NOT LIKE lower(${`%${escapeLikeMetacharacters(suffix)}`}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
+
+/**
+ * Case-SENSITIVE "starts with this exact text", portable across both engines and
+ * literal in the caller's text.
+ *
+ * The counterpart to {@link containsInsensitive}, for the knobs whose value is a
+ * machine identifier rather than an operator's prose — a mimeType prefix
+ * (`image/`), a key namespace. Those match a vocabulary that is canonically
+ * lower-case and whose EXACT arm is a plain `=`, so folding case here would let
+ * one knob hold two rules: `?type=IMAGE/` matching while `?type=IMAGE/PNG` does
+ * not.
+ *
+ * ## Why NOT `LIKE 'prefix%'`, with or without ESCAPE
+ *
+ * Because bare `LIKE` is not one operator. It is case-SENSITIVE on PostgreSQL
+ * and ASCII-case-INSENSITIVE on SQLite — the same divergence
+ * {@link containsInsensitive} exists to close, in the other direction — and
+ * **`ESCAPE` does not change that**. Measured against `bun:sqlite` over rows of
+ * `image/png`:
+ *
+ * ```text
+ * mime LIKE 'IMAGE/%'                → 2 rows
+ * mime LIKE 'IMAGE/%' ESCAPE '\'     → 2 rows      ← the escape clause is orthogonal
+ * substr(mime, 1, 6) = 'IMAGE/'      → 0 rows
+ * ```
+ *
+ * SQLite has no per-expression case override (`case_sensitive_like` is a
+ * connection-wide PRAGMA, and `GLOB` is SQLite-only with its own metacharacter
+ * set), so no LIKE spelling can deliver this. Comparing a slice can, on both
+ * engines, without branching on the dialect — same reason
+ * {@link containsInsensitive} lives here without a branch.
+ *
+ * ## Literal by CONSTRUCTION, not by escaping
+ *
+ * There is no pattern language here, so `%` and `_` in the caller's prefix are
+ * ordinary characters with nothing to neutralise: `image%/` matches only a value
+ * that literally begins `image%/`, and cannot widen into `image/png` the way an
+ * unescaped LIKE wildcard would. That makes the property structural rather than
+ * dependent on an {@link escapeLikeMetacharacters} call a re-derivation can
+ * forget — which is what the hand-rolled `like()` this replaced did forget,
+ * emitting escapes with no `ESCAPE` clause to give them meaning.
+ *
+ * ## Honest limits
+ *
+ * The length is JS's `String.length` (UTF-16 code units) while both engines
+ * count characters, so a prefix containing an astral-plane character (an emoji)
+ * would compare a slice of the wrong width and match nothing. It fails SOFT — a
+ * row is missed, the query still runs — and the values this serves (mimeTypes,
+ * key namespaces) are ASCII by specification. No index is given up either: the
+ * column this serves carries none, and the endpoint's own `?q=` predicate
+ * already scans.
+ *
+ * @param column - Drizzle column expression, or a `sql.identifier(...)`
+ * @param prefix - The raw leading text to match (bound as a param, matched literally)
+ */
+/* eslint-disable functional/prefer-immutable-types -- SQL | Column are upstream drizzle-orm types; we never mutate them */
+export const startsWithLiteral = (column: LikeOperand, prefix: string): SQL =>
+  sql`substr(${column}, 1, ${sql.raw(String(prefix.length))}) = ${prefix}`
 
 /**
  * Time interval in the past, relative to "now", for `WHERE <ts_column> >= …`

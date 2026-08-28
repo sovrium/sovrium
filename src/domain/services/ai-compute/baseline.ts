@@ -257,7 +257,7 @@ const resolveExtractProperties = (
 export const computeAiExtractBaseline = (
   source: string,
   config: { readonly schema: Readonly<Record<string, unknown>> }
-): Record<string, unknown> | null => {
+): Readonly<Record<string, unknown>> | null => {
   if (isSourceEmpty(source)) return null
   const properties = resolveExtractProperties(config.schema)
   if (properties.length === 0) return {}

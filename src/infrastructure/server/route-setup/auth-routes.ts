@@ -10,9 +10,9 @@ import {
   oauthProviderOpenIdConfigMetadata,
 } from '@better-auth/oauth-provider'
 import { eq } from 'drizzle-orm'
-import { type Hono } from 'hono'
+import { type Context, type Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { db } from '@/infrastructure/database'
@@ -125,10 +125,23 @@ const applyAuthCheckMiddleware = (
  * callers with 401), so by this point `session` is guaranteed present. The
  * `PUBLIC_ADMIN_PATHS` exclusion is reapplied — `/admin/accept-invitation` is
  * deliberately reachable by any authenticated caller (the invitee).
+ *
+ * The admit predicate is `isAdminEquivalent(role, app)` — the app's resolved
+ * top role ∪ the built-in `admin`. It is deliberately NOT the strict literal
+ * `role === 'admin'`: an app that names its top operator role anything else
+ * (partner's `engineer`, level 80) produced an operator who saw the entire
+ * `/_admin` console — which gates on the config-aware `isAdminTier` — and was
+ * 404ed out of the entire admin plane. It is equally deliberately NOT
+ * `isAdminTier`: this plane carries `set-role`, `ban-user`, `create-user` and
+ * `impersonate-user`, so admitting `admin-viewer` / `operator` would hand write
+ * power to roles whose whole point is read-only. `adminRoleNamesFor`
+ * (`admin-role-guards.ts`) is the list form of this same predicate, so the door
+ * and the last-admin count now agree.
  */
 const applyAdminRoleCheckMiddleware = (
   honoApp: Readonly<Hono>,
-  authInstance: Readonly<ReturnType<typeof createAuthInstance>>
+  authInstance: Readonly<ReturnType<typeof createAuthInstance>>,
+  app: App
 ): Readonly<Hono> => {
   return honoApp.use('/api/auth/admin/*', async (c, next) => {
     if (PUBLIC_ADMIN_PATHS.has(c.req.path) || ADMIN_ROLE_CHECK_EXEMPT_PATHS.has(c.req.path)) {
@@ -143,9 +156,10 @@ const applyAdminRoleCheckMiddleware = (
       })) as { readonly user?: { readonly role?: string } } | null
 
       const role = sessionResult?.user?.role
-      // Better Auth stores admin role on the user record. Any role other than
-      // 'admin' (including undefined) is rejected with 404 per S1.
-      if (!isAdminRole(role)) {
+      // Better Auth stores the admin role on the user record. Any role that is
+      // not admin-EQUIVALENT for this app (including undefined) is rejected
+      // with 404 per S1.
+      if (role === undefined || !isAdminEquivalent(role, app)) {
         return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
       }
 
@@ -190,10 +204,16 @@ const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
 /**
  * Apply rate limiting middleware for authentication endpoints
  *
- * Protects security-critical authentication endpoints from brute force attacks:
- * - sign-in: 5 attempts per 60 seconds (prevent credential stuffing)
- * - sign-up: 5 attempts per 60 seconds (prevent account creation abuse)
- * - request-password-reset: 3 attempts per 60 seconds (prevent email enumeration)
+ * Protects security-critical authentication endpoints from brute force attacks.
+ * The per-endpoint budgets live in `getAuthRateLimitConfigs`
+ * (`auth-route-utils.ts`); this list only decides which paths the middleware is
+ * MOUNTED on. A path missing from either place is uncapped, so the two must be
+ * edited together.
+ *
+ * `/api/auth/oauth2/register` is here because, once an operator sets
+ * `SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true`, it is an unauthenticated
+ * write into `auth.oauth_client` — structurally the same surface as sign-up,
+ * and it was the only one of the four carrying no cap at all.
  *
  * Returns a Hono app with rate limiting middleware applied
  */
@@ -202,6 +222,7 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
     '/api/auth/sign-in/email',
     '/api/auth/sign-up/email',
     '/api/auth/request-password-reset',
+    '/api/auth/oauth2/register',
   ]
 
   const result = endpoints.reduce((app, endpoint) => {
@@ -307,45 +328,44 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
 }
 
 /**
- * Register Sovrium's `/.well-known/oauth-protected-resource` endpoint
- * (RFC 9728: OAuth 2.0 Protected Resource Metadata).
+ * Serve the RFC 9728 protected-resource metadata document at the root path.
  *
- * Better Auth's `oauth-provider` plugin ships the *authorization-server*
- * metadata (`/.well-known/oauth-authorization-server`, RFC 8414) and the
- * OIDC discovery doc (`/.well-known/openid-configuration`), but it does NOT
- * ship the *resource-server* metadata document required by RFC 9728.
+ * The document itself is built by the `mcp()` plugin — Sovrium no longer
+ * maintains its shape, so fields the plugin adds (the DPoP signing algorithms,
+ * the scopes the resource actually accepts) arrive without a code change here.
  *
- * Resource-server metadata is what an MCP client follows after receiving a
- * `WWW-Authenticate: Bearer ...` 401 from `/mcp` — it tells the client
- * which authorization server(s) issue tokens for this resource and which
- * bearer-token transport methods are accepted.
+ * The route still exists because the plugin cannot serve it on its own under
+ * Sovrium's mounting. Better Auth is mounted at `/api/auth/*`, and the plugin
+ * matches the request's full pathname against the ROOT well-known path, which
+ * no request reaching Better Auth ever has. Unlike the authorization-server and
+ * OpenID documents, which the provider exports mountable handlers for
+ * (`oauthProviderAuthServerMetadata`, `oauthProviderOpenIdConfigMetadata`),
+ * there is no exported helper for this one — so a root route that forwards is
+ * the only way the document is reachable at all.
  *
- * Document shape (RFC 9728 §3):
- * ```json
- * {
- *   "resource": "<base-url>",
- *   "authorization_servers": ["<base-url>"],
- *   "bearer_methods_supported": ["header"],
- *   "resource_documentation": "https://docs.sovrium.com/mcp"
- * }
- * ```
+ * Both the bare path and the resource-suffixed form are registered: RFC 9728
+ * §3.1 derives the metadata URL by inserting the resource's own path, and the
+ * plugin answers on both.
  *
- * Mounted only when `app.auth` is configured (the OAuth-server plugin only
- * runs in that case; advertising resource metadata when the AS is absent
- * would be misleading).
+ * Mounted only when `app.auth` is configured (same gate as the plugin itself).
  */
-const setupOauthProtectedResourceRoute = (honoApp: Readonly<Hono>, app?: App): Readonly<Hono> => {
+const setupOauthProtectedResourceRoute = (
+  honoApp: Readonly<Hono>,
+  authInstance: Readonly<ReturnType<typeof createAuthInstance>>,
+  app?: App
+): Readonly<Hono> => {
   if (!app?.auth) return honoApp
 
-  return honoApp.get('/.well-known/oauth-protected-resource', (c) => {
-    const baseUrl = process.env['BASE_URL'] ?? `http://localhost:${process.env['PORT'] ?? '3000'}`
-    return c.json({
-      resource: baseUrl,
-      authorization_servers: [baseUrl],
-      bearer_methods_supported: ['header'],
-      resource_documentation: 'https://docs.sovrium.com/mcp',
-    })
-  })
+  // Forward the request verbatim. The `mcp()` plugin matches on the FULL
+  // pathname, so it only recognises the request when the root path reaches
+  // Better Auth unrewritten — rewriting it to sit under `/api/auth` is exactly
+  // what makes the plugin ignore it.
+  const serveProtectedResourceMetadata = (c: Readonly<Context>): Promise<Response> =>
+    authInstance.handler(c.req.raw)
+
+  return honoApp
+    .get('/.well-known/oauth-protected-resource', serveProtectedResourceMetadata)
+    .get('/.well-known/oauth-protected-resource/mcp', serveProtectedResourceMetadata)
 }
 
 /** Synthetic email-domain suffix that identifies an AI agent user record. */
@@ -570,7 +590,7 @@ export function setupAuthRoutes(
   // Apply admin-role check middleware. Per S1 anti-enumeration, non-admin
   // callers hitting `/api/auth/admin/*` receive 404 here (BEFORE Better Auth's
   // own 403). Runs after the auth-check so we already know the session exists.
-  const appWithAdminRoleCheck = applyAdminRoleCheckMiddleware(appWithAuthCheck, authInstance)
+  const appWithAdminRoleCheck = applyAdminRoleCheckMiddleware(appWithAuthCheck, authInstance, app)
 
   // Apply rate limiting middleware to admin routes
   const appWithAdminRateLimit = applyRateLimitMiddleware(appWithAdminRoleCheck)
@@ -591,11 +611,15 @@ export function setupAuthRoutes(
     app
   )
 
-  // Mount Sovrium's resource-server metadata document (RFC 9728). This pairs
-  // with the oauth-provider plugin's authorization-server metadata to form
-  // the full OAuth discovery surface MCP clients expect. Mounted before the
-  // Better Auth catch-all so the well-known path resolves first.
-  const appWithProtectedResource = setupOauthProtectedResourceRoute(appWithInvitationRoutes, app)
+  // Expose the plugin's RFC 9728 resource-server metadata document at the root
+  // path. This pairs with the authorization-server metadata to form the full
+  // OAuth discovery surface MCP clients expect. Mounted before the Better Auth
+  // catch-all so the well-known path resolves first.
+  const appWithProtectedResource = setupOauthProtectedResourceRoute(
+    appWithInvitationRoutes,
+    authInstance,
+    app
+  )
 
   // Mount OAuth 2.1 PKCE validation for the authorize endpoint. The oauth-provider
   // plugin's internal Zod schema rejects `code_challenge_method=plain` with a

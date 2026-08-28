@@ -7,11 +7,17 @@
 
 import { sql } from 'drizzle-orm'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
+import {
+  createdByFieldNames,
+  deletedByFieldNames,
+  updatedByFieldNames,
+} from '@/domain/services/authorship-fields'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { appendAuditEntryToDbTx } from '@/infrastructure/audit-log/drizzle-store'
 import { db } from '@/infrastructure/database'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
 import { logInfo } from '@/infrastructure/logging/logger'
+import { PURGED_AUTH_TABLES, PURGED_SYSTEM_TABLES } from './account-purge-coverage'
 import { nowEpochMsSqlLiteral } from './sql/dialect-ddl'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { getExistingColumnNames, systemTableExists } from './sql/dialect-introspection'
@@ -41,9 +47,16 @@ import type { DrizzleTransaction } from '@/infrastructure/database'
  *     epoch-ms INTEGER on SQLite) so it matches the `scheduledErasureAt` storage
  *     shape on each dialect (Postgres `timestamptz` / SQLite `timestamp_ms`).
  *
- * App-table names are passed in by the caller (they are derived from the
- * validated `app.tables[]` config) and are sanitized again here as a
- * defence-in-depth measure before interpolation into raw SQL.
+ * App tables are passed in by the caller as {@link PurgeTableAuthorship} — the
+ * table name plus its authorship columns RESOLVED FROM THE DECLARED FIELD TYPES,
+ * not assumed to be the literal `created_by`. Names are sanitized again here as
+ * a defence-in-depth measure before interpolation into raw SQL.
+ *
+ * Which SYSTEM and AUTH tables the sweep covers is no longer hand-written here:
+ * it comes from the census in `account-purge-coverage.ts`, which this module
+ * consumes and which `account-purge-coverage.test.ts` checks against the live
+ * Drizzle schema. The enumeration below was previously the only record of what
+ * erasure deletes, and it was silently incomplete — see that module's header.
  */
 
 /**
@@ -62,9 +75,77 @@ import type { DrizzleTransaction } from '@/infrastructure/database'
  *
  * Both columns are nullable bare `TEXT` — the foreign key that would have
  * carried a referential action is not generated (blocked on issue #3980) — so
- * nothing cascades and nothing names them but this list.
+ * nothing cascades and nothing names them but the shed candidates.
+ *
+ * These are the LITERAL spellings only. A `updated-by` / `deleted-by` field can
+ * be declared under any name, so {@link resolvePurgeTableAuthorship} unions this
+ * list with the names resolved from the table's field TYPES. The literals are
+ * kept rather than replaced because engine-generated tables (`auth.scopeTables`)
+ * carry a literal `updated_by` with no declared field to resolve from.
  */
 const SHED_AUTHORSHIP_FIELDS = [AUTHORSHIP_FIELDS.UPDATED_BY, AUTHORSHIP_FIELDS.DELETED_BY] as const
+
+/**
+ * One app table's authorship columns, RESOLVED FROM THE CONFIG rather than
+ * assumed from the literal column names.
+ *
+ * The literal names are not a contract. `CreatedByFieldSchema` puts no
+ * constraint on `name`, so `{ name: 'author', type: 'created-by' }` is a valid
+ * table field and generates a column called `author`; nothing auto-creates a
+ * `created_by` alongside it. Erasure matched `created_by` by literal name, so a
+ * config that never uses that spelling — `templates/api-only` and
+ * `templates/mcp-server` are exactly this shape — had ZERO app-table rows
+ * deleted, silently, behind an HTTP 200 and a truthful-looking `purgedCount: 1`.
+ *
+ * Resolution is by FIELD TYPE, via the same `@/domain/services/authorship-fields`
+ * helpers the WRITE path already uses (GAP-16/GAP-21). That the write path was
+ * type-driven while the erasure path stayed name-driven is what made the gap
+ * invisible: records were stamped into `author` correctly and then never swept.
+ *
+ * The literal names stay in the candidate set alongside the resolved ones —
+ * `auth.scopeTables` and other engine-generated tables carry a literal
+ * `created_by` with no declared field to resolve from, so dropping the literals
+ * would trade one blind spot for another. Every candidate is introspected
+ * before use, so extra ones cost nothing but a wider `IN (...)` list.
+ */
+export interface PurgeTableAuthorship {
+  /** The table name. */
+  readonly name: string
+  /** Columns whose match means "the user AUTHORED this row" — the row is deleted. */
+  readonly createdByColumns: readonly string[]
+  /** Columns whose match means "the user ACTED ON this row" — the stamp is shed. */
+  readonly shedColumns: readonly string[]
+}
+
+/** {@link PurgeTableAuthorship} narrowed to the columns that actually exist. */
+interface ProbedAuthorship {
+  readonly createdBy: readonly string[]
+  readonly shed: readonly string[]
+}
+
+/**
+ * Resolve one app table's authorship columns from its declared field types.
+ *
+ * Exported so the presentation-layer purge trigger builds the same shape the
+ * sweep consumes, instead of passing bare table names and letting the
+ * infrastructure guess at the column spelling.
+ */
+export const resolvePurgeTableAuthorship = (
+  tables: Parameters<typeof createdByFieldNames>[0],
+  tableName: string
+): PurgeTableAuthorship => ({
+  name: tableName,
+  createdByColumns: [
+    ...new Set([AUTHORSHIP_FIELDS.CREATED_BY, ...createdByFieldNames(tables, tableName)]),
+  ],
+  shedColumns: [
+    ...new Set([
+      ...SHED_AUTHORSHIP_FIELDS,
+      ...updatedByFieldNames(tables, tableName),
+      ...deletedByFieldNames(tables, tableName),
+    ]),
+  ],
+})
 
 /**
  * Map each app table to whichever authorship columns it actually carries.
@@ -79,13 +160,13 @@ const SHED_AUTHORSHIP_FIELDS = [AUTHORSHIP_FIELDS.UPDATED_BY, AUTHORSHIP_FIELDS.
  */
 async function authorshipColumnsByTable(
   tx: Readonly<DrizzleTransaction>,
-  tableNames: readonly string[]
-): Promise<ReadonlyMap<string, ReadonlySet<string>>> {
-  if (tableNames.length === 0) return new Map()
+  appTables: readonly PurgeTableAuthorship[]
+): Promise<ReadonlyMap<string, ProbedAuthorship>> {
+  if (appTables.length === 0) return new Map()
 
-  const sanitized = [...new Set(tableNames.map(sanitizeTableName))].filter(
-    (name) => name.length > 0
-  )
+  const sanitized = appTables
+    .map((table) => ({ ...table, name: sanitizeTableName(table.name) }))
+    .filter((table) => table.name.length > 0)
   if (sanitized.length === 0) return new Map()
 
   // The transaction handle drives `getExistingColumnNames` as a `RawSqlRunner`
@@ -93,15 +174,21 @@ async function authorshipColumnsByTable(
   // whichever the active dialect needs.
   const runner = tx as unknown as RawSqlRunner
   const probed = await Promise.all(
-    sanitized.map(async (name) => {
-      const columns = await getExistingColumnNames(runner, name, [
-        AUTHORSHIP_FIELDS.CREATED_BY,
-        ...SHED_AUTHORSHIP_FIELDS,
-      ])
-      return [name, columns] as const
+    sanitized.map(async (table) => {
+      const candidates = [...new Set([...table.createdByColumns, ...table.shedColumns])]
+      const existing = await getExistingColumnNames(runner, table.name, candidates)
+      return [
+        table.name,
+        {
+          createdBy: table.createdByColumns.filter((column) => existing.has(column)),
+          shed: table.shedColumns.filter((column) => existing.has(column)),
+        },
+      ] as const
     })
   )
-  return new Map(probed.filter(([, columns]) => columns.size > 0))
+  return new Map(
+    probed.filter(([, columns]) => columns.createdBy.length > 0 || columns.shed.length > 0)
+  )
 }
 
 /**
@@ -129,6 +216,136 @@ async function authorshipColumnsByTable(
  * created would abort the transaction and take the whole erasure down with it.
  */
 const USER_OWNED_GATED_SYSTEM_TABLES = ['comment_read_state', 'user_access'] as const
+
+/**
+ * Delete the erased user's rows from every table the census marks `delete`.
+ *
+ * The manifest (`account-purge-coverage.ts`) is the SINGLE source for this list,
+ * so what an operator reads and what the engine runs cannot drift — the
+ * hand-written duplication this replaces is precisely how
+ * `system.form_submissions`, `system.activity_logs`,
+ * `auth.oauth_access_token`, `system.file_storage_metadata` and
+ * `system.ai_tool_calls` each came to be erased by nobody. A table added to the
+ * manifest is swept from the next run; a user-referencing table added to the
+ * SCHEMA and not to the manifest fails `account-purge-coverage.test.ts`.
+ *
+ * Every predicate is the same shape — `WHERE <column> = <userId>` — so the two
+ * namespaces differ only in how the table name resolves. Compound-predicate
+ * cases (`ai_activity_logs`, `ai_tool_calls`) keep their own statements.
+ *
+ * NOT probed for existence, deliberately, and unlike
+ * {@link USER_OWNED_GATED_SYSTEM_TABLES}. Every table here is created by the
+ * migration baseline on BOTH dialects, so the rule this file already follows
+ * applies: probe what is config-GATED (`comment_read_state`, `user_access`),
+ * delete unconditionally what the baseline guarantees — exactly as the
+ * `form_submissions`, `record_comments` and `_admin_search_index` statements
+ * below already do. Probing all eighteen would add eighteen catalog round trips
+ * per erasure to answer a question the migration already settled.
+ *
+ * @param tx - the open erasure transaction.
+ * @param userId - the user being erased.
+ */
+async function deleteCensusRows(tx: Readonly<DrizzleTransaction>, userId: string): Promise<void> {
+  // eslint-disable-next-line functional/no-loop-statements -- sequential DELETEs inside one transaction
+  for (const entry of PURGED_SYSTEM_TABLES) {
+    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+    await executeRaw(
+      tx,
+      sql`DELETE FROM ${systemTableRef(entry.table)} WHERE ${sql.identifier(entry.column)} = ${userId}`
+    )
+  }
+
+  // eslint-disable-next-line functional/no-loop-statements -- sequential DELETEs inside one transaction
+  for (const entry of PURGED_AUTH_TABLES) {
+    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+    await executeRaw(
+      tx,
+      sql`DELETE FROM ${authTableRef(entry.table)} WHERE ${sql.identifier(entry.column)} = ${userId}`
+    )
+  }
+}
+
+/**
+ * Delete the erased user's AI tool-call transcripts.
+ *
+ * Kept out of {@link deleteCensusRows} because the predicate is COMPOUND.
+ * `system.ai_tool_calls` has no foreign key: `caller_id` is a bare `TEXT`
+ * column holding the raw user id when `caller_type = 'user'` and an API-token
+ * tag otherwise. Matching on `caller_id` alone would sweep a token whose tag
+ * happened to equal a user id — deleting another principal's audit trail in the
+ * name of this user's privacy — so the type is part of the predicate.
+ *
+ * DELETED rather than shed: `caller_id` is `NOT NULL`, and `input`/`output` hold
+ * the prompt and the record payloads the tool read or wrote, so orphaning the
+ * row would leave the content and remove only the attribution.
+ *
+ * @param tx - the open erasure transaction.
+ * @param userId - the user being erased.
+ */
+async function deleteAiToolCallRows(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string
+): Promise<void> {
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`DELETE FROM ${systemTableRef('ai_tool_calls')}
+        WHERE caller_type = 'user' AND caller_id = ${userId}`
+  )
+}
+
+/**
+ * Shed the erased user's identifier from the short links they published.
+ *
+ * `system.links.created_by` is a bare `TEXT` column with no foreign key, so
+ * nothing cascaded and nothing named it: the erased id simply stayed.
+ *
+ * SHED, not deleted, for the {@link shedGrantIssuerIdentifier} reason. A link is
+ * a live URL that third parties click and that other systems link to; deleting
+ * it because its author closed their account breaks somebody else's traffic —
+ * over-deletion in the name of erasure. The identifier goes, the redirect
+ * stands.
+ *
+ * @param tx - the open erasure transaction.
+ * @param userId - the user being erased.
+ */
+async function shedLinkAuthorIdentifier(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string
+): Promise<void> {
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`UPDATE ${systemTableRef('links')} SET created_by = NULL WHERE created_by = ${userId}`
+  )
+}
+
+/**
+ * Shed the minter's identifier from design-system share links, keeping the
+ * links alive.
+ *
+ * The `system.links` shape exactly. A share token is an unlisted URL somebody
+ * OUTSIDE the organisation is holding — a designer, an agency, a client — and
+ * deleting the row because the admin who minted it closed their account revokes
+ * a third party's live access in the name of erasure. Nothing personal is left
+ * behind by shedding instead: the document the token serves projects
+ * `design.*` and `theme.*` only, never session-derived content ([internal ref] A3), so
+ * the minter's id is the sole trace of the person and it is what goes. The row
+ * survives, which is also what keeps the organisation able to revoke the link.
+ *
+ * @param tx - the open erasure transaction.
+ * @param userId - the user being erased.
+ */
+async function shedDesignSystemShareMinterIdentifier(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string
+): Promise<void> {
+  // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+  await executeRaw(
+    tx,
+    sql`UPDATE ${systemTableRef('design_system_shares')} SET created_by = NULL WHERE created_by = ${userId}`
+  )
+}
 
 /**
  * Delete the erased user's rows from the config-gated, user-owned `system`
@@ -171,23 +388,23 @@ async function deleteUserOwnedGatedSystemRows(
 async function sweepAppTableAuthorship(
   tx: Readonly<DrizzleTransaction>,
   userId: string,
-  appTableNames: readonly string[]
+  appTables: readonly PurgeTableAuthorship[]
 ): Promise<void> {
-  const authorshipTables = await authorshipColumnsByTable(tx, appTableNames)
+  const authorshipTables = await authorshipColumnsByTable(tx, appTables)
 
   // eslint-disable-next-line functional/no-loop-statements -- sequential writes inside one transaction
   for (const [tableName, columns] of authorshipTables) {
-    if (columns.has(AUTHORSHIP_FIELDS.CREATED_BY)) {
+    // eslint-disable-next-line functional/no-loop-statements -- sequential DELETEs inside one transaction
+    for (const column of columns.createdBy) {
       // eslint-disable-next-line functional/no-expression-statements -- DB side effect
       await executeRaw(
         tx,
-        sql`DELETE FROM ${sql.identifier(tableName)} WHERE ${sql.identifier(AUTHORSHIP_FIELDS.CREATED_BY)} = ${userId}`
+        sql`DELETE FROM ${sql.identifier(tableName)} WHERE ${sql.identifier(column)} = ${userId}`
       )
     }
 
     // eslint-disable-next-line functional/no-loop-statements -- sequential UPDATEs inside one transaction
-    for (const column of SHED_AUTHORSHIP_FIELDS) {
-      if (!columns.has(column)) continue
+    for (const column of columns.shed) {
       // eslint-disable-next-line functional/no-expression-statements -- DB side effect
       await executeRaw(
         tx,
@@ -391,11 +608,13 @@ function buildPurgeAuditEntry(
  * and exists so the list is the honest answer to "what does erasure delete?".
  *
  * @param userId - The user whose account is being erased.
- * @param appTableNames - App table names to scan for authored records.
+ * @param appTables - App tables with their CONFIG-RESOLVED authorship columns
+ *   (see {@link PurgeTableAuthorship}); build them with
+ *   {@link resolvePurgeTableAuthorship}.
  */
 export async function purgeAccount(
   userId: string,
-  appTableNames: readonly string[]
+  appTables: readonly PurgeTableAuthorship[]
 ): Promise<void> {
   // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside a transaction boundary
   await db.transaction(async (tx) => {
@@ -412,7 +631,7 @@ export async function purgeAccount(
     //    on records authored by SOMEBODY ELSE — two deliberately different
     //    verdicts, see {@link sweepAppTableAuthorship}.
     // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await sweepAppTableAuthorship(tx, userId, appTableNames)
+    await sweepAppTableAuthorship(tx, userId, appTables)
 
     // 2. Form-submission ledger rows the user submitted. PHYSICAL delete, not
     //    a `deleted_at` tombstone and not a null-ified `submitter_user_id` —
@@ -458,6 +677,28 @@ export async function purgeAccount(
     // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await deleteAiActivityRows(tx, userId, erasedEmail)
 
+    // 4d. Every table the erasure census marks `delete` — the 2026-08-26
+    //     coverage audit's eighteen, driven straight off the manifest so the
+    //     list an operator reads is the list the engine runs.
+    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+    await deleteCensusRows(tx, userId)
+
+    // 4e. AI tool-call transcripts, whose predicate is compound (`caller_type`
+    //     scopes the bare `caller_id`).
+    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+    await deleteAiToolCallRows(tx, userId)
+
+    // 4f. Short links the user published. SHED, not deleted — the URL is live
+    //     third-party traffic; only the author's identifier goes.
+    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+    await shedLinkAuthorIdentifier(tx, userId)
+
+    // 4g. Design-system share links the user minted. SHED for the same reason:
+    //     somebody outside the organisation is holding the URL, and the
+    //     document it serves carries no personal data to begin with.
+    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+    await shedDesignSystemShareMinterIdentifier(tx, userId)
+
     // 5. The admin-console search projection of this user. Not a cascade
     //    candidate and not an FK candidate either: `_admin_search_index` is a
     //    DERIVED index, rebuilt by an `INSERT … ON CONFLICT DO UPDATE` upsert
@@ -479,6 +720,24 @@ export async function purgeAccount(
       tx,
       sql`DELETE FROM ${authTableRef('verification')}
           WHERE identifier IN (SELECT email FROM ${authTableRef('user')} WHERE id = ${userId})`
+    )
+
+    // 6b. Shed this user's identifier from OTHER people's sessions.
+    //     `auth.session.impersonated_by` records an ADMIN who impersonated the
+    //     session's owner, so the row belongs to the impersonated party and must
+    //     survive — only the erased admin's raw id goes. The column is a bare
+    //     TEXT with no FK on either dialect, so nothing sheds it on commit.
+    //
+    //     The census in `account-purge-coverage.ts` has asserted verdict `shed`
+    //     for this column all along, with a written reason, and no statement
+    //     performed it. The coverage drift test proves reachability only for
+    //     `delete` verdicts, so a `shed` claim was documentation rather than
+    //     behaviour — and an erased admin's user id survived in every session row
+    //     of everyone they had ever impersonated.
+    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
+    await executeRaw(
+      tx,
+      sql`UPDATE ${authTableRef('session')} SET impersonated_by = NULL WHERE impersonated_by = ${userId}`
     )
 
     // 7-9. Direct child rows of auth.user.
@@ -509,10 +768,12 @@ export async function purgeAccount(
  * Run the erasure scheduler: hard-delete every account whose
  * `scheduledErasureAt` is in the past.
  *
- * @param appTableNames - App table names to scan for authored records.
+ * @param appTables - App tables with their CONFIG-RESOLVED authorship columns.
  * @returns The number of accounts purged.
  */
-export async function purgeDueAccounts(appTableNames: readonly string[]): Promise<number> {
+export async function purgeDueAccounts(
+  appTables: readonly PurgeTableAuthorship[]
+): Promise<number> {
   const dueRows = (await executeRaw(
     db,
     sql`SELECT id FROM ${authTableRef('user')}
@@ -522,7 +783,7 @@ export async function purgeDueAccounts(appTableNames: readonly string[]): Promis
   // eslint-disable-next-line functional/no-loop-statements -- sequential per-account purge
   for (const row of dueRows) {
     // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await purgeAccount(row.id, appTableNames)
+    await purgeAccount(row.id, appTables)
   }
 
   return dueRows.length

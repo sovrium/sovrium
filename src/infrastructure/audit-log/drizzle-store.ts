@@ -31,7 +31,7 @@
  *     stray audit entry never crashes the host process.
  */
 
-import { eq, and, desc, sql, type Column } from 'drizzle-orm'
+import { eq, and, desc, type Column } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
@@ -235,48 +235,4 @@ export async function listAuditEntriesFromDb(
     logError('[audit-log] failed to read entries', error)
     return []
   }
-}
-
-/**
- * Reset (truncate) the DB-backed `audit_log` table.
- *
- * Called at server boot from `createApiRoutes` so each E2E spec sees a clean
- * log even when the spawned-server process is reused. Best-effort — boot paths
- * that run before migration 0006 applies will skip silently.
- */
-export async function clearAuditLogTable(): Promise<void> {
-  try {
-    // Intentional unconditional truncate — every E2E spec wants a clean
-    // slate at boot. The `.where(sql\`true\`)` satisfies the drizzle/
-    // enforce-delete-with-where lint guard (which protects against
-    // accidental whole-table deletes by requiring an explicit predicate).
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
-    await db.delete(auditLog).where(sql`true`)
-  } catch (error) {
-    // The `audit_log` table is absent on boot paths that run before migration
-    // 0006 applies (CLI `schema`/`validate` subcommands, app configs whose
-    // database has not been migrated to the canonical event store). PostgreSQL
-    // reports this as `42P01` (undefined_table) and SQLite as a "no such table"
-    // message. That case is expected and benign — skip silently so it does not
-    // spam the server log on every E2E spec boot. Any *other* failure is a real
-    // problem and is still surfaced.
-    if (isMissingTableError(error)) return
-    logError('[audit-log] failed to clear table', error)
-  }
-}
-
-/**
- * Detect the "audit_log table does not exist yet" error across both dialects.
- *
- * - PostgreSQL: the bun-sql driver surfaces a `PostgresError` whose `errno` /
- *   `code` is `42P01` (undefined_table). drizzle wraps it, so the original is
- *   reachable via `error.cause`.
- * - SQLite: `bun:sqlite` / `node:sqlite` throw an `Error` whose message
- *   contains `no such table`.
- */
-function isMissingTableError(error: unknown): boolean {
-  const pgErrno = (error as { cause?: { errno?: unknown } } | undefined)?.cause?.errno
-  if (pgErrno === '42P01') return true
-  const message = error instanceof Error ? error.message : String(error)
-  return /no such table/i.test(message) || /relation .* does not exist/i.test(message)
 }

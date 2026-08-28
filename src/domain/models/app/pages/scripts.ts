@@ -33,19 +33,16 @@ import { Schema } from 'effect'
  */
 export const FeatureConfigSchema = Schema.Struct({
   enabled: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Whether the feature is enabled',
     })
   ),
   config: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }).annotations({
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
       description: 'Feature-specific configuration data',
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Feature configuration with enabled flag and custom config',
 })
 
@@ -70,12 +67,12 @@ export const FeatureConfigSchema = Schema.Struct({
  * }
  * ```
  */
-export const FeatureValueSchema = Schema.Union(
-  Schema.Boolean.annotations({
+export const FeatureValueSchema = Schema.Union([
+  Schema.Boolean.annotate({
     description: 'Simple feature flag',
   }),
-  FeatureConfigSchema
-).annotations({
+  FeatureConfigSchema,
+]).annotate({
   description: 'Feature value - either a boolean flag or a configuration object',
 })
 
@@ -120,15 +117,17 @@ export const FeatureValueSchema = Schema.Union(
  * ```
  *
  */
-export const FeaturesSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
-      message: () =>
-        'Feature name must be camelCase starting with a letter (e.g., darkMode, liveChat, cookieConsent)',
-    })
+export const FeaturesSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
+        message:
+          'Feature name must be camelCase starting with a letter (e.g., darkMode, liveChat, cookieConsent)',
+      })
+    )
   ),
-  value: FeatureValueSchema,
-}).annotations({
+  FeatureValueSchema
+).annotate({
   title: 'Feature Flags',
   description: 'Client-side feature toggles',
 })
@@ -151,7 +150,7 @@ export type Features = Schema.Schema.Type<typeof FeaturesSchema>
  * - anonymous: No credentials sent (default for public CDN scripts)
  * - use-credentials: Send credentials (cookies, auth headers)
  */
-export const CrossOriginSchema = Schema.Literal('anonymous', 'use-credentials').annotations({
+export const CrossOriginSchema = Schema.Literals(['anonymous', 'use-credentials']).annotate({
   description: 'CORS setting for cross-origin scripts',
 })
 
@@ -168,7 +167,7 @@ export const CrossOriginSchema = Schema.Literal('anonymous', 'use-credentials').
  * - body-start: Blocks content, use sparingly
  * - body-end: Non-blocking, best for most scripts
  */
-export const ScriptPositionSchema = Schema.Literal('head', 'body-start', 'body-end').annotations({
+export const ScriptPositionSchema = Schema.Literals(['head', 'body-start', 'body-end']).annotate({
   description: 'Where to insert the script in the document',
 })
 
@@ -199,36 +198,36 @@ export const ScriptPositionSchema = Schema.Literal('head', 'body-start', 'body-e
  *
  */
 export const ExternalScriptSchema = Schema.Struct({
-  src: Schema.String.annotations({
+  src: Schema.String.annotate({
     description: 'Script source URL',
     format: 'uri',
   }),
   async: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Load script asynchronously',
       default: false,
     })
   ),
   defer: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Defer script execution',
       default: false,
     })
   ),
   module: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Load as ES module',
       default: false,
     })
   ),
   integrity: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Subresource integrity hash',
     })
   ),
   crossorigin: Schema.optional(CrossOriginSchema),
   position: Schema.optional(ScriptPositionSchema),
-}).annotations({
+}).annotate({
   description: 'External JavaScript dependency',
 })
 
@@ -239,7 +238,7 @@ export const ExternalScriptSchema = Schema.Struct({
  * Scripts are loaded in order when using defer or blocking mode.
  *
  */
-export const ExternalScriptsSchema = Schema.Array(ExternalScriptSchema).annotations({
+export const ExternalScriptsSchema = Schema.Array(ExternalScriptSchema).annotate({
   title: 'External Scripts',
   description: 'External JavaScript dependencies',
 })
@@ -279,17 +278,17 @@ export type ExternalScripts = Schema.Schema.Type<typeof ExternalScriptsSchema>
  *
  */
 export const InlineScriptSchema = Schema.Struct({
-  code: Schema.String.annotations({
+  code: Schema.String.annotate({
     description: 'JavaScript code to execute',
   }),
   position: Schema.optional(ScriptPositionSchema),
   async: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Wrap in async IIFE',
       default: false,
     })
   ),
-}).annotations({
+}).annotate({
   description: 'Inline JavaScript code snippet',
 })
 
@@ -300,7 +299,7 @@ export const InlineScriptSchema = Schema.Struct({
  * Scripts execute in order (synchronous by default).
  *
  */
-export const InlineScriptsSchema = Schema.Array(InlineScriptSchema).annotations({
+export const InlineScriptsSchema = Schema.Array(InlineScriptSchema).annotate({
   title: 'Inline Scripts',
   description: 'Inline JavaScript code snippets',
 })
@@ -362,18 +361,17 @@ export type InlineScripts = Schema.Schema.Type<typeof InlineScriptsSchema>
 export const ScriptsSchema = Schema.Struct({
   features: Schema.optional(FeaturesSchema),
   externalScripts: Schema.optional(ExternalScriptsSchema),
-  // Support 'external' as an alias for 'externalScripts' (test shorthand)
+  // 'external' is an alias of 'externalScripts': both keys name the SAME list.
+  // The renderer merges them and renders a src declared under both keys once,
+  // keeping the attributes of the 'externalScripts' declaration.
   external: Schema.optional(ExternalScriptsSchema),
   inlineScripts: Schema.optional(InlineScriptsSchema),
   config: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }).annotations({
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
       description: 'Client-side configuration data',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Client Scripts Configuration',
   description: 'Client-side scripts, features, and external dependencies',
 })

@@ -57,7 +57,7 @@ export interface UserAccessInsertInput {
  * audit) to bring the user_access surface in line with the rest of the
  * presentation layer, which always passes through an Effect Layer.
  */
-export class UserAccessRepository extends Context.Tag('UserAccessRepository')<
+export class UserAccessRepository extends Context.Service<
   UserAccessRepository,
   {
     /**
@@ -79,4 +79,4 @@ export class UserAccessRepository extends Context.Tag('UserAccessRepository')<
       filter: Readonly<{ userId?: string }>
     ) => Effect.Effect<readonly UserAccessRow[], UserAccessDatabaseError>
   }
->() {}
+>()('UserAccessRepository') {}

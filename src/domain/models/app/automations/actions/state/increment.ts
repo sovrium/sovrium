@@ -22,15 +22,15 @@ export const StateIncrementActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** State key to increment */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'State key to increment (supports template variables)',
       })
     ),
 
     /** Increment amount (default: 1) */
     amount: Schema.optional(
-      Schema.Number.pipe(
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.annotate({
           description: 'Increment amount (default: 1). Use negative values to decrement.',
         })
       )
@@ -39,8 +39,8 @@ export const StateIncrementActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
         })
@@ -48,7 +48,7 @@ export const StateIncrementActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'StateIncrementAction',
     title: 'State Increment Action',
     description: 'Atomically increment a numeric value in key-value state',

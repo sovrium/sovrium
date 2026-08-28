@@ -11,7 +11,7 @@ import { TemplateStringSchema } from './template'
 /**
  * Comparison operators for filter conditions
  */
-export const ComparisonOperatorSchema = Schema.Literal(
+export const ComparisonOperatorSchema = Schema.Literals([
   'equals',
   'notEquals',
   'contains',
@@ -26,9 +26,9 @@ export const ComparisonOperatorSchema = Schema.Literal(
   'isNotEmpty',
   'isNull',
   'isNotNull',
-  'matches'
-).pipe(
-  Schema.annotations({
+  'matches',
+]).pipe(
+  Schema.annotate({
     identifier: 'ComparisonOperator',
     title: 'Comparison Operator',
     description: 'Operator for comparing values in filter conditions',
@@ -47,7 +47,7 @@ export type ComparisonOperator = Schema.Schema.Type<typeof ComparisonOperatorSch
 export const ConditionSchema = Schema.Struct({
   /** Field path or template variable to evaluate */
   field: TemplateStringSchema.pipe(
-    Schema.annotations({ description: 'Field path or template variable to evaluate' })
+    Schema.annotate({ description: 'Field path or template variable to evaluate' })
   ),
 
   /** Comparison operator */
@@ -55,12 +55,12 @@ export const ConditionSchema = Schema.Struct({
 
   /** Value to compare against (optional for isEmpty/isNull operators) */
   value: Schema.optional(
-    Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null).pipe(
-      Schema.annotations({ description: 'Value to compare against' })
+    Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]).pipe(
+      Schema.annotate({ description: 'Value to compare against' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Condition',
     title: 'Filter Condition',
     description: 'Single comparison condition for filtering or branching',
@@ -87,8 +87,8 @@ export type Condition = Schema.Schema.Type<typeof ConditionSchema>
 export const ConditionGroupSchema = Schema.Struct({
   /** Logical operator for combining conditions */
   logic: Schema.optional(
-    Schema.Literal('and', 'or').pipe(
-      Schema.annotations({
+    Schema.Literals(['and', 'or']).pipe(
+      Schema.annotate({
         description: 'Logical operator: and (all must match) or or (any must match). Default: and',
       })
     )
@@ -96,11 +96,11 @@ export const ConditionGroupSchema = Schema.Struct({
 
   /** Array of conditions */
   conditions: Schema.Array(ConditionSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'One or more conditions to evaluate' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'One or more conditions to evaluate' })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ConditionGroup',
     title: 'Condition Group',
     description: 'Group of conditions combined with AND/OR logic',

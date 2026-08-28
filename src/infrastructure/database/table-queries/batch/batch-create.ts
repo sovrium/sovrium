@@ -109,7 +109,7 @@ export function batchCreateRecords(
           return await runEffectInTx(
             Effect.reduce(
               recordsWithAuthorship,
-              [] as readonly Record<string, unknown>[],
+              () => [] as readonly Record<string, unknown>[],
               (acc, fields) =>
                 createSingleRecordInBatch(tx, tableName, fields, arrayColumnTypes).pipe(
                   Effect.map((record) => (record ? [...acc, record] : acc))

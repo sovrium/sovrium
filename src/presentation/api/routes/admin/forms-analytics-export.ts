@@ -47,6 +47,7 @@ import {
   OPEN_WHEN_UNDECLARED,
   permits,
 } from '@/domain/models/shared/permission-evaluation'
+import { buildCsvAttachmentDisposition } from '@/domain/utils/csv-attachment'
 // eslint-disable-next-line boundaries/dependencies -- CSV serialization legitimately crosses presentation-api-route → infrastructure-export, same way records-export does. The csv-exporter is a thin utility, not a domain feature.
 import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
 import { provideAdminFormsLive } from '@/presentation/api/routes/admin/forms/effect-runner'
@@ -149,10 +150,19 @@ function buildCsvRow(
   return out
 }
 
-/** Format the CSV with truncation header if cap was hit. */
-function csvResponse(c: Context, csv: string, truncated: boolean): Response {
+/**
+ * Format the CSV as a named download, with the truncation header if the inline
+ * cap was hit.
+ *
+ * The `Content-Disposition` is what makes this a download at all: without it a
+ * browser navigated to the export URL renders the CSV in the tab, which takes
+ * the operator out of the console to stare at raw data. Naming it after the
+ * FORM keeps three exported inboxes distinguishable on disk.
+ */
+function csvResponse(c: Context, csv: string, truncated: boolean, formName: string): Response {
   const headers: Record<string, string> = {
     'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': buildCsvAttachmentDisposition(formName, new Date()),
     'Cache-Control': 'no-store',
   }
   if (truncated) headers['X-Sovrium-Truncated'] = 'true'
@@ -213,7 +223,7 @@ async function handleExport(c: Context, resolveApp: () => App): Promise<Response
     result: 'success',
   })
 
-  return csvResponse(c, csv, truncated)
+  return csvResponse(c, csv, truncated, formName)
 }
 
 // ─── Analytics aggregate handler ─────────────────────────────────────

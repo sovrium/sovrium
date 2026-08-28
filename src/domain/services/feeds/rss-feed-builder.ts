@@ -142,6 +142,8 @@ interface BuildRssFeedXmlInput {
   readonly page: Page
   readonly records: ReadonlyArray<Readonly<Record<string, unknown>>>
   readonly baseUrl: string
+  /** Forwarded to {@link BuildRssFeedXmlFromItemsInput.now}. */
+  readonly now?: Date
 }
 
 interface BuildRssFeedXmlFromItemsInput {
@@ -159,6 +161,19 @@ interface BuildRssFeedXmlFromItemsInput {
    * `app.description ?? 'Application built with Sovrium'` (backward-compatible).
    */
   readonly channelDescription?: string
+  /**
+   * The clock, injected so the builder stays a pure function of its inputs.
+   * The presentation caller passes the request time; the default exists only so
+   * existing call sites and tests keep working.
+   *
+   * KNOWN LIMITATION, deliberately unchanged here: this value is ALSO the
+   * per-item `pubDate` fallback, so an item supplying no `pubDate` gets one that
+   * advances on every fetch while its `guid` stays fixed — which a reader may
+   * present as a republished item. Choosing a stable fallback (the item's own
+   * creation time, or omitting `pubDate` altogether) is a feed-semantics
+   * decision, not a refactor.
+   */
+  readonly now?: Date
 }
 
 /**
@@ -225,7 +240,7 @@ export function buildRssFeedXmlFromItems(input: BuildRssFeedXmlFromItemsInput): 
   const trimmedBase = baseUrl.replace(/\/$/, '')
   const channelLink = escapeXml(trimmedBase)
   const feedUrl = escapeXml(`${trimmedBase}/feed.xml`)
-  const lastBuildDate = new Date().toUTCString()
+  const lastBuildDate = (input.now ?? new Date()).toUTCString()
 
   const itemsXml = items.map((item) => {
     const title = escapeXml(item.title)
@@ -268,7 +283,7 @@ ${itemsXml.join('\n')}
  * carries title / link / description / pubDate / guid.
  */
 export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
-  const { app, page, records, baseUrl } = input
+  const { app, page, records, baseUrl, now } = input
   const slugField = page.collection?.slugField ?? 'slug'
   const limit = resolveRssLimit(page.rss)
   const trimmedBase = baseUrl.replace(/\/$/, '')
@@ -287,7 +302,7 @@ export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
     app,
     page
   )
-  return buildRssFeedXmlFromItems({ app, baseUrl, items, channelTitle, channelDescription })
+  return buildRssFeedXmlFromItems({ app, baseUrl, items, channelTitle, channelDescription, now })
 }
 
 /** A level-2 (`## `) section extracted from a markdown changelog source. */

@@ -16,4 +16,6 @@ export {
   loadSchemaFromFileForReload,
   parseSchemaFromEnv,
   parseAppSchema,
+  resolveAppSchema,
 } from './schema-loader'
+export type { ResolvedAppSchema } from './schema-loader'

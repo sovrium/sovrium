@@ -51,16 +51,16 @@ export const recordFieldFields = {
    * from its container exactly as before.
    */
   dataSource: Schema.optional(
-    Schema.Union(
+    Schema.Union([
       DataSourceSchema,
       Schema.Struct({
         /** System detail-endpoint binding (mutually exclusive with the DB-table form) */
         system: SystemDetailSourceSchema,
-      }).annotations({
+      }).annotate({
         title: 'Record Field System Detail Source',
         description: 'System detail-endpoint binding for a self-binding record-field',
-      })
-    ).annotations({
+      }),
+    ]).annotate({
       identifier: 'RecordFieldDataSource',
       title: 'Record Field Data Source',
       description:

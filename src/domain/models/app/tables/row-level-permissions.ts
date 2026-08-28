@@ -18,8 +18,8 @@ import { Schema } from 'effect'
  * to scope records to the assignment list. `eq` / `neq` cover ownership
  * checks against `$currentUser.id`.
  */
-export const RowLevelFilterOperatorSchema = Schema.Literal('eq', 'neq', 'in').pipe(
-  Schema.annotations({
+export const RowLevelFilterOperatorSchema = Schema.Literals(['eq', 'neq', 'in']).pipe(
+  Schema.annotate({
     title: 'Row-Level Filter Operator',
     description: 'Operator for row-level permission predicates: eq, neq, or in (array membership)',
   })
@@ -41,42 +41,41 @@ export type RowLevelFilterOperator = Schema.Schema.Type<typeof RowLevelFilterOpe
  */
 export const RowLevelPredicateSchema = Schema.Struct({
   field: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Table field (or relation chain like "project.client_id") to filter on',
     })
   ),
   operator: RowLevelFilterOperatorSchema,
-  value: Schema.Union(
+  value: Schema.Union([
     Schema.String,
-    Schema.Number,
+    Schema.Finite,
     Schema.Boolean,
     Schema.Array(Schema.String),
-    Schema.Array(Schema.Number),
-    // Typed $currentUser reference (matches CurrentUserRefSchema shape)
+    Schema.Array(Schema.Finite),
     Schema.Struct({
       kind: Schema.Literal('currentUser'),
-      path: Schema.Union(
+      path: Schema.Union([
         Schema.Struct({
           kind: Schema.Literal('scalar'),
-          name: Schema.Literal('id', 'email', 'role', 'isUnrestricted'),
+          name: Schema.Literals(['id', 'email', 'role', 'isUnrestricted']),
         }),
         Schema.Struct({
           kind: Schema.Literal('assignment'),
-          tableSlug: Schema.String.pipe(Schema.minLength(1)),
+          tableSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
         }),
         Schema.Struct({
           kind: Schema.Literal('activeAssignment'),
-        })
-      ),
-    })
-  ).pipe(
-    Schema.annotations({
+        }),
+      ]),
+    }),
+  ]).pipe(
+    Schema.annotate({
       description: 'Literal value or $currentUser reference (resolved per-request from session)',
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RowLevelPredicate',
     title: 'Row-Level Predicate',
     description:
@@ -121,28 +120,28 @@ export interface RowLevelPredicateGroup {
   readonly conditions: ReadonlyArray<RowLevelPredicate | RowLevelPredicateGroup>
 }
 
-export const RowLevelPredicateGroupSchema: Schema.Schema<RowLevelPredicateGroup> = Schema.Struct({
+export const RowLevelPredicateGroupSchema: Schema.Codec<RowLevelPredicateGroup> = Schema.Struct({
   logic: Schema.optional(
-    Schema.Literal('and', 'or').pipe(
-      Schema.annotations({
+    Schema.Literals(['and', 'or']).pipe(
+      Schema.annotate({
         description:
           'Logical operator: and (all conditions must match) or or (any condition matches). Default: and',
       })
     )
   ),
   conditions: Schema.Array(
-    Schema.Union(
+    Schema.Union([
       RowLevelPredicateSchema,
-      Schema.suspend((): Schema.Schema<RowLevelPredicateGroup> => RowLevelPredicateGroupSchema)
-    )
+      Schema.suspend((): Schema.Codec<RowLevelPredicateGroup> => RowLevelPredicateGroupSchema),
+    ])
   ).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'One or more predicates (each a triple or a nested group) to combine',
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RowLevelPredicateGroup',
     title: 'Row-Level Predicate Group',
     description:
@@ -155,11 +154,11 @@ export const RowLevelPredicateGroupSchema: Schema.Schema<RowLevelPredicateGroup>
  * AND/OR group (GAP-3). The single-triple form is unchanged — composite
  * groups are purely additive.
  */
-export const RowLevelWhenSchema = Schema.Union(
+export const RowLevelWhenSchema = Schema.Union([
   RowLevelPredicateSchema,
-  RowLevelPredicateGroupSchema
-).pipe(
-  Schema.annotations({
+  RowLevelPredicateGroupSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'RowLevelWhen',
     title: 'Row-Level When Predicate',
     description: 'A single predicate triple or a composite AND/OR predicate group.',
@@ -223,7 +222,7 @@ export const RowLevelPermissionsSchema = Schema.Struct({
   /** Records the requester may soft-delete */
   delete: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RowLevelPermissions',
     title: 'Row-Level Permissions',
     description:

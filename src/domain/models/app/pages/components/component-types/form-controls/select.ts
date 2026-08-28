@@ -34,28 +34,28 @@ export const selectFields = {
    */
   dataSource: Schema.optional(SelectOptionSourceSchema),
   defaultValue: Schema.optional(
-    Schema.Union(Schema.String, Schema.Number, Schema.Boolean).annotations({
+    Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
       description: 'Default value for form controls (select, radio-group, slider, etc.)',
     })
   ),
   multiple: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Allow multiple option selections (select)',
     })
   ),
   searchable: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Enable type-ahead search filtering in the list',
     })
   ),
   searchPlaceholder: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Placeholder text shown inside the combobox search input (only meaningful when `searchable: true`)',
     })
   ),
   allowCustomValue: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'When `searchable: true`, accept a typed value that does not match any option (free-form input).',
     })

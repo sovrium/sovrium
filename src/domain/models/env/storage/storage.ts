@@ -16,7 +16,7 @@ import { parseDatabaseDialectConfig } from '@/domain/models/env/database/databas
  * - `local`: Local filesystem storage
  * - `bytea`: PostgreSQL bytea (auto-detected when DATABASE_URL is set)
  */
-export const StorageProviderType = Schema.Literal('s3', 'local', 'bytea')
+export const StorageProviderType = Schema.Literals(['s3', 'local', 'bytea'])
 
 /** @public */
 export type StorageProvider = Schema.Schema.Type<typeof StorageProviderType>
@@ -27,35 +27,35 @@ export type StorageProvider = Schema.Schema.Type<typeof StorageProviderType>
 export const S3StorageEnvSchema = Schema.Struct({
   provider: Schema.Literal('s3'),
   endpoint: Schema.String.pipe(
-    Schema.pattern(/^https?:\/\/.+/),
-    Schema.annotations({
+    Schema.check(Schema.isPattern(/^https?:\/\/.+/)),
+    Schema.annotate({
       description: 'S3-compatible endpoint URL (STORAGE_S3_ENDPOINT)',
       examples: ['https://s3.amazonaws.com'],
     })
   ),
   bucket: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'S3 bucket name (STORAGE_S3_BUCKET)',
       examples: ['my-app-files'],
     })
   ),
   region: Schema.String.pipe(
-    Schema.annotations({
+    Schema.annotate({
       description: 'AWS region (STORAGE_S3_REGION, defaults to us-east-1)',
       examples: ['us-east-1', 'eu-west-1'],
     })
   ),
   accessKeyId: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'S3 access key ID (STORAGE_S3_ACCESS_KEY_ID)' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'S3 access key ID (STORAGE_S3_ACCESS_KEY_ID)' })
   ),
   secretAccessKey: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'S3 secret access key (STORAGE_S3_SECRET_ACCESS_KEY)' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'S3 secret access key (STORAGE_S3_SECRET_ACCESS_KEY)' })
   ),
   forcePathStyle: Schema.Boolean.pipe(
-    Schema.annotations({
+    Schema.annotate({
       description: 'Use path-style URLs for MinIO compatibility (STORAGE_S3_FORCE_PATH_STYLE)',
     })
   ),
@@ -67,8 +67,8 @@ export const S3StorageEnvSchema = Schema.Struct({
 export const LocalStorageEnvSchema = Schema.Struct({
   provider: Schema.Literal('local'),
   directory: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Local directory for file storage (STORAGE_LOCAL_DIRECTORY)',
       examples: ['./uploads'],
     })
@@ -85,11 +85,11 @@ export const ByteaStorageEnvSchema = Schema.Struct({
 /**
  * Unified storage environment configuration (discriminated union).
  */
-export const StorageEnvSchema = Schema.Union(
+export const StorageEnvSchema = Schema.Union([
   S3StorageEnvSchema,
   LocalStorageEnvSchema,
-  ByteaStorageEnvSchema
-)
+  ByteaStorageEnvSchema,
+])
 
 export type StorageEnvConfig = Schema.Schema.Type<typeof StorageEnvSchema>
 export type S3StorageEnvConfig = Schema.Schema.Type<typeof S3StorageEnvSchema>
@@ -173,7 +173,7 @@ export const parseStorageEnvConfig = (): StorageEnvConfig | undefined => {
       // eslint-disable-next-line functional/no-throw-statements -- mirrors findMissingS3EnvVar pattern: throw so error.message surfaces the env-var name
       throw new Error('STORAGE_LOCAL_DIRECTORY is required when STORAGE_PROVIDER=local')
     }
-    return Schema.decodeUnknownSync(LocalStorageEnvSchema)({
+    return Schema.decodeSync(LocalStorageEnvSchema)({
       provider: 'local',
       directory: process.env.STORAGE_LOCAL_DIRECTORY,
     })
@@ -189,7 +189,7 @@ export const parseStorageEnvConfig = (): StorageEnvConfig | undefined => {
     // SQLite (zero-config default): default to local filesystem storage. bytea
     // is not available without Postgres, so a working filesystem store is the
     // frugal-by-default choice. STORAGE_LOCAL_DIRECTORY overrides the default.
-    return Schema.decodeUnknownSync(LocalStorageEnvSchema)({
+    return Schema.decodeSync(LocalStorageEnvSchema)({
       provider: 'local',
       directory: process.env.STORAGE_LOCAL_DIRECTORY || defaultUploadsDir(),
     })

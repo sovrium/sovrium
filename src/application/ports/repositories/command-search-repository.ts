@@ -33,6 +33,14 @@ export interface TableSearchInput {
   readonly physicalTable: string
   readonly columns: readonly string[]
   readonly query: string
+  /**
+   * Exclude soft-deleted rows (`deleted_at IS NULL`).
+   *
+   * Required rather than optional on purpose: the caller that omitted it is
+   * how deleted records stayed searchable. Every read path in the engine
+   * answers this question; this one has to answer it too.
+   */
+  readonly excludeDeleted: boolean
 }
 
 /**
@@ -57,7 +65,7 @@ export class CommandSearchDatabaseError extends Data.TaggedError('CommandSearchD
  * Methods map to a single raw query each; all orchestration (detail-path map,
  * page search, ranking/merging) lives in the use case.
  */
-export class CommandSearchRepository extends Context.Tag('CommandSearchRepository')<
+export class CommandSearchRepository extends Context.Service<
   CommandSearchRepository,
   {
     /**
@@ -77,4 +85,4 @@ export class CommandSearchRepository extends Context.Tag('CommandSearchRepositor
       input: TableSearchInput
     ) => Effect.Effect<readonly TableSearchMatch[], never>
   }
->() {}
+>()('CommandSearchRepository') {}

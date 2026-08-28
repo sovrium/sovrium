@@ -221,7 +221,9 @@ interface FormComponentLocator {
  * Build a "mutually exclusive with inline X, Y, Z" suffix listing whichever
  * of dataSource/fields/fieldGroups/wizard are present on the component.
  */
-const inlineConflictsSuffix = (component: Record<string, unknown>): string | undefined => {
+const inlineConflictsSuffix = (
+  component: Readonly<Record<string, unknown>>
+): string | undefined => {
   const hasDataSource = component['dataSource'] !== undefined
   const hasFields = component['fields'] !== undefined
   const hasFieldGroups = component['fieldGroups'] !== undefined

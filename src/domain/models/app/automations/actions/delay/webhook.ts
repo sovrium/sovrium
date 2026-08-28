@@ -24,7 +24,7 @@ export const DelayWebhookActionSchema = Schema.Struct({
     /** Custom callback identifier (auto-generated if not provided) */
     callbackId: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Custom callback identifier (supports template variables). Auto-generated if not provided.',
         })
@@ -34,8 +34,8 @@ export const DelayWebhookActionSchema = Schema.Struct({
     /** Maximum time to wait for the callback */
     timeout: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^\d+\s*(ms|s|m|h|d)$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/)),
+        Schema.annotate({
           description:
             'Maximum time to wait for callback: number + unit (ms, s, m, h, d). Examples: "1h", "7d"',
         })
@@ -44,8 +44,8 @@ export const DelayWebhookActionSchema = Schema.Struct({
 
     /** Behavior when timeout is reached */
     onTimeout: Schema.optional(
-      Schema.Literal('continue', 'stop', 'error').pipe(
-        Schema.annotations({
+      Schema.Literals(['continue', 'stop', 'error']).pipe(
+        Schema.annotate({
           description: 'Behavior on timeout: continue, stop, or error (default: error)',
         })
       )
@@ -53,15 +53,15 @@ export const DelayWebhookActionSchema = Schema.Struct({
 
     /** Expected data shape for callback payload validation */
     expectedData: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-        Schema.annotations({
+      Schema.Record(Schema.String, Schema.Unknown).pipe(
+        Schema.annotate({
           description: 'Expected data shape for validating the webhook callback payload',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DelayWebhookAction',
     title: 'Delay Webhook Action',
     description: 'Pause execution until an external webhook callback is received',

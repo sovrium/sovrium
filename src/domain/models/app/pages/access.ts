@@ -38,15 +38,17 @@ export const PageAccessExtendedSchema = Schema.Struct({
   /** Path to redirect when access is denied */
   redirectTo: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^\//, {
-        message: () => 'Redirect path must start with /',
-      })
-    ).annotations({
+      Schema.check(
+        Schema.isPattern(/^\//, {
+          message: 'Redirect path must start with /',
+        })
+      )
+    ).annotate({
       description: 'URL path to redirect unauthenticated/unauthorized users',
       examples: ['/login', '/signup', '/403'],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Page Access Extended',
   description: 'Extended access configuration with redirect support',
 })
@@ -87,8 +89,11 @@ export const PageAccessExtendedSchema = Schema.Struct({
  *       redirectTo: /login
  * ```
  */
-export const PageAccessSchema = Schema.Union(AccessPermissionSchema, PageAccessExtendedSchema).pipe(
-  Schema.annotations({
+export const PageAccessSchema = Schema.Union([
+  AccessPermissionSchema,
+  PageAccessExtendedSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'PageAccess',
     title: 'Page Access',
     description:

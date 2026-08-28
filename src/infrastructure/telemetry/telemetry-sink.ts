@@ -22,6 +22,7 @@
  */
 
 import { hostname } from 'node:os'
+import { classifyDriverFailure } from '@/domain/errors/driver-failure'
 import { isErrorReportingEnabled } from '@/domain/models/env/telemetry/telemetry'
 import { formatErrorChain } from './error-chain'
 import { initErrorReporter, registerProcessErrorHandlers, reportException } from './error-reporter'
@@ -87,6 +88,51 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
 }
 
 /**
+ * Whether a failure belongs in the operator's error store at all.
+ *
+ * The error store answers ONE question — "is something wrong with this
+ * deployment?" — so it must hold faults the operator can act on. A caller
+ * posting a value the column refuses is not one: it is the single most common
+ * shape of bad input a public endpoint sees, it is answered correctly and
+ * completely by a 4xx, and reporting it pages an operator for someone else's
+ * typo. Left unfiltered, ordinary scanner and form traffic buries the real
+ * faults in an unresolved-issue list nobody can triage.
+ *
+ * The rule is deliberately the SAME classification the HTTP layer already
+ * makes, read off the same total {@link classifyDriverFailure}: whatever
+ * `error-sanitizer.ts` answers as 4xx is the caller's fault and is not
+ * reported; whatever it answers as 5xx is ours and is. Restating the rule
+ * rather than re-deriving it is the point — the classifier that decides the
+ * status and the one that decides reportability cannot disagree.
+ *
+ * The switch has no `default`, so adding an origin to `DriverFailure` fails to
+ * compile until someone decides which side of this line it falls on.
+ */
+const isOperatorActionable = (cause: unknown): boolean => {
+  const failure = classifyDriverFailure(cause)
+  switch (failure.origin) {
+    // `check` / `foreign-key` / `not-null` answer 400 and `unique` answers 409.
+    // All four are the caller's own input clashing with a rule the operator
+    // declared on purpose — the constraint doing its job, not failing.
+    case 'constraint':
+      return false
+    // A field name or literal the driver could not accept: 400. Bot traffic
+    // produces these indefinitely.
+    case 'caller-input':
+      return false
+    // A dropped table, a lost connection, exhausted resources — and every
+    // driver code nobody has classified yet, which lands here by design.
+    case 'operator':
+      return true
+    // Never came from the driver: one of Sovrium's own throws, which includes
+    // every genuine defect in our code. Reported, because the safe direction
+    // for an unclassified failure is the operator's inbox.
+    case 'application':
+      return true
+  }
+}
+
+/**
  * Dual-write a structured log line to telemetry, in addition to (never instead
  * of) stdout. Exports an OTLP log record and forwards an `Error` cause to the
  * Sentry reporter. No-op for whichever signals are disabled.
@@ -111,8 +157,14 @@ export const emitTelemetryLog = (
     // chain rather than the outermost link.
     // eslint-disable-next-line functional/no-expression-statements -- terminal stack write
     process.stderr.write(formatErrorChain(cause) + '\n')
-    // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget cause report (deduped)
-    void reportException(cause)
+    // The local record above is UNCONDITIONAL and stays that way: stdout is the
+    // operator's own log, where a declined write is ordinary, searchable
+    // context. Only the error STORE — the paging, triage-me surface — is
+    // filtered, and only for faults that are not ours.
+    if (isOperatorActionable(cause)) {
+      // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget cause report (deduped)
+      void reportException(cause)
+    }
   }
 }
 

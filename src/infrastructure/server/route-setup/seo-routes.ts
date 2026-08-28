@@ -13,33 +13,8 @@ import {
   generateLlmsFullTxtContent,
   type HreflangConfig,
 } from '@/application/use-cases/server/static-content-generators'
+import { resolveRequestBaseUrl } from './resolve-base-url'
 import type { App } from '@/domain/models/app'
-
-/**
- * Resolve the public base URL for the live SEO routes.
- *
- * Precedence:
- *  1. `BASE_URL` env var — the canonical production origin, set by the operator.
- *     Wins over any request-derived value so generated `<loc>` entries point at
- *     the public origin even when the server sits behind a proxy.
- *  2. Request `X-Forwarded-Host` (proxy-set, preferred) or `Host` header, paired
- *     with `X-Forwarded-Proto` — derives the externally visible origin from the
- *     incoming request, defaulting the scheme to `http`.
- *  3. The request URL origin — final fallback when no `Host` header is present.
- *
- * The trailing slash (if any) is trimmed so callers can append `${path}` safely.
- */
-const resolveBaseUrl = (requestUrl: string, host?: string, forwardedProto?: string): string => {
-  const fromEnv = Bun.env.BASE_URL
-  if (fromEnv) return fromEnv.replace(/\/$/, '')
-
-  if (host) {
-    const proto = forwardedProto || 'http'
-    return `${proto}://${host}`.replace(/\/$/, '')
-  }
-
-  return new URL(requestUrl).origin
-}
 
 /**
  * Build the multilingual hreflang config from the app's language settings.
@@ -131,11 +106,7 @@ export function setupSeoRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono
 
   const withSeo = honoApp
     .get('/sitemap.xml', async (c) => {
-      const baseUrl = resolveBaseUrl(
-        c.req.url,
-        c.req.header('X-Forwarded-Host') ?? c.req.header('Host'),
-        c.req.header('X-Forwarded-Proto')
-      )
+      const baseUrl = resolveRequestBaseUrl(c)
       const languageOptions = buildLanguageOptions(app)
       const xml = await generateSitemapContent(pages, baseUrl, languageOptions)
       return c.body(xml, 200, {
@@ -143,11 +114,7 @@ export function setupSeoRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono
       })
     })
     .get('/robots.txt', (c) => {
-      const baseUrl = resolveBaseUrl(
-        c.req.url,
-        c.req.header('X-Forwarded-Host') ?? c.req.header('Host'),
-        c.req.header('X-Forwarded-Proto')
-      )
+      const baseUrl = resolveRequestBaseUrl(c)
       const body = generateRobotsContent(pages, baseUrl, true)
       return c.body(body, 200, {
         'Content-Type': 'text/plain; charset=utf-8',

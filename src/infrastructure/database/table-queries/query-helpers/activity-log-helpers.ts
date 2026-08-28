@@ -6,9 +6,20 @@
  */
 
 import { Effect } from 'effect'
-import { db, DatabaseError, activityLogs } from '@/infrastructure/database'
+import { db, DatabaseError } from '@/infrastructure/database'
+import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
+import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+/**
+ * The audit table for the active dialect — `system.activity_logs` on Postgres,
+ * the flat `system_activity_logs` on SQLite. This write is wrapped in
+ * `Effect.ignore` below, so a dialect mismatch here is invisible: the audited
+ * operation still succeeds and the trail is simply never written.
+ */
+const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
 /**
  * Common activity logging helper

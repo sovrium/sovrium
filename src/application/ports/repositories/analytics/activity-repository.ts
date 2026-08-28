@@ -24,7 +24,7 @@ export interface ActivityHistoryEntry {
 /**
  * Activity Repository Port
  */
-export class ActivityRepository extends Context.Tag('ActivityRepository')<
+export class ActivityRepository extends Context.Service<
   ActivityRepository,
   {
     readonly getRecordHistory: (config: {
@@ -46,4 +46,4 @@ export class ActivityRepository extends Context.Tag('ActivityRepository')<
       readonly recordId: string
     }) => Effect.Effect<boolean, DatabaseError>
   }
->() {}
+>()('ActivityRepository') {}

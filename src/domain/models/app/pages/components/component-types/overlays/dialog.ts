@@ -46,10 +46,10 @@ export const dialogFields = {
   ...visibilityFields,
   ...i18nFields,
   title: Schema.optional(
-    Schema.String.annotations({ description: 'Dialog heading shown at the top of the modal' })
+    Schema.String.annotate({ description: 'Dialog heading shown at the top of the modal' })
   ),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Supporting text rendered beneath the title (use for context, not actions)',
     })
   ),
@@ -76,7 +76,7 @@ export const dialogFields = {
    * ```
    */
   formRef: Schema.optional(
-    FormNameSchema.annotations({
+    FormNameSchema.annotate({
       description:
         'Reference a top-level form by name (app.forms[].name) rendered inside the dialog body. Renders that form inline (fields + submit + onSuccess).',
     })

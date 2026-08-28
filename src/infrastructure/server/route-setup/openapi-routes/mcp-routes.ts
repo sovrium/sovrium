@@ -23,7 +23,7 @@ const mcpDisabledResponse = (description: string) => jsonResponse(mcpDisabledSch
 
 /** MCP status route group. */
 export const mcpGroup: StaticGroupSpec = {
-  tag: 'ai',
+  tag: 'AI',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',
   routes: [
     {

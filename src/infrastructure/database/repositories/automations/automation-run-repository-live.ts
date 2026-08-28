@@ -288,7 +288,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
   finaliseRun: (input) =>
     wrap(async () => {
       // Update terminal status + timings on the existing run row.
-      const updateSet: Record<string, unknown> = {
+      const updateSet: Readonly<Record<string, unknown>> = {
         status: input.status,
         ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
         ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),

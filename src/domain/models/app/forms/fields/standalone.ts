@@ -13,7 +13,7 @@ import { commonFieldProps } from '../../../shared/form-field-props'
  * Mirrors the table field types where the rendering is similar but the value
  * is not persisted into a column directly.
  */
-export const StandaloneInputTypeSchema = Schema.Literal(
+export const StandaloneInputTypeSchema = Schema.Literals([
   'short-text',
   'long-text',
   'email',
@@ -27,8 +27,8 @@ export const StandaloneInputTypeSchema = Schema.Literal(
   'checkbox',
   'radio',
   'rating',
-  'attachment'
-).annotations({
+  'attachment',
+]).annotate({
   identifier: 'StandaloneInputType',
   title: 'Standalone Input Type',
   description: 'Input control type for standalone (non-table-bound) fields',
@@ -41,7 +41,9 @@ export const StandaloneInputTypeSchema = Schema.Literal(
 export const StandaloneFieldSchema = Schema.Struct({
   kind: Schema.Literal('standalone'),
   /** Field name unique within the form. */
-  name: Schema.String.pipe(Schema.pattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/), Schema.maxLength(64)),
+  name: Schema.String.pipe(
+    Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/), Schema.isMaxLength(64))
+  ),
   /** Input control type. */
   inputType: StandaloneInputTypeSchema,
   /** Choices for select / multi-select / radio fields. */
@@ -56,13 +58,17 @@ export const StandaloneFieldSchema = Schema.Struct({
   /** Accepted MIME types for attachment fields. */
   accept: Schema.optional(Schema.String),
   /** Max files for attachment fields. */
-  maxFiles: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+  maxFiles: Schema.optional(
+    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+  ),
   /** Maximum file size (bytes) for each uploaded file. */
-  maxFileSize: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+  maxFileSize: Schema.optional(
+    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+  ),
   /** Render a drag-and-drop zone alongside the file picker. */
   dropZone: Schema.optional(Schema.Boolean),
   ...commonFieldProps,
-}).annotations({
+}).annotate({
   identifier: 'StandaloneField',
   title: 'Standalone Form Field',
   description: 'Form field typed inline (not bound to a table column)',

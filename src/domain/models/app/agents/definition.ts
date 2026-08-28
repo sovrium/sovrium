@@ -20,11 +20,36 @@ import { Schema } from 'effect'
 export const AgentDefinitionSchema = Schema.Struct({
   /** Unique kebab-case identifier for this agent */
   name: Schema.String.pipe(
-    Schema.pattern(/^[a-z0-9]+(-[a-z0-9]+)*$/, {
-      message: (issue) =>
-        `Agent name ${JSON.stringify(issue.actual)} must be kebab-case format (lowercase letters, digits, and single hyphens — e.g. 'support-agent').`,
-    }),
-    Schema.annotations({
+    // v3 built this message from the offending value via a `(issue) => ...`
+    // thunk. v4 filter messages are string-keyed annotations that "no longer
+    // receive the old ParseIssue callback shape" (migration/v3-to-v4.md:14394),
+    // so the thunk has no direct equivalent — but a `makeFilter` PREDICATE does
+    // receive the value and may return a string, which becomes the message.
+    // That recovers the interpolation.
+    //
+    // BOTH checks are required, and THE ORDER IS LOAD-BEARING — all four
+    // combinations were probed:
+    //   isPattern alone .................. keeps JSON Schema `pattern`, loses the value
+    //   makeFilter alone ................. keeps the value, SILENTLY DROPS `pattern`
+    //                                      from the published app.json
+    //   isPattern then makeFilter ........ keeps `pattern`; isPattern
+    //                                      short-circuits so the value is lost
+    //   makeFilter then isPattern (this) . keeps BOTH
+    //
+    // The dropped-`pattern` case is the dangerous one: app.json is the contract
+    // config authors' editors consume, and losing a constraint there is
+    // invisible to `tsc` and to every drift check. Verified that this form's
+    // JSON Schema is byte-identical to the plain-`isPattern` output and that
+    // accept/reject matches across the boundary cases.
+    Schema.check(
+      Schema.makeFilter((value) =>
+        /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value)
+          ? true
+          : `Agent name ${JSON.stringify(value)} must be kebab-case format (lowercase letters, digits, and single hyphens — e.g. 'support-agent').`
+      ),
+      Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+    ),
+    Schema.annotate({
       description: 'Unique kebab-case identifier for this agent',
       examples: ['support-agent', 'data-enrichment-bot', 'content-moderator'],
     })
@@ -32,8 +57,8 @@ export const AgentDefinitionSchema = Schema.Struct({
 
   /** Auth role this agent operates as (must reference a role defined in auth.roles) */
   role: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Auth role this agent operates as (must exist in auth.roles)',
     })
   ),
@@ -41,8 +66,8 @@ export const AgentDefinitionSchema = Schema.Struct({
   /** LLM model override for this agent (defaults to AI_MODEL env var) */
   model: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'LLM model override for this agent (defaults to AI_MODEL env var)',
         examples: ['claude-sonnet-4-5', 'gpt-4o-mini'],
       })
@@ -51,10 +76,9 @@ export const AgentDefinitionSchema = Schema.Struct({
 
   /** Temperature override (0-1 inclusive, defaults to AI_TEMPERATURE env var) */
   temperature: Schema.optional(
-    Schema.Number.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(1),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+      Schema.annotate({
         description: 'Temperature override for LLM responses (0-1 inclusive)',
       })
     )
@@ -62,10 +86,9 @@ export const AgentDefinitionSchema = Schema.Struct({
 
   /** Max output tokens override (defaults to AI_MAX_TOKENS env var) */
   maxTokens: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum output tokens override (positive integer)',
       })
     )
@@ -73,8 +96,8 @@ export const AgentDefinitionSchema = Schema.Struct({
 
   /** System prompt defining agent personality, role, and rules */
   systemPrompt: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'System prompt defining agent personality and behavioral rules',
     })
   ),
@@ -83,11 +106,11 @@ export const AgentDefinitionSchema = Schema.Struct({
   instructions: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.minLength(1),
-        Schema.annotations({ description: 'A single behavioral instruction' })
+        Schema.check(Schema.isMinLength(1)),
+        Schema.annotate({ description: 'A single behavioral instruction' })
       )
     ).pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Additional behavioral instructions appended as numbered rules to the system prompt',
       })
@@ -97,13 +120,13 @@ export const AgentDefinitionSchema = Schema.Struct({
   /** Whether this agent is active (defaults to true) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Whether agent can execute (defaults to true)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AgentDefinition',
     title: 'Agent Definition',
     description:

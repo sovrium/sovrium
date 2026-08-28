@@ -19,12 +19,10 @@ import { BaseFieldSchema } from '../base-field'
  * `formula` field over this column.
  */
 export const AutonumberFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('autonumber'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('autonumber'),
+  }),
+  Schema.annotate({
     title: 'Autonumber Field',
     description: 'Auto-incrementing number field assigned by the database.',
     examples: [

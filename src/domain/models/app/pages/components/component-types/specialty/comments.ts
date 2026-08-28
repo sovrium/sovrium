@@ -25,11 +25,11 @@ import { visibilityFields } from '../modules/visibility'
  */
 export const CommentsTypeLiteral = Schema.Literal('comments')
 
-const PaginationStyleSchema = Schema.Literal('loadMore', 'numbered').annotations({
+const PaginationStyleSchema = Schema.Literals(['loadMore', 'numbered']).annotate({
   description: "Pagination style: 'loadMore' (default) or 'numbered'",
 })
 
-const SortOrderSchema = Schema.Literal('newest', 'oldest').annotations({
+const SortOrderSchema = Schema.Literals(['newest', 'oldest']).annotate({
   description: "Sort order: 'newest' (default) or 'oldest'",
 })
 
@@ -39,19 +39,19 @@ export const commentsFields = {
   ...i18nFields,
   /** Table whose records the comments belong to. Optional on collection pages (auto-resolved). */
   table: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Table whose records the comments belong to (auto-resolved on collection pages)',
     })
   ),
   /** Optional explicit record id (overrides `$record.id`). */
   recordId: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Record id whose comments to display (auto-resolved to $record.id by default)',
     })
   ),
   /** Comments per page (default: 20). */
   limit: Schema.optional(
-    Schema.Number.annotations({
+    Schema.Finite.annotate({
       description: 'How many comments to load per page (default: 20)',
     })
   ),
@@ -61,7 +61,7 @@ export const commentsFields = {
   paginationStyle: Schema.optional(PaginationStyleSchema),
   /** Empty-state copy. */
   emptyText: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Message displayed when no comments exist (default: "No comments yet")',
     })
   ),
@@ -84,25 +84,25 @@ export const commentCountFields = {
   ...i18nFields,
   /** Table whose records the count belongs to (auto-resolved on collection pages). */
   table: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Table whose records the comment count belongs to',
     })
   ),
   /** Explicit record id (overrides `$record.id`). */
   recordId: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Record id whose count to display (auto-resolved to $record.id by default)',
     })
   ),
   /** Format with optional `{count}` placeholder. Default: `"{count} comments"`. */
   format: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Format string with {count} placeholder (default: "{count} comments")',
     })
   ),
   /** Text to display when count is 0. Default: `"0 comments"`. */
   emptyText: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Text displayed when count is zero (default: "0 comments")',
     })
   ),

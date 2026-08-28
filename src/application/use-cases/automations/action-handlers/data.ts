@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { decodeAppConfigObject } from '@/application/use-cases/schema/decode-app-config'
 import {
   asArray,
   buildRunContextView,
@@ -51,7 +50,7 @@ const buildContext = buildRunContextView
 const rawProps = rawActionProps
 const toArray = asArray
 
-const ok = (output: Record<string, unknown>): ActionOutcome =>
+const ok = (output: Readonly<Record<string, unknown>>): ActionOutcome =>
   ({ status: 'success', output }) as const satisfies ActionOutcome
 
 const fieldOf = (item: unknown, field: string): unknown =>
@@ -107,7 +106,7 @@ const aggregateGrouped = (
   items: readonly unknown[],
   field: string | undefined,
   groupBy: string
-): Record<string, number> =>
+): Readonly<Record<string, number>> =>
   Object.fromEntries(
     Object.entries(groupItems(items, groupBy)).map(
       ([key, bucket]) => [key, aggregateOne(fn, bucket, field)] as const
@@ -255,83 +254,5 @@ export const handleDataLookup: ActionHandler = (_action, _app, _automation, runC
       const key = strProp(props, ctx, 'key')
       const value = resolveProp(props['value'], ctx)
       return ok({ result: items.find((item) => fieldOf(item, key) === value) })
-    })
-  )
-
-// ── validate-config (GAP-J2) ──────────────────────────────────────────────────
-
-/**
- * Result of validating a submitted config string against AppSchema, surfaced as
- * `steps.<name>.result` so later steps can branch on `.valid` / `.errors`.
- */
-interface ValidateConfigResult {
-  readonly valid: boolean
-  readonly errors: readonly string[]
-}
-
-/**
- * Parse a config string into a JS object. JSON is the default; `yaml` parses via
- * the native `Bun.YAML` parser (the same one the CLI / schema loaders use). A
- * parse failure is surfaced as a structured error message rather than a throw so
- * the action returns `{ valid: false, errors }` rather than failing the run.
- */
-const parseConfigString = (
-  raw: string,
-  format: string | undefined
-):
-  | { readonly ok: true; readonly value: unknown }
-  | { readonly ok: false; readonly error: string } => {
-  try {
-    // The raw config string is intentionally untyped: it is decoded against
-    // AppSchema by `decodeAppConfigObject` AFTER this structural parse, so there
-    // is no single Effect Schema that applies at the parse step.
-    // @effect-diagnostics effect/preferSchemaOverJson:off
-    const value = format === 'yaml' ? Bun.YAML.parse(raw) : JSON.parse(raw)
-    return { ok: true, value }
-  } catch (error) {
-    return {
-      ok: false,
-      error: `Failed to parse config (${format ?? 'json'}): ${error instanceof Error ? error.message : String(error)}`,
-    }
-  }
-}
-
-/**
- * `data:validate-config` (GAP-J2) — decode a submitted config string against
- * AppSchema via the platform's own structural-decode choke point
- * (`decodeAppConfigObject`, shared with the `sovrium validate` CLI) and expose
- * `{ valid, errors }` on the step output so later steps can read
- * `{{steps.<name>.valid}}` / `{{steps.<name>.errors}}`. Decode-only: no side
- * effects, no boot. Parse failures and structural-decode failures both surface
- * as `{ valid: false, errors }` (HTTP 200 — the action itself succeeds; the
- * config is what is invalid).
- *
- * The outcome exposes the result BOTH nested under `result` (so the webhook
- * `output.result.valid` envelope + the `{{steps.<name>.result.valid}}` alias
- * resolve) AND flattened at the top level (so the bare `{{steps.<name>.valid}}`
- * / `{{steps.<name>.errors}}` chaining the spec uses resolves). The step-result
- * view does NOT re-wrap an output that already carries a `result` key, so we
- * spread the flattened keys alongside it here.
- */
-const validateConfigOutput = (result: ValidateConfigResult): Record<string, unknown> => ({
-  result,
-  valid: result.valid,
-  errors: result.errors,
-})
-
-export const handleDataValidateConfig: ActionHandler = (_action, _app, _automation, runContext) =>
-  Effect.succeed(
-    withRunContext(runContext, (props, ctx): ActionOutcome => {
-      const raw = strProp(props, ctx, 'config')
-      const format = optStrProp(props, ctx, 'format')
-      const parsed = parseConfigString(raw, format)
-      if (!parsed.ok) {
-        return ok(validateConfigOutput({ valid: false, errors: [parsed.error] }))
-      }
-      const decoded = decodeAppConfigObject(parsed.value)
-      const result: ValidateConfigResult = decoded.valid
-        ? { valid: true, errors: [] }
-        : { valid: false, errors: decoded.errors }
-      return ok(validateConfigOutput(result))
     })
   )

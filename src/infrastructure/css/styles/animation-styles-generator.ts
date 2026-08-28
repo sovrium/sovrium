@@ -24,7 +24,7 @@ import type { AnimationConfigObject, AnimationsConfig } from '@/domain/models/ap
  */
 export function generateKeyframes(
   name: string,
-  keyframes: Record<string, unknown>,
+  keyframes: Readonly<Record<string, unknown>>,
   theme?: Theme
 ): string {
   const keyframeSteps = Object.entries(keyframes)
@@ -113,15 +113,23 @@ export function processAnimationConfigObject(
 }
 
 /**
- * Process a single legacy animation config entry
- * Returns array of CSS strings (keyframes + optional animation class)
+ * Process a single flat animation entry.
+ *
+ * The flat form declares each animation as a top-level key of
+ * `theme.animations` — `animations.<name> = true | 'fade-in 1s ease' | {…}`
+ * — as opposed to the nested design-token form, which nests named keyframe
+ * sets under `animations.keyframes.<name>`. Both forms are supported and
+ * both are generated on every compile; the reserved key guard above
+ * is what keeps them from colliding, by skipping the nested form's
+ * sibling keys (`keyframes`, `duration`, `easing`) when walking the flat
+ * one.
  *
  * @param name - Animation name
  * @param config - Animation configuration (can be boolean, string, or object)
  * @param theme - Optional theme for token resolution
- * @returns Array of CSS rules
+ * @returns Array of CSS rules (keyframes + optional animation class)
  */
-export function processLegacyAnimationEntry(
+export function processFlatAnimationEntry(
   name: string,
   config: unknown,
   theme?: Theme
@@ -145,7 +153,7 @@ export function processLegacyAnimationEntry(
 
 /**
  * Generate @keyframes and animation CSS from domain animations config
- * Supports both nested design tokens and legacy flat animations
+ * Supports both the nested design-token form and the flat form
  *
  * @param animations - Animations configuration from theme
  * @param theme - Optional theme for token resolution
@@ -172,13 +180,14 @@ export function generateAnimationStyles(animations?: AnimationsConfig, theme?: T
         )
       : []
 
-  // Process legacy flat animations (backwards compatibility, immutable)
-  const legacyAnimationsCSS = Object.entries(animations).flatMap(([name, config]) =>
-    processLegacyAnimationEntry(name, config, theme)
+  // Process flat animations — top-level `animations.<name>` entries
+  // (immutable)
+  const flatAnimationsCSS = Object.entries(animations).flatMap(([name, config]) =>
+    processFlatAnimationEntry(name, config, theme)
   )
 
   // Combine all CSS (immutable)
-  const animationCSS: readonly string[] = [...nestedKeyframesCSS, ...legacyAnimationsCSS]
+  const animationCSS: readonly string[] = [...nestedKeyframesCSS, ...flatAnimationsCSS]
 
   return animationCSS.join('\n')
 }

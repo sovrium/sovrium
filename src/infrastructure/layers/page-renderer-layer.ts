@@ -13,7 +13,6 @@ import { renderErrorPage, renderNotFoundPage } from '@/presentation/rendering/re
 import { renderPage } from '@/presentation/rendering/render-page'
 import { renderRssFeed } from '@/presentation/rendering/render-rss-feed'
 import type { DataSourceDb } from '@/presentation/rendering/data-source-resolver'
-import type { Context } from 'effect'
 
 /**
  * Creates a DataSourceDb adapter from the Effect DataSourceRepository.
@@ -21,7 +20,7 @@ import type { Context } from 'effect'
  * Bridges the Effect-based repository (infrastructure layer) to the
  * plain async interface expected by the presentation rendering layer.
  */
-function createDataSourceDbAdapter(repo: Context.Tag.Service<DataSourceRepository>): DataSourceDb {
+function createDataSourceDbAdapter(repo: DataSourceRepository['Service']): DataSourceDb {
   return {
     fetchRecords: (tableName, options) => Effect.runPromise(repo.fetchRecords(tableName, options)),
     countRecords: (tableName, filter) => Effect.runPromise(repo.countRecords(tableName, filter)),

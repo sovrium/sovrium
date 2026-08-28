@@ -39,19 +39,19 @@ export { isAdminRole }
  *   create: ['admin', 'editor']
  * ```
  */
-export const PermissionValueSchema = Schema.Union(
+export const PermissionValueSchema = Schema.Union([
   Schema.Literal('all'),
   Schema.Literal('authenticated'),
   Schema.Array(Schema.String).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Role List',
       description: 'Array of role names that have access (e.g., admin, editor). At least one role.',
       examples: [['admin'], ['admin', 'editor'], ['admin', 'member', 'viewer']],
     })
-  )
-).pipe(
-  Schema.annotations({
+  ),
+]).pipe(
+  Schema.annotate({
     title: 'Permission Value',
     description:
       "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",

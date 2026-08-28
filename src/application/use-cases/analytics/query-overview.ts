@@ -8,17 +8,25 @@
 import { Effect } from 'effect'
 import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
 import type {
+  AnalyticsQueryParams,
   AnalyticsDatabaseError,
   AnalyticsSummary,
   TimeSeriesPoint,
 } from '../../ports/repositories/analytics/analytics-repository'
 
-export interface QueryOverviewInput {
-  readonly appName: string
-  readonly from: Date
-  readonly to: Date
-  readonly granularity: 'hour' | 'day' | 'week' | 'month'
-}
+/**
+ * Input for `queryOverview`.
+ *
+ * The event-population fields (`eventType` / `eventName`) are carried by
+ * SPREADING the repository's own param type rather than re-listing its fields.
+ * That is the whole point: this reader family shipped with each hop hand-copying
+ * `appName`/`from`/`to`, which silently dropped `?event_type=` between the
+ * parser and the where-clause. The reader then answered a click-shaped question
+ * with page-view totals — HTTP 200, a plausible number, the wrong population,
+ * and nothing to fail on. A structural forward cannot drop the NEXT field added
+ * here the same way.
+ */
+export type QueryOverviewInput = AnalyticsQueryParams
 
 export interface OverviewResult {
   readonly summary: AnalyticsSummary
@@ -34,16 +42,9 @@ export const queryOverview = (
   Effect.gen(function* () {
     const repo = yield* AnalyticsRepository
 
-    const params = {
-      appName: input.appName,
-      from: input.from,
-      to: input.to,
-      granularity: input.granularity,
-    }
-
     const [summary, timeSeries] = yield* Effect.all([
-      repo.getSummary(params),
-      repo.getTimeSeries(params),
+      repo.getSummary(input),
+      repo.getTimeSeries(input),
     ])
 
     return { summary, timeSeries }

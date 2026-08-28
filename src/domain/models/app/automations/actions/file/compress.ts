@@ -24,7 +24,7 @@ export const FileCompressActionSchema = Schema.Struct({
     /** Array of storage keys to compress into the archive */
     keys: Schema.optional(
       Schema.Array(TemplateStringSchema).pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Array of storage keys to compress into the archive',
         })
       )
@@ -33,7 +33,7 @@ export const FileCompressActionSchema = Schema.Struct({
     /** Template resolving to array of storage keys to compress (alias of `keys`) */
     files: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Template resolving to array of storage keys to compress',
         })
       )
@@ -42,7 +42,7 @@ export const FileCompressActionSchema = Schema.Struct({
     /** Output archive filename */
     filename: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Output archive filename',
         })
       )
@@ -51,12 +51,14 @@ export const FileCompressActionSchema = Schema.Struct({
     /** Storage destination for the archive */
     destination: DestinationPropSchema,
   }).pipe(
-    Schema.filter((props) => (props.keys ?? props.files) !== undefined, {
-      message: () => 'compress requires `keys` (or `files`)',
-    })
+    Schema.check(
+      Schema.makeFilter((props) => (props.keys ?? props.files) !== undefined, {
+        message: 'compress requires `keys` (or `files`)',
+      })
+    )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileCompressAction',
     title: 'File Compress Action',
     description: 'Create a ZIP archive from one or more storage files',

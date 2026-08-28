@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { DevTools } from '@effect/experimental'
 import { Layer } from 'effect'
+import { DevTools } from 'effect/unstable/devtools'
 
 /**
  * Effect DevTools layer for development debugging

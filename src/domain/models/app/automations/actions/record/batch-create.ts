@@ -22,13 +22,13 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Target table name */
     table: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Table to create records in' })
+      Schema.annotate({ description: 'Table to create records in' })
     ),
 
     /** Template variable referencing an array of data objects */
     items: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Template variable referencing an array of record data objects (e.g., "{{transform.result}}")',
         })
@@ -38,26 +38,24 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
     /** Template variable referencing an array of data objects (alias of `items`) */
     records: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Template variable referencing an array of record data objects (alias of `items`)',
         })
       )
     ),
 
-    /** Maximum records per batch operation */
-
     /** Continue creating remaining records if one fails */
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Continue processing remaining items if one fails (default: false)',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'RecordBatchCreateAction',
     title: 'Record Batch Create Action',
     description: 'Create multiple records in a single operation',

@@ -14,7 +14,7 @@ import { AggregateFunctionSchema } from '../../../shared-schemas'
  * Alias of the shared `AggregateFunctionSchema`. The chart-specific name is
  * kept for callsite clarity and a chart-targeted description annotation.
  */
-export const ChartAggregateFunctionSchema = AggregateFunctionSchema.annotations({
+export const ChartAggregateFunctionSchema = AggregateFunctionSchema.annotate({
   title: 'Chart Aggregate Function',
   description: 'Aggregate function applied to the Y-axis field',
 })
@@ -22,13 +22,13 @@ export const ChartAggregateFunctionSchema = AggregateFunctionSchema.annotations(
 /**
  * Date grouping interval for aggregate queries.
  */
-export const ChartDateIntervalSchema = Schema.Literal(
+export const ChartDateIntervalSchema = Schema.Literals([
   'day',
   'week',
   'month',
   'quarter',
-  'year'
-).annotations({
+  'year',
+]).annotate({
   title: 'Date Interval',
   description: 'Time interval for date-based grouping',
 })
@@ -41,15 +41,15 @@ export const ChartAggregateSchema = Schema.Struct({
   function: ChartAggregateFunctionSchema,
   /** Field to aggregate (not required for count) */
   field: Schema.optional(
-    Schema.String.annotations({ description: 'Field to aggregate (omit for count)' })
+    Schema.String.annotate({ description: 'Field to aggregate (omit for count)' })
   ),
   /** Field to group records by */
-  groupBy: Schema.String.annotations({
+  groupBy: Schema.String.annotate({
     description: 'Field to group records by on the X-axis',
   }),
   /** Date grouping interval (when groupBy is a date field) */
   interval: Schema.optional(ChartDateIntervalSchema),
-}).annotations({
+}).annotate({
   title: 'Chart Aggregate',
   description: 'Aggregate function and grouping configuration for summarized chart data',
 })

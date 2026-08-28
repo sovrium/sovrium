@@ -7,7 +7,9 @@
 
 import { Effect } from 'effect'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -16,21 +18,28 @@ import {
   type RunAutomationResult,
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
  * Locate a cron-triggered automation by name and reject states that should
- * not produce a run (missing, disabled, or non-cron trigger). Mirrors the
- * webhook/manual variants so cron-bound entries get the same defensive
+ * not produce a run (missing, operationally OFF, or non-cron trigger). Mirrors
+ * the webhook/manual variants so cron-bound entries get the same defensive
  * filtering before execution.
+ *
+ * THIS IS THE CRON PAUSE GATE. Cron REGISTRATION is deliberately not gated (see
+ * `infrastructure/scheduling/register-cron-automations.ts`), so a paused cron
+ * automation still wakes the scheduler on schedule and is dropped here. That
+ * costs a wasted tick and buys a resume that needs no re-arming.
  */
 const resolveCronAutomation = (
   app: App,
-  name: string
+  name: string,
+  pausedNames: ReadonlySet<string>
 ): Effect.Effect<NonNullable<App['automations']>[number], RunAutomationError> => {
   const automation = app.automations?.find((a) => a.name === name)
   if (!automation) return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
-  if (automation.enabled === false) {
+  if (!isAutomationOperationallyEnabled(automation, pausedNames)) {
     return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   }
   if (automation.trigger.type !== 'cron') {
@@ -81,10 +90,13 @@ export const runCronAutomation = ({
 }: RunCronAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
-  ExecuteAutomationRunRequirements
+  ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const automation = yield* resolveCronAutomation(app, name)
+    // Entry point: read the pauses on every tick, so a resume takes effect on
+    // the very next scheduled fire without re-registering the job.
+    const pausedNames = yield* loadPausedAutomationNames
+    const automation = yield* resolveCronAutomation(app, name, pausedNames)
     const automationId = yield* resolveAutomationId(name, automation)
     return yield* executeAutomationRun({
       name,
@@ -152,13 +164,19 @@ export const runCronAutomationOnDemand = ({
 }: RunCronAutomationOnDemandOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
-  ExecuteAutomationRunRequirements
+  ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
     // Re-resolve to reject non-cron triggers up front with the manual error
     // tag (→ 404 at the route) before any side effect runs.
+    //
+    // The off-state check here is NOT redundant with the one in
+    // `runCronAutomation` below: this path must refuse BEFORE the role gate, so
+    // that a paused automation and a non-existent one are indistinguishable to
+    // a caller who would fail the role check anyway (S1).
+    const pausedNames = yield* loadPausedAutomationNames
     const automation = app.automations?.find((a) => a.name === name)
-    if (!automation || automation.enabled === false) {
+    if (!automation || !isAutomationOperationallyEnabled(automation, pausedNames)) {
       return yield* Effect.fail({ _tag: 'AutomationNotFound' as const, name })
     }
     if (automation.trigger.type !== 'cron') {

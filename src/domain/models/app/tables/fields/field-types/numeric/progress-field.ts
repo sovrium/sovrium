@@ -28,31 +28,30 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const ProgressFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('progress'),
-      color: Schema.optional(
-        Schema.String.pipe(
-          Schema.pattern(/^#[0-9a-fA-F]{6}$/, {
-            message: () => 'Color of the progress bar',
-          }),
-          Schema.annotations({
-            description: 'Color of the progress bar',
+  Schema.fieldsAssign({
+    type: Schema.Literal('progress'),
+    color: Schema.optional(
+      Schema.String.pipe(
+        Schema.check(
+          Schema.isPattern(/^#[0-9a-fA-F]{6}$/, {
+            message: 'Color of the progress bar',
           })
-        )
-      ),
-      default: Schema.optional(
-        Schema.Number.pipe(
-          Schema.greaterThanOrEqualTo(0),
-          Schema.lessThanOrEqualTo(100),
-          Schema.annotations({
-            description: 'Default progress value (0-100) when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+        ),
+        Schema.annotate({
+          description: 'Color of the progress bar',
+        })
+      )
+    ),
+    default: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
+        Schema.annotate({
+          description: 'Default progress value (0-100) when creating new records',
+        })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Progress Field',
     description:
       'Displays percentage value as progress bar. Used for tracking completion status or goals.',

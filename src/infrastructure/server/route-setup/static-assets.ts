@@ -17,6 +17,7 @@ import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-asset
 import { compileCSS } from '@/infrastructure/css/compiler'
 import {
   getVersionedCssHash,
+  OPERATOR_CONSOLE_CSS_HASH,
   parseVersionedCssHash,
   VERSIONED_CSS_FILE_PATTERN,
 } from '@/infrastructure/css/versioned-css-path'
@@ -28,6 +29,8 @@ import {
   isCompiled,
   resolvePackagePath,
 } from '@/infrastructure/utils/package-paths'
+import { resolveDashboardApp } from './admin-dashboard-routes'
+import { islandDirName, sweepStaleIslandDirs } from './island-dir-sweep'
 import type { App } from '@/domain/models/app'
 
 const isProduction = isProductionEnv()
@@ -40,6 +43,26 @@ const isProduction = isProductionEnv()
  */
 export function getCacheControlHeader(): string {
   return isProduction ? 'public, max-age=3600' : 'no-store, no-cache, must-revalidate'
+}
+
+/**
+ * Resolve WHICH app a versioned stylesheet request is asking for.
+ *
+ * The server hosts two apps, not one: the operator's, and Sovrium's own
+ * `/_admin` console (a separate embedded config that declares no theme). Each
+ * links its own hash, so the hash is the request's statement of which
+ * stylesheet it wants — and honouring it is the whole reason a tenant theme
+ * stops at the tenant's pages instead of repainting the console chrome.
+ *
+ * Anything else — an unknown hash, or HTML cached from a previous deploy —
+ * falls back to the operator app. That fallback is load-bearing: resolving by
+ * hash makes "no app matches" a natural 404, and a 404 here leaves every
+ * visitor still holding old HTML staring at an unstyled page. Serving working
+ * CSS under a short cache header is always the better answer.
+ */
+const resolveCssApp = async (requestedHash: string, operatorApp: App): Promise<App> => {
+  if (requestedHash !== OPERATOR_CONSOLE_CSS_HASH) return operatorApp
+  return (await resolveDashboardApp()) ?? operatorApp
 }
 
 /**
@@ -78,12 +101,17 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
       .get(`/assets/:file{${VERSIONED_CSS_FILE_PATTERN}}`, async (c) => {
         // Content-versioned stylesheet URL (linked by rendered HTML). The hash
         // is derived from the theme + candidate inputs that determine the CSS,
-        // so the CURRENT hash may be cached forever; a STALE hash (HTML cached
-        // from a previous deploy) still gets working CSS under the short
+        // so it both SELECTS the app to compile (see `resolveCssApp` — the
+        // operator's pages and Sovrium's console link different hashes and must
+        // get different stylesheets) and decides how long the answer may be
+        // cached. The CURRENT hash may be cached forever; a STALE hash (HTML
+        // cached from a previous deploy) still gets working CSS under the short
         // header — never a 404 and never an unstyled page.
         try {
-          const result = await Effect.runPromise(compileCSS(app))
-          const isCurrent = parseVersionedCssHash(c.req.param('file')) === getVersionedCssHash(app)
+          const requestedHash = parseVersionedCssHash(c.req.param('file'))
+          const cssApp = await resolveCssApp(requestedHash, app)
+          const result = await Effect.runPromise(compileCSS(cssApp))
+          const isCurrent = requestedHash === getVersionedCssHash(cssApp)
           return c.text(result.css, 200, {
             'Content-Type': 'text/css',
             'Cache-Control':
@@ -413,12 +441,33 @@ export async function setupPublicDirRoute(
 /**
  * Directory where island build outputs are stored.
  *
- * Development: tmpdir (built at runtime via Bun.build)
+ * Development: a PER-PROCESS tmpdir, built at runtime via Bun.build
  * Bundled:     dist/island-chunks (pre-built during npm publish)
+ *
+ * The dev path is keyed by pid because several Sovrium servers routinely run at
+ * once — Playwright boots one per worker — and `Bun.build` writes each output by
+ * truncating the target file and then rewriting it. That is not atomic. With a
+ * single shared directory, content-hashed names make every process write the
+ * same bytes to the same path, so the builds look interchangeable; but a GET
+ * landing between another process's truncate and its rewrite still serves a
+ * half-written module. The browser then throws a SyntaxError, no island mounts,
+ * and a page built only from islands renders as an empty skeleton with nothing
+ * in the server log to show for it (`/assets/` is excluded from the logger).
+ * Under `isDevCacheDisabled()` the exposure is at its worst: `memoizeUnlessDev`
+ * stops memoizing, so all 126 outputs are rewritten on EVERY request rather than
+ * once per process.
+ *
+ * Giving each process its own directory removes the sharing outright, rather
+ * than merely narrowing the window as renaming a temporary file into place
+ * would. Nothing reads these files across processes: the server that builds
+ * them is the one that serves them.
+ *
+ * These directories outlive the process that made them, so `island-dir-sweep`
+ * reclaims abandoned ones — it owns the naming for exactly that reason.
  */
 const ISLAND_OUT_DIR = isBundled
   ? resolvePackagePath('dist', 'island-chunks')
-  : join(tmpdir(), 'sovrium-islands')
+  : join(tmpdir(), islandDirName(process.pid))
 
 /**
  * Island bundle build result
@@ -438,12 +487,35 @@ export interface IslandBuildResult {
  * see `memoizeUnlessDev`).
  */
 export const buildIslands = (() => {
+  // eslint-disable-next-line functional/no-let
+  let sweepStarted = false
+
   const build = async (): Promise<IslandBuildResult> => {
     // Compiled binary (embedded) and bundled mode (dist/) both ship a
     // pre-built island entry under the stable name `island-entry.js`.
+    // Neither builds into tmpdir, so neither has anything to sweep — the
+    // early return keeps the sweep out of those paths entirely.
     if (isCompiled || isBundled) {
       logDebug('[ISLANDS] Using pre-built island entry')
       return { entryFile: 'island-entry.js' }
+    }
+
+    // Reclaim the build directories of servers that have since exited. Started
+    // at most once per process — under `isDevCacheDisabled()` this function runs
+    // on EVERY request — and deliberately not awaited: it is housekeeping, so it
+    // must never delay the first response, and `sweepStaleIslandDirs` never
+    // throws, so it can never keep a server from starting.
+    if (!sweepStarted) {
+      // eslint-disable-next-line functional/no-expression-statements
+      sweepStarted = true
+      // eslint-disable-next-line functional/no-expression-statements
+      void sweepStaleIslandDirs()
+        .then((removed) => {
+          if (removed.length > 0) {
+            logDebug(`[ISLANDS] Reclaimed ${removed.length} abandoned build dir(s)`)
+          }
+        })
+        .catch((error: unknown) => logDebug(`[ISLANDS] Sweep skipped: ${String(error)}`))
     }
 
     // In development, build from source at runtime

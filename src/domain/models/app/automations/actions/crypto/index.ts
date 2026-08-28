@@ -12,8 +12,11 @@ import { CryptoHmacActionSchema } from './hmac'
 /**
  * Crypto Action — union of all cryptographic operators
  */
-export const CryptoActionSchema = Schema.Union(CryptoHashActionSchema, CryptoHmacActionSchema).pipe(
-  Schema.annotations({
+export const CryptoActionSchema = Schema.Union([
+  CryptoHashActionSchema,
+  CryptoHmacActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'CryptoAction',
     title: 'Crypto Action',
     description: 'Cryptographic operations: hashing and HMAC computation',

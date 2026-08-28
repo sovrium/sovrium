@@ -6,6 +6,24 @@
  */
 
 /**
+ * WHAT THIS FILE DOES **NOT** CARRY, and why: the on-page outbound-click
+ * delegate.
+ *
+ * Two things are true here and both had to be respected. First, nothing renders
+ * a `<script src="/assets/analytics.js">` tag — the tracker that actually runs
+ * is an inline IIFE emitted by `DynamicPage`, of which the script below is a
+ * drifted second copy. Second, `infrastructure-analytics` may not import
+ * `presentation-script`, which is where client-side behaviour belongs.
+ *
+ * So the delegate lives in `src/presentation/scripts/click-delegate-script.ts`
+ * and is emitted only by the copy that runs. Reaching across the boundary to
+ * feed an asset nothing loads would have bought a duplicated security-relevant
+ * exclusion list for no behaviour. If this route is ever genuinely wired up, the
+ * fix is to render it FROM `presentation/scripts` — moving the whole tracker and
+ * collapsing the two copies — not to import backwards from here.
+ */
+
+/**
  * Minimal first-party analytics tracking script (~1KB minified)
  *
  * Features:

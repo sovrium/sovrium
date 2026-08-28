@@ -21,8 +21,8 @@ export const navigationMenuFields = {
   ...i18nFields,
   navItems: Schema.optional(
     Schema.Array(NavItemSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Navigation items with optional sub-menus' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Navigation items with optional sub-menus' })
     )
   ),
   /**
@@ -32,7 +32,7 @@ export const navigationMenuFields = {
    * closing. Applies to every mega-menu trigger in this navigation-menu.
    */
   openOnHover: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'Open a mega-menu trigger on pointer hover in addition to click (click still opens/closes; the pointer may travel from the trigger into the open panel without it closing). Applies to every mega-menu trigger in this navigation-menu.',
     })
@@ -45,7 +45,7 @@ export const navigationMenuFields = {
    * When omitted, the default recipe is used unchanged (other apps unaffected).
    */
   triggerClassName: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Authored className for the navigation-menu trigger; overrides the default trigger recipe on BOTH the SSR placeholder and the hydrated island (identical class list → no hydration reflow). Omit to keep the platform default trigger styling.',
     })

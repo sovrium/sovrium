@@ -31,11 +31,13 @@ import { Schema } from 'effect'
  *
  */
 export const VariableReferenceSchema = Schema.String.pipe(
-  Schema.pattern(/^.*\$[a-zA-Z][a-zA-Z0-9]*.*$/, {
-    message: () =>
-      'Variable reference must contain $variableName where variableName starts with a letter and contains only alphanumeric characters',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^.*\$[a-zA-Z][a-zA-Z0-9]*.*$/, {
+      message:
+        'Variable reference must contain $variableName where variableName starts with a letter and contains only alphanumeric characters',
+    })
+  ),
+  Schema.annotate({
     title: 'Variable Reference',
     description:
       'Pattern for referencing variables in component templates using $variableName syntax',

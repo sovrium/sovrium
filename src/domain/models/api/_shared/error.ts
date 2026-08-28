@@ -65,6 +65,18 @@ export const errorResponseSchema = z
       ])
       .describe('Machine-readable error code'),
     details: z.array(z.string()).optional().describe('Optional error details'),
+    // Both keys below are OPTIONAL and additive, but they must be declared
+    // here to exist at all: this is a bare object schema, and `runEffect`
+    // parses every error response through it, so an undeclared key is stripped
+    // silently on its way to the wire.
+    field: z
+      .string()
+      .optional()
+      .describe('Submitted field the error is about, when it could be attributed to one'),
+    errors: z
+      .array(fieldErrorSchema)
+      .optional()
+      .describe('The same attribution in the accumulating field-error shape'),
   })
   .openapi('ErrorResponse')
 

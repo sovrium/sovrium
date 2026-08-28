@@ -30,10 +30,12 @@ export const ForeignKeySchema = Schema.Struct({
    * @example "fk_permissions_tenant_user"
    */
   name: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.maxLength(63),
-    Schema.pattern(/^[a-z_][a-z0-9_]*$/),
-    Schema.annotations({
+    Schema.check(
+      Schema.isMinLength(1),
+      Schema.isMaxLength(63),
+      Schema.isPattern(/^[a-z_][a-z0-9_]*$/)
+    ),
+    Schema.annotate({
       title: 'Foreign Key Name',
       description:
         'Constraint name following PostgreSQL naming conventions (lowercase, underscores, max 63 chars)',
@@ -45,8 +47,8 @@ export const ForeignKeySchema = Schema.Struct({
    * @example ["tenant_id", "user_id"]
    */
   fields: Schema.Array(Schema.String).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Foreign Key Fields',
       description: 'Local columns that reference the parent table',
     })
@@ -57,8 +59,8 @@ export const ForeignKeySchema = Schema.Struct({
    * @example "tenant_users"
    */
   referencedTable: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Referenced Table',
       description: 'Parent table name that contains the referenced columns',
     })
@@ -69,8 +71,8 @@ export const ForeignKeySchema = Schema.Struct({
    * @example ["tenant_id", "user_id"]
    */
   referencedFields: Schema.Array(Schema.String).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       title: 'Referenced Fields',
       description: 'Columns in the parent table that are referenced',
     })
@@ -81,8 +83,8 @@ export const ForeignKeySchema = Schema.Struct({
    * @default "restrict"
    */
   onDelete: Schema.optional(
-    Schema.Literal('cascade', 'set-null', 'restrict', 'no-action').pipe(
-      Schema.annotations({
+    Schema.Literals(['cascade', 'set-null', 'restrict', 'no-action']).pipe(
+      Schema.annotate({
         title: 'On Delete Action',
         description: 'Referential action when parent row is deleted',
       })
@@ -94,15 +96,15 @@ export const ForeignKeySchema = Schema.Struct({
    * @default "no-action"
    */
   onUpdate: Schema.optional(
-    Schema.Literal('cascade', 'set-null', 'restrict', 'no-action').pipe(
-      Schema.annotations({
+    Schema.Literals(['cascade', 'set-null', 'restrict', 'no-action']).pipe(
+      Schema.annotate({
         title: 'On Update Action',
         description: 'Referential action when parent primary key is updated',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Foreign Key',
     description: 'Composite foreign key constraint for multi-column relationships between tables',
   })

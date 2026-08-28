@@ -33,12 +33,10 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const DeletedAtFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('deleted-at'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('deleted-at'),
+  }),
+  Schema.annotate({
     title: 'Deleted At Field',
     description:
       'Captures the timestamp when a record is soft-deleted. NULL indicates the record is active. Enables soft delete with record restoration capability.',

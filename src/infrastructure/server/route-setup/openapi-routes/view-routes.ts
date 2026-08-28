@@ -66,7 +66,7 @@ const routes: readonly RouteSpec[] = [
 /** View route group — resource-scoped to the configured tables. */
 export const viewGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Table',
-  genericTag: 'views',
+  genericTag: 'Views',
   genericTagDescription: 'View management and filtered record access',
   collection: (app) => app.tables ?? [],
   resourcePlaceholder: '{tableSlug}',

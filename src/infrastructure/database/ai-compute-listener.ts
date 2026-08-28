@@ -141,9 +141,9 @@ export class AiComputeListener {
       config,
     })
 
-    const result = await Effect.runPromise(program.pipe(Effect.provide(AiLive), Effect.either))
-    if (result._tag === 'Left') {
-      logError('[ai-compute] refinement program failed', result.left)
+    const result = await Effect.runPromise(program.pipe(Effect.provide(AiLive), Effect.result))
+    if (result._tag === 'Failure') {
+      logError('[ai-compute] refinement program failed', result.failure)
     }
   }
 }

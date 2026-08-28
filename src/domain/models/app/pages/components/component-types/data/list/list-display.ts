@@ -25,17 +25,17 @@ import { Schema } from 'effect'
  */
 export const ListItemMetadataSchema = Schema.Struct({
   /** Field name from the data source table */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Field name from the data source table',
   }),
   /** Display format for the value */
   format: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Display format (e.g., currency, relative-date, badge, text)',
       examples: ['currency', 'relative-date', 'badge', 'text', 'short-date'],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'List Item Metadata',
   description: 'Metadata field displayed in the list item footer',
 })
@@ -64,28 +64,28 @@ export const ListItemMetadataSchema = Schema.Struct({
 export const ListItemTemplateSchema = Schema.Struct({
   /** Primary text (e.g., '$record.name') */
   title: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Primary text using $record.* variable reference',
       examples: ['$record.name', '$record.title'],
     })
   ),
   /** Secondary text (e.g., '$record.description') */
   subtitle: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Secondary text using $record.* variable reference',
       examples: ['$record.description', '$record.excerpt'],
     })
   ),
   /** Image URL (e.g., '$record.thumbnail') */
   image: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Image URL using $record.* variable reference',
       examples: ['$record.thumbnail', '$record.avatar'],
     })
   ),
   /** Badge text (e.g., '$record.status') */
   badge: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Badge text using $record.* variable reference',
       examples: ['$record.status', '$record.category'],
     })
@@ -93,13 +93,13 @@ export const ListItemTemplateSchema = Schema.Struct({
   /** Additional metadata fields in the item footer */
   metadata: Schema.optional(
     Schema.Array(ListItemMetadataSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Metadata fields displayed in the list item footer',
       })
     )
   ),
-}).annotations({
+}).annotate({
   identifier: 'ListItemTemplate',
   title: 'List Item Template',
   description: 'Template for rendering each record as a list item with $record.* variables',
@@ -140,41 +140,40 @@ export const ListDisplaySchema = Schema.Struct({
   itemTemplate: Schema.optional(ListItemTemplateSchema),
   /** Message shown when no results match */
   emptyMessage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Message when no search results match',
       examples: ['No products found', 'No results for your search'],
     })
   ),
   /** Pagination mode for loading more results */
   loadMore: Schema.optional(
-    Schema.Literal('button', 'infinite').annotations({
+    Schema.Literals(['button', 'infinite']).annotate({
       description: "Pagination: 'button' shows a Load More button, 'infinite' loads on scroll",
     })
   ),
   /** Highlight matched search terms in results */
   highlight: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Highlight matched search terms in list item text (default: false)',
     })
   ),
   /** Show dividers between list items */
   divider: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Show visual dividers between list items (default: false)',
     })
   ),
   /** Maximum number of items to display */
   maxItems: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Maximum number of items to display',
         examples: [20, 50, 100],
       })
     )
   ),
-}).annotations({
+}).annotate({
   identifier: 'ListDisplay',
   title: 'List Display',
   description:

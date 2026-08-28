@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { serializeJsonForScript } from '@/domain/utils/json-script-serialization'
 import { renderScriptTag } from '@/presentation/scripts/script-renderers'
 import type { Analytics } from '@/domain/models/app/pages/meta'
 
@@ -125,14 +126,14 @@ export function buildMarkerScript(
 /**
  * Build config data script for analytics provider
  *
- * SECURITY: Safe use of dangerouslySetInnerHTML
- * - Content: JSON configuration data (JSON.stringify)
+ * SECURITY: use of dangerouslySetInnerHTML
+ * - Content: JSON configuration data
  * - Source: provider.config from validated Analytics schema
- * - Risk: None - JSON data cannot execute as code
- * - Validation: Schema validation ensures object type
  * - Purpose: Store analytics configuration as JSON for client-side access
- * - XSS Protection: type="application/json" prevents script execution
- * - Format: Safe serialization via JSON.stringify
+ * - Risk: a `</script>` sequence inside any string value ends the element
+ *   early and the remainder is parsed as HTML. `type="application/json"` does
+ *   not prevent it — the tokenizer scans raw text for the literal delimiter.
+ * - Mitigation: `serializeJsonForScript` escapes `<` as `\u003c`.
  */
 export function buildConfigScript(
   provider: Analytics['providers'][number],
@@ -150,7 +151,7 @@ export function buildConfigScript(
       type="application/json"
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only <script> element rendered into <head>; never re-renders client-side
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(provider.config),
+        __html: serializeJsonForScript(provider.config),
       }}
       {...styleAttr}
     />

@@ -7,7 +7,21 @@
 
 import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { Database, activityLogs, users } from '@/infrastructure/database'
+import { Database } from '@/infrastructure/database'
+import {
+  authUsersTable,
+  resolveDialectSchema,
+} from '@/infrastructure/database/drizzle/dialect-schema'
+import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
+import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
+
+/**
+ * The audit table for the active dialect — `system.activity_logs` on Postgres,
+ * the flat `system_activity_logs` on SQLite. Mirrors the resolution the sibling
+ * `ActivityLogRepositoryLive` already performs; without it this read emits a
+ * schema-qualified name SQLite has no table for.
+ */
+const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
 /**
  * Activity log with user metadata
@@ -55,6 +69,11 @@ export class ActivityNotFoundError {
 export const getActivityById = (activityId: string) =>
   Effect.gen(function* () {
     const db = yield* Database
+
+    // Resolve the dialect-correct auth users table per call — the user table
+    // lives at `auth.user` on Postgres and `auth_user` on SQLite. Capturing it
+    // locally keeps the leftJoin and the projection columns aligned.
+    const users = authUsersTable()
 
     const result = yield* Effect.tryPromise({
       try: () =>

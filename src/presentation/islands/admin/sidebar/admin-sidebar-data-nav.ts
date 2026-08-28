@@ -50,11 +50,17 @@ const DATA_NAV_ICONS: Readonly<Record<string, FamilyIcon>> = {
   buckets: 'bucket',
   agents: 'agent',
   connections: 'connection',
+  links: 'link',
+  footprint: 'activity',
 }
 
 /**
- * The eight Data-tab rows — the domain {@link DATA_NAV_PAGES} contract decorated
+ * The ten Data-tab rows — the domain {@link DATA_NAV_PAGES} contract decorated
  * with each page's presentation glyph, in the same runtime-data-first order.
+ *
+ * The `?? 'table'` fallback below means a destination MISSING from
+ * {@link DATA_NAV_ICONS} degrades silently to a table glyph rather than failing
+ * — so a new page added to the domain contract must be given its icon here too.
  */
 export const DATA_NAV_ITEMS: ReadonlyArray<DataNavItem> = DATA_NAV_PAGES.map((page) => ({
   ...page,

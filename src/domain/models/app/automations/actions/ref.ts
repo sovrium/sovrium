@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { ActionBaseFields } from './base'
 
 /**
@@ -22,27 +22,29 @@ export const ActionRefSchema = Schema.Struct({
    * `{ name: 'alert', $ref: 'notify-admin' }` (concise) or the explicit
    * `{ name: 'alert', type: 'ref', $ref: 'notify-admin' }`.
    */
-  type: Schema.optionalWith(Schema.Literal('ref'), { default: () => 'ref' as const }),
+  type: Schema.Literal('ref').pipe(Schema.withDecodingDefaultKey(Effect.succeed('ref' as const))),
 
   $ref: Schema.String.pipe(
-    Schema.pattern(/^[a-z][a-z0-9-]*$/),
-    Schema.minLength(1),
-    Schema.maxLength(100),
-    Schema.annotations({
+    Schema.check(
+      Schema.isPattern(/^[a-z][a-z0-9-]*$/),
+      Schema.isMinLength(1),
+      Schema.isMaxLength(100)
+    ),
+    Schema.annotate({
       description: 'Name of the action template to invoke (must match a template in app.actions[])',
     })
   ),
 
   $vars: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({
+    Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({
         description:
           'Variables to substitute in the referenced template (overrides template defaults)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ActionRef',
     title: 'Action Template Reference',
     description:

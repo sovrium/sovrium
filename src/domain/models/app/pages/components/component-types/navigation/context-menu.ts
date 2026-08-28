@@ -19,8 +19,8 @@ export const contextMenuFields = {
   ...i18nFields,
   menuItems: Schema.optional(
     Schema.Array(MenuItemSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Menu items for context-menu' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Menu items for context-menu' })
     )
   ),
 } as const

@@ -45,18 +45,22 @@ const findReservedPrefix = (path: string): string | undefined =>
  * ```
  */
 export const FormPathSchema = Schema.String.pipe(
-  Schema.minLength(2),
-  Schema.maxLength(256),
-  Schema.pattern(/^\/[a-zA-Z0-9_\-/]+$/, {
-    message: () =>
-      'Form path must start with / and contain only URL-safe characters (letters, digits, hyphens, slashes, underscores)',
-  }),
-  Schema.filter((path) => {
-    const reserved = findReservedPrefix(path)
-    if (reserved === undefined) return true
-    return `Form path '${path}' uses reserved prefix '${reserved}' (reserved prefixes: ${RESERVED_PATH_PREFIXES.join(', ')})`
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isMinLength(2),
+    Schema.isMaxLength(256),
+    Schema.isPattern(/^\/[a-zA-Z0-9_\-/]+$/, {
+      message:
+        'Form path must start with / and contain only URL-safe characters (letters, digits, hyphens, slashes, underscores)',
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((path) => {
+      const reserved = findReservedPrefix(path)
+      if (reserved === undefined) return true
+      return `Form path '${path}' uses reserved prefix '${reserved}' (reserved prefixes: ${RESERVED_PATH_PREFIXES.join(', ')})`
+    })
+  ),
+  Schema.annotate({
     identifier: 'FormPath',
     title: 'Form Path',
     description:

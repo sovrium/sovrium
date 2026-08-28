@@ -40,7 +40,7 @@ server or UI code to maintain.
 - **Start with the minimum, grow as needed.** The schema supports progressive complexity —
   add tables, pages, auth, and theme incrementally.
 - **The authoritative contract is the schema itself:** run `sovrium schema` to print the
-  full JSON Schema (Draft-07) for `app.yaml`. When unsure about a property or field type,
+  full JSON Schema (Draft 2020-12) for `app.yaml`. When unsure about a property or field type,
   consult the schema rather than guessing.
 
 ## Commands

@@ -32,8 +32,10 @@ import { Effect } from 'effect'
 import { extractAndStoreFact, recallAgentFacts } from '@/application/use-cases/ai/facts-memory'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { handleAgentChat } from '@/presentation/api/routes/agents/agent-chat'
+import { agentNotFound } from '@/presentation/api/routes/agents/agent-lookup'
+import { checkTriggerPermission } from '@/presentation/api/routes/agents/agent-trigger-guard'
 import { provideAiFactsRepoLive } from '@/presentation/api/routes/ai/effect-runner'
+import { runAgentBoundChatTurn } from '@/presentation/api/routes/ai-chat'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
@@ -91,17 +93,43 @@ const maybeStoreFact = async (
       userId,
       fact: reply,
       maxFacts: agent.memory?.facts?.maxFacts ?? DEFAULT_MAX_FACTS,
-    }).pipe(provideAiFactsRepoLive, Effect.either, Effect.asVoid)
+    }).pipe(provideAiFactsRepoLive, Effect.result, Effect.asVoid)
   )
 }
 
 /**
  * `POST /api/ai/agents/:name/chat` — agent-bound chat turn with fact
- * extraction. Delegates the AI provider round-trip to {@link handleAgentChat},
- * then — when the agent has `memory.facts.enabled: true` and the turn
- * succeeded — persists the assistant reply as an atomic fact for the agent's
- * namespace via {@link maybeStoreFact}.
+ * extraction. Delegates the whole turn to {@link runAgentBoundChatTurn} — the
+ * SAME dispatch `POST /api/ai/chat { agent }` uses — then, when the agent has
+ * `memory.facts.enabled: true` and the turn succeeded, persists the assistant
+ * reply as an atomic fact for the agent's namespace via {@link maybeStoreFact}.
+ *
+ * The reply is read back off a CLONE of the response: this route needs the text
+ * for fact extraction, but the envelope belongs to the shared turn and is
+ * returned untouched. Reading it here rather than owning a second provider call
+ * is what keeps fact extraction on the same transport as every other agent
+ * turn — it inherits tool calling and provider-aware routing for free.
  */
+/**
+ * Persist the assistant reply as an atomic fact when the turn succeeded and the
+ * agent has memory enabled. Reads the reply off a CLONE so the envelope the
+ * shared turn produced is returned untouched.
+ */
+const storeFactFromTurn = async (
+  c: Readonly<Context>,
+  agent: Agent,
+  response: Response
+): Promise<void> => {
+  if (response.status !== 200) return
+  const body = (await response
+    .clone()
+    .json()
+    .catch(() => ({}))) as { readonly reply?: unknown }
+  if (typeof body.reply !== 'string') return
+  // eslint-disable-next-line functional/no-expression-statements -- best-effort fact-persistence side effect
+  await maybeStoreFact(agent, resolveUserId(c), body.reply)
+}
+
 const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Response> => {
   const agentName = c.req.param('name')
   if (typeof agentName !== 'string' || agentName.length === 0) {
@@ -109,23 +137,25 @@ const handleFactsChat = async (c: Readonly<Context>, app?: App): Promise<Respons
   }
   const agent = (app?.agents ?? []).find((a) => a.name === agentName)
   if (agent === undefined || app === undefined) {
-    return c.json({ error: `Agent '${agentName}' is not declared in the app schema.` }, 404)
+    return agentNotFound(c)
   }
+
+  // [internal ref]: this is the FOURTH per-agent invocation route, and
+  // it sits under a different prefix (`/api/ai/agents/*`) from the other three.
+  // That prefix also attaches `authMiddleware` without chaining `requireAuth()`,
+  // so gating `/api/agents/*` alone would leave the agent reachable here.
+  const triggerRefusal = await checkTriggerPermission(c, agent)
+  if (triggerRefusal) return triggerRefusal
 
   const { message, sessionId } = await parseFactsChatBody(c)
   if (message.length === 0) {
     return c.json({ error: '`message` is required and must be a non-empty string.' }, 400)
   }
 
-  const result = await handleAgentChat(app, { message, sessionId, agentName })
-  const { reply } = result.body
-
-  if (result.status === 200 && typeof reply === 'string') {
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort fact-persistence side effect
-    await maybeStoreFact(agent, resolveUserId(c), reply)
-  }
-
-  return c.json(result.body, result.status)
+  const response = await runAgentBoundChatTurn(c, app, { message, sessionId, agentName })
+  // eslint-disable-next-line functional/no-expression-statements -- best-effort fact-persistence side effect
+  await storeFactFromTurn(c, agent, response)
+  return response
 }
 
 /**
@@ -137,7 +167,7 @@ const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Respo
   const agentName = c.req.param('name')
   const agent = (app?.agents ?? []).find((a) => a.name === agentName)
   if (agent === undefined) {
-    return c.json({ error: `Agent '${agentName}' is not declared in the app schema.` }, 404)
+    return agentNotFound(c)
   }
   const userId = resolveUserId(c)
   if (userId === undefined) {
@@ -147,14 +177,14 @@ const handleFactsRecall = async (c: Readonly<Context>, app?: App): Promise<Respo
     c,
     recallAgentFacts({ namespace: resolveNamespace(agent), userId }).pipe(
       provideAiFactsRepoLive,
-      Effect.either
+      Effect.result
     )
   )
-  if (result._tag === 'Left') {
-    logError('[ai] recall-facts failed', result.left)
+  if (result._tag === 'Failure') {
+    logError('[ai] recall-facts failed', result.failure)
     return c.json({ error: 'Failed to recall facts.' }, 500)
   }
-  const facts = result.right.map((f) => ({
+  const facts = result.success.map((f) => ({
     fact: f.fact,
     createdAt: f.createdAt.toISOString(),
   }))

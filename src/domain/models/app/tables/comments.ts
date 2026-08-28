@@ -16,20 +16,20 @@ const AutoApproveSchema = Schema.Struct({
   /** Auto-approve comments from authenticated users */
   authenticated: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Auto-approve comments from logged-in users' })
+      Schema.annotate({ description: 'Auto-approve comments from logged-in users' })
     )
   ),
 
   /** Auto-approve guests who had a prior approved comment */
   previouslyApproved: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Auto-approve guests with a previously approved comment',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'CommentsAutoApprove',
     title: 'Auto-Approve Rules',
     description: 'Rules for automatically approving comments when moderation is enabled',
@@ -47,7 +47,7 @@ const SpamProtectionSchema = Schema.Struct({
   /** Render a hidden honeypot input; filled submissions are silently discarded (HTTP 200, no comment created). */
   honeypot: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Render a hidden honeypot input; submissions with non-empty honeypot value return 200 OK silently (default: true when guest comments enabled)',
       })
@@ -55,8 +55,8 @@ const SpamProtectionSchema = Schema.Struct({
   ),
   /** Max comments per IP per minute. 6th submission returns 429. */
   rateLimitPerIp: Schema.optional(
-    Schema.Number.pipe(
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.annotate({
         description:
           'Max comments per IP per minute; the (N+1)th submission within the window returns 429 (default: 5)',
       })
@@ -64,8 +64,8 @@ const SpamProtectionSchema = Schema.Struct({
   ),
   /** Comments containing more links than this are auto-set to status: 'pending'. */
   maxLinksBeforeModeration: Schema.optional(
-    Schema.Number.pipe(
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.annotate({
         description:
           'Comments whose body contains more than N URL-like substrings are auto-set to status:"pending" (default: 2)',
       })
@@ -74,14 +74,14 @@ const SpamProtectionSchema = Schema.Struct({
   /** Blocked words (case-insensitive substring match) → auto status: 'rejected'. */
   blockedWords: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Case-insensitive substring matches against the comment body; any hit auto-sets status:"rejected"',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'CommentsSpamProtection',
     title: 'Comment Spam Protection',
     description:
@@ -96,8 +96,8 @@ const SpamProtectionSchema = Schema.Struct({
  * - `'auto'`: comments enter status:"approved" immediately (spam guards may still flip to pending/rejected).
  * - `'auth-required'`: only authenticated users may post; comments enter status:"approved" immediately.
  */
-const ModerationModeSchema = Schema.Literal('auto', 'manual', 'auth-required').pipe(
-  Schema.annotations({
+const ModerationModeSchema = Schema.Literals(['auto', 'manual', 'auth-required']).pipe(
+  Schema.annotate({
     identifier: 'CommentsModerationMode',
     title: 'Comment Moderation Mode',
     description:
@@ -115,7 +115,7 @@ export const CommentsConfigSchema = Schema.Struct({
   /** Allow guest (unauthenticated) comments */
   guestComments: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Allow guest comments without authentication (default: false)',
       })
     )
@@ -124,14 +124,14 @@ export const CommentsConfigSchema = Schema.Struct({
   /** Require email for guest comments */
   guestEmailRequired: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Require email for guest comments (default: true)' })
+      Schema.annotate({ description: 'Require email for guest comments (default: true)' })
     )
   ),
 
   /** Enable single-level threading (replies) */
   threading: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Enable single-level replies (default: false)' })
+      Schema.annotate({ description: 'Enable single-level replies (default: false)' })
     )
   ),
 
@@ -153,7 +153,7 @@ export const CommentsConfigSchema = Schema.Struct({
    */
   readTracking: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Opt-in per-user comment read/unread tracking; adds unreadCount to the read response and a mark-read endpoint (default: false)',
       })
@@ -177,7 +177,7 @@ export const CommentsConfigSchema = Schema.Struct({
    */
   spamProtection: Schema.optional(SpamProtectionSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'CommentsConfig',
     title: 'Comments Configuration',
     description:

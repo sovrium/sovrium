@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 
 /**
  * A path `from` which a retired URL redirects.
@@ -15,11 +16,13 @@ import { Schema } from 'effect'
  * carried onto the target, so encoding one here would be silently ignored.
  */
 const RedirectFromSchema = Schema.String.pipe(
-  Schema.pattern(/^\/[^\s?#]*$/, {
-    message: () =>
-      "redirect 'from' must be a root-relative path starting with '/' and must not contain whitespace, '?' or '#'",
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isPattern(/^\/[^\s?#]*$/, {
+      message:
+        "redirect 'from' must be a root-relative path starting with '/' and must not contain whitespace, '?' or '#'",
+    })
+  ),
+  Schema.annotate({
     description:
       "Root-relative path to redirect FROM (e.g. '/products/platform'). Matched locale-agnostically unless it already begins with a configured language segment.",
   })
@@ -34,16 +37,50 @@ const RedirectFromSchema = Schema.String.pipe(
  * redirect table into an open-redirect primitive. Cross-origin hand-offs must
  * be written with an explicit `https://` scheme so the intent is visible in the
  * config being reviewed.
+ *
+ * The pattern below is NOT sufficient alone, which is why a second check
+ * follows it. Its `(?!\/)` guard rejects only a literal second slash, so the
+ * equivalent BACKSLASH form `/\evil.com` passed — and every WHATWG parser
+ * (browser, `fetch`, `new URL`) normalises backslashes to slashes for special
+ * schemes, resolving it to `https://evil.com/`. The value reaches `c.redirect`
+ * verbatim in `route-setup/redirect-routes.ts`, so a target that reads as a
+ * local path under review behaved as a cross-origin redirect at runtime. The
+ * same holds for a target containing a tab, CR or LF, which URL parsing strips
+ * from anywhere in the string.
+ *
+ * Enumerating those forms is the losing move. The PATH branch is therefore
+ * closed by construction with {@link isSafeRedirectPath}, which resolves the
+ * candidate against a fixed synthetic base and requires the origin to come back
+ * unchanged — so forms not yet invented fail too. That helper is the single
+ * canonical redirect-target check in the codebase; do not add a second one.
  */
+// The `annotate` comes FIRST, before either `check`. In Effect 4 a trailing
+// annotate attaches to the preceding CHECK rather than to the node, and with two
+// checks in the pipe the `description` stopped reaching
+// `apps/website/public/schema/app.json` — silently costing config authors the
+// editor tooltip for `redirects[].to`. It survived with a single check, so the
+// ordering only becomes load-bearing at the second one. Caught by Schema Drift.
 const RedirectToSchema = Schema.String.pipe(
-  Schema.pattern(/^(?:\/(?!\/)[^\s#]*|https?:\/\/[^\s]+)$/, {
-    message: () =>
-      "redirect 'to' must be a root-relative path starting with a single '/' or an absolute http(s) URL (protocol-relative '//host' targets are rejected as open redirects)",
-  }),
-  Schema.annotations({
+  Schema.annotate({
     description:
       "Redirect target — a root-relative path (e.g. '/') or an absolute http(s) URL. A path target inherits the request's language prefix; an absolute URL is used verbatim.",
-  })
+  }),
+  Schema.check(
+    Schema.isPattern(/^(?:\/(?!\/)[^\s#]*|https?:\/\/[^\s]+)$/, {
+      message:
+        "redirect 'to' must be a root-relative path starting with a single '/' or an absolute http(s) URL (protocol-relative '//host' targets are rejected as open redirects)",
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((value: string) =>
+      // The absolute-URL branch is a deliberate, explicitly-written cross-origin
+      // hand-off and is left to the pattern above; only the PATH branch has to
+      // prove that it stays on this origin.
+      !value.startsWith('/') || isSafeRedirectPath(value)
+        ? true
+        : "redirect 'to' resolves to a different origin. A path target must stay on this origin — '/\\host', '//host', and paths containing a tab, CR or LF all resolve cross-origin. Write an explicit 'https://' URL if a hand-off is intended."
+    )
+  )
 )
 
 /**
@@ -68,7 +105,7 @@ const RedirectToSchema = Schema.String.pipe(
  * That combination is rejected at decode time rather than silently ignored.
  */
 const RedirectLocalizeTargetSchema = Schema.Boolean.pipe(
-  Schema.annotations({
+  Schema.annotate({
     description:
       "Whether a root-relative target inherits the language prefix matched by 'from' (default: true). Set false when the target lives outside the locale namespace (e.g. '/_admin/login'), so it is emitted verbatim.",
   })
@@ -82,8 +119,8 @@ const RedirectLocalizeTargetSchema = Schema.Boolean.pipe(
  * - `307` Temporary Redirect — temporary, method-preserving.
  * - `308` Permanent Redirect — permanent, method-preserving.
  */
-const RedirectStatusSchema = Schema.Literal(301, 302, 307, 308).pipe(
-  Schema.annotations({
+const RedirectStatusSchema = Schema.Literals([301, 302, 307, 308]).pipe(
+  Schema.annotate({
     description: 'HTTP redirect status code. Defaults to 301 (Moved Permanently) when omitted.',
   })
 )
@@ -101,7 +138,7 @@ export const RedirectSchema = Schema.Struct({
   /** Whether a path target inherits the matched language prefix (default: true). */
   localizeTarget: Schema.optional(RedirectLocalizeTargetSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Redirect',
     title: 'Redirect Rule',
     description:
@@ -146,15 +183,41 @@ export const isAbsoluteRedirectTarget = (to: string): boolean =>
   to.startsWith('http://') || to.startsWith('https://')
 
 /**
- * Normalize a `to` target down to the comparable path used for loop and cycle
- * detection. Absolute URLs are never part of a cycle (they leave the app), so
- * they normalize to `undefined`.
+ * Every request path a `to` target can lead the browser to, in the order the
+ * browser reaches them. Absolute URLs leave the app entirely and can never be
+ * part of a cycle, so they yield no paths at all.
+ *
+ * TWO forms, not one — and the pair is the whole point:
+ *
+ *  1. the **verbatim** path, minus hash and query. This is what the redirect
+ *     actually emits in `Location`, and `app.redirects` is registered BEFORE
+ *     the canonicalization routes, so this is the form the rule set sees first;
+ *  2. the **canonical** path, trailing slashes stripped. Reached only when no
+ *     rule matched the verbatim form and trailing-slash normalization then
+ *     301s it.
+ *
+ * Collapsing the two into "the canonical one" loses real loops instead of
+ * finding more of them. `{ from: '/x/', to: '/x/' }` is a byte-identical
+ * self-redirect and an unconditional infinite loop — the rule matches `/x/`,
+ * emits `/x/` verbatim, and matches again, never reaching the normalizer — yet
+ * a canonical-only comparison sees `/x` ≠ `/x/` and lets it ship. Likewise the
+ * ring `/a/ → /b`, `/b → /a/`. Conversely, `{ from: '/x/', to: '/x' }` must
+ * stay VALID: it emits `/x`, which does not match `/x/`, so it terminates.
+ *
+ * The `'/'` fallbacks are the sharp edge: a bare `replace(/\/+$/, '')` reduces
+ * the root `to: '/'` — the single most common target in every shipped config —
+ * to the empty string, so both forms must fall back to `/` rather than to `''`,
+ * or every root-targeting rule breaks (or `{ from: '/', to: '/' }` stops being
+ * caught).
  */
-const toComparablePath = (to: string): string | undefined => {
-  if (!to.startsWith('/')) return undefined
+const toComparablePaths = (to: string): readonly string[] => {
+  if (!to.startsWith('/')) return []
   const withoutHash = to.split('#')[0] ?? ''
   const withoutQuery = withoutHash.split('?')[0] ?? ''
-  return withoutQuery === '' ? '/' : withoutQuery
+  const verbatim = withoutQuery === '' ? '/' : withoutQuery
+  const stripped = verbatim.replace(/\/+$/, '')
+  const canonical = stripped === '' ? '/' : stripped
+  return verbatim === canonical ? [verbatim] : [verbatim, canonical]
 }
 
 /**
@@ -171,7 +234,18 @@ const toComparablePath = (to: string): string | undefined => {
 const findCycleEntry = (
   rules: ReadonlyArray<{ readonly from: string; readonly to: string }>
 ): string | undefined => {
-  const targets = new Map(rules.map((rule) => [rule.from, toComparablePath(rule.to)]))
+  const declaredFroms = new Set(rules.map((rule) => rule.from))
+
+  // The next path the rule set actually sees. A target is requested VERBATIM
+  // first, so a rule declaring that exact `from` claims it before trailing-slash
+  // normalization ever runs; only when none does can the canonical form be
+  // reached. Preferring whichever form is declared — rather than always
+  // canonicalizing — is what keeps a ring like `/a/ → /b`, `/b → /a/` visible.
+  // `undefined` ends the walk: neither form is a `from`, so the chain stops.
+  const nextHop = (to: string): string | undefined =>
+    toComparablePaths(to).find((candidate) => declaredFroms.has(candidate))
+
+  const targets = new Map(rules.map((rule) => [rule.from, nextHop(rule.to)]))
 
   /**
    * Follow the chain from `start`, at most `rules.length` hops, and report
@@ -237,14 +311,16 @@ const findCycleEntry = (
  * ```
  */
 export const RedirectsSchema = Schema.Array(RedirectSchema).pipe(
-  Schema.minItems(1, {
-    message: () => 'redirects must declare at least one redirect rule when present',
-  }),
+  Schema.check(
+    Schema.isMinLength(1, {
+      message: 'redirects must declare at least one redirect rule when present',
+    })
+  ),
   // Annotations sit BEFORE the cross-rule filters (mirroring
   // `SystemSourceCatalogSchema`): a trailing `Schema.annotations` after a
   // refinement chain loses its `title`/`description` in the generated JSON
   // Schema, leaving `minItems`' auto-description in their place.
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Redirects',
     title: 'URL Redirects',
     description:
@@ -256,44 +332,55 @@ export const RedirectsSchema = Schema.Array(RedirectSchema).pipe(
       ],
     ],
   }),
-  Schema.filter((rules) => {
-    const duplicate = rules.find(
-      (rule, index) => rules.findIndex((other) => other.from === rule.from) !== index
-    )
-    return duplicate === undefined
-      ? true
-      : `Duplicate redirect 'from' path '${duplicate.from}' — each path may declare at most one redirect`
-  }),
-  Schema.filter((rules) => {
-    const selfRedirect = rules.find((rule) => rule.from === toComparablePath(rule.to))
-    return selfRedirect === undefined
-      ? true
-      : `Redirect '${selfRedirect.from}' points at itself — a self-redirect loops forever`
-  }),
-  Schema.filter((rules) => {
-    // `localizeTarget` governs whether a ROOT-RELATIVE target inherits the
-    // matched language prefix. An absolute `http(s)` target already leaves the
-    // app and is emitted verbatim, so the flag cannot change anything there —
-    // its presence can only be a misunderstanding of what it does. Rejected
-    // rather than ignored, so the author learns at `sovrium validate` instead of
-    // shipping a config carrying a flag that does nothing.
-    //
-    // Both values are rejected, not just `false`: `localizeTarget: true` on an
-    // absolute target is equally inert, and accepting it would teach that the
-    // flag means something here.
-    const inertFlag = rules.find(
-      (rule) => rule.localizeTarget !== undefined && isAbsoluteRedirectTarget(rule.to)
-    )
-    return inertFlag === undefined
-      ? true
-      : `Redirect '${inertFlag.from}' sets 'localizeTarget' on the absolute target '${inertFlag.to}' — an absolute URL leaves the app and is always emitted verbatim, so the flag has no effect. Remove 'localizeTarget', or point the rule at a root-relative path.`
-  }),
-  Schema.filter((rules) => {
-    const cycleEntry = findCycleEntry(rules)
-    return cycleEntry === undefined
-      ? true
-      : `Redirect cycle detected starting at '${cycleEntry}' — following the rules returns to a path already visited, which loops the browser forever`
-  })
+  Schema.check(
+    Schema.makeFilter((rules) => {
+      const duplicate = rules.find(
+        (rule, index) => rules.findIndex((other) => other.from === rule.from) !== index
+      )
+      return duplicate === undefined
+        ? true
+        : `Duplicate redirect 'from' path '${duplicate.from}' — each path may declare at most one redirect`
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((rules) => {
+      // Either form loops: the verbatim target re-matching `from` is the classic
+      // self-redirect, and the canonicalized one re-matching it is the same loop
+      // routed through trailing-slash normalization.
+      const selfRedirect = rules.find((rule) => toComparablePaths(rule.to).includes(rule.from))
+      return selfRedirect === undefined
+        ? true
+        : `Redirect '${selfRedirect.from}' points at itself — a self-redirect loops forever`
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((rules) => {
+      // `localizeTarget` governs whether a ROOT-RELATIVE target inherits the
+      // matched language prefix. An absolute `http(s)` target already leaves the
+      // app and is emitted verbatim, so the flag cannot change anything there —
+      // its presence can only be a misunderstanding of what it does. Rejected
+      // rather than ignored, so the author learns at `sovrium validate` instead of
+      // shipping a config carrying a flag that does nothing.
+      //
+      // Both values are rejected, not just `false`: `localizeTarget: true` on an
+      // absolute target is equally inert, and accepting it would teach that the
+      // flag means something here.
+      const inertFlag = rules.find(
+        (rule) => rule.localizeTarget !== undefined && isAbsoluteRedirectTarget(rule.to)
+      )
+      return inertFlag === undefined
+        ? true
+        : `Redirect '${inertFlag.from}' sets 'localizeTarget' on the absolute target '${inertFlag.to}' — an absolute URL leaves the app and is always emitted verbatim, so the flag has no effect. Remove 'localizeTarget', or point the rule at a root-relative path.`
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((rules) => {
+      const cycleEntry = findCycleEntry(rules)
+      return cycleEntry === undefined
+        ? true
+        : `Redirect cycle detected starting at '${cycleEntry}' — following the rules returns to a path already visited, which loops the browser forever`
+    })
+  )
 )
 
 /**
@@ -312,4 +399,4 @@ export type Redirects = Schema.Schema.Type<typeof RedirectsSchema>
  * Encoded type of RedirectsSchema (what goes in).
  * @public
  */
-export type RedirectsEncoded = Schema.Schema.Encoded<typeof RedirectsSchema>
+export type RedirectsEncoded = Schema.Codec.Encoded<typeof RedirectsSchema>

@@ -22,13 +22,13 @@ export const FileGetMetadataActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Storage key of the file */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key of the file',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileGetMetadataAction',
     title: 'File Get Metadata Action',
     description: 'Get file metadata (size, type, date) without downloading content',

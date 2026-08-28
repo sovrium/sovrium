@@ -1,3 +1,190 @@
+## [0.23.0](https://github.com/sovrium/sovrium/compare/v0.22.2...v0.23.0) (2026-08-28)
+
+### BREAKING CHANGES
+
+- **mcp**: authenticate the MCP server with API keys instead of static tokens
+- **migrations**: type relationship columns from the referenced primary key on every migrate path
+- **tables**: remove the unread views-level write permission key
+- **storage**: hardcode AVIF as the image transform default
+- **buckets**: remove the deprecated /api/admin/buckets/quota route
+- **automations**: remove the data validate-config action
+
+### Features
+
+- **design**: add the design.zones config key
+- **design-system**: preview field types in the design-system console
+- **rendering**: add a render-time seam for field specimens
+- **auth**: let clients request access tokens bound to the MCP endpoint
+- **admin**: publish the design system behind a revocable share link
+- **admin**: add the component catalog to the design-system console
+- **schema**: add design.typeScale, design.logo and design.imagery
+- **agents**: fire scheduled agents on their cron, in-process
+- **auth**: scope account identity by issuer and add OAuth resource tables
+- **admin**: an API-keys page in the operator console
+- **auth**: self-service API keys behind an explicit opt-in
+- **analytics**: record clicks on the outbound links a page already has
+- **links**: send different visitors to different destinations from one short link
+- **links**: admin console for short links
+- **links**: persist a target list on a console-minted link
+- **analytics**: add the per-target split reader
+- **links**: add the operator console for short links
+- **links**: serve app.links at /l/{slug} with click tracking and QR codes
+- **admin**: add the design-system console with app-themed previews
+- **admin**: export the app design system as DTCG JSON and an agent brief
+- **links**: add the app.links[] config surface for tracked short links
+- **automations**: read and write .xlsx workbooks from an automation
+- **connections**: share one OAuth credential across unattended automations
+- **admin-dashboard**: browse conversations per agent under Application
+- **automations**: run date actions for formatting, parsing and calendar math
+- **automations**: complete the add/subtract date helper grid
+- **automations**: deliver the 54 missing template helpers and fix date formatting
+- **automations**: accept real-world CSV in the parseCsv and generateCsv actions
+- **automations**: add timezone- and locale-aware date formatting and parsing
+- **auth**: list, resend and revoke pending invitations
+- **admin-console**: view the running config and env from the operator console
+- **admin**: search automation runs and form submissions server-side
+- **admin**: surface saved views, analytics breakdowns, and file delete
+- **automations**: pause and resume an automation from the operator console
+- **cli**: auto-discover the config file in the working directory
+- **cli**: type-check code action bodies in validate and build
+- **admin**: add the Footprint console page
+- **automations**: add a sovrium action type with a validateConfig operator
+
+### Bug Fixes
+
+- **comments**: scope the comment-author lookup to its table
+- **data-table**: honour table update permissions as the inline-edit default
+- **data-table**: a failed load explains itself instead of printing a response body
+- **data-table**: a refused sort no longer takes the whole grid with it
+- **buckets**: the file browser sorts every column it offers, on both engines
+- **forms**: apply a page form component's label override to the submit button
+- **design-system**: surface per-zone voice overrides in the design system
+- **tables**: resolve group grants on the comment and AI-chat read gates
+- **data-table**: a grid shows the toolbar controls it declared, and no others
+- **design-system**: revoking a share link is confirmed, and a refused revoke says so
+- **admin**: the user directory pages, sorts and exports for real
+- **tables**: honour group: permission grants on every record write gate
+- **admin**: the profile and privacy pages start their outline at a page heading
+- **admin**: the records grid says when it is showing only part of a table
+- **forms**: a submissions export is a named file with a header row
+- **config**: honour `secret: false` when reflecting an environment default
+- **buckets**: the file browser accepts the sort spelling its own grid emits
+- **admin**: give each console page a top-level heading, and the search dialog one name
+- **design-system**: render declared imagery rules in the design-system console
+- **permissions**: apply inherited and group grants to chat and record-update writes
+- **data-table**: the filter panel can be dismissed, and the confirm prompt speaks English
+- **admin-dashboard**: the console search button opens the palette again
+- **sitemap**: keep non-public pages out of sitemap.xml
+- **mcp**: record and read the tool-call audit trail on SQLite
+- **auth**: stop capping every API key at 10 requests per day
+- **buckets**: stop the implicit default bucket bypassing declared permissions
+- **pages**: keep the redirect `to` description on the node, not on its check
+- **ai**: session-gate RAG search and filter hits to readable tables
+- **tables**: omit unreadable column names from the CSV export header
+- **auth**: gate anonymous OAuth client registration behind an operator opt-in
+- **tables**: strip unreadable fields from the PATCH fallback and restore echoes
+- **cli**: make stop and restart wait for the server to exit
+- **auth**: shed the erased user's id from other people's impersonated sessions
+- **server**: exit the process on SIGTERM/SIGINT and bound the shutdown
+- **crypto**: stop treating an unreadable encryption key as an absent one
+- **pages**: reject a redirect target that resolves to another origin
+- **pages**: bind values in the dataSource list and count builders
+- **tables**: enforce multi-select options on the MCP and automation writes
+- **mcp**: bind the internal-read record id and drop the raw SQL splice
+- **schema**: reject a non-finite type-scale lineHeight
+- **account**: export the records a custom-named authorship field owns
+- **auth**: reference OAuth client and resource by the ids the provider writes
+- **pages**: scope command-palette record search by permission and soft-delete
+- **activity**: actually delete activity-log rows past their retention window
+- **tables**: enforce declared options and the AI baseline on bulk writes
+- **automations**: gate the run history on a session, and scrub its captured headers
+- **account**: erase the personal data account deletion was leaving behind
+- **tables**: compute volatile and chained formula fields on SQLite
+- **webhooks**: gate the delivery log on table permissions and redact its secrets
+- **ai**: let an agent actually read its knowledge base on SQLite
+- **forms**: accept submissions on a capped form when running on SQLite
+- **records**: close the ?deleted=true trash bypass, and scope trash by row
+- **pages**: run SSR data binding through the composed read plan
+- **ai**: scope the chat table tool by the canonical field-read predicate
+- **tables**: scope realtime change events by the server column whitelist
+- **auth**: stop accepting API keys from a banned account
+- **admin**: make the MCP client-registration command the console prints actually work
+- **pages**: decide markup-vs-text from the author's template, not the record
+- **tables**: resolve group grants and hide the table on the batch create gate
+- **pages**: escape the two script-body hazards a JSON escape of `<` leaves open
+- **tables**: restrict the row-level access grants table to admin callers
+- **tables**: apply inherited create permission on the batch and AI write paths
+- **migrations**: create a view declared materialized as a plain view on SQLite
+- **pages**: escape JSON emitted into a script block so a value cannot close it
+- **pages**: stop a stored record value being rendered as markup
+- **audit-log**: keep the audit trail across a restart
+- **auth**: stop a caller-supplied header choosing its own rate-limit bucket
+- **auth**: treat a wildcard bind as public, not as loopback
+- **agents**: enforce the declared trigger permission on every agent surface
+- **auth**: set the account issuer when linking an invited user's password
+- **admin**: make the design-system foundations tell the truth about itself
+- **server**: give each server process its own island bundle directory
+- **admin**: correct copy and label defects on the design-system console
+- **config**: reject non-finite numbers in configuration values
+- **cli**: report the schema error instead of crashing on a page without components
+- **links**: let a console-minted link carry a target list, and correct two specs
+- **analytics**: stop the reader handlers dropping the event-population filter
+- **css**: stop the app theme repainting the admin console
+- **storage**: make image transforms work in the compiled binary
+- **links**: reconcile schema annotation placement with both published-docs gates
+- **ai**: correct a stale route comment on the agent-bound chat turn
+- **ai**: record why the agent chat path cannot use a raw provider fetch
+- **ai**: route agent chat through the AiService port
+- **automations**: let code actions use WebCrypto, and stop accepting browser globals
+- **automations**: refuse a record read whose filter names an unknown column
+- **automations**: reject a record trigger whose condition names an unknown field
+- **records**: demand update permission when an upsert merge field cannot be resolved
+- **auth**: admit an app's custom top role on the Better Auth admin plane
+- **tables**: check field-read permissions on every filter shape and entry point
+- **database**: resolve auth and system tables by dialect in runtime queries
+- **automations**: refuse a record filter naming a column that does not exist
+- **auth**: let an app's own top admin role reach the admin plane
+- **automations**: stop a batch record deletion reporting a success it did not earn
+- **automations**: let a loop continue past a failing item when the config says so
+- **automations**: honour the timeout and content type declared on an http action
+- **admin**: remove the run and submission pagers that reported wrong totals
+- **automations**: stop record batchCreate at the first failed item by default
+- **automations**: fail an automation step whose action type has no handler
+- **automations**: implement the path/branch conditional branching action
+- **automations**: implement the record batchUpdate, batchDelete and batchUpsert actions
+- **pages**: stop canonicalizing redirects from disclosing non-public pages
+- **eco**: reconcile the lever surface with the DEC-077 typo refusal
+- **redirects**: compare both the verbatim and canonicalized redirect target
+- **cli**: stop auto-discovering app.json as a config candidate
+- **pages**: drop the trailing slash from non-root hreflang alternates
+- **pages**: resolve trailing-slash and unprefixed URLs to their canonical page
+- **redirects**: reject the three redirect shapes that loop the browser
+- **cli**: anchor an auto-discovered config the same way a named one is
+- **api**: advertise this instance's origin in the served OpenAPI document
+- **admin**: print this instance's real address in the API and MCP developer docs
+- **server**: grade responses on their real size in the eco-index header
+- **search**: stop a record grid from hiding rows the server already matched
+- **records**: name the field a rejected record write was about
+- **buckets**: report real upload history and declared buckets in the storage overview
+- **telemetry**: stop reporting declined writes as server errors
+- **forms**: keep an untouched optional barcode from failing the create
+- **footprint**: drop the fabricated panels and report the levers in force
+- **schema**: refuse a config whose parsed document is not a tree
+- **admin**: honour ?q= on three admin list endpoints and stop double-filtering
+- **footprint**: measure per-table storage instead of reporting zero
+- **eco**: give ECO_MODE the one effect it can actually have
+- **automations**: declare Buffer to the code-action startup validator
+- **storage**: name the offending variable when the public-access env refuses boot
+- **auth**: let a config-declared role outrank the built-in operator alias
+- **tables**: recognize custom top roles in realtime subscribe
+- **env**: refuse a typo'd ECO_* value instead of silently running the default
+- **pages**: honor permission literals and the admin override in CRUD form gates
+- **pages**: render a script declared in both external and externalScripts once
+
+### Performance Improvements
+
+- **admin**: stop embedding the app configuration in every admin page
+
 ## [0.22.2](https://github.com/sovrium/sovrium/compare/v0.22.1...v0.22.2) (2026-08-11)
 
 ### Bug Fixes

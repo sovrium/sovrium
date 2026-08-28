@@ -91,7 +91,7 @@ const routes: readonly RouteSpec[] = [
 /** Bucket route group — resource-scoped to the configured buckets. */
 export const bucketGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Bucket',
-  genericTag: 'buckets',
+  genericTag: 'Buckets',
   genericTagDescription: 'File-storage bucket endpoints',
   collection: (app) => app.buckets ?? [],
   resourcePlaceholder: '{bucketName}',

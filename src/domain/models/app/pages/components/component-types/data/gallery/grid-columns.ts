@@ -12,46 +12,36 @@ import { Schema } from 'effect'
  */
 export const GalleryGridColumnsSchema = Schema.Struct({
   mobile: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.lessThanOrEqualTo(6),
-      Schema.annotations({ description: 'Number of columns on mobile (default: 1)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
+      Schema.annotate({ description: 'Number of columns on mobile (default: 1)' })
     )
   ),
   sm: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.lessThanOrEqualTo(6),
-      Schema.annotations({ description: 'Number of columns on small screens (>= 640px)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
+      Schema.annotate({ description: 'Number of columns on small screens (>= 640px)' })
     )
   ),
   md: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.lessThanOrEqualTo(6),
-      Schema.annotations({ description: 'Number of columns on medium screens (>= 768px)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
+      Schema.annotate({ description: 'Number of columns on medium screens (>= 768px)' })
     )
   ),
   lg: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.lessThanOrEqualTo(6),
-      Schema.annotations({ description: 'Number of columns on large screens (>= 1024px)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
+      Schema.annotate({ description: 'Number of columns on large screens (>= 1024px)' })
     )
   ),
   xl: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.lessThanOrEqualTo(6),
-      Schema.annotations({ description: 'Number of columns on extra-large screens (>= 1280px)' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
+      Schema.annotate({ description: 'Number of columns on extra-large screens (>= 1280px)' })
     )
   ),
-}).annotations({
+}).annotate({
   identifier: 'GalleryGridColumns',
   title: 'Gallery Grid Columns',
   description: 'Responsive column counts per breakpoint for the gallery grid layout',

@@ -37,6 +37,7 @@ const TYPE_EXPORTS = [
   { exported: 'TableConfig', source: 'TableConfig' },
   { exported: 'ComponentConfig', source: 'ComponentConfig' },
   { exported: 'ThemeConfig', source: 'ThemeConfig' },
+  { exported: 'DesignConfig', source: 'DesignConfig' },
   { exported: 'AuthConfig', source: 'AuthConfig' },
   { exported: 'LanguageConfig', source: 'LanguageConfig' },
   { exported: 'AnalyticsConfig', source: 'AnalyticsConfig' },
@@ -151,7 +152,20 @@ function extractTypes(): string {
   )
   lines.push('  /** Environment variables (values redacted in logs when length >= 8) */')
   lines.push('  readonly env: Record<string, string>')
-  lines.push('  /** Structured logging — info/warn/error */')
+  // `log` is documented as a no-op deliberately: the sandbox is handed
+  // NOOP_LOG and nothing else, so an undocumented `log` surface reads to an
+  // npm consumer as working logging that silently swallows every call.
+  lines.push('  /**')
+  lines.push('   * Structured logging — info/warn/error.')
+  lines.push('   *')
+  lines.push('   * NOT YET WIRED: all three methods currently DISCARD their arguments. The')
+  lines.push('   * sandbox is handed a no-op implementation, so `context.log.info(...)` emits')
+  lines.push('   * nothing — not to stdout, not to run history, not to the error tracker.')
+  lines.push('   * The surface is typed and stable so code actions can call it today and')
+  lines.push('   * start producing output when a real sink lands. Until then, anything a')
+  lines.push('   * code action must actually surface belongs in its return value (persisted')
+  lines.push('   * as the step output) or in a thrown error.')
+  lines.push('   */')
   lines.push('  readonly log: {')
   lines.push('    readonly info: (...args: ReadonlyArray<unknown>) => void')
   lines.push('    readonly warn: (...args: ReadonlyArray<unknown>) => void')

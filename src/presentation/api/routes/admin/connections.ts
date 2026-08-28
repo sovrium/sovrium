@@ -75,16 +75,16 @@ async function handleListConnections(c: Context): Promise<Response> {
 
   const result = await runRequestEffect(
     c,
-    BuildConnectionsList().pipe(provideAdminConnectionsLive, Effect.either)
+    BuildConnectionsList.pipe(provideAdminConnectionsLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    logError('[admin] connection-list lookup failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[admin] connection-list lookup failed', result.failure, requestLogAttributes(c))
     return c.json(INTERNAL_ERROR, 500)
   }
-  if (result.right._tag === 'ValidationFailed') {
+  if (result.success._tag === 'ValidationFailed') {
     logError(
       '[admin] connection-list response validation failed',
-      result.right.error,
+      result.success.error,
       requestLogAttributes(c)
     )
     return c.json(INTERNAL_ERROR, 500)
@@ -103,7 +103,7 @@ async function handleListConnections(c: Context): Promise<Response> {
   })
 
   c.header('Cache-Control', 'no-store')
-  return c.json(result.right.body, 200)
+  return c.json(result.success.body, 200)
 }
 
 /**
@@ -117,21 +117,21 @@ async function handleConnectionDetail(c: Context): Promise<Response> {
 
   const result = await runRequestEffect(
     c,
-    BuildConnectionDetail(id).pipe(provideAdminConnectionsLive, Effect.either)
+    BuildConnectionDetail(id).pipe(provideAdminConnectionsLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    logError('[admin] connection-detail lookup failed', result.left, requestLogAttributes(c))
+  if (result._tag === 'Failure') {
+    logError('[admin] connection-detail lookup failed', result.failure, requestLogAttributes(c))
     return c.json(INTERNAL_ERROR, 500)
   }
   // Unknown connection id → anti-enum 404 (no audit emit on a miss — only
   // successful reads are audited).
-  if (result.right._tag === 'NotFound') {
+  if (result.success._tag === 'NotFound') {
     return c.json(NOT_FOUND, 404)
   }
-  if (result.right._tag === 'ValidationFailed') {
+  if (result.success._tag === 'ValidationFailed') {
     logError(
       '[admin] connection-detail response validation failed',
-      result.right.error,
+      result.success.error,
       requestLogAttributes(c)
     )
     return c.json(INTERNAL_ERROR, 500)
@@ -149,7 +149,7 @@ async function handleConnectionDetail(c: Context): Promise<Response> {
   })
 
   c.header('Cache-Control', 'no-store')
-  return c.json(result.right.body, 200)
+  return c.json(result.success.body, 200)
 }
 
 /**

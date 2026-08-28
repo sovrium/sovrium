@@ -13,24 +13,21 @@ import { OAuth2PropsSchema, ApiKeyPropsSchema, BasicPropsSchema, BearerPropsSche
 const ConnectionBaseFields = {
   /** Connection name (kebab-case identifier, used as $connection.NAME) */
   name: Schema.String.pipe(
-    Schema.pattern(/^[a-z][a-z0-9-]*$/),
-    Schema.maxLength(100),
-    Schema.annotations({
+    Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100)),
+    Schema.annotate({
       description: 'Connection name (kebab-case). Referenced in actions as $connection.NAME',
     })
   ),
 
   /** Human-readable label */
   label: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotations({ description: 'Human-readable label for this connection' })
-    )
+    Schema.String.pipe(Schema.annotate({ description: 'Human-readable label for this connection' }))
   ),
 
   /** Description of what this connection is for */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({ description: 'Description of this connection and its purpose' })
+      Schema.annotate({ description: 'Description of this connection and its purpose' })
     )
   ),
 }
@@ -42,7 +39,7 @@ export const OAuth2ConnectionSchema = Schema.Struct({
   type: Schema.Literal('oauth2'),
   props: OAuth2PropsSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'OAuth2Connection',
     title: 'OAuth2 Connection',
     description: 'OAuth2 authentication for external services',
@@ -56,7 +53,7 @@ export const ApiKeyConnectionSchema = Schema.Struct({
   type: Schema.Literal('apiKey'),
   props: ApiKeyPropsSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ApiKeyConnection',
     title: 'API Key Connection',
     description: 'API key authentication via HTTP header',
@@ -70,7 +67,7 @@ export const BasicConnectionSchema = Schema.Struct({
   type: Schema.Literal('basic'),
   props: BasicPropsSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'BasicConnection',
     title: 'Basic Auth Connection',
     description: 'HTTP Basic authentication (username/password)',
@@ -84,7 +81,7 @@ export const BearerConnectionSchema = Schema.Struct({
   type: Schema.Literal('bearer'),
   props: BearerPropsSchema,
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'BearerConnection',
     title: 'Bearer Token Connection',
     description: 'Bearer token authentication via Authorization header',
@@ -93,13 +90,13 @@ export const BearerConnectionSchema = Schema.Struct({
 
 // ─── Connection Union ────────────────────────────────────────────────────────
 
-export const ConnectionSchema = Schema.Union(
+export const ConnectionSchema = Schema.Union([
   OAuth2ConnectionSchema,
   ApiKeyConnectionSchema,
   BasicConnectionSchema,
-  BearerConnectionSchema
-).pipe(
-  Schema.annotations({
+  BearerConnectionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'Connection',
     title: 'Connection',
     description:
@@ -113,16 +110,18 @@ export type Connection = Schema.Schema.Type<typeof ConnectionSchema>
 // ─── Connections Array ───────────────────────────────────────────────────────
 
 export const ConnectionsSchema = Schema.Array(ConnectionSchema).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Connections',
     title: 'Connections',
     description: 'External service connections for authenticated HTTP actions',
   }),
-  Schema.filter((connections) => {
-    const names = connections.map((c) => c.name)
-    const uniqueNames = new Set(names)
-    return names.length === uniqueNames.size || 'Connection names must be unique'
-  })
+  Schema.check(
+    Schema.makeFilter((connections) => {
+      const names = connections.map((c) => c.name)
+      const uniqueNames = new Set(names)
+      return names.length === uniqueNames.size || 'Connection names must be unique'
+    })
+  )
 )
 
 /** @public */

@@ -112,7 +112,11 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
       // The decision is TOTAL over the field-type union (see
       // `@/presentation/utils/field-type-behavior`), so a newly added field
       // type has to declare its answer rather than defaulting into the bug.
-      if (omitsEmptyValue(field.type) && value.trim() === '') return false
+      //
+      // The whole FIELD is passed, not just its type: `barcode`'s CHECK is
+      // opt-in via its own `format`, so two fields of one type legitimately
+      // answer differently.
+      if (omitsEmptyValue(field) && value.trim() === '') return false
       return true
     })
   )

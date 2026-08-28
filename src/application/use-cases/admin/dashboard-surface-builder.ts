@@ -26,16 +26,33 @@
  * `admin-sidebar` client island. No bespoke React in the render path.
  */
 
-import { parseDataRoute } from './dashboard-surface-routes'
+import {
+  parseDataRoute,
+  parseDesignSystemCatalogRoute,
+  parseDesignSystemFieldCatalogRoute,
+  parseDesignSystemPreviewRoute,
+} from './dashboard-surface-routes'
 import { buildApiDocsPage } from './dashboard-surfaces/api-docs-surface'
+import { API_KEYS_CONSOLE_PATH, buildApiKeysPage } from './dashboard-surfaces/api-keys-surface'
+import { buildConfigEnvPage } from './dashboard-surfaces/config-env-surface'
+import { buildConfigSchemaPage } from './dashboard-surfaces/config-schema-surface'
+import { type ConsoleRequest } from './dashboard-surfaces/data-landing-surface'
 import {
   isDataObjectRedirect,
   type DataObjectRedirect,
 } from './dashboard-surfaces/data-object-rail'
 import { resolveDataPage, type DataSurface } from './dashboard-surfaces/data-surface-resolver'
 import { recordGridTablesFor } from './dashboard-surfaces/data-tables-surface'
+import { buildDesignSystemCatalogApp } from './dashboard-surfaces/design-system-catalog-surface'
+import { buildDesignSystemFieldCatalogApp } from './dashboard-surfaces/design-system-field-catalog-surface'
+import { buildDesignSystemPreviewApp } from './dashboard-surfaces/design-system-preview-surface'
+import {
+  buildDesignSystemPage,
+  DESIGN_SYSTEM_CONSOLE_PATH,
+} from './dashboard-surfaces/design-system-surface'
 import { buildGdprPage } from './dashboard-surfaces/gdpr-surface'
 import { buildMcpDocsPage } from './dashboard-surfaces/mcp-docs-surface'
+import { buildProfilePage } from './dashboard-surfaces/profile-surface'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -48,21 +65,31 @@ import type { Page } from '@/domain/models/app/pages'
 export type DashboardSurfaceResult = App | DataObjectRedirect | undefined
 
 /**
- * The operator app, projected to the read-through config snapshot the dashboard
- * shell sidebar sources from. The operator `App` IS the published/effective
- * config (booted live), so its top-level keys are exactly the snapshot the
- * sidebar reads.
+ * The last-resort address label the Developers docs surfaces print when no
+ * request context resolved an origin (a non-HTTP caller). Every HTTP render
+ * names a real host instead.
+ *
+ * Declared HERE, at the single point where the management shell is assembled,
+ * rather than once per docs surface: both surfaces render the same literal and
+ * `developer-docs.spec.ts` asserts its ABSENCE on each page, so two copies could
+ * drift apart while the spec still passed on whichever surface it happened to
+ * visit.
  */
-function publishedSnapshotOf(operatorApp: App): Readonly<Record<string, unknown>> {
-  return operatorApp as unknown as Readonly<Record<string, unknown>>
-}
+const INSTANCE_ADDRESS_PLACEHOLDER = '<your instance address>'
 
 /** Shell concerns shared by the operator-management surfaces. */
-type ManagementShell = {
-  readonly canEdit: boolean
+type ManagementShell = ConsoleRequest & {
   readonly appName?: string
   readonly appVersion?: string
-  readonly publishedSnapshot: Readonly<Record<string, unknown>>
+  /**
+   * The instance's resolved public origin, prefixing every address the
+   * Developers docs surfaces print so each block is copy-pasteable as written.
+   * Resolved by the route handler (which holds the request) — see
+   * `resolveRequestBaseUrl` — and defaulted to
+   * {@link INSTANCE_ADDRESS_PLACEHOLDER} here, so the leaf surfaces receive a
+   * value that is always safe to interpolate.
+   */
+  readonly origin: string
 }
 
 /**
@@ -85,9 +112,30 @@ const MANAGEMENT_BUILDERS: Readonly<
   '/api': (shell, app) => buildApiDocsPage('Sovrium — API', app, shell),
   // MCP — connect an external AI + the config-derived available-tools list.
   '/mcp': (shell, app) => buildMcpDocsPage('Sovrium — MCP', app, shell),
-  // My account — the operator's own account: identity + GDPR self-service
-  // (export / erasure / cancel). Opened from the profile menu's "My account".
-  '/gdpr': (shell) => buildGdprPage('Sovrium — My account', shell),
+  // Schema — the App-configuration explorer ([internal ref] amendment A1). Read-only
+  // by construction: reading the running configuration is observability;
+  // mutating it is authoring, and authoring happens in the config file.
+  '/schema': (shell, app) => buildConfigSchemaPage('Sovrium — Schema', app, shell),
+  // Environment — which declared `app.env[]` variables this instance resolved,
+  // and from which rung. Never a value, and never a `process.env` dump.
+  '/env': (shell, app) => buildConfigEnvPage('Sovrium — Environment', app, shell),
+  // Design system — what the app RENDERS with ([internal ref] amendment A2). The
+  // third introspection surface, and the only one that reports what was
+  // INHERITED rather than declared. Its specimens are separate documents
+  // (`/design-system/preview/:section`), resolved before this map.
+  [DESIGN_SYSTEM_CONSOLE_PATH]: (shell) => buildDesignSystemPage('Sovrium — Design system', shell),
+  // My profile — the IDENTITY half of the operator's own account (display name,
+  // email, password). Opened from the profile menu's "My account". [internal ref] split
+  // this out of `/gdpr`, which carried both halves only because the GDPR surface
+  // shipped first: "rename myself" and "erase my account irreversibly" are not
+  // the same kind of decision and should not sit one card apart.
+  // API keys — the operator's OWN long-lived credentials (D6: its own surface,
+  // not a card bolted onto the config-reflection `/api` page). Reached only
+  // when `auth.apiKeys` is enabled — see the guard in `resolveSurfacePage`.
+  [API_KEYS_CONSOLE_PATH]: (shell) => buildApiKeysPage('Sovrium — API keys', shell),
+  '/profile': (shell) => buildProfilePage('Sovrium — My profile', shell),
+  // My data — the DATA half: export, erasure, and pending erasure requests.
+  '/gdpr': (shell) => buildGdprPage('Sovrium — My data', shell),
 }
 
 /**
@@ -98,7 +146,7 @@ const MANAGEMENT_BUILDERS: Readonly<
 function resolveSurfacePage(
   operatorApp: App,
   dashboardPath: string,
-  canEdit: boolean
+  request: ConsoleRequest & { readonly origin?: string }
 ): DataSurface | undefined {
   // Data workspace — the operator-data destinations now live at top-level
   // `/_admin/{key}[/{object}]`, and the bare `/_admin` (root) IS the workspace
@@ -106,8 +154,16 @@ function resolveSurfacePage(
   // a dashboard overview). `parseDataRoute('/')` → {} → the landing.
   const dataRoute = parseDataRoute(dashboardPath)
   if (dataRoute !== undefined) {
-    const dataSurface = resolveDataPage(operatorApp, dataRoute, canEdit, publishedSnapshotOf)
+    const dataSurface = resolveDataPage(operatorApp, dataRoute, request)
     if (dataSurface !== undefined) return dataSurface
+  }
+
+  // The API-keys surface exists only for an app that opted in (`auth.apiKeys`).
+  // Without the opt-in the plugin is not mounted and every endpoint the page
+  // would call answers 404 — so the PAGE answers 404 too, rather than
+  // rendering controls whose own backend is absent.
+  if (dashboardPath === API_KEYS_CONSOLE_PATH && operatorApp.auth?.apiKeys !== true) {
+    return undefined
   }
 
   // Operator-management surfaces (`/api`, `/mcp`, `/gdpr`) —
@@ -117,10 +173,10 @@ function resolveSurfacePage(
   if (managementBuilder) {
     return managementBuilder(
       {
-        canEdit,
+        ...request,
         appName: operatorApp.name,
         appVersion: operatorApp.version,
-        publishedSnapshot: publishedSnapshotOf(operatorApp),
+        origin: request.origin ?? INSTANCE_ADDRESS_PLACEHOLDER,
       },
       operatorApp
     )
@@ -179,16 +235,53 @@ function pinPageLanguage(page: Page): Page {
  * @param dashboardApp - the embedded dashboard `App` (the static host config)
  * @param operatorApp  - the operator's live `App` (source of the table schema)
  * @param dashboardPath - the `/_admin`-stripped request path
- * @param canEdit - retained for shell-host signature compatibility; the Data
- *   console is read-through and does not mutate config.
+ * @param request - the per-request posture: `canEdit` (retained for shell-host
+ *   signature compatibility; the Data console is read-through and does not mutate
+ *   config); `canAdministerAccounts`, whether the admin plane will actually
+ *   honour this caller's account writes (`isAdminEquivalent`), so a surface can
+ *   omit a control whose endpoint would 404 them; and `origin`, the instance's
+ *   resolved public origin (no trailing slash) so the Developers docs surfaces
+ *   print copy-pasteable addresses instead of a placeholder. Omitting `origin`
+ *   falls back to the placeholder.
  */
 export async function buildDashboardSurfaceApp(
   dashboardApp: App,
   operatorApp: App,
   dashboardPath: string,
-  canEdit: boolean
+  request: ConsoleRequest & { readonly origin?: string; readonly scheme?: string }
 ): Promise<DashboardSurfaceResult> {
-  const surface = resolveSurfacePage(operatorApp, dashboardPath, canEdit)
+  // Design-system PREVIEWS short-circuit before anything else, because they are
+  // the one `/_admin` surface that must NOT be spread from the embedded console
+  // config: they render the OPERATOR's app so they carry the operator's name,
+  // and that name is what routes them to the operator's stylesheet instead of
+  // the console's. Wrapping one in the console app would repaint the specimen in
+  // Sovrium's chrome and make the whole page document the wrong thing.
+  const previewSection = parseDesignSystemPreviewRoute(dashboardPath)
+  if (previewSection !== undefined) {
+    return buildDesignSystemPreviewApp(operatorApp, previewSection, dashboardPath, request.scheme)
+  }
+
+  // The per-category component catalog, on the same footing and for the same
+  // reason: it renders the OPERATOR's app so it inherits their stylesheet.
+  const catalogCategory = parseDesignSystemCatalogRoute(dashboardPath)
+  if (catalogCategory !== undefined) {
+    return buildDesignSystemCatalogApp(operatorApp, catalogCategory, dashboardPath, request.scheme)
+  }
+
+  // The per-category FIELD catalog, on the same footing again. Its specimens
+  // reach presentation through a render-time descriptor rather than a component
+  // (a field type has no renderer of its own) — see the surface's own note.
+  const fieldCategory = parseDesignSystemFieldCatalogRoute(dashboardPath)
+  if (fieldCategory !== undefined) {
+    return buildDesignSystemFieldCatalogApp(
+      operatorApp,
+      fieldCategory,
+      dashboardPath,
+      request.scheme
+    )
+  }
+
+  const surface = resolveSurfacePage(operatorApp, dashboardPath, request)
   if (surface === undefined) return undefined
   // A bare object-page path resolved to a first-object 302 redirect — propagate
   // the signal so the route handler emits `c.redirect` before rendering any page.

@@ -18,14 +18,14 @@ import { ActionSchema } from './action'
  * Shorthand for the very common pattern across component schemas:
  *
  * ```ts
- * Schema.optional(Schema.String.annotations({ description: 'Field label' }))
+ * Schema.optional(Schema.String.annotate({ description: 'Field label' }))
  * ```
  *
  * Use when the field has no other annotations (no title, no examples,
  * no validation pipes). For richer annotations, expand to the full form.
  */
 export const optStr = (description: string) =>
-  Schema.optional(Schema.String.annotations({ description }))
+  Schema.optional(Schema.String.annotate({ description }))
 
 /**
  * Optional `Schema.Boolean` annotated with a `description`.
@@ -33,14 +33,14 @@ export const optStr = (description: string) =>
  * Shorthand for the very common pattern across component schemas:
  *
  * ```ts
- * Schema.optional(Schema.Boolean.annotations({ description: 'Toggle X' }))
+ * Schema.optional(Schema.Boolean.annotate({ description: 'Toggle X' }))
  * ```
  *
  * Use when the field has no other annotations (no title, no examples,
  * no validation pipes). For richer annotations, expand to the full form.
  */
 export const optBool = (description: string) =>
-  Schema.optional(Schema.Boolean.annotations({ description }))
+  Schema.optional(Schema.Boolean.annotate({ description }))
 
 // ---------------------------------------------------------------------------
 // Size schema (reused by button, switch, progress, toggle, slider)
@@ -49,7 +49,7 @@ export const optBool = (description: string) =>
 /**
  * Standard size options for UI components
  */
-export const ComponentSizeSchema = Schema.Literal('sm', 'md', 'lg').annotations({
+export const ComponentSizeSchema = Schema.Literals(['sm', 'md', 'lg']).annotate({
   title: 'Component Size',
   description: 'Standard size variant for UI components',
 })
@@ -76,26 +76,26 @@ export const ComponentSizeSchema = Schema.Literal('sm', 'md', 'lg').annotations(
  */
 export const OptionItemSchema = Schema.Struct({
   /** Display text for the option */
-  label: Schema.String.annotations({
+  label: Schema.String.annotate({
     description: 'Display text shown to the user',
   }),
   /** Value submitted when option is selected */
-  value: Schema.String.annotations({
+  value: Schema.String.annotate({
     description: 'Value stored when this option is selected',
   }),
   /** Whether this option is disabled */
   disabled: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'If true, option cannot be selected',
     })
   ),
   /** Lucide icon name displayed alongside the option */
   icon: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Lucide icon name to display next to the option label',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Option Item',
   description: 'A single option in a selection-based form control',
 })
@@ -130,13 +130,13 @@ export const OptionItemSchema = Schema.Struct({
 export const MenuItemSchema = Schema.Struct({
   /** Display text for the menu item */
   label: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Display text for the menu item (omit for separator)',
     })
   ),
   /** Lucide icon name displayed alongside the item */
   icon: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Lucide icon name displayed next to the label',
     })
   ),
@@ -144,38 +144,38 @@ export const MenuItemSchema = Schema.Struct({
   action: Schema.optional(ActionSchema),
   /** Keyboard shortcut hint text */
   shortcut: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Keyboard shortcut hint displayed on the right (e.g. "Ctrl+C")',
     })
   ),
   /** Whether this item is disabled */
   disabled: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'If true, item is visible but cannot be clicked',
     })
   ),
   /** Render as a separator divider instead of a menu item */
   separator: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'If true, renders a divider line instead of a clickable item',
     })
   ),
   /** Visual variant for destructive actions */
   variant: Schema.optional(
-    Schema.Literal('default', 'destructive').annotations({
+    Schema.Literals(['default', 'destructive']).annotate({
       description: 'Visual style variant (destructive shows red text)',
     })
   ),
   /** Sub-menu items (nested menus) */
   children: Schema.optional(
-    Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown })).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+    Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Nested sub-menu items',
       })
     )
   ),
-}).annotations({
+}).annotate({
   title: 'Menu Item',
   description: 'A single item in a dropdown menu, context menu, or menubar',
 })
@@ -187,12 +187,12 @@ export const MenuItemSchema = Schema.Struct({
  * literals lower in the file because `NavItemSchema.badge` references it at
  * module-eval time — a later `const` would land in the temporal dead zone.
  */
-export const BadgeVariantSchema = Schema.Literal(
+export const BadgeVariantSchema = Schema.Literals([
   'default',
   'secondary',
   'destructive',
-  'outline'
-).annotations({
+  'outline',
+]).annotate({
   title: 'Badge Variant',
   description: 'Visual style variant for badge components',
 })
@@ -243,38 +243,38 @@ export interface NavItem {
  *           variant: secondary
  * ```
  */
-export const NavItemSchema: Schema.Schema<NavItem> = Schema.Struct({
+export const NavItemSchema: Schema.Codec<NavItem> = Schema.Struct({
   /** Display text for the navigation item */
-  label: Schema.String.annotations({
+  label: Schema.String.annotate({
     description: 'Display text for the navigation item',
   }),
   /** URL or path to navigate to */
   href: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'URL or route path (omit for parent items with children)',
     })
   ),
   /** Descriptive text shown in mega-menu layouts */
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Description text displayed below the label in mega-menu style',
     })
   ),
   /** Lucide icon name */
   icon: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Lucide icon name displayed next to the label',
     })
   ),
   /** Anchor target attribute (e.g. "_blank" for new tab) */
   target: Schema.optional(
-    Schema.Literal('_self', '_blank', '_parent', '_top').annotations({
+    Schema.Literals(['_self', '_blank', '_parent', '_top']).annotate({
       description: 'Anchor target — typically "_blank" for external links',
     })
   ),
   /** Anchor rel attribute (e.g. "noopener noreferrer") */
   rel: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Anchor rel attribute, commonly "noopener noreferrer" with target=_blank',
     })
   ),
@@ -284,11 +284,11 @@ export const NavItemSchema: Schema.Schema<NavItem> = Schema.Struct({
    */
   badge: Schema.optional(
     Schema.Struct({
-      text: Schema.String.annotations({
+      text: Schema.String.annotate({
         description: 'Short pill text rendered next to the item label (e.g. "New", "Beta")',
       }),
       variant: Schema.optional(BadgeVariantSchema),
-    }).annotations({
+    }).annotate({
       title: 'Nav Item Badge',
       description:
         'Optional pill rendered next to the navigation item label, reusing the badge variant tones',
@@ -296,15 +296,15 @@ export const NavItemSchema: Schema.Schema<NavItem> = Schema.Struct({
   ),
   /** Child navigation items (for sub-menus or mega-menus) */
   children: Schema.optional(
-    Schema.Array(Schema.suspend((): Schema.Schema<NavItem> => NavItemSchema)).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+    Schema.Array(Schema.suspend((): Schema.Codec<NavItem> => NavItemSchema)).pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Child navigation items forming a sub-menu or mega-menu',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'NavItem',
     title: 'Nav Item',
     description: 'A single item in a navigation menu or breadcrumb trail',
@@ -331,22 +331,22 @@ export const NavItemSchema: Schema.Schema<NavItem> = Schema.Struct({
  */
 export const BreadcrumbItemSchema = Schema.Struct({
   /** Display text for the breadcrumb segment */
-  label: Schema.String.annotations({
+  label: Schema.String.annotate({
     description: 'Display text for the breadcrumb segment',
   }),
   /** URL to navigate to (omit for current/last item) */
   href: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'URL or route path (omit for the current page item)',
     })
   ),
   /** Lucide icon name */
   icon: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Lucide icon name displayed before the label',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Breadcrumb Item',
   description: 'A single segment in a breadcrumb trail',
 })
@@ -358,15 +358,15 @@ export const BreadcrumbItemSchema = Schema.Struct({
 /**
  * Button visual variants matching common design system patterns
  */
-export const ButtonVariantSchema = Schema.Literal(
+export const ButtonVariantSchema = Schema.Literals([
   'default',
   'destructive',
   'outline',
   'secondary',
   'ghost',
   'link',
-  'fab'
-).annotations({
+  'fab',
+]).annotate({
   title: 'Button Variant',
   description: 'Visual style variant for button components',
 })
@@ -374,13 +374,13 @@ export const ButtonVariantSchema = Schema.Literal(
 /**
  * Alert visual variants
  */
-export const AlertVariantSchema = Schema.Literal(
+export const AlertVariantSchema = Schema.Literals([
   'default',
   'destructive',
   'warning',
   'info',
-  'success'
-).annotations({
+  'success',
+]).annotate({
   title: 'Alert Variant',
   description: 'Visual style variant for alert components',
 })
@@ -396,7 +396,7 @@ export const AlertVariantSchema = Schema.Literal(
 /**
  * Time display format
  */
-export const TimeFormatSchema = Schema.Literal('12h', '24h').annotations({
+export const TimeFormatSchema = Schema.Literals(['12h', '24h']).annotate({
   title: 'Time Format',
   description: 'Time display format (12-hour with AM/PM or 24-hour)',
 })
@@ -408,7 +408,7 @@ export const TimeFormatSchema = Schema.Literal('12h', '24h').annotations({
 /**
  * Progress visual variant
  */
-export const ProgressVariantSchema = Schema.Literal('bar', 'circle').annotations({
+export const ProgressVariantSchema = Schema.Literals(['bar', 'circle']).annotate({
   title: 'Progress Variant',
   description: 'Visual variant for the progress component (linear bar or circular)',
 })
@@ -420,7 +420,7 @@ export const ProgressVariantSchema = Schema.Literal('bar', 'circle').annotations
 /**
  * Side positioning for floating elements
  */
-export const FloatingSideSchema = Schema.Literal('top', 'right', 'bottom', 'left').annotations({
+export const FloatingSideSchema = Schema.Literals(['top', 'right', 'bottom', 'left']).annotate({
   title: 'Floating Side',
   description: 'Preferred side to place the floating element relative to trigger',
 })
@@ -428,7 +428,7 @@ export const FloatingSideSchema = Schema.Literal('top', 'right', 'bottom', 'left
 /**
  * Alignment for floating elements
  */
-export const FloatingAlignSchema = Schema.Literal('start', 'center', 'end').annotations({
+export const FloatingAlignSchema = Schema.Literals(['start', 'center', 'end']).annotate({
   title: 'Floating Align',
   description: 'Alignment of the floating element along the side axis',
 })
@@ -445,13 +445,13 @@ export const FloatingAlignSchema = Schema.Literal('start', 'center', 'end').anno
  * `ChartAggregateFunctionSchema`, `KPIAggregateFunctionSchema`,
  * `SummaryFunctionSchema`) to keep public import names stable.
  */
-export const AggregateFunctionSchema = Schema.Literal(
+export const AggregateFunctionSchema = Schema.Literals([
   'count',
   'sum',
   'avg',
   'min',
-  'max'
-).annotations({
+  'max',
+]).annotate({
   title: 'Aggregate Function',
   description: 'Aggregate function applied to a numeric field (count, sum, avg, min, max)',
 })

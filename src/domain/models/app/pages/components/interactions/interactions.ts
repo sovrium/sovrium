@@ -55,7 +55,7 @@ export const InteractionsSchema = Schema.Struct({
   click: Schema.optional(ClickInteractionSchema),
   scroll: Schema.optional(ScrollInteractionSchema),
   entrance: Schema.optional(EntranceAnimationSchema),
-}).annotations({
+}).annotate({
   title: 'Component Interactions',
   description: 'Interactive behaviors triggered by user actions or page events',
 })

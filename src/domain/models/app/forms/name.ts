@@ -26,13 +26,15 @@ import { Schema } from 'effect'
  * ```
  */
 export const FormNameSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.pattern(/^[a-z][a-z0-9-]*$/, {
-    message: () =>
-      'Form name must be kebab-case: start with a lowercase letter, contain only lowercase letters, digits, and hyphens',
-  }),
-  Schema.annotations({
+  Schema.check(
+    Schema.isMinLength(1),
+    Schema.isMaxLength(64),
+    Schema.isPattern(/^[a-z][a-z0-9-]*$/, {
+      message:
+        'Form name must be kebab-case: start with a lowercase letter, contain only lowercase letters, digits, and hyphens',
+    })
+  ),
+  Schema.annotate({
     identifier: 'FormName',
     title: 'Form Name',
     description: 'Kebab-case unique form name (1-64 chars, ^[a-z][a-z0-9-]*$)',

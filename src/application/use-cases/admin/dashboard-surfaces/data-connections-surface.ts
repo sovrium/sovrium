@@ -170,8 +170,36 @@ function connectionsDataTable(): Component {
       },
     },
     columns: CONNECTIONS_COLUMNS,
+    // The search box. Unlike the three grids [internal ref] fixed, this one needs NO
+    // server parameter: `BuildConnectionsList()` takes no arguments and returns
+    // the WHOLE list (connections are declared in config, so the set is bounded
+    // by the config, not by the data). The `pagination` below is therefore
+    // CLIENT-side over a complete in-memory set, and the data-table's in-memory
+    // filter consequently sees every row — the condition that made the paginated
+    // grids lie is absent here.
+    //
+    // The second half of that argument is the projection: both fields an
+    // operator searches by — `name` and `provider` — are RENDERED columns, so
+    // the in-memory filter can actually match them. (The users directory failed
+    // exactly there: `name` matched server-side but was never a column.) The
+    // endpoint omits `appliedQuery`, which is precisely the tri-state contract's
+    // "this endpoint does not search; keep filtering client-side" signal.
+    search: { enabled: true, placeholder: 'Search connections' },
+    noMatchMessage: 'No connection matches “{query}”',
     toolbar: { sort: true },
-    pagination: { pageSize: 25 },
+    // NO `pagination` block, deliberately — declaring one here produced a pager
+    // that lied. `GET /api/admin/connections` takes no paging parameters:
+    // `BuildConnectionsList()` is called with zero arguments and returns every
+    // row. Meanwhile the island sets `manualPagination: true` unconditionally
+    // (`use-table.ts:125`), so the client never slices what it receives. With
+    // `pageSize: 25` declared against 30 connections the grid rendered all 30
+    // rows under a pager reading "1–25 of 30" — the body and the pager
+    // contradicting each other, the same shape [internal ref].5 found on the DB-table
+    // grids and the reason that bug is recognisable at all.
+    //
+    // Connections are declared in config, so the set is bounded by the config
+    // rather than by the data; one screen is the honest presentation until the
+    // endpoint actually paginates.
     emptyMessage: 'No connections',
   } as unknown as Component
 }
@@ -194,7 +222,6 @@ export function buildDataConnectionsPage(options: DataShellOptions): Page {
         homeCrumb(options.appName),
         { label: 'Connections', href: '/_admin/connections' },
       ],
-      publishedSnapshot: options.publishedSnapshot ?? {},
     }),
   } as Page
 }

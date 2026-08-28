@@ -20,8 +20,8 @@ import { Schema } from 'effect'
 export const AppSchemaEnvSchema = Schema.Struct({
   appSchema: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'App schema as inline JSON, inline YAML, or remote URL (APP_SCHEMA)',
         examples: ['{"name":"my-app"}', 'name: my-app', 'https://example.com/app-config.yaml'],
       })

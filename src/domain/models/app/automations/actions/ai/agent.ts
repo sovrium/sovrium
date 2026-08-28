@@ -23,8 +23,8 @@ export const AiAgentActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Agent name referencing app.agents[].name */
     agent: Schema.String.pipe(
-      Schema.pattern(/^[a-z0-9]+(-[a-z0-9]+)*$/),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/)),
+      Schema.annotate({
         description:
           'Agent name (must reference app.agents[].name). Lowercase alphanumeric with hyphens.',
       })
@@ -32,15 +32,15 @@ export const AiAgentActionSchema = Schema.Struct({
 
     /** Task description for the agent */
     task: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Task description for the agent to execute (supports template variables)',
       })
     ),
 
     /** Additional context data for the agent */
     context: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-        Schema.annotations({
+      Schema.Record(Schema.String, Schema.Unknown).pipe(
+        Schema.annotate({
           description: 'Additional context data passed to the agent as key-value pairs',
         })
       )
@@ -48,10 +48,9 @@ export const AiAgentActionSchema = Schema.Struct({
 
     /** Maximum number of steps the agent can take */
     maxSteps: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 100),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 100 })),
+        Schema.annotate({
           description: 'Maximum number of steps the agent can take (1-100, default: 10)',
         })
       )
@@ -59,8 +58,8 @@ export const AiAgentActionSchema = Schema.Struct({
 
     /** Response format */
     responseFormat: Schema.optional(
-      Schema.Literal('text', 'json').pipe(
-        Schema.annotations({
+      Schema.Literals(['text', 'json']).pipe(
+        Schema.annotate({
           description: 'Response format: text (default) or json',
         })
       )
@@ -68,10 +67,9 @@ export const AiAgentActionSchema = Schema.Struct({
 
     /** Timeout in seconds */
     timeout: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.positive(),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+        Schema.annotate({
           description: 'Timeout in seconds for agent execution',
         })
       )
@@ -80,15 +78,15 @@ export const AiAgentActionSchema = Schema.Struct({
     /** Connection name for API authentication */
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description: 'Connection name for API auth (must reference app.connections[])',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AiAgentAction',
     title: 'AI Agent Action',
     description: 'Delegate a task to an AI agent for autonomous multi-step execution',

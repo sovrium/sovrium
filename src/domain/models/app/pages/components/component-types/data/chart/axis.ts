@@ -11,7 +11,7 @@ import { optStr } from '../../../shared-schemas'
 /**
  * Display format for axis values.
  */
-export const AxisFormatSchema = Schema.Literal('date', 'currency', 'number', 'percent').annotations(
+export const AxisFormatSchema = Schema.Literals(['date', 'currency', 'number', 'percent']).annotate(
   {
     title: 'Axis Format',
     description: 'Display format applied to axis tick labels',
@@ -21,7 +21,7 @@ export const AxisFormatSchema = Schema.Literal('date', 'currency', 'number', 'pe
 /**
  * Axis scale type.
  */
-export const AxisScaleSchema = Schema.Literal('linear', 'logarithmic').annotations({
+export const AxisScaleSchema = Schema.Literals(['linear', 'logarithmic']).annotate({
   title: 'Axis Scale',
   description: 'Scale type for numeric axes',
 })
@@ -31,7 +31,7 @@ export const AxisScaleSchema = Schema.Literal('linear', 'logarithmic').annotatio
  */
 export const ChartAxisSchema = Schema.Struct({
   /** Table field to map to this axis */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Table field name mapped to this axis',
   }),
   /** Custom axis label text */
@@ -42,9 +42,9 @@ export const ChartAxisSchema = Schema.Struct({
   scale: Schema.optional(AxisScaleSchema),
   /** Show grid lines along this axis */
   gridLines: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Show reference grid lines (default: false)' })
+    Schema.Boolean.annotate({ description: 'Show reference grid lines (default: false)' })
   ),
-}).annotations({
+}).annotate({
   title: 'Chart Axis',
   description: 'Configuration for a chart axis (X or Y)',
 })

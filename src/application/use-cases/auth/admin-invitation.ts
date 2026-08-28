@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { assignableRoleNames, isAssignableRole } from '@/domain/models/app/auth/roles'
 import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
 import { isValidEmail } from '@/domain/utils/email-validation'
 import { parseDuration } from '@/domain/utils/parse-duration'
@@ -22,6 +23,7 @@ import {
 } from '@/infrastructure/auth/better-auth/invitation-queries'
 import { logError } from '@/infrastructure/logging/logger'
 import type { Auth } from '@/domain/models/app/auth'
+import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 
@@ -109,13 +111,15 @@ export type InviteUserResult = InviteUserSuccess | InviteUserFailure
  * directly. Keeping validation here means the route handler stays focused
  * on HTTP plumbing.
  */
-const validateInviteInput = (body: {
-  readonly email?: unknown
-  readonly name?: unknown
-  readonly role?: unknown
-  readonly password?: unknown
-}):
-  { readonly email: string; readonly name: string; readonly role: string } | InviteUserFailure => {
+const validateInviteInput = (
+  body: {
+    readonly email?: unknown
+    readonly name?: unknown
+    readonly role?: unknown
+    readonly password?: unknown
+  },
+  app: AdminRoleResolvable
+): { readonly email: string; readonly name: string; readonly role: string } | InviteUserFailure => {
   if (typeof body.email !== 'string' || body.email.trim().length === 0) {
     return { status: 'invalid-input', message: 'email is required' }
   }
@@ -129,6 +133,28 @@ const validateInviteInput = (body: {
   if (typeof body.role !== 'string' || body.role.trim().length === 0) {
     return { status: 'invalid-input', message: 'role is required' }
   }
+  // The invitation must carry a role this app actually knows.
+  //
+  // `invite-user` is a Sovrium-owned Hono route chained AHEAD of Better Auth, so
+  // Better Auth's `before` hook — and therefore `validateAssignableRole`
+  // (`admin-role-guards.ts`) — never runs on it. Without this check the
+  // invitation path is a hole straight through the closed role vocabulary
+  // `isAssignableRole` exists to enforce: a typo (`'custmer-member'`) is stored
+  // verbatim and mints an account matching no permission rule, while an invented
+  // name (`'superadmin'`) reads as privileged to a human auditor while
+  // conferring nothing. Checked HERE, before any user record or token is minted,
+  // so a refusal leaves no pending grant behind.
+  //
+  // Same predicate and same message shape as the Better Auth write boundary, so
+  // the two paths cannot drift into disagreeing about what a valid role is.
+  const role = body.role.trim()
+  if (!isAssignableRole(role, app)) {
+    const valid = [...assignableRoleNames(app)].toSorted().join(', ')
+    return {
+      status: 'invalid-input',
+      message: `Role '${role}' is not assignable. Valid roles: ${valid}.`,
+    }
+  }
   // Reject any password field — invitation flow is passwordless by design.
   if (body.password !== undefined) {
     return {
@@ -136,7 +162,7 @@ const validateInviteInput = (body: {
       message: 'password is not accepted for invitations; the customer sets their own',
     }
   }
-  return { email, name: body.name.trim(), role: body.role.trim() }
+  return { email, name: body.name.trim(), role }
 }
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
@@ -239,6 +265,29 @@ const createPlaceholderUser = async (
 }
 
 /**
+ * Persist the invitation row, reporting success as a boolean.
+ *
+ * `invitedBy` is the inviting operator's user id, recorded so the pending list
+ * can answer "who sent this?" — it was previously persisted nowhere.
+ *
+ * Returns `false` rather than throwing so the caller maps the failure onto its
+ * own result union; the error is logged here where the cause is still in scope.
+ */
+const persistInvitation = async (
+  token: string,
+  userId: string,
+  expiresAt: Readonly<Date>,
+  invitedBy: string | undefined
+): Promise<boolean> =>
+  insertInvitationToken({ id: crypto.randomUUID(), token, userId, expiresAt, invitedBy }).then(
+    () => true,
+    (error: unknown) => {
+      logError('[admin-invitation] Failed to persist invitation token', error)
+      return false
+    }
+  )
+
+/**
  * Issue an admin invitation: create or reuse the user, generate and store a
  * single-use token, and send the invitation email.
  *
@@ -252,6 +301,14 @@ export const inviteUser = async (params: {
   readonly emailHandlers: EmailHandlers
   readonly baseURL: string
   readonly inviterName: string
+  /**
+   * The inviting operator's user id, recorded on the invitation so the pending
+   * list can answer "who sent this?". Optional so a caller that has no session
+   * to attribute (tooling) still issues a valid invitation rather than failing.
+   */
+  readonly inviterId?: string | undefined
+  /** The app whose role vocabulary the invitation's `role` must belong to. */
+  readonly app: AdminRoleResolvable
   readonly body: {
     readonly email?: unknown
     readonly name?: unknown
@@ -259,7 +316,7 @@ export const inviteUser = async (params: {
     readonly password?: unknown
   }
 }): Promise<InviteUserResult> => {
-  const validation = validateInviteInput(params.body)
+  const validation = validateInviteInput(params.body, params.app)
   if ('status' in validation) {
     return validation
   }
@@ -271,22 +328,9 @@ export const inviteUser = async (params: {
   const { user } = findOrCreate
 
   const token = generateInvitationToken()
-  const expiryMs = resolveInvitationExpiryMs(params.authConfig)
-  const expiresAt = new Date(Date.now() + expiryMs)
+  const expiresAt = new Date(Date.now() + resolveInvitationExpiryMs(params.authConfig))
 
-  const persistOk = await insertInvitationToken({
-    id: crypto.randomUUID(),
-    token,
-    userId: user.id,
-    expiresAt,
-  }).then(
-    () => true,
-    (error: unknown) => {
-      logError('[admin-invitation] Failed to persist invitation token', error)
-      return false
-    }
-  )
-  if (!persistOk) {
+  if (!(await persistInvitation(token, user.id, expiresAt, params.inviterId))) {
     return { status: 'internal-error', message: 'Failed to persist invitation token' }
   }
 

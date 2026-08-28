@@ -29,30 +29,30 @@ import { createOptionsSchema } from '../validation-utils'
  * ```
  */
 export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('multi-select'),
-      options: createOptionsSchema('multi-select'),
-      maxSelections: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({
-            description: 'Maximum number of selections allowed',
-          })
-        )
-      ),
-      default: Schema.optional(
-        Schema.Array(Schema.String).pipe(Schema.annotations({ title: 'Default Selections' }))
-      ),
+  Schema.fieldsAssign({
+    type: Schema.Literal('multi-select'),
+    options: createOptionsSchema('multi-select'),
+    maxSelections: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+        Schema.annotate({
+          description: 'Maximum number of selections allowed',
+        })
+      )
+    ),
+    default: Schema.optional(
+      Schema.Array(Schema.String).pipe(Schema.annotate({ title: 'Default Selections' }))
+    ),
+  }),
+  Schema.check(
+    Schema.makeFilter((field) => {
+      if (field.maxSelections !== undefined && field.maxSelections > field.options.length) {
+        return 'maxSelections exceeds available options'
+      }
+      return true
     })
   ),
-  Schema.filter((field) => {
-    if (field.maxSelections !== undefined && field.maxSelections > field.options.length) {
-      return 'maxSelections exceeds available options'
-    }
-    return true
-  }),
-  Schema.annotations({
+  Schema.annotate({
     title: 'Multi Select Field',
     description: 'Allows selection of multiple options from predefined list.',
     examples: [

@@ -6,100 +6,95 @@
  */
 
 import { DEFAULT_QUALITY } from '@/domain/services/image-transform/image-transform-params'
+import { MIME_BY_IMAGE_FORMAT, runImagePipeline, type ImageOutputFormat } from './bun-image'
 import type {
   TransformFormat,
   TransformParams,
 } from '@/domain/services/image-transform/image-transform-params'
-import type SharpNamespace from 'sharp'
-import type { ResizeOptions } from 'sharp'
 
 /**
- * `sharp` is imported lazily (dynamic `import()`), never at module top level.
+ * On-the-fly image transforms for the bucket download route, over `Bun.Image`.
  *
- * `sharp` ships a platform-specific native binding. When Sovrium is compiled
- * into a Bun standalone binary, that binding cannot be embedded — a top-level
- * `import sharp from 'sharp'` would throw at module-evaluation time and crash
- * the whole server before it can boot (the CSS phase never runs). Deferring
- * the import to first use keeps the binary bootable: image transforms simply
- * degrade to serving the original bytes when `sharp` is unavailable.
+ * ## What changed, and why it is the whole point
+ *
+ * This module used to lazily `import('sharp')` and, on ANY failure, return the
+ * original bytes with an `undefined` format — described at the time as
+ * "graceful by design". In the compiled binary that import ALWAYS failed
+ * (a native `.node` addon cannot be read out of `$bunfs`), so the graceful path
+ * was the only path: every transform request answered `200` with the stored
+ * image, and no assertion on the response envelope could tell the difference.
+ *
+ * `Bun.Image` removes the reason the fallback existed, and the fallback itself
+ * is gone: a transform that cannot be performed is now REPORTED.
  */
-type Sharp = typeof SharpNamespace
 
-/**
- * Dynamically load the `sharp` module. The dynamic `import()` is resolved by
- * the JS module system's own module cache, so repeated calls reuse the same
- * already-evaluated module instance with no extra cost — no manual memoization
- * is needed here.
- */
-const loadSharp = async (): Promise<Sharp> => {
-  const mod = await import('sharp')
-  return mod.default
-}
-
-/** Concrete output formats Sharp transcodes to (excludes the `origin` sentinel). */
-type OutputFormat = 'webp' | 'avif' | 'jpeg' | 'png'
-
-/** Canonical MIME type for each transcode target. */
-const FORMAT_MIME: Readonly<Record<OutputFormat, string>> = {
-  webp: 'image/webp',
-  avif: 'image/avif',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-}
+/** Concrete output formats the pipeline transcodes to (excludes `origin`). */
+type OutputFormat = ImageOutputFormat
 
 /**
  * Result of an image transform.
  *
- * `format` is the format actually produced. When Sharp is unavailable it falls
- * back to `undefined` (original bytes, original — unknown — format), in which
- * case the caller derives the Content-Type from the stored filename instead.
+ * `format` is the format actually produced; `undefined` means the source format
+ * was preserved, in which case the caller derives the Content-Type from the
+ * stored filename instead.
  */
-export interface ImageTransformResult {
+export interface ImageTransformSuccess {
+  readonly ok: true
   readonly bytes: Uint8Array
   readonly format?: OutputFormat
 }
 
-/** Map a focal-point percentage to a Sharp gravity third: low / middle / high. */
-const toThird = (pct: number, low: string, mid: string, high: string): string =>
-  pct < 33.34 ? low : pct > 66.66 ? high : mid
-
 /**
- * Translate a focal point (x/y percentages) to one of Sharp's 9 gravity anchors.
- * Sharp does not accept arbitrary x/y percentages, so the focal point is mapped
- * to the gravity anchor for the image third it lands in.
+ * Why a transform could not be produced.
+ *
+ * - `undecodable` — the stored bytes are not an image this pipeline can read
+ * - `unsupported-format` — the runtime rejected the requested encoder
+ *   (`ERR_IMAGE_FORMAT_UNSUPPORTED`)
+ * - `failed` — anything else
+ *
+ * `unsupported-format` survives the AVIF withdrawal deliberately. Every format
+ * still on the surface is statically linked in both `Bun.Image` backends, so
+ * nothing here PREDICTS an unavailable encoder any more — but the runtime can
+ * still raise that code, and mapping it to a 400 an operator can read beats
+ * letting it fall through to a 500.
  */
-const focalToGravity = (x: number, y: number): string => {
-  const horizontal = toThird(x, 'left', 'center', 'right')
-  const vertical = toThird(y, 'top', 'center', 'bottom')
-  if (vertical === 'center' && horizontal === 'center') return 'center'
-  if (vertical === 'center') return horizontal
-  if (horizontal === 'center') return vertical
-  return `${vertical} ${horizontal}`
+export type ImageTransformFailureReason = 'undecodable' | 'unsupported-format' | 'failed'
+
+/** A transform that could not be produced, for the route to turn into HTTP. */
+export interface ImageTransformFailure {
+  readonly ok: false
+  readonly reason: ImageTransformFailureReason
+  readonly message: string
 }
 
-/** Map a parsed crop strategy to a Sharp `position` value for `fit=cover`. */
-const cropToSharpPosition = (config: RunPipelineConfig): string | number => {
-  const { crop } = config.params
-  switch (crop.kind) {
-    case 'entropy':
-      return config.sharp.strategy.entropy
-    case 'attention':
-      return config.sharp.strategy.attention
-    case 'focal':
-      return focalToGravity(crop.x, crop.y)
-    case 'center':
-    default:
-      return 'center'
-  }
-}
+/** Outcome of {@link applyImageTransform}. */
+export type ImageTransformOutcome = ImageTransformSuccess | ImageTransformFailure
+
+/** Canonical MIME type for a resolved output format. */
+export const mimeForFormat = (format: OutputFormat): string => MIME_BY_IMAGE_FORMAT[format]
 
 /**
- * Resolve the output format Sharp should transcode to.
+ * Modern formats offered by `Accept`-header negotiation, best first.
+ *
+ * AVIF used to head this list, filtered through a runtime encodability check so
+ * a machine without an AV1 encoder fell through to WebP. Both are gone with the
+ * format itself: WebP is encodable on every `Bun.Image` backend, so the filter
+ * could no longer return false for any candidate — a branch no test and no
+ * production request could ever take.
+ *
+ * The list stays a list rather than collapsing to a constant because
+ * negotiation is genuinely ordered: a second modern format re-enters here, and
+ * only after its encoder is MEASURED on Linux, not inferred from a laptop.
+ */
+const NEGOTIATED_FORMATS: readonly OutputFormat[] = ['webp']
+
+/**
+ * Resolve the output format to transcode to.
  *
  * - explicit `format` (other than `origin`) — that format
  * - `format=origin` — `undefined` (no transcode, preserve original)
- * - `format` absent — negotiate from the `Accept` header (AVIF preferred,
- *   then WebP), or `undefined` when the header offers no modern format
+ * - `format` absent — the best `Accept`-advertised format this machine can
+ *   encode, or `undefined` when the header offers no modern format
  */
 const resolveOutputFormat = (
   format: TransformFormat | undefined,
@@ -108,25 +103,8 @@ const resolveOutputFormat = (
   if (format === 'origin') return undefined
   if (format !== undefined) return format
   const accept = (acceptHeader ?? '').toLowerCase()
-  if (accept.includes('image/avif')) return 'avif'
-  if (accept.includes('image/webp')) return 'webp'
-  return undefined
+  return NEGOTIATED_FORMATS.find((candidate) => accept.includes(`image/${candidate}`))
 }
-
-/** Build the Sharp resize options object for the requested transform. */
-const resizeOptions = (config: RunPipelineConfig): Readonly<ResizeOptions> => {
-  const { params } = config
-  const position = params.fit === 'cover' ? cropToSharpPosition(config) : undefined
-  return {
-    ...(params.width !== undefined && { width: params.width }),
-    ...(params.height !== undefined && { height: params.height }),
-    fit: params.fit,
-    ...(position !== undefined && { position }),
-  }
-}
-
-/** Canonical MIME type for a resolved output format. */
-export const mimeForFormat = (format: OutputFormat): string => FORMAT_MIME[format]
 
 /**
  * Resolve the output format string for a transform request, exposed so the
@@ -147,54 +125,27 @@ export const resolveTransformOutputFormat = (
  *
  * Returns the explicit `quality` parameter when supplied, otherwise the
  * platform default ({@link DEFAULT_QUALITY}). The value is only consulted for
- * lossy formats (JPEG / WebP / AVIF) — PNG output is lossless and ignores it.
+ * lossy formats (JPEG / WebP) — PNG output is lossless and ignores it.
  */
 const resolveQuality = (params: TransformParams): number => params.quality ?? DEFAULT_QUALITY
 
-/** Inputs threaded through the Sharp transform pipeline. */
-type RunPipelineConfig = Readonly<{
-  sharp: Sharp
-  input: Uint8Array
-  params: TransformParams
-  outputFormat: OutputFormat | undefined
-  needsResize: boolean
-}>
-
-/**
- * Run the Sharp pipeline: resize (when dimensions requested) then transcode
- * (when an output format is resolved). Returns the produced bytes.
- *
- * For lossy output formats the `quality` parameter (or the default) is applied;
- * PNG output is lossless and the quality value is intentionally ignored.
- */
-const runPipeline = async (config: RunPipelineConfig): Promise<Buffer> => {
-  const { sharp, input, params, outputFormat, needsResize } = config
-  const resized = needsResize ? sharp(input).resize(resizeOptions(config)) : sharp(input)
-  const quality = resolveQuality(params)
-  switch (outputFormat) {
-    case 'webp':
-      return resized.webp({ quality }).toBuffer()
-    case 'avif':
-      return resized.avif({ quality }).toBuffer()
-    case 'jpeg':
-      return resized.jpeg({ quality }).toBuffer()
-    case 'png':
-      // PNG is lossless — quality has no effect on the encoded output.
-      return resized.png().toBuffer()
-    default:
-      return resized.toBuffer()
+/** `Bun.Image` sets a stable `error.code`; branch on it rather than the message. */
+const failureReasonFor = (error: unknown): ImageTransformFailureReason => {
+  const code = (error as { readonly code?: unknown } | null)?.code
+  if (code === 'ERR_IMAGE_DECODE_FAILED' || code === 'ERR_IMAGE_UNKNOWN_FORMAT') {
+    return 'undecodable'
   }
+  if (code === 'ERR_IMAGE_FORMAT_UNSUPPORTED') return 'unsupported-format'
+  return 'failed'
 }
 
 /**
- * Apply on-the-fly image transforms (resize + crop + format conversion) to
- * image bytes using Sharp.
+ * Apply on-the-fly image transforms (resize + format conversion) to image bytes.
  *
- * Graceful by design: if Sharp throws (native module unavailable, input is not
- * a decodable image, etc.) the **original bytes are returned unchanged** with
- * an `undefined` format. This keeps the download route resilient — a transform
- * request never produces a hard failure, it simply degrades to serving the
- * stored original.
+ * Returns a failure outcome instead of the original bytes when the input cannot
+ * be decoded or the requested encoder is unavailable. The route turns that into
+ * an HTTP error the operator can see, rather than a `200` carrying an image
+ * that was never transformed.
  *
  * @param acceptHeader - the request `Accept` header, used for format
  *   negotiation when no explicit `format` parameter is supplied.
@@ -203,24 +154,29 @@ export const applyImageTransform = async (
   input: Uint8Array,
   params: TransformParams,
   acceptHeader?: string
-): Promise<ImageTransformResult> => {
+): Promise<ImageTransformOutcome> => {
   const outputFormat = resolveOutputFormat(params.format, acceptHeader)
   const needsResize = params.width !== undefined || params.height !== undefined
 
   // Nothing to do — no resize and no transcode; serve original bytes.
   if (!needsResize && outputFormat === undefined) {
-    return { bytes: input }
+    return { ok: true, bytes: input }
   }
 
   try {
-    const sharp = await loadSharp()
-    const result = await runPipeline({ sharp, input, params, outputFormat, needsResize })
+    const bytes = await runImagePipeline(input, {
+      ...(params.width !== undefined && { width: params.width }),
+      ...(params.height !== undefined && { height: params.height }),
+      fit: params.fit,
+      ...(outputFormat !== undefined && { outputFormat }),
+      quality: resolveQuality(params),
+    })
+    return { ok: true, bytes, ...(outputFormat !== undefined && { format: outputFormat }) }
+  } catch (error) {
     return {
-      bytes: new Uint8Array(result),
-      ...(outputFormat !== undefined && { format: outputFormat }),
+      ok: false,
+      reason: failureReasonFor(error),
+      message: error instanceof Error ? error.message : String(error),
     }
-  } catch {
-    // Native Sharp unavailable or undecodable input — degrade to original bytes.
-    return { bytes: input }
   }
 }

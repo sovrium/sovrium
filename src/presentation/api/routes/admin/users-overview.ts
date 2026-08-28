@@ -38,7 +38,14 @@ import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { BuildUsersDirectory } from '@/application/use-cases/admin/users-directory'
 import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { usersOverviewQuerySchema } from '@/domain/models/api/admin/users'
+import {
+  adminUsersDirectoryQuerySchema,
+  usersOverviewQuerySchema,
+} from '@/domain/models/api/admin/users'
+import { buildCsvAttachmentDisposition } from '@/domain/utils/csv-attachment'
+import { parseSortSpec } from '@/domain/utils/sort-spec'
+// eslint-disable-next-line boundaries/dependencies -- CSV serialization legitimately crosses presentation-api-route → infrastructure-export, the same way the records and form-submission exports do. The csv-exporter is a thin utility, not a domain feature.
+import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideUsersDirectoryLive } from '@/presentation/api/routes/admin/users-directory/effect-runner'
@@ -108,8 +115,14 @@ async function handleUsersOverview(c: Context): Promise<Response> {
  * `authUsersTable()` selector inside the repository), decoupled from the Better
  * Auth admin-plugin's literal-`admin` gate, so EVERY admin-tier operator —
  * including a custom top role like the partner app's `engineer` — reaches it.
- * Returns the secret-free `{ users: [{ id, email, role, banned }] }` directory
- * subset the `EndUserRow` table renders.
+ * Returns the secret-free `{ users: [{ id, email, name, role, banned }] }`
+ * directory subset the `EndUserRow` table renders.
+ *
+ * `?q=` narrows that body server-side over `email` + `name`. Before it existed
+ * the parameter was ACCEPTED and discarded — Hono drops an unknown query param
+ * silently — so every search answered 200-with-everything, and an operator
+ * looking for a colleague by name got "no user matches" for an account sitting
+ * in the table. An over-length term is a 400 rather than a silent truncation.
  *
  * Anti-enumeration 404 (S1) is wired upstream by `authMiddleware` +
  * `requireAdminTier()` on the bare `/api/admin/users` path in
@@ -123,8 +136,79 @@ async function handleUsersOverview(c: Context): Promise<Response> {
  * audit entry on success, mirroring the overview handler — flagged in the
  * follow-ups.
  */
+/**
+ * Parse the directory's query knobs.
+ *
+ * The literal below is an explicit ALLOW-LIST, and an unlisted key is how every
+ * one of these controls came to be inert: Hono drops an unrecognised query
+ * parameter without complaint, so the grid's pager, column headers and Export
+ * button each sent a parameter that was accepted and discarded, and each got a
+ * confident 200 back.
+ *
+ * `sort` takes the combined `field:direction` spelling a column header emits;
+ * {@link parseSortSpec} splits it so the two halves meet their own enums, and a
+ * column the directory cannot order by is refused rather than ignored.
+ */
+function parseDirectoryQuery(c: Context) {
+  const sortSpec = parseSortSpec(c.req.query('sort'))
+  return adminUsersDirectoryQuerySchema.safeParse({
+    q: c.req.query('q'),
+    page: c.req.query('page'),
+    limit: c.req.query('limit'),
+    sort: sortSpec?.field,
+    // A direction spelled inside `sort` wins over a separate `?order=`: it is
+    // the more specific statement, and the only one a header click sends.
+    order: sortSpec?.direction ?? c.req.query('order'),
+  })
+}
+
+/** The columns a directory CSV export carries, in the order the grid shows them. */
+const DIRECTORY_CSV_COLUMNS = ['id', 'email', 'name', 'role', 'banned'] as const
+
+/**
+ * Project one directory row for CSV.
+ *
+ * `banned` is spelled out rather than left as a boolean: the serialiser writes
+ * `1` for true and an EMPTY cell for false, so a spreadsheet column of blanks
+ * would read as "no data" for exactly the accounts that are in good standing.
+ */
+const csvRow = (user: {
+  readonly id: string
+  readonly email: string
+  readonly name: string
+  readonly role: string
+  readonly banned: boolean
+}): Readonly<Record<string, unknown>> => ({ ...user, banned: String(user.banned) })
+
 async function handleUsersDirectory(c: Context): Promise<Response> {
-  const outcome = await runRequestEffect(c, BuildUsersDirectory().pipe(provideUsersDirectoryLive))
+  // The directory's query surface. Parsing it through the shared schema is what
+  // turns an over-length term or an unsupported sort column into a 400 instead
+  // of an answer to a question the operator never asked.
+  const parsedQuery = parseDirectoryQuery(c)
+  if (!parsedQuery.success) {
+    return c.json({ success: false, message: 'Invalid query parameters', code: 'BAD_REQUEST' }, 400)
+  }
+  const { q, page, limit, sort, order } = parsedQuery.data
+  const format = c.req.query('format')
+  if (format !== undefined && format !== 'csv') {
+    return c.json(
+      { success: false, message: 'Only csv format is supported', code: 'BAD_REQUEST' },
+      400
+    )
+  }
+  const wantsCsv = format === 'csv'
+
+  const outcome = await runRequestEffect(
+    c,
+    BuildUsersDirectory({
+      ...(q !== undefined ? { q } : {}),
+      ...(sort !== undefined ? { sort, order } : {}),
+      // An export is of everything that MATCHES, not of the page the grid
+      // happens to be showing — an operator who exports while on page 2 means
+      // the directory, not rows 26 to 33.
+      ...(wantsCsv ? {} : { page, limit }),
+    }).pipe(provideUsersDirectoryLive)
+  )
 
   if (outcome._tag === 'ValidationFailed') {
     logError(
@@ -136,6 +220,22 @@ async function handleUsersDirectory(c: Context): Promise<Response> {
       { success: false, message: 'Failed to build users directory', code: 'INTERNAL_ERROR' },
       500
     )
+  }
+
+  if (wantsCsv) {
+    // A `text/csv` body with no `Content-Disposition` is rendered in the tab
+    // rather than saved, and the Export button navigates the whole browser —
+    // so without this header the operator leaves the console and lands on raw
+    // data. `exportRecordsToCsv` emits the header row even for zero matches,
+    // which keeps "nobody matched" distinct from "the export broke".
+    return new Response(exportRecordsToCsv(outcome.body.users.map(csvRow), DIRECTORY_CSV_COLUMNS), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': buildCsvAttachmentDisposition('users', new Date()),
+        'Cache-Control': 'no-store',
+      },
+    })
   }
 
   c.header('Cache-Control', 'no-store')

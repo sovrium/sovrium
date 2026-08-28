@@ -54,7 +54,10 @@ function singleAggregatedField(aggregate: AggregateConfig): string | undefined {
   return distinct.length === 1 ? distinct[0] : undefined
 }
 
-function pickFlatValue(rec: Record<string, number> | undefined, field: string): number | undefined {
+function pickFlatValue(
+  rec: Readonly<Record<string, number>> | undefined,
+  field: string
+): number | undefined {
   return rec && rec[field] !== undefined ? rec[field] : undefined
 }
 
@@ -109,7 +112,7 @@ export function aggregateNumeric(
   records: readonly Readonly<Record<string, unknown>>[],
   fields: readonly string[],
   op: NumericOp
-): Record<string, number> {
+): Readonly<Record<string, number>> {
   return fields.reduce<Record<string, number>>((acc, field) => {
     const values = extractNumericValues(records, field)
     if (values.length === 0) return acc

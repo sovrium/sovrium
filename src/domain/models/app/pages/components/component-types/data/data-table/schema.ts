@@ -44,7 +44,7 @@ export type { DataTableRowExpand } from './row-expand'
 // Row height
 // ---------------------------------------------------------------------------
 
-export const RowHeightSchema = Schema.Literal('short', 'medium', 'tall').annotations({
+export const RowHeightSchema = Schema.Literals(['short', 'medium', 'tall']).annotate({
   title: 'Row Height',
   description: 'Table row height preset (default: medium)',
 })
@@ -123,17 +123,17 @@ export const DataTableSystemSourceSchema = SystemSourceSchema
  * {@link DataTableSchema} is built from those same fields. There is no second
  * copy to keep in step.
  */
-export const DataTableDataSourceSchema = Schema.Union(
+export const DataTableDataSourceSchema = Schema.Union([
   DataTableDbDataSourceSchema,
   Schema.Struct({
     /** Inline system read-endpoint binding (mutually exclusive with the DB-table form) */
     system: DataTableSystemSourceSchema,
-  }).annotations({
+  }).annotate({
     title: 'Data Table System Data Source',
     description: 'System read-endpoint binding for the data table',
   }),
-  SystemSourceRefSchema
-).annotations({
+  SystemSourceRefSchema,
+]).annotate({
   identifier: 'DataTableComponentDataSource',
   title: 'Data Table Data Source',
   description:
@@ -173,8 +173,8 @@ export const dataTableFields = {
   dataSource: Schema.optional(DataTableDataSourceSchema),
   columns: Schema.optional(
     Schema.Array(DataTableColumnSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Column definitions for data-table component' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Column definitions for data-table component' })
     )
   ),
   selection: Schema.optional(DataTableSelectionSchema),
@@ -182,15 +182,15 @@ export const dataTableFields = {
   groupBy: Schema.optional(DataTableGroupBySchema),
   summary: Schema.optional(
     Schema.Array(DataTableSummaryItemSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Summary row with aggregate computations' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Summary row with aggregate computations' })
     )
   ),
   toolbar: Schema.optional(DataTableToolbarSchema),
   bulkActions: Schema.optional(
     Schema.Array(DataTableBulkActionSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Actions available when rows are selected' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Actions available when rows are selected' })
     )
   ),
   rowHeight: Schema.optional(RowHeightSchema),
@@ -203,24 +203,24 @@ export const dataTableFields = {
    * moves selection/hover to a non-fill channel).
    */
   rowColorField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Field whose declared option colours fill each row. Same grammar as the record views' colorField: the fill comes from the named field's per-option color declarations, and a value declaring none is not filled (no fallback palette). A filled row suppresses striping and moves selection/hover to a non-fill channel so both stay legible over the declared hue.",
       examples: ['order_status', 'priority'],
     })
   ),
   emptyMessage: Schema.optional(
-    Schema.String.annotations({ description: 'Message when no records match' })
+    Schema.String.annotate({ description: 'Message when no records match' })
   ),
   noMatchMessage: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Message shown when a search/filter reduces a non-empty dataset to zero rows (the no-match state, distinct from emptyMessage). Rendered in an aria-live status region; a {query} token is replaced with the active search string so the message echoes the query. Falls back to emptyMessage when omitted.',
       examples: ['No results for "{query}"', 'Aucun utilisateur ne correspond à « {query} »'],
     })
   ),
   showRowNumbers: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Show row number column' })
+    Schema.Boolean.annotate({ description: 'Show row number column' })
   ),
   /**
    * View types the `toolbar.viewSwitcher` offers, in tab order. Switching is a
@@ -235,7 +235,7 @@ export const dataTableFields = {
   kanbanGroupBy: Schema.optional(DataTableKanbanGroupBySchema),
   /** Date/datetime field positioning records when the calendar view is active */
   dateField: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Date or datetime field that positions each record on the calendar view. Required whenever `views` includes `calendar`.',
       examples: ['due_date', 'scheduled_at'],
@@ -320,7 +320,7 @@ export const dataTableFields = {
  *     confirm: "Delete {count} orders?"
  * ```
  */
-export const DataTableSchema = Schema.Struct(dataTableFields).annotations({
+export const DataTableSchema = Schema.Struct(dataTableFields).annotate({
   identifier: 'DataTable',
   title: 'Data Table',
   description:

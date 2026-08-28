@@ -9,11 +9,12 @@ import { Effect } from 'effect'
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
 import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
 import { runWebhookAutomation } from '@/application/use-cases/automations/run-automation'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
-import { provideAutomationLive } from './effect-runner'
+import { loadPausedAutomationNamesAsync, provideAutomationLive } from './effect-runner'
 import { runWebhookAuth } from './webhook-auth'
 import { checkAndRecordDedup } from './webhook-dedup'
 import { isRateLimited, normalizeRateLimit } from './webhook-rate-limit'
@@ -60,10 +61,23 @@ const allowedMethodsFor = (trigger: Trigger): ReadonlyArray<Method> => {
   return Array.isArray(m) ? (m as ReadonlyArray<Method>) : [m as Method]
 }
 
-const findWebhookAutomation = (app: App, name: string) => {
+/**
+ * Resolve the webhook automation behind `:name`, or `undefined` for anything
+ * the router must treat as non-existent.
+ *
+ * THIS GATE IS LOAD-BEARING FOR ANTI-ENUMERATION, not a duplicate of the
+ * downstream resolver in `run-automation.ts`. It runs inside
+ * {@link lookupAndMethodGate}, which {@link runWebhookGates} calls BEFORE the
+ * auth gate and BEFORE rate limiting. If the off-state check here read only
+ * `enabled`, a PAUSED automation would fall through to auth and answer `401`
+ * to a bad secret, while a CONFIG-DISABLED one answers `404` without auth ever
+ * being attempted — an oracle telling an attacker the automation exists and is
+ * merely paused (S1; [internal ref] pins both to 404).
+ */
+const findWebhookAutomation = (app: App, name: string, pausedNames: ReadonlySet<string>) => {
   const automation = app.automations?.find((a) => a.name === name)
   if (automation === undefined) return undefined
-  if (automation.enabled === false) return undefined
+  if (!isAutomationOperationallyEnabled(automation, pausedNames)) return undefined
   if (automation.trigger.type !== 'webhook') return undefined
   return automation
 }
@@ -149,7 +163,8 @@ const runRateLimitGate = (
  */
 const lookupAndMethodGate = (
   c: Context,
-  app: App
+  app: App,
+  pausedNames: ReadonlySet<string>
 ):
   | { readonly status: 'reject'; readonly response: Response }
   | {
@@ -161,7 +176,7 @@ const lookupAndMethodGate = (
   const name = c.req.param('name')
   if (name === undefined)
     return { status: 'reject', response: c.json({ error: 'invalid_request' }, 400) }
-  const automation = findWebhookAutomation(app, name)
+  const automation = findWebhookAutomation(app, name, pausedNames)
   if (automation === undefined)
     return { status: 'reject', response: c.json({ error: 'not_found' }, 404) }
   const trigger = automation.trigger as WebhookTrigger
@@ -174,7 +189,11 @@ const lookupAndMethodGate = (
 }
 
 const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
-  const initial = lookupAndMethodGate(c, app)
+  // The operational-pause read has to happen HERE, before the lookup gate, so
+  // the paused and config-disabled off-states are decided at the same point in
+  // the chain — i.e. before auth can turn one of them into a 401.
+  const pausedNames = await loadPausedAutomationNamesAsync()
+  const initial = lookupAndMethodGate(c, app, pausedNames)
   if (initial.status === 'reject') return initial
   const { name, trigger, method } = initial
   const rawBody = method === 'GET' ? '' : await c.req.text().catch(() => '')
@@ -359,10 +378,10 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
   })
   // Fire-and-forget. The caller already received a 202 — log-only if the
   // background run rejects so operators can still detect dispatch crashes.
-  Effect.runPromise(Effect.either(provideAutomationLive(program))).then(
+  Effect.runPromise(Effect.result(provideAutomationLive(program))).then(
     (res) => {
-      if (res._tag === 'Left') {
-        logError('[automation] async webhook run failed', res.left)
+      if (res._tag === 'Failure') {
+        logError('[automation] async webhook run failed', res.failure)
       }
       // If persistQueuedRun never fired the callback (engine errored
       // before queueing), unblock the response with a synthetic id so
@@ -399,15 +418,15 @@ const dispatchSync = async (
     triggerData: input.triggerData,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
   })
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
-  if (result._tag === 'Left') {
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
+  if (result._tag === 'Failure') {
     // The pre-dispatch gate already filtered AutomationNotFound /
     // AutomationNotWebhookTriggered with 404 — by the time we reach here, a
     // Left can only come from the lazy registry seed (`AutomationRegistrySeedError`).
     // Surface that as 500 so operator dashboards / oncall paging treat it as
     // an outage rather than a missing automation.
-    if (result.left._tag === 'AutomationRegistrySeedError') {
-      logError('[automation] webhook dispatch failed: registry seed error', result.left)
+    if (result.failure._tag === 'AutomationRegistrySeedError') {
+      logError('[automation] webhook dispatch failed: registry seed error', result.failure)
       return c.json({ error: 'internal_error' }, 500)
     }
     return c.json({ error: 'not_found' }, 404)
@@ -418,7 +437,7 @@ const dispatchSync = async (
     headers,
   } = buildSyncResponse({
     trigger: input.trigger,
-    result: result.right,
+    result: result.success,
     triggerData: input.triggerData,
   })
   // When the run failed and the operator did not configure a custom
@@ -434,7 +453,7 @@ const dispatchSync = async (
   // semantic of 200 even on partial failure.
   const cfg = input.trigger.response
   const operatorOverrodeStatus = cfg?.status !== undefined || cfg?.statusCode !== undefined
-  const finalStatus = result.right.status === 'failure' && !operatorOverrodeStatus ? 500 : status
+  const finalStatus = result.success.status === 'failure' && !operatorOverrodeStatus ? 500 : status
   return c.json(respBody as Record<string, unknown>, finalStatus as 200, headers)
 }
 

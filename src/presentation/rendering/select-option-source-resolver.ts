@@ -9,9 +9,13 @@ import {
   SELECT_OPTION_SOURCE_DEFAULT_LIMIT,
   SELECT_OPTION_SOURCE_DEFAULT_VALUE_FIELD,
 } from '@/domain/models/app/pages/components/component-types/form-controls/select-option-source'
-import { hasReadPermission } from '@/domain/validators/permission-evaluators'
+import {
+  buildReadAccessPlan,
+  CANONICAL_READ_POLICY,
+  readPrincipalFromSession,
+  type TableLike,
+} from '@/domain/validators/read-access-plan'
 import { resolveFilters, scopeTablesOf } from './current-user-resolver'
-import { getRestrictedFields } from './field-permission-filter'
 import type { DataSourceDb } from './data-source-resolver'
 import type { App } from '@/domain/models/app'
 import type {
@@ -114,11 +118,22 @@ function canResolve(
   const table = (ctx.app.tables ?? []).find((t) => t.name === binding.table)
   if (!table) return false
 
-  const userRole = ctx.session?.role ?? ''
-  if (!hasReadPermission(table, userRole, ctx.app.tables)) return false
+  // One composed plan, not a table check plus a separately-derived field set.
+  // The predecessor pair diverged from the records API twice: it gated the
+  // table on the primary role alone (so a `group:`-granted table was invisible
+  // to a member of that group) and it derived restrictions only from a declared
+  // `permissions.fields` block (so the built-in default rules never applied).
+  const plan = buildReadAccessPlan({
+    app: ctx.app,
+    table: table as TableLike,
+    principal: readPrincipalFromSession(ctx.session),
+    policy: CANONICAL_READ_POLICY,
+  })
+  if (!plan.allowed) return false
 
-  const restricted = getRestrictedFields(table.permissions, userRole)
-  return !restricted.has(binding.displayField) && !restricted.has(valueField)
+  return (
+    !plan.restrictedColumns.has(binding.displayField) && !plan.restrictedColumns.has(valueField)
+  )
 }
 
 /**

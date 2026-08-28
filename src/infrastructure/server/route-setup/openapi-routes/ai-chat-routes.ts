@@ -15,7 +15,7 @@ const chatRequestBody = { content: { 'application/json': { schema: chatRequestSc
 
 /** AI chat route group. */
 export const aiChatGroup: StaticGroupSpec = {
-  tag: 'ai',
+  tag: 'AI',
   tagDescription: 'AI assistant, conversations, and retrieval-augmented generation',
   routes: [
     {

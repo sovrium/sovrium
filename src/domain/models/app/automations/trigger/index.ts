@@ -19,7 +19,7 @@ import { WebhookTriggerSchema } from './webhook'
 /**
  * Union of all trigger types
  */
-export const TriggerSchema = Schema.Union(
+export const TriggerSchema = Schema.Union([
   WebhookTriggerSchema,
   CronTriggerSchema,
   RecordTriggerSchema,
@@ -28,9 +28,9 @@ export const TriggerSchema = Schema.Union(
   ManualTriggerSchema,
   AutomationCallTriggerSchema,
   AutomationFailureTriggerSchema,
-  CommentTriggerSchema
-).pipe(
-  Schema.annotations({
+  CommentTriggerSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'Trigger',
     title: 'Automation Trigger',
     description:
@@ -41,7 +41,7 @@ export const TriggerSchema = Schema.Union(
 /** @public */
 export type Trigger = Schema.Schema.Type<typeof TriggerSchema>
 /** @public */
-export type TriggerEncoded = Schema.Schema.Encoded<typeof TriggerSchema>
+export type TriggerEncoded = Schema.Codec.Encoded<typeof TriggerSchema>
 
 // Re-export all trigger type schemas
 export * from './auth'

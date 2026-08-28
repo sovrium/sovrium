@@ -131,12 +131,12 @@ const handleClaim = async (c: Context, app: App) => {
 
   const result = await Effect.runPromise(
     runClaim({ token, email: body.email, password: body.password, name: body.name }, app.auth).pipe(
-      Effect.either
+      Effect.result
     )
   )
 
-  if (result._tag === 'Left') {
-    const err = result.left
+  if (result._tag === 'Failure') {
+    const err = result.failure
     switch (err._tag) {
       case 'BootstrapTokenNotFoundError':
       case 'BootstrapTokenExpiredError':
@@ -151,7 +151,7 @@ const handleClaim = async (c: Context, app: App) => {
     }
   }
 
-  return c.json({ success: true, userId: result.right.userId, email: result.right.email }, 200)
+  return c.json({ success: true, userId: result.success.userId, email: result.success.email }, 200)
 }
 
 /**

@@ -17,20 +17,20 @@ export const fieldFields = {
   ...visibilityFields,
   ...i18nFields,
   fieldLabel: Schema.optional(
-    Schema.String.annotations({ description: 'Label text for the composed form field' })
+    Schema.String.annotate({ description: 'Label text for the composed form field' })
   ),
   fieldDescription: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Help text displayed below the form control',
     })
   ),
   fieldError: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Error message displayed below the form control',
     })
   ),
   required: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Show required indicator on the field label',
     })
   ),

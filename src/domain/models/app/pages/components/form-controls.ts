@@ -16,8 +16,8 @@ import { OptionItemSchema } from './shared-schemas'
  * Array of option items for selection-based form controls
  */
 export const OptionsSchema = Schema.Array(OptionItemSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     title: 'Options',
     description: 'Array of selectable options for select, radio-group, or combobox',
   })
@@ -30,7 +30,7 @@ export const OptionsSchema = Schema.Array(OptionItemSchema).pipe(
 /**
  * Layout orientation for grouped form controls
  */
-export const OrientationSchema = Schema.Literal('horizontal', 'vertical').annotations({
+export const OrientationSchema = Schema.Literals(['horizontal', 'vertical']).annotate({
   title: 'Orientation',
   description: 'Layout orientation for grouped controls',
 })
@@ -42,7 +42,7 @@ export const OrientationSchema = Schema.Literal('horizontal', 'vertical').annota
 /**
  * Date picker selection mode
  */
-export const DatePickerModeSchema = Schema.Literal('single', 'range').annotations({
+export const DatePickerModeSchema = Schema.Literals(['single', 'range']).annotate({
   title: 'Date Picker Mode',
   description: 'Whether to select a single date or a date range',
 })
@@ -54,15 +54,15 @@ export const DatePickerModeSchema = Schema.Literal('single', 'range').annotation
 /**
  * HTML input type variants
  */
-export const InputTypeSchema = Schema.Literal(
+export const InputTypeSchema = Schema.Literals([
   'text',
   'email',
   'password',
   'number',
   'tel',
   'url',
-  'search'
-).annotations({
+  'search',
+]).annotate({
   title: 'Input Type',
   description: 'HTML input type attribute for the input component',
 })
@@ -74,7 +74,7 @@ export const InputTypeSchema = Schema.Literal(
 /**
  * Skeleton loading placeholder shape variant
  */
-export const SkeletonVariantSchema = Schema.Literal('text', 'circular', 'rectangular').annotations({
+export const SkeletonVariantSchema = Schema.Literals(['text', 'circular', 'rectangular']).annotate({
   title: 'Skeleton Variant',
   description: 'Shape variant for skeleton loading placeholder',
 })
@@ -86,7 +86,7 @@ export const SkeletonVariantSchema = Schema.Literal('text', 'circular', 'rectang
 /**
  * Drawer slide-in side
  */
-export const DrawerSideSchema = Schema.Literal('left', 'right', 'top', 'bottom').annotations({
+export const DrawerSideSchema = Schema.Literals(['left', 'right', 'top', 'bottom']).annotate({
   title: 'Drawer Side',
   description: 'Edge of the screen the drawer slides in from',
 })
@@ -94,7 +94,7 @@ export const DrawerSideSchema = Schema.Literal('left', 'right', 'top', 'bottom')
 /**
  * Drawer size preset
  */
-export const DrawerSizeSchema = Schema.Literal('sm', 'md', 'lg', 'full').annotations({
+export const DrawerSizeSchema = Schema.Literals(['sm', 'md', 'lg', 'full']).annotate({
   title: 'Drawer Size',
   description: 'Width/height preset for the drawer panel',
 })
@@ -106,7 +106,7 @@ export const DrawerSizeSchema = Schema.Literal('sm', 'md', 'lg', 'full').annotat
 /**
  * Scroll area orientation
  */
-export const ScrollOrientationSchema = Schema.Literal('vertical', 'horizontal', 'both').annotations(
+export const ScrollOrientationSchema = Schema.Literals(['vertical', 'horizontal', 'both']).annotate(
   {
     title: 'Scroll Orientation',
     description: 'Which axis the scroll area scrolls on',
@@ -120,7 +120,7 @@ export const ScrollOrientationSchema = Schema.Literal('vertical', 'horizontal', 
 /**
  * Accordion expansion behavior
  */
-export const AccordionTypeSchema = Schema.Literal('single', 'multiple').annotations({
+export const AccordionTypeSchema = Schema.Literals(['single', 'multiple']).annotate({
   title: 'Accordion Type',
   description: 'Whether only one item or multiple items can be open simultaneously',
 })
@@ -132,7 +132,7 @@ export const AccordionTypeSchema = Schema.Literal('single', 'multiple').annotati
 /**
  * Tabs orientation
  */
-export const TabsOrientationSchema = Schema.Literal('horizontal', 'vertical').annotations({
+export const TabsOrientationSchema = Schema.Literals(['horizontal', 'vertical']).annotate({
   title: 'Tabs Orientation',
   description: 'Layout direction of the tab triggers',
 })
@@ -144,7 +144,7 @@ export const TabsOrientationSchema = Schema.Literal('horizontal', 'vertical').an
 /**
  * Toggle group selection behavior
  */
-export const ToggleTypeSchema = Schema.Literal('single', 'multiple').annotations({
+export const ToggleTypeSchema = Schema.Literals(['single', 'multiple']).annotate({
   title: 'Toggle Type',
   description: 'Whether single or multiple toggles can be active simultaneously',
 })

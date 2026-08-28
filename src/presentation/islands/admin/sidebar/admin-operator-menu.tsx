@@ -32,11 +32,12 @@ const FEEDBACK_URL = 'https://github.com/sovrium/sovrium/issues/new?labels=feedb
 const BUG_REPORT_URL = 'https://github.com/sovrium/sovrium/issues/new?labels=bug'
 
 /**
- * The operator's own-account destination. Until the dedicated account page lands,
- * "My account" routes to the EXISTING self-service Data & GDPR surface, which
- * already shows the operator their own account data.
+ * The operator's own-account destination — the dedicated profile page that
+ * [internal ref] landed (`profile-surface.ts`). It carries the identity half (display
+ * name, email, password) and cross-links to `/_admin/gdpr` for the data half
+ * (export / erasure), so both remain one click away from this menu.
  */
-const ACCOUNT_PATH = '/_admin/gdpr'
+const ACCOUNT_PATH = '/_admin/profile'
 
 /** The operator menu items, expressed as config `MenuItem` + `Action` data. */
 const OPERATOR_MENU_ITEMS = [
@@ -85,11 +86,45 @@ const TRIGGER_CLASSES =
   'border-border hover:bg-background-subtle focus-visible:ring-primary flex w-full items-center gap-2 rounded-md border-t px-2 pt-3 pb-1 text-left outline-none focus-visible:ring-2'
 
 /**
- * The operator menu: the config `dropdown-menu` anchored above the identity bar
- * pinned to the sidebar foot. `operator` is the signed-in identity (already
- * loaded by the sidebar island).
+ * The running Sovrium build version, as the menu's quiet closing line.
+ *
+ * It lives here rather than on the sidebar foot because it is metadata an
+ * operator needs exactly once — when reporting a bug — and the two report
+ * affordances are the items directly above it. Off the foot, it stops spending
+ * permanent sidebar real estate on a line nobody reads daily.
+ *
+ * Distinct from the brand chip's app-config version in the sidebar header;
+ * renders nothing until the version resolves.
  */
-export function AdminOperatorMenu({ operator }: { readonly operator: Operator }): ReactElement {
+function BuildVersionLine({
+  buildVersion,
+}: {
+  readonly buildVersion: string | undefined
+}): ReactElement | null {
+  if (buildVersion === undefined || buildVersion.length === 0) {
+    // eslint-disable-next-line unicorn/no-null -- React renders null, not undefined
+    return null
+  }
+  return (
+    <div className="border-border text-foreground-subtle mt-1 border-t px-2 pt-2 font-mono text-[0.6875rem] tracking-tight">
+      Sovrium v{buildVersion}
+    </div>
+  )
+}
+
+/**
+ * The operator menu: the config `dropdown-menu` anchored above the identity bar
+ * pinned to the sidebar foot. `operator` is the signed-in identity and
+ * `buildVersion` the running Sovrium build (both already loaded by the sidebar
+ * island).
+ */
+export function AdminOperatorMenu({
+  operator,
+  buildVersion,
+}: {
+  readonly operator: Operator
+  readonly buildVersion: string | undefined
+}): ReactElement {
   return (
     <MenuIsland
       floatingSide="top"
@@ -98,6 +133,7 @@ export function AdminOperatorMenu({ operator }: { readonly operator: Operator })
       triggerAriaLabel="Account menu"
       triggerContent={<ProfileTriggerContent operator={operator} />}
       menuItems={OPERATOR_MENU_ITEMS}
+      footerContent={<BuildVersionLine buildVersion={buildVersion} />}
     />
   )
 }

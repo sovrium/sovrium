@@ -25,11 +25,11 @@ import type { McpCaller } from '@/infrastructure/server/route-setup/mcp/auth'
  * envelope, and the standard RFC 6585 / draft-polli-ratelimit
  * headers (`Retry-After`, `X-RateLimit-Limit/Remaining/Reset`).
  *
- * The caller key is derived from the resolved `McpCaller`:
- *   - `oauth2` strategy → OAuth-resolved `userId` (one budget per user)
- *   - `token` strategy  → the static bearer token value (one budget per
- *     operator-issued token, so revoking a token cannot be defeated by
- *     issuing a fresh one with the same identity)
+ * The caller key is the resolved `McpCaller`'s `userId`: one budget per human,
+ * whichever credential they presented. Both surviving credentials name a real
+ * Better Auth user, so this is total — a caller who burns their budget through
+ * an API key cannot reset it by switching to OAuth, or by minting a second
+ * key.
  *
  * State is held in-memory (`Map<callerKey, RateLimitState>`) — single-process
  * deployments only. A future M-* slice will swap this for Redis when Sovrium
@@ -71,19 +71,23 @@ const pruneTimestamps = (
 /**
  * Derive a stable rate-limit key from the resolved caller.
  *
- * In `oauth2` strategy the caller carries a real `userId`; we key on that so
- * a single human burning across multiple OAuth clients still shares one
- * budget.
+ * Keying on the SUBJECT rather than on the credential is what makes the budget
+ * hold: one human burning across several OAuth clients, or holding several API
+ * keys, still shares one budget, and minting a fresh key does not reset it. The
+ * static tokens could not express this — they had no subject, so the key had to
+ * be the secret itself and each token scaled independently.
  *
- * In `token` strategy `userId` is `undefined`, so we fall back to the bearer
- * token value itself — keying on the token means each operator-issued token
- * has its own budget (admin / member / viewer scale independently).
+ * The `unidentified` bucket is unreachable in practice: rate limiting runs
+ * downstream of the auth gate, and both credentials resolve a `userId`. It
+ * exists because `readCallerFromAuthInfo`'s fail-closed fallback can construct
+ * a caller without one, and sharing a single conservative bucket is the right
+ * behaviour if that ever became reachable.
  */
-export const deriveMcpCallerKey = (caller: Readonly<McpCaller>, bearerToken: string): string => {
+export const deriveMcpCallerKey = (caller: Readonly<McpCaller>): string => {
   if (caller.userId !== undefined && caller.userId.length > 0) {
     return `user:${caller.userId}`
   }
-  return `token:${bearerToken}`
+  return 'unidentified'
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +169,7 @@ export const checkMcpRateLimit = (
   const dayInfo = computeWindowInfo(dayPruned, config.perDay, ONE_DAY_MS, now)
   const binding = pickBindingWindow(minuteInfo, dayInfo)
 
-  const headers: Record<string, string> = {
+  const headers: Readonly<Record<string, string>> = {
     'X-RateLimit-Limit': String(binding.limit),
     'X-RateLimit-Remaining': String(binding.remaining),
     'X-RateLimit-Reset': String(binding.resetAtSec),
@@ -198,18 +202,6 @@ export const recordMcpRequest = (callerKey: string, now: number = Date.now()): v
 // ---------------------------------------------------------------------------
 // Hono header injection
 // ---------------------------------------------------------------------------
-
-/**
- * Apply the rate-limit headers to a Hono `Context` so subsequent
- * `c.json(...)` calls (and the dispatcher's responses) carry them. Hono
- * propagates `c.header()` values to the final `Response` automatically.
- */
-export const applyRateLimitHeaders = (
-  c: Readonly<Context>,
-  headers: Readonly<Record<string, string>>
-): void => {
-  Object.entries(headers).forEach(([name, value]) => c.header(name, value))
-}
 
 // ---------------------------------------------------------------------------
 // 429 response builder

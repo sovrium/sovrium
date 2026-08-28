@@ -71,6 +71,10 @@ const buildDocument = (appConfig?: App) =>
         '**Design Specs**: Hand-written OpenAPI specs in `docs/specifications/app/` define the complete API design. ' +
         'Comparing this generated schema with the design specs shows implementation progress.',
     },
+    // Build-time default only. The `/api/openapi.json` handler REPLACES this with
+    // the instance's resolved origin on a per-request shallow copy, so a served
+    // document never advertises this address. It survives for the app-absent
+    // static-export path, which has no request to resolve an origin from.
     servers: [
       {
         url: 'http://localhost:3000',

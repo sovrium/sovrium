@@ -19,14 +19,14 @@ import { DurationSchema } from './hover'
  * - slideInUp: Slide up into position
  * - slideInDown: Slide down into position
  */
-export const EntranceAnimationTypeSchema = Schema.Literal(
+export const EntranceAnimationTypeSchema = Schema.Literals([
   'fadeIn',
   'fadeInUp',
   'fadeInDown',
   'zoomIn',
   'slideInUp',
-  'slideInDown'
-).annotations({
+  'slideInDown',
+]).annotate({
   description: 'Animation type for page load',
 })
 
@@ -63,18 +63,18 @@ export const EntranceAnimationTypeSchema = Schema.Literal(
 export const EntranceAnimationSchema = Schema.Struct({
   animation: EntranceAnimationTypeSchema,
   delay: Schema.optional(
-    DurationSchema.annotations({
+    DurationSchema.annotate({
       description: 'Delay before animation starts',
     })
   ),
   duration: Schema.optional(DurationSchema),
   stagger: Schema.optional(
-    DurationSchema.annotations({
+    DurationSchema.annotate({
       description: 'Delay between sibling animations',
       examples: ['50ms', '100ms'],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Entrance Animation',
   description: 'Animation played when page loads',
 })

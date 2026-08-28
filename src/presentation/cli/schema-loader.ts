@@ -15,6 +15,8 @@
 import { Effect, Console } from 'effect'
 import {
   detectFormat,
+  formatConfigCandidatesLine,
+  formatDiscoveredConfigNotice,
   getFileExtension,
   isInlineJson,
   isUrl,
@@ -25,6 +27,7 @@ import {
   loadSchemaFromFile as loadFromFile,
   fileExists,
   fetchRemoteSchema,
+  discoverDefaultConfigFile,
 } from '@/infrastructure/schema'
 import type { AppEncoded } from '@/domain/models/app'
 
@@ -134,11 +137,18 @@ const showNoConfigError = (command: string): never => {
     Effect.gen(function* () {
       yield* Console.error('Error: No configuration provided')
       yield* Console.error('')
+      // Name what was probed AND where. "No configuration provided" alone tells
+      // the user a config is missing but not what to call one — the exact gap
+      // that made the `sovrium init` → `sovrium start` flow unrecoverable.
+      yield* Console.error(formatConfigCandidatesLine(process.cwd()))
+      yield* Console.error('')
       yield* Console.error('Usage:')
-      yield* Console.error(`  sovrium ${command} <config.json>`)
+      yield* Console.error(`  sovrium ${command} <config.yaml>`)
       yield* Console.error('')
       yield* Console.error('Or with environment variable:')
       yield* Console.error(`  APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
+      yield* Console.error('')
+      yield* Console.error("Run 'sovrium init' to scaffold a new project.")
     })
   )
   // eslint-disable-next-line functional/no-expression-statements
@@ -146,12 +156,51 @@ const showNoConfigError = (command: string): never => {
 }
 
 /**
- * Parse and validate app schema from file path or environment variable
+ * A resolved app schema, plus the config FILE it came from when there was one.
+ *
+ * The pair exists because `start` and `build` need more than the decoded schema:
+ * they anchor the default `public/` directory, the lock-file config hash,
+ * `SOVRIUM_CONTENT_DIR`, the default output dir and the `--watch` handle to
+ * `dirname(configFile)`. Returning only the schema makes every one of those
+ * anchors silently unset, which is what happened to auto-discovery before this
+ * type existed — `sovrium start --watch` in a directory holding an `app.yaml`
+ * watched nothing at all.
  */
-export const parseAppSchema = async (command: string, filePath?: string): Promise<AppEncoded> => {
+export interface ResolvedAppSchema {
+  readonly app: AppEncoded
+  /**
+   * The config file the schema was read from, when a caller may anchor to it.
+   *
+   * Set for the positional argument and for an auto-DISCOVERED file — the two
+   * cases where the operator's own directory holds the config.
+   *
+   * Deliberately NOT set for `APP_SCHEMA_FILE`, and this is a preservation, not
+   * an oversight: that variable never anchored anything, it exists so the E2E
+   * harness can hand over a schema too large for `ARG_MAX`, and the harness
+   * supplies `SOVRIUM_CONTENT_DIR` itself. Inferring an anchor from it would
+   * change what every existing fixture serves. Never set for an inline or
+   * remote `APP_SCHEMA` — there is no file to anchor to.
+   */
+  readonly configFile?: string
+}
+
+/**
+ * Resolve the app schema AND the file it came from.
+ *
+ * Resolution order is the contract (`[internal ref]`
+ * § Configuration sources): positional → `APP_SCHEMA_FILE` → `APP_SCHEMA` →
+ * auto-discovery → refusal. Auto-discovery is LAST so every invocation that
+ * resolves today keeps resolving to exactly what it resolves to now; moving it
+ * earlier would silently change what an existing `APP_SCHEMA` invocation boots,
+ * which is why `[internal ref]` exists purely as a control on this order.
+ */
+export const resolveAppSchema = async (
+  command: string,
+  filePath?: string
+): Promise<ResolvedAppSchema> => {
   // If a file path is provided, load from file (takes precedence over env)
   if (filePath) {
-    return loadSchemaFromFile(filePath, command)
+    return { app: await loadSchemaFromFile(filePath, command), configFile: filePath }
   }
 
   // APP_SCHEMA_FILE env var: used by E2E fixtures when the inline APP_SCHEMA
@@ -161,7 +210,8 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
   // fixtures can prefer the file path even when both are set.
   const appSchemaFileEnv = Bun.env.APP_SCHEMA_FILE
   if (appSchemaFileEnv) {
-    return loadSchemaFromFile(appSchemaFileEnv, command)
+    // No `configFile` — see {@link ResolvedAppSchema.configFile}.
+    return { app: await loadSchemaFromFile(appSchemaFileEnv, command) }
   }
 
   // Try APP_SCHEMA environment variable
@@ -169,7 +219,7 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
 
   if (appSchemaEnv) {
     try {
-      return await parseSchemaFromEnv(appSchemaEnv)
+      return { app: await parseSchemaFromEnv(appSchemaEnv) }
     } catch (error) {
       Effect.runSync(
         Console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
@@ -179,6 +229,33 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
     }
   }
 
+  // Auto-discovery, LAST. Placed after both env vars on purpose: every
+  // invocation that resolves today keeps resolving to exactly what it resolves
+  // to now, so this step only fires on the path that used to error and exit.
+  //
+  // Reusing `loadSchemaFromFile` means a discovered-but-broken config produces
+  // the identical `Failed to parse YAML file` / ParseError output as an
+  // explicitly named one — no second error vocabulary.
+  //
+  // The filename is returned alongside the schema, not swallowed: a discovered
+  // config has to anchor `public/`, the config hash, `SOVRIUM_CONTENT_DIR` and
+  // `--watch` exactly as a named one does. That equivalence IS the acceptance
+  // criterion, not an implementation nicety.
+  const discovered = await discoverDefaultConfigFile(process.cwd())
+  if (discovered) {
+    Effect.runSync(Console.error(formatDiscoveredConfigNotice(discovered)))
+    return { app: await loadSchemaFromFile(discovered, command), configFile: discovered }
+  }
+
   // No configuration provided
   return showNoConfigError(command)
 }
+
+/**
+ * Parse and validate app schema from file path or environment variable.
+ *
+ * The schema-only view of {@link resolveAppSchema}, for callers that never
+ * anchor anything to the config's directory (`admin create`).
+ */
+export const parseAppSchema = async (command: string, filePath?: string): Promise<AppEncoded> =>
+  (await resolveAppSchema(command, filePath)).app

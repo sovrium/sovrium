@@ -17,21 +17,19 @@ export const textareaFields = {
   ...visibilityFields,
   ...i18nFields,
   rows: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Number of visible text rows for textarea' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Number of visible text rows for textarea' })
     )
   ),
   maxLength: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Maximum character count for textarea' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Maximum character count for textarea' })
     )
   ),
   autoResize: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Auto-resize textarea height to fit content',
     })
   ),

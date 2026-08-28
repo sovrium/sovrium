@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { serializeJsonForScript } from '@/domain/utils/json-script-serialization'
 import { COMMAND_PALETTE_RUNTIME } from './command-palette-runtime'
 import type { ComponentDispatchConfig, ComponentRenderer } from '../component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -118,9 +119,11 @@ export const commandPaletteComponent: ComponentRenderer = (
     tables: tables.map((table) => ({ name: table.name, fields: table.fields })),
     pages: pages.map((page) => ({ name: page.name, path: page.path, title: page.title })),
   }
-  // Escape `<` so a value containing `</script>` cannot break out of the
-  // JSON config `<script>` block.
-  const paletteConfigJson = JSON.stringify(paletteConfig).replace(/</g, '\\u003c')
+  // `serializeJsonForScript` escapes `<` so a value containing `</script>`
+  // cannot break out of the JSON config `<script>` block. This escape used to
+  // live here as a local one-off; it is now the shared serializer every
+  // script-body emission in src/ uses.
+  const paletteConfigJson = serializeJsonForScript(paletteConfig)
   return (
     <>
       <script

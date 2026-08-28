@@ -6,6 +6,10 @@
  */
 
 import { Data, Effect } from 'effect'
+import {
+  findMultiSelectSelectionOverflows,
+  findUndeclaredMultiSelectValues,
+} from '@/domain/validators/multi-select-values'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
@@ -241,6 +245,52 @@ export type ActionHandler = (
 >
 
 /**
+ * The first `multi-select` contract violation in an automation's record
+ * payload, phrased for an {@link ActionOutcome} `error` — or `undefined` when
+ * the payload is clean.
+ *
+ * Why this lives here rather than in `domain/validators/multi-select-values.ts`:
+ * that module deliberately reports WHICH columns were violated and never how to
+ * phrase it, because each write path owns its own error envelope. This is the
+ * automation envelope.
+ *
+ * Why automations need their own check at all: `createRecordProgram` /
+ * `updateRecordProgram` take `app` as OPTIONAL and the automation handlers call
+ * them without it, so any validation placed inside those programs would be a
+ * silent no-op on exactly this path. `ActionHandler` already receives `app` as
+ * its second parameter, so the table declarations are in hand here.
+ *
+ * The membership rule is checked before the cardinality rule so an automation
+ * gets the same message, for the same payload, that the records API returns
+ * (`validateMultiSelectOptions` then `validateMultiSelectSelectionLimits` in
+ * `presentation/api/validation/rules/multi-select-rules.ts`). One contract
+ * across every write path was the entire point of extracting the rules.
+ *
+ * An unknown `tableName` returns `undefined` — resolving the table is not this
+ * helper's job, and the downstream write reports it far more precisely.
+ */
+export const findMultiSelectViolationMessage = (
+  app: App,
+  tableName: string,
+  fields: Readonly<Record<string, unknown>>
+): string | undefined => {
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  if (!table) return undefined
+
+  const undeclared = findUndeclaredMultiSelectValues(table.fields, fields)[0]
+  if (undeclared) {
+    return `Invalid option for field '${undeclared.field}'. Allowed options: ${undeclared.allowed.join(', ')}`
+  }
+
+  const overflow = findMultiSelectSelectionOverflows(table.fields, fields)[0]
+  if (overflow) {
+    return `Too many selections for field '${overflow.field}'. max selections allowed: ${overflow.maxSelections}`
+  }
+
+  return undefined
+}
+
+/**
  * Registry key shape for action dispatch.
  *
  * Actions are keyed by `${type}/${operator}` (e.g. `record/create`,
@@ -267,7 +317,8 @@ export const stringProp = (props: Readonly<Record<string, unknown>>, key: string
 export const recordProp = (
   props: Readonly<Record<string, unknown>>,
   key: string
-): Record<string, unknown> | undefined => props[key] as Record<string, unknown> | undefined
+): Readonly<Record<string, unknown>> | undefined =>
+  props[key] as Record<string, unknown> | undefined
 
 export const numberProp = (
   props: Readonly<Record<string, unknown>>,
@@ -281,6 +332,43 @@ export const numberProp = (
     if (Number.isFinite(parsed)) return parsed
   }
   return fallback
+}
+
+/**
+ * Turn a finished item-loop tally into the step's `ActionOutcome`.
+ *
+ * The ONE implementation of the `continueOnItemError` rule, shared by every
+ * operator that walks a declared item array — `record/batchCreate`,
+ * `batchUpdate`, `batchDelete`, `batchUpsert` and `loop/each`. All five declare
+ * the flag with byte-identical wording ("Continue processing remaining items if
+ * one fails (default: false)"), so all five must agree that failures fail the
+ * STEP unless the author opted in, while the counts ride along either way so
+ * run-history records what did land.
+ *
+ * It is shared because it already drifted once: `record-batch.ts` and `loop.ts`
+ * each carried the same four lines, and a divergence between two such copies is
+ * exactly the defect class their callers were audited for. Being pure data in /
+ * pure data out, sharing it needs no generalisation.
+ *
+ * Deliberately NOT shared: the folds that PRODUCE the tally. `runBatchItems` is
+ * an Effect fold over `TableRepository`-requiring per-item Effects with a
+ * created/updated/failed vocabulary that discards each item's output;
+ * `runAllIterations` is a promise chain whose per-item output IS the payload
+ * (`results[]` is a documented template surface). Unifying those would mean
+ * generalising over both the effect requirement and the result vocabulary to
+ * save a handful of lines — see the note on `loop.ts`'s `foldIteration`.
+ */
+export const itemLoopOutcome = (input: {
+  readonly failed: number
+  readonly firstError: string | undefined
+  readonly output: Record<string, unknown>
+  readonly continueOnItemError: boolean
+  readonly fallbackError: string
+}): ActionOutcome => {
+  const { failed, firstError, output, continueOnItemError, fallbackError } = input
+  return failed > 0 && !continueOnItemError
+    ? { status: 'failure', error: firstError ?? fallbackError, output }
+    : { status: 'success', output }
 }
 
 /**

@@ -7,7 +7,7 @@
 
 import { Effect, Console } from 'effect'
 import { printFailure } from '@/infrastructure/logging/cli-output'
-import { readLockFile, removeLockFile } from '@/infrastructure/server/lock-file'
+import { readLockFile, removeLockFile, waitForProcessExit } from '@/infrastructure/server/lock-file'
 
 /**
  * Handle the 'stop' command -- read PID from lock file and send SIGTERM
@@ -37,9 +37,24 @@ export const handleStopCommand = async (): Promise<void> => {
     }
   })()
 
-  // Wait briefly for process to exit, then clean up lock file
-  // eslint-disable-next-line functional/no-expression-statements
-  await new Promise((r) => setTimeout(r, 500))
+  // Wait for the process to actually go away. A fixed sleep used to stand in
+  // for this, which made "Server stopped." a claim about elapsed time rather
+  // than about the server — and a slow shutdown printed it over a process that
+  // was still serving requests.
+  const exited = wasRunning ? await waitForProcessExit(lockData.pid) : true
+
+  if (!exited) {
+    // Keep the lock file: it is still TRUE. Removing it here would hide a live
+    // server from `sovrium start`, which would then boot a second one beside it.
+    printFailure({
+      headline: `Server (PID ${lockData.pid}) did not exit within 5s after SIGTERM.`,
+      guidance: `Force it with 'kill -9 ${lockData.pid}', then run 'sovrium stop' again to clear the lock.`,
+    })
+    // eslint-disable-next-line functional/no-expression-statements
+    process.exit(1)
+  }
+
+  // Belt-and-braces: the server removes its own lock file on the way out.
   // eslint-disable-next-line functional/no-expression-statements
   await removeLockFile()
 

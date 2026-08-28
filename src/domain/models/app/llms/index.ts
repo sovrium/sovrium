@@ -33,7 +33,7 @@ export const LlmsSchema = Schema.Struct({
    */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Enable the auto-generated /llms.txt routes (default: true when docs exist)',
       })
     )
@@ -45,8 +45,8 @@ export const LlmsSchema = Schema.Struct({
    */
   title: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Override the H1 title at the top of /llms.txt' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Override the H1 title at the top of /llms.txt' })
     )
   ),
 
@@ -56,8 +56,8 @@ export const LlmsSchema = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Override the blockquote description in /llms.txt' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Override the blockquote description in /llms.txt' })
     )
   ),
 
@@ -67,11 +67,11 @@ export const LlmsSchema = Schema.Struct({
    */
   full: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Serve /llms-full.txt with concatenated bodies' })
+      Schema.annotate({ description: 'Serve /llms-full.txt with concatenated bodies' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Llms',
     title: 'LLMs.txt Configuration',
     description:
@@ -93,4 +93,4 @@ export type Llms = Schema.Schema.Type<typeof LlmsSchema>
  * Encoded type of LlmsSchema (what goes in).
  * @public
  */
-export type LlmsEncoded = Schema.Schema.Encoded<typeof LlmsSchema>
+export type LlmsEncoded = Schema.Codec.Encoded<typeof LlmsSchema>

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { parseEcoFormAnalytics } from '@/domain/models/env/eco/eco-form-analytics'
 import { isDebugLevel } from '@/domain/models/env/logging/logging'
 import { isLocalDevDefault } from '@/domain/utils/dev-mode'
 import { isInsecureOptOut, isLoopbackHost } from '@/infrastructure/utils/security-posture'
@@ -87,8 +88,13 @@ export const isLiveReloadEligible = (): boolean => isLocalDevDefault(getNodeEnv(
  * with `ECO_FORM_ANALYTICS=off` for an ultra-frugal posture. Per-form
  * `analytics.enabled: false` is a separate, finer-grained gate
  * evaluated alongside this env-var.
+ *
+ * Delegates to the domain parser so the lever has exactly ONE reader. It was
+ * previously decided inline here, which put it out of reach of every consumer
+ * that resolves eco levers from the domain — including the footprint
+ * dashboard's `levers` panel, which must report all eight levers or none.
  */
-export const isFormAnalyticsEnabled = (): boolean => env['ECO_FORM_ANALYTICS'] !== 'off'
+export const isFormAnalyticsEnabled = (): boolean => parseEcoFormAnalytics(env) === 'on'
 
 /**
  * Collect the optional insecure-posture security warning as a structured

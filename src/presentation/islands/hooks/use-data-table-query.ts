@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { createRecordsClient } from '@/presentation/api/client'
 import { groupPathKey } from '../data-table/group-order'
-import { fetchSystemEndpoint } from './use-system-source-fetch'
+import { fetchSystemEndpoint, readAppliedQuery } from './use-system-source-fetch'
 import type { FetchResult } from './use-system-source-fetch'
 import type { SummaryAggregations } from '../data-table/summary-aggregate'
 import type { TableRecord } from '../shared/types'
@@ -245,6 +245,7 @@ async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetch
     pagination?: { total?: number }
     aggregations?: SummaryAggregations
     groups?: readonly GroupCount[]
+    appliedQuery?: string | null
   }
   // Flatten: merge record.fields into top-level for TanStack Table accessorKey resolution
   const rawRecords = json.records ?? []
@@ -257,6 +258,15 @@ async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetch
     total: json.total ?? json.pagination?.total ?? rawRecords.length,
     ...(json.aggregations ? { aggregations: json.aggregations } : {}),
     ...(json.groups ? { groups: json.groups } : {}),
+    // The records route's own declaration that it already applied `?q=`, read by
+    // KEY PRESENCE (`readAppliedQuery`) — the ONLY thing that switches off
+    // TanStack's second, page-local narrowing (`use-island-setup.ts:447` →
+    // `use-table.ts:130`). Without it every DB-table grid filtered a page the
+    // server had already filtered, over the RENDERED columns only, so a row
+    // matched on a field the grid does not show as a column was discarded on
+    // arrival. The trash branch omits the key and therefore keeps filtering
+    // here, which is correct: it never searched.
+    ...readAppliedQuery(json),
   }
 }
 
@@ -430,6 +440,15 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
   const result = useQuery({
     queryKey,
     refetchInterval,
+    // Sorting, paging and searching all re-key this query, and a new key has no
+    // cached entry — so without this the rows the operator was reading are
+    // dropped the instant they click, and replaced by skeletons, before the
+    // server has said anything at all. Keeping the previous page in place means
+    // an interaction only ever ADDS the new answer; it never first takes away
+    // the old one. It also makes a refusal survivable: the last good page is
+    // still on screen when the failure lands, which is what lets the grid keep
+    // showing data instead of an error in place of itself.
+    placeholderData: keepPreviousData,
     queryFn: (): Promise<DataTableFetchResult> => runDataTableFetch(resolved),
   })
 

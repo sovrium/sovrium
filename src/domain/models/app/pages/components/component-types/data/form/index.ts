@@ -46,13 +46,13 @@ export const DataFormTypeLiteral = Schema.Literal('data-form')
  * accepts the union so inline-create authors can mix `'$parent.id'` with
  * `priority: 1` in the same `prefill` map without per-field type guards.
  */
-const InlinePrefillValueSchema = Schema.Union(
+const InlinePrefillValueSchema = Schema.Union([
   Schema.String,
-  Schema.Number,
+  Schema.Finite,
   Schema.Boolean,
   Schema.Array(Schema.String),
-  Schema.Array(Schema.Number)
-).annotations({
+  Schema.Array(Schema.Finite),
+]).annotate({
   description:
     'Literal value or `$parent.<field>` token resolved against the host page record at render time.',
 })
@@ -81,20 +81,17 @@ const InlinePrefillValueSchema = Schema.Union(
  * cross-validation pass once the inline-create feature stabilises.
  */
 export const InlinePrefillSchema = Schema.Struct({
-  prefill: Schema.Record({
-    key: Schema.String,
-    value: InlinePrefillValueSchema,
-  }).annotations({
+  prefill: Schema.Record(Schema.String, InlinePrefillValueSchema).annotate({
     description:
       'Map of form-field column name to prefill value. Supports `$parent.<field>` tokens that resolve against the host page record.',
   }),
   lockPrefill: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'When true, prefilled fields render as hidden inputs and the server revalidates the parent on submit (returns 422 if the parent is gone).',
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'InlinePrefill',
   title: 'Inline Prefill',
   description:
@@ -144,13 +141,13 @@ export const FormEndpointSchema = Schema.Struct({
    * Custom submit URL (any absolute path or fully-qualified URL; NOT prefix-
    * restricted). May target a Better-Auth admin endpoint or any operate route.
    */
-  url: Schema.String.annotations({
+  url: Schema.String.annotate({
     description:
       'Custom submit URL (any path; not the records API). e.g. /api/auth/admin/create-user',
   }),
   /** HTTP method for the submit (defaults to POST). */
   method: Schema.optional(
-    Schema.Literal('POST', 'PUT', 'PATCH').annotations({
+    Schema.Literals(['POST', 'PUT', 'PATCH']).annotate({
       description: 'HTTP method for the custom-endpoint submit (defaults to POST)',
     })
   ),
@@ -162,7 +159,7 @@ export const FormEndpointSchema = Schema.Struct({
   responseEnvelope: Schema.optional(FetchResponseEnvelopeSchema),
   /** Submit button label (defaults to the form's standard submit label). */
   submitLabel: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Submit button label (defaults to the form submit label)',
       examples: ['Créer le compte', 'Envoyer'],
     })
@@ -175,7 +172,7 @@ export const FormEndpointSchema = Schema.Struct({
   onSuccess: Schema.optional(FetchSuccessResponseSchema),
   /** Toast shown when the submit resolves non-2xx or rejects. */
   onError: Schema.optional(FetchToastResponseSchema),
-}).annotations({
+}).annotate({
   title: 'Form Endpoint',
   description:
     'Custom-endpoint submit target for a form: POST collected field values as JSON to an arbitrary url, with response-envelope tolerance and the shipped onSuccess effects (status + sibling refetch).',
@@ -211,15 +208,15 @@ export const formFields = {
     Schema.Struct({
       steps: Schema.NonEmptyArray(
         Schema.Struct({
-          label: Schema.String.annotations({
+          label: Schema.String.annotate({
             description: 'Step label shown in the progress indicator',
           }),
-          fields: Schema.NonEmptyArray(Schema.String).annotations({
+          fields: Schema.NonEmptyArray(Schema.String).annotate({
             description: 'Field names assigned to this step',
           }),
         })
-      ).annotations({ description: 'Ordered list of wizard steps' }),
-    }).annotations({
+      ).annotate({ description: 'Ordered list of wizard steps' }),
+    }).annotate({
       description:
         'Multi-step wizard configuration. Splits form fields into sequential steps with Next/Back navigation.',
     })
@@ -233,7 +230,7 @@ export const formFields = {
    * on the same component (cross-validated at the `AppSchema` level).
    */
   formRef: Schema.optional(
-    FormNameSchema.annotations({
+    FormNameSchema.annotate({
       description:
         'Reference a top-level form by name (app.forms[].name). Renders that form inline.',
     })
@@ -260,8 +257,8 @@ export const formFields = {
   endpoint: Schema.optional(FormEndpointSchema),
   fields: Schema.optional(
     Schema.Array(FormFieldConfigSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Per-field configuration for form component (labels, placeholders, visibility)',
       })
@@ -269,12 +266,12 @@ export const formFields = {
   ),
   fieldGroups: Schema.optional(
     Schema.Array(FormFieldGroupSchema).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Groups form fields under labeled section dividers' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Groups form fields under labeled section dividers' })
     )
   ),
   layout: Schema.optional(
-    Schema.Literal('single-column', 'two-column', 'custom').annotations({
+    Schema.Literals(['single-column', 'two-column', 'custom']).annotate({
       description: 'Form layout mode: single-column | two-column | custom',
     })
   ),

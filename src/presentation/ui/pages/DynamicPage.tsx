@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { generateClickDelegateScript } from '@/presentation/scripts/click-delegate-script'
 import { SovriumBadge } from '@/presentation/ui/badge/sovrium-badge'
 import { DemoNotice } from '@/presentation/ui/demo-notice/demo-notice'
 import { extractComponentMetaFromSections } from '@/presentation/ui/metadata/extract-component-meta'
@@ -210,6 +211,7 @@ u();
 var op=history.pushState;
 history.pushState=function(){op.apply(this,arguments);u()};
 window.addEventListener("popstate",u);
+${generateClickDelegateScript()}
 })();`
     : undefined
 

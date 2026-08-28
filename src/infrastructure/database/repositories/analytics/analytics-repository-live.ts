@@ -30,16 +30,32 @@ const analyticsEvents = resolveDialectSchema(analyticsEventsPg, analyticsEventsS
 const wrap = makeDbWrap((error) => new AnalyticsDatabaseError({ cause: error }))
 
 /**
- * Build the common WHERE clause for page-view analytics queries.
+ * Build the common WHERE clause shared by all six aggregation readers.
  *
- * Matches both the specified appName AND 'default' to support
- * direct SQL inserts (which use the schema default 'default').
- * Also filters to page_view event type only.
+ * Matches both the specified appName AND 'default' to support direct SQL inserts
+ * (which use the schema default 'default').
+ *
+ * PARAMETERISED BY EVENT POPULATION, defaulting to `page_view`. This one function
+ * is what lets `getSummary`, `getTimeSeries`, `getTopPages`, `getTopReferrers`,
+ * `getDevices` and `getCampaigns` serve link clicks, QR scans and outbound clicks
+ * without a second aggregation path existing anywhere.
+ *
+ * TWO PROPERTIES ARE LOAD-BEARING, and both fail silently if broken:
+ *
+ *  1. **The default keeps page views isolated.** Omitting `eventType` must still
+ *     mean `page_view` only. An unpinned clause would blend every population at
+ *     once and move all six readers' historical figures in a change nothing flags.
+ *  2. **An unrecognised event type must return EMPTY, not unfiltered.** Falling
+ *     back to "no filter" would answer a click-shaped question with page-view
+ *     totals — a plausible number that means something else. That follows from
+ *     pinning the column rather than conditionally omitting the predicate, which
+ *     is why the `eq` is unconditional.
  */
-const pageViewWhereClause = (params: AnalyticsQueryParams) =>
+const analyticsWhereClause = (params: AnalyticsQueryParams) =>
   and(
     inArray(analyticsEvents.appName, [params.appName, 'default']),
-    eq(analyticsEvents.eventType, 'page_view'),
+    eq(analyticsEvents.eventType, params.eventType ?? 'page_view'),
+    ...(params.eventName === undefined ? [] : [eq(analyticsEvents.eventName, params.eventName)]),
     between(analyticsEvents.timestamp, params.from, params.to)
   )
 
@@ -155,7 +171,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
           sessions: countDistinct(analyticsEvents.sessionHash),
         })
         .from(analyticsEvents)
-        .where(pageViewWhereClause(params))
+        .where(analyticsWhereClause(params))
 
       const row = result[0]
       return {
@@ -177,7 +193,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
           sessions: countDistinct(analyticsEvents.sessionHash),
         })
         .from(analyticsEvents)
-        .where(pageViewWhereClause(params))
+        .where(analyticsWhereClause(params))
         .groupBy(periodExpr)
         .orderBy(periodExpr)
 
@@ -199,7 +215,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
           uniqueVisitors: countDistinct(analyticsEvents.visitorHash),
         })
         .from(analyticsEvents)
-        .where(pageViewWhereClause(params))
+        .where(analyticsWhereClause(params))
         .groupBy(pathExpr)
         .orderBy(sql`count(*) DESC`)
 
@@ -223,7 +239,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .from(analyticsEvents)
         .where(
           and(
-            pageViewWhereClause(params),
+            analyticsWhereClause(params),
             // Exclude UTM campaign traffic (belongs in /api/analytics/campaigns)
             or(
               // Include rows with referrer_domain set
@@ -246,7 +262,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
 
   getDevices: (params) =>
     wrap(async () => {
-      const condition = pageViewWhereClause(params)
+      const condition = analyticsWhereClause(params)
       const deviceExpr = jsonExtractPath(analyticsEvents.properties, 'deviceType')
       const browserExpr = jsonExtractPath(analyticsEvents.properties, 'browserName')
       const osExpr = jsonExtractPath(analyticsEvents.properties, 'osName')
@@ -291,6 +307,37 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
       }
     }),
 
+  /**
+   * The per-target click split for one link.
+   *
+   * Groups on `properties.targetIndex`, which every click event has carried
+   * since the first one — including for a single-destination link, which is
+   * exactly why turning a plain link into an experiment later does not restart
+   * its history from zero.
+   *
+   * Rows whose index no longer maps to a declared target are NOT dropped here.
+   * Discarding them would make the percentages stop summing and would silently
+   * throw away the traffic an operator most likely re-pointed the link because
+   * of; the route layer marks them with a null destination instead.
+   */
+  getTargets: (params) =>
+    wrap(async () => {
+      const condition = analyticsWhereClause(params)
+      const targetExpr = jsonExtractPath(analyticsEvents.properties, 'targetIndex')
+
+      const rows = await db
+        .select({
+          name: sql<string | null>`${targetExpr}`.as('name'),
+          count: count(),
+        })
+        .from(analyticsEvents)
+        .where(condition)
+        .groupBy(targetExpr)
+        .orderBy(sql`count(*) DESC`)
+
+      return computePercentages(rows)
+    }),
+
   getCampaigns: (params) =>
     wrap(async () => {
       const sourceExpr = jsonExtractPath(analyticsEvents.properties, 'utmSource')
@@ -307,7 +354,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         .from(analyticsEvents)
         .where(
           and(
-            pageViewWhereClause(params),
+            analyticsWhereClause(params),
             // Only include rows that have at least one UTM parameter
             sql`(${sourceExpr} IS NOT NULL OR ${mediumExpr} IS NOT NULL OR ${campaignExpr} IS NOT NULL)`
           )

@@ -24,7 +24,7 @@ export class AuthDatabaseError extends Data.TaggedError('AuthDatabaseError')<{
  *
  * Implementation lives in infrastructure layer (auth-repository-live.ts).
  */
-export class AuthRepository extends Context.Tag('AuthRepository')<
+export class AuthRepository extends Context.Service<
   AuthRepository,
   {
     readonly verifyUserEmail: (userId: string) => Effect.Effect<void, AuthDatabaseError>
@@ -100,7 +100,7 @@ export class AuthRepository extends Context.Tag('AuthRepository')<
      * `AuthDatabaseError` only for genuine DB errors (connection lost,
      * table missing under a partial migration).
      */
-    readonly countUsers: () => Effect.Effect<number, AuthDatabaseError>
+    readonly countUsers: Effect.Effect<number, AuthDatabaseError>
     /**
      * Count only HUMAN (sign-in-capable) users — those backed by at least one
      * `auth.account` row. AI agents declared in `app.agents[]` are mirrored
@@ -115,7 +115,7 @@ export class AuthRepository extends Context.Tag('AuthRepository')<
      * Returns 0 when no sign-in-capable user exists. Implementations MUST fail
      * with `AuthDatabaseError` only for genuine DB errors.
      */
-    readonly countHumanUsers: () => Effect.Effect<number, AuthDatabaseError>
+    readonly countHumanUsers: Effect.Effect<number, AuthDatabaseError>
     /**
      * Find the first (lowest-`id`) user holding the app's admin-equivalent
      * role in the Better Auth `user` table. Returns `undefined` when no such
@@ -147,13 +147,24 @@ export class AuthRepository extends Context.Tag('AuthRepository')<
      * `applyAdminRoleCheckMiddleware`, so counting it would report a door open
      * that is in fact locked.
      *
-     * KNOWN RESIDUAL GAP: `applyAdminRoleCheckMiddleware` still gates on the
-     * LITERAL `role === 'admin'`, not on `resolveAdminRole`. So in an app whose
-     * resolved admin-equivalent role is a custom name, a user holding that role
-     * is counted here but is 404ed at `/api/auth/admin/*` — the count can
-     * over-report by exactly those users, which permits a lockout rather than
-     * causing a spurious one. Closing it means aligning that middleware with the
-     * shared predicate; that is a separate change from this guard.
+     * The gap this note previously described — `applyAdminRoleCheckMiddleware`
+     * gating on the LITERAL `role === 'admin'` while this count followed
+     * `resolveAdminRole` — is CLOSED: that middleware now gates on
+     * `isAdminEquivalent`, of which `adminRoleNamesFor` is the list form. For an
+     * app whose top role is at or below the built-in `admin` level (80) — e.g.
+     * partner's `engineer` at 80 — door and count now agree exactly.
+     *
+     * KNOWN RESIDUAL GAP (narrower, different cause): `isAdminEquivalent` admits
+     * the built-in `'admin'` only while `80 >= topLevel`, whereas
+     * `adminRoleNamesFor` lists it unconditionally. So in an app declaring a top
+     * role ABOVE level 80 (`level` has no schema upper bound), a literal-`admin`
+     * user is counted here but 404ed at `/api/auth/admin/*` — the count
+     * over-reports by exactly those users, permitting a lockout rather than
+     * causing a spurious one. Unchanged in direction from the old gap, so the
+     * guard stays fail-safe in the same way; closing it means reconciling those
+     * two, which is a separate change from this guard. Note that this rail is
+     * explicitly NOT a security boundary (see `admin-role-guards.ts`) — both
+     * actors are already admins.
      *
      * BANNED USERS ARE EXCLUDED. A banned admin still carries `role='admin'`
      * but cannot sign in, so counting it would permit exactly the lockout the
@@ -166,4 +177,4 @@ export class AuthRepository extends Context.Tag('AuthRepository')<
       adminRoles: readonly string[]
     ) => Effect.Effect<number, AuthDatabaseError>
   }
->() {}
+>()('AuthRepository') {}

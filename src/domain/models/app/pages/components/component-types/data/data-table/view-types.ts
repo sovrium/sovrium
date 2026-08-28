@@ -19,12 +19,12 @@ import { Schema } from 'effect'
  * change over the same bound dataset — the active filters, sorts, search and
  * grouping are unchanged by a switch, and no new query contract is introduced.
  */
-export const DataTableViewTypeSchema = Schema.Literal(
+export const DataTableViewTypeSchema = Schema.Literals([
   'grid',
   'kanban',
   'calendar',
-  'gallery'
-).annotations({
+  'gallery',
+]).annotate({
   identifier: 'DataTableViewType',
   title: 'Data Table View Type',
   description:
@@ -51,8 +51,8 @@ export type DataTableViewType = Schema.Schema.Type<typeof DataTableViewTypeSchem
  * depth of the whole `App` type.
  */
 export const DataTableViewsSchema = Schema.Array(DataTableViewTypeSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     identifier: 'DataTableViews',
     title: 'Data Table Views',
     description:
@@ -84,7 +84,7 @@ export const DataTableViewsSchema = Schema.Array(DataTableViewTypeSchema).pipe(
 export const DataTableViewLabelsSchema = Schema.Struct({
   /** Accessible name of the switcher group itself (default: "View") */
   group: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Accessible name of the view-switcher button group (aria-label). Default: "View".',
       examples: ['View', 'Affichage'],
@@ -92,33 +92,33 @@ export const DataTableViewLabelsSchema = Schema.Struct({
   ),
   /** Label + aria-label of the grid button (default: "Grid") */
   grid: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Label and aria-label of the grid view button. Default: "Grid".',
       examples: ['Grid', 'Grille'],
     })
   ),
   /** Label + aria-label of the kanban button (default: "Kanban") */
   kanban: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Label and aria-label of the kanban view button. Default: "Kanban".',
       examples: ['Kanban', 'Tableau'],
     })
   ),
   /** Label + aria-label of the calendar button (default: "Calendar") */
   calendar: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Label and aria-label of the calendar view button. Default: "Calendar".',
       examples: ['Calendar', 'Agenda'],
     })
   ),
   /** Label + aria-label of the gallery button (default: "Gallery") */
   gallery: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Label and aria-label of the gallery view button. Default: "Gallery".',
       examples: ['Gallery', 'Galerie'],
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'DataTableViewLabels',
   title: 'Data Table View Labels',
   description:
@@ -142,12 +142,12 @@ export type DataTableViewLabels = Schema.Schema.Type<typeof DataTableViewLabelsS
  */
 export const DataTableKanbanGroupBySchema = Schema.Struct({
   /** Field name whose distinct values create the board's columns */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description:
       'Field name whose distinct values create the kanban columns (a single-select / status field)',
     examples: ['status', 'stage'],
   }),
-}).annotations({
+}).annotate({
   identifier: 'DataTableKanbanGroupBy',
   title: 'Data Table Kanban Group By',
   description:

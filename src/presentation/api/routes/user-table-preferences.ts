@@ -55,11 +55,11 @@ const handleGet = async (c: Context): Promise<Response> => {
     c,
     getUserTablePreferences({ userId: session.userId, tableName }).pipe(
       provideDatabaseLive,
-      Effect.either
+      Effect.result
     )
   )
-  if (result._tag === 'Left') return internalError(c)
-  return c.json(userTablePreferencesResponseSchema.parse(result.right), 200)
+  if (result._tag === 'Failure') return internalError(c)
+  return c.json(userTablePreferencesResponseSchema.parse(result.success), 200)
 }
 
 /** DELETE /api/tables/:tableId/user-preferences — clear all preferences. */
@@ -73,10 +73,10 @@ const handleDelete = async (c: Context): Promise<Response> => {
     c,
     deleteUserTablePreferences({ userId: session.userId, tableName }).pipe(
       provideDatabaseLive,
-      Effect.either
+      Effect.result
     )
   )
-  if (result._tag === 'Left') return internalError(c)
+  if (result._tag === 'Failure') return internalError(c)
   return c.json(userTablePreferencesResponseSchema.parse(emptyPreferencesResponse(tableName)), 200)
 }
 
@@ -102,15 +102,15 @@ const handlePatch = async (c: Context): Promise<Response> => {
       userId: session.userId,
       tableName,
       ...(parsed.data as Record<string, unknown>),
-    }).pipe(provideDatabaseLive, Effect.either)
+    }).pipe(provideDatabaseLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    if (result.left._tag === 'UserPreferencesWriteError') {
-      return badRequest(c, result.left.message)
+  if (result._tag === 'Failure') {
+    if (result.failure._tag === 'UserPreferencesWriteError') {
+      return badRequest(c, result.failure.message)
     }
     return internalError(c)
   }
-  const { response, created } = result.right
+  const { response, created } = result.success
   return c.json(userTablePreferencesResponseSchema.parse(response), created ? 201 : 200)
 }
 

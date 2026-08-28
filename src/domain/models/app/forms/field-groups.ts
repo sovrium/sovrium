@@ -17,13 +17,15 @@ import { VisibleWhenSchema } from '../../shared/visible-when'
  */
 export const FormFieldGroupSchema = Schema.Struct({
   /** Group label displayed as a section divider above the fields. */
-  label: Schema.String.pipe(Schema.minLength(1)).annotations({
+  label: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
     description: 'Group label displayed as a section divider above the fields',
   }),
   /** Field names belonging to this group. */
-  fields: Schema.Array(Schema.String).pipe(Schema.minItems(1)).annotations({
-    description: 'Array of field names belonging to this group',
-  }),
+  fields: Schema.Array(Schema.String)
+    .pipe(Schema.check(Schema.isMinLength(1)))
+    .annotate({
+      description: 'Array of field names belonging to this group',
+    }),
   /**
    * Optional visibility rule. When set and the rule evaluates false, the entire
    * group (label + every field listed under it) is hidden at render time.
@@ -31,7 +33,7 @@ export const FormFieldGroupSchema = Schema.Struct({
    * condition primitive in single-page (groups) and multi-step (steps) layouts.
    */
   visibleWhen: Schema.optional(VisibleWhenSchema),
-}).annotations({
+}).annotate({
   identifier: 'FormFieldGroup',
   title: 'Form Field Group',
   description: 'Groups form fields under a labeled section divider',

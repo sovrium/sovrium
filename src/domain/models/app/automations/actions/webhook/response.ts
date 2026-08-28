@@ -21,26 +21,24 @@ export const WebhookResponseActionSchema = Schema.Struct({
   operator: Schema.Literal('response'),
   props: Schema.Struct({
     status: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(100, 599),
-        Schema.annotations({ description: 'HTTP response status code (default: 200)' })
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 })),
+        Schema.annotate({ description: 'HTTP response status code (default: 200)' })
       )
     ),
     body: Schema.optional(
-      Schema.Union(
-        Schema.String,
-        Schema.Record({ key: Schema.String, value: Schema.Unknown })
-      ).pipe(Schema.annotations({ description: 'Response body — string or JSON object' }))
+      Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.Unknown)]).pipe(
+        Schema.annotate({ description: 'Response body — string or JSON object' })
+      )
     ),
     headers: Schema.optional(
-      Schema.Record({ key: Schema.String, value: TemplateStringSchema }).pipe(
-        Schema.annotations({ description: 'Response headers' })
+      Schema.Record(Schema.String, TemplateStringSchema).pipe(
+        Schema.annotate({ description: 'Response headers' })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'WebhookResponseAction',
     title: 'Webhook Response Action',
     description:

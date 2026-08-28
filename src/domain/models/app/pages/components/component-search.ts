@@ -25,21 +25,20 @@ import { Schema } from 'effect'
 export const ComponentSearchSchema = Schema.Struct({
   /** Enable search bar on the component */
   enabled: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Enable search bar (default: true)' })
+    Schema.Boolean.annotate({ description: 'Enable search bar (default: true)' })
   ),
   /** Search input placeholder text */
   placeholder: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Search input placeholder text',
       examples: ['Search products...', 'Type to search...'],
     })
   ),
   /** Debounce delay in milliseconds */
   debounceMs: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(0),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+      Schema.annotate({
         description: 'Debounce delay for search input in ms (default: 300)',
         examples: [200, 300, 500],
       })
@@ -47,11 +46,11 @@ export const ComponentSearchSchema = Schema.Struct({
   ),
   /** Highlight matched search terms in results */
   highlight: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Highlight matched search terms in results (default: false)',
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'ComponentSearch',
   title: 'Component Search',
   description:

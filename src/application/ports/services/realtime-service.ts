@@ -21,7 +21,7 @@ export class RealtimeError extends Data.TaggedError('RealtimeError')<{
  * Provides pub/sub messaging, channel subscriptions, and presence tracking.
  * Implementation lives in infrastructure layer (e.g., WebSocket, SSE).
  */
-export class RealtimeService extends Context.Tag('RealtimeService')<
+export class RealtimeService extends Context.Service<
   RealtimeService,
   {
     readonly subscribe: (
@@ -38,4 +38,4 @@ export class RealtimeService extends Context.Tag('RealtimeService')<
       channel: string
     ) => Effect.Effect<readonly Record<string, unknown>[], RealtimeError>
   }
->() {}
+>()('RealtimeService') {}

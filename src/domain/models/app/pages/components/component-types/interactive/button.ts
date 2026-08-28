@@ -29,7 +29,7 @@ export const buttonFields = {
   variant: Schema.optional(ButtonVariantSchema),
   size: Schema.optional(ComponentSizeSchema),
   loading: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Show a loading spinner inside the button' })
+    Schema.Boolean.annotate({ description: 'Show a loading spinner inside the button' })
   ),
   /**
    * Top-level convenience label that becomes the button's visible text. When
@@ -39,7 +39,7 @@ export const buttonFields = {
    * sibling of `action` / `confirm`. Lower precedence than `content` and
    * `props.label` so existing schemas remain bit-for-bit identical.
    */
-  label: Schema.optional(Schema.String.annotations({ description: 'Button text label' })),
+  label: Schema.optional(Schema.String.annotate({ description: 'Button text label' })),
   /**
    * Confirmation prompt that gates the button's `action` before it fires. Set it
    * on ANY destructive gesture — a `crud` delete OR a destructive `type: 'fetch'`

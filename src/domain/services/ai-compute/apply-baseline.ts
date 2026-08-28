@@ -86,7 +86,7 @@ const resolveSourceValues = (
   sourceFields: readonly string[],
   incoming: Readonly<Record<string, unknown>>,
   old: Readonly<Record<string, unknown>> | undefined
-): Record<string, unknown> =>
+): Readonly<Record<string, unknown>> =>
   Object.fromEntries(sourceFields.map((sf) => [sf, sf in incoming ? incoming[sf] : old?.[sf]]))
 
 /** String-valued kinds NULL the column on empty source (PG `NEW.field = NULL`). */
@@ -176,7 +176,7 @@ export const applyAiComputeBaseline = (params: {
   readonly op: 'insert' | 'update'
   readonly incoming: Readonly<Record<string, unknown>>
   readonly old?: Readonly<Record<string, unknown>>
-}): Record<string, unknown> => {
+}): Readonly<Record<string, unknown>> => {
   const { table, op, incoming, old } = params
   const aiFields = (table.fields ?? []).filter(isAiComputeField).filter((f) => firesFor(f, op))
 

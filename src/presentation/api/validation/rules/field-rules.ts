@@ -347,7 +347,7 @@ const validateMaxFileSize = (
         Effect.gen(function* () {
           const content = yield* storage
             .download(key)
-            .pipe(Effect.catchAll(() => Effect.succeed(new Uint8Array(0))))
+            .pipe(Effect.orElseSucceed(() => new Uint8Array(0)))
           if (content.length > max) {
             return yield* Effect.fail(
               new FieldValidationError(
@@ -442,13 +442,13 @@ export function enrichAttachmentMetadata(
 
     return yield* Effect.reduce(
       metadataFields,
-      { ...fields } as Record<string, unknown>,
+      () => ({ ...fields }) as Record<string, unknown>,
       (acc, f) => {
         if (!(f.name in acc) || typeof acc[f.name] !== 'string') return Effect.succeed(acc)
         const key = acc[f.name] as string
         const bucket = resolveFieldBucket(ctx.app, ctx.tableName, f.name) ?? 'default'
         return storage.download(key).pipe(
-          Effect.catchAll(() => Effect.succeed(new Uint8Array(0))),
+          Effect.orElseSucceed(() => new Uint8Array(0)),
           Effect.map((content) => ({
             ...acc,
             [f.name]: {
@@ -523,7 +523,7 @@ const uploadInlinePayload = (payload: {
     // Upload failures collapse to the same metadata object — the read path's
     // signed-URL serve will surface a 404 to the client, which is the correct
     // observable behaviour for a missing file.
-    yield* storage.upload(key, bytes, mimeType).pipe(Effect.catchAll(() => Effect.void))
+    yield* storage.upload(key, bytes, mimeType).pipe(Effect.ignore)
     return { key, name: payload.name, mimeType, size: bytes.length }
   })
 
@@ -552,7 +552,7 @@ export function uploadInlineAttachmentContent(
 
     return yield* Effect.reduce(
       attachmentColumns,
-      { ...fields } as Record<string, unknown>,
+      () => ({ ...fields }) as Record<string, unknown>,
       (acc, f) => {
         const value = acc[f.name]
         if (!isInlineAttachmentPayload(value)) return Effect.succeed(acc)

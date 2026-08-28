@@ -16,8 +16,8 @@ import { Schema } from 'effect'
 export const AiEnvSchema = Schema.Struct({
   provider: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'AI provider identifier (AI_PROVIDER)',
         examples: ['openai', 'anthropic', 'ollama'],
       })
@@ -25,16 +25,16 @@ export const AiEnvSchema = Schema.Struct({
   ),
   apiKey: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'API key for the AI provider (AI_API_KEY)',
       })
     )
   ),
   baseUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^https?:\/\/.+/),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^https?:\/\/.+/)),
+      Schema.annotate({
         description: 'Base URL for the AI provider API (AI_BASE_URL)',
         examples: ['https://api.openai.com/v1', 'http://localhost:11434'],
       })
@@ -42,45 +42,42 @@ export const AiEnvSchema = Schema.Struct({
   ),
   model: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Default LLM model identifier (AI_MODEL)',
         examples: ['claude-sonnet-4-5', 'gpt-4o-mini', 'llama3'],
       })
     )
   ),
   temperature: Schema.optional(
-    Schema.NumberFromString.pipe(
-      Schema.greaterThanOrEqualTo(0),
-      Schema.lessThanOrEqualTo(1),
-      Schema.annotations({
+    Schema.FiniteFromString.pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+      Schema.annotate({
         description: 'Default LLM temperature 0-1 inclusive (AI_TEMPERATURE)',
       })
     )
   ),
   maxTokens: Schema.optional(
-    Schema.NumberFromString.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.FiniteFromString.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Default maximum output tokens (AI_MAX_TOKENS)',
       })
     )
   ),
   embeddingModel: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Embedding model identifier (AI_EMBEDDING_MODEL)',
         examples: ['text-embedding-3-small', 'nomic-embed-text'],
       })
     )
   ),
   embeddingDimensions: Schema.optional(
-    Schema.NumberFromString.pipe(
-      Schema.int(),
-      Schema.positive(),
-      Schema.annotations({
+    Schema.FiniteFromString.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({
         description: 'Embedding vector dimensions (AI_EMBEDDING_DIMENSIONS)',
         examples: [1536],
       })
@@ -107,7 +104,7 @@ const blankToUndefined = (value: string | undefined): string | undefined => {
 
 /** @public */
 export const parseAiEnvConfig = (): AiEnvConfig =>
-  Schema.decodeUnknownSync(AiEnvSchema)({
+  Schema.decodeSync(AiEnvSchema)({
     provider: blankToUndefined(process.env.AI_PROVIDER),
     apiKey: blankToUndefined(process.env.AI_API_KEY),
     baseUrl: blankToUndefined(process.env.AI_BASE_URL),

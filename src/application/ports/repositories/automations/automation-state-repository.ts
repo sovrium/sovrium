@@ -35,7 +35,7 @@ export interface AutomationStateEntry {
  * whose `ttl` is in the past (lazy expiration); a background sweep is out
  * of scope for now.
  */
-export class AutomationStateRepository extends Context.Tag('AutomationStateRepository')<
+export class AutomationStateRepository extends Context.Service<
   AutomationStateRepository,
   {
     readonly set: (input: {
@@ -62,4 +62,4 @@ export class AutomationStateRepository extends Context.Tag('AutomationStateRepos
       readonly amount: number
     }) => Effect.Effect<number, AutomationStateDatabaseError>
   }
->() {}
+>()('AutomationStateRepository') {}

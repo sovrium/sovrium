@@ -200,7 +200,7 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
     // banner owns the message) from "human users exist but none are admin"
     // (operator recovery warning). Agent service users are excluded so an
     // agent-bearing fresh app stays in the token-banner branch.
-    const userCount = yield* repo.countHumanUsers()
+    const userCount = yield* repo.countHumanUsers
     if (userCount === 0) return [] as const
     return [
       {
@@ -210,7 +210,7 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
     ] as const
   }).pipe(
     Effect.provide(AuthRepositoryLive),
-    Effect.catchAll(() => Effect.succeed([] as readonly StartupPhase[]))
+    Effect.orElseSucceed(() => [] as readonly StartupPhase[])
   )
   return Effect.runPromise(program)
 }

@@ -12,6 +12,11 @@ auth:
 theme:
   $ref: ./config/theme.yaml
 
+# The design system: how the blog sounds, and the line between the public
+# reading surface and the admin space behind auth.
+design:
+  $ref: ./config/design.yaml
+
 # Runtime AI agents. The blog-editor assistant drafts, edits, and reviews posts
 # under the `editor` role, with every write held for human approval. Requires an
 # AI provider at runtime (set AI_PROVIDER — defaults to a local Ollama).

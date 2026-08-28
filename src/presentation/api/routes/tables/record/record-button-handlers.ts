@@ -192,11 +192,11 @@ export async function handleInvokeRecordButton(c: Context, app: App) {
     triggerData: { input: { table: tableName, recordId, field: fieldName } },
     userId: session.userId,
   })
-  const result = await runRequestEffect(c, Effect.either(provideAutomationLive(program)))
+  const result = await runRequestEffect(c, Effect.result(provideAutomationLive(program)))
 
-  if (result._tag === 'Left') return buttonRunErrorResponse(c, result.left)
+  if (result._tag === 'Failure') return buttonRunErrorResponse(c, result.failure)
 
-  const body = buttonResultBody(result.right)
+  const body = buttonResultBody(result.success)
   // eslint-disable-next-line functional/no-expression-statements -- audit-log side effect
   await recordButtonInvocation({
     userId: session.userId,
@@ -205,8 +205,8 @@ export async function handleInvokeRecordButton(c: Context, app: App) {
       table: tableName,
       field: fieldName,
       automation: automationName,
-      runId: result.right.runId,
-      runStatus: result.right.status,
+      runId: result.success.runId,
+      runStatus: result.success.status,
     },
     succeeded: body.status !== 'failed',
   })

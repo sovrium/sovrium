@@ -37,23 +37,21 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const EmailFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('email').pipe(
-        Schema.annotations({
-          description: "Constant value 'email' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('email').pipe(
+      Schema.annotate({
+        description: "Constant value 'email' for type discrimination in discriminated unions",
+      })
+    ),
+    default: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Default email address when creating new records',
         })
-      ),
-      default: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Default email address when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Email Field',
     description:
       'Text field with email format validation (RFC 5322). Validates email addresses and prevents invalid formats from being stored.',

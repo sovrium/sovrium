@@ -31,15 +31,49 @@ export { isReadyDataPage, readyDataPageLabel } from '@/domain/utils/admin-data-n
  * F5/F6 editing posture plus the operator slug + published snapshot that seed the
  * shell sidebar's brand label and count badges.
  */
-export interface DataShellOptions {
+export interface ConsolePosture {
   /** F5/F6 editing posture (threaded into the shell sidebar). */
   readonly canEdit: boolean
+  /**
+   * Whether the admin PLANE will honour this caller's account writes —
+   * `isAdminEquivalent(role, app)`, the same predicate
+   * `applyAdminRoleCheckMiddleware` and `requireAdminCaller` apply.
+   *
+   * Distinct from {@link ConsolePosture.canEdit}, which is a constant `true`
+   * for every caller that reaches the console and therefore signals nothing. A
+   * surface consults THIS flag before painting an account-write control: an
+   * admin-TIER but non-admin-equivalent operator (`admin-viewer`) keeps console
+   * read and is 404ed on every `/api/auth/admin/*` write, so a
+   * "Change role" or "Ban" button rendered for them is a control their own
+   * backend refuses.
+   */
+  readonly canAdministerAccounts: boolean
+}
+
+/**
+ * The per-request console context: the {@link ConsolePosture} plus the query
+ * parameters a surface may derive its own state from.
+ *
+ * `period` is the analytics window an analytics-shaped surface reads at
+ * (`?period=24h|7d|30d`). The window lives in the URL rather than in client
+ * state on purpose ([internal ref]..018): back and forward
+ * then move between windows for free, a shared link carries the window it was
+ * read at, and a reload survives it — none of which needs a line of client code.
+ * `toDashboardPath` drops the query string, so path matching is untouched.
+ *
+ * It is threaded HERE rather than on {@link DataShellOptions} because it is a
+ * REQUEST fact, not a shell one: the shell renders identically at every window.
+ */
+export interface ConsoleRequest extends ConsolePosture {
+  /** `?period=` — the analytics window, when the caller asked for one. */
+  readonly period?: string
+}
+
+export interface DataShellOptions extends ConsolePosture {
   /** Operator slug; seeds the shell sidebar brand label. */
   readonly appName?: string
   /** Operator config version (`app.version`); seeds the sidebar version chip. */
   readonly appVersion?: string
-  /** Operator published config; seeds the sidebar counts. */
-  readonly publishedSnapshot?: Readonly<Record<string, unknown>>
 }
 
 /** The placeholder body for a ready destination whose page lands in the next slice. */
@@ -98,7 +132,6 @@ export function buildDataPagePlaceholder(
       appName: options.appName,
       appVersion: options.appVersion,
       breadcrumb: [homeCrumb(options.appName), { label }],
-      publishedSnapshot: options.publishedSnapshot ?? {},
     }),
   } as Page
 }

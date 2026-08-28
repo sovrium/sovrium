@@ -20,8 +20,8 @@ import { Schema } from 'effect'
 export const DatabaseEnvSchema = Schema.Struct({
   databaseUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^postgresql:\/\/.+/),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^postgresql:\/\/.+/)),
+      Schema.annotate({
         description: 'PostgreSQL connection string (DATABASE_URL)',
         examples: ['postgresql://user:password@localhost:5432/dbname'],
       })

@@ -22,20 +22,20 @@ export const FileCopyActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Storage key of the source file */
     sourceKey: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key of the source file',
       })
     ),
 
     /** Storage key for the copy */
     destinationKey: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Storage key for the copy',
       })
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileCopyAction',
     title: 'File Copy Action',
     description: 'Copy a file to a new storage path',

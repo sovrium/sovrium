@@ -12,23 +12,23 @@ import {
   type ChatMessage,
   type ChatToolDefinition,
 } from '@/application/ports/services/ai-service'
+import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { chatRequestSchema, type ChatResponse, type ChatAction } from '@/domain/models/api/ai/chat'
+import { chatRequestSchema } from '@/domain/models/api/ai/chat'
 import { type ContextPageScope } from '@/domain/services/ai-chat/ai-chat-context'
 import { buildChatToolDefinitions } from '@/domain/services/ai-chat/ai-chat-tools'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { handleAgentChat } from '@/presentation/api/routes/agents/agent-chat'
 import {
-  recordActivityLogRow,
-  recordChatActivity,
-} from '@/presentation/api/routes/ai/chat-activity-log'
-import { completeTriggerTurn } from '@/presentation/api/routes/ai/chat-automation-flow'
+  resolveAgentTurnBinding,
+  type AgentTurnBinding,
+} from '@/presentation/api/routes/agents/agent-chat'
+import { recordChatActivity } from '@/presentation/api/routes/ai/chat-activity-log'
 import { buildChatContextPrompt } from '@/presentation/api/routes/ai/chat-context-prompt'
 import { appendConversationTurn } from '@/presentation/api/routes/ai/chat-conversation-store'
 import {
   applyRetentionPolicy,
   loadDurableHistory,
-  persistTurnDurably,
+  persistChatTurnDurably,
 } from '@/presentation/api/routes/ai/chat-durable-memory'
 import {
   chatErrorMessage,
@@ -37,12 +37,6 @@ import {
   resolveChatErrorConfig,
   type ChatTurnError,
 } from '@/presentation/api/routes/ai/chat-error-handling'
-import {
-  evaluateMutationTurn,
-  resolveUserEmail,
-  type MutationTurnResult,
-} from '@/presentation/api/routes/ai/chat-mutation-flow'
-import { evaluateQueryTurn } from '@/presentation/api/routes/ai/chat-query-flow'
 import {
   checkChatRateLimit,
   type ChatRateLimitDecision,
@@ -53,6 +47,10 @@ import {
   toToolCallTables,
   respondWithActions,
 } from '@/presentation/api/routes/ai/chat-tool-calling'
+import {
+  finishChatTurn,
+  type ChatTurnInput,
+} from '@/presentation/api/routes/ai/chat-turn-completion'
 import { chainAiConversationRoutes } from '@/presentation/api/routes/ai/conversations-route'
 import { provideAiLive } from '@/presentation/api/routes/ai/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
@@ -170,17 +168,31 @@ const aiDisabledResponse = (c: Readonly<Context>): Response | undefined => {
 }
 
 /**
- * Resolve the current user's role from the authenticated session.
+ * Resolve the current user's role AND group memberships from the authenticated
+ * session, returning both the bare role and the effective-role list that table
+ * RBAC is evaluated against.
  *
  * The generic `/api/ai/chat` route is `requireAuth`-gated, so a session is
- * normally present. The `?? 'member'` fallback keeps the handler total in the
+ * normally present. The `'member'` fallback keeps the handler total in the
  * defensive case where the session is somehow absent — the context builder
  * then describes only tables the default role can read.
+ *
+ * Groups matter here because a table permission may name `group:<name>`, which
+ * a bare role string can never match. Unlike the HTTP table routes there is no
+ * `enrichUserRole` middleware on this path, so the lookup is made explicitly —
+ * `getUserGroups` is documented as a plain async lookup with no request
+ * context for exactly this caller shape, and never throws.
  */
-const resolveUserRole = async (c: Readonly<Context>): Promise<string> => {
+const resolveUserPrincipal = async (
+  c: Readonly<Context>
+): Promise<{ readonly userRole: string; readonly effectiveRoles: readonly string[] }> => {
   const session = getSessionContext(c as unknown as Context)
-  if (session === undefined) return 'member'
-  return getUserRole(session.userId)
+  if (session === undefined) return { userRole: 'member', effectiveRoles: ['member'] }
+  const [userRole, userGroups] = await Promise.all([
+    getUserRole(session.userId),
+    getUserGroups(session.userId),
+  ])
+  return { userRole, effectiveRoles: buildEffectiveRoles(userRole, userGroups) }
 }
 
 /**
@@ -212,29 +224,53 @@ const applyChatRateLimit = (
 }
 
 /**
- * Handle an agent-bound chat turn: delegate to {@link handleAgentChat}, then —
- * on a successful turn — persist the completed exchange to durable
- * conversation history. The agent path
- * otherwise skips the `finishChatTurn` persistence the generic path runs, so
- * agent chats would not survive a restart or appear in the conversation list.
+ * Handle an agent-bound chat turn — `POST /api/ai/chat` with `{ agent }`, and
+ * the transport behind `POST /api/ai/agents/:name/chat`.
+ *
+ * It runs the SAME `runChatTurn` dispatch a generic turn runs, parameterised by
+ * the agent's {@link AgentTurnBinding}. Everything the agent adds — system
+ * prompt, model / temperature / max-tokens overrides, the role that scopes its
+ * tools, the tool-table allowlist, the attribution name — is data threaded into
+ * one path, not a second path.
+ *
+ * That is the whole point of the shape. The agent path used to be its own
+ * transport (a hard-coded `${baseUrl}/chat/completions` fetch), and every
+ * capability the generic path gained afterwards silently skipped it: tool
+ * EXECUTION, `actions[]`, provider-aware endpoint selection, agent attribution
+ * on the persisted row. Each was a separate defect with a separate spec; all
+ * four had one cause.
+ *
+ * A 404 for an undeclared agent is decided here rather than inside the turn:
+ * the agent name is request DATA, and a name the app never declared is a bad
+ * request, not a provider failure.
  */
-const handleAgentBoundChat = async (
+export const runAgentBoundChatTurn = async (
   c: Readonly<Context>,
   app: App,
   req: { readonly message: string; readonly sessionId: string; readonly agentName: string }
 ): Promise<Response> => {
-  const result = await handleAgentChat(app, req)
-  const { reply } = result.body
-  if (result.status === 200 && typeof reply === 'string') {
-    const session = getSessionContext(c as unknown as Context)
-    const actorName = session?.userId ?? 'anonymous'
-    appendConversationTurn(req.sessionId, req.message, reply)
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort durable-persistence side effect
-    await persistTurnDurably(actorName, req.sessionId, req.message, reply)
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
-    await recordChatActivity({ action: 'ai.chat.message', actorName })
+  const binding = resolveAgentTurnBinding(app, req.agentName)
+  if (binding === undefined) {
+    return c.json({ error: `Agent '${req.agentName}' is not declared in the app schema.` }, 404)
   }
-  return c.json(result.body, result.status)
+  const session = getSessionContext(c as unknown as Context)
+  const actorName = session?.userId ?? 'anonymous'
+  return runChatTurn(c, {
+    systemPrompt: binding.systemPrompt,
+    message: req.message,
+    sessionId: req.sessionId,
+    actorName,
+    // The agent acts under its DECLARED role, not the caller's — that is what
+    // makes an agent's reach a property of the config rather than of whoever
+    // happens to be chatting with it. An agent has no
+    // user identity and therefore no group memberships, so its effective-role
+    // list is its declared role alone: widening this to the CALLER's groups
+    // would be a privilege escalation, not a group-awareness fix.
+    userRole: binding.role,
+    effectiveRoles: [binding.role],
+    app,
+    agent: binding,
+  })
 }
 
 const handleChat = async (c: Readonly<Context>, app?: App): Promise<Response> => {
@@ -257,14 +293,14 @@ const handleChat = async (c: Readonly<Context>, app?: App): Promise<Response> =>
   // delegate to the agent-chat handler so the agent's `systemPrompt`, `model`,
   // and `temperature` overrides reach the AI provider ([internal ref]-*).
   if (parsed.agent !== undefined && app !== undefined) {
-    return handleAgentBoundChat(c, app, { message, sessionId, agentName: parsed.agent })
+    return runAgentBoundChatTurn(c, app, { message, sessionId, agentName: parsed.agent })
   }
 
   // Identify the acting user for activity monitoring
   // and resolve their role — drives table RBAC and the per-request context.
   const session = getSessionContext(c as unknown as Context)
   const actorName = session?.userId ?? 'anonymous'
-  const userRole = await resolveUserRole(c)
+  const { userRole, effectiveRoles } = await resolveUserPrincipal(c)
 
   // Build the per-request context block ([internal ref]-*), regenerated on
   // every turn so it always reflects the caller's current role.
@@ -278,6 +314,7 @@ const handleChat = async (c: Readonly<Context>, app?: App): Promise<Response> =>
       sessionId,
       actorName,
       userRole,
+      effectiveRoles,
       app,
       confirmationToken: parsed.confirmationToken,
       pageContext: parsed.pageContext,
@@ -297,6 +334,7 @@ const buildChatTurnInput = (parts: {
   readonly sessionId: string
   readonly actorName: string
   readonly userRole: string
+  readonly effectiveRoles: readonly string[]
   readonly app: App | undefined
   readonly confirmationToken: string | undefined
   readonly pageContext: ContextPageScope | undefined
@@ -307,6 +345,7 @@ const buildChatTurnInput = (parts: {
   sessionId: parts.sessionId,
   actorName: parts.actorName,
   userRole: parts.userRole,
+  effectiveRoles: parts.effectiveRoles,
   ...(parts.app !== undefined && { app: parts.app }),
   ...(parts.confirmationToken !== undefined && { confirmationToken: parts.confirmationToken }),
   ...(parts.pageContext !== undefined && { pageContext: parts.pageContext }),
@@ -315,39 +354,76 @@ const buildChatTurnInput = (parts: {
   }),
 })
 
-/** Inputs for a single non-agent chat turn dispatched to the AI provider. */
-interface ChatTurnInput {
-  readonly systemPrompt: string
-  readonly message: string
-  readonly sessionId: string
-  /** Acting user's identifier — written to the activity log for this turn. */
-  readonly actorName: string
-  /** Acting user's role — drives table-level RBAC for record mutations. */
-  readonly userRole: string
-  /** App schema — present when the turn may trigger a record mutation. */
-  readonly app?: App
-  /** Confirmation token from the request body, when re-confirming a delete. */
-  readonly confirmationToken?: string
-  /**
-   * Optional page scope (`allowedTables`) narrowing the table list visible to
-   * a record query.
-   */
-  readonly pageContext?: ContextPageScope
-  /**
-   * Remaining chat quota within the current rate-limit window. Present only
-   * when `AI_CHAT_RATE_LIMIT` is configured — surfaced as the
-   * `X-RateLimit-Remaining` response header.
-   */
-  readonly rateLimitRemaining?: number
+/**
+ * Wrap a single provider attempt in the operator-tunable retry policy.
+ *
+ * Only TRANSIENT failures (503/429) are retried, up to `AI_CHAT_MAX_RETRIES`;
+ * each retry re-runs the attempt and so produces one more recorded provider
+ * request, which is what [internal ref] asserts on. A non-transient
+ * failure (401/400) is never retried.
+ */
+const withChatRetries = (
+  attempt: Effect.Effect<ChatReply, ChatTurnError, AiService>,
+  maxRetries: number | undefined
+): Effect.Effect<ChatReply, ChatTurnError, AiService> =>
+  maxRetries === undefined
+    ? attempt
+    : attempt.pipe(Effect.retry({ while: isTransientChatError, times: maxRetries }))
+
+/**
+ * The tables a turn's tools may reach: the RBAC-readable set for the acting
+ * role, narrowed for an agent-bound turn to the agent's
+ * declared allowlist.
+ *
+ * The RBAC gate runs FIRST and through the same code either way, so an
+ * allowlist can only ever subtract — it never grants an agent a table its role
+ * cannot read.
+ */
+const resolveTurnToolTables = (input: ChatTurnInput): ReturnType<typeof toToolCallTables> => {
+  const allowlist = input.agent?.toolTables
+  return toToolCallTables(input.app, input.userRole, input.effectiveRoles).filter(
+    (table) => allowlist === undefined || allowlist.includes(table.name)
+  )
 }
+
+/**
+ * The per-agent provider overrides an agent-bound turn layers onto the shared
+ * `ai.chat` call — empty for a generic turn. The port forwards each onto
+ * whichever wire format the resolved provider speaks, which is precisely what
+ * the old hard-coded `/chat/completions` fetch could not do
+ *.
+ */
+const agentProviderOverrides = (
+  agent: AgentTurnBinding | undefined
+): { readonly model?: string; readonly temperature?: number; readonly maxTokens?: number } =>
+  agent === undefined
+    ? {}
+    : {
+        temperature: agent.temperature,
+        ...(agent.model !== undefined && { model: agent.model }),
+        ...(agent.maxTokens !== undefined && { maxTokens: agent.maxTokens }),
+      }
 
 /**
  * Dispatch one chat turn to the `AiService` port and map the tagged-error
  * union onto HTTP status codes. The optional
  * `AI_CHAT_TIMEOUT` deadline is threaded into the provider call; transient
  * failures (503/429) are retried up to `AI_CHAT_MAX_RETRIES` while
- * non-transient ones fail fast. The response carries a fixed, user-friendly
+ * non-transient ones fail fast ([internal ref] — each retry is one
+ * more recorded provider request). The response carries a fixed, user-friendly
  * message — the raw provider message is never forwarded to the caller.
+ *
+ * The turn's message list is the fresh system prompt, then the session's prior
+ * exchanges loaded from DURABLE storage so history survives a restart
+ *, then the new user message. It is
+ * kept in a local because the tool-calling loop extends it with tool results.
+ *
+ * The program runs on the observability runtime under the request-edge
+ * `http.server` root span, so the `AiService.chat` seam's `ai.request` child
+ * span chains under the request root.
+ *
+ * Both agent-bound and generic turns come through here — see
+ * {@link runAgentBoundChatTurn} for what an agent adds and what it skips.
  */
 const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<Response> => {
   // Lazy retention sweep — delete this user's conversations older than
@@ -356,18 +432,24 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
   await applyRetentionPolicy(input.actorName)
   // Prepend the session's prior user/assistant exchanges so the provider sees
   // the full conversation, not just the latest message.
-  // History is loaded from durable PostgreSQL storage so it
-  // survives a process restart; `buildAiChatContext` already produced a fresh
-  // system prompt — the history carries only the turn-by-turn messages.
-  const history = await loadDurableHistory(input.actorName, input.sessionId)
+  // History is loaded from durable storage so it survives a
+  // process restart; the system prompt above is regenerated per turn.
+  //
+  // An agent-bound turn deliberately does NOT replay history — it never has,
+  // on either agent transport, and the unification onto this dispatch changes
+  // the transport, not the conversation model. Silently switching agents to
+  // stateful turns here would be a product change smuggled in as a refactor,
+  // and it is observable: fact extraction re-derives a fact per turn, so a
+  // replayed history makes an agent re-learn its FIRST fact every turn
+  //. Whether agent chat SHOULD carry
+  // history is a real question — it just is not this change's to answer.
+  const history =
+    input.agent !== undefined ? [] : await loadDurableHistory(input.actorName, input.sessionId)
   const errorConfig = resolveChatErrorConfig()
 
-  // RBAC-scoped tool definitions: one `query_<table>` tool per readable table
-  // — unauthorized tables produce no tool.
-  const toolTables = toToolCallTables(input.app, input.userRole)
-  const tools: ReadonlyArray<ChatToolDefinition> = buildChatToolDefinitions(
-    toolTables.map((table) => ({ name: table.name, columns: table.readableColumns }))
-  )
+  const toolTables = resolveTurnToolTables(input)
+  const toolDefs = toolTables.map((t) => ({ name: t.name, columns: t.readableColumns }))
+  const tools: ReadonlyArray<ChatToolDefinition> = buildChatToolDefinitions(toolDefs)
 
   // Kept in a local so the tool-calling loop can extend it with tool results.
   const baseMessages: ReadonlyArray<ChatMessage> = [
@@ -376,37 +458,28 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
     { role: 'user', content: input.message },
   ]
 
-  // One provider attempt — the optional `AI_CHAT_TIMEOUT` deadline is threaded
-  // into `ChatInput.timeoutMs` so the live adapter aborts the underlying fetch
-  // at the deadline (deterministic; [internal ref]). The tool
-  // definitions are advertised so the model may request a tool call.
+  // The deadline is threaded into `ChatInput.timeoutMs` so the live adapter
+  // aborts the fetch deterministically.
+  const { agent } = input
   const oneAttempt: Effect.Effect<ChatReply, ChatTurnError, AiService> = Effect.gen(function* () {
     const ai = yield* AiService
     return yield* ai.chat({
       messages: baseMessages,
       ...(tools.length > 0 && { tools }),
       ...(errorConfig.timeoutMs !== undefined && { timeoutMs: errorConfig.timeoutMs }),
+      ...agentProviderOverrides(agent),
     })
   })
 
-  // Retry only transient failures (503/429), up to `AI_CHAT_MAX_RETRIES`. Each
-  // retry re-runs `oneAttempt`, producing one more recorded provider request —
-  // which is what [internal ref] asserts on. A non-transient failure
-  // (401/400) is never retried.
-  const program: Effect.Effect<ChatReply, ChatTurnError, AiService> =
-    errorConfig.maxRetries === undefined
-      ? oneAttempt
-      : oneAttempt.pipe(
-          Effect.retry({ while: isTransientChatError, times: errorConfig.maxRetries })
-        )
+  const program = withChatRetries(oneAttempt, errorConfig.maxRetries)
 
   // Run on the observability runtime under the request-edge root `http.server`
   // span so the shared `AiService.chat` seam's `ai.request` child span chains
-  // under the request root (`Effect.either` already discharged requirements).
-  const result = await runRequestEffect(c, program.pipe(provideAiLive, Effect.either))
+  // under the request root.
+  const result = await runRequestEffect(c, program.pipe(provideAiLive, Effect.result))
 
-  if (result._tag === 'Left') {
-    const status = chatErrorStatus(result.left)
+  if (result._tag === 'Failure') {
+    const status = chatErrorStatus(result.failure)
     // Best-effort: record the failed turn in activity monitoring so failures
     // are observable alongside successful turns.
     // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
@@ -417,202 +490,69 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
   // Function/tool-calling path: a reply carrying
   // `toolCalls` drives the tool-calling loop. Otherwise fall through to the
   // regular query/mutation completion path.
-  if (result.right.toolCalls !== undefined && result.right.toolCalls.length > 0) {
+  if (result.success.toolCalls !== undefined && result.success.toolCalls.length > 0) {
     return completeToolCallingTurn(c, {
-      initialReply: result.right,
+      initialReply: result.success,
       baseMessages,
       tools,
       tables: toolTables,
       userRole: input.userRole,
+      effectiveRoles: input.effectiveRoles,
       actorName: input.actorName,
       sessionId: input.sessionId,
       userMessage: input.message,
       rateLimitRemaining: input.rateLimitRemaining,
+      ...(agent !== undefined && { agentName: agent.name }),
     })
   }
 
-  return finishChatTurn(c, input, result.right.content)
+  // An agent-bound turn that produced plain prose completes here rather than in
+  // `finishChatTurn`. The NL record-query / mutation / automation-trigger
+  // pipeline is the GENERIC chat surface's contract: an agent answers under its
+  // own system prompt, and routing its prose through those parsers would let a
+  // phrase like "show me the open ones" silently replace the agent's answer
+  // with a table dump. Tool calling — which an agent DOES take part in — is
+  // handled above, before this split.
+  if (agent !== undefined) {
+    return finishAgentTurn(c, input, agent, result.success.content)
+  }
+
+  return finishChatTurn(c, input, result.success.content)
 }
 
 /**
- * Complete a chat turn after a successful AI provider response: evaluate the
- * turn against the record-mutation pipeline,
- * short-circuit to HTTP 403 on a `forbidden` outcome, persist the exchange,
- * record activity, and build the `{ reply, actions, pendingConfirmation? }`
- * response envelope.
+ * Complete an agent-bound turn that returned prose: persist the exchange
+ * (tagged with the agent so the row is attributed regardless of which transport
+ * carried it — [internal ref]), record activity, and return the standard
+ * `{ reply, actions, sessionId }` envelope.
+ *
+ * `actions` is empty because a prose turn took none — not because the field is
+ * unimplemented. A turn that DID act returns its actions from the tool-calling
+ * loop above.
  */
-const finishChatTurn = async (
+const finishAgentTurn = async (
   c: Readonly<Context>,
   input: ChatTurnInput,
-  aiReply: string
+  agent: AgentTurnBinding,
+  reply: string
 ): Promise<Response> => {
-  // Read-query path. Evaluated before the mutation
-  // path because a query verb ("show", "how many") and a mutation verb
-  // ("create", "update", "delete") are disjoint — but a query message such as
-  // "Show users where …; DROP TABLE users;--" must be read as a *query*, not a
-  // delete. A `forbidden` query short-circuits to HTTP 403; an `answered`
-  // query owns the reply text and the `type: 'query'` action.
-  const query = await evaluateQueryTurn({
-    app: input.app,
-    message: input.message,
-    sessionId: input.sessionId,
-    userRole: input.userRole,
-    ...(input.pageContext !== undefined && { pageContext: input.pageContext }),
-  })
-  if (query.kind === 'forbidden') {
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
-    await recordChatActivity({ action: 'ai.chat.error', actorName: input.actorName })
-    // S1 anti-enumeration: authz denials in chat (table/record query) return 404
-    // so the user cannot enumerate which tables they lack access to.
-    // `query.message` is intentionally discarded from the response envelope.
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-  }
-  if (query.kind === 'answered') {
-    return finishQueryTurn(c, input, query.reply, query.action)
-  }
-
-  // Automation-trigger path. Evaluated before
-  // the mutation path because a trigger verb ("run", "trigger") is disjoint
-  // from a mutation verb ("create", "update", "delete"). `completeTriggerTurn`
-  // owns the whole completion path — a `forbidden` trigger becomes HTTP 403,
-  // a `triggered` / `not-triggerable` / `not-found` turn becomes the 200
-  // envelope; `undefined` means the turn is not a trigger turn.
-  const triggerResponse = await completeTriggerTurn(c, {
-    app: input.app,
-    message: input.message,
-    sessionId: input.sessionId,
-    userRole: input.userRole,
-    actorName: input.actorName,
-    aiReply,
-    rateLimitRemaining: input.rateLimitRemaining,
-  })
-  if (triggerResponse !== undefined) return triggerResponse
-
-  // The mutation parser owns intent extraction (the E2E mock AI never returns
-  // structured actions for these prompts), so the AI provider is used purely
-  // for the conversational reply.
-  const mutation = await evaluateMutationTurn({
-    app: input.app,
-    message: input.message,
-    userId: input.actorName,
-    userRole: input.userRole,
-    ...(input.confirmationToken !== undefined && {
-      confirmationToken: input.confirmationToken,
-    }),
-  })
-  if (mutation.kind === 'forbidden') {
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
-    await recordChatActivity({ action: 'ai.chat.error', actorName: input.actorName })
-    // S1 anti-enumeration: authz denials in chat (record mutation) return 404
-    // so the user cannot enumerate which tables they lack write access to.
-    // `mutation.message` is intentionally discarded from the response envelope.
-    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-  }
-
-  return finishMutationTurn(c, input, aiReply, mutation)
-}
-
-/**
- * Complete a chat turn after the (non-forbidden) record-mutation pipeline
- * resolved it. The reply text is the executor's summary for an applied
- * mutation (so the created/updated record details surface —
- * [internal ref]), the validation message for a rejected
- * mutation, or the AI's text otherwise. Persists the exchange to conversation
- * history, records `ai.chat.message` activity, and builds the
- * `{ reply, actions, pendingConfirmation? }` envelope.
- */
-const finishMutationTurn = async (
-  c: Readonly<Context>,
-  input: ChatTurnInput,
-  aiReply: string,
-  mutation: Exclude<MutationTurnResult, { kind: 'forbidden' }>
-): Promise<Response> => {
-  const reply = resolveReply(aiReply, mutation)
-
-  // Persist this completed exchange so the *next* turn on the same session
-  // carries it forward. The in-memory store keeps the
-  // sessionless `anonymous` fallback working; durable PostgreSQL persistence
-  // makes history survive a restart and powers the conversation endpoints.
   appendConversationTurn(input.sessionId, input.message, reply)
   // eslint-disable-next-line functional/no-expression-statements -- best-effort durable-persistence side effect
-  await persistTurnDurably(input.actorName, input.sessionId, input.message, reply)
-  // Record the interaction in activity monitoring.
+  await persistChatTurnDurably({
+    userId: input.actorName,
+    sessionId: input.sessionId,
+    userMessage: input.message,
+    assistantReply: reply,
+    agentName: agent.name,
+  })
   // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
   await recordChatActivity({ action: 'ai.chat.message', actorName: input.actorName })
-
-  const actions: ReadonlyArray<ChatAction> = mutation.kind === 'applied' ? mutation.actions : []
-  const body: ChatResponse = {
-    reply,
-    actions: [...actions],
-    sessionId: input.sessionId,
-    ...(mutation.kind === 'pending' && { pendingConfirmation: mutation.pendingConfirmation }),
-  }
-  // Surface the remaining chat quota so clients can self-throttle
-  //. Header is present only when rate limiting is set.
-  if (input.rateLimitRemaining !== undefined) {
-    return c.json(body, 200, {
-      'X-RateLimit-Remaining': input.rateLimitRemaining.toString(),
-    })
-  }
-  return c.json(body, 200)
-}
-
-/**
- * Complete a chat turn after the read-query pipeline answered it
- *. Persists the exchange to conversation history,
- * records an `ai.chat.query` activity row attributed to the acting user's
- * email, and builds the `{ reply, actions }` envelope
- * with the single `type: 'query'` action.
- */
-const finishQueryTurn = async (
-  c: Readonly<Context>,
-  input: ChatTurnInput,
-  reply: string,
-  action: ChatAction
-): Promise<Response> => {
-  appendConversationTurn(input.sessionId, input.message, reply)
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort durable-persistence side effect
-  await persistTurnDurably(input.actorName, input.sessionId, input.message, reply)
-  // Record the read query in activity monitoring with explicit user
-  // attribution. Best-effort — a logging failure must
-  // never break the chat turn.
-  const userEmail = await resolveUserEmail(input.actorName)
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
-  await recordActivityLogRow({
-    actorType: 'user',
-    actorName: input.actorName,
-    action: 'ai.chat.query',
-    targetTable: action.table,
-    userEmail,
-  })
   return respondWithActions(c, {
     reply,
-    actions: [action],
+    actions: [],
     sessionId: input.sessionId,
     rateLimitRemaining: input.rateLimitRemaining,
   })
-}
-
-/**
- * Choose the reply text for a chat turn: the mutation executor's summary /
- * message takes precedence over the raw AI text when the turn was a record
- * mutation, so the created/updated record details ([internal ref] /
- * 015) and validation errors surface to the caller.
- */
-const resolveReply = (aiReply: string, mutation: MutationTurnResult): string => {
-  switch (mutation.kind) {
-    case 'applied':
-      return mutation.summary
-    case 'validation-error':
-      return mutation.message
-    case 'pending':
-      return mutation.pendingConfirmation.description
-    case 'cancelled':
-      return 'Okay — the action was cancelled. No records were changed.'
-    case 'none':
-    case 'forbidden':
-      return aiReply
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -646,8 +586,15 @@ const handleChatStream = async (c: Readonly<Context>): Promise<Response> => {
  * Chain the generic `/api/ai/chat` route(s) onto the given Hono app. Always
  * registered; unauthenticated requests are short-circuited to 401 by the
  * `requireAuth` middleware in `api-routes.ts`. When the request body names a
- * declared `app.agents[]` entry, the turn is delegated to `handleAgentChat`
- * so the agent's per-agent overrides reach the AI provider.
+ * declared `app.agents[]` entry, the turn is bound to that agent by
+ * {@link runAgentBoundChatTurn} — the SAME dispatch a generic turn runs, with
+ * the agent's prompt, provider overrides, tool allowlist and attribution
+ * threaded through as data.
+ *
+ * Not to be confused with `handleAgentChat` in `ai-mcp-status.ts`: that is a
+ * different function serving a different route (`POST /api/agents/:name/chat`),
+ * which still performs its own raw provider fetch and advertises the external
+ * MCP tool catalog rather than table tools.
  */
 export function chainAiChatRoutes<T extends Hono>(honoApp: T, app?: App): T {
   const withChat = honoApp

@@ -35,23 +35,21 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const LongTextFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('long-text').pipe(
-        Schema.annotations({
-          description: "Constant value 'long-text' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('long-text').pipe(
+      Schema.annotate({
+        description: "Constant value 'long-text' for type discrimination in discriminated unions",
+      })
+    ),
+    default: Schema.optional(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'Default value for this field when creating new records',
         })
-      ),
-      default: Schema.optional(
-        Schema.String.pipe(
-          Schema.annotations({
-            description: 'Default value for this field when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Long Text Field',
     description:
       'Multi-line text input for paragraphs, descriptions, notes, and comments. Supports line breaks and longer content without rich formatting.',

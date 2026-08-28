@@ -24,22 +24,22 @@ export const FileGeneratePdfActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** HTML template for the PDF content */
     template: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'HTML template for PDF content (supports template variables)',
       })
     ),
 
     /** Output filename */
     filename: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Output filename (e.g., "invoice-{{trigger.data.id}}.pdf")',
       })
     ),
 
     /** Data context for template rendering */
     data: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-        Schema.annotations({
+      Schema.Record(Schema.String, Schema.Unknown).pipe(
+        Schema.annotate({
           description: 'Additional data context for template rendering',
         })
       )
@@ -47,15 +47,15 @@ export const FileGeneratePdfActionSchema = Schema.Struct({
 
     /** Page size */
     pageSize: Schema.optional(
-      Schema.Literal('A4', 'A3', 'Letter', 'Legal').pipe(
-        Schema.annotations({ description: 'Page size (default: A4)' })
+      Schema.Literals(['A4', 'A3', 'Letter', 'Legal']).pipe(
+        Schema.annotate({ description: 'Page size (default: A4)' })
       )
     ),
 
     /** Page orientation */
     orientation: Schema.optional(
-      Schema.Literal('portrait', 'landscape').pipe(
-        Schema.annotations({ description: 'Page orientation (default: portrait)' })
+      Schema.Literals(['portrait', 'landscape']).pipe(
+        Schema.annotate({ description: 'Page orientation (default: portrait)' })
       )
     ),
 
@@ -63,27 +63,23 @@ export const FileGeneratePdfActionSchema = Schema.Struct({
     margins: Schema.optional(
       Schema.Struct({
         top: Schema.optional(
-          Schema.String.pipe(
-            Schema.annotations({ description: 'Top margin (e.g., "1cm", "0.5in")' })
-          )
+          Schema.String.pipe(Schema.annotate({ description: 'Top margin (e.g., "1cm", "0.5in")' }))
         ),
         right: Schema.optional(
-          Schema.String.pipe(Schema.annotations({ description: 'Right margin' }))
+          Schema.String.pipe(Schema.annotate({ description: 'Right margin' }))
         ),
         bottom: Schema.optional(
-          Schema.String.pipe(Schema.annotations({ description: 'Bottom margin' }))
+          Schema.String.pipe(Schema.annotate({ description: 'Bottom margin' }))
         ),
-        left: Schema.optional(
-          Schema.String.pipe(Schema.annotations({ description: 'Left margin' }))
-        ),
-      }).pipe(Schema.annotations({ description: 'Page margins' }))
+        left: Schema.optional(Schema.String.pipe(Schema.annotate({ description: 'Left margin' }))),
+      }).pipe(Schema.annotate({ description: 'Page margins' }))
     ),
 
     /** Storage destination for generated file */
     destination: DestinationPropSchema,
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileGeneratePdfAction',
     title: 'File Generate PDF Action',
     description: 'Generate a PDF document from an HTML template',

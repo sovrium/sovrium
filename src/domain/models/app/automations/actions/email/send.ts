@@ -20,19 +20,19 @@ export const EmailSendActionSchema = Schema.Struct({
   operator: Schema.Literal('send'),
   props: Schema.Struct({
     to: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Recipient email (supports template variables)' })
+      Schema.annotate({ description: 'Recipient email (supports template variables)' })
     ),
     subject: TemplateStringSchema.pipe(
-      Schema.annotations({ description: 'Email subject (supports template variables)' })
+      Schema.annotate({ description: 'Email subject (supports template variables)' })
     ),
     body: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Email body — HTML or plain text (supports template variables)',
       })
     ),
     from: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'From address override (default: app configured sender)',
         })
       )
@@ -42,23 +42,23 @@ export const EmailSendActionSchema = Schema.Struct({
     // of `cc: ['manager@example.com']`. The handler normalises both into an
     // array before calling Nodemailer.
     cc: Schema.optional(
-      Schema.Union(TemplateStringSchema, Schema.Array(TemplateStringSchema)).pipe(
-        Schema.annotations({ description: 'CC recipient(s) — single string or array' })
+      Schema.Union([TemplateStringSchema, Schema.Array(TemplateStringSchema)]).pipe(
+        Schema.annotate({ description: 'CC recipient(s) — single string or array' })
       )
     ),
     bcc: Schema.optional(
-      Schema.Union(TemplateStringSchema, Schema.Array(TemplateStringSchema)).pipe(
-        Schema.annotations({ description: 'BCC recipient(s) — single string or array' })
+      Schema.Union([TemplateStringSchema, Schema.Array(TemplateStringSchema)]).pipe(
+        Schema.annotate({ description: 'BCC recipient(s) — single string or array' })
       )
     ),
     replyTo: Schema.optional(
-      Schema.Union(TemplateStringSchema, Schema.Array(TemplateStringSchema)).pipe(
-        Schema.annotations({ description: 'Reply-To recipient(s) — single string or array' })
+      Schema.Union([TemplateStringSchema, Schema.Array(TemplateStringSchema)]).pipe(
+        Schema.annotate({ description: 'Reply-To recipient(s) — single string or array' })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'EmailSendAction',
     title: 'Email Send Action',
     description: 'Send emails via configured SMTP transport',

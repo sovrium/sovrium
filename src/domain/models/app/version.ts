@@ -42,15 +42,17 @@ import { Schema } from 'effect'
  * ```
  */
 export const VersionSchema = Schema.String.pipe(
-  Schema.minLength(5, { message: () => 'Version must not be empty (minimum format: 0.0.0)' }),
-  Schema.pattern(
-    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/,
-    {
-      message: () =>
-        'Version must follow Semantic Versioning format (MAJOR.MINOR.PATCH, e.g., 1.0.0). No leading zeros allowed. Optional pre-release (-alpha) and build metadata (+build.123) are supported.',
-    }
+  Schema.check(
+    Schema.isMinLength(5, { message: 'Version must not be empty (minimum format: 0.0.0)' }),
+    Schema.isPattern(
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/,
+      {
+        message:
+          'Version must follow Semantic Versioning format (MAJOR.MINOR.PATCH, e.g., 1.0.0). No leading zeros allowed. Optional pre-release (-alpha) and build metadata (+build.123) are supported.',
+      }
+    )
   ),
-  Schema.annotations({
+  Schema.annotate({
     title: 'Application Version',
     description:
       'The version of the application following Semantic Versioning (SemVer) 2.0.0 specification',
@@ -86,4 +88,4 @@ export type Version = Schema.Schema.Type<typeof VersionSchema>
  * In this case, it's the same as Version since we don't use transformations.
  * @public
  */
-export type VersionEncoded = Schema.Schema.Encoded<typeof VersionSchema>
+export type VersionEncoded = Schema.Codec.Encoded<typeof VersionSchema>

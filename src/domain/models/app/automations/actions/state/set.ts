@@ -22,14 +22,14 @@ export const StateSetActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** State key to set */
     key: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'State key to set (supports template variables)',
       })
     ),
 
     /** Value to store */
     value: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Value to store (supports template variables)',
       })
     ),
@@ -37,8 +37,8 @@ export const StateSetActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
         })
@@ -48,8 +48,8 @@ export const StateSetActionSchema = Schema.Struct({
     /** Time-to-live for automatic expiry */
     ttl: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^\d+\s*(ms|s|m|h|d)$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/)),
+        Schema.annotate({
           description:
             'Time-to-live for automatic expiry: number + unit (ms, s, m, h, d). Examples: "30s", "1h", "7d"',
         })
@@ -57,7 +57,7 @@ export const StateSetActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'StateSetAction',
     title: 'State Set Action',
     description: 'Store a value in key-value state with optional TTL',

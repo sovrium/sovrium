@@ -28,14 +28,13 @@ import { Schema } from 'effect'
 
 /**
  * ISO 4217 three-letter code. Re-annotate at the use site when the surrounding
- * field needs to say something more specific — a trailing `.annotations()`
+ * field needs to say something more specific — a trailing `.annotate()`
  * after the refinements wins, which is the only form that does not silently
  * rewrite the published description.
  */
 export const CurrencyCodeSchema = Schema.String.pipe(
-  Schema.length(3),
-  Schema.pattern(/^[A-Z]{3}$/),
-  Schema.annotations({
+  Schema.check(Schema.isLengthBetween(3, 3), Schema.isPattern(/^[A-Z]{3}$/)),
+  Schema.annotate({
     description: 'ISO 4217 three-letter currency code (e.g., USD, EUR, GBP)',
     examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
   })
@@ -43,37 +42,36 @@ export const CurrencyCodeSchema = Schema.String.pipe(
 
 /** Number of decimal places rendered. */
 export const CurrencyPrecisionSchema = Schema.Int.pipe(
-  Schema.greaterThanOrEqualTo(0),
-  Schema.lessThanOrEqualTo(10),
-  Schema.annotations({
+  Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(10)),
+  Schema.annotate({
     description: 'Number of decimal places (0-10, default: 2 for most currencies)',
   })
 )
 
 /** Which side of the amount the symbol sits on. */
-export const CurrencySymbolPositionSchema = Schema.Literal('before', 'after').pipe(
-  Schema.annotations({
+export const CurrencySymbolPositionSchema = Schema.Literals(['before', 'after']).pipe(
+  Schema.annotate({
     description: 'Position of currency symbol relative to the amount',
     examples: ['before', 'after'],
   })
 )
 
 /** How a negative amount is spelled. */
-export const CurrencyNegativeFormatSchema = Schema.Literal('minus', 'parentheses').pipe(
-  Schema.annotations({
+export const CurrencyNegativeFormatSchema = Schema.Literals(['minus', 'parentheses']).pipe(
+  Schema.annotate({
     description: 'Format for displaying negative amounts',
     examples: ['minus', 'parentheses'],
   })
 )
 
 /** The glyph grouping the integer part. */
-export const CurrencyThousandsSeparatorSchema = Schema.Literal(
+export const CurrencyThousandsSeparatorSchema = Schema.Literals([
   'comma',
   'period',
   'space',
-  'none'
-).pipe(
-  Schema.annotations({
+  'none',
+]).pipe(
+  Schema.annotate({
     description: 'Character used to separate thousands',
     examples: ['comma', 'period', 'space', 'none'],
   })

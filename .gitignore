@@ -37,6 +37,7 @@ apps/*/.env.dev
 !**/__snapshots__/*.png
 !**/__snapshots__/*.yml
 !**/__snapshots__/*.yaml
+/*.png
 /tmp/
 /.test-temp/
 /.tdd-tmp/
@@ -52,6 +53,7 @@ docs/development/git-infra/archive/serverless-function/function.zip
 prevalidation-result.json
 .tdd-marker-*
 /sovrium
+/.sovrium-binary-build.json
 sovrium-linux-*
 sovrium-darwin-*
 .claude/scheduled_tasks.lock

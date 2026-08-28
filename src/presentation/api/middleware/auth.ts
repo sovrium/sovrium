@@ -119,11 +119,16 @@ function processSessionResult(
  * Routes can access session via `c.var.session`.
  *
  * **Session Extraction Strategy**:
- * 1. Check for Authorization header (Bearer token)
- * 2. Query Better Auth session table to validate token
- * 3. Validate session binding (IP/User-Agent) if strict mode enabled
- * 4. Attach session to context if valid
- * 5. Continue to route handler (session may be undefined for public routes)
+ * 1. Forward the request headers to Better Auth, which resolves the session
+ *    from the `better-auth.session_token` **cookie**
+ * 2. Validate session binding (IP/User-Agent) if strict mode enabled
+ * 3. Attach session to context if valid
+ * 4. Continue to route handler (session may be undefined for public routes)
+ *
+ * Credentials this middleware actually resolves: the **session cookie**, and
+ * (once the api-key plugin is wired) the **`x-api-key`** header — both via the
+ * `else` branch below, which forwards `c.req.raw.headers` verbatim.
+ * `Authorization: Bearer` resolves NOTHING; see the comment on that branch.
  *
  * **Session Binding (Strict Mode)**:
  * When enabled, sessions are bound to the IP address and User-Agent that
@@ -147,6 +152,23 @@ export function authMiddleware(auth: BetterAuthLike) {
     try {
       const authHeader = c.req.header('authorization')
 
+      // DEAD BRANCH — INERT BY DESIGN. DO NOT REVIVE CASUALLY.
+      //
+      // This rebuilds a `Headers` holding ONLY `authorization`, discarding the
+      // cookie. Resolving a session from that header requires Better Auth's
+      // `bearer` plugin, and `buildAuthPlugins` does not register one, so
+      // `getSession` looks for a cookie that is no longer there and resolves
+      // null. Measured: a valid session token sent as Bearer -> 401, the same
+      // token sent as a Cookie -> 200.
+      //
+      // Its inertness is load-bearing, not an oversight. `x-api-key` does not
+      // match `bearer `, so API-key requests take the `else` branch and work
+      // WITHOUT this branch ever running. Wiring the `bearer` plugin — even for
+      // an unrelated reason — would silently turn this into a second, unaudited
+      // credential path into every auth-gated route. Spec
+      // `[internal ref]` pins the Bearer form as non-authenticating.
+      //
+      // Contract + measurements:
       if (authHeader?.toLowerCase().startsWith('bearer ')) {
         const apiKey = authHeader.slice(7)
         const result = (await auth.api.getSession({
@@ -317,8 +339,24 @@ function hasGuestCommentsEnabled(
 const PUBLIC_READ_LIST_PATH = /^\/api\/tables\/[^/]+\/records\/?$/
 const PUBLIC_READ_SINGLE_PATH = /^\/api\/tables\/[^/]+\/records\/[^/]+\/?$/
 
+/**
+ * The trash view is a PRIVILEGE, not a query parameter.
+ *
+ * `GET /api/tables/:t/records?deleted=true` delegates to `handleListTrash`,
+ * whose rows carry `deletedBy` — who removed a record, and therefore that it
+ * ever existed. `/trash` was deliberately excluded from the carve-out below by
+ * SHAPE; `?deleted=true` re-opened the same handler through a query parameter,
+ * and `c.req.path` does not include the query string, so the carve-out regex
+ * matched it and served soft-deleted rows to an ANONYMOUS caller on any
+ * `read: 'all'` table.
+ */
+function requestsDeletedRecords(c: Context): boolean {
+  return c.req.query('deleted') === 'true'
+}
+
 function isPublicTableRecordReadRequest(c: Context): boolean {
   if (c.req.method !== 'GET') return false
+  if (requestsDeletedRecords(c)) return false
   const { path } = c.req
   return PUBLIC_READ_LIST_PATH.test(path) || PUBLIC_READ_SINGLE_PATH.test(path)
 }

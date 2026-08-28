@@ -27,6 +27,7 @@ import {
 } from '@/infrastructure/database/schema/command-search-fts-ddl'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
 
 const userFavorites = resolveDialectSchema(userFavoritesPg, userFavoritesSqlite)
@@ -136,7 +137,7 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
       return new Set(rows.map((row) => row.entityId))
     }),
 
-  searchTable: ({ physicalTable, columns, query }) =>
+  searchTable: ({ physicalTable, columns, query, excludeDeleted }) =>
     // Never fails, and now actually so. This was an `Effect.promise`, whose
     // rejection is a DEFECT rather than a typed error — `orElseSucceed` only
     // handles the error channel, so the "any DB failure resolves to []" comment
@@ -164,6 +165,24 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
           sql` OR `
         )
 
+        // Soft-deleted rows are not search results. `deleted_at` is an
+        // INTRINSIC column every `CREATE TABLE` emits, but the probe mirrors
+        // `crud-read.ts`: a view-backed relation, or a table created before the
+        // column existed, would otherwise turn every search on it into an
+        // error. Absent the column there is nothing to exclude, so skipping the
+        // predicate is correct rather than permissive.
+        const hasDeletedAt = excludeDeleted
+          ? await columnExists(db, physicalTable, 'deleted_at')
+          : false
+        const livePredicate =
+          excludeDeleted && hasDeletedAt ? sql`${sql.identifier('deleted_at')} IS NULL` : undefined
+
+        const conjoin = (...parts: ReadonlyArray<Readonly<SQL> | undefined>): Readonly<SQL> =>
+          sql.join(
+            parts.filter((part): part is Readonly<SQL> => part !== undefined),
+            sql` AND `
+          )
+
         const run = async (
           candidate: Readonly<SQL> | undefined
         ): Promise<ReadonlyArray<Record<string, unknown>>> =>
@@ -171,7 +190,7 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
             db,
             sql`SELECT id, ${labelExpression(columns)} AS __label
                 FROM ${sql.identifier(physicalTable)}
-                WHERE ${candidate === undefined ? likePredicate : sql`${candidate} AND (${likePredicate})`}
+                WHERE ${conjoin(livePredicate, candidate, sql`(${likePredicate})`)}
                 LIMIT 25`
           )
 

@@ -10,7 +10,7 @@ import { type StaticGroupSpec, jsonResponse } from './_shared/route-spec'
 
 /** Health check route group. */
 export const healthGroup: StaticGroupSpec = {
-  tag: 'infrastructure',
+  tag: 'Infrastructure',
   tagDescription: 'Infrastructure endpoints (health, metrics)',
   routes: [
     {

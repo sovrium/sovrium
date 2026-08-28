@@ -17,29 +17,27 @@ import { TemplateStringSchema } from '../../template'
  */
 export const FileActionResultSchema = Schema.Struct({
   /** Storage key identifying the file */
-  key: Schema.String.pipe(Schema.annotations({ description: 'Storage key identifying the file' })),
+  key: Schema.String.pipe(Schema.annotate({ description: 'Storage key identifying the file' })),
 
   /** Original or generated filename */
-  filename: Schema.String.pipe(
-    Schema.annotations({ description: 'Original or generated filename' })
-  ),
+  filename: Schema.String.pipe(Schema.annotate({ description: 'Original or generated filename' })),
 
   /** MIME content type */
   contentType: Schema.String.pipe(
-    Schema.annotations({ description: 'MIME content type (e.g., "application/pdf")' })
+    Schema.annotate({ description: 'MIME content type (e.g., "application/pdf")' })
   ),
 
   /** File size in bytes */
-  size: Schema.Number.pipe(Schema.annotations({ description: 'File size in bytes' })),
+  size: Schema.Finite.pipe(Schema.annotate({ description: 'File size in bytes' })),
 
   /** Signed URL for direct access (populated when storage supports it) */
   signedUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({ description: 'Signed URL for direct file access (S3 only)' })
+      Schema.annotate({ description: 'Signed URL for direct file access (S3 only)' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileActionResult',
     title: 'File Action Result',
     description: 'Standard result shape for all file actions',
@@ -58,7 +56,7 @@ export type FileActionResult = Schema.Schema.Type<typeof FileActionResultSchema>
  */
 export const DestinationPropSchema = Schema.optional(
   TemplateStringSchema.pipe(
-    Schema.annotations({
+    Schema.annotate({
       description:
         'Storage key for the output file. If omitted, file is stored in temporary storage and auto-cleaned after STORAGE_TEMP_CLEANUP_AFTER (default: 24 hours).',
     })

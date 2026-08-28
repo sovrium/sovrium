@@ -196,7 +196,7 @@ const checkFormRequiredFields = (
 const stripHiddenFields = (
   form: Readonly<Form>,
   body: Readonly<Record<string, unknown>>
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const values = buildConditionValueMap(form, body)
   const hiddenIdentifiers = new Set<string>(
     form.fields
@@ -220,7 +220,7 @@ const stripHiddenFields = (
 const stripSkippedStepFields = (
   form: Readonly<Form>,
   body: Readonly<Record<string, unknown>>
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   if (form.steps === undefined || form.steps.length === 0) return { ...body }
   const values = buildConditionValueMap(form, body)
   const skipped = collectFieldsInSkippedSteps(form, values)
@@ -248,7 +248,7 @@ const hiddenGroupFieldSet = (
 const stripHiddenGroupFields = (
   body: Readonly<Record<string, unknown>>,
   hidden: ReadonlySet<string>
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   if (hidden.size === 0) return { ...body }
   return Object.fromEntries(Object.entries(body).filter(([key]) => !hidden.has(key)))
 }
@@ -260,7 +260,7 @@ const stripHiddenGroupFields = (
 const applyMapping = (
   data: Readonly<Record<string, unknown>>,
   mapping: Readonly<Record<string, string>> | undefined
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   if (!mapping) return { ...data }
   return Object.fromEntries(
     Object.entries(data).map(([key, value]) => [mapping[key] ?? key, value])
@@ -319,7 +319,7 @@ const applyFieldDefaults = (
   data: Readonly<Record<string, unknown>>,
   form: Readonly<Form>,
   query: Readonly<Record<string, string>>
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const visibilityValues = buildConditionValueMap(form, data)
   return form.fields.reduce<Record<string, unknown>>(
     (acc, field) => {
@@ -351,7 +351,7 @@ const applyFieldDefaults = (
 const filterDeclaredFields = (
   data: Readonly<Record<string, unknown>>,
   form: Readonly<Form>
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const declared = new Set<string>(
     form.fields
       .map((field) => {
@@ -384,7 +384,7 @@ const filterDeclaredFields = (
 const filterTableBoundFields = (
   data: Readonly<Record<string, unknown>>,
   form: Readonly<Form>
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const tableColumns = new Set<string>(
     form.fields
       .filter((field) => field.kind === 'table-field')

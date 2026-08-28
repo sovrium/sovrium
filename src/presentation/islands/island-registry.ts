@@ -75,6 +75,10 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // fires promptly on mount rather than waiting for a lazy chunk (the enhancer is
   // tiny — eco-negligible).
   'page-record-system': PageRecordSystemIsland,
+  // `api-key-manager` — the whole `/_admin/api-keys` surface: the operator's own
+  // keys, the mint affordance, the show-once reveal (F1) and the revoke gate.
+  // Lazy (eco R2): only one console surface ever mounts it.
+  'api-key-manager': lazy(() => import('./api-keys/api-key-manager-island')),
   'search-list': lazy(() => import('./search/search-list-island')),
   'auth-form': AuthFormIsland,
   'crud-form': CrudFormIsland,
@@ -227,6 +231,14 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // surface's primary content. Mounted via a `data-island` marker on a generic
   // container.
   'admin-agent-conversations': AdminAgentConversationsIsland,
+  // `design-system-share` — the mint / revoke affordance on
+  // `/_admin/design-system` ([internal ref] amendment A3 Part 2). LAZY: the console is
+  // a read surface an operator opens to look at their tokens, and publishing is
+  // the rare action on it, so the chunk should not ride on every page view
+  // (eco R2). Its SSR skeleton deliberately ships NO button — the mint control
+  // appears only once the island is live, so a click cannot be swallowed by the
+  // pre-hydration DOM.
+  'design-system-share': lazy(() => import('./admin/design-system/design-system-share-island')),
   // (The `admin-connections-directory` bespoke island was retired: the
   // `/_admin/connections` directory is now a generic config `data-table` bound via
   // `dataSource.system` to `GET /api/admin/connections` — see

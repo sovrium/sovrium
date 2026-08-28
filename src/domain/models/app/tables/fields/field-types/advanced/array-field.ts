@@ -10,37 +10,37 @@ import { BaseFieldSchema } from '../base-field'
 import { ARRAY_ITEM_TYPE_NAMES, isSupportedArrayItemType } from './array-item-type'
 
 export const ArrayFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('array'),
-      itemType: Schema.optional(
-        Schema.String.pipe(
-          // Annotated BEFORE the filter: Effect's JSON Schema generator reads
-          // the innermost node, so a description piped after a refinement never
-          // reaches the published schema config authors write against.
-          Schema.annotations({
-            description: `Type of items in the array. One of: ${ARRAY_ITEM_TYPE_NAMES.join(', ')}.`,
-          }),
-          // Refused HERE, at config validation, rather than by the database.
-          // The generator appends `[]` to this value and hands the result to
-          // `CREATE TABLE`, so an unrecognised spelling used to surface as a
-          // startup DDL failure that stopped the server from booting at all.
-          Schema.filter(
+  Schema.fieldsAssign({
+    type: Schema.Literal('array'),
+    itemType: Schema.optional(
+      Schema.String.pipe(
+        // Annotated BEFORE the filter: Effect's JSON Schema generator reads
+        // the innermost node, so a description piped after a refinement never
+        // reaches the published schema config authors write against.
+        Schema.annotate({
+          description: `Type of items in the array. One of: ${ARRAY_ITEM_TYPE_NAMES.join(', ')}.`,
+        }),
+        // Refused HERE, at config validation, rather than by the database.
+        // The generator appends `[]` to this value and hands the result to
+        // `CREATE TABLE`, so an unrecognised spelling used to surface as a
+        // startup DDL failure that stopped the server from booting at all.
+        Schema.check(
+          Schema.makeFilter(
             (value) =>
               isSupportedArrayItemType(value) ||
               `Invalid itemType '${value}'. An array field's itemType must name a supported element type: ${ARRAY_ITEM_TYPE_NAMES.join(', ')}.`
           )
         )
-      ),
-      maxItems: Schema.optional(
-        Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(1),
-          Schema.annotations({ description: 'Maximum number of items allowed' })
-        )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+    maxItems: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+        Schema.annotate({ description: 'Maximum number of items allowed' })
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Array Field',
     description: 'Stores arrays of values with optional type and length constraints.',
     examples: [{ id: 1, name: 'tags', type: 'array', itemType: 'string', maxItems: 10 }],

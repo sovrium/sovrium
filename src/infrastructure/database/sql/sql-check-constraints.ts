@@ -192,7 +192,7 @@ export const generateRichTextConstraints = (fields: readonly Fields[number][]): 
  * formats — a documented partial-degradation, mirroring how the dialect
  * provider already degrades pgvector / GIN tsvector to no-op on SQLite.
  */
-const barcodeFormatPgPatterns: Record<string, string> = {
+const barcodeFormatPgPatterns: Readonly<Record<string, string>> = {
   'EAN-13': '^[0-9]{13}$',
   'EAN-8': '^[0-9]{8}$',
   'UPC-A': '^[0-9]{12}$',
@@ -207,7 +207,7 @@ const barcodeFormatPgPatterns: Record<string, string> = {
  * UPC-E is variable-length (6 to 8 digits) — modeled as a 3-OR predicate. The
  * `undefined` entries trigger the LENGTH-only fallback above.
  */
-const barcodeFormatSqliteGlobs: Record<string, string | undefined> = {
+const barcodeFormatSqliteGlobs: Readonly<Record<string, string | undefined>> = {
   'EAN-13': '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]',
   'EAN-8': '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]',
   'UPC-A': '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]',
@@ -297,16 +297,32 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
  * `multi-select-field.ts` validates the field CONFIG only (`maxSelections <=
  * options.length`) and never sees a record value, so an undeclared option was
  * 201-and-persisted on SQLite through the records API. The enforcement the
- * comment described now genuinely exists, but somewhere else and with a
- * narrower reach: `domain/validators/multi-select-values.ts`, run by the
- * records-API create and update paths.
+ * comment described now genuinely exists, but somewhere else:
+ * `domain/validators/multi-select-values.ts`.
  *
  * That rule is the PRIMARY guard on SQLite (there is no other) and this CHECK
- * is defence in depth on PostgreSQL. Neither covers the write paths that
- * bypass the records-API validation chain — batch create/update, upsert,
- * bulk/HTML-form update, MCP tools, and automation record actions — which
- * remain unguarded on both engines. Do not restore a blanket claim of
- * application-layer coverage here without checking those callers.
+ * is defence in depth on PostgreSQL. Its reach is no longer narrower than the
+ * CHECK's — every write path that accepts values for a `multi-select` column
+ * now runs it, each formatting the violation in its own error envelope:
+ *
+ *   - records API create / update — `presentation/api/validation/rules/
+ *     multi-select-rules.ts`
+ *   - batch create / update / upsert and bulk HTML-form update —
+ *     `validateBulkMultiSelectOptions` / `validateUpdateFieldValues` in
+ *     `presentation/api/routes/tables/batch/`
+ *   - MCP `_create` / `_update` tools — `findFirstMultiSelectViolation` in
+ *     `infrastructure/server/route-setup/mcp/tool-call.ts`
+ *   - automation `record/create|update|upsert` and `record/batch*` —
+ *     `findMultiSelectViolationMessage` in
+ *     `application/use-cases/automations/action-handlers/shared.ts`
+ *
+ * That enumeration is the claim to maintain. A NEW write path is unguarded
+ * until it is added to this list, and the two application-layer programs
+ * (`createRecordProgram` / `updateRecordProgram`) cannot host the check
+ * centrally because they take `app` optionally and several callers omit it —
+ * validation placed there would silently no-op on exactly those paths. Do not
+ * restore a blanket claim of application-layer coverage without checking the
+ * callers one by one.
  *
  * @example
  * Field: { type: 'multi-select', options: ['work', 'personal'] }

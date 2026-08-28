@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
+import { AiActionProviderSchema } from './provider'
 
 /**
  * AI Classify Action (type: ai, operator: classify)
@@ -20,31 +21,27 @@ export const AiClassifyActionSchema = Schema.Struct({
   type: Schema.Literal('ai'),
   operator: Schema.Literal('classify'),
   props: Schema.Struct({
-    /** LLM provider */
-    provider: Schema.Literal('openai', 'anthropic', 'ollama', 'custom').pipe(
-      Schema.annotations({
-        description: 'LLM provider: openai, anthropic, ollama (self-hosted), or custom',
-      })
-    ),
+    /** LLM provider — optional, advisory (see {@link AiActionProviderSchema}) */
+    provider: AiActionProviderSchema,
 
     /** Model identifier */
     model: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Model name (e.g., "gpt-4o-mini", "claude-haiku-4-5-20251001")',
       })
     ),
 
     /** Text to classify */
     input: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Text input to classify (supports template variables)',
       })
     ),
 
     /** Classification categories (minimum 2) */
     categories: Schema.Array(Schema.String).pipe(
-      Schema.minItems(2),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(2)),
+      Schema.annotate({
         description:
           'Categories to classify into (minimum 2). Example: ["positive", "negative", "neutral"]',
       })
@@ -53,7 +50,7 @@ export const AiClassifyActionSchema = Schema.Struct({
     /** Instruction prepended to the classification request */
     prompt: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Optional instruction prepended to the input + categories sent to the model (supports template variables)',
         })
@@ -63,7 +60,7 @@ export const AiClassifyActionSchema = Schema.Struct({
     /** System prompt */
     systemPrompt: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'System prompt to set model behavior and context',
         })
       )
@@ -71,9 +68,9 @@ export const AiClassifyActionSchema = Schema.Struct({
 
     /** Sampling temperature */
     temperature: Schema.optional(
-      Schema.Number.pipe(
-        Schema.between(0, 2),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isBetween({ minimum: 0, maximum: 2 })),
+        Schema.annotate({
           description: 'Sampling temperature (0-2, default: provider default)',
         })
       )
@@ -81,10 +78,9 @@ export const AiClassifyActionSchema = Schema.Struct({
 
     /** Maximum tokens to generate */
     maxTokens: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.between(1, 1_000_000),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 1_000_000 })),
+        Schema.annotate({
           description: 'Maximum tokens to generate (1-1000000)',
         })
       )
@@ -93,15 +89,15 @@ export const AiClassifyActionSchema = Schema.Struct({
     /** Connection name for API authentication */
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9-]*$/),
-        Schema.annotations({
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+        Schema.annotate({
           description: 'Connection name for API auth (must reference app.connections[])',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AiClassifyAction',
     title: 'AI Classify Action',
     description: 'Classify text into categories using a language model',

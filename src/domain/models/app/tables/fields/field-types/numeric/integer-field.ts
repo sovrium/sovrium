@@ -38,38 +38,36 @@ import { validateMinMaxRange } from '../validation-utils'
  * ```
  */
 export const IntegerFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('integer').pipe(
-        Schema.annotations({
-          description: "Constant value 'integer' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('integer').pipe(
+      Schema.annotate({
+        description: "Constant value 'integer' for type discrimination in discriminated unions",
+      })
+    ),
+    min: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Minimum allowed value (inclusive)',
         })
-      ),
-      min: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Minimum allowed value (inclusive)',
-          })
-        )
-      ),
-      max: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Maximum allowed value (inclusive)',
-          })
-        )
-      ),
-      default: Schema.optional(
-        Schema.Int.pipe(
-          Schema.annotations({
-            description: 'Default integer value when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.filter(validateMinMaxRange),
-  Schema.annotations({
+      )
+    ),
+    max: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Maximum allowed value (inclusive)',
+        })
+      )
+    ),
+    default: Schema.optional(
+      Schema.Int.pipe(
+        Schema.annotate({
+          description: 'Default integer value when creating new records',
+        })
+      )
+    ),
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange)),
+  Schema.annotate({
     title: 'Integer Field',
     description:
       'Numeric field for whole numbers without decimal places. Supports min/max range validation and is optimized for performance.',

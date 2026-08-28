@@ -43,17 +43,17 @@ import { Schema } from 'effect'
 // Schema
 // ---------------------------------------------------------------------------
 
-export const InternalTableSchemaName = Schema.Literal('auth', 'system')
+export const InternalTableSchemaName = Schema.Literals(['auth', 'system'])
 
 export type InternalTableSchemaName = typeof InternalTableSchemaName.Type
 
 export const InternalTableEntrySchema = Schema.Struct({
   schema: InternalTableSchemaName,
-  name: Schema.String.pipe(Schema.minLength(1)),
-  denylistFields: Schema.Array(Schema.String.pipe(Schema.minLength(1))),
-  description: Schema.String.pipe(Schema.minLength(1)),
+  name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  denylistFields: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
+  description: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'InternalTableEntry',
     title: 'Internal Table Registry Entry',
     description:
@@ -286,6 +286,23 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     denylistFields: [],
     description:
       'Z-3 row-level permission junction: which userId can access which recordIds in which user-defined table.',
+  },
+  {
+    schema: 'system',
+    name: 'design_system_shares',
+    // The SHA-256 digest of a live share secret. Denylisted because handing it
+    // to an MCP client hands over an OFFLINE VERIFIER: a leaked candidate can
+    // then be checked against the hash without ever touching the server, which
+    // is precisely the property digest-at-rest exists to provide. A fast hash
+    // over a high-entropy secret is safe to STORE, not safe to SHOW.
+    //
+    // `system.links` is deliberately absent from this registry, so registering
+    // this table is a departure from the nearest precedent — and the right one.
+    // A link row holds a plaintext slug that is public by design; a share row
+    // holds the digest of a secret. Different rows, different answer.
+    denylistFields: ['tokenHash'],
+    description:
+      'Revocable public share links over the design system (ADR-022 A3). Metadata only: id, app, who minted it, when, and when it was revoked. The secret digest column is denylisted.',
   },
 ] as const
 

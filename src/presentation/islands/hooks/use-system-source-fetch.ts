@@ -39,6 +39,32 @@ import type { SystemSource } from '@/domain/models/app/pages/components/system-s
 export interface FetchResult {
   readonly records: readonly TableRecord[]
   readonly total: number
+  /**
+   * The search term the endpoint reports it ACTUALLY applied — the signal that
+   * decides which layer filters (`appliedQuerySchema`, `src/domain/models/api/_shared/search.ts`).
+   *
+   * Tri-state, and the third state is the whole point:
+   *
+   * | value      | meaning                                        | grid must      |
+   * |------------|------------------------------------------------|----------------|
+   * | `'<term>'` | the server filtered on this term               | NOT re-filter  |
+   * | `null`     | endpoint searches server-side, no term supplied | NOT re-filter  |
+   * | `undefined`| the endpoint does NOT search                    | filter locally |
+   *
+   * `undefined` (the response omitted the key) is what keeps this shippable one
+   * endpoint at a time: an endpoint that has not been taught `?q=` yet must have
+   * its grid keep narrowing the page it holds. Gating on "is this a system
+   * source" instead would break exactly those.
+   *
+   * The three endpoints this comment used to name — automation runs, form
+   * submissions, connections — have all since been resolved, the first two by
+   * applying `?q=` server-side and echoing `appliedQuery`, and connections by
+   * establishing that its whole set is already in memory. The list is left
+   * unnamed rather than re-enumerated: a roster of stragglers is stale the day
+   * one of them is fixed, and a comment naming the wrong endpoints is worse than
+   * one naming none.
+   */
+  readonly appliedQuery?: string | null
 }
 
 /**
@@ -144,6 +170,54 @@ export function buildSystemQueryString({
 }
 
 /**
+ * Read a response's `appliedQuery` declaration BY KEY PRESENCE, as the
+ * `{ appliedQuery }` spread a `FetchResult` takes.
+ *
+ * Shared by BOTH fetch paths — the system endpoints here and the DB-table
+ * records API (`use-data-table-query.ts`) — because the distinction is exactly
+ * one character wide and both paths feed the same `serverFiltered` decision.
+ * `'appliedQuery' in json` keeps three states; `json.appliedQuery ?? undefined`
+ * keeps two, collapsing `null` ("searches server-side, no term supplied") into
+ * "does not search" and silently re-enabling the in-memory filter the moment an
+ * operator CLEARS the box — the double filter, back, on the one interaction
+ * nobody re-tests.
+ *
+ * Returns `{}` — not `{ appliedQuery: undefined }` — so the key stays genuinely
+ * absent from the result: the consumer reads presence too.
+ */
+export function readAppliedQuery(json: { readonly appliedQuery?: unknown }): {
+  readonly appliedQuery?: string | null
+} {
+  const value = 'appliedQuery' in json ? json.appliedQuery : undefined
+  return typeof value === 'string' || value === null ? { appliedQuery: value } : {}
+}
+
+/** How much of a failed response body reaches the operator's error alert. */
+const ERROR_BODY_MAX_CHARS = 300
+
+/**
+ * Read a failed response's body for display, BOUNDED.
+ *
+ * The thrown message is rendered verbatim in the grid's error alert, so an
+ * unbounded `res.text()` puts the whole response there. That is fine for the
+ * JSON error envelopes these endpoints normally return, and wrong for the case
+ * that actually occurs when something upstream breaks: a 500 or a proxy fault
+ * answers with an HTML error PAGE, and the operator gets kilobytes of markup
+ * instead of a diagnosis. The status code — already interpolated ahead of this
+ * — is the actionable half; the body is context.
+ *
+ * A body that cannot be read at all must not mask the real failure with a
+ * secondary one, so the read is guarded and degrades to an empty string.
+ */
+async function readErrorBody(res: Response): Promise<string> {
+  const body = await res.text().catch(() => '')
+  const collapsed = body.replaceAll(/\s+/gu, ' ').trim()
+  return collapsed.length > ERROR_BODY_MAX_CHARS
+    ? `${collapsed.slice(0, ERROR_BODY_MAX_CHARS)}…`
+    : collapsed
+}
+
+/**
  * Parse a system-endpoint response envelope into `{ records, total }`: rows are
  * read at `rowsKey`, each row's id normalized onto the canonical `id` key,
  * run-status localized for a named runs grid, and `total` taken from `totalKey`
@@ -165,7 +239,9 @@ export function parseSystemEnvelope(
   const records = localizeRunStatusRows(system.endpoint, sourceId, idMapped)
   const totalRaw = system.totalKey ? json[system.totalKey] : undefined
   const total = typeof totalRaw === 'number' ? totalRaw : records.length
-  return { records, total }
+  // PRESENCE, not truthiness — see `readAppliedQuery`, which both fetch paths
+  // share so the three-state read cannot be spelled two ways.
+  return { records, total, ...readAppliedQuery(json) }
 }
 
 /**
@@ -192,9 +268,14 @@ export async function fetchSystemEndpoint({
   const res = await fetch(url, { credentials: 'include' })
 
   if (!res.ok) {
-    const body = await res.text()
+    // The MESSAGE is what an operator reads in the grid's alert, so it carries the
+    // status and nothing else. The raw envelope goes in `cause`, where a developer
+    // can still reach it from the console — it used to be concatenated into the
+    // message, which put a JSON blob on screen under a doubled 'Failed to…' prefix.
     // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
-    throw new Error(`Failed to fetch system rows: ${res.status} ${body}`)
+    throw new Error(`The server refused this request (${res.status}).`, {
+      cause: await readErrorBody(res),
+    })
   }
 
   const json = (await res.json()) as Record<string, unknown>
@@ -259,9 +340,8 @@ export async function fetchSystemDetailEndpoint(
   const res = await fetch(url, { credentials: 'include' })
 
   if (!res.ok) {
-    const body = await res.text()
     // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
-    throw new Error(`Failed to fetch system record: ${res.status} ${body}`)
+    throw new Error(`Failed to fetch system record: ${res.status} ${await readErrorBody(res)}`)
   }
 
   const json = (await res.json()) as Record<string, unknown>

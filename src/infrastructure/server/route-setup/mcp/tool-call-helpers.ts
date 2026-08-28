@@ -15,14 +15,28 @@
  * application-layer programs into a JSON-RPC response.
  */
 
+import { ProtocolError } from '@modelcontextprotocol/server'
 import { Effect } from 'effect'
-import { type Context } from 'hono'
+import {
+  findMultiSelectSelectionOverflows,
+  findUndeclaredMultiSelectValues,
+} from '@/domain/validators/multi-select-values'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import type { Table } from '@/domain/models/app'
 
+/**
+ * The MCP `tools/call` success payload.
+ *
+ * Under the SDK v2 handler a tool result is a plain object the handler
+ * serializes; the JSON-RPC envelope (`jsonrpc`/`id`) is owned by the SDK and
+ * is no longer hand-built here. That is why these helpers no longer take a
+ * Hono `Context` or a response id.
+ */
+export interface McpToolResult {
+  readonly content: ReadonlyArray<{ readonly type: 'text'; readonly text: string }>
+}
+
 export interface RunProgramInput<A> {
-  readonly c: Readonly<Context>
-  readonly responseId: number | string
   readonly program: Effect.Effect<A, unknown, unknown>
   readonly formatSuccess?: (value: A) => unknown
   readonly notFoundResult?: unknown
@@ -34,50 +48,45 @@ export interface RunProgramInput<A> {
  * the `result.content[0].text` slot per the MCP wire format. Either-Left
  * errors collapse to -32603 with the underlying error message.
  */
-export async function runProgramAsToolResult<A>(input: RunProgramInput<A>): Promise<Response> {
+export async function runProgramAsToolResult<A>(input: RunProgramInput<A>): Promise<McpToolResult> {
   const provided = provideTableLive(
     input.program as Effect.Effect<A, unknown, never>
   ) as Effect.Effect<A, unknown, never>
-  const outcome = await Effect.runPromise(Effect.either(provided))
+  const outcome = await Effect.runPromise(Effect.result(provided))
 
-  if (outcome._tag === 'Left') {
-    const message = outcome.left instanceof Error ? outcome.left.message : String(outcome.left)
-    return jsonRpcError(input.c, input.responseId, -32_603, message)
+  if (outcome._tag === 'Failure') {
+    const message =
+      outcome.failure instanceof Error ? outcome.failure.message : String(outcome.failure)
+    return toolFailure(-32_603, message)
   }
 
-  const formatted = input.formatSuccess ? input.formatSuccess(outcome.right) : outcome.right
+  const formatted = input.formatSuccess ? input.formatSuccess(outcome.success) : outcome.success
   if (formatted === undefined) {
-    const replacement = input.notFoundResult ?? { error: 'Record not in scope' }
-    return jsonRpcSuccess(input.c, input.responseId, replacement)
+    return toolSuccess(input.notFoundResult ?? { error: 'Record not in scope' })
   }
-  return jsonRpcSuccess(input.c, input.responseId, formatted)
+  return toolSuccess(formatted)
 }
 
-export function jsonRpcSuccess(
-  c: Readonly<Context>,
-  responseId: number | string,
-  data: unknown
-): Response {
-  return c.json({
-    jsonrpc: '2.0',
-    id: responseId,
-    result: {
-      content: [{ type: 'text', text: JSON.stringify(data, undefined, 2) }],
-    },
-  })
+/** Wrap a value in the MCP `content[0].text` success slot. */
+export function toolSuccess(data: unknown): McpToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify(data, undefined, 2) }] }
 }
 
-export function jsonRpcError(
-  c: Readonly<Context>,
-  responseId: number | string,
-  code: number,
-  message: string
-): Response {
-  return c.json({
-    jsonrpc: '2.0',
-    id: responseId,
-    error: { code, message },
-  })
+/**
+ * Fail a `tools/call` with a JSON-RPC PROTOCOL error (`-32602`, `-32603`, …).
+ *
+ * This must throw rather than return: the SDK v2 handler distinguishes a tool
+ * EXECUTION error (returned as a `CallToolResult` with `isError: true`, HTTP
+ * 200, inside `result`) from a PROTOCOL error (a JSON-RPC `error` member), and
+ * a thrown `ProtocolError` from a low-level `Server` request handler is the
+ * only way to produce the latter. Sovrium's RBAC and field-permission denials
+ * are asserted as protocol errors by the spec suite
+ * (`[internal ref]` → -32603, `[internal ref]` → -32602), so the
+ * distinction is load-bearing and not stylistic.
+ */
+export function toolFailure(code: number, message: string): never {
+  // eslint-disable-next-line functional/no-throw-statements -- the SDK surfaces a JSON-RPC protocol error only via a thrown ProtocolError
+  throw new ProtocolError(code, message)
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +144,7 @@ const FIELDS_SYSTEM_KEYS: ReadonlySet<string> = new Set([
 export function applyMcpFieldExposureToRecord(
   record: Readonly<Record<string, unknown>>,
   table: Readonly<Table>
-): Record<string, unknown> {
+): Readonly<Record<string, unknown>> {
   const access = table.aiAccess
   if (typeof access !== 'object') return { ...record }
   if (access.fieldExposure !== 'whitelist') return { ...record }
@@ -171,4 +180,40 @@ export function applyMcpFieldExposureToRecords(
   table: Readonly<Table>
 ): ReadonlyArray<Record<string, unknown>> {
   return records.map((record) => applyMcpFieldExposureToRecord(record, table))
+}
+
+/**
+ * The first `multi-select` contract violation in an MCP write payload —
+ * option MEMBERSHIP, then selection CARDINALITY — phrased for a JSON-RPC
+ * `-32602 Invalid params` error, or `undefined` when the payload is clean.
+ *
+ * Why the MCP surface needs its own check. `tool-compiler.ts` advertises the
+ * declared options as a JSON Schema `enum` on the tool inputSchema, and its
+ * comment there says "the runtime relies on PostgreSQL + the records-API for
+ * the authoritative validation". Neither holds on this path: an inputSchema
+ * `enum` is a hint an MCP client MAY honour and a sloppy or hostile one simply
+ * ignores; the write goes straight to `createRecordProgram` /
+ * `updateRecordProgram` without traversing the records-API validation chain in
+ * `presentation/api/validation`; and the PostgreSQL CHECK that would otherwise
+ * have caught it is deliberately not emitted on SQLite, the shipped default
+ * (`sql/sql-check-constraints.ts`). An undeclared option therefore persisted.
+ *
+ * The rules and the message wording are the records-API's, so an MCP client
+ * and an HTTP client get the same answer for the same payload.
+ */
+export function findFirstMultiSelectViolation(
+  table: Table,
+  fields: Readonly<Record<string, unknown>>
+): string | undefined {
+  const undeclared = findUndeclaredMultiSelectValues(table.fields, fields)[0]
+  if (undeclared) {
+    return `Invalid option for field '${undeclared.field}'. Allowed options: ${undeclared.allowed.join(', ')}`
+  }
+
+  const overflow = findMultiSelectSelectionOverflows(table.fields, fields)[0]
+  if (overflow) {
+    return `Too many selections for field '${overflow.field}'. max selections allowed: ${overflow.maxSelections}`
+  }
+
+  return undefined
 }

@@ -26,6 +26,7 @@ import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { replayAutomationRun, type ReplayAutomationRunError } from './replay-automation-run'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /** Options for {@link retryAutomationRun}. */
@@ -54,7 +55,7 @@ export const retryAutomationRun = (
 ): Effect.Effect<
   RunAutomationResult,
   ReplayAutomationRunError,
-  AutomationRunRepository | ExecuteAutomationRunRequirements
+  AutomationRunRepository | ExecuteAutomationRunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
     const { runId, app, processEnv, userId } = options

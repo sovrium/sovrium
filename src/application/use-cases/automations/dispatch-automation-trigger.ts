@@ -34,15 +34,15 @@ export const resolveAutomationIdSilent = (
 ): Effect.Effect<string | undefined, never, AutomationRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRepository
-    const findResult = yield* Effect.either(repo.findByName(name))
+    const findResult = yield* Effect.result(repo.findByName(name))
     if (
-      findResult._tag === 'Right' &&
-      findResult.right !== undefined &&
-      typeof findResult.right['id'] === 'string'
+      findResult._tag === 'Success' &&
+      findResult.success !== undefined &&
+      typeof findResult.success['id'] === 'string'
     ) {
-      return findResult.right['id']
+      return findResult.success['id']
     }
-    const createResult = yield* Effect.either(
+    const createResult = yield* Effect.result(
       repo.create({
         name,
         trigger: automation.trigger as unknown as Record<string, unknown>,
@@ -50,8 +50,8 @@ export const resolveAutomationIdSilent = (
         enabled: automation.enabled ?? true,
       })
     )
-    if (createResult._tag !== 'Right') return undefined
-    const created = createResult.right
+    if (createResult._tag !== 'Success') return undefined
+    const created = createResult.success
     if (typeof created['id'] !== 'string') return undefined
     return created['id']
   })

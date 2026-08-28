@@ -29,10 +29,15 @@
 
 /**
  * The two sidebar nav sections the Data destinations group under. `app` holds
- * the operator's own application data (tables / forms / buckets); `system` holds
- * the platform-level operational data (automations / agents / users /
+ * the operator's own application data (tables / forms / buckets / agents);
+ * `system` holds the platform-level operational data (automations / users /
  * connections / page stats). Pure string union — the presentation layer maps it
  * to a section heading.
+ *
+ * Agents sit in `app` because a conversation is data a USER generated, exactly
+ * like a record, a submission or a file — not something the platform recorded
+ * about itself. The section names the data, not the object, which is why the
+ * `agents` row is labelled "Conversations".
  */
 export type DataNavSection = 'app' | 'system'
 
@@ -64,37 +69,41 @@ export interface DataNavPage {
    */
   readonly section: DataNavSection
   /**
-   * Backend readiness. `true` when the page's admin read-API ships. As of Pass
-   * 2c ALL eight Data destinations are backend-ready (Pass 1: tables /
-   * automations / pages / forms / users; Pass 2a: buckets; Pass 2b: agents;
-   * Pass 2c: connections) — the console is 8/8 and no "Coming soon" gap row remains.
+   * Backend readiness. `true` when the page's admin read-API ships. ALL ten
+   * Data destinations are backend-ready (Pass 1: tables / automations / pages /
+   * forms / users; Pass 2a: buckets; Pass 2b: agents; Pass 2c: connections;
+   * Footprint: `/api/admin/footprint/overview`; Links: `/api/admin/links`) —
+   * the console is 10/10 and no "Coming soon" gap row remains.
    */
   readonly ready: boolean
 }
 
 /**
- * The eight Data-tab pages, grouped into two sidebar sections (Stripe-Dashboard
- * / Linear-style): the operator's own application data first (Records /
- * Submissions / Files), then the platform-level system data (Runs /
- * Conversations / Users / Connections / Analytics). The keys match the
- * top-level `/_admin/{key}` routes the surface builder resolves (the `/data`
- * URL segment was retired in [internal ref] — no back-compat); the array order is the
- * in-section render order.
+ * The ten Data-tab pages, grouped into two sidebar sections: the operator's
+ * own application data first (Records / Submissions / Files / Conversations),
+ * then the platform-level system data (Automations / Users / Connections /
+ * Analytics / Links / Footprint). The keys match the top-level `/_admin/{key}` routes
+ * the surface builder resolves (the `/data` URL segment was retired in [internal ref] —
+ * no back-compat); the array order is the in-section render order.
+ *
+ * Footprint sits last in `system` because it describes the instance rather than
+ * any object in it — it is the only destination whose rows are not records the
+ * operator created.
  */
 export const DATA_NAV_PAGES: ReadonlyArray<DataNavPage> = [
   // ── Application data ──
   { key: 'tables', label: 'Records', href: '/_admin/tables', section: 'app', ready: true },
   { key: 'forms', label: 'Submissions', href: '/_admin/forms', section: 'app', ready: true },
   { key: 'buckets', label: 'Files', href: '/_admin/buckets', section: 'app', ready: true },
+  { key: 'agents', label: 'Conversations', href: '/_admin/agents', section: 'app', ready: true },
   // ── System data ──
   {
     key: 'automations',
-    label: 'Runs',
+    label: 'Automations',
     href: '/_admin/automations',
     section: 'system',
     ready: true,
   },
-  { key: 'agents', label: 'Conversations', href: '/_admin/agents', section: 'system', ready: true },
   { key: 'users', label: 'Users', href: '/_admin/users', section: 'system', ready: true },
   {
     key: 'connections',
@@ -104,6 +113,20 @@ export const DATA_NAV_PAGES: ReadonlyArray<DataNavPage> = [
     ready: true,
   },
   { key: 'pages', label: 'Analytics', href: '/_admin/pages', section: 'system', ready: true },
+  // Links sits beside Analytics because it is the second analytics-shaped
+  // destination: every metric panel on it reads the SAME `/api/analytics/*`
+  // endpoints, narrowed to `event_type=link_click`. It stays in `system` (not
+  // `app`) so it renders as a FLAT row rather than an expandable disclosure —
+  // the link population is unbounded and DB-backed, and enumerating it in a
+  // 256px sidebar would be hostile.
+  { key: 'links', label: 'Links', href: '/_admin/links', section: 'system', ready: true },
+  {
+    key: 'footprint',
+    label: 'Footprint',
+    href: '/_admin/footprint',
+    section: 'system',
+    ready: true,
+  },
 ]
 
 /**

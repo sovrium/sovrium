@@ -60,7 +60,7 @@ export const swapApp = (
     //    re-decode so the same logic that validates a YAML config from
     //    disk is reused — there is exactly one source of truth for
     //    "is this App well-formed".
-    const validated = yield* Schema.decodeUnknown(AppSchema)(newApp).pipe(
+    const validated = yield* Schema.decodeEffect(AppSchema)(newApp).pipe(
       Effect.mapError((cause) => new SwapAppValidationError({ cause }))
     )
 

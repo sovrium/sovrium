@@ -16,7 +16,7 @@ export const scrollAreaFields = {
   ...coreFields,
   ...visibilityFields,
   scrollAreaHeight: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'CSS max-height for the scroll area (e.g. "400px")',
     })
   ),

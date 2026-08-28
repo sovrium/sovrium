@@ -49,43 +49,41 @@ import { validateMinMaxRange } from '../validation-utils'
  * ```
  */
 export const CurrencyFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('currency').pipe(
-        Schema.annotations({
-          description: "Constant value 'currency' for type discrimination in discriminated unions",
+  Schema.fieldsAssign({
+    type: Schema.Literal('currency').pipe(
+      Schema.annotate({
+        description: "Constant value 'currency' for type discrimination in discriminated unions",
+      })
+    ),
+    currency: CurrencyCodeSchema,
+    precision: Schema.optional(CurrencyPrecisionSchema),
+    min: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Minimum allowed value (inclusive)',
         })
-      ),
-      currency: CurrencyCodeSchema,
-      precision: Schema.optional(CurrencyPrecisionSchema),
-      min: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Minimum allowed value (inclusive)',
-          })
-        )
-      ),
-      max: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Maximum allowed value (inclusive)',
-          })
-        )
-      ),
-      symbolPosition: Schema.optional(CurrencySymbolPositionSchema),
-      negativeFormat: Schema.optional(CurrencyNegativeFormatSchema),
-      thousandsSeparator: Schema.optional(CurrencyThousandsSeparatorSchema),
-      default: Schema.optional(
-        Schema.Number.pipe(
-          Schema.annotations({
-            description: 'Default currency value when creating new records',
-          })
-        )
-      ),
-    })
-  ),
-  Schema.filter(validateMinMaxRange),
-  Schema.annotations({
+      )
+    ),
+    max: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Maximum allowed value (inclusive)',
+        })
+      )
+    ),
+    symbolPosition: Schema.optional(CurrencySymbolPositionSchema),
+    negativeFormat: Schema.optional(CurrencyNegativeFormatSchema),
+    thousandsSeparator: Schema.optional(CurrencyThousandsSeparatorSchema),
+    default: Schema.optional(
+      Schema.Finite.pipe(
+        Schema.annotate({
+          description: 'Default currency value when creating new records',
+        })
+      )
+    ),
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange)),
+  Schema.annotate({
     title: 'Currency Field',
     description:
       'Specialized numeric field for monetary values with currency codes (ISO 4217). Uses exact DECIMAL storage to prevent rounding errors in financial calculations.',

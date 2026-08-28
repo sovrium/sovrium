@@ -23,8 +23,8 @@ import { Schema } from 'effect'
  * ```
  */
 export const GroupNameSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z][a-z0-9-]*$/),
-  Schema.annotations({
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
+  Schema.annotate({
     title: 'Group Name',
     description: 'Group identifier. Lowercase alphanumeric with hyphens, must start with a letter.',
     examples: ['marketing', 'dev-team', 'project-alpha'],
@@ -65,7 +65,7 @@ export const GroupSchema = Schema.Struct({
   /** Human-readable description of the group's purpose (optional). */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Group Description',
         description: 'Human-readable description of the group purpose',
       })
@@ -79,17 +79,16 @@ export const GroupSchema = Schema.Struct({
    * Must be at least 1.
    */
   maxMembers: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(1),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1)),
+      Schema.annotate({
         title: 'Max Members',
         description: 'Maximum number of users allowed in this group (min 1, unlimited if omitted)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Group',
     title: 'Group Definition',
     description:
@@ -105,4 +104,4 @@ export const GroupSchema = Schema.Struct({
 /** @public */
 export type Group = Schema.Schema.Type<typeof GroupSchema>
 /** @public */
-export type GroupEncoded = Schema.Schema.Encoded<typeof GroupSchema>
+export type GroupEncoded = Schema.Codec.Encoded<typeof GroupSchema>

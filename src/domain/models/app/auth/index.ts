@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { AuthApiKeysConfigSchema } from './api-keys'
 import { AuthEmailTemplatesSchema } from './email-templates'
 import { GroupSchema } from './groups'
 import {
@@ -18,6 +19,7 @@ import { AuthStrategiesSchema, type AuthStrategy } from './strategies'
 import { TwoFactorConfigSchema } from './two-factor'
 
 // Re-export all auth-related schemas and types for convenient imports
+export * from './api-keys'
 export * from './email-templates'
 export * from './groups'
 export * from './strategies/oauth'
@@ -119,7 +121,7 @@ export const getEnabledStrategies = (auth: Auth | undefined): readonly StrategyT
  * Maps directly to Better Auth's `disableSignUp` option (inverted: allowSignUp=false → disableSignUp=true).
  */
 export const AllowSignUpSchema = Schema.Boolean.pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'Allow Sign-Up',
     description:
       'Controls user self-registration. true allows anyone to sign up. false restricts user creation to admins.',
@@ -142,22 +144,21 @@ export const AllowSignUpSchema = Schema.Boolean.pipe(
  * to `expires_at`. After expiry the row is rejected on accept; tokens are
  * also single-use (consumed on first successful accept).
  */
-export const InvitationTokenExpirySchema = Schema.Union(
+export const InvitationTokenExpirySchema = Schema.Union([
   Schema.String.pipe(
-    Schema.pattern(/^[1-9]\d*[smhd]$/),
-    Schema.annotations({
+    Schema.check(Schema.isPattern(/^[1-9]\d*[smhd]$/)),
+    Schema.annotate({
       description: 'Duration string e.g. "30s", "15m", "72h", "7d"',
     })
   ),
-  Schema.Number.pipe(
-    Schema.int(),
-    Schema.positive(),
-    Schema.annotations({
+  Schema.Finite.pipe(
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+    Schema.annotate({
       description: 'Lifetime in milliseconds (positive integer)',
     })
-  )
-).pipe(
-  Schema.annotations({
+  ),
+]).pipe(
+  Schema.annotate({
     title: 'Invitation Token Expiry',
     description: 'Lifetime of single-use admin invitation tokens. Defaults to 72h when omitted.',
     examples: ['72h', '24h', '7d', 259_200_000],
@@ -332,6 +333,17 @@ export const AuthSchema = Schema.Struct({
   twoFactor: Schema.optional(TwoFactorConfigSchema),
 
   /**
+   * Self-service API keys (optional)
+   *
+   * Let a signed-in user mint, list and revoke their OWN long-lived API keys
+   * and authenticate `/api/*` requests with the `x-api-key` header. A key
+   * inherits the role of the user who created it; there is no
+   * admin-manages-others path and no client-supplied permission grant.
+   * Omitted (the default) means the `/api/auth/api-key/*` endpoints answer 404.
+   */
+  apiKeys: Schema.optional(AuthApiKeysConfigSchema),
+
+  /**
    * Email templates for authentication flows (optional)
    *
    * Customize the subject and content of emails sent during authentication.
@@ -368,7 +380,7 @@ export const AuthSchema = Schema.Struct({
    */
   groups: Schema.optional(
     Schema.Array(GroupSchema).pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Groups',
         description:
           'User groups for permission grouping. Referenced in permissions with group: prefix. Teams are configured through groups.',
@@ -404,13 +416,13 @@ export const AuthSchema = Schema.Struct({
   scopeTables: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.minLength(1),
-        Schema.annotations({
+        Schema.check(Schema.isMinLength(1)),
+        Schema.annotate({
           description: 'Table slug from app.tables[].name (e.g., "clients", "projects")',
         })
       )
     ).pipe(
-      Schema.annotations({
+      Schema.annotate({
         title: 'Scope Tables',
         description:
           'Tables that user_access rows can reference for multi-tenant scoping. Validated against app.tables[].name at startup.',
@@ -449,8 +461,8 @@ export const AuthSchema = Schema.Struct({
    */
   landingPath: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^\//),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^\//)),
+      Schema.annotate({
         title: 'Landing Path',
         description:
           'Engine-resolver mount path. Sessions navigating here are redirected to the matching role.defaultLanding. Must start with /. Must be backed by a co-located page declaration that acts as the unauthenticated-access guard.',
@@ -472,8 +484,8 @@ export const AuthSchema = Schema.Struct({
    */
   noAccessPath: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^\//),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^\//)),
+      Schema.annotate({
         title: 'No Access Path',
         description:
           'Fallback path when no role.defaultLanding matches the session. Defaults to /403.',
@@ -482,7 +494,7 @@ export const AuthSchema = Schema.Struct({
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Auth',
     title: 'Authentication Configuration',
     description:
@@ -506,15 +518,17 @@ export const AuthSchema = Schema.Struct({
       },
     ],
   }),
-  Schema.filter((config) => {
-    return (
-      validateTwoFactorRequiresEmailPassword(config) ??
-      validateDefaultRoleExists(config) ??
-      validateGroupNames(config) ??
-      validateScopeTables(config) ??
-      validateLandingPathRequiredWhenRolesHaveLanding(config)
-    )
-  })
+  Schema.check(
+    Schema.makeFilter((config) => {
+      return (
+        validateTwoFactorRequiresEmailPassword(config) ??
+        validateDefaultRoleExists(config) ??
+        validateGroupNames(config) ??
+        validateScopeTables(config) ??
+        validateLandingPathRequiredWhenRolesHaveLanding(config)
+      )
+    })
+  )
 )
 
 /**
@@ -526,4 +540,4 @@ export type Auth = Schema.Schema.Type<typeof AuthSchema>
  * Encoded type of AuthSchema (what goes in before validation)
  * @public
  */
-export type AuthEncoded = Schema.Schema.Encoded<typeof AuthSchema>
+export type AuthEncoded = Schema.Codec.Encoded<typeof AuthSchema>

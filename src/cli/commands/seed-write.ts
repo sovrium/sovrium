@@ -116,15 +116,15 @@ const createOne = async (step: {
       origin: '',
     })
   )
-  if (result._tag === 'Left') {
-    const explained = explainWriteFailure(result.left, {
+  if (result._tag === 'Failure') {
+    const explained = explainWriteFailure(result.failure, {
       table: input.tables.find((candidate) => candidate.name === table.name),
       fields: resolved.value,
     })
     // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedWriteError(`${table.fileName} (key "${record.key}"): ${explained}`)
   }
-  const { id } = result.right
+  const { id } = result.success
   return typeof id === 'string' || typeof id === 'number'
     ? withKey(resolved.index, table.name, record.key, id)
     : resolved.index
@@ -159,8 +159,10 @@ const indexUpsertedKeys = (
   resolved: readonly Record<string, unknown>[]
 ): Promise<SeedKeyIndex> => {
   validateTableName(table.name)
-  const matches = (row: Record<string, unknown>, fields: Record<string, unknown>): boolean =>
-    table.mergeOn.every((column) => String(row[column]) === String(fields[column]))
+  const matches = (
+    row: Readonly<Record<string, unknown>>,
+    fields: Readonly<Record<string, unknown>>
+  ): boolean => table.mergeOn.every((column) => String(row[column]) === String(fields[column]))
   return executeRaw(db, sql`SELECT * FROM ${sql.identifier(table.name)}`).then((rows) =>
     table.records.reduce<SeedKeyIndex>((carried, record, position) => {
       const fields = resolved[position]
@@ -205,11 +207,11 @@ const upsertAll = async (
       app: input.app,
     })
   )
-  if (result._tag === 'Left') {
+  if (result._tag === 'Failure') {
     // A batch upsert does not say WHICH row it rejected, so no value can be
     // attributed without guessing. The driver's own reason still names the
     // constraint, which names the field.
-    const explained = explainWriteFailure(result.left, {
+    const explained = explainWriteFailure(result.failure, {
       table: input.tables.find((candidate) => candidate.name === table.name),
       fields: {},
     })
@@ -218,7 +220,7 @@ const upsertAll = async (
   }
   const next = await indexUpsertedKeys(resolved.index, table, resolved.value)
   return {
-    value: [`${table.name}: created ${result.right.created}, updated ${result.right.updated}`],
+    value: [`${table.name}: created ${result.success.created}, updated ${result.success.updated}`],
     index: next,
   }
 }

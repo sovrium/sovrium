@@ -24,6 +24,19 @@
  */
 
 /**
+ * Width, in characters, of the `<uuid>-` prefix: 36 for the canonical UUID text
+ * form (`8-4-4-4-12`, dashes included) plus the separating `-`.
+ *
+ * Exported because the strip has to happen in SQL as well as here. The bucket
+ * file browser orders by the name it DISPLAYS, and what it displays is the
+ * stripped value — so `ORDER BY filename` would order four files by their random
+ * prefixes. The database therefore reproduces the strip, and takes its width
+ * from this constant rather than re-counting it: two spellings of the same rule
+ * cannot be checked against each other by eye, so they share the number instead.
+ */
+export const STORAGE_KEY_UUID_PREFIX_LENGTH = 37
+
+/**
  * Strip the `<uuid>-` prefix a Sovrium upload key carries, returning the
  * original filename. A key with no matching prefix (e.g. a verbatim
  * public-route `explicitPath`) is returned unchanged.

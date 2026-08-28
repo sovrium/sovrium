@@ -6,7 +6,8 @@
  */
 
 import { markRecordCommentsReadProgram } from '@/application/use-cases/tables/comment-read-state-programs'
-import { hasReadPermission } from '@/domain/validators/permission-evaluators'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { hasReadPermissionForRoles } from '@/domain/validators/permission-evaluators'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { notFoundResponse } from './comment-handler-shared'
@@ -28,7 +29,7 @@ import type { Context } from 'hono'
  * cannot access — never 403.
  */
 export async function handleMarkCommentsRead(c: Context, app: App) {
-  const { session, userRole } = getTableContext(c)
+  const { session, userRole, userGroups } = getTableContext(c)
   const tableId = c.req.param('tableId')!
   const recordId = c.req.param('recordId')!
 
@@ -42,7 +43,9 @@ export async function handleMarkCommentsRead(c: Context, app: App) {
   }
 
   // S1: read-permission denial returns 404 (anti-enumeration), like list.
-  if (!hasReadPermission(table, userRole, app.tables)) {
+  // Group-aware: a bare role can never match a `group:<name>` entry, so passing
+  // `userRole` alone left every group-granted read inert on this endpoint.
+  if (!hasReadPermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app.tables)) {
     return notFoundResponse(c)
   }
 
@@ -50,7 +53,7 @@ export async function handleMarkCommentsRead(c: Context, app: App) {
     markRecordCommentsReadProgram({ session, tableId, recordId, tableName: table.name })
   )
 
-  if (result._tag === 'Left') {
+  if (result._tag === 'Failure') {
     // A missing/inaccessible record collapses to 404 (anti-enumeration).
     return notFoundResponse(c)
   }

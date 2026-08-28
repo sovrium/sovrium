@@ -1,0 +1,3 @@
+ALTER TABLE "system"."automation_runs" ADD COLUMN "triggered_by_user_id" text;--> statement-breakpoint
+ALTER TABLE "system"."automation_runs" ADD CONSTRAINT "automation_runs_triggered_by_user_id_user_id_fk" FOREIGN KEY ("triggered_by_user_id") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "automation_runs_triggeredByUserId_idx" ON "system"."automation_runs" USING btree ("triggered_by_user_id");

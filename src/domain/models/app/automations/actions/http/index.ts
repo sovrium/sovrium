@@ -21,15 +21,15 @@ import type { Action } from '..'
  * carry tighter prop schemas (e.g. GET rejects `body` per HTTP semantics) so
  * config files surface misuse at decode time rather than at runtime.
  */
-export const HttpActionSchema: Schema.Schema<Action & { readonly type: 'http' }, unknown> =
-  Schema.Union(
+export const HttpActionSchema: Schema.Codec<Action & { readonly type: 'http' }, unknown> =
+  Schema.Union([
     HttpGetActionSchema,
     HttpPostActionSchema,
     HttpPutActionSchema,
     HttpPatchActionSchema,
     HttpDeleteActionSchema,
-    HttpRequestActionSchema
-  ) as unknown as Schema.Schema<Action & { readonly type: 'http' }, unknown>
+    HttpRequestActionSchema,
+  ]) as unknown as Schema.Codec<Action & { readonly type: 'http' }, unknown>
 /** @public */
 export type HttpAction = Schema.Schema.Type<typeof HttpActionSchema>
 

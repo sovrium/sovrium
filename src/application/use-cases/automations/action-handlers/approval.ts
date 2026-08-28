@@ -64,7 +64,7 @@ const insertApprovalRequest = (input: {
   Effect.gen(function* () {
     const repo = yield* AutomationApprovalRepository
     yield* repo.insertPending(input)
-  }).pipe(Effect.catchAll(() => Effect.void))
+  }).pipe(Effect.ignore)
 
 /**
  * Derive the `{ timeoutSeconds, expiresAt }` pair from the raw `timeout`

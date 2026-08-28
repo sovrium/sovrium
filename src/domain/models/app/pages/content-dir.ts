@@ -15,25 +15,25 @@ import { Schema } from 'effect'
 const ContentDirSortSchema = Schema.Struct({
   /** Frontmatter field to sort by */
   field: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'Frontmatter field to sort by (e.g., date)' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Frontmatter field to sort by (e.g., date)' })
   ),
 
   /** Sort order */
   order: Schema.optional(
-    Schema.Literal('asc', 'desc').pipe(
-      Schema.annotations({ description: 'Sort order (default: desc)' })
+    Schema.Literals(['asc', 'desc']).pipe(
+      Schema.annotate({ description: 'Sort order (default: desc)' })
     )
   ),
 
   /** Sort direction (alias for order) */
   direction: Schema.optional(
-    Schema.Literal('asc', 'desc').pipe(
-      Schema.annotations({ description: 'Sort direction (alias for order)' })
+    Schema.Literals(['asc', 'desc']).pipe(
+      Schema.annotate({ description: 'Sort direction (alias for order)' })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ContentDirSort',
     title: 'Content Directory Sort',
     description: 'Sort configuration for content directory collection pages',
@@ -57,8 +57,8 @@ const ContentDirNavTabSchema = Schema.Struct({
    * docs sidebar wrapper. The app's tab-strip markup matches on this value.
    */
   id: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description:
         'Stable tab identifier, announced as data-docs-active-zone on the docs sidebar (e.g. "tables")',
     })
@@ -73,8 +73,8 @@ const ContentDirNavTabSchema = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Tab display label, also the breadcrumb root-crumb name. Already-localised per locale. Absent = humanized id.',
       })
@@ -90,8 +90,8 @@ const ContentDirNavTabSchema = Schema.Struct({
    */
   href: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           "Tab landing URL used as the breadcrumb root href. Absent = derived from the tab's first sidebar entry (self-healing).",
       })
@@ -112,18 +112,18 @@ const ContentDirNavTabSchema = Schema.Struct({
    */
   sections: Schema.Array(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'A groupBy section slug owned by this tab' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'A groupBy section slug owned by this tab' })
     )
   ).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description:
         'Section slugs owned by this tab, in sidebar group order within the tab (orthogonal to contentDir.sort, which orders entries inside each group)',
     })
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ContentDirNavTab',
     title: 'Content Directory Navigation Tab',
     description: 'One docs navigation tab (zone) owning a set of sidebar sections',
@@ -143,26 +143,28 @@ const ContentDirNavTabSchema = Schema.Struct({
  * `Schema.filter` node carries no JSON representation of its own.
  */
 const ContentDirNavTabsSchema = Schema.Array(ContentDirNavTabSchema).pipe(
-  Schema.minItems(1),
-  Schema.annotations({
+  Schema.check(Schema.isMinLength(1)),
+  Schema.annotate({
     identifier: 'ContentDirNavTabs',
     title: 'Content Directory Navigation Tabs',
     description:
       'Docs navigation tabs (zones) in tab-strip order. Each owns a disjoint set of sidebar sections.',
   }),
-  Schema.filter((tabs) => {
-    const duplicateId = tabs
-      .map((tab) => tab.id)
-      .find((id, index, ids) => ids.indexOf(id) !== index)
-    if (duplicateId !== undefined) return `duplicate nav tab id "${duplicateId}"`
-    const claims = tabs.flatMap((tab) => tab.sections.map((section) => ({ section, id: tab.id })))
-    const conflict = claims.find(
-      (claim, index) => claims.findIndex((other) => other.section === claim.section) !== index
-    )
-    if (conflict !== undefined)
-      return `section "${conflict.section}" is claimed by more than one nav tab (last: "${conflict.id}") — a section belongs to exactly one tab`
-    return true
-  })
+  Schema.check(
+    Schema.makeFilter((tabs) => {
+      const duplicateId = tabs
+        .map((tab) => tab.id)
+        .find((id, index, ids) => ids.indexOf(id) !== index)
+      if (duplicateId !== undefined) return `duplicate nav tab id "${duplicateId}"`
+      const claims = tabs.flatMap((tab) => tab.sections.map((section) => ({ section, id: tab.id })))
+      const conflict = claims.find(
+        (claim, index) => claims.findIndex((other) => other.section === claim.section) !== index
+      )
+      if (conflict !== undefined)
+        return `section "${conflict.section}" is claimed by more than one nav tab (last: "${conflict.id}") — a section belongs to exactly one tab`
+      return true
+    })
+  )
 )
 
 /**
@@ -177,15 +179,15 @@ const ContentDirNavSchema = Schema.Struct({
   /** Whether to build a navigation sidebar from the collection */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({ description: 'Enable a docs sidebar derived from the collection files' })
+      Schema.annotate({ description: 'Enable a docs sidebar derived from the collection files' })
     )
   ),
 
   /** Frontmatter field used to group sidebar entries into sections */
   groupBy: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Frontmatter field used to group sidebar entries (e.g., category)',
       })
     )
@@ -194,8 +196,8 @@ const ContentDirNavSchema = Schema.Struct({
   /** Frontmatter field used as the sidebar link label */
   labelFrom: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description: 'Frontmatter field used as the sidebar link label (e.g., title)',
       })
     )
@@ -209,8 +211,8 @@ const ContentDirNavSchema = Schema.Struct({
    * ("get-started" → "Get Started").
    */
   groupLabels: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
-      Schema.annotations({
+    Schema.Record(Schema.String, Schema.String).pipe(
+      Schema.annotate({
         description:
           'Map of raw groupBy keys to display labels (e.g., { Guides: "Developer Guides" })',
       })
@@ -226,8 +228,8 @@ const ContentDirNavSchema = Schema.Struct({
    * Lucide component — renders label-only (graceful fallback).
    */
   groupIcons: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
-      Schema.annotations({
+    Schema.Record(Schema.String, Schema.String).pipe(
+      Schema.annotate({
         description:
           'Map of raw groupBy keys to Lucide icon names (kebab-case, e.g. { tables: "compass" })',
       })
@@ -243,7 +245,7 @@ const ContentDirNavSchema = Schema.Struct({
    */
   collapsed: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Collapse sidebar group sections by default, expanding only the active group (default: false)',
       })
@@ -278,7 +280,7 @@ const ContentDirNavSchema = Schema.Struct({
    */
   tabs: Schema.optional(ContentDirNavTabsSchema),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ContentDirNav',
     title: 'Content Directory Navigation',
     description: 'Sidebar navigation configuration derived from a content directory collection',
@@ -311,13 +313,13 @@ const ContentDirNavSchema = Schema.Struct({
 export const ContentDirSchema = Schema.Struct({
   /** Directory path containing markdown files */
   directory: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'Directory containing markdown content files' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Directory containing markdown content files' })
   ),
 
   /** How to derive the URL slug from each file */
-  slugFrom: Schema.Literal('filename', 'filepath').pipe(
-    Schema.annotations({
+  slugFrom: Schema.Literals(['filename', 'filepath']).pipe(
+    Schema.annotate({
       description: 'Derive URL slug from filename (blog-post.md → blog-post) or filepath',
     })
   ),
@@ -338,8 +340,8 @@ export const ContentDirSchema = Schema.Struct({
    */
   index: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Slug of the index article served at the collection base path (page path minus its trailing dynamic segment). The slugged URL 301-redirects to the base path. E.g. "introduction".',
       })
@@ -349,8 +351,8 @@ export const ContentDirSchema = Schema.Struct({
   /** Glob pattern to filter which files to include */
   include: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({ description: 'Glob pattern to filter files (e.g., *.md)' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Glob pattern to filter files (e.g., *.md)' })
     )
   ),
 
@@ -359,8 +361,8 @@ export const ContentDirSchema = Schema.Struct({
 
   /** Filter configuration for the collection */
   filter: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(
-      Schema.annotations({
+    Schema.Record(Schema.String, Schema.Unknown).pipe(
+      Schema.annotate({
         description: 'Filter conditions for content files (e.g., by frontmatter)',
       })
     )
@@ -387,8 +389,8 @@ export const ContentDirSchema = Schema.Struct({
    */
   editUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Edit-this-page URL template for docs articles. Placeholders: {slug} (resolved article slug), {path} (source file path relative to directory, = {slug}.md), {lang} (active request language, empty when no /:lang/ prefix). Absent = no edit link (opt-in, default off). E.g. https://github.com/acme/repo/edit/main/docs/{lang}/{slug}.md',
       })
@@ -418,8 +420,8 @@ export const ContentDirSchema = Schema.Struct({
    */
   issueUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Report-an-issue URL template for docs articles. Same placeholders as editUrl ({slug}, {path}, {lang}) but OPTIONAL — a bare issue-tracker URL with no placeholder is valid (passes through verbatim). Absent = no issue link (opt-in, default off). E.g. https://github.com/acme/repo/issues/new',
       })
@@ -438,15 +440,15 @@ export const ContentDirSchema = Schema.Struct({
    */
   contributionNote: Schema.optional(
     Schema.String.pipe(
-      Schema.minLength(1),
-      Schema.annotations({
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
         description:
           'Per-locale contribution note rendered (raw string) in the docs article contribution footer, beside the edit/issue links. Not interpolated. Absent = no note (opt-in, default off).',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'ContentDir',
     title: 'Content Directory',
     description:

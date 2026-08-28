@@ -28,7 +28,7 @@ const errorResponse = (description: string) => jsonResponse(errorResponseSchema,
 
 /** Table collection routes — not scoped to a specific table. */
 export const tableCollectionGroup: StaticGroupSpec = {
-  tag: 'tables',
+  tag: 'Tables',
   tagDescription: 'Table management endpoints',
   routes: [
     {
@@ -76,7 +76,7 @@ const routes: readonly RouteSpec[] = [
 /** Per-table metadata route group — resource-scoped to the configured tables. */
 export const tableGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Table',
-  genericTag: 'tables',
+  genericTag: 'Tables',
   genericTagDescription: 'Table management endpoints',
   collection: (app) => app.tables ?? [],
   resourcePlaceholder: '{tableSlug}',

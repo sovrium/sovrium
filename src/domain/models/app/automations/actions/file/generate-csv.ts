@@ -23,7 +23,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Template variable referencing an array of data objects */
     data: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Template variable referencing an array of objects (e.g., "{{fetchRecords.result}}")',
       })
@@ -31,7 +31,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
 
     /** Output filename */
     filename: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Output filename (e.g., "export-{{now}}.csv")',
       })
     ),
@@ -43,7 +43,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
           /** Object key to extract as column value (alias of `field`) */
           key: Schema.optional(
             Schema.String.pipe(
-              Schema.annotations({
+              Schema.annotate({
                 description: 'Object key to extract as column value',
               })
             )
@@ -51,21 +51,21 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
           /** Object key to extract as column value */
           field: Schema.optional(
             Schema.String.pipe(
-              Schema.annotations({
+              Schema.annotate({
                 description: 'Object key to extract as column value',
               })
             )
           ),
           header: Schema.optional(
             Schema.String.pipe(
-              Schema.annotations({
+              Schema.annotate({
                 description: 'Column header name (defaults to key)',
               })
             )
           ),
         })
       ).pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Column definitions. If omitted, all keys from first data item are used.',
         })
       )
@@ -73,8 +73,8 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
 
     /** Field delimiter */
     delimiter: Schema.optional(
-      Schema.Literal(',', ';', '\t', '|').pipe(
-        Schema.annotations({
+      Schema.Literals([',', ';', '\t', '|']).pipe(
+        Schema.annotate({
           description: 'Field delimiter (default: ",")',
         })
       )
@@ -83,7 +83,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
     /** Include header row */
     includeHeaders: Schema.optional(
       Schema.Boolean.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Include column headers as first row (default: true)',
         })
       )
@@ -93,7 +93,7 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
     destination: DestinationPropSchema,
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileGenerateCsvAction',
     title: 'File Generate CSV Action',
     description: 'Generate a CSV file from an array of data objects',

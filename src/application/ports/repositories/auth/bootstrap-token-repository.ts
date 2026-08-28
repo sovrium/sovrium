@@ -34,7 +34,7 @@ export class BootstrapTokenDatabaseError extends Data.TaggedError('BootstrapToke
  * env-var bootstrap, the use case calls `expireAll` to invalidate any
  * pending tokens.
  */
-export class BootstrapTokenRepository extends Context.Tag('BootstrapTokenRepository')<
+export class BootstrapTokenRepository extends Context.Service<
   BootstrapTokenRepository,
   {
     /**
@@ -53,7 +53,7 @@ export class BootstrapTokenRepository extends Context.Tag('BootstrapTokenReposit
       tokenHash: string
     ) => Effect.Effect<BootstrapToken, BootstrapTokenDatabaseError | BootstrapTokenError>
     /** Mark every active row as expired (sets expiresAt = now()). */
-    readonly expireAll: () => Effect.Effect<void, BootstrapTokenDatabaseError>
+    readonly expireAll: Effect.Effect<void, BootstrapTokenDatabaseError>
     /**
      * Hard-delete every row in `system.sovrium_bootstrap_tokens`. Stronger
      * than `expireAll` — used during boot when the bootstrap window is
@@ -61,6 +61,6 @@ export class BootstrapTokenRepository extends Context.Tag('BootstrapTokenReposit
      * set), so the table is left empty ([internal ref] asserts
      * `count(*) = 0` after such a boot).
      */
-    readonly purgeAll: () => Effect.Effect<void, BootstrapTokenDatabaseError>
+    readonly purgeAll: Effect.Effect<void, BootstrapTokenDatabaseError>
   }
->() {}
+>()('BootstrapTokenRepository') {}

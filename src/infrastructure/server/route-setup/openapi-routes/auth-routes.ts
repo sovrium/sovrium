@@ -11,9 +11,11 @@ import {
   validationErrorResponseSchema,
 } from '@/domain/models/api/_shared/error'
 import {
+  adminAcceptInvitationResponseSchema,
   adminBanUserResponseSchema,
   adminDeleteUserResponseSchema,
   adminGetUserResponseSchema,
+  adminInviteUserResponseSchema,
   adminListUsersResponseSchema,
   adminUnbanUserResponseSchema,
   adminUpdateUserResponseSchema,
@@ -47,7 +49,7 @@ const validationError = (description: string) =>
   jsonResponse(validationErrorResponseSchema, description)
 
 export const authGroup: StaticGroupSpec = {
-  tag: 'auth',
+  tag: 'Auth',
   tagDescription: 'Authentication and session endpoints',
   routes: [
     // --- Core auth ---
@@ -274,6 +276,53 @@ export const authGroup: StaticGroupSpec = {
         200: jsonResponse(adminUpdateUserResponseSchema, 'Role updated'),
         401: errorResponse('Not authenticated'),
         404: errorResponse('User not found'),
+      },
+    },
+    // --- Admin invitations (Sovrium-owned Hono routes) ---
+    //
+    // These two are NOT Better Auth plugin endpoints — they live in
+    // `admin-invitation-routes.ts` because Better Auth has no first-class
+    // admin-driven invitation matching Sovrium's "1 app = 1 organization" model.
+    // Better Auth's own OpenAPI plugin therefore cannot see them, which is
+    // exactly why they were absent from the catalogue while every sibling admin
+    // operation was present. Since an admin invitation is the ONLY onboarding
+    // path when `allowSignUp: false`, that gap hid the endpoint an integrator's
+    // whole onboarding flow depends on.
+    {
+      method: 'post',
+      pathTemplate: '/api/auth/admin/invite-user',
+      summary: 'Invite user (admin)',
+      description:
+        'Issues a passwordless invitation: creates a placeholder account, mints a ' +
+        'single-use token, and emails the invitee an activation link. The role must ' +
+        'be assignable for this app. Unaffected by `allowSignUp: false` — an admin ' +
+        'invitation remains the onboarding path when self-signup is disabled.',
+      operationIdBase: 'postAuthAdminInviteUser',
+      responses: {
+        200: jsonResponse(adminInviteUserResponseSchema, 'Invitation issued'),
+        400: validationError('Invalid email, name, or a role this app does not know'),
+        401: errorResponse('Not authenticated'),
+        // 404, not 403: a caller who is not admin-equivalent is refused with the
+        // anti-enumeration 404 (S1), so the endpoint's existence is not
+        // discoverable to them.
+        404: errorResponse('Not found (caller is not admin-equivalent)'),
+        422: errorResponse('Email already maps to a fully-onboarded user'),
+      },
+    },
+    {
+      method: 'post',
+      pathTemplate: '/api/auth/admin/accept-invitation',
+      summary: 'Accept an admin invitation',
+      description:
+        'PUBLIC — the invitee arrives from an emailed link with no session. Validates ' +
+        'the single-use token, sets the account password, marks the email verified, ' +
+        'consumes the token, and signs the customer in (the response carries the ' +
+        'session cookie).',
+      operationIdBase: 'postAuthAdminAcceptInvitation',
+      responses: {
+        200: jsonResponse(adminAcceptInvitationResponseSchema, 'Invitation accepted'),
+        400: validationError('Invalid input, or an unknown / already-consumed token'),
+        410: errorResponse('Invitation token expired'),
       },
     },
   ],

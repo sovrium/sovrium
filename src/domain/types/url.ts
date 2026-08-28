@@ -24,10 +24,12 @@ import { Schema } from 'effect'
  * @see [internal ref] - [internal ref]
  */
 export const HttpUrlSchema = Schema.String.pipe(
-  Schema.pattern(/^https?:\/\//, {
-    message: () => 'URL must start with http:// or https://',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^https?:\/\//, {
+      message: 'URL must start with http:// or https://',
+    })
+  )
+).annotate({
   title: 'HTTP URL',
   description: 'HTTP/HTTPS URL',
   format: 'uri',
@@ -60,11 +62,13 @@ export type HttpUrl = Schema.Schema.Type<typeof HttpUrlSchema>
  * @example "https://cdn.example.com/$record.cover_image"  // templated URL
  */
 export const HttpUrlOrRecordTemplateSchema = Schema.String.pipe(
-  Schema.pattern(/^https?:\/\/|\$record\./, {
-    message: () =>
-      'URL must start with http:// or https://, or contain a $record.<field> substitution token',
-  })
-).annotations({
+  Schema.check(
+    Schema.isPattern(/^https?:\/\/|\$record\./, {
+      message:
+        'URL must start with http:// or https://, or contain a $record.<field> substitution token',
+    })
+  )
+).annotate({
   title: 'HTTP URL or Record Template',
   description: 'HTTP/HTTPS URL or string containing $record.* substitution token',
   format: 'uri',

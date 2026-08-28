@@ -9,6 +9,7 @@ import { Data, Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import {
   ConnectionTokenRepository,
+  type ConnectionAppTokenPlaintext,
   type ConnectionTokenPlaintext,
 } from '@/application/ports/repositories/connections/connection-token-repository'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
@@ -19,8 +20,9 @@ import {
 } from '@/infrastructure/connections/token-refresh'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { isEncryptionKeyMismatch } from '@/infrastructure/errors/encryption-key-mismatch-error'
-import { buildEnvLookup, resolveEnvInString } from '../resolve-env-vars'
+import { buildEnvLookup } from '../resolve-env-vars'
 import { stringProp } from './shared'
+import { buildStaticAuthHeader, type ConnectionDef } from './static-auth-header'
 import type { AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
@@ -38,59 +40,9 @@ import type { Context } from 'effect'
  * scaffolding kept module-local.
  */
 
-interface ConnectionDef {
-  readonly name: string
-  readonly type: string
-  readonly props: Record<string, unknown>
-}
-
 const findConnection = (app: App, name: string): ConnectionDef | undefined => {
   const list = (app as { connections?: readonly ConnectionDef[] }).connections ?? []
   return list.find((conn) => conn.name === name)
-}
-
-/**
- * Build the static auth header (apiKey/basic/bearer) from a connection's
- * in-memory props.
- *
- * Secret-bearing props (`key`, `token`, `username`, `password`) are documented
- * as "supports $env.VAR" in the connection prop schemas
- * (`src/domain/models/app/connections/props.ts`). Because connection
- * definitions are read straight off `app.connections[]` (never run through the
- * upstream action-prop env substitution), a connection declaring
- * `key: '$env.MY_TOKEN'` would otherwise send the LITERAL `$env.MY_TOKEN`
- * string on the wire. We resolve `$env.` on those props here, against the
- * supplied env lookup (built from `app.env` + `process.env`). Non-secret
- * identifier props (`prefix`, `header`) are plain config and pass through
- * untouched — mirroring `resolveEnvRef` in
- * `src/infrastructure/webhooks/auth-headers.ts`.
- */
-const buildStaticAuthHeader = (
-  conn: ConnectionDef,
-  envLookup: Readonly<Record<string, string>>
-): { readonly header: string; readonly value: string } | { readonly error: string } => {
-  const { props } = conn
-  const secretProp = (key: string): string => resolveEnvInString(stringProp(props, key), envLookup)
-  if (conn.type === 'apiKey') {
-    const key = secretProp('key')
-    if (!key) return { error: `connection ${conn.name}: apiKey requires a key` }
-    const headerName = stringProp(props, 'header') || 'X-API-Key'
-    const prefix = stringProp(props, 'prefix')
-    return { header: headerName, value: prefix ? `${prefix} ${key}` : key }
-  }
-  if (conn.type === 'bearer') {
-    const token = secretProp('token')
-    if (!token) return { error: `connection ${conn.name}: bearer requires a token` }
-    return { header: 'Authorization', value: `Bearer ${token}` }
-  }
-  if (conn.type === 'basic') {
-    const username = secretProp('username')
-    const password = secretProp('password')
-    if (!username) return { error: `connection ${conn.name}: basic requires a username` }
-    const encoded = Buffer.from(`${username}:${password}`, 'utf8').toString('base64')
-    return { header: 'Authorization', value: `Basic ${encoded}` }
-  }
-  return { error: `connection ${conn.name}: unsupported type ${conn.type}` }
 }
 
 /**
@@ -111,7 +63,52 @@ class RefreshTransportError extends Data.TaggedError('RefreshTransportError')<{
  */
 const REFRESH_SKEW_MS = 5000
 
-const isExpired = (token: ConnectionTokenPlaintext): boolean => {
+/**
+ * The fields the refresh machinery reads from a stored token, common to the
+ * per-user row and the shared `app`-scoped row. Both plaintext shapes satisfy
+ * it; the shared one simply has no `userId` to satisfy.
+ */
+interface StoredToken {
+  readonly accessToken: string
+  readonly refreshToken: string | undefined
+  readonly expiresAt: Date | undefined
+}
+
+/**
+ * WHICH credential store a resolution is operating on.
+ *
+ * Modelled explicitly rather than as `userId: string | undefined` so no code
+ * path can drift into treating "we happen to have no user" as "use the shared
+ * credential". Those are different claims: the first is a fact about the
+ * trigger, the second is a decision about the connection's declared `scope`,
+ * and conflating them is precisely how a member's personal token ends up
+ * acting as the company.
+ */
+type TokenScope = { readonly kind: 'user'; readonly userId: string } | { readonly kind: 'app' }
+
+/** The lock key's user segment — `undefined` for the shared credential. */
+const scopeUserId = (scope: TokenScope): string | undefined =>
+  scope.kind === 'user' ? scope.userId : undefined
+
+/**
+ * The connection's declared scope. Mirrors `effectiveScope` in
+ * `presentation/api/routes/connections/index.ts` — the default is `app`, and
+ * the two MUST agree: that route decides who may authorize a connection, this
+ * one decides which store the resulting credential is read back from. A
+ * disagreement would let an operator authorize into one store while every
+ * automation reads the other.
+ */
+const connectionScope = (conn: ConnectionDef, automation: AutomationContext): TokenScope => {
+  const declared = (conn.props as { scope?: unknown }).scope
+  if (declared === 'user') {
+    return automation.userId === undefined
+      ? { kind: 'user', userId: '' }
+      : { kind: 'user', userId: automation.userId }
+  }
+  return { kind: 'app' }
+}
+
+const isExpired = (token: StoredToken): boolean => {
   if (token.expiresAt === undefined) return false
   return token.expiresAt.getTime() - Date.now() < REFRESH_SKEW_MS
 }
@@ -205,7 +202,7 @@ const callRefreshEndpoint = (
  */
 const persistRefreshedTokens = (input: {
   readonly connectionId: string
-  readonly userId: string
+  readonly scope: TokenScope
   readonly accessToken: string
   readonly refreshToken: string | undefined
   readonly expiresAt: Date | undefined
@@ -216,18 +213,20 @@ const persistRefreshedTokens = (input: {
 > =>
   Effect.gen(function* () {
     const tokenRepo = yield* ConnectionTokenRepository
-    return yield* tokenRepo
-      .upsertForUser({
-        connectionId: input.connectionId,
-        userId: input.userId,
-        accessToken: input.accessToken,
-        ...(input.refreshToken !== undefined ? { refreshToken: input.refreshToken } : {}),
-        ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
-      })
-      .pipe(
-        Effect.map(() => ({ ok: true }) as const),
-        Effect.catchAll(() => Effect.succeed({ ok: false } as const))
-      )
+    const common = {
+      connectionId: input.connectionId,
+      accessToken: input.accessToken,
+      ...(input.refreshToken !== undefined ? { refreshToken: input.refreshToken } : {}),
+      ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
+    }
+    const write =
+      input.scope.kind === 'user'
+        ? tokenRepo.upsertForUser({ ...common, userId: input.scope.userId })
+        : tokenRepo.upsertForApp(common)
+    return yield* write.pipe(
+      Effect.map(() => ({ ok: true }) as const),
+      Effect.orElseSucceed(() => ({ ok: false }) as const)
+    )
   })
 
 type RefreshOutcome =
@@ -269,13 +268,15 @@ const isPermanentRefreshFailure = (errorTag: string): boolean =>
  */
 const deleteStoredToken = (
   connectionId: string,
-  userId: string
+  scope: TokenScope
 ): Effect.Effect<void, never, ConnectionTokenRepository> =>
   Effect.gen(function* () {
     const tokenRepo = yield* ConnectionTokenRepository
-    yield* tokenRepo
-      .deleteForUser({ connectionId, userId })
-      .pipe(Effect.catchAll(() => Effect.void))
+    const drop =
+      scope.kind === 'user'
+        ? tokenRepo.deleteForUser({ connectionId, userId: scope.userId })
+        : tokenRepo.deleteForApp({ connectionId })
+    yield* drop.pipe(Effect.catch(() => Effect.void))
   })
 
 /**
@@ -316,9 +317,9 @@ const deleteStoredToken = (
  */
 const refreshAndPersistInner = (
   conn: ConnectionDef,
-  token: ConnectionTokenPlaintext,
+  token: StoredToken,
   connectionId: string,
-  userId: string
+  scope: TokenScope
 ): Effect.Effect<RefreshOutcome, never, ConnectionTokenRepository> =>
   Effect.gen(function* () {
     if (token.refreshToken === undefined || token.refreshToken === '') {
@@ -335,13 +336,13 @@ const refreshAndPersistInner = (
       // the same dead refresh_token forever. Transient 5xx and network
       // failures leave the row intact so a follow-up attempt can recover.
       if (isPermanentRefreshFailure(result.error)) {
-        yield* deleteStoredToken(connectionId, userId)
+        yield* deleteStoredToken(connectionId, scope)
       }
       return refreshFailure(conn, `refresh failed (${result.error})`)
     }
     const persisted = yield* persistRefreshedTokens({
       connectionId,
-      userId,
+      scope,
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       expiresAt: result.expiresAt,
@@ -370,14 +371,14 @@ const refreshAndPersistInner = (
  */
 const performTokenRefresh = (
   conn: ConnectionDef,
-  token: ConnectionTokenPlaintext,
+  token: StoredToken,
   connectionId: string,
-  userId: string
+  scope: TokenScope
 ): Effect.Effect<RefreshOutcome, never, never> =>
   Effect.tryPromise({
     try: () =>
-      withRefreshLock({ connectionId, userId }, async () => {
-        const program = refreshAndPersistInner(conn, token, connectionId, userId).pipe(
+      withRefreshLock({ connectionId, userId: scopeUserId(scope) }, async () => {
+        const program = refreshAndPersistInner(conn, token, connectionId, scope).pipe(
           Effect.provide(ConnectionTokenRepositoryLive)
         )
         return Effect.runPromise(program)
@@ -426,8 +427,8 @@ const performTokenRefresh = (
  * operator responses — "this user never connected" versus "every connected
  * user's credentials just became unreadable".
  */
-type TokenLookup =
-  | { readonly kind: 'found'; readonly token: ConnectionTokenPlaintext }
+type TokenLookup<T> =
+  | { readonly kind: 'found'; readonly token: T }
   | { readonly kind: 'absent' }
   | { readonly kind: 'key-mismatch' }
 
@@ -445,45 +446,122 @@ type TokenLookup =
  * reached is not a claim about this user's key.
  */
 const lookUpStoredToken = (
-  tokenRepo: Context.Tag.Service<typeof ConnectionTokenRepository>,
+  tokenRepo: Context.Service.Shape<typeof ConnectionTokenRepository>,
   connectionId: string,
   userId: string
-): Effect.Effect<TokenLookup> =>
+): Effect.Effect<TokenLookup<ConnectionTokenPlaintext>> =>
   tokenRepo.findForUser({ connectionId, userId }).pipe(
-    Effect.map((row): TokenLookup =>
+    Effect.map((row): TokenLookup<ConnectionTokenPlaintext> =>
       row === undefined ? { kind: 'absent' } : { kind: 'found', token: row }
     ),
-    Effect.catchAll((error): Effect.Effect<TokenLookup> =>
+    Effect.catch((error): Effect.Effect<TokenLookup<ConnectionTokenPlaintext>> =>
       Effect.succeed(isEncryptionKeyMismatch(error) ? { kind: 'key-mismatch' } : { kind: 'absent' })
     )
   )
 
-const resolveOAuth2AccessToken = (
+/**
+ * Read the connection's SHARED credential, adopting a pre-upgrade user-keyed
+ * one if that is all this installation has.
+ *
+ * The adoption attempt runs only on a miss, and only for `app` scope, so it
+ * costs one extra SELECT exactly once per connection per upgrade. It has to
+ * live here and not only at boot: a database can reach the pre-upgrade shape
+ * at any time (a restore from an older backup, a `scope` flipped from `user`
+ * to `app` while the process is running), and an unattended automation that
+ * fails in that window is precisely the failure nobody is watching.
+ *
+ * This is NOT the forbidden cross-scope fallback. It never reads the
+ * TRIGGERING user's token — there is no triggering user on these paths. It
+ * adopts the connection's own credential, which an older build had nowhere to
+ * file but under the operator who clicked Connect.
+ */
+const lookUpAppToken = (
+  tokenRepo: Context.Service.Shape<typeof ConnectionTokenRepository>,
+  connectionId: string
+): Effect.Effect<TokenLookup<ConnectionAppTokenPlaintext>> =>
+  Effect.gen(function* () {
+    const first = yield* readAppToken(tokenRepo, connectionId)
+    if (first.kind !== 'absent') return first
+    const adopted = yield* tokenRepo
+      .adoptLegacyUserTokenAsApp({ connectionId })
+      .pipe(Effect.orElseSucceed(() => false))
+    if (!adopted) return first
+    return yield* readAppToken(tokenRepo, connectionId)
+  })
+
+const readAppToken = (
+  tokenRepo: Context.Service.Shape<typeof ConnectionTokenRepository>,
+  connectionId: string
+): Effect.Effect<TokenLookup<ConnectionAppTokenPlaintext>> =>
+  tokenRepo.findForApp({ connectionId }).pipe(
+    Effect.map((row): TokenLookup<ConnectionAppTokenPlaintext> =>
+      row === undefined ? { kind: 'absent' } : { kind: 'found', token: row }
+    ),
+    Effect.catch((error): Effect.Effect<TokenLookup<ConnectionAppTokenPlaintext>> =>
+      Effect.succeed(isEncryptionKeyMismatch(error) ? { kind: 'key-mismatch' } : { kind: 'absent' })
+    )
+  )
+
+/**
+ * The refusal an `app`-scoped connection gives when it has no shared
+ * credential.
+ *
+ * Deliberately NOT the per-user "no user context" message. That one describes
+ * a per-user connection missing its actor and sends whoever reads it hunting
+ * for a user who is not the problem; an `app`-scoped connection has exactly
+ * one remedy and this names it. The phrase "no token stored" is load-bearing
+ * too — the pre-existing [internal ref] matches a miss against
+ * `/disconnected|not.*authorized|no.*token/i`, and that spec is about a
+ * scope-omitted (therefore app-scoped) connection.
+ */
+const appNotConnectedReason = (conn: ConnectionDef): string =>
+  `connection ${conn.name}: not connected — no token stored; ` +
+  'an administrator must connect it from the Connections page'
+
+const resolveAppScopedToken = (
   conn: ConnectionDef,
-  automation: AutomationContext
+  connectionId: string
 ): Effect.Effect<
   { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string },
   never,
-  ConnectionRepository | ConnectionTokenRepository
+  ConnectionTokenRepository
 > =>
   Effect.gen(function* () {
-    if (automation.userId === undefined) {
-      return {
-        ok: false,
-        reason: `connection ${conn.name}: no user context (cron/system trigger)`,
-      } as const
-    }
-    const connRepo = yield* ConnectionRepository
-    const row = yield* connRepo.findByName(conn.name).pipe(Effect.catchAll(() => Effect.void))
-    if (row === undefined) {
-      return {
-        ok: false,
-        reason: `connection ${conn.name}: not yet authorized (no system.connections row)`,
-      } as const
-    }
-    const connectionId = String(row['id'])
     const tokenRepo = yield* ConnectionTokenRepository
-    const lookup = yield* lookUpStoredToken(tokenRepo, connectionId, automation.userId)
+    const lookup = yield* lookUpAppToken(tokenRepo, connectionId)
+    if (lookup.kind === 'key-mismatch') {
+      return {
+        ok: false,
+        reason:
+          `connection ${conn.name}: the shared token was encrypted with a different encryption key ` +
+          '— an administrator must reconnect it',
+      } as const
+    }
+    if (lookup.kind === 'absent') {
+      return { ok: false, reason: appNotConnectedReason(conn) } as const
+    }
+    const { token } = lookup
+    if (isSentinelAccessToken(token.accessToken)) {
+      return { ok: false, reason: appNotConnectedReason(conn) } as const
+    }
+    if (isExpired(token)) {
+      return yield* performTokenRefresh(conn, token, connectionId, { kind: 'app' })
+    }
+    return { ok: true, token: token.accessToken } as const
+  })
+
+const resolveUserScopedToken = (
+  conn: ConnectionDef,
+  connectionId: string,
+  userId: string
+): Effect.Effect<
+  { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string },
+  never,
+  ConnectionTokenRepository
+> =>
+  Effect.gen(function* () {
+    const tokenRepo = yield* ConnectionTokenRepository
+    const lookup = yield* lookUpStoredToken(tokenRepo, connectionId, userId)
     if (lookup.kind === 'key-mismatch') {
       return {
         ok: false,
@@ -510,9 +588,44 @@ const resolveOAuth2AccessToken = (
       } as const
     }
     if (isExpired(token)) {
-      return yield* performTokenRefresh(conn, token, connectionId, automation.userId)
+      return yield* performTokenRefresh(conn, token, connectionId, { kind: 'user', userId })
     }
     return { ok: true, token: token.accessToken } as const
+  })
+
+const resolveOAuth2AccessToken = (
+  conn: ConnectionDef,
+  automation: AutomationContext
+): Effect.Effect<
+  { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string },
+  never,
+  ConnectionRepository | ConnectionTokenRepository
+> =>
+  Effect.gen(function* () {
+    const scope = connectionScope(conn, automation)
+    // `user` scope keeps refusing, and keeps refusing in the same words. A
+    // per-user credential genuinely cannot be chosen when there is no user,
+    // and picking someone's token arbitrarily is the privilege confusion this
+    // whole feature exists to avoid. The guard stays FIRST on this branch so
+    // the message is reached before any lookup can change it.
+    if (scope.kind === 'user' && automation.userId === undefined) {
+      return {
+        ok: false,
+        reason: `connection ${conn.name}: no user context (cron/system trigger)`,
+      } as const
+    }
+    const connRepo = yield* ConnectionRepository
+    const row = yield* connRepo.findByName(conn.name).pipe(Effect.catch(() => Effect.void))
+    if (row === undefined) {
+      return {
+        ok: false,
+        reason: `connection ${conn.name}: not yet authorized (no system.connections row)`,
+      } as const
+    }
+    const connectionId = String(row['id'])
+    return yield* scope.kind === 'app'
+      ? resolveAppScopedToken(conn, connectionId)
+      : resolveUserScopedToken(conn, connectionId, scope.userId)
   })
 
 export interface InjectedHeaders {
@@ -539,7 +652,7 @@ const ensureConnectionExistsInDb = (
 ): Effect.Effect<string | undefined, never, ConnectionRepository> =>
   Effect.gen(function* () {
     const connRepo = yield* ConnectionRepository
-    const row = yield* connRepo.findByName(connectionName).pipe(Effect.catchAll(() => Effect.void))
+    const row = yield* connRepo.findByName(connectionName).pipe(Effect.catch(() => Effect.void))
     if (row === undefined) {
       return `connection ${connectionName}: not found at runtime (was the connection deleted?)`
     }
@@ -567,7 +680,7 @@ const ensureConnectionExistsInDb = (
 export const resolveConnectionHeaders = (
   app: App,
   automation: AutomationContext,
-  baseHeaders: Record<string, string>,
+  baseHeaders: Readonly<Record<string, string>>,
   connectionName: string
 ): Effect.Effect<InjectedHeaders, never, ConnectionRepository | ConnectionTokenRepository> =>
   Effect.gen(function* () {

@@ -21,9 +21,9 @@ import { Schema } from 'effect'
  */
 export const ViewGroupBySchema = Schema.Struct({
   field: Schema.String,
-  direction: Schema.optional(Schema.Literal('asc', 'desc')),
+  direction: Schema.optional(Schema.Literals(['asc', 'desc'])),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     title: 'View Group By',
     description: 'Grouping configuration specifying which field to group by.',
   })

@@ -79,24 +79,88 @@ export interface QueryIntent {
 const PROPER_NOUN_RE = /\b[A-Z][\w]*(?:\s+[A-Z][\w]*)*\b/g
 
 /**
- * Sentence-start words that are capitalised but are not entity names — they
- * are skipped when guessing a free-text filter value so "What's the total for
- * Acme Corp" filters on "Acme Corp", not "What".
+ * The parser's own INTENT vocabulary, declared once and consumed three ways:
+ * the {@link looksLikeQuery} gate, the {@link resolveAggregate} dispatch, the
+ * {@link parseRequestedLimit} cap — and, by derivation, {@link STOP_WORDS}.
+ *
+ * Why one declaration rather than four hand-written lists: a token the parser
+ * has already consumed as INTENT must never be re-consumed as a free-text
+ * FILTER VALUE. A hand-maintained stop-word list drifts
+ * from the intent regexes the moment either side gains a verb, and the drift is
+ * silent — the user is handed an authoritative-looking negative ("No leads
+ * records matching Count were found.") at HTTP 200. Deriving the stop words
+ * from the same arrays makes the two structurally incapable of disagreeing.
  */
-const STOP_WORDS = new Set([
-  'what',
-  'whats',
-  'which',
-  'who',
+
+/** Verbs/pronouns that mark a message as a read query ({@link looksLikeQuery}). */
+const QUERY_VERB_PHRASES = [
   'show',
   'list',
   'find',
-  'how',
-  'now',
-  'the',
-  'a',
-  'an',
-])
+  'count',
+  'how many',
+  'which',
+  'what',
+  'average',
+  'avg',
+  'sum',
+  'total',
+  'filter',
+  'display',
+  'get',
+] as const
+
+/** Phrases resolving to `aggregate: 'count'`. */
+const COUNT_PHRASES = ['how many', 'count', 'number of'] as const
+
+/** Phrases resolving to `aggregate: 'avg'`. */
+const AVG_PHRASES = ['average', 'avg', 'mean'] as const
+
+/** Phrases resolving to `aggregate: 'sum'` (`total` is disambiguated below). */
+const SUM_PHRASES = ['sum', 'total'] as const
+
+/** Phrases introducing an explicit row cap ({@link parseRequestedLimit}). */
+const LIMIT_PHRASES = ['top', 'first', 'limit', 'last'] as const
+
+/**
+ * Word-boundary alternation regexes, each COMPILED FROM the phrase array above
+ * it — so a phrase can never be recognised by a regex without also becoming a
+ * stop word, which is the invariant this whole block exists to hold.
+ */
+const QUERY_VERB_RE = new RegExp(`\\b(${QUERY_VERB_PHRASES.join('|')})\\b`)
+const COUNT_RE = new RegExp(`\\b(${COUNT_PHRASES.join('|')})\\b`)
+const AVG_RE = new RegExp(`\\b(${AVG_PHRASES.join('|')})\\b`)
+// `total` is handled separately below — it is ambiguous between a sum verb and
+// a sort-key column name, so it needs the `by total` exclusion.
+const SUM_RE = new RegExp(`\\b(${SUM_PHRASES.filter((phrase) => phrase !== 'total').join('|')})\\b`)
+const LIMIT_RE = new RegExp(`\\b(?:${LIMIT_PHRASES.join('|')})\\s+(\\d+)\\b`)
+
+/**
+ * Grammatical filler that is capitalised at a sentence start but is not an
+ * entity name. Distinct from the intent vocabulary above: these words carry no
+ * intent, they are simply never entity names.
+ */
+const GRAMMATICAL_STOP_WORDS = ['whats', 'who', 'now', 'the', 'a', 'an'] as const
+
+/**
+ * Words skipped when guessing a free-text filter value, so "What's the total
+ * for Acme Corp" filters on "Acme Corp" — not on "What", and not on "Total".
+ *
+ * DERIVED, never hand-listed: the union of every intent phrase (split into its
+ * component words, so "how many" contributes both "how" and "many") and the
+ * grammatical filler above. Adding a verb to any intent array above therefore
+ * makes it a stop word in the same edit.
+ */
+const STOP_WORDS: ReadonlySet<string> = new Set(
+  [
+    ...QUERY_VERB_PHRASES,
+    ...COUNT_PHRASES,
+    ...AVG_PHRASES,
+    ...SUM_PHRASES,
+    ...LIMIT_PHRASES,
+    ...GRAMMATICAL_STOP_WORDS,
+  ].flatMap((phrase) => phrase.split(/\s+/).map((word) => word.toLowerCase()))
+)
 
 /**
  * Find a single-select option value mentioned in the message and build an
@@ -142,7 +206,7 @@ const pickEntityProperNoun = (message: string): string | undefined => {
 
 /** Parse an explicit "top N" / "first N" / "limit N" row cap from the message. */
 const parseRequestedLimit = (lower: string): number | undefined => {
-  const match = lower.match(/\b(?:top|first|limit|last)\s+(\d+)\b/)
+  const match = lower.match(LIMIT_RE)
   return match?.[1] !== undefined ? Number(match[1]) : undefined
 }
 
@@ -161,10 +225,7 @@ const findNumericColumn = (message: string, table: QueryTable): string | undefin
  * keeps plain chatter from being misread as a query.
  */
 const looksLikeQuery = (message: string, lower: string): boolean =>
-  /\?/.test(message) ||
-  /\b(show|list|find|count|how many|which|what|average|avg|sum|total|filter|display|get)\b/.test(
-    lower
-  )
+  /\?/.test(message) || QUERY_VERB_RE.test(lower)
 
 /**
  * Resolve the aggregate shape of a query message.
@@ -174,10 +235,10 @@ const looksLikeQuery = (message: string, lower: string): boolean =>
  * treated as a sum verb only when it is NOT used as a sort key ("by total").
  */
 const resolveAggregate = (lower: string): QueryIntent['aggregate'] => {
-  if (/\b(how many|count|number of)\b/.test(lower)) return 'count'
-  if (/\b(average|avg|mean)\b/.test(lower)) return 'avg'
+  if (COUNT_RE.test(lower)) return 'count'
+  if (AVG_RE.test(lower)) return 'avg'
   const totalAsVerb = /\btotal\b/.test(lower) && !/\bby\s+total\b/.test(lower)
-  if (/\bsum\b/.test(lower) || totalAsVerb) return 'sum'
+  if (SUM_RE.test(lower) || totalAsVerb) return 'sum'
   return 'list'
 }
 

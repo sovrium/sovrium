@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { COMPARATORS } from '../record-trigger-filters'
+import { evaluateGroup } from '@/domain/services/automations/condition-eval'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -30,30 +30,12 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * even when the condition is false — useful for "log-but-don't-halt"
  * filters that future specs may demand. Default is 'stop'.
  *
- * Reuses the shared COMPARATORS table from record-trigger-filters so
- * filter actions and record-trigger predicates use identical operator
- * semantics. All 15 ConditionGroup operators are wired (audit HIGH-2,
- * commit 856509f8d).
+ * Group evaluation lives in `@/domain/services/automations/condition-eval`,
+ * shared with `path/branch` so the two actions that branch on a ConditionGroup
+ * cannot drift on `logic: 'or'` or on comparator semantics. All 15
+ * ConditionGroup operators are wired via the shared COMPARATORS table
+ * (audit HIGH-2, commit 856509f8d).
  */
-const evaluateCondition = (cond: Readonly<Record<string, unknown>>): boolean => {
-  const operator = String(cond['operator'] ?? '')
-  const compare = COMPARATORS[operator]
-  if (compare === undefined) return false
-  return compare(cond['field'], cond['value'])
-}
-
-const evaluateGroup = (group: Readonly<Record<string, unknown>>): boolean => {
-  const conditions = (group['conditions'] as readonly Readonly<Record<string, unknown>>[]) ?? []
-  if (conditions.length === 0) return true
-  // The ConditionGroup schema (src/domain/models/app/automations/conditions.ts)
-  // exposes the AND/OR combinator under the `logic` key, NOT `operator`
-  // (`operator` is the per-CONDITION comparator: eq/in/…). Reading `operator`
-  // here silently ignored declared `logic: 'or'` groups and always evaluated
-  // them as AND. Default to 'and' when absent.
-  const groupLogic = String(group['logic'] ?? 'and').toLowerCase()
-  if (groupLogic === 'or') return conditions.some(evaluateCondition)
-  return conditions.every(evaluateCondition)
-}
 
 export const handleFilterContinue: ActionHandler = (action, _app, _automation) => {
   const props = (action['props'] ?? {}) as Readonly<Record<string, unknown>>

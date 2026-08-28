@@ -14,6 +14,12 @@ import {
 import { extractMatchExcerpt, stripMarkdownToPlainText } from '@/domain/utils/content-dir-excerpt'
 import { searchableTextColumns } from '@/domain/utils/database/searchable-text-columns'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import {
+  buildReadAccessPlan,
+  CANONICAL_READ_POLICY,
+  type ReadPrincipal,
+  type TableLike,
+} from '@/domain/validators/read-access-plan'
 import { CommandSearchRepositoryLive } from '@/infrastructure/database/repositories/command-search-repository-live'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
@@ -239,6 +245,55 @@ const searchableColumns = (table: NonNullable<App['tables']>[number]): readonly 
   searchableTextColumns(table.fields)
 
 /**
+ * How far the RECORD half of a palette search may reach.
+ *
+ * The palette answers with two kinds of result and they carry different risk.
+ * PAGE results are declared static pages and `contentDir` markdown — content
+ * the server already renders publicly, so an anonymous reader searching a
+ * documentation site is a legitimate, load-bearing use (`apps/website` does
+ * exactly this). RECORD results are table rows, and the result `label` is a raw
+ * value from whichever text column matched.
+ *
+ * Collapsing the two into one gate is what made the endpoint an anonymous read
+ * primitive over the whole database — and gating the whole endpoint on a
+ * session would break the public docs search. Hence three states, not two.
+ */
+export type RecordSearchScope =
+  /** The app configures no `auth`: the full-access model, as everywhere else. */
+  | { readonly kind: 'unrestricted' }
+  /** Auth IS configured and the caller has no session: pages only, no rows. */
+  | { readonly kind: 'pages-only' }
+  /** A signed-in caller: rows scoped by the composed read plan. */
+  | { readonly kind: 'scoped'; readonly principal: ReadPrincipal }
+
+/**
+ * The searchable columns of a table THIS caller may read.
+ *
+ * An empty result means the table is not scanned at all — either the caller
+ * cannot read it, or records are out of scope entirely.
+ */
+const searchableColumnsFor = (
+  app: App,
+  table: NonNullable<App['tables']>[number],
+  scope: RecordSearchScope
+): readonly string[] => {
+  if (scope.kind === 'pages-only') return []
+  const columns = searchableColumns(table)
+  if (scope.kind === 'unrestricted' || columns.length === 0) return columns
+  const plan = buildReadAccessPlan({
+    app,
+    table: table as TableLike,
+    principal: scope.principal,
+    policy: CANONICAL_READ_POLICY,
+  })
+  if (!plan.allowed) return []
+  // A restricted column is not matched against, so its values cannot surface as
+  // a result `label` — the palette must not become an oracle over a column the
+  // records API strips from the response.
+  return columns.filter((column) => !plan.restrictedColumns.has(column))
+}
+
+/**
  * Run the command-palette search for `query` on behalf of `userId` (or no user,
  * when `userId` is undefined — favorites are then skipped and every record is
  * `favorited: false`).
@@ -251,7 +306,8 @@ const searchableColumns = (table: NonNullable<App['tables']>[number]): readonly 
 export const SearchCommandPalette = (
   app: App,
   query: string,
-  userId: string | undefined
+  userId: string | undefined,
+  scope: RecordSearchScope = { kind: 'unrestricted' }
 ): Effect.Effect<
   readonly CommandSearchResult[],
   CommandSearchDatabaseError,
@@ -267,12 +323,23 @@ export const SearchCommandPalette = (
     const perTable = yield* Effect.all(
       tables.map((table) =>
         Effect.gen(function* () {
-          const columns = searchableColumns(table)
+          // PERMISSION SCOPING. This scan used to walk EVERY table and EVERY
+          // text column with no gate whatsoever, and its `label` is a raw value
+          // from whichever column matched — so a `read: ['admin']` table's
+          // contents were searchable, and a field-restricted column was a
+          // perfectly good needle. The plan supplies the same three answers the
+          // records API composes: may this caller read the table, which columns,
+          // and are soft-deleted rows in scope.
+          const columns = searchableColumnsFor(app, table, scope)
           if (columns.length === 0) return [] as readonly CommandSearchResult[]
           const matches = yield* repo.searchTable({
             physicalTable: sanitizeTableName(table.name),
             columns,
             query,
+            // A soft-deleted record is deleted. It stayed searchable — and its
+            // values readable through `label` — because no query this use case
+            // issued carried the filter every other read path applies.
+            excludeDeleted: true,
           })
           return matches.map((match): CommandSearchResult => ({
             entityType: 'record',

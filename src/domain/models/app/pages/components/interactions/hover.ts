@@ -19,27 +19,31 @@ import { Schema } from 'effect'
  * - cubic-bezier(): Custom cubic bezier function (e.g., cubic-bezier(0.4, 0, 0.2, 1))
  * - steps(): Step function for discrete animations (e.g., steps(40, end) for typewriter effect)
  */
-export const EasingFunctionSchema = Schema.Union(
-  Schema.Literal('linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out'),
+export const EasingFunctionSchema = Schema.Union([
+  Schema.Literals(['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out']),
   Schema.String.pipe(
-    Schema.pattern(
-      /^cubic-bezier\(\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\)$/,
-      {
-        message: () =>
-          'Custom easing must be a cubic-bezier function with exactly 4 numeric values (e.g., cubic-bezier(0.4, 0, 0.2, 1))',
-      }
+    Schema.check(
+      Schema.isPattern(
+        /^cubic-bezier\(\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\)$/,
+        {
+          message:
+            'Custom easing must be a cubic-bezier function with exactly 4 numeric values (e.g., cubic-bezier(0.4, 0, 0.2, 1))',
+        }
+      )
     )
   ),
   Schema.String.pipe(
-    Schema.pattern(
-      /^steps\(\s*\d+\s*,\s*(start|end|jump-start|jump-end|jump-none|jump-both)\s*\)$/,
-      {
-        message: () =>
-          'Steps function must have a number of steps and a position (e.g., steps(40, end))',
-      }
+    Schema.check(
+      Schema.isPattern(
+        /^steps\(\s*\d+\s*,\s*(start|end|jump-start|jump-end|jump-none|jump-both)\s*\)$/,
+        {
+          message:
+            'Steps function must have a number of steps and a position (e.g., steps(40, end))',
+        }
+      )
     )
-  )
-).annotations({
+  ),
+]).annotate({
   description: 'Transition timing function',
 })
 
@@ -54,9 +58,11 @@ export const EasingFunctionSchema = Schema.Union(
  * ```
  */
 export const DurationSchema = Schema.String.pipe(
-  Schema.pattern(/^[0-9]+(\.[0-9]+)?(ms|s)$/, {
-    message: () => 'Duration must be a number followed by ms or s (e.g., 200ms, 0.5s)',
-  })
+  Schema.check(
+    Schema.isPattern(/^[0-9]+(\.[0-9]+)?(ms|s)$/, {
+      message: 'Duration must be a number followed by ms or s (e.g., 200ms, 0.5s)',
+    })
+  )
 )
 
 /**
@@ -94,46 +100,46 @@ export const DurationSchema = Schema.String.pipe(
  */
 export const HoverInteractionSchema = Schema.Struct({
   scale: Schema.optional(
-    Schema.Number.annotations({
+    Schema.Finite.annotate({
       description: 'Scale factor (e.g., 1.05 for 5% larger)',
       examples: [1.05, 1.1, 0.95],
     })
   ),
   transform: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'CSS transform (scale, rotate, translate)',
       examples: ['scale(1.05)', 'translateY(-4px)', 'rotate(5deg)'],
     })
   ),
   opacity: Schema.optional(
-    Schema.Number.pipe(Schema.between(0, 1)).annotations({
+    Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 }))).annotate({
       description: 'Opacity value (0-1)',
     })
   ),
   backgroundColor: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Background color on hover',
     })
   ),
   color: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Text color on hover',
     })
   ),
   borderColor: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Border color on hover',
     })
   ),
   shadow: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Box shadow on hover',
       examples: ['0 10px 25px rgba(0,0,0,0.1)'],
     })
   ),
   duration: Schema.optional(DurationSchema),
   easing: Schema.optional(EasingFunctionSchema),
-}).annotations({
+}).annotate({
   title: 'Hover Interaction',
   description: 'Visual changes when user hovers over component',
 })

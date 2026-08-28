@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { redactSecretHeaders } from '@/domain/utils/http-header-redaction'
+import {
+  hasReadPermissionForRoles,
+  hasUpdatePermissionForRoles,
+} from '@/domain/validators/permission-evaluators'
 import {
   getDelivery,
   listDeliveries,
@@ -37,6 +43,49 @@ const findWebhook = (app: App, tableName: string, webhookName: string): Webhook 
   return table?.webhooks?.find((w) => w.name === webhookName)
 }
 
+/** The canonical 404 these handlers return for BOTH absence and denial (S1). */
+const notFound = (c: Context, what: string): Response => c.json({ error: `${what} not found` }, 404)
+
+/**
+ * Gate a delivery-log request on the TABLE's own permissions.
+ *
+ * Webhook-exists → 404 was the only gate these four endpoints had. A delivery
+ * row carries the record payload verbatim, so a `viewer` on a
+ * `read: ['admin']` table could read every record through the delivery log —
+ * the table gate the records API applies, applied nowhere here.
+ *
+ * `read` governs the two GETs. Retry and test both drive an OUTBOUND request
+ * carrying the webhook's resolved credentials, which is a side effect on the
+ * table's behalf rather than a read, so they take `update`. A denial is a 404
+ * either way: confirming the webhook exists is itself the enumeration this
+ * endpoint must not offer.
+ */
+const denyUnlessPermitted = (c: Context, app: App, op: 'read' | 'update'): Response | undefined => {
+  const { tableName, userRole, userGroups } = getTableContext(c)
+  const table = app.tables?.find((t) => t.name === tableName)
+  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
+  const permitted =
+    op === 'read'
+      ? hasReadPermissionForRoles(table, effectiveRoles, app.tables)
+      : hasUpdatePermissionForRoles(table, effectiveRoles, app.tables)
+  return permitted ? undefined : notFound(c, 'Webhook')
+}
+
+/**
+ * Redact the credential-bearing headers of a stored delivery row.
+ *
+ * `buildAuthHeaders` puts the webhook's RESOLVED plaintext secret into
+ * `request_headers` — `Authorization: Bearer sk_live_…`, or an HMAC signature —
+ * and `mapRow` returned that column verbatim. The sibling
+ * `GET /api/tables/:tableId/webhooks` states in its own comment that "webhook
+ * secrets are stripped from the response so auth credentials never leak"; this
+ * is that contract, applied to the surface that actually held the secret.
+ */
+const redactDelivery = <T extends { readonly requestHeaders: unknown }>(delivery: T): T => ({
+  ...delivery,
+  requestHeaders: redactSecretHeaders(delivery.requestHeaders),
+})
+
 /** Parse a positive integer query param, clamped to `[1, max]`, with a default. */
 const parseLimit = (raw: string | undefined): number => {
   if (raw === undefined) return DEFAULT_LIMIT
@@ -66,9 +115,12 @@ export async function handleListDeliveries(c: Context, app: App): Promise<Respon
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
 
+  const denied = denyUnlessPermitted(c, app, 'read')
+  if (denied) return denied
+
   const webhook = findWebhook(app, tableName, webhookName)
   if (webhook === undefined) {
-    return c.json({ error: 'Webhook not found' }, 404)
+    return notFound(c, 'Webhook')
   }
 
   const result = await listDeliveries({
@@ -81,7 +133,7 @@ export async function handleListDeliveries(c: Context, app: App): Promise<Respon
 
   return c.json(
     {
-      deliveries: result.deliveries,
+      deliveries: result.deliveries.map(redactDelivery),
       totalCount: result.totalCount,
       ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
     },
@@ -99,22 +151,25 @@ export async function handleGetDelivery(c: Context, app: App): Promise<Response>
   const webhookName = c.req.param('webhookName')!
   const deliveryIdRaw = c.req.param('deliveryId')!
 
+  const denied = denyUnlessPermitted(c, app, 'read')
+  if (denied) return denied
+
   const webhook = findWebhook(app, tableName, webhookName)
   if (webhook === undefined) {
-    return c.json({ error: 'Webhook not found' }, 404)
+    return notFound(c, 'Webhook')
   }
 
   const deliveryId = Number.parseInt(deliveryIdRaw, 10)
   if (Number.isNaN(deliveryId)) {
-    return c.json({ error: 'Delivery not found' }, 404)
+    return notFound(c, 'Delivery')
   }
 
   const delivery = await getDelivery({ tableName, webhookName, deliveryId })
   if (delivery === undefined) {
-    return c.json({ error: 'Delivery not found' }, 404)
+    return notFound(c, 'Delivery')
   }
 
-  return c.json(delivery, 200)
+  return c.json(redactDelivery(delivery), 200)
 }
 
 /**
@@ -148,19 +203,22 @@ export async function handleRetryDelivery(c: Context, app: App): Promise<Respons
   const webhookName = c.req.param('webhookName')!
   const deliveryIdRaw = c.req.param('deliveryId')!
 
+  const denied = denyUnlessPermitted(c, app, 'update')
+  if (denied) return denied
+
   const webhook = findWebhook(app, tableName, webhookName)
   if (webhook === undefined) {
-    return c.json({ error: 'Webhook not found' }, 404)
+    return notFound(c, 'Webhook')
   }
 
   const deliveryId = Number.parseInt(deliveryIdRaw, 10)
   if (Number.isNaN(deliveryId)) {
-    return c.json({ error: 'Delivery not found' }, 404)
+    return notFound(c, 'Delivery')
   }
 
   const delivery = await getDelivery({ tableName, webhookName, deliveryId })
   if (delivery === undefined) {
-    return c.json({ error: 'Delivery not found' }, 404)
+    return notFound(c, 'Delivery')
   }
 
   const payload = rebuildPayload(delivery)
@@ -202,9 +260,12 @@ export async function handleTestWebhook(c: Context, app: App): Promise<Response>
   const { tableName } = getTableContext(c)
   const webhookName = c.req.param('webhookName')!
 
+  const denied = denyUnlessPermitted(c, app, 'update')
+  if (denied) return denied
+
   const webhook = findWebhook(app, tableName, webhookName)
   if (webhook === undefined) {
-    return c.json({ error: 'Webhook not found' }, 404)
+    return notFound(c, 'Webhook')
   }
 
   const sampleRecord = buildSampleRecord(findTableFields(app, tableName))

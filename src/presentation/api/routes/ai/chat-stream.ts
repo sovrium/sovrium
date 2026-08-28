@@ -133,7 +133,7 @@ const mapPreflightError = (c: Readonly<Context>, err: unknown): Response => {
  * Phase 1 — pre-flight (BEFORE `streamSSE` commits 200):
  *   1. Open the provider stream via `AiService.chatStream`.
  *   2. Peel the first chunk with `Stream.peel(Sink.head())`, optionally
- *      gated by `Effect.timeoutFail({ AI_CHAT_STREAM_TIMEOUT })`.
+ *      gated by `Effect.timeoutOrElse({ AI_CHAT_STREAM_TIMEOUT })`.
  *   3. Map any failure (config error, provider error, timeout, empty
  *      stream) to a non-200 JSON response.
  *
@@ -172,28 +172,34 @@ export const buildStreamResponse = async (
     return yield* Stream.peel(source, Sink.head<ChatChunk>())
   })
 
-  const withScope = Scope.extend(peelEffect, scope)
+  // EFFECT 4: `Scope.extend` -> `Scope.provide` (migration/v3-to-v4.md:14624),
+  // same data-first shape. NOT `Scope.use`, which reads like the obvious choice
+  // and would CLOSE the scope when the pre-flight effect exits — releasing the
+  // provider connection before the drain that depends on it.
+  const withScope = Scope.provide(peelEffect, scope)
   const provided = provideAiLive(withScope)
   const withTimeout =
     timeoutMs === undefined
       ? provided
       : provided.pipe(
-          Effect.timeoutFail({
+          // EFFECT 4: `timeoutFail` -> `timeoutOrElse` + `Effect.fail`
+          // (migration/v3-to-v4.md:9833).
+          Effect.timeoutOrElse({
             duration: Duration.millis(timeoutMs),
-            onTimeout: () => new StreamTimeout({ timeoutMs }),
+            orElse: () => Effect.fail(new StreamTimeout({ timeoutMs })),
           })
         )
-  const result = await Effect.runPromise(Effect.either(withTimeout))
+  const result = await Effect.runPromise(Effect.result(withTimeout))
 
-  if (result._tag === 'Left') {
-    logError('[ai] chat-stream pre-flight failed', result.left)
+  if (result._tag === 'Failure') {
+    logError('[ai] chat-stream pre-flight failed', result.failure)
     // Pre-flight failed — release the scope and return the mapped status.
     // eslint-disable-next-line functional/no-expression-statements -- void Promise<void> await; the `ignoreVoid` rule option misses awaited runPromise here
     await Effect.runPromise(Scope.close(scope, Exit.void))
-    return mapPreflightError(c, result.left)
+    return mapPreflightError(c, result.failure)
   }
 
-  const [headOpt, rest] = result.right
+  const [headOpt, rest] = result.success
   if (Option.isNone(headOpt)) {
     // eslint-disable-next-line functional/no-expression-statements -- void Promise<void> await; same as above
     await Effect.runPromise(Scope.close(scope, Exit.void))
@@ -247,7 +253,8 @@ const buildPersistAccumulator = (
  * AND the terminal `done` chunk was observed.
  */
 const buildOnTerminate = (
-  scope: Scope.CloseableScope,
+  // EFFECT 4: `Scope.CloseableScope` -> `Scope.Closeable` (migration:14612).
+  scope: Scope.Closeable,
   input: StreamTurnInput,
   snapshot: () => { readonly assembled: string; readonly sawDone: boolean }
 ): ((reason: SseTerminationReason) => Promise<void>) => {

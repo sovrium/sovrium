@@ -19,21 +19,21 @@ export const AuthCreateUserActionSchema = Schema.Struct({
   type: Schema.Literal('auth'),
   operator: Schema.Literal('createUser'),
   props: Schema.Struct({
-    email: TemplateStringSchema.pipe(Schema.annotations({ description: 'New user email address' })),
-    name: TemplateStringSchema.pipe(Schema.annotations({ description: 'New user display name' })),
+    email: TemplateStringSchema.pipe(Schema.annotate({ description: 'New user email address' })),
+    name: TemplateStringSchema.pipe(Schema.annotate({ description: 'New user display name' })),
     password: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({ description: 'Initial password (auto-generated if omitted)' })
+        Schema.annotate({ description: 'Initial password (auto-generated if omitted)' })
       )
     ),
     role: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({ description: 'Role to assign (default: configured defaultRole)' })
+        Schema.annotate({ description: 'Role to assign (default: configured defaultRole)' })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'AuthCreateUserAction',
     title: 'Auth Create User Action',
     description: 'Create a new user account',

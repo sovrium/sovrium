@@ -10,13 +10,13 @@ import { Schema } from 'effect'
 /**
  * Legend position options.
  */
-export const LegendPositionSchema = Schema.Literal(
+export const LegendPositionSchema = Schema.Literals([
   'top',
   'bottom',
   'left',
   'right',
-  'none'
-).annotations({
+  'none',
+]).annotate({
   title: 'Legend Position',
   description: 'Position of the chart legend',
 })
@@ -29,9 +29,9 @@ export const ChartLegendSchema = Schema.Struct({
   position: Schema.optional(LegendPositionSchema),
   /** Whether the legend is visible */
   visible: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Show or hide the legend (default: true)' })
+    Schema.Boolean.annotate({ description: 'Show or hide the legend (default: true)' })
   ),
-}).annotations({
+}).annotate({
   title: 'Chart Legend',
   description: 'Legend display configuration',
 })

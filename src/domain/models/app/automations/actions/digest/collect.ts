@@ -23,7 +23,7 @@ export const DigestCollectActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Digest bucket identifier */
     digestKey: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Digest bucket identifier (supports template variables). Items with the same digestKey are grouped together.',
       })
@@ -31,7 +31,7 @@ export const DigestCollectActionSchema = Schema.Struct({
 
     /** Item to add to the digest */
     item: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Item to collect into the digest bucket (supports template variables)',
       })
     ),
@@ -39,7 +39,7 @@ export const DigestCollectActionSchema = Schema.Struct({
     /** Deduplication key to prevent duplicate items */
     deduplicateBy: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description:
             'Template expression for deduplication. Items with the same resolved value are collected only once.',
         })
@@ -47,7 +47,7 @@ export const DigestCollectActionSchema = Schema.Struct({
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'DigestCollectAction',
     title: 'Digest Collect Action',
     description: 'Collect an item into a digest bucket for later batch processing',

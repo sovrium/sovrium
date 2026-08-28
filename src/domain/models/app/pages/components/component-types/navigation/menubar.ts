@@ -22,15 +22,15 @@ export const menubarFields = {
   menus: Schema.optional(
     Schema.Array(
       Schema.Struct({
-        label: Schema.String.annotations({ description: 'Menu group label' }),
+        label: Schema.String.annotate({ description: 'Menu group label' }),
         items: Schema.Array(MenuItemSchema).pipe(
-          Schema.minItems(1),
-          Schema.annotations({ description: 'Items in this menu group' })
+          Schema.check(Schema.isMinLength(1)),
+          Schema.annotate({ description: 'Items in this menu group' })
         ),
       })
     ).pipe(
-      Schema.minItems(1),
-      Schema.annotations({ description: 'Top-level menu groups in the menubar' })
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({ description: 'Top-level menu groups in the menubar' })
     )
   ),
 } as const

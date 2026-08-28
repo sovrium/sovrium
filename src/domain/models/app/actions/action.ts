@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Schema, SchemaGetter } from 'effect'
 import {
   ActionSchema as AutomationActionSchema,
   type Action,
@@ -32,7 +32,15 @@ const withPlaceholderName = (value: unknown): unknown => {
   return { ...obj, name: TEMPLATE_ACTION_PLACEHOLDER_NAME }
 }
 
-const stripPlaceholderName = (action: Action): unknown => {
+/**
+ * Strip the injected placeholder on the way back out.
+ *
+ * Typed on the shape it actually READS (a `name` string) rather than on
+ * `Action`, because v4 hands the encode direction the ENCODED action, not the
+ * decoded one — see the note on `ActionSchema` below. The body only ever
+ * inspected `.name` and spread the rest, so it is representation-agnostic.
+ */
+const stripPlaceholderName = (action: { readonly name?: unknown }): unknown => {
   if (action.name !== TEMPLATE_ACTION_PLACEHOLDER_NAME) return action
   const { name: _name, ...rest } = action as unknown as Record<string, unknown>
   return rest
@@ -47,19 +55,27 @@ const stripPlaceholderName = (action: Action): unknown => {
  *
  * @see {@link AutomationActionSchema} from `@/domain/models/app/automations/actions`
  */
-export const ActionSchema: Schema.Schema<Action, unknown> = Schema.transform(
-  Schema.Unknown,
-  AutomationActionSchema,
-  {
-    strict: false,
-    decode: (value: unknown) => withPlaceholderName(value),
-    encode: (_toI: unknown, action: Action) => stripPlaceholderName(action),
-  }
-).pipe(
-  Schema.annotations({
+/*
+ * EFFECT 4 — `Schema.transform` becomes `Schema.decodeTo` + a
+ * `SchemaTransformation` (migration/v3-to-v4.md:14284), and the ENCODE side
+ * changes shape in a way worth stating: v3's `encode` received BOTH the encoded
+ * and the decoded value `(toI, toA)` and this site used the DECODED one; v4's
+ * receives only the encoded value. That is not a loss here — `stripPlaceholderName`
+ * reads nothing but `.name`, and returning the encoded action from an encode
+ * step is the more correct of the two (v3's form fed decoded values into an
+ * `unknown` encoded slot).
+ */
+export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Unknown.pipe(
+  Schema.decodeTo(AutomationActionSchema, {
+    decode: SchemaGetter.transform((value: unknown) => withPlaceholderName(value)),
+    encode: SchemaGetter.transform((encoded: unknown) =>
+      stripPlaceholderName(encoded as { readonly name?: unknown })
+    ),
+  }),
+  Schema.annotate({
     identifier: 'ActionTemplateAction',
     title: 'Action Template Action',
     description:
       'An action configuration embedded in a reusable template. Same shape as an automation action minus the step name (supplied at the $ref call site).',
   })
-) as Schema.Schema<Action, unknown>
+) as Schema.Codec<Action, unknown>

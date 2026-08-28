@@ -14,8 +14,8 @@ import { RetryConfigSchema } from '../retry'
 export const ActionBaseFields = {
   /** Unique step name within the automation (used for template variable references) */
   name: Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z][a-zA-Z0-9_]*$/),
-    Schema.annotations({
+    Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_]*$/)),
+    Schema.annotate({
       description:
         'Step name for referencing outputs (e.g., "fetchUser"). Must be alphanumeric + underscore.',
     })
@@ -24,7 +24,7 @@ export const ActionBaseFields = {
   /** Human-readable label (optional) */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({ description: 'Human-readable label for this action step' })
+      Schema.annotate({ description: 'Human-readable label for this action step' })
     )
   ),
 
@@ -34,7 +34,7 @@ export const ActionBaseFields = {
   /** Continue execution even if this action fails */
   continueOnError: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Continue workflow even if this action fails (default: false)',
       })
     )
@@ -51,10 +51,9 @@ export const ActionBaseFields = {
    * Range matches `automation.timeout`: 1_000 – 900_000 ms.
    */
   timeout: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.between(1000, 900_000),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 })),
+      Schema.annotate({
         description: 'Per-action timeout in ms (1000-900000). Terminates the action when exceeded.',
       })
     )

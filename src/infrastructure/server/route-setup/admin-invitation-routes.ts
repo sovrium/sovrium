@@ -9,10 +9,13 @@ import {
   acceptInvitation as acceptInvitationUseCase,
   inviteUser as inviteUserUseCase,
 } from '@/application/use-cases/auth/admin-invitation'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
 import { logError } from '@/infrastructure/logging/logger'
+import {
+  requireAdminCaller,
+  resolveBaseURL,
+} from '@/infrastructure/server/route-setup/admin-invitation-guard'
+import { chainAdminInvitationLifecycleRoutes } from '@/infrastructure/server/route-setup/admin-invitation-lifecycle-routes'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -21,74 +24,6 @@ import type { Context, Hono } from 'hono'
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
 type EmailHandlers = Readonly<ReturnType<typeof createEmailHandlers>>
-
-interface SessionLike {
-  readonly user: { readonly id: string; readonly name?: string }
-  readonly session: { readonly userId: string }
-}
-
-/**
- * Compute the absolute base URL for the current request.
- *
- * Priority order:
- *   1. The configured `BASE_URL` environment variable (production / when set).
- *   2. The request origin from the `Origin` / `Referer` header.
- *   3. A best-effort reconstruction from `Host` + `X-Forwarded-Proto`.
- *
- * Tests run on `http://localhost:<random-port>` and the request's `Origin`
- * header carries that port, so the returned URL stays in-host with the
- * test server.
- */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
-const resolveBaseURL = (c: Context): string => {
-  const envUrl = process.env['BASE_URL']
-  if (envUrl) return envUrl.replace(/\/$/, '')
-
-  const origin = c.req.header('origin')
-  if (origin) return origin.replace(/\/$/, '')
-
-  const referer = c.req.header('referer')
-  if (referer) {
-    try {
-      const u = new URL(referer)
-      return `${u.protocol}//${u.host}`
-    } catch {
-      // fall through
-    }
-  }
-
-  const host = c.req.header('host') ?? 'localhost'
-  const proto = c.req.header('x-forwarded-proto') ?? 'http'
-  return `${proto}://${host}`
-}
-
-/**
- * Resolve the admin caller's session and verify their role is `admin`.
- *
- * Returns the JSON Response when authorization fails (401/403). Returns the
- * authenticated session when successful so the handler has access to the
- * inviter's display name.
- */
-const requireAdminCaller = async (
-  authInstance: AuthInstance,
-  // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
-  c: Context
-): Promise<{ readonly session: SessionLike } | Response> => {
-  const callerSession = (await authInstance.api.getSession({
-    headers: c.req.raw.headers,
-  })) as SessionLike | null
-
-  if (!callerSession) {
-    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
-  }
-
-  const role = await getUserRole(callerSession.session.userId)
-  if (!isAdminRole(role)) {
-    return c.json({ success: false, message: 'Admin access required', code: 'FORBIDDEN' }, 403)
-  }
-
-  return { session: callerSession }
-}
 
 /**
  * Map a non-success invite-user result onto an HTTP response.
@@ -124,7 +59,8 @@ const respondToInviteFailure = (
  * `/accept-invitation?token=...`.
  *
  * - 401 when caller has no session
- * - 403 when caller is not an admin
+ * - 404 when caller is not admin-equivalent (S1 — never 403)
+ * - 400 when the requested role is not assignable for this app
  * - 422 when the email maps to a fully-onboarded user
  * - 200 with `{ user, invitationSent: true }` on success
  *
@@ -133,11 +69,16 @@ const respondToInviteFailure = (
  * remains the only onboarding path when self-signup is disabled).
  */
 const createInviteUserHandler =
-  (authInstance: AuthInstance, authConfig: Auth | undefined, emailHandlers: EmailHandlers) =>
+  (
+    authInstance: AuthInstance,
+    authConfig: Auth | undefined,
+    emailHandlers: EmailHandlers,
+    app: Readonly<App> | undefined
+  ) =>
   // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   async (c: Context) => {
     try {
-      const authorized = await requireAdminCaller(authInstance, c)
+      const authorized = await requireAdminCaller(authInstance, c, app)
       if (authorized instanceof Response) return authorized
 
       const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
@@ -149,6 +90,11 @@ const createInviteUserHandler =
         emailHandlers,
         baseURL: resolveBaseURL(c),
         inviterName,
+        // Recorded on the invitation so the pending list can answer "who sent
+        // this?" — previously persisted nowhere, which is why an operator
+        // could not tell their own outstanding invitations from a colleague's.
+        inviterId: authorized.session.user.id,
+        app: app ?? {},
         body,
       })
 
@@ -459,11 +405,14 @@ export const chainAdminInvitationRoutes = (
   // factories below take it directly, so derive it once instead of threading a
   // redundant `authConfig` parameter alongside `app`.
   const authConfig = app?.auth
-  const inviteHandler = createInviteUserHandler(authInstance, authConfig, emailHandlers)
+  const inviteHandler = createInviteUserHandler(authInstance, authConfig, emailHandlers, app)
   const acceptApiHandler = createAcceptInvitationHandler(authInstance, authConfig)
-  const appWithApiRoutes = honoApp
-    .post('/api/auth/admin/invite-user', inviteHandler)
-    .post('/api/auth/admin/accept-invitation', acceptApiHandler)
+  const appWithApiRoutes = chainAdminInvitationLifecycleRoutes(
+    honoApp
+      .post('/api/auth/admin/invite-user', inviteHandler)
+      .post('/api/auth/admin/accept-invitation', acceptApiHandler),
+    { authInstance, emailHandlers, resolveBaseURL, app }
+  )
 
   // Skip the built-in HTML page when the app supplies a custom page at the
   // same path — the user-defined page (with its own branding) takes priority.

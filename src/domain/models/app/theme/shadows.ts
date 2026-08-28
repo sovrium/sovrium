@@ -28,19 +28,21 @@ import { Schema } from 'effect'
  * ```
  *
  */
-export const ShadowsConfigSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-z0-9]+(-[a-z0-9]+)*$/, {
-      message: () => 'Shadow key must use kebab-case format (lowercase letters/numbers)',
-    }),
-    Schema.annotations({
+export const ShadowsConfigSchema = Schema.Record(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/, {
+        message: 'Shadow key must use kebab-case format (lowercase letters/numbers)',
+      })
+    ),
+    Schema.annotate({
       title: 'Shadow Key',
       description: 'Semantic shadow name (kebab-case with numbers)',
       examples: ['sm', 'md', 'lg', 'xl', '2xl', 'inner', 'none'],
     })
   ),
-  value: Schema.String.pipe(
-    Schema.annotations({
+  Schema.String.pipe(
+    Schema.annotate({
       title: 'Shadow Value',
       description: 'CSS box-shadow value',
       examples: [
@@ -49,9 +51,9 @@ export const ShadowsConfigSchema = Schema.Record({
         'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
       ],
     })
-  ),
-}).pipe(
-  Schema.annotations({
+  )
+).pipe(
+  Schema.annotate({
     title: 'Shadows',
     description: 'Box shadow design tokens',
   })

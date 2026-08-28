@@ -12,11 +12,11 @@ import { DigestReleaseActionSchema } from './release'
 /**
  * Digest Action — union of all digest operators
  */
-export const DigestActionSchema = Schema.Union(
+export const DigestActionSchema = Schema.Union([
   DigestCollectActionSchema,
-  DigestReleaseActionSchema
-).pipe(
-  Schema.annotations({
+  DigestReleaseActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'DigestAction',
     title: 'Digest Action',
     description:

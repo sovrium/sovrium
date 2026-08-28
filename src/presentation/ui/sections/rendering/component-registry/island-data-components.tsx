@@ -64,6 +64,10 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     // forwarded so the island's toolbar offers the create affordance only when
     // the current role may create the bound table.
     canCreate: elementProps.canCreate,
+    // Render-time update-permission gate: the
+    // permission-derived default for a column's `editable`. Read by the island;
+    // `tablePermissions` above is descriptive only and gates nothing.
+    canUpdate: elementProps.canUpdate,
     // Interpreter-provided create-record label, resolved server-side
     // against the active language so the toolbar button + create modal localize.
     newRecordLabel: elementProps.newRecordLabel,

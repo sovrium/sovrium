@@ -17,7 +17,7 @@ import { HttpUrlSchema } from '@/domain/types/url'
  *
  * Absolute URL to external domain for DNS prefetching.
  */
-export const DnsPrefetchDomainSchema = HttpUrlSchema.annotations({
+export const DnsPrefetchDomainSchema = HttpUrlSchema.annotate({
   title: 'DNS Prefetch Domain',
   description: 'Domain to prefetch DNS for',
 })
@@ -27,7 +27,7 @@ export const DnsPrefetchDomainSchema = HttpUrlSchema.annotations({
  *
  * Array of external domain URLs to perform DNS resolution early in page load.
  */
-export const DnsPrefetchSchema = Schema.Array(DnsPrefetchDomainSchema).annotations({
+export const DnsPrefetchSchema = Schema.Array(DnsPrefetchDomainSchema).annotate({
   title: 'DNS Prefetch',
   description: 'DNS prefetch hints for external domains',
 })

@@ -86,9 +86,15 @@ export const handleStartCommand = async (
 
   const { start } = await lazyImportIndex()
   const { logDebug } = await lazyImportLogger()
-  const { parseAppSchema } = await lazyImportCli()
+  const { resolveAppSchema } = await lazyImportCli()
 
-  const app = await parseAppSchema('start', filePath)
+  // `configFile` — NOT the `filePath` parameter — is what every anchor below
+  // keys off. The two differ in exactly one case: auto-discovery, where the
+  // operator named no file so `filePath` stays `undefined` while a config sits
+  // in the working directory all the same. Reading `filePath` there left
+  // `public/`, the config hash, `SOVRIUM_CONTENT_DIR` and `--watch` unanchored,
+  // so `sovrium start --watch` beside an `app.yaml` watched nothing at all.
+  const { app, configFile } = await resolveAppSchema('start', filePath)
   const envOptions = parseStartOptions()
   // Fallback chain: explicit --publicDir flag wins; otherwise SOVRIUM_PUBLIC_DIR
   // env var; otherwise the anchored `./public` next to the config file. The
@@ -99,7 +105,7 @@ export const handleStartCommand = async (
   const explicitOptOut = publicDir === false || isPublicDirOptOut(envValue)
   const userResolvedPublicDir = explicitOptOut
     ? undefined
-    : ((publicDir || undefined) ?? envValue ?? resolveDefaultPublicDir(filePath))
+    : ((publicDir || undefined) ?? envValue ?? resolveDefaultPublicDir(configFile))
 
   // Public-pages search activation: when the schema declares a `pageSearch`
   // component, materialize the search artifacts BEFORE the server boots so
@@ -122,9 +128,10 @@ export const handleStartCommand = async (
   // Cleanup posture: the allocated dir persists for the server's lifetime and
   // is NOT removed on shutdown. The OS reaps `/tmp` periodically (Linux:
   // systemd-tmpfiles ≥10 days, macOS: 3 days), so it's acceptable churn for
-  // a CLI that may restart many times. Wiring a SIGTERM/SIGINT cleanup handler
-  // would compete with the existing lock-file teardown — kept out of scope
-  // until it becomes an observable problem.
+  // a CLI that may restart many times. If that ever becomes an observable
+  // problem, the place to remove it is `installShutdownHandlers`
+  // (`infrastructure/server/lifecycle.ts`), which owns the whole SIGTERM/SIGINT
+  // path — there is nothing left to compete with.
   // `parseAppSchema` returns `AppEncoded` (raw input shape) whereas
   // `hasPageSearchComponent` accepts the decoded `App` type. The predicate
   // only reads `.pages` and `.components` — both shape-compatible across
@@ -164,9 +171,9 @@ export const handleStartCommand = async (
   }
 
   // Compute config hash and absolute path for lock file
-  const configContent = filePath ? await readFile(filePath, 'utf-8') : JSON.stringify(app)
+  const configContent = configFile ? await readFile(configFile, 'utf-8') : JSON.stringify(app)
   const configHash = computeConfigHash(configContent)
-  const configPath = filePath ? resolve(filePath) : ''
+  const configPath = configFile ? resolve(configFile) : ''
 
   // Anchor relative markdown/contentDir paths to the config-file directory so
   // content resolves regardless of the process CWD (mirrors resolveDefaultPublicDir).
@@ -199,7 +206,7 @@ export const handleStartCommand = async (
   }
 
   logDebug(`[CLI] App: ${app.name}${app.description ? ` - ${app.description}` : ''}`)
-  if (filePath) logDebug(`[CLI] Config: ${filePath}`)
+  if (configFile) logDebug(`[CLI] Config: ${configFile}`)
   if (options.port) logDebug(`[CLI] Port: ${options.port}`)
   if (options.hostname) logDebug(`[CLI] Hostname: ${options.hostname}`)
   if (options.publicDir) logDebug(`[CLI] Public directory: ${options.publicDir}`)
@@ -230,8 +237,8 @@ export const handleStartCommand = async (
   checkForUpdatesInBackground(version)
 
   // If watch mode enabled, set up file watcher
-  if (watchMode && filePath) {
-    console.log(`\n  [watch] Watching ${filePath} for changes\n`)
+  if (watchMode && configFile) {
+    console.log(`\n  [watch] Watching ${configFile} for changes\n`)
 
     // Track current server instance (mutable for watch mode)
     // eslint-disable-next-line functional/no-let
@@ -250,7 +257,7 @@ export const handleStartCommand = async (
     // eslint-disable-next-line functional/no-let
     let reloadTimer: ReturnType<typeof setTimeout> | undefined
 
-    watch(filePath, (eventType) => {
+    watch(configFile, (eventType) => {
       if (eventType !== 'change') return
 
       if (reloadTimer !== undefined) clearTimeout(reloadTimer)
@@ -259,7 +266,7 @@ export const handleStartCommand = async (
 
         try {
           // eslint-disable-next-line functional/no-expression-statements
-          currentServer = await reloadServer(filePath, currentServer, options)
+          currentServer = await reloadServer(configFile, currentServer, options)
 
           console.log(`  [watch] Server reloaded\n`)
         } catch (error) {

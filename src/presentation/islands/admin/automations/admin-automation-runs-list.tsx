@@ -25,7 +25,7 @@ import { type ReactElement } from 'react'
 
 /**
  * The automation filter combobox ("Filter by automation", [internal ref]).
- * Defaults to "Toutes" (all runs across every automation, value `''`); selecting
+ * Defaults to "All" (all runs across every automation, value `''`); selecting
  * a name forwards it as the `?automationName=` query the runs endpoint filters
  * on. Replaces the old left-rail automation picker — selection is a filter.
  */
@@ -47,7 +47,7 @@ export function AutomationFilter({
         onChange={(e) => onChange(e.target.value)}
         className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-sm"
       >
-        <option value="">Toutes</option>
+        <option value="">All</option>
         {names.map((name) => (
           <option
             key={name}

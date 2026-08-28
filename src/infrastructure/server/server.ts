@@ -23,9 +23,11 @@ import { AiLive } from '@/infrastructure/ai/layer'
 import { runSyncAgentUsers } from '@/infrastructure/auth/agent-user-sync'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { rekeyUnreadableJwks } from '@/infrastructure/auth/better-auth/jwks-rekey'
+import { seedMcpResourceServerClient } from '@/infrastructure/auth/better-auth/mcp-resource-server'
 import { runOrgTeamSeeding } from '@/infrastructure/auth/better-auth/org-team-seeder'
 import { runSeedAllConnectionDefinitions } from '@/infrastructure/connections/test-token-seeder'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import { runAdminSearchIndexPurge } from '@/infrastructure/database/admin-search-index-purge'
 import { AiComputeListener } from '@/infrastructure/database/ai-compute-listener'
 import {
   runRagKnowledgeStartup,
@@ -34,6 +36,7 @@ import {
 import { runAttachmentUrlBackfill } from '@/infrastructure/database/attachment-url-backfill'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { isAiComputeFieldType } from '@/infrastructure/database/generators/ai-field-triggers'
+import { runLinkShadowSweep } from '@/infrastructure/database/link-shadow-sweep'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { countTokensEncryptedWithAnotherKey } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import {
@@ -50,6 +53,7 @@ import { isIpHashSaltConfigured } from '@/infrastructure/forms/ip-hash'
 import { logDebug, logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { renderStartupSummary, type StartupPhase } from '@/infrastructure/logging/startup-summary'
 import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
+import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduling/register-activity-log-retention'
 import {
   disposeCronScheduler,
   registerCronAutomations,
@@ -63,13 +67,16 @@ import {
 import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
 import { securityHeaders } from '@/infrastructure/server/middleware/security-headers'
+import { registerAgentSchedules } from '@/infrastructure/server/register-agent-schedules'
 import { createApiRoutes } from '@/infrastructure/server/route-setup/api-routes'
 import {
   setupAuthMiddleware,
   setupAuthRoutes,
 } from '@/infrastructure/server/route-setup/auth-routes'
 import { setupBootstrapRoutes } from '@/infrastructure/server/route-setup/bootstrap-routes'
+import { setupDesignSystemShareRoutes } from '@/infrastructure/server/route-setup/design-system-share-routes'
 import { setupDevReloadRoute } from '@/infrastructure/server/route-setup/dev-reload-routes'
+import { setupLinkRoutes } from '@/infrastructure/server/route-setup/link-routes'
 import { setupMcpRoutes } from '@/infrastructure/server/route-setup/mcp/routes'
 import { setupOpenApiRoutes } from '@/infrastructure/server/route-setup/openapi-routes'
 import {
@@ -88,6 +95,7 @@ import {
   buildStartupPhases,
   databaseStartupLabel,
 } from '@/infrastructure/server/startup-degradation-phases'
+import { validateEcoEnv } from '@/infrastructure/server/validate-eco-env'
 import { validateStoragePublicAccessEnv } from '@/infrastructure/server/validate-storage-public-access-env'
 import { validateTransformPresetEnv } from '@/infrastructure/server/validate-transform-preset-env'
 import { reportException } from '@/infrastructure/telemetry/error-reporter'
@@ -293,7 +301,7 @@ export async function createHonoApp(
       await Effect.runPromise(
         purgeOldAnalyticsData(app.name, retentionDays).pipe(
           Effect.provide(AnalyticsRepositoryLive),
-          Effect.catchAll(() => Effect.void)
+          Effect.catch(() => Effect.void)
         )
       )
       return next()
@@ -328,27 +336,45 @@ export async function createHonoApp(
   // BEFORE the page routes — the one position where a real public-directory file
   // still wins (a rule can never hijack `/install`) while a retired path still
   // answers its redirect instead of the page catch-all's 404.
+  //
+  // `app.links` takes the same slot, just inside the
+  // redirect layer, for the same reason plus one that is MANDATORY rather than
+  // stylistic: `setupLanguageRoutes` (inside `setupPageRoutes`) registers
+  // `/:lang/*`, which matches `/l/abc`, and its handler renders a 404
+  // terminally instead of calling `next()`. Mounted after the page routes,
+  // every short link would 404.
   const honoWithRoutes = setupPageRoutes(
     setupRedirectRoutes(
-      setupDevReloadRoute(
-        await setupStaticAssets(
-          setupSeoRoutes(
-            setupMcpRoutes(
-              setupAuthRoutes(
-                setupAuthMiddleware(
-                  setupOpenApiRoutes(createApiRoutes(app, honoWithBootstrap as Hono), app),
-                  app
+      // The anonymous design-system share reader ([internal ref] A3 Part 2) sits in
+      // the SAME slot as `/l/:token` and for the same reason: after the static
+      // assets, before `setupPageRoutes`, whose `/:lang/*` route would match
+      // `/s/...` and render a terminal 404 rather than calling `next()`.
+      setupDesignSystemShareRoutes(
+        setupLinkRoutes(
+          setupDevReloadRoute(
+            await setupStaticAssets(
+              setupSeoRoutes(
+                setupMcpRoutes(
+                  setupAuthRoutes(
+                    setupAuthMiddleware(
+                      setupOpenApiRoutes(createApiRoutes(app, honoWithBootstrap as Hono), app),
+                      app
+                    ),
+                    app,
+                    authInstance
+                  ),
+                  app,
+                  authInstance
                 ),
-                app,
-                authInstance
+                app
               ),
-              app
-            ),
-            app
+              app,
+              config.publicDir
+            )
           ),
-          app,
-          config.publicDir
-        )
+          app
+        ),
+        app
       ),
       app
     ),
@@ -455,8 +481,24 @@ const parsePort = (value: string | undefined): number | undefined => {
 }
 
 /**
+ * How long in-flight requests get to finish before open connections are cut.
+ *
+ * `Bun.serve().stop()` without an argument waits for every connection to close
+ * ON ITS OWN, and the server holds long-lived ones by design — SSE streams and
+ * the WebSocket heartbeat both re-arm an interval forever. Waiting for those is
+ * waiting for a client to navigate away, which is why an unbounded `stop()`
+ * looked like "the server ignores SIGTERM". So: a short drain for real
+ * requests, then a forced close.
+ */
+const SHUTDOWN_DRAIN_MS = 150
+
+/**
  * Create server stop effect. Also tears down the cron scheduler so timer
  * cleanup is belt-and-braces.
+ *
+ * Order matters: the socket goes first so no new work arrives while the
+ * listeners and the telemetry exporter are torn down, and telemetry stays last
+ * so anything logged during teardown still has somewhere to go.
  */
 const createStopEffect = (
   server: ReturnType<typeof Bun.serve>,
@@ -465,12 +507,15 @@ const createStopEffect = (
   Effect.gen(function* () {
     logDebug('[server] stopping...')
     disposeCronScheduler() // belt-and-braces: child-process kill already clears timers
+    // Drain, then force. The race resolves on whichever comes first; the
+    // second call closes whatever is left (`closeActiveConnections`).
+    yield* Effect.promise(() => Promise.race([server.stop(), Bun.sleep(SHUTDOWN_DRAIN_MS)]))
+    yield* Effect.promise(() => server.stop(true))
     if (aiComputeListener) yield* Effect.promise(() => aiComputeListener.stop().catch(() => {}))
     // Tear down the RAG knowledge-change listener.
     yield* Effect.promise(() => stopAiKnowledgeListener().catch(() => {}))
     // Flush + close the OTLP log-export runtime (no-op unless log export is on).
     yield* Effect.promise(() => shutdownTelemetry().catch(() => {}))
-    yield* Effect.promise(() => server.stop())
     logInfo('[server] stopped')
   })
 
@@ -480,7 +525,7 @@ const createStopEffect = (
 const getDatabaseUrl = (): Effect.Effect<string, never> =>
   Config.string('DATABASE_URL').pipe(
     Config.withDefault(''),
-    Effect.catchAll(() => Effect.succeed(''))
+    Effect.orElseSucceed(() => '')
   )
 
 /**
@@ -663,6 +708,20 @@ const runDatabaseStartup = (
     // `runDeferredStartupMaintenance`, which `createServer` runs AFTER the
     // listener binds and BEFORE it announces readiness: both can take
     // seconds-to-minutes on large datasets, and the port is open throughout.
+    //
+    // Drop the derived admin global-search index so the next lazy rebuild
+    // repopulates it under the CURRENT indexing rules ([internal ref] R3). Narrowing
+    // the indexer alone is prospective-only: `rebuildIndex` never deletes, so
+    // rows it stops emitting — soft-deleted submissions, rows past the per-source
+    // LIMIT, hard-deleted ones — would keep their old body forever.
+    //
+    // ORDERING IS LOAD-BEARING ON SQLITE and must stay after `runMigrations`,
+    // which is where the FTS5 vtab + its content-sync triggers are created: the
+    // SQLite index is external-content, so a content-row DELETE without the
+    // `…_ad` trigger in place leaves the tokens in the inverted index. Invisible
+    // on Postgres. It also has to stay PRE-BIND — after the listener opens, a
+    // search request could rebuild and answer from residue first.
+    Effect.flatMap(() => Effect.promise(() => runAdminSearchIndexPurge())),
     Effect.flatMap(() =>
       Effect.promise(() => runSeedAllConnectionDefinitions({ connections: app.connections }))
     ),
@@ -670,6 +729,25 @@ const runDatabaseStartup = (
       Effect.promise(() => runSyncAgentUsers({ agents: app.agents, hasAuth: !!app.auth }))
     ),
     Effect.flatMap(() => Effect.promise(() => runOrgTeamSeeding(app))), // org + team seeding
+    // Seed the MCP resource server's own confidential OAuth client and link it
+    // to the MCP protected resource. It only ever authenticates the server to
+    // its own introspection endpoint, so it is derived from the root secret
+    // rather than configured, and it is skipped entirely unless both auth and
+    // MCP are on. PRE-bind, because the very first MCP request introspects.
+    //
+    // The gate reads `MCP_ENABLED` raw rather than decoding the MCP env schema.
+    // Decoding here would raise the schema's own error ahead of the dedicated
+    // MCP validation step, replacing its actionable message
+    // ("MCP env validation failed: ...") with a bare decode failure — which is
+    // what an operator would then have to debug.
+    Effect.flatMap(() =>
+      Effect.promise(() =>
+        seedMcpResourceServerClient({
+          hasAuth: !!app.auth,
+          mcpEnabled: process.env['MCP_ENABLED'] === 'true',
+        }).catch(() => undefined)
+      )
+    ),
     // Two surveys of key material the current secrets may no longer be able to
     // read. Both run AFTER migrations and schema init, so the tables they touch
     // are guaranteed to exist, and both run at boot rather than on first use: an
@@ -718,8 +796,13 @@ const runDeferredStartupMaintenance = (app: App): Effect.Effect<void, never> => 
     Effect.flatMap(() =>
       Effect.promise(() => runRagKnowledgeStartup(filterRagKnowledgeByRole(app), ragDatabaseUrl))
     ),
+    // Reconcile runtime-minted links against the slugs `app.links[]` now
+    // declares. Deferred rather than a migration step because the checksum fast
+    // path skips migrations entirely, which would mean skipping the sweep on
+    // exactly the boot where the config changed.
+    Effect.flatMap(() => Effect.promise(() => runLinkShadowSweep(app))),
     Effect.asVoid,
-    Effect.catchAllCause((cause) =>
+    Effect.catchCause((cause) =>
       Effect.sync(() => logError('[server] deferred startup maintenance failed', cause))
     )
   )
@@ -885,7 +968,7 @@ const writeLockFile = (
 ): Effect.Effect<void, never> =>
   Effect.tryPromise(() =>
     writeLockFileToDisk({ pid: process.pid, port: port ?? 0, configHash, configPath })
-  ).pipe(Effect.catchAll(() => Effect.void))
+  ).pipe(Effect.ignore)
 
 /**
  * Synchronous lock file cleanup — removes the lock file only if PID matches.
@@ -1012,8 +1095,10 @@ export const createServer = (
 > =>
   Effect.gen(function* () {
     const startTime = Date.now()
-    yield* validateTransformPresetEnv()
-    yield* validateStoragePublicAccessEnv()
+    // Boot-time operator-environment validation, before anything is built or
+    // bound. All three refuse the boot on a malformed value rather than letting
+    // it surface later on whichever request first touches that lever.
+    yield* Effect.all([validateTransformPresetEnv, validateStoragePublicAccessEnv, validateEcoEnv])
     const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
     const hostname = config.hostname ?? (Bun.env.HOSTNAME || 'localhost')
     const { configHash = '', configPath = '' } = config
@@ -1028,12 +1113,18 @@ export const createServer = (
     const server = yield* startBunServer(honoApp, port, hostname)
     const url = `http://${hostname}:${server.port}`
 
-    // Post-bind arm-ups: cron-triggered automations and the GDPR Art. 17
-    // erasure sweep (hourly; without it, scheduled account erasures would
-    // never complete in production — see register-account-purge.ts).
+    // Post-bind arm-ups: cron-triggered automations, scheduled agents, and the
+    // GDPR Art. 17 erasure sweep (hourly; without it, scheduled account
+    // erasures would never complete in production — see
+    // register-account-purge.ts). Agent schedules were decoded and echoed back
+    // for as long as agents have shipped but never armed; without this line
+    // `agent.schedule.cron` is a promise the binary does not keep — see
+    // register-agent-schedules.ts.
     yield* Effect.all([
       registerCronAutomations(config.app, process.env),
+      registerAgentSchedules(config.app),
       registerAccountPurgeScheduler(config.app),
+      registerActivityLogRetentionScheduler,
     ])
 
     // AWAITED, not forked. The port is already bound above, so a health check

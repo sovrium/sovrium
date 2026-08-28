@@ -15,11 +15,15 @@ import {
   deleteRecordProgram,
   permanentlyDeleteRecordProgram,
 } from '@/application/use-cases/tables/programs'
+import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
 import { parseJsonObjectCell } from '@/domain/utils/database/sqlite-json-cell'
 import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
-import { hasDeletePermission } from '@/domain/validators/permission-evaluators'
+import {
+  hasDeletePermission,
+  hasDeletePermissionForRoles,
+} from '@/domain/validators/permission-evaluators'
 import {
   provideTableWithAutomationsLive,
   runTableProgram,
@@ -141,9 +145,9 @@ async function executePermanentDelete({
     }),
     Effect.tap(({ previous, success }) => fireDeleteWebhooks(app, tableName, previous, !success))
   )
-  const result = await runRequestEffect(c, Effect.either(provideTableWithAutomationsLive(program)))
-  if (result._tag === 'Left') return deleteFailureResponse(c, result.left)
-  if (!result.right.success)
+  const result = await runRequestEffect(c, Effect.result(provideTableWithAutomationsLive(program)))
+  if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
+  if (!result.success.success)
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   return c.json({ success: true }, 200)
 }
@@ -215,10 +219,10 @@ async function executeSoftDelete(input: SoftDeletePipelineInput & { readonly c: 
   const { c } = input
   const outcome = await runRequestEffect(
     c,
-    Effect.either(provideTableWithAutomationsLive(buildSoftDeleteProgram(input)))
+    Effect.result(provideTableWithAutomationsLive(buildSoftDeleteProgram(input)))
   )
-  if (outcome._tag === 'Left') return deleteFailureResponse(c, outcome.left)
-  return softDeleteResultToResponse(c, outcome.right.result)
+  if (outcome._tag === 'Failure') return deleteFailureResponse(c, outcome.failure)
+  return softDeleteResultToResponse(c, outcome.success.result)
 }
 
 const NOT_FOUND_RESPONSE = (c: Context) =>
@@ -236,6 +240,8 @@ interface DeleteGateInput {
   readonly session: ReturnType<typeof getTableContext>['session']
   readonly tableName: string
   readonly userRole: string
+  /** Group names the caller belongs to (un-prefixed) — group-aware RBAC. */
+  readonly userGroups: readonly string[]
   readonly recordId: string
   readonly guard: RowLevelGuardContext | undefined
 }
@@ -295,10 +301,19 @@ function extractAttachmentKey(value: unknown): string | undefined {
  * even when their role lacks delete authority.
  */
 async function checkDeleteGate(input: DeleteGateInput): Promise<Response | undefined> {
-  const { c, app, table, session, tableName, userRole, recordId, guard } = input
+  const { c, app, table, session, tableName, userRole, userGroups, recordId, guard } = input
 
   if (!guard) {
-    if (!hasDeletePermission(table, userRole, app.tables)) return FORBIDDEN_DELETE_RESPONSE(c)
+    // Group-aware, mirroring `checkUpdateGateAndPredicate` in
+    // `record-write-handlers.ts`. The guarded branch below has always evaluated
+    // `guard.effectiveRoles`; this one used a bare `userRole`, which no
+    // `group:<name>` entry in `permissions.delete` could ever match — so a
+    // `delete: ['group:ops']` grant was inert while the same grant worked for
+    // update. The group overlay exists only in the effective-role set.
+    const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
+    if (!hasDeletePermissionForRoles(table, effectiveRoles, app.tables)) {
+      return FORBIDDEN_DELETE_RESPONSE(c)
+    }
     return undefined
   }
 
@@ -307,10 +322,10 @@ async function checkDeleteGate(input: DeleteGateInput): Promise<Response | undef
   }
 
   const fetched = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  if (fetched._tag === 'Left' || !fetched.right) return NOT_FOUND_RESPONSE(c)
+  if (fetched._tag === 'Failure' || !fetched.success) return NOT_FOUND_RESPONSE(c)
   if (!table) return NOT_FOUND_RESPONSE(c)
 
-  return evaluateDeletePredicates(c, table, guard, fetched.right)
+  return evaluateDeletePredicates(c, table, guard, fetched.success)
 }
 
 /**
@@ -345,7 +360,7 @@ async function deleteStorageFiles(keys: readonly string[]): Promise<void> {
         const storage = yield* StorageService
         yield* storage['delete'](key)
       })
-      return Effect.runPromise(Effect.either(Effect.provide(program, StorageServiceLive))).then(
+      return Effect.runPromise(Effect.result(Effect.provide(program, StorageServiceLive))).then(
         () => evictTransformCacheForKey(key)
       )
     })
@@ -381,8 +396,8 @@ async function isFileKeyReferencedElsewhere(opts: {
   )
   return results.some(
     (result) =>
-      result._tag === 'Right' &&
-      result.right.some((r) => String(r['id']) !== String(opts.excludeRecordId))
+      result._tag === 'Success' &&
+      result.success.some((r) => String(r['id']) !== String(opts.excludeRecordId))
   )
 }
 
@@ -406,8 +421,8 @@ async function executePurge({
   readonly userId?: string
 }) {
   const rawResult = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
-  if (rawResult._tag === 'Right' && rawResult.right) {
-    const keys = collectAttachmentKeys(rawResult.right, app, tableName)
+  if (rawResult._tag === 'Success' && rawResult.success) {
+    const keys = collectAttachmentKeys(rawResult.success, app, tableName)
     const table = app.tables?.find((t) => t.name === tableName)
     const attachmentFieldNames =
       table?.fields?.filter((f) => f.type === 'single-attachment').map((f) => f.name) ?? []
@@ -433,7 +448,7 @@ async function executePurge({
 }
 
 export async function handleDeleteRecord(c: Context, app: App) {
-  const { session, tableName, userRole } = getTableContext(c)
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
   const recordId = c.req.param('recordId')!
@@ -446,6 +461,7 @@ export async function handleDeleteRecord(c: Context, app: App) {
     session,
     tableName,
     userRole,
+    userGroups,
     recordId,
     guard,
   })
@@ -540,10 +556,10 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
     app,
     userId: session.userId,
   })
-  const result = await runRequestEffect(c, Effect.either(provideTableWithAutomationsLive(program)))
+  const result = await runRequestEffect(c, Effect.result(provideTableWithAutomationsLive(program)))
 
-  if (result._tag === 'Left') return deleteFailureResponse(c, result.left)
-  if (!result.right.result.success) {
+  if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)
+  if (!result.success.result.success) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
@@ -589,15 +605,17 @@ export async function handleRestoreRecord(c: Context, app: App) {
     )
   }
 
-  const result = await runTableProgram(restoreRecordProgram(session, tableName, recordId))
+  const result = await runTableProgram(
+    restoreRecordProgram(session, tableName, recordId, { app, userRole })
+  )
 
-  if (result._tag === 'Left') {
-    return handleRestoreRecordError(c, result.left)
+  if (result._tag === 'Failure') {
+    return handleRestoreRecordError(c, result.failure)
   }
 
-  if (!result.right.success) {
+  if (!result.success.success) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
-  return c.json(result.right, 200)
+  return c.json(result.success, 200)
 }

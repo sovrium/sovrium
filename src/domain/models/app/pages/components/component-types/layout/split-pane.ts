@@ -30,7 +30,7 @@ export const SplitPaneTypeLiteral = Schema.Literal('split-pane')
  * Split direction. `horizontal` = side-by-side (the Config default);
  * `vertical` = stacked. Defaults to `horizontal`.
  */
-export const SplitPaneOrientationSchema = Schema.Literal('horizontal', 'vertical').annotations({
+export const SplitPaneOrientationSchema = Schema.Literals(['horizontal', 'vertical']).annotate({
   title: 'Split-pane Orientation',
   description:
     'Split direction: horizontal (side-by-side) or vertical (stacked). Default: horizontal.',
@@ -46,19 +46,19 @@ export const splitPaneFields = {
    * split). The divider drag adjusts it within the panes' min/max constraints.
    */
   defaultRatio: Schema.optional(
-    Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThan(1)).annotations({
+    Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0), Schema.isLessThan(1))).annotate({
       description: 'Initial fraction of the container the first pane occupies (0–1). Default: 0.5.',
     })
   ),
   /** Minimum size (px) the first pane may shrink to during a drag. */
   minSize: Schema.optional(
-    Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)).annotations({
+    Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
       description: 'Minimum size (px) of the first pane while resizing.',
     })
   ),
   /** Maximum size (px) the first pane may grow to during a drag. */
   maxSize: Schema.optional(
-    Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)).annotations({
+    Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
       description: 'Maximum size (px) of the first pane while resizing.',
     })
   ),

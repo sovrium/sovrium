@@ -34,7 +34,7 @@ export const DataTableToolbarSchema = Schema.Struct({
   density: optBool('Show row density toggle'),
   /** Show column visibility toggle */
   columnToggle: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Show column visibility toggle' })
+    Schema.Boolean.annotate({ description: 'Show column visibility toggle' })
   ),
   /** Show runtime group-by picker (PG-03 / [internal ref]) */
   groupBy: optBool('Show runtime group-by picker'),
@@ -42,7 +42,7 @@ export const DataTableToolbarSchema = Schema.Struct({
   views: optBool('Show saved-views dropdown'),
   /** Show view-type switcher (grid/kanban/calendar/etc.) inside the toolbar (PG-03 / [internal ref]) */
   viewSwitcher: optBool('Show view-type switcher'),
-}).annotations({
+}).annotate({
   title: 'Data Table Toolbar',
   description: 'Toolbar control visibility configuration',
 })

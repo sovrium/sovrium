@@ -35,52 +35,51 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
   /**
    * List all activity logs with user metadata
    */
-  listAll: () =>
-    wrap(async () => {
-      // Resolve the dialect-correct auth users table per call — the user
-      // table lives at `auth.user` on Postgres and `auth_user` on SQLite.
-      // Capturing it locally keeps the leftJoin + projection columns aligned.
-      const users = authUsersTable()
-      const rows = await db
-        .select({
-          id: activityLogs.id,
-          createdAt: activityLogs.createdAt,
-          userId: activityLogs.userId,
-          sessionId: activityLogs.sessionId,
-          action: activityLogs.action,
-          tableName: activityLogs.tableName,
-          tableId: activityLogs.tableId,
-          recordId: activityLogs.recordId,
-          changes: activityLogs.changes,
-          ipAddress: activityLogs.ipAddress,
-          userAgent: activityLogs.userAgent,
-          userName: users.name,
-          userEmail: users.email,
-        })
-        .from(activityLogs)
-        .leftJoin(users, eq(activityLogs.userId, users.id))
-        .where(gte(activityLogs.createdAt, dateIntervalAgo(1, 'year')))
-        .orderBy(sql`(${activityLogs.userId} IS NULL) DESC`, desc(activityLogs.createdAt))
+  listAll: wrap(async () => {
+    // Resolve the dialect-correct auth users table per call — the user
+    // table lives at `auth.user` on Postgres and `auth_user` on SQLite.
+    // Capturing it locally keeps the leftJoin + projection columns aligned.
+    const users = authUsersTable()
+    const rows = await db
+      .select({
+        id: activityLogs.id,
+        createdAt: activityLogs.createdAt,
+        userId: activityLogs.userId,
+        sessionId: activityLogs.sessionId,
+        action: activityLogs.action,
+        tableName: activityLogs.tableName,
+        tableId: activityLogs.tableId,
+        recordId: activityLogs.recordId,
+        changes: activityLogs.changes,
+        ipAddress: activityLogs.ipAddress,
+        userAgent: activityLogs.userAgent,
+        userName: users.name,
+        userEmail: users.email,
+      })
+      .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
+      .where(gte(activityLogs.createdAt, dateIntervalAgo(1, 'year')))
+      .orderBy(sql`(${activityLogs.userId} IS NULL) DESC`, desc(activityLogs.createdAt))
 
-      return rows.map((row) => ({
-        id: row.id,
-        createdAt: row.createdAt,
-        userId: row.userId,
-        sessionId: row.sessionId,
-        action: row.action,
-        tableName: row.tableName,
-        tableId: row.tableId,
-        recordId: row.recordId,
-        changes: row.changes,
-        ipAddress: row.ipAddress,
-        userAgent: row.userAgent,
-        user:
-          row.userId && row.userName && row.userEmail
-            ? { id: row.userId, name: row.userName, email: row.userEmail }
-            : // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
-              null,
-      }))
-    }),
+    return rows.map((row) => ({
+      id: row.id,
+      createdAt: row.createdAt,
+      userId: row.userId,
+      sessionId: row.sessionId,
+      action: row.action,
+      tableName: row.tableName,
+      tableId: row.tableId,
+      recordId: row.recordId,
+      changes: row.changes,
+      ipAddress: row.ipAddress,
+      userAgent: row.userAgent,
+      user:
+        row.userId && row.userName && row.userEmail
+          ? { id: row.userId, name: row.userName, email: row.userEmail }
+          : // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
+            null,
+    }))
+  }),
 
   /**
    * Create activity log entry

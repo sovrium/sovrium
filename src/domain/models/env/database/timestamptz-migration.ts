@@ -51,7 +51,7 @@ import { Schema } from 'effect'
 export const TimestamptzMigrationEnvSchema = Schema.Struct({
   migration: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Opt-in for the one-time timestamp → timestamptz column reshape (DATABASE_TIMESTAMPTZ_MIGRATION). Unset means no DDL is emitted.',
         examples: ['on'],
@@ -60,7 +60,7 @@ export const TimestamptzMigrationEnvSchema = Schema.Struct({
   ),
   acknowledgeNonUtc: Schema.optional(
     Schema.String.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description:
           'Acknowledgement required to run the reshape on a non-UTC server (DATABASE_TIMESTAMPTZ_MIGRATION_ACK_NON_UTC).',
         examples: ['1'],
@@ -101,7 +101,7 @@ const isEnabled = (raw: string | undefined): boolean => {
 export const parseTimestamptzMigrationEnvConfig = (
   processEnv: Readonly<Record<string, string | undefined>> = process.env
 ): TimestamptzMigrationEnvConfig =>
-  Schema.decodeUnknownSync(TimestamptzMigrationEnvSchema)({
+  Schema.decodeSync(TimestamptzMigrationEnvSchema)({
     migration: processEnv[TIMESTAMPTZ_MIGRATION_ENV_VAR],
     acknowledgeNonUtc: processEnv[TIMESTAMPTZ_MIGRATION_ACK_NON_UTC_ENV_VAR],
   })

@@ -26,7 +26,11 @@ import {
   computeAiChatMessageListClasses,
   computeAiChatSendButtonClasses,
 } from '../../recipes/specialty-islands-default-classes'
+import { ChatTurnActions, type ChatTurnAction } from './admin-agent-chat-actions'
 import { useAgentChat, type AgentChatTurn } from './admin-agent-chat-data'
+
+/** Shared empty-actions reference — a fresh `[]` per render would remount the list. */
+const NO_ACTIONS: ReadonlyArray<ChatTurnAction> = []
 
 /** A single conversation turn — assistant replies are `article` landmarks. */
 function ChatTurn({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
@@ -39,6 +43,9 @@ function ChatTurn({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
         className={bubble}
       >
         {turn.content}
+        {/* What the turn actually DID, under the words it said. Renders nothing
+            when the turn took no actions — see `ChatTurnActions`. */}
+        <ChatTurnActions actions={turn.actions ?? NO_ACTIONS} />
       </article>
     )
   }

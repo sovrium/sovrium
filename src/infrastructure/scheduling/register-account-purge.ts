@@ -7,7 +7,10 @@
 
 import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
-import { purgeDueAccounts } from '@/infrastructure/database/account-purge'
+import {
+  purgeDueAccounts,
+  resolvePurgeTableAuthorship,
+} from '@/infrastructure/database/account-purge'
 import { logError } from '@/infrastructure/logging/logger'
 import { CronSchedulerLive } from './cron-scheduler-live'
 import type { App } from '@/domain/models/app'
@@ -69,7 +72,13 @@ const PURGE_JOB_ID = 'account-purge-due'
  */
 export const registerAccountPurgeScheduler = (app: App): Effect.Effect<string | undefined, never> =>
   Effect.gen(function* () {
-    const appTableNames = (app.tables ?? []).map((table) => table.name)
+    // Authorship columns resolved from the DECLARED FIELD TYPES, matching the
+    // `/api/account/purge-due` trigger. Passing bare names let the sweep assume
+    // the literal `created_by`, so a config naming the field anything else had
+    // zero app-table rows deleted on this — the PRODUCTION — path.
+    const appTables = (app.tables ?? []).map((table) =>
+      resolvePurgeTableAuthorship(app.tables, table.name)
+    )
 
     const scheduler = yield* CronScheduler
     return yield* scheduler
@@ -80,7 +89,7 @@ export const registerAccountPurgeScheduler = (app: App): Effect.Effect<string | 
           // signature is `void`. Any DB error is caught and logged so the
           // timer re-arms for the next hourly tick.
           Effect.tryPromise({
-            try: () => purgeDueAccounts(appTableNames),
+            try: () => purgeDueAccounts(appTables),
             catch: (cause) => new AccountPurgeSweepError({ cause }),
           }).pipe(
             Effect.tapError((error) =>
@@ -88,13 +97,13 @@ export const registerAccountPurgeScheduler = (app: App): Effect.Effect<string | 
                 logError('[account-purge] scheduled erasure sweep failed', error.cause)
               })
             ),
-            Effect.catchAll(() => Effect.void),
+            Effect.catch(() => Effect.void),
             Effect.asVoid
           ),
         { jobId: PURGE_JOB_ID, timezone: 'UTC' }
       )
       .pipe(
-        Effect.catchAll((err) =>
+        Effect.catch((err) =>
           Effect.sync(() => {
             logError('[account-purge] failed to arm erasure scheduler', err)
             return undefined

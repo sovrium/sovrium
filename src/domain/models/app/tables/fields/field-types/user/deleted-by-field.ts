@@ -34,12 +34,10 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const DeletedByFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('deleted-by'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('deleted-by'),
+  }),
+  Schema.annotate({
     title: 'Deleted By Field',
     description:
       'Automatically captures the user who soft-deleted a record. System-managed field that stores user ID reference. NULL when record is active or deleted by system process.',

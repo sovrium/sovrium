@@ -85,11 +85,11 @@ export interface AdminSearchStaleness {
 /**
  * Admin Global Search Repository Port.
  */
-export class AdminSearchRepository extends Context.Tag('AdminSearchRepository')<
+export class AdminSearchRepository extends Context.Service<
   AdminSearchRepository,
   {
     /** Probe the index freshness (empty + newest row time) to gate a rebuild. */
-    readonly indexStaleness: () => Effect.Effect<AdminSearchStaleness, AdminSearchDatabaseError>
+    readonly indexStaleness: Effect.Effect<AdminSearchStaleness, AdminSearchDatabaseError>
 
     /**
      * Read every searchable source (records of `tables`, submissions, runs,
@@ -114,4 +114,4 @@ export class AdminSearchRepository extends Context.Tag('AdminSearchRepository')<
       query: string
     ) => Effect.Effect<readonly AdminSearchIndexHit[], AdminSearchDatabaseError>
   }
->() {}
+>()('AdminSearchRepository') {}

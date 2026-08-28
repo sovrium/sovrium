@@ -11,7 +11,15 @@
  * conversation's header + its messages as a read-only transcript: user turns
  * right-aligned, agent / tool / system turns left-aligned, each tagged with its
  * role + time, with a model/token footnote on agent turns, a code block for a
- * tool call, and an "interrompu" marker for a streamed turn that never finished.
+ * tool call, and a "reply interrupted" marker for a streamed turn that never
+ * finished.
+ *
+ * NOTE: the tool-call code block is currently unreachable over persisted
+ * threads — `ai_messages.tool_calls` is written by nothing (the only INSERT,
+ * `ai-memory-repository-live.ts:130-147`, omits it) and the same INSERT writes
+ * only `user` / `assistant` roles, so the `role === 'tool'` branch never fires
+ * either. Live tool activity is rendered from `actions[]` by
+ * `admin-agent-chat-actions.tsx` instead.
  * Its idle / loading / error states live here so the island stays a thin render
  * under the per-island `max-lines` cap.
  */
@@ -77,7 +85,7 @@ function MessageFootnote({
 }): ReactElement | undefined {
   const parts: ReadonlyArray<string> = [
     message.model ? message.model : '',
-    typeof message.tokenCount === 'number' ? `${message.tokenCount} jetons` : '',
+    typeof message.tokenCount === 'number' ? `${message.tokenCount} tokens` : '',
   ].filter((part) => part.length > 0)
   const interrupted = message.status === 'incomplete'
   if (parts.length === 0 && !interrupted) return undefined

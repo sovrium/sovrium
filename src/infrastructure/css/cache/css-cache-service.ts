@@ -41,15 +41,16 @@ export const getPrecompiledCSSPath = (): string =>
  * Load pre-compiled CSS from file if it exists
  * Returns undefined if the file doesn't exist
  */
-export const loadPrecompiledCSS = (): Effect.Effect<CompiledCSS | undefined, never> =>
-  Effect.gen(function* () {
+export const loadPrecompiledCSS: Effect.Effect<CompiledCSS | undefined, never> = Effect.gen(
+  function* () {
     const cssPath = getPrecompiledCSSPath()
     const file = Bun.file(cssPath)
     const exists = yield* Effect.promise(() => file.exists())
     if (!exists) return undefined
     const css = yield* Effect.promise(() => file.text())
     return { css, timestamp: Date.now(), precompiled: true }
-  })
+  }
+)
 
 /**
  * Write pre-compiled CSS to file
@@ -80,7 +81,7 @@ export const writePrecompiledCSS = (css: string): Effect.Effect<string, Precompi
  * Avoids recompiling on every request for better performance
  * Uses functional state management to avoid mutations
  */
-const cssCache = Ref.unsafeMake<Map<string, CompiledCSS>>(new Map())
+const cssCache = Ref.makeUnsafe<Map<string, CompiledCSS>>(new Map())
 
 /**
  * Recursively sort object keys for consistent JSON serialization
@@ -192,7 +193,11 @@ export const setCachedCSS = (cacheKey: string, compiled: CompiledCSS): Effect.Ef
  *
  * @returns Effect that clears the cache
  */
-export const clearCSSCache = (): Effect.Effect<void, never> => Ref.set(cssCache, new Map())
+// `Effect.suspend` so the empty `Map` is allocated per run rather than once at
+// module load and shared by every clear.
+export const clearCSSCache: Effect.Effect<void, never> = Effect.suspend(() =>
+  Ref.set(cssCache, new Map())
+)
 
 /**
  * Get or compute cached CSS

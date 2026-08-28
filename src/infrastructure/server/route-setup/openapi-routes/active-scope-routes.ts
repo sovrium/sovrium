@@ -25,7 +25,7 @@ const tableSlugParam = z.object({ tableSlug: z.string().describe('Scope table na
 
 /** Active-scope session route group. */
 export const activeScopeGroup: StaticGroupSpec = {
-  tag: 'session',
+  tag: 'Session',
   tagDescription: 'Active-scope session endpoints',
   routes: [
     {

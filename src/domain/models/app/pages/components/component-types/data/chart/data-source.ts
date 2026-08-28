@@ -52,28 +52,28 @@ export const ChartDbDataSourceSchema = DataSourceSchema
 export const ChartSystemSourceSchema = Schema.Struct({
   /** The named read endpoint to fetch rows from (required) */
   endpoint: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Read endpoint path to fetch rows from (e.g. /api/analytics/overview)',
       examples: ['/api/analytics/overview'],
     })
   ),
   /** Array key in the response envelope (default: 'items') */
   rowsKey: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Key of the rows array in the response envelope (default: 'items')",
     })
   ),
   /** Static query params merged into every request to the endpoint */
   query: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
-    }).annotations({
+    Schema.Record(
+      Schema.String,
+      Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+    ).annotate({
       description: 'Static query params merged into every request to the endpoint',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Chart System Source',
   description:
     'Read-endpoint binding: feed the chart rows from a system endpoint instead of a DB table',
@@ -84,16 +84,16 @@ export const ChartSystemSourceSchema = Schema.Struct({
  * - `{ table, ... }`                  → DB-table binding (unchanged, series over DB rows)
  * - `{ system: { endpoint, ... } }`   → system read-endpoint binding (series over endpoint rows)
  */
-export const ChartDataSourceSchema = Schema.Union(
+export const ChartDataSourceSchema = Schema.Union([
   ChartDbDataSourceSchema,
   Schema.Struct({
     /** System read-endpoint binding (mutually exclusive with the DB-table form) */
     system: ChartSystemSourceSchema,
-  }).annotations({
+  }).annotate({
     title: 'Chart System Data Source',
     description: 'System read-endpoint binding for the chart',
-  })
-).annotations({
+  }),
+]).annotate({
   identifier: 'ChartDataSource',
   title: 'Chart Data Source',
   description:

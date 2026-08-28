@@ -51,7 +51,7 @@ export type PageRenderResult =
  * Use this service via Effect Context to render React components
  * to HTML strings with type-safe dependency injection.
  */
-export class PageRenderer extends Context.Tag('PageRenderer')<
+export class PageRenderer extends Context.Service<
   PageRenderer,
   {
     /**
@@ -126,4 +126,4 @@ export class PageRenderer extends Context.Tag('PageRenderer')<
      */
     readonly renderRssFeed: (app: App, baseUrl: string) => Promise<string | undefined>
   }
->() {}
+>()('PageRenderer') {}

@@ -238,7 +238,7 @@ const routes: readonly RouteSpec[] = [
  */
 export const recordsGroupSpec: ResourceGroupSpec = {
   tagPrefix: 'Table',
-  genericTag: 'records',
+  genericTag: 'Records',
   genericTagDescription: 'Record CRUD, comments, and history endpoints',
   collection: (app) => app.tables ?? [],
   resourcePlaceholder: '{tableSlug}',

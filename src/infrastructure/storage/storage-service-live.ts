@@ -13,6 +13,7 @@ import {
   parseStorageEnvConfig,
   validateStorageSizeLimits,
 } from '@/domain/models/env/storage/storage'
+import { logWarning } from '@/infrastructure/logging/logger'
 import {
   byteaUpload,
   byteaDownload,
@@ -45,6 +46,26 @@ import {
 } from './s3-adapter'
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
+
+/**
+ * Unwrap an S3 listing result, warning when the walk was truncated.
+ *
+ * The `StorageService` port answers `readonly string[]` / `number`, and
+ * widening it to carry a truncation flag would ripple through every quota and
+ * dashboard caller for a condition that needs 100 000 objects in one bucket to
+ * arise. But dropping the flag silently is what the pre-pagination adapter
+ * already did, and the whole point of following `ContinuationToken` was to
+ * stop under-reporting without saying so. A warning keeps the port stable
+ * while leaving the operator a record that the figure is a lower bound.
+ */
+const unwrapS3Listing = <A>(value: A, truncated: boolean, operation: string, bucket: string): A => {
+  if (truncated) {
+    logWarning(
+      `[storage] s3 ${operation} truncated at the page ceiling for bucket "${bucket}" — the reported value is a lower bound, not the bucket total`
+    )
+  }
+  return value
+}
 
 /** File metadata lookup shared by every provider — reads `system.file_storage_metadata`. */
 const getMetadataFromCatalog = (
@@ -163,12 +184,15 @@ export const StorageServiceLive = Layer.effect(
           Effect.tryPromise({
             try: () => s3List(client, bucket, prefix),
             catch: (e: unknown) => makeError(e),
-          }),
-        getTotalBytes: () =>
-          Effect.tryPromise({
-            try: () => s3GetTotalBytes(client, bucket),
-            catch: (e: unknown) => makeError(e),
-          }),
+          }).pipe(Effect.map((page) => unwrapS3Listing(page.keys, page.truncated, 'list', bucket))),
+        getTotalBytes: Effect.tryPromise({
+          try: () => s3GetTotalBytes(client, bucket),
+          catch: (e: unknown) => makeError(e),
+        }).pipe(
+          Effect.map((total) =>
+            unwrapS3Listing(total.bytes, total.truncated, 'getTotalBytes', bucket)
+          )
+        ),
       })
     }
 
@@ -217,11 +241,10 @@ export const StorageServiceLive = Layer.effect(
             try: () => localList(dir, prefix),
             catch: (e: unknown) => makeError(e),
           }),
-        getTotalBytes: () =>
-          Effect.tryPromise({
-            try: () => localGetTotalBytes(dir),
-            catch: (e: unknown) => makeError(e),
-          }),
+        getTotalBytes: Effect.tryPromise({
+          try: () => localGetTotalBytes(dir),
+          catch: (e: unknown) => makeError(e),
+        }),
       })
     }
 
@@ -251,7 +274,7 @@ export const StorageServiceLive = Layer.effect(
           Effect.fail(notConfigured()),
         getMetadata: (_key: string) => Effect.fail(notConfigured()),
         list: (_prefix: string) => Effect.fail(notConfigured()),
-        getTotalBytes: () => Effect.succeed(0),
+        getTotalBytes: Effect.succeed(0),
       })
     }
 
@@ -295,11 +318,10 @@ export const StorageServiceLive = Layer.effect(
           try: () => byteaList(prefix),
           catch: (e: unknown) => makeError(e),
         }),
-      getTotalBytes: () =>
-        Effect.tryPromise({
-          try: () => byteaGetTotalBytes(),
-          catch: (e: unknown) => makeError(e),
-        }),
+      getTotalBytes: Effect.tryPromise({
+        try: () => byteaGetTotalBytes(),
+        catch: (e: unknown) => makeError(e),
+      }),
     })
   })
 )

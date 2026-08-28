@@ -13,7 +13,7 @@ import type { Context } from 'hono'
  * System fields that exist in every table but are not in `app.tables[].fields`.
  *
  * Must stay in step with `SYSTEM_FIELDS` in
- * `application/use-cases/tables/utils/field-read-filter.ts`. This list used to
+ * `domain/validators/field-read-filter.ts`. This list used to
  * omit the three authorship columns and — worse — was declared but never
  * consulted, so a sort on any system column fell through to the
  * "not found in table.fields" branch below and was rejected. `?sort=created_by`

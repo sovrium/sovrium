@@ -175,7 +175,7 @@ export const SearchAdminGlobal = (
     const repo = yield* AdminSearchRepository
 
     // Lazy rebuild: repopulate the index when it is empty or stale.
-    const staleness = yield* repo.indexStaleness()
+    const staleness = yield* repo.indexStaleness
     if (isStale(staleness)) {
       yield* repo.rebuildIndex({
         tables: tableDescriptors(app),

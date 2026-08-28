@@ -14,13 +14,13 @@ import { AuthUnbanUserActionSchema } from './unban-user'
 /**
  * Auth Action — union of all authentication operators
  */
-export const AuthActionSchema = Schema.Union(
+export const AuthActionSchema = Schema.Union([
   AuthCreateUserActionSchema,
   AuthAssignRoleActionSchema,
   AuthBanUserActionSchema,
-  AuthUnbanUserActionSchema
-).pipe(
-  Schema.annotations({
+  AuthUnbanUserActionSchema,
+]).pipe(
+  Schema.annotate({
     identifier: 'AuthAction',
     title: 'Auth Action',
     description: 'Authentication operations (create user, assign role, ban/unban)',

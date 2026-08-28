@@ -14,7 +14,7 @@ import { AggregateFunctionSchema } from '../../../shared-schemas'
  * Alias of the shared `AggregateFunctionSchema` with a KPI-specific
  * description annotation.
  */
-export const KPIAggregateFunctionSchema = AggregateFunctionSchema.annotations({
+export const KPIAggregateFunctionSchema = AggregateFunctionSchema.annotate({
   title: 'KPI Aggregate Function',
   description: 'Aggregate function applied to compute the KPI metric value',
 })
@@ -22,9 +22,9 @@ export const KPIAggregateFunctionSchema = AggregateFunctionSchema.annotations({
 export const KPIAggregateSchema = Schema.Struct({
   function: KPIAggregateFunctionSchema,
   field: Schema.optional(
-    Schema.String.annotations({ description: 'Field to aggregate (omit for count)' })
+    Schema.String.annotate({ description: 'Field to aggregate (omit for count)' })
   ),
-}).annotations({
+}).annotate({
   title: 'KPI Aggregate',
   description: 'Aggregate function configuration for KPI metric computation',
 })

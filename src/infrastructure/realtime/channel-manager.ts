@@ -55,7 +55,7 @@ export const getSubscribers = (channel: string): readonly string[] => [
  * one of these per connection; `publishToChannel` invokes every listener on
  * the target channel synchronously when a record mutation occurs.
  */
-type ChannelListener = (event: Record<string, unknown>) => void
+type ChannelListener = (event: Readonly<Record<string, unknown>>) => void
 
 /**
  * Per-channel set of open-connection listeners. Distinct from `subscriptions`
@@ -91,7 +91,10 @@ export const addChannelListener = (channel: string, listener: ChannelListener): 
  * throws (e.g. a connection already torn down mid-flight) is isolated so one
  * dead connection cannot block delivery to the rest.
  */
-export const publishToChannel = (channel: string, event: Record<string, unknown>): void => {
+export const publishToChannel = (
+  channel: string,
+  event: Readonly<Record<string, unknown>>
+): void => {
   const set = listeners.get(channel)
   if (!set) return
   // Snapshot to an array so a listener that unsubscribes mid-iteration cannot

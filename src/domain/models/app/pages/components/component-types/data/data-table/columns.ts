@@ -36,7 +36,7 @@ import { optStr } from '../../../shared-schemas'
  * "il y a N j" / "N days ago". Use it for a forward-looking countdown column
  * (e.g. a grace-window "scheduled erasure" date that resolves to "dans 5 j").
  */
-export const ColumnFormatSchema = Schema.Literal(
+export const ColumnFormatSchema = Schema.Literals([
   'truncate',
   'currency',
   'percentage',
@@ -47,8 +47,8 @@ export const ColumnFormatSchema = Schema.Literal(
   'long-date',
   'datetime',
   'yes-no',
-  'check-cross'
-).annotations({
+  'check-cross',
+]).annotate({
   title: 'Column Format',
   description:
     'Display format override for column rendering. relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable.',
@@ -78,16 +78,16 @@ export const ColumnFormatSchema = Schema.Literal(
  */
 export const CellStyleConditionSchema = Schema.Struct({
   /** Condition matcher: operator -> value (at least one operator required) */
-  when: ConditionOperatorsSchema.annotations({
+  when: ConditionOperatorsSchema.annotate({
     description:
       'Condition matched against the cell value: { operator: value }. Supports eq, neq, in, notIn, contains, gt, lt, gte, lte.',
   }),
   /** Tailwind CSS classes to apply when condition matches */
-  className: Schema.String.annotations({
+  className: Schema.String.annotate({
     description: 'Tailwind CSS classes applied when the condition is met',
     examples: ['bg-green-50 text-green-700', 'bg-red-50 text-red-400 line-through'],
   }),
-}).annotations({
+}).annotate({
   title: 'Cell Style Condition',
   description: 'Conditional styling rule for table cells',
 })
@@ -134,12 +134,12 @@ const actionVisibleWhenSchema = FieldConditionSchema
  */
 const EditSelectOptionSchema = Schema.Struct({
   /** The value submitted on commit (overrides `$record.<field>` at dispatch). */
-  value: Schema.String.annotations({
+  value: Schema.String.annotate({
     description: 'Option value submitted on commit (overrides $record.<field> in the action body)',
   }),
   /** Display label for the option (defaults to `value`). */
   label: optStr('Option display label (defaults to value)'),
-}).annotations({
+}).annotate({
   title: 'Edit Select Option',
   description: 'A single { value, label? } option in an inline select-edit dropdown',
 })
@@ -192,22 +192,22 @@ export const EditSelectSchema = Schema.Struct({
    * the picked value OVERRIDES this field in the dispatched action's `$record.*`
    * context (so an action body's `$record.<field>` resolves to the selection).
    */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description:
       'Row field edited: its value preselects the dropdown and the picked value overrides $record.<field> at dispatch',
   }),
   /** Accessible name for the inline `<select>` (its `aria-label`). */
-  label: Schema.String.annotations({
+  label: Schema.String.annotate({
     description: 'Accessible name (aria-label) of the inline select control',
   }),
   /** The select options (at least one). */
   options: Schema.Array(EditSelectOptionSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'Select options ({ value, label? }); at least one required' })
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({ description: 'Select options ({ value, label? }); at least one required' })
   ),
   /** Commit button label (defaults to "Enregistrer"). */
   saveLabel: optStr('Commit button label (defaults to "Enregistrer")'),
-}).annotations({
+}).annotate({
   title: 'Edit Select',
   description:
     'Inline single-select editor for an action item: the trigger reveals a per-row <select> whose picked value overrides $record.<field> in the item action (POSTing an arbitrary endpoint), then composes with the action onSuccess.refetch.',
@@ -228,11 +228,9 @@ export const EditSelectSchema = Schema.Struct({
  */
 export const ActionColumnItemSchema = Schema.Struct({
   /** Button label */
-  label: Schema.String.annotations({ description: 'Action button label' }),
+  label: Schema.String.annotate({ description: 'Action button label' }),
   /** Optional icon name */
-  icon: Schema.optional(
-    Schema.String.annotations({ description: 'Icon name (e.g., pencil, trash)' })
-  ),
+  icon: Schema.optional(Schema.String.annotate({ description: 'Icon name (e.g., pencil, trash)' })),
   /** Action to execute (reuses ActionSchema) */
   action: ActionSchema,
   /**
@@ -255,7 +253,7 @@ export const ActionColumnItemSchema = Schema.Struct({
    * every row (backward-compatible default).
    */
   visibleWhen: Schema.optional(actionVisibleWhenSchema),
-}).annotations({
+}).annotate({
   title: 'Action Column Item',
   description: 'Single action button within an action column',
 })
@@ -269,60 +267,58 @@ export const ActionColumnItemSchema = Schema.Struct({
  */
 export const FieldColumnSchema = Schema.Struct({
   /** Table field name this column displays */
-  field: Schema.String.annotations({
+  field: Schema.String.annotate({
     description: 'Field name from the data source table',
   }),
   /** Override header text (default: field name) */
   label: optStr('Column header text override'),
   /** Pixel width */
   width: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Column width in pixels' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Column width in pixels' })
     )
   ),
   /** Minimum pixel width for resize */
   minWidth: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Minimum column width in pixels' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Minimum column width in pixels' })
     )
   ),
   /** Text alignment */
   align: Schema.optional(
-    Schema.Literal('left', 'center', 'right').annotations({
+    Schema.Literals(['left', 'center', 'right']).annotate({
       description: 'Column text alignment (default: left)',
     })
   ),
   /** Pin to left side */
   frozen: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Pin column to left side of table' })
+    Schema.Boolean.annotate({ description: 'Pin column to left side of table' })
   ),
   /** Allow sorting on this column */
   sortable: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Allow column sorting (default: true)' })
+    Schema.Boolean.annotate({ description: 'Allow column sorting (default: true)' })
   ),
   /** Allow filtering on this column */
   filterable: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Allow column filtering (default: true)' })
+    Schema.Boolean.annotate({ description: 'Allow column filtering (default: true)' })
   ),
   /** Allow inline editing */
   editable: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: 'Allow inline editing (default: from table permissions)',
     })
   ),
   /** Show/hide column */
   visible: Schema.optional(
-    Schema.Boolean.annotations({ description: 'Column visibility (default: true)' })
+    Schema.Boolean.annotate({ description: 'Column visibility (default: true)' })
   ),
   /** Display format override */
   format: Schema.optional(ColumnFormatSchema),
   /** Conditional cell styling rules */
   cellStyle: Schema.optional(
-    Schema.Array(CellStyleConditionSchema).annotations({
+    Schema.Array(CellStyleConditionSchema).annotate({
       description: 'Conditional styling rules evaluated against the cell value',
     })
   ),
@@ -335,14 +331,14 @@ export const FieldColumnSchema = Schema.Struct({
    * the raw enum (so server-side relabeling is impossible).
    */
   valueLabels: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
+    Schema.Record(Schema.String, Schema.String).annotate({
       title: 'Value Labels',
       description:
         'Map of raw cell value -> display label, applied at render time only (does not mutate the record value or the API contract). Unmapped values render verbatim.',
       examples: [{ active: 'Actif', oauth2: 'OAuth2' }],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Field Column',
   description: 'Column bound to a table field with presentation config',
 })
@@ -352,27 +348,26 @@ export const FieldColumnSchema = Schema.Struct({
  */
 export const ActionColumnSchema = Schema.Struct({
   /** Discriminator: always 'actions' */
-  type: Schema.Literal('actions').annotations({
+  type: Schema.Literal('actions').annotate({
     description: "Must be 'actions' for an action column",
   }),
   /** Column header (often empty string) */
   label: optStr('Column header text'),
   /** Pixel width */
   width: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThan(0),
-      Schema.annotations({ description: 'Column width in pixels' })
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
+      Schema.annotate({ description: 'Column width in pixels' })
     )
   ),
   /** Action buttons to render in each row */
   actions: Schema.Array(ActionColumnItemSchema).pipe(
-    Schema.minItems(1),
-    Schema.annotations({
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
       description: 'Action buttons rendered per row',
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Action Column',
   description: 'Column with action buttons (edit, delete, etc.)',
 })
@@ -380,14 +375,14 @@ export const ActionColumnSchema = Schema.Struct({
 /**
  * Data table column -- either a field column or an action column.
  */
-export const DataTableColumnSchema = Schema.Union(
-  FieldColumnSchema,
-  ActionColumnSchema
-).annotations({
-  identifier: 'DataTableColumn',
-  title: 'Data Table Column',
-  description: 'Column definition: field column (with field) or action column (with type: actions)',
-})
+export const DataTableColumnSchema = Schema.Union([FieldColumnSchema, ActionColumnSchema]).annotate(
+  {
+    identifier: 'DataTableColumn',
+    title: 'Data Table Column',
+    description:
+      'Column definition: field column (with field) or action column (with type: actions)',
+  }
+)
 
 // ---------------------------------------------------------------------------
 // Type exports

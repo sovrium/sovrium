@@ -8,6 +8,7 @@
 import { z } from '@hono/zod-openapi'
 import { FILTER_OPERATOR_VOCABULARY } from '@/domain/models/app/tables/closed-vocabulary'
 import { paginationSchema, timestampSchema } from '../_shared/common'
+import { appliedQuerySchema } from '../_shared/search'
 
 /**
  * One condition of a view filter, as this API SERIALISES it.
@@ -301,10 +302,47 @@ const aggregationsSchema = z
 
 /**
  * List records response schema
+ *
+ * ## Why this carries `appliedQuery`
+ *
+ * `?q=` is honoured server-side on this route (`buildSearchFilter`, called
+ * unconditionally from `prepareListRequest`) — but the response never said so,
+ * and the data-table island reads that declaration BY KEY PRESENCE to decide
+ * whether to narrow the page again in memory
+ * (`use-island-setup.ts` → `serverFiltered: data?.appliedQuery !== undefined`).
+ * With the key absent, every DB-table grid filtered a page the server had
+ * already filtered.
+ *
+ * The second filter can only ever REMOVE rows the server matched, and it runs
+ * over the RENDERED columns only — so a row matched on a field the grid does
+ * not show as a column was silently discarded. Measured on a 31-row catalogue
+ * whose grid declared `columns: [{ field: 'name' }]`: searching a SKU fragment
+ * returned the one matching row from the server and rendered
+ * "No records found".
+ *
+ * `appliedQuerySchema` is the SHARED three-state contract already carried by
+ * `/api/admin/users`, `/api/admin/buckets/:name/files` and
+ * `/api/admin/agents/:name/conversations` — imported rather than restated so
+ * one search box cannot mean three things. See
+ * `src/domain/models/api/_shared/search.ts` for the state table; the emission
+ * rules THIS route must satisfy are:
+ *
+ * | Branch                                        | `appliedQuery`     |
+ * |-----------------------------------------------|--------------------|
+ * | list with a term (`?q=Zinc`)                  | `'Zinc'` (trimmed) |
+ * | list with no term / empty / whitespace-only   | `null`             |
+ * | list short-circuited to `EMPTY_LIST_RESPONSE` | `null`             |
+ * | trash (`?deleted=true` → `handleListTrash`)   | key ABSENT         |
+ *
+ * The trash row is not an oversight: `handleListTrash` never calls
+ * `buildSearchFilter` and ignores `?q=` outright, so it must keep the client
+ * filtering. Presence is read per RESPONSE, which is exactly what lets one
+ * route hold a searching branch and a non-searching branch at once.
  */
 export const listRecordsResponseSchema = z.object({
   records: z.array(recordSchema).describe('List of records'),
   pagination: paginationSchema.optional().describe('Pagination metadata'),
+  appliedQuery: appliedQuerySchema,
   aggregations: aggregationsSchema.optional(),
   groups: z
     .array(

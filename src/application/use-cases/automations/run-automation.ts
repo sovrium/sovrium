@@ -29,10 +29,12 @@ import {
   AutomationRepository,
   type AutomationDatabaseError,
 } from '@/application/ports/repositories/automations/automation-repository'
+import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
 import { traceAutomationRun } from '@/infrastructure/telemetry/automation-run-trace'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { notifyPlatformFailure } from './notify-platform-failure'
+import { loadPausedAutomationNames } from './paused-automation-names'
 import { buildEnvLookup } from './resolve-env-vars'
 import { buildAutomationContext, type TriggerData } from './resolve-trigger-data'
 import { buildAutomationInvoker } from './run/automation-call-invoker'
@@ -59,6 +61,7 @@ import {
   type StepContext,
   type StepRequirements,
 } from './run/types'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -135,19 +138,21 @@ export interface RunWebhookAutomationOptions {
 
 /**
  * Locate a webhook-triggered automation by name and reject any state that
- * should not produce a run (missing, disabled, or non-webhook). Centralised
- * so the run loop can stay focused on execution.
+ * should not produce a run (missing, operationally OFF, or non-webhook).
+ * Centralised so the run loop can stay focused on execution.
  */
 const resolveWebhookAutomation = (
   app: App,
-  name: string
+  name: string,
+  pausedNames: ReadonlySet<string>
 ): Effect.Effect<NonNullable<App['automations']>[number], RunAutomationError> => {
   const automation = app.automations?.find((a) => a.name === name)
   if (!automation) return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
-  // Disabled automations are invisible to the webhook router — return
-  // not-found so an attacker cannot enumerate which workflows exist
-  //.
-  if (automation.enabled === false)
+  // Automations that are OFF — whether config-disabled or operationally
+  // paused — are invisible to the webhook router. Both return not-found, so an
+  // attacker cannot enumerate which workflows exist, nor tell the two
+  // off-states apart.
+  if (!isAutomationOperationallyEnabled(automation, pausedNames))
     return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   if (automation.trigger.type !== 'webhook') {
     return Effect.fail({ _tag: 'AutomationNotWebhookTriggered' as const, name })
@@ -293,7 +298,7 @@ const resolveRunTimeoutMs = (
  * resolved accumulator is marked with `runStatus: 'timed-out'` and an
  * explanatory `runError`. Any steps that completed BEFORE the timeout
  * remain in `finalState.steps` because the underlying reduce produces a
- * fresh accumulator per step — `Effect.timeoutTo` only fires after the
+ * fresh accumulator per step — `Effect.timeoutOrElse` only fires after the
  * cumulative duration, so partially-completed runs are not observable
  * from inside the wrapped Effect; the timeout path emits an empty-steps
  * accumulator which the test specs accept (they only assert on status +
@@ -322,24 +327,30 @@ const runActionsWithTimeout = (
   //     endpoint so a resumed run does not re-execute steps that already
   // fired in the original run. Preserves
   //     the side-effects-once-only guarantee at replay time.
-  const loop = Effect.reduce(rawActions, EMPTY_RUN_ACCUMULATOR, (acc, rawAction) => {
-    if (acc.halted) return Effect.succeed(acc)
-    if (isTerminalFailureStatus(acc.runStatus))
-      return Effect.succeed(appendSkippedStep(acc, rawAction))
-    if (skipActionNames.has(String(rawAction['name'] ?? ''))) {
-      return Effect.succeed(appendSkippedStep(acc, rawAction))
+  const loop = Effect.reduce(
+    rawActions,
+    () => EMPTY_RUN_ACCUMULATOR,
+    (acc, rawAction) => {
+      if (acc.halted) return Effect.succeed(acc)
+      if (isTerminalFailureStatus(acc.runStatus))
+        return Effect.succeed(appendSkippedStep(acc, rawAction))
+      if (skipActionNames.has(String(rawAction['name'] ?? ''))) {
+        return Effect.succeed(appendSkippedStep(acc, rawAction))
+      }
+      return executeStep(acc, rawAction, ctx, boundAutomationInvoker)
     }
-    return executeStep(acc, rawAction, ctx, boundAutomationInvoker)
-  })
+  )
   if (timeoutMs === undefined) return loop
-  return Effect.timeoutTo(loop, {
+  // EFFECT 4: see `overview-block-timeout.ts` — `timeoutTo` -> `timeoutOrElse`
+  // with an Effect fallback; `onSuccess` was the identity.
+  return Effect.timeoutOrElse(loop, {
     duration: Duration.millis(timeoutMs),
-    onSuccess: (final): RunAccumulator => final,
-    onTimeout: (): RunAccumulator => ({
-      ...EMPTY_RUN_ACCUMULATOR,
-      runStatus: 'timed-out',
-      runError: `automation run exceeded timeout of ${String(timeoutMs)}ms`,
-    }),
+    orElse: (): Effect.Effect<RunAccumulator> =>
+      Effect.succeed({
+        ...EMPTY_RUN_ACCUMULATOR,
+        runStatus: 'timed-out',
+        runError: `automation run exceeded timeout of ${String(timeoutMs)}ms`,
+      }),
   })
 }
 
@@ -577,10 +588,14 @@ export const runWebhookAutomation = ({
 }: RunWebhookAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
-  RunRequirements
+  RunRequirements | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const automation = yield* resolveWebhookAutomation(app, name)
+    // Entry point: read the operational pauses ONCE, then hand the set to the
+    // pure gate. See `domain/utils/automation-operational-state.ts` for why the
+    // predicate is synchronous and the load lives here.
+    const pausedNames = yield* loadPausedAutomationNames
+    const automation = yield* resolveWebhookAutomation(app, name, pausedNames)
     const automationId = yield* resolveAutomationId(name, automation)
     return yield* executeAutomationRun({
       name,

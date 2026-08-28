@@ -35,19 +35,19 @@ export const TabPanelTypeLiteral = Schema.Literal('tab-panel')
  * subtitle.
  */
 export const TabPanelContentSchema = Schema.Struct({
-  label: Schema.String.annotations({ description: 'Text on the tab trigger button' }),
+  label: Schema.String.annotate({ description: 'Text on the tab trigger button' }),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'Secondary line rendered beneath the label on the tab trigger; associated with the trigger via aria-describedby, and never part of its accessible name',
     })
   ),
   body: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: 'Text content of the tab panel; omit when the panel renders children',
     })
   ),
-}).pipe(Schema.annotations({ identifier: 'TabPanelContent', title: 'Tab Panel Content' }))
+}).pipe(Schema.annotate({ identifier: 'TabPanelContent', title: 'Tab Panel Content' }))
 
 export const tabPanelFields = {
   ...coreFields,

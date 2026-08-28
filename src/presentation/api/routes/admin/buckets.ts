@@ -24,13 +24,21 @@ import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { BuildBucketFiles } from '@/application/use-cases/admin/bucket-files'
+import {
+  buildBucketUploadSeries,
+  BuildBucketUploadSeries,
+} from '@/application/use-cases/admin/buckets-overview'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import {
   resolvePeriodWindow,
   type PeriodPreset,
+  type PeriodWindow,
 } from '@/domain/models/api/admin/_shared/period-preset'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { bucketFilesQuerySchema } from '@/domain/models/api/admin/buckets/files'
+import {
+  bucketFilesQuerySchema,
+  normalizeBucketFilesSortKey,
+} from '@/domain/models/api/admin/buckets/files'
 import {
   bucketsListResponseSchema,
   type BucketAdminItem,
@@ -43,6 +51,12 @@ import {
 } from '@/domain/models/api/admin/buckets/overview'
 import { bucketFileUploadResponseSchema } from '@/domain/models/api/admin/buckets/upload'
 import { parseStorageEnvConfig } from '@/domain/models/env/storage/storage'
+import {
+  bucketIdForName,
+  declaredBucketNames,
+  DEFAULT_BUCKET_ID,
+} from '@/domain/utils/bucket-identity'
+import { parseSortSpec } from '@/domain/utils/sort-spec'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminBucketFilesLive } from '@/presentation/api/routes/admin/buckets/effect-runner'
@@ -50,20 +64,9 @@ import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-run
 import { buildUploadStorageKey } from '@/presentation/api/routes/buckets/upload-key'
 import { notFound, payloadTooLarge } from '@/presentation/api/utils/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
+import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
-
-/**
- * Deterministic UUID v4 for the default bucket id.
- *
- * Sovrium today has a single virtual "default" bucket per provider. Picking
- * a stable identifier (rather than generating one per call) means the admin
- * dashboard's bucket-detail pages remain bookmarkable across process
- * restarts. Real multi-bucket support (Phase 1) will introduce per-bucket
- * persisted UUIDs.
- */
-const DEFAULT_BUCKET_ID = '00000000-0000-4000-8000-000000000001'
-const DEFAULT_BUCKET_NAME = 'default'
 
 /* eslint-disable unicorn/no-null -- the bucket admin schema canonically uses `null` for absent values (matches the public schema's nullable fields and the audit envelope contract; switching to `undefined` would diverge from the API shape) */
 
@@ -102,35 +105,55 @@ function buildBucketEnvelope(fileCount: number, totalBytes: number): BucketAdmin
 }
 
 /**
- * Build the canonical list of bucket items (always 0 or 1 today).
+ * Live reading of the storage backend: how many files it holds and how many
+ * bytes they occupy. GLOBAL figures — Sovrium stores every upload under a flat
+ * `<uuid>-<filename>` key with no bucket component
+ * ({@link buildUploadStorageKey}), so there is no per-bucket attribution to
+ * compute. A backend that cannot be read reports zeros rather than failing the
+ * request: an operator triaging a storage problem needs the dashboard to render.
  */
-async function buildBucketItems(): Promise<readonly BucketAdminItem[]> {
-  const meta = resolveDefaultBucket()
-  if (!meta) return []
-
-  // Read totals from the active StorageService. The single default bucket
-  // owns every stored file, so global totals === per-bucket totals.
+async function readStorageTotals(): Promise<{
+  readonly fileCount: number
+  readonly totalBytes: number
+}> {
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    const [totalBytes, keys] = yield* Effect.all([storage.getTotalBytes(), storage.list('')])
+    const [totalBytes, keys] = yield* Effect.all([storage.getTotalBytes, storage.list('')])
     return { totalBytes, fileCount: keys.length }
   })
 
-  const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.either))
-  const { totalBytes, fileCount } =
-    result._tag === 'Right' ? result.right : { totalBytes: 0, fileCount: 0 }
+  const result = await Effect.runPromise(program.pipe(provideStorageLive, Effect.result))
+  return result._tag === 'Success' ? result.success : { totalBytes: 0, fileCount: 0 }
+}
 
+/**
+ * Build one list item per bucket the app declares — or one for the virtual
+ * `default` bucket when it declares none. Empty when no storage provider
+ * resolves: a declaration that cannot hold a byte is not a bucket.
+ *
+ * Every item carries the same `metadata`, because it is the same shared store:
+ * declared buckets are path prefixes inside the one env-resolved backend, and
+ * the sibling file browser (`/api/admin/buckets/:bucketName/files`) already
+ * reports that backend-wide `totalBytes` for any bucket name. These per-item
+ * figures are therefore never summed — the overview reads
+ * {@link readStorageTotals} once — or one 1 KB upload would be reported as three.
+ */
+async function buildBucketItems(app: App): Promise<readonly BucketAdminItem[]> {
+  const meta = resolveDefaultBucket()
+  if (!meta) return []
+
+  const { totalBytes, fileCount } = await readStorageTotals()
   const now = new Date().toISOString()
-  const item: BucketAdminItem = {
-    id: DEFAULT_BUCKET_ID,
-    name: DEFAULT_BUCKET_NAME,
+
+  return declaredBucketNames(app.buckets).map((name) => ({
+    id: bucketIdForName(name),
+    name,
     provider: meta.provider,
     region: meta.region,
     createdAt: now,
     updatedAt: now,
     _admin: buildBucketEnvelope(fileCount, totalBytes),
-  }
-  return [item]
+  }))
 }
 
 /**
@@ -186,11 +209,11 @@ function parseListQuery(c: Context): {
 /**
  * GET /api/admin/buckets handler.
  */
-async function handleListBuckets(c: Context): Promise<Response> {
+async function handleListBuckets(c: Context, app: App): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
   const { provider, cursor, limit } = parseListQuery(c)
 
-  const allItems = await buildBucketItems()
+  const allItems = await buildBucketItems(app)
   const filtered = filterByProvider(allItems, provider)
   const startIndex = cursor ? decodeCursor(cursor, filtered) : 0
   const page = filtered.slice(startIndex, startIndex + limit)
@@ -228,30 +251,64 @@ async function handleListBuckets(c: Context): Promise<Response> {
 }
 
 /**
- * Build a synthetic series of zero-filled points covering the period
- * window, aligned to the interval grid.
+ * Read the window's upload series from the storage catalog. A failed read
+ * degrades to an all-zero series of the correct length rather than failing the
+ * request — the chart axis still renders while the operator triages.
  */
-function buildSeriesPoints(
-  fromIso: string,
-  toIso: string,
-  interval: '1h' | '1d'
-): readonly BucketsOverviewSeriesPoint[] {
-  const stepMs = interval === '1h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000
-  const fromMs = new Date(fromIso).getTime()
-  const toMs = new Date(toIso).getTime()
-  const totalSpan = toMs - fromMs
-  const expectedCount = Math.round(totalSpan / stepMs)
-  return Array.from({ length: expectedCount }, (_, i): BucketsOverviewSeriesPoint => ({
-    timestamp: new Date(fromMs + (i + 1) * stepMs).toISOString(),
-    uploads: 0,
-    bytes: 0,
-  }))
+async function readOverviewSeries(
+  c: Context,
+  window: PeriodWindow
+): Promise<readonly BucketsOverviewSeriesPoint[]> {
+  const result = await runRequestEffect(
+    c,
+    BuildBucketUploadSeries(window).pipe(provideAdminBucketFilesLive, Effect.result)
+  )
+  if (result._tag === 'Failure') {
+    logError('[admin] bucket overview series read failed', result.failure, requestLogAttributes(c))
+    return buildBucketUploadSeries(window, [])
+  }
+  return result.success
+}
+
+/**
+ * Build the overview's right-edge `totals` snapshot.
+ *
+ * `buckets` counts what the app DECLARES; `files` / `totalBytes` are the
+ * backend's global figures, read ONCE. Summing the per-bucket metadata instead
+ * would multiply a single upload by the bucket count (see
+ * {@link buildBucketItems}). With no provider resolved there is nothing to
+ * count: a declaration that cannot hold a byte is not a bucket.
+ *
+ * No bucket can be soft-deleted today, so every declared bucket is live.
+ */
+async function buildOverviewTotals(app: App): Promise<BucketsOverviewResponse['totals']> {
+  const meta = resolveDefaultBucket()
+  if (!meta) {
+    return { buckets: 0, files: 0, totalBytes: 0, by_provider: { s3: 0, local: 0, bytea: 0 } }
+  }
+
+  const buckets = declaredBucketNames(app.buckets).length
+  const { fileCount, totalBytes } = await readStorageTotals()
+
+  // Declared buckets are path prefixes inside the ONE env-resolved backend, so
+  // they all land under the same provider key — which is what keeps the
+  // partition invariant (`by_provider` sums to `buckets`) true.
+  return {
+    buckets,
+    files: fileCount,
+    totalBytes,
+    by_provider: {
+      s3: meta.provider === 's3' ? buckets : 0,
+      local: meta.provider === 'local' ? buckets : 0,
+      bytea: meta.provider === 'bytea' ? buckets : 0,
+    },
+  }
 }
 
 /**
  * GET /api/admin/buckets/overview handler.
  */
-async function handleBucketsOverview(c: Context): Promise<Response> {
+async function handleBucketsOverview(c: Context, app: App): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
 
   // Parse period preset (default 24h).
@@ -260,29 +317,11 @@ async function handleBucketsOverview(c: Context): Promise<Response> {
     rawPeriod === '7d' || rawPeriod === '30d' || rawPeriod === '24h' ? rawPeriod : '24h'
   const window = resolvePeriodWindow(preset)
 
-  // Resolve totals from the default bucket projection.
-  const items = await buildBucketItems()
-  const liveBuckets = items.filter((i) => i._admin.deletedAt === null)
-  const totalBuckets = liveBuckets.length
-  const totalFiles = liveBuckets.reduce(
-    (sum, i) => sum + ((i._admin.metadata?.['fileCount'] as number | undefined) ?? 0),
-    0
-  )
-  const totalBytes = liveBuckets.reduce(
-    (sum, i) => sum + ((i._admin.metadata?.['totalBytes'] as number | undefined) ?? 0),
-    0
-  )
-
-  const byProvider = {
-    s3: liveBuckets.filter((i) => i.provider === 's3').length,
-    local: liveBuckets.filter((i) => i.provider === 'local').length,
-    bytea: liveBuckets.filter((i) => i.provider === 'bytea').length,
-  }
-
-  const points = buildSeriesPoints(window.from, window.to, window.interval)
+  const totals = await buildOverviewTotals(app)
+  const points = await readOverviewSeries(c, window)
 
   const body: BucketsOverviewResponse = {
-    totals: { buckets: totalBuckets, files: totalFiles, totalBytes, by_provider: byProvider },
+    totals,
     series: { interval: window.interval, points: [...points] },
   }
 
@@ -321,10 +360,17 @@ async function handleBucketsOverview(c: Context): Promise<Response> {
  * The UPGRADED contract: a cursor-paginated, sortable,
  * mimeType-filterable enumeration of `system.file_storage_metadata` rows
  * (`{ items: [{ key, filename, size, mimeType, createdAt }], nextCursor,
- * totalBytes }`) — replacing the legacy N+1 `StorageService.list('') +
- * getMetadata(key)` walk. The `?sort` / `?order` / `?type` / `?cursor` / `?limit`
- * knobs are parsed by {@link bucketFilesQuerySchema}; all projection / cursor /
- * pagination logic lives in the `bucket-files` use case.
+ * totalBytes, appliedQuery }`) — replacing the legacy N+1
+ * `StorageService.list('') + getMetadata(key)` walk. The `?sort` / `?order` /
+ * `?type` / `?q` / `?cursor` / `?limit` knobs are parsed by
+ * {@link bucketFilesQuerySchema}; all projection / cursor / pagination logic
+ * lives in the `bucket-files` use case.
+ *
+ * `?q=` searches `filename` + storage `key` server-side, over the WHOLE bucket.
+ * It used to be accepted and discarded — Hono drops an unlisted query param
+ * silently — so the grid narrowed the single page it held and reported a file
+ * three pages down as absent. The operator was told a file they had uploaded
+ * did not exist.
  *
  * Sovrium today backs every named bucket with a single virtual "default"
  * bucket, so the listing reads ALL metadata rows (the per-named-bucket
@@ -345,44 +391,75 @@ async function handleBucketsOverview(c: Context): Promise<Response> {
  * bottom then dereferenced `undefined` and answered 500, which is both the
  * wrong status and a confirmation that the route exists.
  */
+/**
+ * Parse the file-browser query knobs. Defaults come from the schema
+ * (sort=date, order=desc, limit=50); an over-length `q` is a parse FAILURE
+ * rather than a truncation, so the caller answers 400 instead of quietly
+ * searching for something the operator never typed.
+ *
+ * The literal below is an explicit ALLOW-LIST, and that is exactly how `?q=`
+ * used to vanish: an unlisted key is dropped by Hono without complaint, so the
+ * request looked well-formed and the response was a confident 200 carrying the
+ * unfiltered first page.
+ *
+ * `?sort=` takes BOTH spellings. The pair — `?sort=size&order=desc` — is this
+ * endpoint's own; the combined `?sort=size:desc` is what the file browser's
+ * column headers actually emit, and answering it with a 400 put an error where
+ * the operator asked for an ordering. {@link parseSortSpec} splits the combined
+ * form and nothing more, so a key outside the enum still fails validation:
+ * widening what can be SPELLED must not widen what can be SERVED, or the grid
+ * paints a sort arrow over whatever order the store happened to yield.
+ *
+ * The field then passes through {@link normalizeBucketFilesSortKey}, which
+ * rewrites the one legacy spelling (`date` → `createdAt`) so the alias and the
+ * canonical name are the SAME sort downstream rather than two wirings that have
+ * to be kept in agreement. Unknown keys are untouched by it and still 400.
+ */
+function parseBucketFilesQuery(c: Context) {
+  const sortSpec = parseSortSpec(c.req.query('sort'))
+  return bucketFilesQuerySchema.safeParse({
+    cursor: c.req.query('cursor'),
+    limit: c.req.query('limit'),
+    sort: normalizeBucketFilesSortKey(sortSpec?.field),
+    // A direction spelled INSIDE `sort` wins over a separate `?order=`: it is
+    // the more specific statement, and it is the only one a header click sends.
+    order: sortSpec?.direction ?? c.req.query('order'),
+    type: c.req.query('type'),
+    q: c.req.query('q'),
+  })
+}
+
 async function handleListBucketFiles(c: Context): Promise<Response> {
   const { session } = (c as ContextWithSession).var
   if (!session) return notFound(c, 'Not found')
 
-  // Parse the file-browser query knobs (cursor/limit/sort/order/type). Defaults
-  // are applied by the schema (sort=date, order=desc, limit=50).
-  const parsedQuery = bucketFilesQuerySchema.safeParse({
-    cursor: c.req.query('cursor'),
-    limit: c.req.query('limit'),
-    sort: c.req.query('sort'),
-    order: c.req.query('order'),
-    type: c.req.query('type'),
-  })
+  const parsedQuery = parseBucketFilesQuery(c)
   if (!parsedQuery.success) {
     return c.json({ success: false, message: 'Invalid query parameters', code: 'BAD_REQUEST' }, 400)
   }
-  const { cursor, limit, sort, order, type } = parsedQuery.data
+  const { cursor, limit, sort, order, type, q } = parsedQuery.data
 
   const program = BuildBucketFiles({
     sort,
     order,
     ...(type !== undefined ? { type } : {}),
+    ...(q !== undefined ? { q } : {}),
     ...(cursor !== undefined ? { cursor } : {}),
     limit,
   })
 
-  const result = await runRequestEffect(c, program.pipe(provideAdminBucketFilesLive, Effect.either))
-  if (result._tag === 'Left') {
-    logError('[admin] bucket file-list lookup failed', result.left, requestLogAttributes(c))
+  const result = await runRequestEffect(c, program.pipe(provideAdminBucketFilesLive, Effect.result))
+  if (result._tag === 'Failure') {
+    logError('[admin] bucket file-list lookup failed', result.failure, requestLogAttributes(c))
     return c.json(
       { success: false, message: 'Failed to build bucket file list', code: 'INTERNAL_ERROR' },
       500
     )
   }
-  if (result.right._tag === 'ValidationFailed') {
+  if (result.success._tag === 'ValidationFailed') {
     logError(
       '[admin] bucket file-list response validation failed',
-      result.right.error,
+      result.success.error,
       requestLogAttributes(c)
     )
     return c.json(
@@ -403,7 +480,7 @@ async function handleListBucketFiles(c: Context): Promise<Response> {
     result: 'success',
   })
 
-  return c.json(result.right.body, 200)
+  return c.json(result.success.body, 200)
 }
 
 /**
@@ -502,18 +579,18 @@ async function persistAdminUpload(c: Context, file: File): Promise<Response> {
     return yield* storage.getMetadata(key)
   })
 
-  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.either))
-  if (result._tag === 'Left') {
-    const { cause } = result.left as { readonly cause?: unknown }
+  const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))
+  if (result._tag === 'Failure') {
+    const { cause } = result.failure as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
-    logError('[admin] bucket upload failed', result.left, requestLogAttributes(c))
+    logError('[admin] bucket upload failed', result.failure, requestLogAttributes(c))
     return c.json(
       { success: false, message: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
       500
     )
   }
 
-  const meta = result.right
+  const meta = result.success
   const parsed = bucketFileUploadResponseSchema.safeParse({
     success: true,
     file: {
@@ -550,6 +627,11 @@ async function persistAdminUpload(c: Context, file: File): Promise<Response> {
 /**
  * Chain the admin/buckets routes onto a Hono app.
  *
+ * `app` is threaded in because a bucket is a DECLARATION (`app.buckets[]`), not
+ * a storage backend: without it the list and the overview could only ever report
+ * the one env-resolved backend, contradicting the public upload route and the
+ * admin Files sidebar, which both address every declared bucket by name.
+ *
  * Auth gating is wired upstream in `createApiRoutes` (authMiddleware +
  * requireAuth + requireAdminTier on the matching paths). The order matters
  * — the overview + file-list routes are registered first so the more-specific
@@ -557,10 +639,10 @@ async function persistAdminUpload(c: Context, file: File): Promise<Response> {
  * order for `.get` overlaps). The POST upload is registered before the bare
  * list for the same precedence reason.
  */
-export function chainAdminBucketsRoutes<T extends Hono>(honoApp: T): T {
+export function chainAdminBucketsRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
-    .get('/api/admin/buckets/overview', handleBucketsOverview)
+    .get('/api/admin/buckets/overview', (c) => handleBucketsOverview(c, app))
     .get('/api/admin/buckets/:bucketName/files', handleListBucketFiles)
     .post('/api/admin/buckets/:bucketName/files', handleUploadBucketFile)
-    .get('/api/admin/buckets', handleListBuckets) as T
+    .get('/api/admin/buckets', (c) => handleListBuckets(c, app)) as T
 }

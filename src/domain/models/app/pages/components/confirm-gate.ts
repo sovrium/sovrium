@@ -55,7 +55,7 @@ import { Schema } from 'effect'
  */
 
 /** The ARIA role of the confirm surface. */
-export const ConfirmRoleSchema = Schema.Literal('alertdialog', 'dialog').annotations({
+export const ConfirmRoleSchema = Schema.Literals(['alertdialog', 'dialog']).annotate({
   title: 'Confirm Role',
   description:
     'ARIA role of the confirm surface: "alertdialog" (default — the inline destructive gate) or "dialog" (a focusable, input-gated confirm such as type-to-confirm).',
@@ -64,7 +64,7 @@ export const ConfirmRoleSchema = Schema.Literal('alertdialog', 'dialog').annotat
 /** Type-to-confirm input descriptor: the confirm affordance is disabled until the value matches. */
 export const ConfirmInputSchema = Schema.Struct({
   /** Accessible label of the type-to-confirm textbox (also its visible label). */
-  label: Schema.String.annotations({
+  label: Schema.String.annotate({
     description:
       'Accessible label of the type-to-confirm input (e.g. "Saisissez votre adresse e-mail").',
     examples: ['Saisissez votre adresse e-mail', 'Type DELETE to confirm'],
@@ -76,13 +76,13 @@ export const ConfirmInputSchema = Schema.Struct({
    * acknowledgement input with no equality gate.
    */
   matchValue: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         'The confirm affordance is disabled until the input equals this value. Supports the $session.<field> token (e.g. $session.email) and $record.<field>. Omit for a non-matching acknowledgement input.',
       examples: ['$session.email', 'DELETE', '$record.name'],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Confirm Input',
   description:
     'Type-to-confirm gate: the user must type matchValue before the confirm affordance enables.',
@@ -94,7 +94,7 @@ export const ConfirmObjectSchema = Schema.Struct({
    * Confirmation body text (the dialog's visible message). Supports `$record.<field>`
    * and the `$session.<field>` token.
    */
-  message: Schema.String.annotations({
+  message: Schema.String.annotate({
     description:
       'Confirmation body text (the dialog message). Supports $record.<field> and $session.<field>.',
     examples: ["L'effacement est définitif et irréversible.", 'This cannot be undone.'],
@@ -105,7 +105,7 @@ export const ConfirmObjectSchema = Schema.Struct({
    * behavior).
    */
   title: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Dialog title (the surface's accessible name), separate from the body message. Defaults to the message when omitted.",
       examples: ["Confirmer l'effacement", 'Delete account'],
@@ -120,20 +120,26 @@ export const ConfirmObjectSchema = Schema.Struct({
    * Supports `$t:key` translation references.
    */
   confirmLabel: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Confirm-button label, overriding the default (re-use the trigger's label). Supports $t:key references.",
       examples: ['Effacer', 'Delete forever'],
     })
   ),
-  /** Cancel-button label. Overrides the default ("Annuler"). Supports `$t:key`. */
+  /**
+   * Cancel-button label. Overrides the interpreter default, which resolves the
+   * `confirmGate.cancel` string against the app's own language ("Cancel" in
+   * English, "Annuler" in French) rather than being a fixed literal. Supports
+   * `$t:key`.
+   */
   cancelLabel: Schema.optional(
-    Schema.String.annotations({
-      description: 'Cancel-button label, overriding the default ("Annuler"). Supports $t:key.',
+    Schema.String.annotate({
+      description:
+        "Cancel-button label, overriding the language-resolved interpreter default (the `confirmGate.cancel` string — 'Cancel' in English, 'Annuler' in French). Supports $t:key.",
       examples: ['Annuler', 'Keep my account'],
     })
   ),
-}).annotations({
+}).annotate({
   title: 'Confirm Object',
   description:
     'Rich destructive-confirm descriptor: a body message plus an optional separate title, dialog role, type-to-confirm input (matchValue supports $session.<field>), and confirm/cancel label overrides.',
@@ -143,7 +149,7 @@ export const ConfirmObjectSchema = Schema.Struct({
  * A confirmation gate before an action fires: either the legacy STRING prompt or the
  * rich OBJECT descriptor. Backward-compatible — a bare string is unchanged.
  */
-export const ConfirmGateSchema = Schema.Union(Schema.String, ConfirmObjectSchema).annotations({
+export const ConfirmGateSchema = Schema.Union([Schema.String, ConfirmObjectSchema]).annotate({
   identifier: 'ConfirmGate',
   title: 'Confirm Gate',
   description:

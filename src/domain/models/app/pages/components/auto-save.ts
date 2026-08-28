@@ -18,7 +18,7 @@ import { Schema } from 'effect'
  * - `onBlur`: Save when the edited field loses focus (Notion-like)
  * - `manual`: Explicit save button required (default, backward compatible)
  */
-export const SaveModeSchema = Schema.Literal('auto', 'onBlur', 'manual').annotations({
+export const SaveModeSchema = Schema.Literals(['auto', 'onBlur', 'manual']).annotate({
   identifier: 'SaveMode',
   title: 'Save Mode',
   description:
@@ -36,7 +36,7 @@ export const SaveModeSchema = Schema.Literal('auto', 'onBlur', 'manual').annotat
  * - `toast`: As a toast notification
  * - `toolbar`: In the component toolbar area
  */
-export const SaveIndicatorPositionSchema = Schema.Literal('inline', 'toast', 'toolbar').annotations(
+export const SaveIndicatorPositionSchema = Schema.Literals(['inline', 'toast', 'toolbar']).annotate(
   {
     identifier: 'SaveIndicatorPosition',
     title: 'Save Indicator Position',
@@ -84,17 +84,16 @@ export const SaveIndicatorPositionSchema = Schema.Literal('inline', 'toast', 'to
 export const AutoSaveConfigSchema = Schema.Struct({
   /** How edits are persisted */
   saveMode: Schema.optional(
-    SaveModeSchema.annotations({
+    SaveModeSchema.annotate({
       description:
         "Save trigger strategy: 'auto' (debounced), 'onBlur' (field blur), 'manual' (button). Default: 'manual'.",
     })
   ),
   /** Debounce delay in milliseconds for auto save mode (min: 100, default: 500) */
   autoSaveDebounceMs: Schema.optional(
-    Schema.Number.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(100),
-      Schema.annotations({
+    Schema.Finite.pipe(
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(100)),
+      Schema.annotate({
         description: 'Debounce delay for auto-save in milliseconds (default: 500, min: 100)',
         examples: [300, 500, 1000],
       })
@@ -102,14 +101,14 @@ export const AutoSaveConfigSchema = Schema.Struct({
   ),
   /** Show a save status indicator (default: true when saveMode is auto or onBlur) */
   showSaveIndicator: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description:
         'Display a save status indicator (Saving... / Saved / Error). Default: true when saveMode is auto or onBlur.',
     })
   ),
   /** Where to display the save indicator */
   saveIndicatorPosition: Schema.optional(SaveIndicatorPositionSchema),
-}).annotations({
+}).annotate({
   identifier: 'AutoSaveConfig',
   title: 'Auto Save Configuration',
   description:

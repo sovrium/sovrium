@@ -27,19 +27,19 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const ColorFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('color'),
-      default: Schema.optional(
-        Schema.String.pipe(
-          Schema.pattern(/^#[0-9a-fA-F]{6}$/, {
-            message: () => 'Invalid format',
+  Schema.fieldsAssign({
+    type: Schema.Literal('color'),
+    default: Schema.optional(
+      Schema.String.pipe(
+        Schema.check(
+          Schema.isPattern(/^#[0-9a-fA-F]{6}$/, {
+            message: 'Invalid format',
           })
         )
-      ),
-    })
-  ),
-  Schema.annotations({
+      )
+    ),
+  }),
+  Schema.annotate({
     title: 'Color Field',
     description: 'Stores color values in hexadecimal format. Rendered with color picker in UI.',
     examples: [

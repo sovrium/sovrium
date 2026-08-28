@@ -149,19 +149,24 @@ export const handleBuildCommand = async (
   publicDir?: string | false
 ): Promise<void> => {
   const { build } = await lazyImportIndex()
-  const { parseAppSchema } = await lazyImportCli()
+  const { resolveAppSchema } = await lazyImportCli()
   const { logError } = await lazyImportLogger()
   const { renderBuildSummary, formatDuration } = await lazyImportStartupSummary()
   const { getSovriumVersion } = await import('@/infrastructure/utils/version')
 
-  const app = await parseAppSchema('build', filePath)
+  // `configFile`, not the `filePath` parameter — they differ only under
+  // auto-discovery, where the operator named no file but one sits in the
+  // working directory. `start` anchors the same way and for the same reason:
+  // a discovered config must resolve `public/` and `dist/` exactly as a named
+  // one does, or `sovrium build` beside an `app.yaml` silently ships no assets.
+  const { app, configFile } = await resolveAppSchema('build', filePath)
   const envOptions = parseBuildOptions()
-  const defaultOutputDir = filePath ? join(dirname(filePath), 'dist') : './dist'
+  const defaultOutputDir = configFile ? join(dirname(configFile), 'dist') : './dist'
   // `publicDir === false` is the `--no-publicDir` opt-out from dispatch. For
   // build, that flag does NOT drive the legacy outputDir override (it would be
   // a footgun); fall back to env / default like an unset flag.
   const outputOverride = publicDir === false ? undefined : publicDir
-  const resolvedPublicDir = resolveBuildPublicDir(filePath, publicDir, envOptions.publicDir)
+  const resolvedPublicDir = resolveBuildPublicDir(configFile, publicDir, envOptions.publicDir)
   const options = {
     ...envOptions,
     outputDir: outputOverride || envOptions.outputDir || defaultOutputDir,

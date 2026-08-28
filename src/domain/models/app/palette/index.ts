@@ -32,13 +32,13 @@ export const PaletteSchema = Schema.Struct({
    */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Enable the platform Cmd+K command palette (default: true)',
       })
     )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'Palette',
     title: 'Command Palette Configuration',
     description:
@@ -57,4 +57,4 @@ export type Palette = Schema.Schema.Type<typeof PaletteSchema>
  * Encoded type of PaletteSchema (what goes in).
  * @public
  */
-export type PaletteEncoded = Schema.Schema.Encoded<typeof PaletteSchema>
+export type PaletteEncoded = Schema.Codec.Encoded<typeof PaletteSchema>

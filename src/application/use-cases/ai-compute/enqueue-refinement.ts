@@ -300,7 +300,7 @@ export const signalAiComputeWritePhase = (params: {
     )
     const program = Effect.forEach(inputs, (input) => refineAiComputeField(input), {
       discard: true,
-    }).pipe(Effect.provide(AiLive), Effect.either)
+    }).pipe(Effect.provide(AiLive), Effect.result)
     runDetached(program, 'sqlite-refinement-enqueue')
   }
 }

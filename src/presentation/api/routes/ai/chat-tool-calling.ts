@@ -56,13 +56,14 @@ import {
   countDynamicRecords,
   listDynamicRecords,
 } from '@/application/use-cases/ai/dynamic-record-query'
-import { hasReadPermission } from '@/domain/validators/permission-evaluators'
+import { hasReadPermissionForRoles } from '@/domain/validators/permission-evaluators'
+import { type ReadPrincipal } from '@/domain/validators/read-access-plan'
 import { recordActivityLogRow, recordChatActivity } from './chat-activity-log'
 import { appendConversationTurn } from './chat-conversation-store'
-import { persistTurnDurably } from './chat-durable-memory'
+import { persistChatTurnDurably } from './chat-durable-memory'
 import {
   projectAppTables,
-  readableColumnsForRole,
+  readableColumnsForTable,
   type ProjectedField,
 } from './chat-table-projection'
 import {
@@ -100,21 +101,31 @@ export interface ToolCallTable {
  */
 export const toToolCallTables = (
   app: App | undefined,
-  userRole: string
+  userRole: string,
+  effectiveRoles: ReadonlyArray<string>
 ): ReadonlyArray<ToolCallTable> => {
   const tables = projectAppTables(app)
+  // The caller resolves group memberships, so the principal carries the full
+  // effective-role set. A `group:<name>` entry can never match a bare role
+  // string, so passing `[userRole]` here would leave BOTH the table gate below
+  // and the field-level column projection group-blind.
+  const principal: ReadPrincipal = {
+    role: userRole,
+    effectiveRoles,
+    isAuthenticated: userRole !== '',
+  }
   return tables
     .filter((table) =>
-      hasReadPermission(
+      hasReadPermissionForRoles(
         table as { name: string; permissions?: { read?: unknown } },
-        userRole,
+        effectiveRoles,
         tables as ReadonlyArray<{ name: string; permissions?: never }>
       )
     )
     .map((table) => ({
       name: table.name,
       fields: table.fields,
-      readableColumns: readableColumnsForRole(table.fields, table.permissions, userRole),
+      readableColumns: readableColumnsForTable(app, table, principal),
       ...(table.permissions !== undefined && { permissions: table.permissions }),
     }))
 }
@@ -131,12 +142,26 @@ export interface ToolCallingInput {
   readonly tables: ReadonlyArray<ToolCallTable>
   /** The acting user's role — table-level read RBAC. */
   readonly userRole: string
+  /**
+   * The acting user's role plus their `group:<name>` memberships. A `group:`
+   * permission entry can never match a bare role string, so the per-tool table
+   * gate consults this rather than {@link ToolCallingInput.userRole}.
+   */
+  readonly effectiveRoles: ReadonlyArray<string>
   /** The acting user's identifier — written to the activity log. */
   readonly actorName: string
   /** The session this turn belongs to — used for durable conversation persistence. */
   readonly sessionId: string
   /** The originating user message — persisted alongside the reply. */
   readonly userMessage: string
+  /**
+   * The declared agent this turn is bound to, when it is agent-bound. Threaded
+   * through so the persisted conversation row keeps its attribution — a tool
+   * call is the one path where an agent turn does NOT return through the
+   * route's own completion, so without this the attribution would be lost
+   * precisely on the turns that did the most work.
+   */
+  readonly agentName?: string
 }
 
 /** Outcome of the tool-calling loop. */
@@ -198,6 +223,21 @@ interface ToolExecution {
 const RBAC_DENIED_REPLY =
   'I cannot complete that request — you do not have permission to access the requested data.'
 
+/**
+ * Reply text for a turn that EXECUTED tools but settled without any assistant
+ * prose — the model kept requesting tools until the iteration budget ran out
+ *, or the follow-up provider call failed.
+ *
+ * Deliberately not a fabricated answer: it reports what is actually known —
+ * that the lookups ran and no summary came back — and points at the `actions[]`
+ * that accompany it, which carry the real record of what happened. The
+ * alternative shipped today is an EMPTY assistant bubble, which a chat surface
+ * renders as a turn that silently did nothing, hiding work that in fact
+ * executed against the operator's data.
+ */
+const NO_SUMMARY_REPLY =
+  'I completed the requested lookups, but the assistant did not return a final summary. The actions taken are listed alongside this reply.'
+
 /** The tool-call args object, normalised to a record (model may omit it). */
 const callArgs = (call: ChatToolCall): Record<string, unknown> =>
   call.arguments !== null && typeof call.arguments === 'object'
@@ -245,9 +285,9 @@ const executeToolCall = async (
   // error tool result; no query is run.
   if (
     table === undefined ||
-    !hasReadPermission(
+    !hasReadPermissionForRoles(
       table as { name: string; permissions?: { read?: unknown } },
-      input.userRole,
+      input.effectiveRoles,
       input.tables as ReadonlyArray<{ name: string; permissions?: never }>
     )
   ) {
@@ -292,10 +332,10 @@ const executeQuery = async (
       ...(inputs.sortColumn !== undefined && { sortColumn: inputs.sortColumn }),
       ...(inputs.sortDirection !== undefined && { sortDirection: inputs.sortDirection }),
       limit: inputs.limit,
-    }).pipe(provideDynamicRecordRepoLive, Effect.either)
+    }).pipe(provideDynamicRecordRepoLive, Effect.result)
   )
-  if (result._tag === 'Left') {
-    const { cause } = result.left
+  if (result._tag === 'Failure') {
+    const { cause } = result.failure
     return {
       content: `Error: query execution failed — ${
         cause instanceof Error ? cause.message : String(cause)
@@ -306,7 +346,7 @@ const executeQuery = async (
   }
   // Project every returned row to the role-readable columns (field-level
   // scoping defence-in-depth) before handing it to the model.
-  const rows = result.right.map((row) => projectRow(row, table.readableColumns))
+  const rows = result.success.map((row) => projectRow(row, table.readableColumns))
   return { content: JSON.stringify({ rows }), action, denied: false }
 }
 
@@ -327,11 +367,11 @@ const executeCount = async (
   const result = await Effect.runPromise(
     countDynamicRecords({ table: table.name, conditions: validation.inputs.conditions }).pipe(
       provideDynamicRecordRepoLive,
-      Effect.either
+      Effect.result
     )
   )
-  if (result._tag === 'Left') {
-    const { cause } = result.left
+  if (result._tag === 'Failure') {
+    const { cause } = result.failure
     return {
       content: `Error: count execution failed — ${
         cause instanceof Error ? cause.message : String(cause)
@@ -340,7 +380,7 @@ const executeCount = async (
       denied: false,
     }
   }
-  return { content: JSON.stringify({ count: result.right }), action, denied: false }
+  return { content: JSON.stringify({ count: result.success }), action, denied: false }
 }
 
 /** One provider round-trip carrying the accumulated message list + tools. */
@@ -359,9 +399,9 @@ const runProvider = async (
   tools: ReadonlyArray<ChatToolDefinition>
 ): Promise<ChatReply | undefined> => {
   const result = await Effect.runPromise(
-    callProvider(messages, tools).pipe(provideAiLive, Effect.either)
+    callProvider(messages, tools).pipe(provideAiLive, Effect.result)
   )
-  return result._tag === 'Right' ? result.right : undefined
+  return result._tag === 'Success' ? result.success : undefined
 }
 
 /**
@@ -484,14 +524,25 @@ export const runToolCallingLoop = async (input: ToolCallingInput): Promise<ToolC
     done: false,
   }
   const finalState = await driveLoop(initialState, input, resolveMaxToolIterations())
-  const reply = finalState.replyOverride ?? finalState.reply.content
+  const settledReply = finalState.replyOverride ?? finalState.reply.content
+  // A tool-call reply carries empty `content` by construction, so a loop that
+  // ends ON one — budget exhausted, or a failed follow-up — would otherwise
+  // hand the caller an empty assistant turn for work that DID run.
+  const reply =
+    settledReply.length > 0 ? settledReply : finalState.executed ? NO_SUMMARY_REPLY : settledReply
 
   // Persist the completed tool-calling exchange so the next turn on the same
   // session carries it forward, and record the interaction in activity
   // monitoring. Both are best-effort side effects.
   appendConversationTurn(input.sessionId, input.userMessage, reply)
   // eslint-disable-next-line functional/no-expression-statements -- best-effort durable-persistence side effect
-  await persistTurnDurably(input.actorName, input.sessionId, input.userMessage, reply)
+  await persistChatTurnDurably({
+    userId: input.actorName,
+    sessionId: input.sessionId,
+    userMessage: input.userMessage,
+    assistantReply: reply,
+    ...(input.agentName !== undefined && { agentName: input.agentName }),
+  })
   // eslint-disable-next-line functional/no-expression-statements -- best-effort activity-log side effect
   await recordChatActivity({ action: 'ai.chat.message', actorName: input.actorName })
 

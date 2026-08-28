@@ -27,12 +27,10 @@ import { BaseFieldSchema } from '../base-field'
  * ```
  */
 export const CreatedByFieldSchema = BaseFieldSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      type: Schema.Literal('created-by'),
-    })
-  ),
-  Schema.annotations({
+  Schema.fieldsAssign({
+    type: Schema.Literal('created-by'),
+  }),
+  Schema.annotate({
     title: 'Created By Field',
     description:
       'Automatically captures the user who created a record. System-managed field that stores user ID reference.',

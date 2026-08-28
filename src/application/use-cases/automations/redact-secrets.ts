@@ -44,12 +44,56 @@ const redactString = (input: string, secrets: readonly string[]): string =>
   secrets.reduce((acc, secret) => acc.split(secret).join('***'), input)
 
 /**
+ * The values an author declared are NOT credentials, and which therefore must
+ * survive the value-matching pass verbatim.
+ *
+ * Two conditions, both required:
+ *
+ *  1. the variable carries an explicit `secret: false` — the marker is scoped
+ *     to the DEFAULT, so anything else (including a mistyped non-boolean) keeps
+ *     redacting and a config written before the marker existed is unaffected;
+ *  2. that default is the value actually IN FORCE. When the operator supplied
+ *     an OS value, what is resolved is theirs and not the one the author
+ *     inspected, so it stays hidden.
+ *
+ * A value another, secret-bearing variable also resolves to is excluded: a
+ * collision must fail closed, because unredacting the shared string would
+ * expose the OTHER variable's credential.
+ */
+const collectDeclaredVisibleValues = (
+  envVars: ReadonlyArray<EnvVar>,
+  processEnv: Readonly<Record<string, string | undefined>>
+): ReadonlySet<string> => {
+  const inForceDefault = (v: EnvVar): string | undefined => {
+    const fromOs = processEnv[v.key]
+    return fromOs === undefined || fromOs === '' ? v.default : undefined
+  }
+  const declaredVisible = envVars
+    .filter((v) => v.secret === false)
+    .map(inForceDefault)
+    .filter((d): d is string => typeof d === 'string' && d.length > 0)
+  if (declaredVisible.length === 0) return new Set()
+
+  const lookup = buildEnvLookup(
+    envVars.filter((v) => v.secret !== false),
+    processEnv
+  )
+  const stillSecret = new Set(Object.values(lookup).filter((v) => v.length > 0))
+  return new Set(declaredVisible.filter((v) => !stillSecret.has(v)))
+}
+
+/**
  * Convenience overload that accepts `EnvVar[]` and a `processEnv` snapshot,
  * mirroring the shape we use elsewhere in the runtime.
  *
  * Resolution rules (OS env beats schema default beats empty string) live in
  * `buildEnvLookup`; redaction reuses that single source of truth so the two
  * helpers cannot drift out of sync.
+ *
+ * A variable declared `secret: false` is dropped from the scrub list rather
+ * than added to it — see {@link collectDeclaredVisibleValues}. Without that,
+ * marking a base URL visible changes nothing: the path pass leaves the literal
+ * in place and this pass puts `***` straight back over it.
  */
 export const redactSecretsForEnv = (
   value: unknown,
@@ -57,7 +101,13 @@ export const redactSecretsForEnv = (
   processEnv: Readonly<Record<string, string | undefined>>
 ): unknown => {
   if (!envVars || envVars.length === 0) return value
-  return redactSecretsInValue(value, buildEnvLookup(envVars, processEnv))
+  const lookup = buildEnvLookup(envVars, processEnv)
+  const visible = collectDeclaredVisibleValues(envVars, processEnv)
+  if (visible.size === 0) return redactSecretsInValue(value, lookup)
+  return redactSecretsInValue(
+    value,
+    Object.fromEntries(Object.entries(lookup).filter(([, v]) => !visible.has(v)))
+  )
 }
 
 /**

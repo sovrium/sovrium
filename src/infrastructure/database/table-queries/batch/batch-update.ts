@@ -132,10 +132,13 @@ export function batchUpdateRecords(
 
         return await runEffectInTx(
           // Process updates sequentially with immutable array building
-          Effect.reduce(updates, [] as readonly Record<string, unknown>[], (acc, update) =>
-            updateSingleRecordInBatch(tx, tableName, session, update).pipe(
-              Effect.map((record) => (record ? [...acc, record] : acc))
-            )
+          Effect.reduce(
+            updates,
+            () => [] as readonly Record<string, unknown>[],
+            (acc, update) =>
+              updateSingleRecordInBatch(tx, tableName, session, update).pipe(
+                Effect.map((record) => (record ? [...acc, record] : acc))
+              )
           )
         )
       }),

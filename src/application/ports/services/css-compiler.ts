@@ -41,7 +41,7 @@ export interface CSSCompilationError {
  * })
  * ```
  */
-export class CSSCompiler extends Context.Tag('CSSCompiler')<
+export class CSSCompiler extends Context.Service<
   CSSCompiler,
   {
     /**
@@ -52,4 +52,4 @@ export class CSSCompiler extends Context.Tag('CSSCompiler')<
      */
     readonly compile: (app?: App) => Effect.Effect<CompiledCSS, CSSCompilationError>
   }
->() {}
+>()('CSSCompiler') {}

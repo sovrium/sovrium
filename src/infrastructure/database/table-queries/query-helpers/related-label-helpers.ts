@@ -78,7 +78,9 @@ const readLabelRows = (
 }
 
 /** Fold one table's rows into `id -> label`, dropping rows with no label. */
-const foldLabelRows = (rows: ReadonlyArray<Record<string, unknown>>): Record<string, string> =>
+const foldLabelRows = (
+  rows: ReadonlyArray<Record<string, unknown>>
+): Readonly<Record<string, string>> =>
   rows.reduce<Record<string, string>>((acc, row) => {
     const { label, related_id: relatedId } = row
     if (label === null || label === undefined || label === '') return acc

@@ -79,7 +79,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Effect, Runtime } from 'effect'
+import { Effect } from 'effect'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
@@ -91,7 +91,9 @@ import { executeRaw } from '../sql/dialect-execute'
 import { getExistingColumns } from '../sql/sql-execution'
 import { isUserField } from '../sql/sql-field-predicates'
 import { generateForeignKeyConstraints } from '../sql/sql-key-constraints'
+import { buildTablePrimaryKeyTypesMap } from '../table-operations/column-generators'
 import { recreateTableWithDataEffect } from '../table-operations/migration-utils'
+import { applySchemaDefaults } from './apply-schema-defaults'
 import type { SQLExecutionError, TransactionLike } from '../sql/sql-execution'
 import type { App, Table } from '@/domain/models/app'
 
@@ -130,9 +132,27 @@ export const collectUserForeignKeyCandidates = (
 ): readonly UserForeignKeyCandidate[] =>
   (app.tables ?? []).flatMap((table) => collectTableCandidates(table))
 
-/** `tableUsesView` map in the shape the DDL generators expect. */
-const buildTableUsesView = (app: Readonly<App>): ReadonlyMap<string, boolean> =>
-  new Map((app.tables ?? []).map((table) => [table.name, shouldUseView(table)]))
+/**
+ * The maps the DDL generators need, in the shape they expect.
+ *
+ * The primary-key map is built from the `applySchemaDefaults`-processed tables,
+ * not the raw config: a table named in `auth.scopeTables` gets its implicit
+ * TEXT key there, and a map built from the raw list would hand its children an
+ * INTEGER foreign key onto a TEXT parent — the exact shape this repair exists
+ * to remove, reintroduced by the repair itself.
+ */
+const buildGeneratorMaps = (
+  app: Readonly<App>
+): {
+  readonly tableUsesView: ReadonlyMap<string, boolean>
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+} => ({
+  tableUsesView: new Map((app.tables ?? []).map((table) => [table.name, shouldUseView(table)])),
+  tablePrimaryKeyTypes: buildTablePrimaryKeyTypesMap(applySchemaDefaults(app.tables ?? [], app)),
+})
+
+/** The generator maps, as one value threaded through the SQLite repair. */
+type GeneratorMaps = ReturnType<typeof buildGeneratorMaps>
 
 /**
  * Which of `candidates` carry a live foreign key whose `ON DELETE` action is
@@ -275,11 +295,16 @@ const repairPostgresKey = (
 const repairSqliteTable = (
   tx: TransactionLike,
   candidate: Readonly<UserForeignKeyCandidate>,
-  tableUsesView: ReadonlyMap<string, boolean>
+  maps: GeneratorMaps
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const existingColumns = yield* getExistingColumns(tx, candidate.table.name)
-    yield* recreateTableWithDataEffect(tx, candidate.table, existingColumns, tableUsesView)
+    yield* recreateTableWithDataEffect({
+      tx,
+      table: candidate.table,
+      existingColumns,
+      ...maps,
+    })
   })
 
 /**
@@ -290,22 +315,18 @@ const repairSqliteTable = (
 const repairSqlite = (
   drifted: readonly UserForeignKeyCandidate[],
   path: string,
-  tableUsesView: ReadonlyMap<string, boolean>
+  maps: GeneratorMaps
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
-    const runtime = yield* Effect.runtime<never>()
+    const runtime = yield* Effect.context<never>()
     const client = openSqliteDdlDatabase(path)
     yield* Effect.tryPromise({
       try: () =>
         runSqliteSchemaTransaction(client, (tx) =>
-          Runtime.runPromise(runtime)(
-            Effect.forEach(
-              drifted,
-              (candidate) => repairSqliteTable(tx, candidate, tableUsesView),
-              {
-                discard: true,
-              }
-            )
+          Effect.runPromiseWith(runtime)(
+            Effect.forEach(drifted, (candidate) => repairSqliteTable(tx, candidate, maps), {
+              discard: true,
+            })
           )
         ),
       catch: asSchemaError('rebuild the tables whose keys drifted'),
@@ -367,10 +388,8 @@ export const reconcileUserForeignKeys = (app: Readonly<App>): Effect.Effect<void
     if (drifted.length === 0) return
 
     yield* config.dialect === 'sqlite'
-      ? repairSqlite(drifted, config.path, buildTableUsesView(app))
+      ? repairSqlite(drifted, config.path, buildGeneratorMaps(app))
       : Effect.forEach(drifted, repairPostgresKey, { discard: true })
 
     yield* logReconciled(drifted)
-  }).pipe(
-    Effect.catchAll((error) => warnReconcileFailed(collectUserForeignKeyCandidates(app), error))
-  )
+  }).pipe(Effect.catch((error) => warnReconcileFailed(collectUserForeignKeyCandidates(app), error)))

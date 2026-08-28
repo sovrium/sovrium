@@ -22,7 +22,7 @@ export const FileUploadActionSchema = Schema.Struct({
   props: Schema.Struct({
     /** Source data for the upload */
     source: TemplateStringSchema.pipe(
-      Schema.annotations({
+      Schema.annotate({
         description: 'Previous step result key, URL, or base64 data',
       })
     ),
@@ -30,7 +30,7 @@ export const FileUploadActionSchema = Schema.Struct({
     /** Storage key destination */
     path: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Storage key destination. If omitted, auto-generated.',
         })
       )
@@ -39,14 +39,14 @@ export const FileUploadActionSchema = Schema.Struct({
     /** MIME type */
     contentType: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'MIME type. If omitted, auto-detected from filename.',
         })
       )
     ),
   }),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileUploadAction',
     title: 'File Upload Action',
     description: 'Upload a file to storage from binary data, URL, or previous step output',

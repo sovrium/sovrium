@@ -13,11 +13,12 @@
  * `.env.example`. Keep them in sync by sourcing both from this constant.
  *
  * Principles:
- *   - EVERY variable is optional — Sovrium runs zero-config. The defaults
- *     shown are the eco-aligned, frugal-by-default settings; operators
- *     override to opt OUT, never in.
- *   - Only IMPLEMENTED variables appear here (the documented-but-deferred
- *     ECO_* rows are intentionally omitted).
+ *   - EVERY variable is optional — Sovrium runs zero-config. Per ADR 023 the
+ *     defaults are performance- and experience-first; operators opt *in* to
+ *     frugality. Win-win choices (AVIF, page cache) are native, not toggles.
+ *   - Only IMPLEMENTED variables appear here. Every ECO_* row below has a real
+ *     enforcement point in the binary — a lever that only echoed itself back
+ *     through the admin overview is not a lever and does not belong here.
  *   - Storage is spelled `STORAGE_S3_*`. The bare `S3_*` aliases were removed;
  * `[internal ref]` pins that they never come back.
  */
@@ -53,10 +54,18 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # STORAGE_S3_SECRET_ACCESS_KEY=
 # STORAGE_LOCAL_DIRECTORY=./uploads     # when STORAGE_PROVIDER=local
 
-# ── Ecoconception (frugal by default — override only to opt OUT) ───────
+# ── Ecoconception (performance-first defaults; opt IN to frugality) ────
+# Win-win defaults — smaller AND faster. Change only for a specific reason.
 # ECO_PAGE_CACHE=on                       # on | off
-# ECO_IMAGE_FORMAT=avif                   # avif | webp | jpeg | png
+# ECO_PAGE_CACHE_MAX_MB=64                # rendered-page cache byte budget
+# ECO_DESIGN_LAYER=on                     # off drops the theme token layer
 # ECO_AI_PROVIDER_PRECEDENCE=local-first  # local-first | cloud-first | local-only
+#
+# Frugality levers — trade experience for footprint. Off unless you opt in.
+# ECO_MODE=balanced                       # strict | balanced | lenient
+# ECO_LOW_DATA_DEFAULT=off                # on serves the low-data variant
+# ECO_INDEX_HEADER=on                     # off stops emitting X-Eco-Index
+# ECO_FORM_ANALYTICS=on                   # off stops recording form analytics
 
 # ── Observability export (all OFF unless set; any Sentry/OTLP backend) ─
 # Point these at a self-hosted GlitchTip (or any Sentry/OTLP backend). Every

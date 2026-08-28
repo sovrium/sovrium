@@ -38,7 +38,7 @@ export const discoverSeedFiles = async (seedDir: string): Promise<readonly strin
     .toSorted()
 }
 
-const decodeSeedFile = Schema.decodeUnknownEither(SeedFileSchema)
+const decodeSeedFile = Schema.decodeUnknownResult(SeedFileSchema)
 
 /** Parse one file's text into a plain object, or the reason it could not be. */
 const parseSeedText = (
@@ -70,10 +70,10 @@ const loadOne = async (
   if (!parsed.ok) return { error: parsed.error }
 
   const decoded = decodeSeedFile(parsed.value)
-  if (decoded._tag === 'Left') {
+  if (decoded._tag === 'Failure') {
     return {
       error:
-        `${fileName}: not a valid seed file — ${decoded.left.message}\n` +
+        `${fileName}: not a valid seed file — ${decoded.failure.message}\n` +
         `  Expected: records: [ { key: <name>, fields: { … } } ], with an optional mergeOn: [ … ].`,
     }
   }
@@ -81,9 +81,12 @@ const loadOne = async (
   return {
     file: {
       fileName: basename(fileName),
-      table: resolveSeedTableName(decoded.right, fileName),
-      mergeOn: decoded.right.mergeOn,
-      records: decoded.right.records.map((record) => ({ key: record.key, fields: record.fields })),
+      table: resolveSeedTableName(decoded.success, fileName),
+      mergeOn: decoded.success.mergeOn,
+      records: decoded.success.records.map((record) => ({
+        key: record.key,
+        fields: record.fields,
+      })),
     },
   }
 }

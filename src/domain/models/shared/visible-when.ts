@@ -19,7 +19,7 @@ import { Schema } from 'effect'
  * from this file to avoid a circular dependency (pages imports forms via
  * `formRef`).
  */
-export const ConditionOperatorSchema = Schema.Literal(
+export const ConditionOperatorSchema = Schema.Literals([
   'eq',
   'neq',
   'contains',
@@ -30,8 +30,8 @@ export const ConditionOperatorSchema = Schema.Literal(
   'lt',
   'lte',
   'in',
-  'notIn'
-).annotations({
+  'notIn',
+]).annotate({
   identifier: 'ConditionOperator',
   title: 'Condition Operator',
   description: 'Comparison operator for conditional field visibility / required / disabled rules',
@@ -49,24 +49,24 @@ export const ConditionOperatorSchema = Schema.Literal(
  */
 export const VisibleWhenSchema = Schema.Struct({
   /** Field whose value is evaluated. */
-  field: Schema.String.pipe(Schema.minLength(1)).annotations({
+  field: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
     description: 'Field name whose value is evaluated for the condition',
   }),
   /** Comparison operator. */
   operator: ConditionOperatorSchema,
   /** Value to compare against (not required for empty / notEmpty; array for in / notIn). */
   value: Schema.optional(
-    Schema.Union(
+    Schema.Union([
       Schema.String,
-      Schema.Number,
+      Schema.Finite,
       Schema.Boolean,
-      Schema.Array(Schema.Union(Schema.String, Schema.Number, Schema.Boolean))
-    ).annotations({
+      Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
+    ]).annotate({
       description:
         'Value to compare the field against (scalar for eq/neq/contains/gt/gte/lt/lte; array for in/notIn)',
     })
   ),
-}).annotations({
+}).annotate({
   identifier: 'VisibleWhen',
   title: 'Visible-When Condition',
   description: 'Condition that controls visibility / required / disabled state of a form field',
@@ -99,19 +99,19 @@ export type VisibleWhenCondition =
  * The compound variants are listed first so Effect Schema tries them before the
  * simple struct (union discrimination by presence of `or`/`and` key).
  */
-export const VisibleWhenConditionSchema: Schema.Schema<VisibleWhenCondition> = Schema.Union(
+export const VisibleWhenConditionSchema: Schema.Codec<VisibleWhenCondition> = Schema.Union([
   Schema.Struct({
     or: Schema.Array(
-      Schema.suspend((): Schema.Schema<VisibleWhenCondition> => VisibleWhenConditionSchema)
+      Schema.suspend((): Schema.Codec<VisibleWhenCondition> => VisibleWhenConditionSchema)
     ),
   }),
   Schema.Struct({
     and: Schema.Array(
-      Schema.suspend((): Schema.Schema<VisibleWhenCondition> => VisibleWhenConditionSchema)
+      Schema.suspend((): Schema.Codec<VisibleWhenCondition> => VisibleWhenConditionSchema)
     ),
   }),
-  VisibleWhenSchema
-).annotations({
+  VisibleWhenSchema,
+]).annotate({
   identifier: 'VisibleWhenCondition',
   title: 'Visible-When Condition (with OR/AND)',
   description:

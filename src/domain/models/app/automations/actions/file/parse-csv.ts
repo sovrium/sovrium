@@ -23,7 +23,7 @@ export const FileParseCsvActionSchema = Schema.Struct({
     /** Storage key of the CSV file to parse */
     source: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Storage key of the CSV file to parse',
         })
       )
@@ -32,8 +32,23 @@ export const FileParseCsvActionSchema = Schema.Struct({
     /** Storage key of the CSV file to parse (alias of `source`) */
     key: Schema.optional(
       TemplateStringSchema.pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Storage key of the CSV file to parse',
+        })
+      )
+    ),
+
+    /**
+     * Inline CSV text to parse, bypassing storage entirely.
+     *
+     * Mutually complementary with `source`/`key`: supplying `content` lets an
+     * automation parse CSV that already exists in the run context (a webhook
+     * body, a previous step's text output) without a storage round-trip.
+     */
+    content: Schema.optional(
+      TemplateStringSchema.pipe(
+        Schema.annotate({
+          description: 'Inline CSV text to parse (alternative to `source`/`key`)',
         })
       )
     ),
@@ -45,7 +60,7 @@ export const FileParseCsvActionSchema = Schema.Struct({
           /** Object key for the parsed value (alias of `name`) */
           key: Schema.optional(
             Schema.String.pipe(
-              Schema.annotations({
+              Schema.annotate({
                 description: 'Object key for the parsed value',
               })
             )
@@ -53,31 +68,30 @@ export const FileParseCsvActionSchema = Schema.Struct({
           /** Object key for the parsed value */
           name: Schema.optional(
             Schema.String.pipe(
-              Schema.annotations({
+              Schema.annotate({
                 description: 'Object key for the parsed value',
               })
             )
           ),
           /** Zero-based CSV column index this entry maps to */
           index: Schema.optional(
-            Schema.Number.pipe(
-              Schema.int(),
-              Schema.nonNegative(),
-              Schema.annotations({
+            Schema.Finite.pipe(
+              Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+              Schema.annotate({
                 description: 'Zero-based CSV column index to read this value from',
               })
             )
           ),
           header: Schema.optional(
             Schema.String.pipe(
-              Schema.annotations({
+              Schema.annotate({
                 description: 'CSV column header name (defaults to key)',
               })
             )
           ),
         })
       ).pipe(
-        Schema.annotations({
+        Schema.annotate({
           description: 'Column mapping. If omitted, uses header row as keys.',
         })
       )
@@ -85,10 +99,9 @@ export const FileParseCsvActionSchema = Schema.Struct({
 
     /** Number of rows to skip from the top */
     skipRows: Schema.optional(
-      Schema.Number.pipe(
-        Schema.int(),
-        Schema.nonNegative(),
-        Schema.annotations({
+      Schema.Finite.pipe(
+        Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+        Schema.annotate({
           description: 'Number of rows to skip from the top (default: 0)',
         })
       )
@@ -96,19 +109,21 @@ export const FileParseCsvActionSchema = Schema.Struct({
 
     /** Field delimiter */
     delimiter: Schema.optional(
-      Schema.Literal(',', ';', '\t', '|').pipe(
-        Schema.annotations({
+      Schema.Literals([',', ';', '\t', '|']).pipe(
+        Schema.annotate({
           description: 'Field delimiter (default: auto-detect)',
         })
       )
     ),
   }).pipe(
-    Schema.filter((props) => (props.source ?? props.key) !== undefined, {
-      message: () => 'parseCsv requires `source` (or `key`)',
-    })
+    Schema.check(
+      Schema.makeFilter((props) => (props.source ?? props.key ?? props.content) !== undefined, {
+        message: 'parseCsv requires `source` (or `key`, or inline `content`)',
+      })
+    )
   ),
 }).pipe(
-  Schema.annotations({
+  Schema.annotate({
     identifier: 'FileParseCsvAction',
     title: 'File Parse CSV Action',
     description: 'Parse a CSV file into structured JSON data',

@@ -14,17 +14,19 @@ import { Schema } from 'effect'
  */
 export const ServerEnvSchema = Schema.Struct({
   port: Schema.optional(
-    Schema.NumberFromString.pipe(
-      Schema.int(),
-      Schema.greaterThanOrEqualTo(1),
-      Schema.lessThanOrEqualTo(65_535),
-      Schema.annotations({ description: 'Server port (PORT)', examples: [3000] })
+    Schema.FiniteFromString.pipe(
+      Schema.check(
+        Schema.isInt(),
+        Schema.isGreaterThanOrEqualTo(1),
+        Schema.isLessThanOrEqualTo(65_535)
+      ),
+      Schema.annotate({ description: 'Server port (PORT)', examples: [3000] })
     )
   ),
   baseUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.pattern(/^https?:\/\/.+/),
-      Schema.annotations({
+      Schema.check(Schema.isPattern(/^https?:\/\/.+/)),
+      Schema.annotate({
         description: 'Base URL of the application (BASE_URL)',
         examples: ['http://localhost:3000'],
       })
