@@ -6,6 +6,7 @@
  */
 
 import { Effect, Layer, type Result } from 'effect'
+import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/auth/user-access-repository-live'
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
@@ -15,8 +16,10 @@ import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositor
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
+import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
+import { ServerOriginLive } from '@/infrastructure/server/server-origin-live'
 
 // Re-export infrastructure queries used by table route handlers
 export { checkForExistingRecords } from '@/infrastructure/database/table-queries/query-helpers/check-existing-records'
@@ -34,6 +37,24 @@ export { checkForExistingRecords } from '@/infrastructure/database/table-queries
  *   - AutomationPauseRepository (the operational-pause read
  *     `triggerRecordEventAutomations` performs before matching, so a paused
  *     automation is filtered out of the dispatch set)
+ *   - LinkRepository + ServerOrigin (the `link/*` handlers, which mint through
+ *     the same use-cases the admin console does and hand back an absolute
+ *     address)
+ *
+ * ── This is a SECOND composition of the automation runtime, and the
+ *    divergence is load-bearing to know about ────────────────────────────────
+ *
+ * `AutomationRuntimeLayer` (infrastructure/automations/runtime-layer.ts) is the
+ * other one, and it is strictly larger — it additionally carries
+ * `AuthRepository`, `AutomationApprovalRepository`, `AiService`,
+ * `StorageService` and `ImageTransformService`. A handler needing one of those
+ * therefore works from a webhook or cron trigger and fails from a RECORD
+ * trigger, which is a difference no type catches: `provideTableWithAutomations
+ * Live` casts its result to `Effect<A, E, never>`, asserting that every
+ * requirement is met rather than proving it, and `triggerRecordEventAutomations`
+ * catches the resulting missing-service defect into a single log line. The two
+ * lists want unifying; doing so is a refactor with its own blast radius, not a
+ * line to add while passing through.
  *
  * Used by the record-create handler so a record write can fire matching
  * record-triggered automations in the same request without leaking
@@ -49,7 +70,11 @@ const TableWithAutomationsLive = Layer.mergeAll(
   ConnectionTokenRepositoryLive,
   AnalyticsRepositoryLive,
   DataSourceRepositoryLive,
-  AutomationPauseRepositoryLive
+  AutomationPauseRepositoryLive,
+  ServerOriginLive,
+  // Built from `Database`, so provided rather than merged bare — the admin
+  // route and `AutomationRuntimeLayer` compose it the same way.
+  Layer.provide(LinkRepositoryLive, DatabaseLive)
 )
 
 /**

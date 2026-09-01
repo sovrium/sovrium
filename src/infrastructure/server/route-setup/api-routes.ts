@@ -19,6 +19,7 @@ import { resolveOllamaBaseUrl } from '@/domain/models/env/ai/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { resetAuditEntries } from '@/infrastructure/audit-log/in-memory-store'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
+import { createAvatarProfileStore } from '@/infrastructure/auth/better-auth/avatar-profile-store'
 import { resetFormRateLimitState } from '@/infrastructure/forms/form-rate-limiter'
 import { FormRenderers } from '@/infrastructure/layers/form-renderer-layer'
 import { ecoIndexHeaderMiddleware } from '@/infrastructure/server/middleware/eco-index-header'
@@ -914,7 +915,11 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // return 401 when no session is attached, and `purge-due` runs the
   // hard-delete scheduler. The `/api/account/*` auth chain is installed
   // above when `app.auth` is configured.
-  const honoWithAccount = chainAccountRoutes(honoWithActiveScope, app)
+  const honoWithAccount = chainAccountRoutes(
+    honoWithActiveScope,
+    app,
+    createAvatarProfileStore(auth)
+  )
 
   // Chain favorites routes:
   // GET/POST/DELETE /api/favorites. Always registered; handlers return 401

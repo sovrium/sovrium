@@ -104,9 +104,22 @@ but that's a secondary split, not the primary one.
 Note: reusable **component templates** are root entities (their own files);
 page-instance components stay inside the page file.
 
-Prefer YAML for readability; switch to a `.ts` config with `defineConfig()`
-from `@sovrium/types` if you want IDE autocompletion and compile-time
-type-checking.
+Prefer YAML for readability. For IDE autocompletion and compile-time
+type-checking, author a `.ts` config instead: run `sovrium types` in this
+directory to write `sovrium.d.ts` and `tsconfig.json`, then
+
+```ts
+// app.ts
+import type { AppConfig } from 'sovrium'
+
+export default { name: 'my-app' } satisfies AppConfig
+```
+
+The types come out of the binary itself — no `package.json`, no `node_modules`,
+no install step — so they always describe the schema the binary you run actually
+accepts. Re-run `sovrium types` after upgrading it. Keep the import type-only:
+the binary does not resolve bare-package specifiers, so a value import
+type-checks and then fails to boot.
 
 ## The `app.yaml` schema
 

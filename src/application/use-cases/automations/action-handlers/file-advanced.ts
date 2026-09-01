@@ -11,7 +11,7 @@ import {
   type ImageFit,
   type ImageOutputFormat,
 } from '@/application/ports/services/image-transform-service'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { extractTextFromBytes, type ExtractTextFormat } from './file-extract'
 import { renderHtmlToPdf } from './file-pdf'
 import { extOf, mimeByExt, tempKey, uploadArtifact } from './file-support'
@@ -64,7 +64,9 @@ export const handleFileCompress: ActionHandler = (action) =>
 
     const storage = yield* StorageService
     const downloads = yield* Effect.forEach(keys, (key) =>
-      Effect.result(storage.download(key)).pipe(Effect.map((res) => ({ key, res })))
+      Effect.result(storage.download(key, UNATTRIBUTED_BUCKET)).pipe(
+        Effect.map((res) => ({ key, res }))
+      )
     )
     const missing = downloads.find((d) => d.res._tag === 'Failure')
     if (missing) return softError(`file not found: ${missing.key}`)
@@ -106,7 +108,7 @@ export const handleFileExtractText: ActionHandler = (action) =>
     if (!key) return softError('file.extractText requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(key))
+    const downloaded = yield* Effect.result(storage.download(key, UNATTRIBUTED_BUCKET))
     if (downloaded._tag === 'Failure') return softError(`file not found: ${key}`)
 
     const format = resolveExtractFormat(p['format'])
@@ -222,7 +224,7 @@ export const handleFileTransformImage: ActionHandler = (action) =>
     if (!key) return softError('file.transformImage requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(key))
+    const downloaded = yield* Effect.result(storage.download(key, UNATTRIBUTED_BUCKET))
     if (downloaded._tag === 'Failure') return softError(`file not found: ${key}`)
 
     const inputs = parseTransformImageInputs(p)

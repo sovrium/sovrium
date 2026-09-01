@@ -59,12 +59,14 @@ import { getCommandHelp } from '@/cli/command-help'
 import { handleBuildCommand } from '@/cli/commands/build'
 import { handleDesignSystemCommand } from '@/cli/commands/design-system'
 import { handleInitCommand } from '@/cli/commands/init'
+import { handleMigrateCommand } from '@/cli/commands/migrate'
 import { handleReloadCommand } from '@/cli/commands/reload'
 import { handleRestartCommand } from '@/cli/commands/restart'
 import { handleSchemaCommand } from '@/cli/commands/schema'
 import { handleSeedCommand } from '@/cli/commands/seed'
 import { handleStartCommand } from '@/cli/commands/start'
 import { handleStopCommand } from '@/cli/commands/stop'
+import { handleTypesCommand } from '@/cli/commands/types'
 import { handleValidateCommand } from '@/cli/commands/validate'
 import { findUnknownFlag, parseArgs } from '@/cli/dispatch'
 import { handleSecretCommand } from '@/cli/secret'
@@ -100,9 +102,11 @@ const HELP_TEXT = [
   'Project:',
   '  sovrium init [dir]            Scaffold a new project (in [dir], or cwd)',
   '  sovrium schema                Print JSON Schema to stdout',
+  '  sovrium types                 Emit sovrium.d.ts + tsconfig.json for a .ts config',
   '  sovrium validate <config>     Validate a config file against AppSchema',
   '  sovrium design-system         Export the design system as an agent brief or DTCG JSON',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
+  '  sovrium migrate [config]      Bring the database schema forward, without booting',
   '',
   'Operate:',
   '  sovrium admin create <email>  Create an admin user',
@@ -114,7 +118,8 @@ const HELP_TEXT = [
   '  --help, -h                    Show this help message',
   '  --version, -v                 Show version number',
   '  --watch, -w                   Watch config file and hot reload (start)',
-  '  --output <path>               Write to a file (schema, design-system)',
+  '  --output <path>               Write to a file (schema, design-system) or dir (types)',
+  '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
   '  --format <md|json>            Export format (design-system; default: md)',
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
   '  --name <name>                 App name (init)',
@@ -123,7 +128,8 @@ const HELP_TEXT = [
   '  --dir <path>                  Seed-file directory (seed; default: <config>/seed)',
   '  --mode <mode>                 if-empty | upsert | replace (seed; default: if-empty)',
   '  --table <name>                Restrict to one table, repeatable (seed)',
-  '  --dry-run                     Report the plan and write nothing (seed)',
+  '  --dry-run                     Report the plan and write nothing (seed, migrate)',
+  '  --check                       Report whether the database is safe to migrate (migrate)',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
@@ -143,9 +149,12 @@ const HELP_TEXT = [
   '  sovrium build app.json                             # Build static site',
   '  sovrium schema --output app.schema.json            # Write JSON Schema',
   '  sovrium design-system app.ts --output DESIGN.md    # Brief an agent can read',
+  '  sovrium types                                      # Types for a .ts config, zero npm',
+  '  sovrium init ./my-app --typescript                 # Scaffold a typed app.ts',
   '  sovrium init ./my-app --template blog              # Scaffold from template',
   '  sovrium init ./my-app --template sovrium/crm-template  # Scaffold from a GitHub repo',
   '  sovrium seed app.yaml --mode replace               # Deterministic full refresh',
+  '  sovrium migrate app.yaml                           # Migrate without starting the app',
   '  sovrium admin create me@example.com                # Create an admin (prompts)',
   '  sovrium secret generate                            # Print AUTH_SECRET + key',
   '',
@@ -173,6 +182,7 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       positionalDir: parsed.configFile,
       forceFlag: parsed.forceFlag,
       appName: parsed.appName,
+      typescript: parsed.typescript ?? false,
     }),
   admin: async () =>
     handleAdminCommand(parsed.subcommand, parsed.positionalArg, {
@@ -181,6 +191,14 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
     }),
   secret: async () => handleSecretCommand(parsed.subcommand, parsed.positionalArg),
   update: async () => handleUpdateCommand({ helpRequested: parsed.helpRequested ?? false }),
+  // An EXIT command, not a persistent one: it brings the schema forward and
+  // stops. A platform release phase waits on the exit code.
+  migrate: async () =>
+    handleMigrateCommand({
+      configFile: parsed.configFile,
+      dryRun: parsed.dryRun ?? false,
+      check: parsed.check ?? false,
+    }),
   '--version': async () => showVersion(),
   version: async () => showVersion(),
   '--help': async () => showHelp(),
@@ -200,6 +218,7 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
     ),
   build: async () => handleBuildCommand(parsed.configFile, parsed.publicDir),
   schema: async () => handleSchemaCommand(parsed.outputPath),
+  types: async () => handleTypesCommand({ outputDir: parsed.outputPath }),
   validate: async () => handleValidateCommand(parsed.configFile),
   'design-system': async () =>
     handleDesignSystemCommand({

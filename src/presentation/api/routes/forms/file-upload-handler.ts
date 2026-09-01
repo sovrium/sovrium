@@ -244,7 +244,7 @@ const uploadOne = (
     const mimeType = file.type || 'application/octet-stream'
     const key = `${crypto.randomUUID()}-${file.name}`
     yield* storage
-      .upload(key, bytes, mimeType)
+      .upload(key, bytes, mimeType, bucketName)
       .pipe(
         Effect.mapError(
           (cause) =>

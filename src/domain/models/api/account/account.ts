@@ -6,6 +6,7 @@
  */
 
 import { z } from '@hono/zod-openapi'
+import { isIssuedAvatarUrl } from '@/domain/utils/avatar-url'
 import { timestampSchema } from '../_shared/common'
 
 /**
@@ -34,7 +35,23 @@ export const accountExportProfileSchema = z
     id: z.string().describe('Unique user identifier'),
     email: z.email().describe('User email address'),
     name: z.string().nullable().describe('User display name'),
-    image: z.url().nullable().describe('User avatar URL'),
+    // NOT `z.url()`. An avatar is a root-relative bucket object
+    // (`/api/buckets/{bucket}/files/{key}`), which `z.url()` rejects — and this
+    // schema is `.parse`d, not `safeParse`d, so that rejection THREW and made
+    // the caller's own Art. 15 export 500. `z.url()` was also never a guard in
+    // the other direction: it happily admits `javascript:alert(1)`.
+    //
+    // The transform additionally neutralises values stored BEFORE the write
+    // guard existed. Any legacy row can still hold an arbitrary string, and
+    // this endpoint is the caller's own data view, so the safe reading of an
+    // unrecognised value is "no avatar" rather than echoing an attacker-chosen
+    // URL back out of the API for some client to render.
+    image: z
+      .string()
+      .nullable()
+      // eslint-disable-next-line unicorn/no-null -- `null` is this field's wire contract (`.nullable()` above); `undefined` would drop the key from the JSON export entirely.
+      .transform((value) => (isIssuedAvatarUrl(value) ? value : null))
+      .describe('User avatar URL — a root-relative bucket object, or null'),
     emailVerified: z.boolean().describe('Whether the email address is verified'),
     role: z.enum(['admin', 'member', 'viewer']).describe('User role'),
   })

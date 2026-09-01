@@ -356,7 +356,11 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
         input.value = initialValues[input.name] || ''
       }
     })
-    if (isMultiStep) showStep(0)
+    // Multi-step: the DOM holds only the active step, so clearing the inputs
+    // above is not enough — the flow itself has to rewind to step 1, and the
+    // server-side draft has to stop prefilling later steps with the answers
+    // just submitted. \`showStep\` does both; \`preserve\` is what survives.
+    if (isMultiStep) showStep(0, preserve)
     if (!force && onSuccess.message) renderToast(onSuccess.message, 'success')
   }
 

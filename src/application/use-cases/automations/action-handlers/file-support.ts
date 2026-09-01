@@ -7,7 +7,7 @@
 
 import { parse } from 'csv-parse/sync'
 import { Data, Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { sweepAgedTempFiles } from '@/application/use-cases/storage/sweep-temp-storage'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import {
@@ -78,7 +78,7 @@ export const uploadArtifact = (
   contentType: string
 ): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
-    const wrote = yield* Effect.result(storage.upload(key, bytes, contentType))
+    const wrote = yield* Effect.result(storage.upload(key, bytes, contentType, UNATTRIBUTED_BUCKET))
     if (wrote._tag === 'Failure') return false
     if (key.startsWith(TEMP_STORAGE_PREFIX)) {
       yield* sweepAgedTempFiles(storage, { preserve: key })
@@ -178,7 +178,7 @@ export const resolveSource = (
   if (/^https?:\/\//.test(source)) return fetchSource(source)
   return Effect.gen(function* () {
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(source))
+    const downloaded = yield* Effect.result(storage.download(source, UNATTRIBUTED_BUCKET))
     return downloaded._tag === 'Failure'
       ? { bytes: new Uint8Array(0) }
       : { bytes: downloaded.success }

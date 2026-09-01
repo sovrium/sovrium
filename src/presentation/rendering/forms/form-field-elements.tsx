@@ -116,6 +116,38 @@ const TextareaInput = ({
   </div>
 )
 
+/**
+ * Single-select input.
+ *
+ * The leading `<option value="">` is not decoration — it is what lets a select
+ * express "no answer". Without it the browser applies its own rule (no empty
+ * option, therefore the first one is selected), so a field reads as answered
+ * before the visitor has touched the page: someone who came for one option and
+ * submitted without opening the dropdown is recorded as having chosen a
+ * different one. That is silently WRONG data rather than missing data, and
+ * `required` cannot catch it, because something is always selected.
+ *
+ * Three properties this relies on, all of them load-bearing:
+ *
+ * - It must LEAD the list and be a direct child of the `<select>`. HTML only
+ *   treats an empty option as a "placeholder label option" under exactly those
+ *   conditions, and only then does constraint validation report `valueMissing`
+ *   on a required select. Move it, wrap it in an `<optgroup>`, or give it a
+ *   non-empty value and `required` silently stops biting.
+ * - It is rendered ALWAYS, not only when the field is unanswered. That keeps
+ *   the rule one sentence long — "the empty option leads the list; it is
+ *   selected only when nothing else resolves" — rather than a conditional the
+ *   config author has to reason about. A visitor may return to a required
+ *   field and blank it, and being stopped there is correct.
+ * - `defaultValue` falls back to `''`, NOT `undefined`. `undefined` hands the
+ *   choice back to the browser's first-option rule and reinstates the defect.
+ *   A resolved prefill or literal default still wins outright, which is what
+ *   keeps the prefill contract intact.
+ *
+ * The label is the field's own `placeholder` — already an AppSchema property
+ * on every form field. A select is simply the one input type with nowhere to
+ * put it, so it used to be dropped without a word.
+ */
 const SelectInput = ({
   field,
   defaultValue,
@@ -134,8 +166,9 @@ const SelectInput = ({
       id={`field-${field.name}`}
       name={field.name}
       required={field.required}
-      defaultValue={defaultValue ?? undefined}
+      defaultValue={defaultValue ?? ''}
     >
+      <option value="">{field.placeholder}</option>
       {(field.options ?? []).map((option) => (
         <option
           key={option.value}

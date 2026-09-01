@@ -28,10 +28,13 @@ import {
   failureFromError,
   filterFieldRefusal,
   resolveActionTargetIds,
+  selectionFieldRefusal,
+  sortFieldRefusal,
   toQueryFilter,
 } from './record-filters'
 import { findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
+import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -394,14 +397,18 @@ export const handleRecordDelete: ActionHandler = (action, app, _automation) =>
   })
 
 /**
- * Build the canonical `record/read` success output. Surfaces both
- * `record` (first match or undefined) and `records` (the match array) so
- * `{{getUser.record.email}}` works for the canary single-row case AND
- * `{{listActive.records}}` survives when authors widen the filter to
- * multi-row reads — same operator, no schema split. The webhook
- * dispatcher serialises this object under the response's top-level
- * `output` key, so any field on the row appears verbatim somewhere in
- * the response JSON (the contract [internal ref] asserts against).
+ * Build the canonical read success output, SHARED by `record/read` and
+ * `record/list`. Surfaces both `record` (first row or undefined) and
+ * `records` (the whole array), so `{{getUser.record.email}}` works for the
+ * single-row case AND `{{listActive.records}}` for the set case.
+ *
+ * Sharing it is what makes the [internal ref] operator split invisible downstream:
+ * a config migrating a filtered `read` to a `list` keeps every template it
+ * had. Do not give `list` its own envelope.
+ *
+ * The webhook dispatcher serialises this object under the response's
+ * top-level `output` key, so any field on the row appears verbatim
+ * somewhere in the response JSON (the contract [internal ref] asserts against).
  */
 const buildReadOutput = (records: readonly Readonly<Record<string, unknown>>[]): ActionOutcome => ({
   status: 'success',
@@ -412,11 +419,9 @@ const buildReadOutput = (records: readonly Readonly<Record<string, unknown>>[]):
 })
 
 /**
- * Primary-key fast path for `record/read`. Goes straight to `getRecord`
- * (single SELECT by id) rather than walking `listRecords`. Returns a
- * canonical `{ record, records }` output so downstream template
- * substitution sees the same shape regardless of which lookup path the
- * action took.
+ * `record/read`'s only path: straight to `getRecord` (single SELECT by id).
+ * Returns the canonical `{ record, records }` envelope so downstream
+ * template substitution sees one shape whichever operator produced it.
  */
 const readByPrimaryKey = (
   tableName: string,
@@ -430,62 +435,199 @@ const readByPrimaryKey = (
     return buildReadOutput(record ? [record] : [])
   })
 
-/**
- * Filter path for `record/read`. Compiles the spec-shape filter into the
- * repository's `QueryFilter` and dispatches to `listRecords`. A filter
- * with zero usable conditions is a runtime failure — the schema rejects
- * empty `conditions` arrays at decode time, but a code-action invoker
- * (which bypasses schema validation) could still arrive here with an
- * empty filter, and that should not silently degrade to "read everything".
- *
- * A filter naming a field that resolves to no column is refused on the same
- * principle, and it is the same refusal the write operators use. `record/read`
- * was the one operator that never reached the shared seam: it called
- * `toQueryFilter` and handed the result straight to `listRecords`, so it never
- * passed `declaredFields`. On SQLite — the zero-config default engine — an
- * unknown double-quoted identifier degrades to a string literal, so
- * `"knid" = 'knid'` is TRUE on every row and the ENTIRE table was handed back
- * to whoever supplied the field name. That is the read counterpart of the
- * mass-deletion the write operators already refuse.
- */
-const readByFilter = (
-  tableName: string,
-  filter: unknown,
-  declaredFields: ReadonlySet<string> | undefined
-): Effect.Effect<ActionOutcome, never, TableRepository> =>
-  Effect.gen(function* () {
-    const queryFilter = toQueryFilter(filter)
-    if (queryFilter === undefined) {
-      return {
-        status: 'failure',
-        error: 'record.read filter must contain at least one condition',
-      } as const
-    }
-    const refusal = filterFieldRefusal(tableName, queryFilter, declaredFields)
-    if (refusal !== undefined) {
-      return {
-        status: 'failure',
-        error: `record.read could not resolve its filter: ${refusal.message}`,
-      } as const
-    }
-    const repo = yield* TableRepository
-    const result = yield* Effect.result(
-      repo.listRecords({ session: buildGuestSession(), tableName, filter: queryFilter })
-    )
-    if (result._tag === 'Failure') return failureFromError(result.failure)
-    return buildReadOutput(result.success)
-  })
+/** One decoded `record/list` sort key, with its direction already resolved. */
+interface SortKey {
+  readonly field: string
+  readonly direction: 'asc' | 'desc'
+}
 
 /**
- * `record/read` handler — fetch a single record by primary key (`props.id`)
- * or by filter conditions (`props.filter`). The schema enforces "at least
- * one of id/filter must be present" at decode time, so by the time this
- * handler runs both fields cannot be simultaneously absent. The handler
- * defends against that case anyway and returns a typed failure outcome —
- * upstream tests pin the runtime contract for code-action invokers that
- * skip schema validation.
+ * Read `props.sort` defensively into resolved sort keys.
+ *
+ * The schema already guarantees the shape for a decoded config, but a code
+ * action invokes operators natively and skips decode entirely, so a malformed
+ * entry has to degrade to "not a sort key" rather than reach SQL as `undefined`.
+ *
+ * Anything that is not exactly `'desc'` is ascending — the same default
+ * `buildSortClause` applies downstream and the same one `releaseSortFromProps`
+ * applies elsewhere. Restating it here rather than passing the raw value on
+ * keeps the two from drifting into disagreeing about, say, `'DESC'`.
  */
-export const handleRecordRead: ActionHandler = (action, app, _automation) =>
+const readSortKeys = (value: unknown): readonly SortKey[] => {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry): readonly SortKey[] => {
+    if (!entry || typeof entry !== 'object') return []
+    const { field, direction } = entry as { readonly field?: unknown; readonly direction?: unknown }
+    if (typeof field !== 'string' || field === '') return []
+    return [{ field, direction: direction === 'desc' ? 'desc' : 'asc' }]
+  })
+}
+
+/**
+ * Append `id ASC` as the FINAL ordering key unless the author already ordered
+ * by `id` themselves.
+ *
+ * Applied whenever pagination is in play, not merely when `sort` is absent.
+ * That distinction is the whole point: a page boundary falling inside a group
+ * of rows tied on the author's sort key lets the engine return one of them on
+ * both pages and neither on either — the same duplicate-and-skip defect an
+ * unordered `OFFSET` has, arriving through a query that looks ordered. A TOTAL
+ * order is the requirement, and only a unique column supplies one.
+ *
+ * `id` is exempt because ordering by it twice adds a no-op key that shows up in
+ * every EXPLAIN and reads as a mistake.
+ */
+const withDeterministicTiebreak = (keys: readonly SortKey[]): readonly SortKey[] =>
+  keys.some((key) => key.field === 'id') ? keys : [...keys, { field: 'id', direction: 'asc' }]
+
+/**
+ * Compile sort keys into the repository port's existing `field:dir,field:dir`
+ * string.
+ *
+ * The port needs no change for sorting at all — `buildOrderByClause` already
+ * compiles multi-key strings, single-select CASE ordering included. Encoding
+ * here rather than widening the port keeps `record/list` from becoming the one
+ * caller with a bespoke sort protocol.
+ *
+ * The encoding is only unambiguous because `,` and `:` cannot appear in a
+ * resolvable column name, which {@link sortFieldRefusal} has already enforced
+ * by the time this runs. That ordering is deliberate, not incidental.
+ */
+const sortToPortString = (keys: readonly SortKey[]): string | undefined =>
+  keys.length > 0 ? keys.map((key) => `${key.field}:${key.direction}`).join(',') : undefined
+
+/** Read an optional non-negative integer prop, or undefined when absent/unusable. */
+const optionalIntProp = (
+  props: Readonly<Record<string, unknown>>,
+  key: string
+): number | undefined => {
+  const raw = props[key]
+  return typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0 ? raw : undefined
+}
+
+/**
+ * Read `props.fields` into a non-empty selection, or undefined for "no trim".
+ *
+ * An empty array reaches undefined rather than "select nothing": the schema
+ * rejects `fields: []` at decode, so the only way here is a code action, and
+ * returning every column is the safer of the two readings of a selection that
+ * selects nothing.
+ */
+const readFieldNames = (value: unknown): readonly string[] | undefined => {
+  if (!Array.isArray(value)) return undefined
+  const names = value.filter((name): name is string => typeof name === 'string' && name !== '')
+  return names.length > 0 ? names : undefined
+}
+
+/**
+ * The keys a trim keeps whatever the caller asked for.
+ *
+ * `id` is the addressable handle downstream steps use to act on what the list
+ * found — a trim that removed it would return rows nothing else could
+ * reference. The two timestamps are here so this surface answers the SAME shape
+ * as the records API's `?fields=`, which keeps `createdAt`/`updatedAt` on the
+ * envelope whatever is requested. The first version of this trim kept only
+ * `id`, so the two read surfaces answered differently for the same table and a
+ * template author had to know which one they were standing in.
+ *
+ * Guarded by `Object.hasOwn` at the call site, so a table without a timestamp
+ * column simply does not get the key rather than getting an `undefined` one.
+ */
+const ALWAYS_KEPT_COLUMNS = ['id', 'created_at', 'updated_at'] as const
+
+/**
+ * Trim each row to {@link ALWAYS_KEPT_COLUMNS} plus the requested columns.
+ *
+ * ⚠️ This is a PAYLOAD TRIM, not a permission boundary. Every read-permission
+ * decision lives in `filterReadableFields`, which needs a `userRole` the
+ * automation path does not have — record actions run under the engine's guest
+ * session. `fields` narrows what a template or a webhook response carries; it
+ * grants and withholds nothing. Anyone who can edit the config can already read
+ * the whole row by deleting the prop.
+ *
+ * The keys are raw snake_case column names, not the API envelope's camelCase:
+ * an automation returns FLAT database rows, which is also why
+ * `applyFieldSelection` cannot be reused here — it answers the nested
+ * `{ id, fields: {…} }` envelope instead.
+ *
+ * `formula`, `lookup`, `rollup` and `count` columns need no special handling:
+ * the relation `listRecords` targets is the VIEW when one exists, so each is
+ * addressable under its own name and arrives already computed. Trimming by key
+ * therefore keeps them, where a trim built on "does this field own a base
+ * column" would drop exactly the computed values that were asked for.
+ */
+const trimToFields = (
+  records: readonly Readonly<Record<string, unknown>>[],
+  fields: readonly string[]
+): readonly Readonly<Record<string, unknown>>[] =>
+  records.map((record) =>
+    [...ALWAYS_KEPT_COLUMNS, ...fields].reduce<Record<string, unknown>>(
+      (acc, key) => (Object.hasOwn(record, key) ? { ...acc, [key]: record[key] } : acc),
+      {}
+    )
+  )
+
+/**
+ * Adjudicate a `record/list`'s two author-supplied identifier surfaces, or
+ * return the refusal that stops it before any SQL is built.
+ *
+ * Both refusals run ahead of the query for the same reason: on SQLite an
+ * unknown double-quoted identifier is not an error but a string LITERAL. In a
+ * filter that makes `"knid" = 'knid'` true on every row and hands the ENTIRE
+ * table to whoever supplied the name; in an ORDER BY it makes every row sort by
+ * the same constant, so the rows come back unordered with a SUCCESSFUL run.
+ * Postgres raises 42703 for both and fails closed, which is precisely why
+ * neither can be left to the engine to catch.
+ *
+ * A filter that is PRESENT but compiles to zero conditions is refused too. An
+ * absent filter legitimately means "every non-deleted row"; an empty one means
+ * the author expressed a restriction that evaporated, and reading it as "match
+ * everything" is how a read becomes a full-table disclosure.
+ */
+const listRefusal = (config: {
+  readonly tableName: string
+  readonly filterPresent: boolean
+  readonly queryFilter: QueryFilter | undefined
+  readonly sortKeys: readonly SortKey[]
+  readonly selectedFields: readonly string[]
+  readonly declaredFields: ReadonlySet<string> | undefined
+}): string | undefined => {
+  const { tableName, filterPresent, queryFilter, sortKeys, selectedFields, declaredFields } = config
+  if (filterPresent && queryFilter === undefined) {
+    return 'record.list filter must contain at least one condition'
+  }
+  const filterRefusal =
+    queryFilter === undefined
+      ? undefined
+      : filterFieldRefusal(tableName, queryFilter, declaredFields)
+  if (filterRefusal !== undefined) {
+    return `record.list could not resolve its filter: ${filterRefusal.message}`
+  }
+  const orderRefusal = sortFieldRefusal(
+    tableName,
+    sortKeys.map((key) => key.field),
+    declaredFields
+  )
+  if (orderRefusal !== undefined) {
+    return `record.list could not resolve its sort: ${orderRefusal.message}`
+  }
+  const selectionRefusal = selectionFieldRefusal(tableName, selectedFields, declaredFields)
+  return selectionRefusal === undefined
+    ? undefined
+    : `record.list could not resolve its fields: ${selectionRefusal.message}`
+}
+
+/**
+ * `record/read` handler — fetch a single record by primary key.
+ *
+ * Since [internal ref] this is the ONLY thing `read` does: `props.id` is required
+ * by the schema and `props.filter` is refused at decode. The missing-id
+ * guard below is therefore unreachable from a decoded config; it exists for
+ * a code-action invoking `record.read` natively (skipping schema
+ * validation), which must get a clean failure rather than a NPE inside the
+ * repository.
+ */
+export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const tableName = stringProp(props, 'table')
@@ -494,16 +636,83 @@ export const handleRecordRead: ActionHandler = (action, app, _automation) =>
     }
     const idRaw = props['id']
     const idValue = typeof idRaw === 'string' && idRaw !== '' ? idRaw : undefined
-    if (idValue !== undefined) return yield* readByPrimaryKey(tableName, idValue)
-    if (props['filter'] !== undefined) {
-      return yield* readByFilter(tableName, props['filter'], declaredFieldNames(app, tableName))
+    if (idValue === undefined) {
+      return { status: 'failure', error: 'record.read requires props.id' } as const
     }
-    // Schema-level enforcement should have rejected this configuration at
-    // decode time. The runtime guard exists so a code-action invoking
-    // `record.read` natively (skipping schema validation) still gets a
-    // clean failure rather than a NPE inside the repository.
-    return {
-      status: 'failure',
-      error: 'record.read requires either props.id or props.filter',
-    } as const
+    return yield* readByPrimaryKey(tableName, idValue)
+  })
+
+/**
+ * `record/list` handler — the set-shaped read.
+ *
+ * Owns all four dimensions [internal ref] split out of `record/read`: which rows
+ * (`filter`), in what order (`sort`), how many and from where (`limit` /
+ * `offset`), carrying which columns (`fields`). Ordering and paging are pushed
+ * into SQL; only the payload trim is applied in memory.
+ *
+ * Omitting `filter` entirely is legal and means "every non-deleted row"; only a
+ * filter that is PRESENT but empty is refused.
+ *
+ * `app` is threaded into the repository call and it is load-bearing rather than
+ * incidental. Without it `buildSortClause` cannot see a `single-select` field's
+ * declared options, so it falls through to a plain `"status" ASC` and orders
+ * the labels ALPHABETICALLY instead of by declared option index — a quiet wrong
+ * answer on a successful run, which is the failure mode this whole surface is
+ * built to avoid.
+ */
+export const handleRecordList: ActionHandler = (action, app, _automation) =>
+  Effect.gen(function* () {
+    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
+    const tableName = stringProp(props, 'table')
+    if (!tableName) {
+      return { status: 'failure', error: 'record.list requires a table name' } as const
+    }
+
+    const declaredFields = declaredFieldNames(app, tableName)
+    const queryFilter = props['filter'] === undefined ? undefined : toQueryFilter(props['filter'])
+    const sortKeys = readSortKeys(props['sort'])
+    const fields = readFieldNames(props['fields'])
+
+    const refusal = listRefusal({
+      tableName,
+      filterPresent: props['filter'] !== undefined,
+      queryFilter,
+      sortKeys,
+      selectedFields: fields ?? [],
+      declaredFields,
+    })
+    if (refusal !== undefined) {
+      return { status: 'failure', error: refusal } as const
+    }
+
+    const limit = optionalIntProp(props, 'limit')
+    const offset = optionalIntProp(props, 'offset')
+    // The implicit `id ASC` is appended only when a page is actually being cut.
+    // An unpaged list returns the whole set, so ties within it can neither hide
+    // nor duplicate a row, and adding a key the author never wrote would change
+    // the ordering they DID ask for.
+    const paginates = limit !== undefined || offset !== undefined
+    const sort = sortToPortString(paginates ? withDeterministicTiebreak(sortKeys) : sortKeys)
+
+    const repo = yield* TableRepository
+    // Each optional argument is passed as an explicit `undefined` rather than
+    // conditionally spread: the port destructures its config, so an absent key
+    // and an undefined one reach the query builders identically, and four
+    // spread-ternaries here would buy nothing but branches.
+    const result = yield* Effect.result(
+      repo.listRecords({
+        session: buildGuestSession(),
+        tableName,
+        app,
+        filter: queryFilter,
+        sort,
+        limit,
+        offset,
+      })
+    )
+    if (result._tag === 'Failure') return failureFromError(result.failure)
+
+    return buildReadOutput(
+      fields === undefined ? result.success : trimToFields(result.success, fields)
+    )
   })

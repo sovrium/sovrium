@@ -20,11 +20,23 @@ import type { TransformParams } from './image-transform-params'
 /**
  * Build a stable, canonical string identifying a transform request.
  *
- * The string includes the storage key, every transform parameter, and the
- * resolved output format. Two requests producing byte-identical output map to
- * the same canonical string; two requests producing different output do not.
+ * The string includes the storage key, every transform parameter, the resolved
+ * output format, and the bucket the request named. Two requests producing
+ * byte-identical output map to the same canonical string; two requests
+ * producing different output do not.
+ *
+ * The bucket participates even though it never changes the BYTES. Both the
+ * cache and the `ETag` are consulted BEFORE storage, so without it a request
+ * naming a sibling bucket would hit the owning bucket's cached entry — or match
+ * its `ETag` and be answered 304 — without the storage layer ever checking
+ * which bucket owns the object.
  */
-const canonicalString = (key: string, params: TransformParams, resolvedFormat: string): string =>
+const canonicalString = (
+  key: string,
+  params: TransformParams,
+  resolvedFormat: string,
+  bucket: string
+): string =>
   [
     key,
     `w=${params.width ?? ''}`,
@@ -32,6 +44,9 @@ const canonicalString = (key: string, params: TransformParams, resolvedFormat: s
     `fit=${params.fit}`,
     `fmt=${resolvedFormat}`,
     `q=${params.quality ?? ''}`,
+    // LAST on purpose: `evictTransformCacheForKey` drops entries by the
+    // `<storageKey>|` prefix, so the storage key has to stay leading.
+    `bkt=${bucket}`,
   ].join('|')
 
 /**
@@ -41,12 +56,15 @@ const canonicalString = (key: string, params: TransformParams, resolvedFormat: s
  * @param params - the parsed transform parameters
  * @param resolvedFormat - the output format actually produced (`'origin'` when
  *   the source format is preserved)
+ * @param bucket - the bucket the request named, so one bucket's cached bytes
+ *   can never be served through another
  */
 export const buildTransformCacheKey = (
   key: string,
   params: TransformParams,
-  resolvedFormat: string
-): string => canonicalString(key, params, resolvedFormat)
+  resolvedFormat: string,
+  bucket: string
+): string => canonicalString(key, params, resolvedFormat, bucket)
 
 /**
  * Derive a quoted, weak-safe HTTP `ETag` value from a transform-cache key.

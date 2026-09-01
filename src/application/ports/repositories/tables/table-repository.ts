@@ -88,6 +88,32 @@ export class TableRepository extends Context.Service<
       readonly filter?: QueryFilter
       readonly includeDeleted?: boolean
       readonly sort?: string
+      /**
+       * Page size and start offset, applied as SQL `LIMIT` / `OFFSET`.
+       *
+       * Both are optional and purely ADDITIVE: a caller passing neither emits
+       * byte-identical SQL to what this port has always emitted, which is what
+       * lets pagination push down without auditing every existing consumer.
+       *
+       * A caller that pages MUST also supply a TOTAL ordering — the `record`
+       * `list` operator appends an implicit `id ASC` for exactly this reason.
+       * An `OFFSET` over a relation with ties may hand the same row back on two
+       * consecutive pages and skip another entirely, and no error is raised
+       * when it does.
+       */
+      readonly limit?: number
+      readonly offset?: number
+      /**
+       * Projected select list. Omit for `SELECT *`, which is what every caller
+       * without a field selection wants — the CSV export and the MCP tool call
+       * both list with no projection and expect every column back.
+       *
+       * The names are CANDIDATES rather than a promise: the implementation
+       * intersects them with the relation's live catalog before emitting
+       * anything, so an optional system column a given table does not have is
+       * quietly dropped instead of becoming a hard error.
+       */
+      readonly columns?: readonly string[]
       readonly app?: {
         readonly tables?: readonly {
           readonly name: string

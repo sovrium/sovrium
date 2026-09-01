@@ -69,9 +69,30 @@ export function mergeDraft(
   drafts.set(sessionId, { ...existingForSession, [formName]: merged })
 }
 
-// `clearDraft` (drop a single form's draft on successful submission) and
-// `resetDraftStore` (test-only escape hatch) are intentionally NOT exported
-// today — the foundation tests submit the full payload directly to
-// `/api/forms/:name/submissions` and start a fresh server per test, so
-// neither function has a caller yet. Add them back the moment a caller
-// lands (e.g. save-and-resume invalidation, or a server-lifecycle hook).
+/**
+ * REPLACE a form's draft with exactly `values`, dropping everything the
+ * submitter had entered before.
+ *
+ * This is the server half of `onSuccess: { type: 'reset' }` on a multi-step
+ * form. A reset means the submitter starts the flow over, so every answer
+ * they gave must stop prefilling later steps — but `preserveFields` says
+ * some answers deliberately survive. Merging cannot express that (it can
+ * only add), and clearing alone loses the preserved values, so the two have
+ * to happen as one replacement.
+ *
+ * Passing an empty `values` is therefore a full clear, which is the correct
+ * behaviour for a reset with no `preserveFields`.
+ */
+export function replaceDraft(
+  sessionId: string,
+  formName: string,
+  values: Readonly<Record<string, unknown>>
+): void {
+  const existingForSession = drafts.get(sessionId) ?? {}
+  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- module-local mutable Map, mirrors webhook-rate-limit.ts pattern
+  drafts.set(sessionId, { ...existingForSession, [formName]: { ...values } })
+}
+
+// `resetDraftStore` (a test-only escape hatch to empty the whole Map) is
+// intentionally NOT exported today — specs start a fresh server per test, so
+// it has no caller. Add it the moment one lands.

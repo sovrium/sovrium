@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { mimeByExt, uploadArtifact } from './file-support'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -76,7 +76,7 @@ export const handleFileGetMetadata: ActionHandler = (action) =>
     if (!key) return softError('file.getMetadata requires a key')
 
     const storage = yield* StorageService
-    const meta = yield* Effect.result(storage.getMetadata(key))
+    const meta = yield* Effect.result(storage.getMetadata(key, UNATTRIBUTED_BUCKET))
     if (meta._tag === 'Failure') return softError(`file not found: ${key}`)
 
     return { status: 'success', output: { ...meta.success } } as const
@@ -97,7 +97,7 @@ const copyBytes = (
   destinationKey: string
 ): Effect.Effect<number | ActionOutcome, never> =>
   Effect.gen(function* () {
-    const downloaded = yield* Effect.result(storage.download(sourceKey))
+    const downloaded = yield* Effect.result(storage.download(sourceKey, UNATTRIBUTED_BUCKET))
     if (downloaded._tag === 'Failure') return softError(`file not found: ${sourceKey}`)
     const mime = mimeByExt(destinationKey) ?? mimeByExt(sourceKey) ?? 'application/octet-stream'
     const wrote = yield* uploadArtifact(storage, destinationKey, downloaded.success, mime)
@@ -125,7 +125,7 @@ const copyOrMove = (
 
     if (deleteSource) {
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
-      const removed = yield* Effect.result(storage.delete(sourceKey))
+      const removed = yield* Effect.result(storage.delete(sourceKey, UNATTRIBUTED_BUCKET))
       if (removed._tag === 'Failure') return softError(`failed to remove source ${sourceKey}`)
     }
 
@@ -151,7 +151,7 @@ export const handleFileDelete: ActionHandler = (action) =>
 
     const storage = yield* StorageService
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
-    const removed = yield* Effect.result(storage.delete(key))
+    const removed = yield* Effect.result(storage.delete(key, UNATTRIBUTED_BUCKET))
     if (removed._tag === 'Failure') {
       return { status: 'failure', error: `file not found: ${key}` } as const
     }

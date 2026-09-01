@@ -418,6 +418,17 @@ export async function handleGetRecord(c: Context, app: App) {
     )
   }
 
+  // The requested wall clock. Read and validated HERE, alongside `format`,
+  // rather than deeper in: the list sibling already rejects an unknown zone
+  // with a 400 (`validateListRecordsParams`), and a route that silently ignored
+  // one while its sibling refused it would make the same request mean two
+  // things. `convertToTimezone` swallows an invalid zone and returns the
+  // untouched instant, so without this the caller would get a 200 carrying the
+  // wrong clock and nothing to explain it.
+  const timezone = c.req.query('timezone')
+  const timezoneError = validateTimezoneParam(timezone, c)
+  if (timezoneError) return timezoneError
+
   const table = app.tables?.find((t) => t.name === tableName)
   const guard = await resolveGuardForTable(session, userRole, table, app)
 
@@ -436,6 +447,7 @@ export async function handleGetRecord(c: Context, app: App) {
           recordId,
           includeDeleted,
           format: formatParam === 'display' ? 'display' : undefined,
+          timezone,
           origin: new URL(c.req.url).origin,
         })
       ),

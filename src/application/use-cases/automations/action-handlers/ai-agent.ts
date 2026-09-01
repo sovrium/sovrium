@@ -136,6 +136,27 @@ const buildAgentSystemPrompt = (agent: Agent): string => {
 }
 
 /**
+ * Per-action description overrides for the tools advertised to the LLM.
+ *
+ * The generic fallback ("perform the X operation") is enough for actions whose
+ * name already says what they do, but it is actively harmful for the read pair:
+ * `record.read` and `record.list` would otherwise be described identically bar
+ * one word, leaving the model to guess which one takes a filter. A model that
+ * picks `read` for a filtered question gets a refusal, and one that picks
+ * `list` for a by-id question sweeps the table — so the distinction is spelled
+ * out rather than implied.
+ */
+const ACTION_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  'record.read':
+    'Fetch exactly ONE record by its primary key. Requires the record id. ' +
+    'Cannot filter, sort, or return multiple records — use record.list for that.',
+  'record.list':
+    'Fetch a SET of records matching conditions. Supports filtering, sorting, ' +
+    'and limit/offset paging, and returns zero or more records. ' +
+    'Use record.read instead when you already know the exact record id.',
+}
+
+/**
  * Build the OpenAI-compatible `tools[]` array advertised to the LLM — one
  * function per allowlisted agent action, scoped to the agent's tables. A
  * tool is named exactly after the agent action (`record.read`) so the
@@ -150,7 +171,9 @@ const buildAgentTools = (agent: Agent): ReadonlyArray<ChatToolDefinition> => {
     type: 'function' as const,
     function: {
       name: action,
-      description: `Perform the "${action}" operation against the agent's allowlisted tables (${tableList}).`,
+      description: `${
+        ACTION_DESCRIPTIONS[action] ?? `Perform the "${action}" operation.`
+      } Allowlisted tables: ${tableList}.`,
       parameters: {
         type: 'object',
         properties: {

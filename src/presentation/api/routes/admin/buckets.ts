@@ -59,9 +59,9 @@ import {
 import { parseSortSpec } from '@/domain/utils/sort-spec'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { buildUploadStorageKey } from '@/infrastructure/storage/upload-key'
 import { provideAdminBucketFilesLive } from '@/presentation/api/routes/admin/buckets/effect-runner'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
-import { buildUploadStorageKey } from '@/presentation/api/routes/buckets/upload-key'
 import { notFound, payloadTooLarge } from '@/presentation/api/utils/auth-helpers'
 import { requestLogAttributes } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
@@ -552,7 +552,7 @@ async function handleUploadBucketFile(c: Context): Promise<Response> {
     )
   }
 
-  return persistAdminUpload(c, file)
+  return persistAdminUpload(c, file, c.req.param('bucketName') ?? 'default')
 }
 
 /**
@@ -563,7 +563,7 @@ async function handleUploadBucketFile(c: Context): Promise<Response> {
  * keep that handler under the per-function statement/line thresholds — mirrors
  * the public route's `persistUpload` extraction.
  */
-async function persistAdminUpload(c: Context, file: File): Promise<Response> {
+async function persistAdminUpload(c: Context, file: File, bucket: string): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
   const arrayBuffer = await file.arrayBuffer()
   const content = new Uint8Array(arrayBuffer)
@@ -575,8 +575,8 @@ async function persistAdminUpload(c: Context, file: File): Promise<Response> {
   // source the list endpoint reads) rather than echoing request-side values.
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    yield* storage.upload(key, content, mimeType)
-    return yield* storage.getMetadata(key)
+    yield* storage.upload(key, content, mimeType, bucket)
+    return yield* storage.getMetadata(key, bucket)
   })
 
   const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))

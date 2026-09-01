@@ -54,17 +54,22 @@ curl -fsSL https://sovrium.com/install | sh
 sovrium start app.ts
 ```
 
-For editor autocomplete and type checking against the published config types:
+For editor autocomplete and type checking against the config types:
 
 ```bash
 bun install
 bunx tsc --noEmit
 ```
 
-> This config tracks sovrium.com, which runs ahead of the last published release.
-> If `tsc` reports errors on schema shapes the pinned `@sovrium/types` does not
-> know about yet, that is expected — the runtime accepts them, and the next
-> release brings the types in line.
+The types are already here: `sovrium.d.ts` ships in this repo and declares the
+`sovrium` module every config file imports. Nothing installs it — `bun install`
+above pulls in TypeScript alone. To regenerate it against a different release,
+run `sovrium types` with that binary.
+
+> This config tracks sovrium.com, which runs ahead of the last published
+> release. If `tsc` reports errors on schema shapes the bundled `sovrium.d.ts`
+> does not know about yet, that is expected — the runtime accepts them, and the
+> next release brings the types in line.
 
 ## Licence
 

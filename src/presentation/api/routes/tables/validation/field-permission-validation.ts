@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { SELECTABLE_SYSTEM_FIELDS } from '@/application/use-cases/tables/utils/list-helpers'
 import { isFieldReadableByRole } from '@/domain/validators/field-read-filter'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -118,6 +119,13 @@ export function validateFilterParam(filter: unknown, access: FieldAccessContext)
 
 /**
  * Validate fields parameter - ensure all requested field names exist in the table
+ *
+ * The accepted system names come from {@link SELECTABLE_SYSTEM_FIELDS}, the
+ * same set the selection itself reads. This gate previously allowed `id`
+ * alone while `applyFieldSelection` served `id`, `createdAt` and `updatedAt`,
+ * so `?fields=id,createdAt` was refused with a 400 by the layer in front of the
+ * one that could answer it. Two vocabularies for one question is what made that
+ * possible, so there is now one.
  */
 export function validateFieldsParam(
   fields: string | undefined,
@@ -129,11 +137,9 @@ export function validateFieldsParam(
 
   const requestedFields = fields.split(',').map((f) => f.trim())
   const tableFieldNames = new Set(table?.fields.map((f) => f.name) ?? [])
-  // id is always a valid system field regardless of schema fields
-  const systemFields = new Set(['id'])
 
   const invalidField = requestedFields.find(
-    (fieldName) => !systemFields.has(fieldName) && !tableFieldNames.has(fieldName)
+    (fieldName) => !SELECTABLE_SYSTEM_FIELDS.has(fieldName) && !tableFieldNames.has(fieldName)
   )
 
   if (invalidField) {

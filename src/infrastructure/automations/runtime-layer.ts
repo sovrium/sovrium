@@ -7,6 +7,7 @@
 
 import { Effect, Layer } from 'effect'
 import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
+import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { AutomationApprovalRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-approval-repository-live'
@@ -17,7 +18,9 @@ import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositor
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
+import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
+import { ServerOriginLive } from '@/infrastructure/server/server-origin-live'
 import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transform-live'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 
@@ -46,6 +49,15 @@ import { StorageServiceLive } from '@/infrastructure/storage/storage-service-liv
  *   the `approval/request` handler's pending-row INSERT.
  * - `AuthRepository` (via `AuthRepositoryLive`) for the `auth/*` handlers
  *   (`assignRole`, `banUser`, `unbanUser` and their user-existence guard).
+ * - `LinkRepository` (via `LinkRepositoryLive`) for the `link/*` handlers, which
+ *   call the same `createLink`/`updateLink`/`deleteLink` use-cases the admin
+ *   console does — so a step and an operator refuse the same reserved and
+ *   config-declared slugs.
+ * - `ServerOrigin` (via `ServerOriginLive`) so `link/create` can hand back an
+ *   ABSOLUTE address. A step has no request to read a `Host` header from, and
+ *   the alternative — deriving it from `PORT` — yields `http://localhost:0`
+ *   wherever the OS picked the port, which is an address that passes every
+ *   well-formedness check and opens nowhere.
  *
  * Lives in `infrastructure/automations/` (not in the presentation route
  * folder) so non-route entry points — the live cron scheduler in
@@ -74,7 +86,13 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   AiServiceLive,
   StorageServiceLive,
   ImageTransformServiceLive,
-  AnalyticsRepositoryLive
+  AnalyticsRepositoryLive,
+  ServerOriginLive,
+  // `LinkRepository` — the links write use-cases (`createLink`/`updateLink`/
+  // `deleteLink`) an automation step reaches for. Unlike its neighbours this
+  // Layer is built from `Database`, so it is provided here rather than merged
+  // bare; the admin route composes it the same way.
+  Layer.provide(LinkRepositoryLive, DatabaseLive)
 )
 
 /**

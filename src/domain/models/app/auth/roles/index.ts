@@ -232,6 +232,50 @@ export const RoleDefinitionSchema = Schema.Struct({
   defaultLanding: Schema.optional(DefaultLandingSchema),
   pickerLanding: Schema.optional(PickerLandingSchema),
   dashboardTier: Schema.optional(DashboardTierSchema),
+  /**
+   * Invite grant: `true` lets a NON-admin-equivalent role invite users through
+   * `POST /api/auth/admin/invite-user`, which is otherwise reachable only by the
+   * app's admin-equivalent role ({@link isAdminEquivalent}).
+   *
+   * Optional, and **absent means `false`** — every existing app is unaffected,
+   * because the grant only ever widens the guard and never narrows it. It is a
+   * boolean rather than an object because the two things a scoped invite needs
+   * are already expressed elsewhere in the config, and duplicating either here
+   * would create a second source of truth that could disagree with the first:
+   *
+   * WHAT IT GRANTS
+   * - Reaching the invite endpoint at all, without being admin-equivalent.
+   *
+   * WHAT IT DELIBERATELY DOES **NOT** GRANT
+   * - **It does not lift the `level` ceiling.** The invited role's `level` must
+   *   still be at or below the granted role's own, so a `canInvite` role can
+   *   never mint a peer of a role above it. Privilege escalation stays closed by
+   *   the hierarchy that already exists — this property adds no rung to it.
+   * - **It does not cross tenants.** The tenant is a `auth.scopeTables` row
+   *   materialised in `system.user_access`; the invitee inherits the inviter's
+   *   assignments and nothing else. The grant confers no ability to place a user
+   *   in a scope the inviter cannot already reach. (Notably NOT the Better Auth
+   *   organization plugin: Sovrium is single-org by construction, so an org
+   *   filter would range over exactly one value and scope nothing.)
+   * - **It does not change the denial shape.** A caller without the grant, or one
+   *   exceeding its ceiling, still receives **404** and never 403 — the S1
+   *   anti-enumeration rule is unchanged.
+   *
+   * SECURITY: this is a config-declared widening of an operator-plane guard. It
+   * is meaningful only in combination with the `level` ceiling above; a guard
+   * that reads this flag WITHOUT also comparing levels would turn any granted
+   * role into a full admin. The two checks are one rule, not two.
+   */
+  canInvite: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        title: 'Can Invite',
+        description:
+          'Allows this role to invite users via POST /api/auth/admin/invite-user without being admin-equivalent. Absent means false. Does not lift the level ceiling (the invited role must be at or below this role) and does not cross tenants (the invitee inherits the inviter scope assignments). Denials remain 404.',
+        examples: [true, false],
+      })
+    )
+  ),
 }).pipe(
   Schema.check(
     Schema.makeFilter((role) => {
@@ -360,6 +404,7 @@ export interface AdminRoleResolvable {
       readonly name: string
       readonly level?: number
       readonly dashboardTier?: DashboardTier
+      readonly canInvite?: boolean
     }[]
   }
 }
@@ -551,6 +596,77 @@ export const resolveDashboardTier = (
  */
 export const isAdminTier = (roleName: string, app: AdminRoleResolvable): boolean =>
   resolveDashboardTier(roleName, app) !== undefined
+
+// ============================================================================
+// Invite authorization
+// ============================================================================
+
+/**
+ * `true` when a caller holding `callerRoleName` may issue an invitation for
+ * `invitedRoleName` — the single admit/deny predicate behind
+ * `POST /api/auth/admin/invite-user`.
+ *
+ * ONE rule with four clauses, not four rules. The `canInvite` grant is only ever
+ * meaningful in combination with the ceiling below it: a guard that read the flag
+ * without also bounding the invited role would turn any granted role into a full
+ * admin, which is the entire risk this predicate exists to close.
+ *
+ * 1. An admin-equivalent caller is admitted unconditionally — today's behaviour,
+ *    unchanged, and the reason every existing app is unaffected. The grant only
+ *    ever WIDENS this guard; it can never narrow it.
+ * 2. Otherwise the caller's role must be DECLARED in `app.auth.roles[]` with
+ *    `canInvite: true`. Absent means false, so an app that never heard of the
+ *    property behaves exactly as before.
+ * 3. The invited role must not be admin-tier ({@link isAdminTier}). This clause
+ *    is not redundant with the level ceiling and removing it re-opens the hole:
+ *    the runtime-only operator names (`admin-editor`, `admin-viewer`, `operator`)
+ *    are absent from `app.auth.roles[]` and from {@link BUILT_IN_ROLE_LEVELS}, so
+ *    {@link resolveRoleLevel} scores them at the `member` fallback of 40 — which
+ *    a level-40 granted role would clear, minting an admin-dashboard-capable
+ *    account. The operator plane is closed to non-admin inviters outright.
+ * 4. The invited role's level must be at or below the caller's own. AT is
+ *    deliberate: minting a peer is not an escalation, minting a superior is.
+ *
+ * What this predicate does NOT decide: whether the invited role is a name the app
+ * knows at all ({@link isAssignableRole}, checked downstream and answering 400),
+ * and which tenant the invitee lands in (the inviter's `system.user_access`
+ * assignments, inherited by the invitation flow). It grants reachability only.
+ *
+ * `invitedRoleName` is optional because the invited role arrives in the request
+ * BODY: a caller who sends no role cannot be size-checked against the ceiling, so
+ * a non-admin-equivalent caller is denied. An admin-equivalent caller still falls
+ * through clause 1 and receives the existing 400 `role is required` from
+ * validation, so no caller that worked before behaves differently.
+ *
+ * SECURITY: denial is reported by the caller as **404**, never 403 (S1
+ * anti-enumeration) — identical to the shape a wholly unauthorized caller gets,
+ * so the endpoint stays undiscoverable to anyone probing for it.
+ */
+export const canInviteRole = (
+  callerRoleName: string,
+  invitedRoleName: string | undefined,
+  app: AdminRoleResolvable
+): boolean => {
+  // Clause 1 — the unchanged admin-equivalent path.
+  if (isAdminEquivalent(callerRoleName, app)) return true
+  if (invitedRoleName === undefined) return false
+
+  // Clause 2 — the opt-in grant, which must be DECLARED on the caller's role.
+  const declaredRoles = app.auth?.roles ?? []
+  const caller = declaredRoles.find((role) => role.name === callerRoleName)
+  if (caller?.canInvite !== true) return false
+
+  // Clause 3 — the operator plane is never reachable through a scoped invite.
+  if (isAdminTier(invitedRoleName, app)) return false
+
+  // Clause 4 — the hierarchy ceiling. An undeclared invited role is scored
+  // through the same resolver so built-ins rank by their real level rather than
+  // by a second, divergent table.
+  const invited = declaredRoles.find((role) => role.name === invitedRoleName) ?? {
+    name: invitedRoleName,
+  }
+  return resolveRoleLevel(invited) <= resolveRoleLevel(caller)
+}
 
 // ============================================================================
 // Assignable-role vocabulary

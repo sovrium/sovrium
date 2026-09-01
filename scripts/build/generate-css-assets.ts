@@ -75,6 +75,24 @@ const TEST_FILE_GLOBS = ['**/*.test.ts', '**/*.test.tsx'] as const
  */
 const GENERATED_OUTPUT_REL = 'infrastructure/css/generated-css-assets.ts'
 
+/**
+ * The embedded config-types payload
+ * (`scripts/build/generate-embedded-config-types.ts`) also lives inside the
+ * `src` scan root, and is likewise not application code: it is ~184 KB of
+ * TypeScript DECLARATION TEXT held in a string literal — the ambient
+ * `declare module 'sovrium'` block `sovrium types` writes into an author's
+ * directory. It renders nothing.
+ *
+ * Scanning it is actively harmful in two ways. It folds every class-shaped
+ * token in the declaration (property names, `readonly`, type names, JSDoc
+ * words) into the builtin candidate set, which is the same class of pollution
+ * `GENERATED_OUTPUT_REL` above exists to prevent. And because the declaration is
+ * re-derived from the schema on every binary build, the candidate corpus would
+ * churn — and `Generated Assets Drift` would fail — on schema changes that touch
+ * no CSS whatsoever.
+ */
+const EMBEDDED_CONFIG_TYPES_REL = 'infrastructure/assets/embedded-config-types.generated.ts'
+
 const COPYRIGHT_HEADER = `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES
  *
@@ -94,6 +112,14 @@ function scanCandidates(): readonly string[] {
       {
         base: join(PROJECT_ROOT, 'src'),
         pattern: GENERATED_OUTPUT_REL,
+        negated: true,
+      },
+      // Same reasoning, different generator: the embedded `declare module
+      // 'sovrium'` payload is declaration TEXT in a string literal, not
+      // application code — see EMBEDDED_CONFIG_TYPES_REL.
+      {
+        base: join(PROJECT_ROOT, 'src'),
+        pattern: EMBEDDED_CONFIG_TYPES_REL,
         negated: true,
       },
       // Exclude co-located unit-test files from the candidate scan: their

@@ -60,8 +60,14 @@ function reorderWithinColumn(input: ReorderInput): readonly TableRecord[] | unde
 }
 
 /**
- * Optimistically apply a cross-column move and fire `persistAction`. Reverts
- * the local state when the API call fails.
+ * Optimistically apply a cross-column move, write it back, and revert the local
+ * state when the write fails.
+ *
+ * The write is unconditional: it used to be skipped outright whenever the board
+ * declared no `drag` block, which — together with the `persistAction` gate that
+ * used to sit inside `persistKanbanDrop` — is what made a drop paint and then
+ * silently vanish on reload. `drag` now only supplies the override and the
+ * failure toast, so it is passed through rather than gating.
  */
 function moveAcrossColumns(
   params: KanbanDragHandlerParams,
@@ -74,7 +80,6 @@ function moveAcrossColumns(
     String(r['id'] ?? '') === activeId ? { ...r, [groupByField]: targetColumn } : r
   )
   setLocalRecords(next)
-  if (!drag) return
   void persistKanbanDrop(
     { drag, groupByField, tableName: tableName ?? '' },
     activeId,

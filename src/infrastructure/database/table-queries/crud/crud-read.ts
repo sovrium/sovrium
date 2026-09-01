@@ -14,6 +14,8 @@ import {
   buildAggregationSelects,
   parseAggregationResult,
   buildOrderByClause,
+  buildPageClause,
+  buildSelectListClause,
   buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
   checkAuthorshipColumns,
@@ -37,6 +39,9 @@ import type { DatabaseError } from '@/infrastructure/database'
  * @param config.filter - Optional filter to apply to the query
  * @param config.includeDeleted - Whether to include soft-deleted records (default: false)
  * @param config.sort - Optional sort specification (e.g., 'field:asc' or 'field:desc')
+ * @param config.limit - Optional page size, applied as SQL `LIMIT`
+ * @param config.offset - Optional start offset, applied as SQL `OFFSET`
+ * @param config.columns - Optional projection; omit for `SELECT *`
  * @returns Effect resolving to array of records
  */
 export function listRecords(config: {
@@ -47,11 +52,14 @@ export function listRecords(config: {
   }
   readonly includeDeleted?: boolean
   readonly sort?: string
+  readonly limit?: number
+  readonly offset?: number
+  readonly columns?: readonly string[]
   readonly app?: {
     readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
   }
 }): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
-  const { tableName, filter, includeDeleted, sort, app } = config
+  const { tableName, filter, includeDeleted, sort, limit, offset, columns, app } = config
   return traceDbQuery(
     'select',
     tableName,
@@ -65,10 +73,19 @@ export function listRecords(config: {
           // Build query clauses
           const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
           const orderByClause = buildOrderByClause(sort, app, tableName)
+          // Empty when the caller passes neither `limit` nor `offset`, which is
+          // every pre-pagination call site — the statement below is unchanged
+          // for them, down to the byte.
+          const pageClause = buildPageClause(limit, offset)
+          // `*` unless the caller projected. `ORDER BY` deliberately runs
+          // against the FULL relation rather than the projected list: a plain
+          // non-DISTINCT select may order by a column it does not return, on
+          // both dialects, so a sort key never has to be force-projected.
+          const selectList = await Effect.runPromise(buildSelectListClause(tx, tableName, columns))
 
           return await typedExecute(
             tx,
-            sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}`
+            sql`SELECT ${selectList} FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}${pageClause}`
           )
         }),
       catch: wrapDatabaseError(`Failed to list records from ${tableName}`),

@@ -63,6 +63,11 @@ export type CommentTriggerFilter = Schema.Schema.Type<typeof CommentTriggerFilte
  * | `$trigger.comment.parentCommentId`           | UUID \| null | Null for top-level comments; UUID for replies      |
  * | `$trigger.threadParticipants`                | UUID[]       | Unique authors on the thread, EXCLUDING the new author |
  * | `$trigger.mentions`                          | UUID[]       | User ids mentioned in `@<name>` markup             |
+ * | `$trigger.mentionedEmails`                   | string[]     | Email addresses of the mentioned users, EXCLUDING the comment's own author |
+ *
+ * `mentions` is ids and `mentionedEmails` is addresses on purpose — the id
+ * list is the documented payload contract, but only the address list is a
+ * usable `email.send` `to`. Same split as `threadParticipants`.
  */
 export const CommentTriggerSchema = Schema.Struct({
   type: Schema.Literal('comment'),
@@ -98,7 +103,7 @@ export const CommentTriggerSchema = Schema.Struct({
     identifier: 'CommentTrigger',
     title: 'Comment Trigger',
     description:
-      'Trigger automation when a comment is created on a record. Provides $trigger.comment.*, $trigger.record.*, $trigger.threadParticipants, $trigger.mentions context variables.',
+      'Trigger automation when a comment is created on a record. Provides $trigger.comment.*, $trigger.record.*, $trigger.threadParticipants, $trigger.mentions, $trigger.mentionedEmails context variables.',
   })
 )
 

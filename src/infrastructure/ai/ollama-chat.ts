@@ -176,7 +176,6 @@ export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<Ch
         // native `/api/chat` wire format (an opaque `Record<string, unknown>`
         // assembled by `ollamaBody`). The HTTP layer needs a JSON string,
         // not a decoded domain value.
-        // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
         body: JSON.stringify(ollamaBody(conn, input, false)),
       })
       if (!response.ok) {

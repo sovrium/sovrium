@@ -48,6 +48,7 @@ import {
   getCachedTransform,
   setCachedTransform,
 } from '@/infrastructure/storage/transform-cache'
+import { buildUploadStorageKey } from '@/infrastructure/storage/upload-key'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
 import {
   createHandleBatchSign,
@@ -55,7 +56,6 @@ import {
   createHandleSignedServe,
   createHandleSignedUpload,
 } from '@/presentation/api/routes/buckets/signed-urls'
-import { buildUploadStorageKey } from '@/presentation/api/routes/buckets/upload-key'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
 import type { UserSession } from '@/application/ports/models/user-session'
@@ -118,7 +118,7 @@ function createHandleGetBucketFile(app: App) {
       }
     }
 
-    return serveTransformedDownload(c, key)
+    return serveTransformedDownload(c, key, bucket.name)
   }
 }
 
@@ -134,11 +134,15 @@ function createHandleGetBucketFile(app: App) {
  * explicit transform params, an image download may still be transcoded by
  * `Accept`-header format negotiation, so the default-params path always runs.
  */
-async function serveTransformedDownload(c: Context, key: string): Promise<Response> {
+async function serveTransformedDownload(
+  c: Context,
+  key: string,
+  bucket: string
+): Promise<Response> {
   const query = c.req.query()
   const hasPreset = query['preset'] !== undefined && query['preset'] !== ''
   if (!hasPreset && !hasTransformParams(query)) {
-    return serveFileDownload(c, key, defaultTransformParams())
+    return serveFileDownload(c, key, defaultTransformParams(), bucket)
   }
 
   const presets = parsePresetEnv(process.env['STORAGE_TRANSFORM_PRESETS'])
@@ -164,7 +168,7 @@ async function serveTransformedDownload(c: Context, key: string): Promise<Respon
       400
     )
   }
-  return serveFileDownload(c, key, parsed.params)
+  return serveFileDownload(c, key, parsed.params, bucket)
 }
 
 /**
@@ -230,11 +234,12 @@ function buildTransformResponse(
 async function serveFileDownload(
   c: Context,
   key: string,
-  transform: TransformParams
+  transform: TransformParams,
+  bucket: string
 ): Promise<Response> {
   const acceptHeader = c.req.header('Accept')
   const resolvedFormat = resolveTransformOutputFormat(transform, acceptHeader)
-  const cacheKey = buildTransformCacheKey(key, transform, resolvedFormat)
+  const cacheKey = buildTransformCacheKey(key, transform, resolvedFormat, bucket)
   const etag = buildTransformETag(cacheKey)
 
   // Conditional request: a matching `If-None-Match` short-circuits to 304
@@ -255,7 +260,7 @@ async function serveFileDownload(
   }
 
   // Cache miss: download from storage, transform, cache, and respond.
-  return produceTransformResponse(c, key, transform, { cacheKey, etag, acceptHeader })
+  return produceTransformResponse(c, key, transform, { cacheKey, etag, acceptHeader, bucket })
 }
 
 /**
@@ -300,11 +305,16 @@ async function produceTransformResponse(
   c: Context,
   key: string,
   transform: TransformParams,
-  ctx: { readonly cacheKey: string; readonly etag: string; readonly acceptHeader?: string }
+  ctx: {
+    readonly cacheKey: string
+    readonly etag: string
+    readonly acceptHeader?: string
+    readonly bucket: string
+  }
 ): Promise<Response> {
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    return yield* storage.download(key)
+    return yield* storage.download(key, ctx.bucket)
   })
 
   const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))
@@ -643,7 +653,7 @@ function createHandlePostBucketFile(app: App) {
       return denyWrite(c, session)
     }
 
-    return persistUpload(c, file, explicitPath)
+    return persistUpload(c, file, bucket.name, explicitPath)
   }
 }
 
@@ -652,7 +662,12 @@ function createHandlePostBucketFile(app: App) {
  * the HTTP response. Extracted from `createHandlePostBucketFile` to keep that
  * handler under the complexity / line-count thresholds.
  */
-async function persistUpload(c: Context, file: File, explicitPath?: string): Promise<Response> {
+async function persistUpload(
+  c: Context,
+  file: File,
+  bucket: string,
+  explicitPath?: string
+): Promise<Response> {
   const arrayBuffer = await file.arrayBuffer()
   const content = new Uint8Array(arrayBuffer)
   const mimeType = file.type || 'application/octet-stream'
@@ -667,7 +682,7 @@ async function persistUpload(c: Context, file: File, explicitPath?: string): Pro
 
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    yield* storage.upload(key, content, mimeType)
+    yield* storage.upload(key, content, mimeType, bucket)
   })
 
   const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))
@@ -675,6 +690,13 @@ async function persistUpload(c: Context, file: File, explicitPath?: string): Pro
     const { cause } = result.failure as { readonly cause?: unknown }
     const message = cause instanceof Error ? cause.message : String(cause)
     logError('[buckets] upload failed', result.failure)
+    // An explicit `path` lets a caller aim an ordinary upload at a key another
+    // bucket owns. The storage layer refuses that write as not-found; answer 404
+    // with the generic message rather than echoing it inside a 500, so the
+    // refusal is indistinguishable from an absent key (S1).
+    if (isNotFoundError(cause)) {
+      return c.json({ success: false, error: 'File not found', code: 'NOT_FOUND' }, 404)
+    }
     return c.json(
       { success: false, error: `Upload failed: ${message}`, code: 'STORAGE_ERROR' },
       500
@@ -750,7 +772,7 @@ function createHandleDeleteBucketFile(app: App) {
     const program = Effect.gen(function* () {
       const storage = yield* StorageService
       // Use bracket notation to avoid false positive from drizzle/enforce-delete-with-where ESLint rule
-      yield* storage['delete'](key)
+      yield* storage['delete'](key, bucket.name)
     })
 
     const result = await runRequestEffect(c, program.pipe(provideStorageLive, Effect.result))

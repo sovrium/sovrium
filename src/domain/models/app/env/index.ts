@@ -69,10 +69,13 @@ export const EnvVarSchema = Schema.Struct({
    * mechanisms are complementary rather than competing and this one does not
    * pre-empt that decision.
    *
-   * Scope: this governs the config REFLECTION surface
-   * (`GET /api/admin/config/schema` → `/_admin/schema`). `GET /api/admin/env`
-   * is unaffected — it reports presence via `hasDefault` and never echoes the
-   * literal, and widening that contract is its own decision.
+   * Scope: this governs every operator-facing REFLECTION of the config — the
+   * schema surface (`GET /api/admin/config/schema` → `/_admin/schema`) and the
+   * environment viewer (`GET /api/admin/env` → `/_admin/env`) alike. The viewer
+   * echoes the literal as `defaultValue` for a variable declared
+   * `secret: false`, and for nothing else. Presence reporting via `hasDefault`
+   * stays unconditional and independent of this marker, so an absent
+   * `defaultValue` always means withheld rather than undeclared.
    */
   secret: Schema.optional(
     Schema.Boolean.pipe(

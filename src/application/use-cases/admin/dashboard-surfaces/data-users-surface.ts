@@ -194,6 +194,36 @@ const usersActionColumn = (app: Readonly<App>) =>
 const usersColumns = (app: Readonly<App>, canAdministerAccounts: boolean) =>
   canAdministerAccounts ? [...USERS_READ_COLUMNS, usersActionColumn(app)] : USERS_READ_COLUMNS
 
+/**
+ * The entry point to the invitation lifecycle (`/_admin/users/invitations`).
+ *
+ * A BUTTON that navigates rather than a link, because it is a directory-level
+ * gesture in the same family as the row controls beside it, and because the
+ * invitation surface is a working area rather than a document to browse to.
+ *
+ * Expressed as `mode: 'navigate'` on a `fetch` action — the dispatch mode the
+ * shared action executor implements as `window.location.assign`, and the same
+ * one the CSV export beside it already uses. A top-level `type: 'navigate'`
+ * action reads better but is inert on a standalone button: `button-action-
+ * builders.ts` emits data attributes for `automation` / `auth` / `crud` /
+ * `fetch` only, so it would render a button that does nothing.
+ *
+ * Painted only for a caller who is admin-EQUIVALENT, on the same rule as the row
+ * action column: `POST /api/auth/admin/invite-user` and the whole
+ * `/api/admin/invitations` surface 404 an admin-tier-but-not-equivalent
+ * operator, so showing them the way in would be an affordance their own backend
+ * refuses at the other end.
+ */
+function inviteAffordance(): Component {
+  return {
+    type: 'button',
+    label: 'Invite',
+    variant: 'secondary',
+    action: { type: 'fetch', mode: 'navigate', url: '/_admin/users/invitations' },
+    props: { className: 'self-start' },
+  } as unknown as Component
+}
+
 /** The page intro: heading + orienting one-liner. */
 function intro(): Component {
   return dataPageIntro(
@@ -290,7 +320,12 @@ export function buildDataUsersPage(options: DataShellOptions, app: Readonly<App>
     path: '/users',
     meta: { title: 'Sovrium — Data · Users' },
     components: wrapInShell(
-      [intro(), kpiStrip(), usersDataTable(app, options.canAdministerAccounts)],
+      [
+        intro(),
+        ...(options.canAdministerAccounts ? [inviteAffordance()] : []),
+        kpiStrip(),
+        usersDataTable(app, options.canAdministerAccounts),
+      ],
       {
         canEdit: options.canEdit,
         appName: options.appName,

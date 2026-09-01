@@ -10,6 +10,7 @@ import { quoteSqlIdentifier } from '@/domain/utils/database/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   shouldUseView,
+  getBaseTableName,
   generateLookupViewSQL,
   generateLookupViewTriggers,
 } from '../lookup/lookup-view-generators'
@@ -30,6 +31,7 @@ import {
   SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
+import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   generateTableViewStatements,
   generateReadOnlyViewTrigger,
@@ -38,6 +40,11 @@ import {
 import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import { recreateTableWithDataEffect } from './migration-utils'
 import { applyTableFeatures, applyTableFeaturesWithoutIndexes } from './table-features'
+import {
+  detectUnconvertibleRows,
+  planTypeChangeProbes,
+  resolveProbeIdColumn,
+} from './type-change-preflight'
 import type { Table } from '@/domain/models/app/tables'
 
 type TableView = NonNullable<Table['views']>[number]
@@ -56,6 +63,52 @@ type ExistingColumns = ReadonlyMap<
   string,
   { dataType: string; isNullable: string; columnDefault: string | null }
 >
+
+/**
+ * Refuse a SQLite rebuild whose field-type change would silently store values
+ * the new type cannot represent.
+ *
+ * Runs immediately BEFORE the rebuild's first statement, at the decision site
+ * rather than inside `recreateTableWithDataEffect` — by the time that function
+ * could scan anything it has already emitted `CREATE TABLE …_migration_temp`,
+ * and "Nothing has been changed" would be a claim about a rollback rather than
+ * about what ran. Here it is literally true.
+ *
+ * Postgres is untouched: it already refuses at driver level with
+ * `invalid input syntax`, which `[internal ref]` pins. The objective
+ * is parity of OUTCOME, not parity of message.
+ *
+ * A boot that changes no field type plans zero probes and issues zero queries,
+ * so every existing recreate — a constraint change, a primary-key reshape, an FK
+ * reconciliation, a display-only property edit — is unaffected.
+ */
+const guardSqliteTypeChanges = (params: {
+  readonly tx: TransactionLike
+  readonly table: Table
+  readonly existingColumns: ExistingColumns
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { tx, table, existingColumns, previousSchema } = params
+    if (!isSqliteRuntime()) return
+    const probes = planTypeChangeProbes({ table, existingColumns, previousSchema })
+    if (probes.length === 0) return
+
+    const sanitized = sanitizeTableName(table.name)
+    const refusals = yield* detectUnconvertibleRows({
+      query: (sql) => executeSQL(tx, sql),
+      tableName: table.name,
+      physicalTableName: shouldUseView(table) ? getBaseTableName(sanitized) : sanitized,
+      idColumn: resolveProbeIdColumn(existingColumns),
+      probes,
+    })
+    if (refusals.length === 0) return
+
+    // `yield*` on the error value directly: a tagged error is yieldable, and
+    // wrapping it in `Effect.fail` is what `unnecessaryFailYieldableError`
+    // flags.
+    return yield* new SQLExecutionError({ message: refusals.join('\n\n') })
+  })
 
 /**
  * Bring one existing table's STRUCTURE up to date: recreate, ALTER, or skip.
@@ -84,6 +137,7 @@ const reconcileTableStructure = (params: {
     if (needsTableRecreation(table, existingColumns)) {
       // Incompatible change (an `id` column whose type disagrees with the
       // declared primary-key type) — recreate preserving data.
+      yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
       yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
       return
     }
@@ -115,6 +169,7 @@ const reconcileTableStructure = (params: {
       // removed) — recreate to reconcile. The recreate is idempotent
       // (temp-scoped constraint names, canonical names restored) so it never
       // collides with the live catalog ([internal ref] fix #2).
+      yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
       yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
     }
     // else: the change has no DDL consequence — either the definition is

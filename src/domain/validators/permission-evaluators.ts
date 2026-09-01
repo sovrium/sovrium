@@ -5,8 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { splitGroupReferences } from '@/domain/models/app/auth/groups/group-reference'
 import {
   classifyPermissionRung,
+  matchesRoleList,
   toPermissionValue,
 } from '@/domain/models/shared/permission-evaluation'
 import { checkPermissionWithAdminOverride, isAdminRole } from '@/domain/models/shared/permissions'
@@ -181,6 +183,49 @@ function omittedOperationIsOpen(effectivePermissions: unknown): boolean {
 }
 
 /**
+ * Does a declared role allowlist admit this caller?
+ *
+ * The ONE membership test for every allowlist branch below, and deliberately
+ * {@link matchesRoleList} rather than a bare `Array.includes(userRole)`: an
+ * entry of the form `group:<name>` names a MEMBERSHIP, so it must be matched
+ * against the caller's groups and never against the role string. A plain
+ * `.includes` answers such an entry only when the caller literally holds the
+ * string `'group:<name>'` as a role — which is what a `*ForRoles` fold used to
+ * hand it, and why the same grant was honoured on four operations and inert on
+ * the fifth. Splitting role from membership once, here, removes the divergence
+ * rather than replicating the accident.
+ */
+function grantAdmits(
+  grant: readonly string[],
+  userRole: string,
+  groups: readonly string[]
+): boolean {
+  return matchesRoleList(grant, { role: userRole, groups })
+}
+
+/**
+ * Fold a `*ForRoles` evaluator over the callers an effective-roles list denotes.
+ *
+ * `effectiveRoles` (see `buildEffectiveRoles`) is a flat list mixing real role
+ * names with `group:<name>` pseudo-entries. Only the real names belong in the
+ * role slot; the memberships ride alongside on every evaluation, so a grant may
+ * be satisfied by the role half or by the group half — most-permissive-wins.
+ *
+ * The two degenerate inputs differ on purpose. An EMPTY list evaluates nothing
+ * and denies, unchanged. A list of memberships ONLY still gets one evaluation,
+ * under the empty role name: it matches no allowlist entry and is not `admin`,
+ * so only the group half can grant.
+ */
+function anyEffectiveCallerAdmits(
+  effectiveRoles: readonly string[],
+  admits: (userRole: string, groups: readonly string[]) => boolean
+): boolean {
+  const { roles, groups } = splitGroupReferences(effectiveRoles)
+  const roleSlots = roles.length > 0 ? roles : groups.length > 0 ? [''] : []
+  return roleSlots.some((role) => admits(role, groups))
+}
+
+/**
  * Check if user has role-based create permission for a table
  * Returns true if permission granted, false if denied
  *
@@ -202,7 +247,8 @@ export function hasCreatePermission(
       }>
     | undefined,
   userRole: string,
-  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
+  groups: readonly string[] = []
 ): boolean {
   // Admin override: admins always have create access
   if (isAdminRole(userRole)) return true
@@ -224,7 +270,7 @@ export function hasCreatePermission(
   // allows, so `create: ['viewer']` grants, exactly as `update: ['viewer']`
   // and `delete: ['viewer']` already do.
   if (Array.isArray(createPermission)) {
-    return createPermission.includes(userRole)
+    return grantAdmits(createPermission, userRole, groups)
   }
 
   // Nothing declared for this role: the viewer default still denies. This
@@ -269,7 +315,8 @@ export function hasDeletePermission(
       }>
     | undefined,
   userRole: string,
-  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
+  groups: readonly string[] = []
 ): boolean {
   // Admin override: admins always have delete access
   if (isAdminRole(userRole)) return true
@@ -291,13 +338,16 @@ export function hasDeletePermission(
   if (isOpenPermissionLiteral(deletePermission)) return true
 
   if (userRole === 'viewer') {
-    return Array.isArray(deletePermission) && deletePermission.includes(userRole)
+    return Array.isArray(deletePermission) && grantAdmits(deletePermission, userRole, groups)
   }
 
-  if (!deletePermission || !Array.isArray(deletePermission)) {
+  // `Array.isArray` already answers false for `undefined`, `null` and the two
+  // rung literals, so the `!deletePermission` half this used to carry could
+  // never decide anything on its own.
+  if (!Array.isArray(deletePermission)) {
     return omittedOperationIsOpen(effectivePerms)
   }
-  return deletePermission.includes(userRole)
+  return grantAdmits(deletePermission, userRole, groups)
 }
 
 /**
@@ -322,7 +372,8 @@ export function hasUpdatePermission(
       }>
     | undefined,
   userRole: string,
-  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
+  groups: readonly string[] = []
 ): boolean {
   // Admin override: admins always have update access
   if (isAdminRole(userRole)) return true
@@ -338,7 +389,7 @@ export function hasUpdatePermission(
   if (isOpenPermissionLiteral(updatePermission)) return true
 
   if (Array.isArray(updatePermission)) {
-    return updatePermission.includes(userRole)
+    return grantAdmits(updatePermission, userRole, groups)
   }
 
   if (userRole === 'viewer') return false
@@ -379,12 +430,13 @@ export function hasUpdatePermission(
 export function hasInlineEditDefault(
   table: Parameters<typeof hasUpdatePermission>[0],
   userRole: string,
-  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
+  groups: readonly string[] = []
 ): boolean {
   const effectivePerms = getEffectivePermissions(table, allTables) as
     Readonly<{ update?: unknown }> | undefined
   if (effectivePerms?.update === undefined) return false
-  return hasUpdatePermission(table, userRole, allTables)
+  return hasUpdatePermission(table, userRole, allTables, groups)
 }
 
 /**
@@ -405,7 +457,8 @@ export function hasReadPermission(
       }>
     | undefined,
   userRole: string,
-  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
+  groups: readonly string[] = []
 ): boolean {
   // Admin override: admins always have read access
   if (isAdminRole(userRole)) return true
@@ -418,7 +471,7 @@ export function hasReadPermission(
   const readPermission = effectivePerms?.read
 
   if (Array.isArray(readPermission)) {
-    return readPermission.includes(userRole)
+    return grantAdmits(readPermission, userRole, groups)
   }
 
   if (isOpenPermissionLiteral(readPermission)) return true
@@ -452,7 +505,8 @@ export function hasReadPermission(
 export function hasCommentPermission(
   table: Readonly<{ name: string; comments?: unknown; permissions?: TablePermissions }> | undefined,
   userRole: string,
-  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
+  groups: readonly string[] = []
 ): boolean {
   if (!table) return false
 
@@ -464,7 +518,7 @@ export function hasCommentPermission(
 
   // A declared comment grant is authoritative — enforce it (admin override).
   const commentGrant = effectivePerms?.comment
-  if (commentGrant !== undefined) return evaluateCommentGrant(commentGrant, userRole)
+  if (commentGrant !== undefined) return evaluateCommentGrant(commentGrant, userRole, groups)
 
   // No comment grant, but a `comments` block still marks a commentable surface.
   if (table.comments !== undefined && table.comments !== null) return true
@@ -478,11 +532,20 @@ export function hasCommentPermission(
 }
 
 /**
- * Evaluate a declared `permissions.comment` grant for a role (admin override
+ * Evaluate a declared `permissions.comment` grant for a caller (admin override
  * applies; `'all'`/`'authenticated'`/role-array are the 3 permission formats).
+ *
+ * Unlike its four siblings this branch runs the FULL evaluator rather than an
+ * array-membership test, which is why the caller's `groups` must reach it: the
+ * evaluator matches a `group:<name>` entry against memberships only, so a grant
+ * of `comment: ['group:ops']` is unsatisfiable without them.
  */
-function evaluateCommentGrant(commentGrant: unknown, userRole: string): boolean {
-  return checkPermissionWithAdminOverride(isAdminRole(userRole), commentGrant, userRole)
+function evaluateCommentGrant(
+  commentGrant: unknown,
+  userRole: string,
+  groups: readonly string[]
+): boolean {
+  return checkPermissionWithAdminOverride(isAdminRole(userRole), commentGrant, userRole, groups)
 }
 
 /**
@@ -501,7 +564,9 @@ export function hasReadPermissionForRoles(
   effectiveRoles: readonly string[],
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  return effectiveRoles.some((role) => hasReadPermission(table, role, allTables))
+  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
+    hasReadPermission(table, role, allTables, groups)
+  )
 }
 
 /**
@@ -515,7 +580,9 @@ export function hasCreatePermissionForRoles(
   effectiveRoles: readonly string[],
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  return effectiveRoles.some((role) => hasCreatePermission(table, role, allTables))
+  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
+    hasCreatePermission(table, role, allTables, groups)
+  )
 }
 
 /**
@@ -526,7 +593,9 @@ export function hasUpdatePermissionForRoles(
   effectiveRoles: readonly string[],
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  return effectiveRoles.some((role) => hasUpdatePermission(table, role, allTables))
+  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
+    hasUpdatePermission(table, role, allTables, groups)
+  )
 }
 
 /**
@@ -537,7 +606,27 @@ export function hasDeletePermissionForRoles(
   effectiveRoles: readonly string[],
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  return effectiveRoles.some((role) => hasDeletePermission(table, role, allTables))
+  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
+    hasDeletePermission(table, role, allTables, groups)
+  )
+}
+
+/**
+ * Group-aware inline-edit default (most-permissive-wins).
+ *
+ * The affordance sibling of {@link hasUpdatePermissionForRoles}, so a render
+ * gate can answer `update: ['group:editors']` for a caller whose bare role
+ * names nothing. Same subset guarantee as {@link hasInlineEditDefault}: it can
+ * only ever withhold an affordance the write path would have allowed.
+ */
+export function hasInlineEditDefaultForRoles(
+  table: Parameters<typeof hasUpdatePermission>[0],
+  effectiveRoles: readonly string[],
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+): boolean {
+  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
+    hasInlineEditDefault(table, role, allTables, groups)
+  )
 }
 
 /**
@@ -548,17 +637,25 @@ export function hasDeletePermissionForRoles(
  * crosses read AND comment: making only the read half group-aware would leave a
  * group-granted caller denied by the comment half, invisibly.
  *
- * Safe to fold with `.some()` for the same reason as its four siblings —
- * `hasCommentPermission` is monotone in permissiveness, so the ungated
- * fall-throughs (a `comments` block, an omitted `comment` operation) answer the
- * same for every role and the declared-grant branch is a pure membership test.
+ * THIS DOC COMMENT USED TO JUSTIFY A `.some()` FOLD OVER THE RAW LIST with the
+ * claim that "the declared-grant branch is a pure membership test". That claim
+ * was true of the four siblings and FALSE here: the comment branch runs the
+ * full evaluator, which matches a `group:<name>` entry against memberships and
+ * never against the role string. Folding therefore put the pseudo-role
+ * `'group:ops'` in the role slot with no memberships attached, and a grant of
+ * `comment: ['group:ops']` could not be satisfied by anyone — while the same
+ * entry on `read` was honoured, because `.includes` matched the literal string.
+ * One config key, two answers. All five now split role from membership through
+ * {@link anyEffectiveCallerAdmits} and share the one mechanism.
  */
 export function hasCommentPermissionForRoles(
   table: Parameters<typeof hasCommentPermission>[0],
   effectiveRoles: readonly string[],
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  return effectiveRoles.some((role) => hasCommentPermission(table, role, allTables))
+  return anyEffectiveCallerAdmits(effectiveRoles, (role, groups) =>
+    hasCommentPermission(table, role, allTables, groups)
+  )
 }
 
 /**

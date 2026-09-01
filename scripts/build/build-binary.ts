@@ -194,6 +194,28 @@ run(
   'Generate embedded TypeScript lib.*.d.ts manifest'
 )
 
+// Derive the `sovrium types` payload — the ambient `declare module 'sovrium'`
+// declaration plus its minimal tsconfig — and embed it as string constants.
+//
+// Two steps, in this order and both BEFORE the compile: `build-types.ts` runs
+// the TypeScript Compiler API over the whole project to resolve the Effect
+// Schema types into plain structural types, and the generator wraps that output
+// as an ambient module. Running them here rather than trusting the committed
+// copy is what makes the shipped binary's types match the shipped binary's
+// schema — a stale declaration would autocomplete options the engine has
+// dropped, and reject ones it has gained, with nothing to signal either.
+//
+// The generator ALSO fails the build if the declaration acquires a runtime
+// value. That is deliberately enforced at the build boundary and not only in
+// `bun run quality`: the defect it catches (tsc exit 0, binary exit 1) is
+// invisible to every type-level gate, so the last honest place to stop it is
+// immediately before the artifact that would ship it.
+run(['bun', 'run', 'scripts/build/build-types.ts'], 'Resolve config type declarations')
+run(
+  ['bun', 'run', 'scripts/build/generate-embedded-config-types.ts'],
+  'Generate embedded config-types payload'
+)
+
 // Compile each target
 for (const target of targets) {
   compileBinary(target, version)

@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
+import { useRowSaveQueue } from './use-row-save-queue'
+import { useSaveStatusState } from './use-save-status'
+import { useSaveTokens } from './use-save-tokens'
 import { useUpdateRecord } from './use-table-mutations'
 import type { RecordButtonConfig } from '../shared/record-button'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
@@ -23,15 +26,10 @@ export interface EditingCell {
   readonly value: unknown
 }
 
-/**
- * Lifecycle of a save operation, surfaced to the save status indicator.
- *
- * - `idle`: no save in progress, indicator hidden
- * - `saving`: a persist request is in flight
- * - `saved`: the last persist succeeded (auto-dismisses after a short delay)
- * - `error`: the last persist failed
- */
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+// The save-status state machine moved to `use-save-status.ts`; both types are
+// re-exported here because the grid, its indicator and its view all import them
+// from this module.
+export type { SaveStatus, SaveTarget } from './use-save-status'
 
 /**
  * What a single field write may carry — the client-side mirror of the
@@ -41,12 +39,6 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
  */
 export type FieldWriteValue =
   string | number | boolean | null | readonly unknown[] | Readonly<Record<string, unknown>>
-
-/** Identifies the cell whose save the indicator is reporting on. */
-export interface SaveTarget {
-  readonly rowId: string | number
-  readonly field: string
-}
 
 /**
  * The declared display properties a field carries, forwarded from `app.tables`
@@ -170,60 +162,83 @@ interface UseInlineEditingParams {
 // Persistence helper hook
 // ---------------------------------------------------------------------------
 
-/** Delay (ms) before a successful `saved` status auto-dismisses to `idle`. */
-const SAVED_DISMISS_MS = 2000
+/** A save slot: the write not yet sent, or the one that failed. */
+type SaveSlot = { current: PendingSave | undefined }
 
 /**
- * Owns the timer that returns a successful `saved` status to `idle` after a
- * short delay. Returns `scheduleDismiss` (call after a successful save) and
- * `cancelDismiss` (call when a new save supersedes a pending dismissal); the
- * timer is also cleared on unmount so it never fires on an unmounted component.
+ * Re-issuing a write the editing UI has already moved on from: the one left
+ * pending when the user tabs to another cell, and the one that failed and is
+ * waiting behind a retry control. Both are the same shape — read a slot, and
+ * if it holds anything, persist it — and neither needs to know how a save is
+ * performed beyond `persistField`.
  */
-function useSavedStatusTimer(onDismiss: () => void) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+function useDeferredSaveControls(
+  persistField: (rowId: string | number, field: string, value: unknown) => Promise<boolean>,
+  pendingSaveRef: SaveSlot,
+  failedSaveRef: SaveSlot
+) {
+  const retryFailedSave = useCallback(async () => {
+    const failed = failedSaveRef.current
+    if (!failed) return
+    await persistField(failed.rowId, failed.field, failed.value)
+  }, [persistField, failedSaveRef])
 
-  const cancelDismiss = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-  }, [])
+  const flushPendingSave = useCallback(async () => {
+    const pending = pendingSaveRef.current
+    if (!pending) return
+    await persistField(pending.rowId, pending.field, pending.value)
+  }, [persistField, pendingSaveRef])
 
-  const scheduleDismiss = useCallback(() => {
-    cancelDismiss()
-    // eslint-disable-next-line functional/immutable-data -- Ref holds the auto-dismiss timer
-    timerRef.current = setTimeout(onDismiss, SAVED_DISMISS_MS)
-  }, [cancelDismiss, onDismiss])
-
-  useEffect(() => cancelDismiss, [cancelDismiss])
-
-  return { scheduleDismiss, cancelDismiss }
+  return { retryFailedSave, flushPendingSave }
 }
 
 /**
  * Encapsulates the server-write side of inline editing: persists a single
  * field change, tracks the latest un-persisted value, exposes a save-error
- * message, drives the {@link SaveStatus} state machine for the save indicator,
- * and can flush a pending auto-save when the user switches cells.
+ * message, drives the save-status state machine for the indicator, and can
+ * flush a pending auto-save when the user switches cells.
+ *
+ * Two properties beyond "issue a PATCH" belong here rather than at the call
+ * sites, because both concern a save the user is no longer watching:
+ *
+ *   - A transient failure is retried on a growing delay, and only once the
+ *     budget is spent does the error become the user's problem — with the
+ *     failed write kept so a retry control can re-issue it. Without that, an
+ *     edit lost to a momentary blip was lost outright.
+ *   - Every save declares the record version it was written against, so the
+ *     server can refuse one made over someone else's concurrent change instead
+ *     of accepting it and destroying that change. Writes to one row are queued
+ *     for that declaration to mean anything — see `use-row-save-queue.ts`.
  */
-function useFieldPersistence(tableName: string, onSave?: () => void) {
-  const [saveError, setSaveError] = useState<string | undefined>(undefined)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-  const [saveTarget, setSaveTarget] = useState<SaveTarget | undefined>(undefined)
-  const updateRecord = useUpdateRecord(tableName)
+interface FieldWriterParams {
+  readonly tableName: string
+  readonly markSaved: () => void
+  readonly markFailed: (error: unknown) => void
+  /** Holds the write a retry control would re-issue; cleared once one lands. */
+  readonly failedSaveRef: SaveSlot
+  readonly onSave?: (() => void) | undefined
+}
 
-  // The latest un-persisted value for the cell currently being edited.
-  const pendingSaveRef = useRef<PendingSave | undefined>(undefined)
-  const dismissToIdle = useCallback(() => setSaveStatus('idle'), [])
-  const { scheduleDismiss, cancelDismiss } = useSavedStatusTimer(dismissToIdle)
+/**
+ * The write itself, performed once the row's queue has reached it.
+ *
+ * Separate from the queueing and the status bookkeeping around it so that each
+ * of the three can be read on its own; this one is the only part that talks to
+ * the server.
+ */
+function useFieldWriter(params: FieldWriterParams) {
+  const { tableName, markSaved, markFailed, failedSaveRef, onSave } = params
+  const { resolveToken, rememberToken } = useSaveTokens(tableName)
+  const updateRecord = useUpdateRecord(tableName, { retryTransientFailures: true })
 
-  const persistField = useCallback(
+  return useCallback(
     async (rowId: string | number, field: string, value: unknown): Promise<boolean> => {
-      // eslint-disable-next-line functional/immutable-data -- Ref clear: this write supersedes any pending auto-save
-      pendingSaveRef.current = undefined
-      // A new save supersedes any pending auto-dismiss of a prior `saved`.
-      cancelDismiss()
-      setSaveTarget({ rowId, field })
-      setSaveStatus('saving')
+      // Resolved HERE rather than when the save was requested: by the time the
+      // row's queue reaches this write, its predecessor has landed and taught
+      // us the version it produced.
+      const updatedAt = resolveToken(rowId)
       try {
-        await updateRecord.mutateAsync({
+        const response = await updateRecord.mutateAsync({
           recordId: String(rowId),
           // The cast used to read `string | number | boolean | null`, which was
           // narrower than what the endpoint accepts: `fieldValueSchema` also
@@ -232,26 +247,60 @@ function useFieldPersistence(tableName: string, onSave?: () => void) {
           // the type was not protecting anything, it was only telling the next
           // author that a multi-select or an attachment editor was impossible.
           fields: { [field]: value as FieldWriteValue },
+          ...(updatedAt !== undefined && { updatedAt }),
         })
-        setSaveError(undefined)
-        setSaveStatus('saved')
-        scheduleDismiss()
+        rememberToken(rowId, response)
+        // eslint-disable-next-line functional/immutable-data -- Ref clear: nothing is stranded once a save lands
+        failedSaveRef.current = undefined
+        markSaved()
         onSave?.()
         return true
       } catch (error) {
-        setSaveError(error instanceof Error ? error.message : 'Failed to save changes')
-        setSaveStatus('error')
+        // eslint-disable-next-line functional/immutable-data -- Ref holds the write the retry control re-issues
+        failedSaveRef.current = { rowId, field, value }
+        markFailed(error)
         return false
       }
     },
-    [updateRecord, onSave, cancelDismiss, scheduleDismiss]
+    [updateRecord, onSave, markSaved, markFailed, resolveToken, rememberToken, failedSaveRef]
+  )
+}
+
+function useFieldPersistence(tableName: string, onSave?: () => void) {
+  const status = useSaveStatusState()
+  const { markSaving, markSaved, markFailed } = status
+  const enqueueRowSave = useRowSaveQueue()
+
+  // The latest un-persisted value for the cell currently being edited.
+  const pendingSaveRef = useRef<PendingSave | undefined>(undefined)
+  // The write that exhausted its retries, kept so the retry control re-fires
+  // exactly what failed rather than whatever the cell happens to hold now.
+  const failedSaveRef = useRef<PendingSave | undefined>(undefined)
+
+  const writeField = useFieldWriter({
+    tableName,
+    markSaved,
+    markFailed,
+    failedSaveRef,
+    onSave,
+  })
+
+  const persistField = useCallback(
+    async (rowId: string | number, field: string, value: unknown): Promise<boolean> => {
+      // eslint-disable-next-line functional/immutable-data -- Ref clear: this write supersedes any pending auto-save
+      pendingSaveRef.current = undefined
+      markSaving({ rowId, field })
+      // Queued behind any save still in flight for this row. Tabbing quickly
+      // across a row starts the next save before the previous has answered, and
+      // two concurrent writes would both declare the version they read at the
+      // same instant — so the first would land and the second would be refused
+      // as stale, the row conflicting with itself.
+      return enqueueRowSave(rowId, () => writeField(rowId, field, value))
+    },
+    [markSaving, enqueueRowSave, writeField]
   )
 
-  const flushPendingSave = useCallback(async () => {
-    const pending = pendingSaveRef.current
-    if (!pending) return
-    await persistField(pending.rowId, pending.field, pending.value)
-  }, [persistField])
+  const deferred = useDeferredSaveControls(persistField, pendingSaveRef, failedSaveRef)
 
   const trackPendingValue = useCallback((pending: PendingSave) => {
     // eslint-disable-next-line functional/immutable-data -- Ref tracking the in-progress edit value
@@ -259,12 +308,13 @@ function useFieldPersistence(tableName: string, onSave?: () => void) {
   }, [])
 
   return {
-    saveError,
-    saveStatus,
-    saveTarget,
+    saveError: status.saveError,
+    saveConflict: status.saveConflict,
+    saveStatus: status.saveStatus,
+    saveTarget: status.saveTarget,
     persistField,
-    flushPendingSave,
     trackPendingValue,
+    ...deferred,
   }
 }
 
@@ -355,6 +405,14 @@ export function useInlineEditing(params: UseInlineEditingParams) {
   return {
     editingCell: editing.editingCell,
     saveError: persistence.saveError,
+    /**
+     * Set when a save was refused because the record changed underneath it.
+     * Distinct from {@link saveError}: the write did not fail, it was declined,
+     * and retrying it unchanged would be declined again.
+     */
+    saveConflict: persistence.saveConflict,
+    /** Re-issue the write that exhausted its automatic retries. */
+    retryFailedSave: persistence.retryFailedSave,
     saveStatus: persistence.saveStatus,
     saveTarget: persistence.saveTarget,
     isAutoSave,

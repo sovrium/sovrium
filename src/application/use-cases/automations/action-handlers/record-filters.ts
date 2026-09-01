@@ -187,6 +187,86 @@ export const filterFieldRefusal = (
 }
 
 /**
+ * The refusal a `record/list` sort earns, or undefined when every key names a
+ * resolvable column.
+ *
+ * The sibling of {@link filterFieldRefusal}, deliberately built on the SAME
+ * {@link isResolvableColumnName} predicate rather than on a second opinion of
+ * its own. The invariant the boot-time half in `app/index.ts` states is that
+ * the config-time and run-time verdicts on one name can never disagree, and a
+ * second predicate is precisely how they would come to.
+ *
+ * A sort field is a WORSE surface than a filter field, not a milder one. A
+ * filter naming no column at least returns a visibly wrong row SET; an unknown
+ * sort key returns the RIGHT rows in an arbitrary order, with a successful run
+ * and nothing anywhere saying the ordering never happened. `validateColumnName`
+ * downstream checks shape alone — `knid` satisfies `/^[a-z_][a-z0-9_]*$/i` — so
+ * `buildSortClause` emits `"knid" ASC`, and on SQLite an unknown double-quoted
+ * name degrades to a string LITERAL: every row sorts by the same constant.
+ * Paired with a `limit` that hands the caller an arbitrary page.
+ *
+ * Refusing here, before any SQL is built, also forecloses `,` and `:` reaching
+ * the port's `field:direction,field:direction` encoding and corrupting it —
+ * neither character can appear in a resolvable column name. That is a side
+ * effect of the check rather than its purpose, which is why the E2E criterion
+ * asserts the refusal directly instead of relying on it.
+ *
+ * `declaredFields === undefined` means "cannot adjudicate", NOT "everything is
+ * allowed" — see {@link declaredFieldNames}.
+ */
+export const sortFieldRefusal = (
+  tableName: string,
+  sortFields: readonly string[],
+  declaredFields: ReadonlySet<string> | undefined
+): Readonly<UnknownFilterFieldError> | undefined => {
+  if (declaredFields === undefined) return undefined
+  const unresolvable = sortFields.find((field) => !isResolvableColumnName(declaredFields, field))
+  if (unresolvable === undefined) return undefined
+  return new UnknownFilterFieldError(
+    `sort references field '${unresolvable}', which does not exist in table '${tableName}'. ` +
+      `Available: ${[...declaredFields].join(', ')}`,
+    unresolvable
+  )
+}
+
+/**
+ * The refusal a `record/list` field selection earns, or undefined when every
+ * name in it resolves.
+ *
+ * The third sibling of {@link filterFieldRefusal} and {@link sortFieldRefusal},
+ * built on the same {@link isResolvableColumnName} predicate for the same
+ * reason: the boot-time and run-time halves must not be able to reach opposite
+ * verdicts about one name.
+ *
+ * This surface degrades more QUIETLY than either of the others, which is why it
+ * is worth refusing rather than tolerating. A `fields` entry naming no column
+ * never becomes a SQL identifier on this path — an automation trim is a key
+ * lookup over rows already fetched — so nothing raises anywhere. The action
+ * simply returns rows without that key, every downstream `{{…records.0.tittle}}`
+ * expands to nothing, and the run reports success. A typo in a payload trim
+ * should not be harder to notice than a typo in a sort.
+ *
+ * `declaredFields === undefined` means "cannot adjudicate", NOT "everything is
+ * allowed" — see {@link declaredFieldNames}.
+ */
+export const selectionFieldRefusal = (
+  tableName: string,
+  selectedFields: readonly string[],
+  declaredFields: ReadonlySet<string> | undefined
+): Readonly<UnknownFilterFieldError> | undefined => {
+  if (declaredFields === undefined) return undefined
+  const unresolvable = selectedFields.find(
+    (field) => !isResolvableColumnName(declaredFields, field)
+  )
+  if (unresolvable === undefined) return undefined
+  return new UnknownFilterFieldError(
+    `fields references field '${unresolvable}', which does not exist in table '${tableName}'. ` +
+      `Available: ${[...declaredFields].join(', ')}`,
+    unresolvable
+  )
+}
+
+/**
  * List records matching a filter and return their `id`s.
  *
  * Accesses the table repository directly (rather than through

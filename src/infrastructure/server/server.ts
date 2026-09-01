@@ -45,6 +45,7 @@ import {
   type SchemaInitializationError,
 } from '@/infrastructure/database/schema/schema-initializer'
 import { reconcileUserForeignKeys } from '@/infrastructure/database/schema/user-foreign-key-reconciler'
+import { runStorageBucketBackfill } from '@/infrastructure/database/storage-bucket-backfill'
 import { reconcileTimestamptzColumns } from '@/infrastructure/database/timestamptz-column-reconciler'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isEmailConfigured } from '@/infrastructure/email/email-config'
@@ -78,6 +79,7 @@ import { setupDesignSystemShareRoutes } from '@/infrastructure/server/route-setu
 import { setupDevReloadRoute } from '@/infrastructure/server/route-setup/dev-reload-routes'
 import { setupLinkRoutes } from '@/infrastructure/server/route-setup/link-routes'
 import { setupMcpRoutes } from '@/infrastructure/server/route-setup/mcp/routes'
+import { setupOauthConsentRoutes } from '@/infrastructure/server/route-setup/oauth-consent-routes'
 import { setupOpenApiRoutes } from '@/infrastructure/server/route-setup/openapi-routes'
 import {
   setupPageRoutes,
@@ -86,6 +88,7 @@ import {
 import { setupRedirectRoutes } from '@/infrastructure/server/route-setup/redirect-routes'
 import { setupSeoRoutes } from '@/infrastructure/server/route-setup/seo-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
+import { publishBoundOrigin } from '@/infrastructure/server/server-origin-live'
 import {
   collectStoragePhases,
   collectAiListenerPhases,
@@ -349,28 +352,34 @@ export async function createHonoApp(
       // the SAME slot as `/l/:token` and for the same reason: after the static
       // assets, before `setupPageRoutes`, whose `/:lang/*` route would match
       // `/s/...` and render a terminal 404 rather than calling `next()`.
-      setupDesignSystemShareRoutes(
-        setupLinkRoutes(
-          setupDevReloadRoute(
-            await setupStaticAssets(
-              setupSeoRoutes(
-                setupMcpRoutes(
-                  setupAuthRoutes(
-                    setupAuthMiddleware(
-                      setupOpenApiRoutes(createApiRoutes(app, honoWithBootstrap as Hono), app),
-                      app
+      // `/oauth/consent` takes the same slot for the same reason. Better Auth
+      // redirects the browser here mid-authorization; mounted after the page
+      // routes, that redirect would land on `/:lang/*`'s terminal 404.
+      setupOauthConsentRoutes(
+        setupDesignSystemShareRoutes(
+          setupLinkRoutes(
+            setupDevReloadRoute(
+              await setupStaticAssets(
+                setupSeoRoutes(
+                  setupMcpRoutes(
+                    setupAuthRoutes(
+                      setupAuthMiddleware(
+                        setupOpenApiRoutes(createApiRoutes(app, honoWithBootstrap as Hono), app),
+                        app
+                      ),
+                      app,
+                      authInstance
                     ),
                     app,
                     authInstance
                   ),
-                  app,
-                  authInstance
+                  app
                 ),
-                app
-              ),
-              app,
-              config.publicDir
-            )
+                app,
+                config.publicDir
+              )
+            ),
+            app
           ),
           app
         ),
@@ -793,6 +802,10 @@ const runDeferredStartupMaintenance = (app: App): Effect.Effect<void, never> => 
   const dialectConfig = parseDatabaseDialectConfig()
   const ragDatabaseUrl = dialectConfig.dialect === 'postgres' ? dialectConfig.databaseUrl : ''
   return Effect.promise(() => runAttachmentUrlBackfill(app)).pipe(
+    // AFTER the URL repair: that pass rewrites the stored `url` onto the bucket
+    // the column declares, and this one reads those URLs to attribute objects.
+    // Running it first would attribute them to the stale bucket.
+    Effect.flatMap(() => Effect.promise(() => runStorageBucketBackfill(app))),
     Effect.flatMap(() =>
       Effect.promise(() => runRagKnowledgeStartup(filterRagKnowledgeByRole(app), ragDatabaseUrl))
     ),
@@ -1112,6 +1125,15 @@ export const createServer = (
     const honoApp = yield* Effect.promise(() => buildHonoAppFromConfig(config))
     const server = yield* startBunServer(honoApp, port, hostname)
     const url = `http://${hostname}:${server.port}`
+
+    // Publish the origin the socket ACTUALLY bound to, before any armed-up
+    // scheduler can mint a URL. `server.port` is not `port`: the bind retries
+    // on EADDRINUSE with an OS-assigned port, and the E2E harness asks for
+    // `PORT=0` on purpose — so `PORT` is the request and this is the result.
+    // A background program has no request to read a `Host` header from, so
+    // this is the only place it can learn where it lives.
+
+    publishBoundOrigin(url)
 
     // Post-bind arm-ups: cron-triggered automations, scheduled agents, and the
     // GDPR Art. 17 erasure sweep (hourly; without it, scheduled account

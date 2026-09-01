@@ -116,11 +116,21 @@ const resolveExecuteAction = (body: ExecuteRequestBody): string => {
   return ''
 }
 
-/** `record.read` / `record.create` / `record.update` / `record.delete` → CRUD verb. */
+/**
+ * `record.read` / `record.list` / `record.create` / `record.update` /
+ * `record.delete` → CRUD verb.
+ *
+ * Every record action MUST appear here. `isRbacDenied` treats an unmapped
+ * action as "no CRUD verb to check" and returns `false` — not denied — so an
+ * omission does not fail closed, it silently skips the table-permission gate
+ * entirely. `record.list` maps to `read` because it is a read of many rows:
+ * a role denied `read` on a table must not reach that table's rows in bulk.
+ */
 const RECORD_ACTION_TO_PERMISSION: Readonly<
   Record<string, 'read' | 'create' | 'update' | 'delete'>
 > = {
   'record.read': 'read',
+  'record.list': 'read',
   'record.create': 'create',
   'record.update': 'update',
   'record.delete': 'delete',

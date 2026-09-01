@@ -34,14 +34,11 @@
 
 import { stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import { Console, Effect } from 'effect'
 import { buildSeedPlan } from '@/application/use-cases/seed/seed-plan'
 import { SEED_MODES, parseSeedMode } from '@/domain/models/seed'
-import { formatDiscoveredConfigNotice } from '@/domain/utils'
 import { printDocument } from '@/infrastructure/logging/cli-output'
+import { applyDatabaseMigrations, discoverConfigFile, refuse, requireApp } from './app-prelude'
 import { loadSeedFiles } from './seed-load'
-import { lazyImportSchema } from './utils'
-import type { App } from '@/domain/models/app'
 import type { SeedMode } from '@/domain/models/seed'
 
 /** Everything `sovrium seed` reads from the command line. */
@@ -54,15 +51,7 @@ export interface SeedCommandOptions {
   readonly dryRun: boolean
 }
 
-const DEFAULT_CONFIG_FILE = './app.yaml'
 const DEFAULT_SEED_DIR = 'seed'
-
-/** Print to stderr and exit 1. There is no partial-success exit code. */
-const refuse = (message: string): never => {
-  Effect.runSync(Console.error(message))
-  // eslint-disable-next-line functional/no-expression-statements
-  process.exit(1)
-}
 
 /**
  * Render the per-table report as one document.
@@ -132,66 +121,6 @@ const requireSeedDir = async (raw: string | undefined, configFile: string): Prom
 }
 
 /**
- * Resolve the config when no positional one was given.
- *
- * The terminal `?? DEFAULT_CONFIG_FILE` is deliberate: when nothing is found,
- * `requireApp` keeps printing the byte-identical `Error: File not found:
- * ./app.yaml` it printed before discovery existed, so seed's failure contract is
- * untouched. The change is purely additive — `app.yaml` still resolves (it is
- * candidate #1) and `app.yml` / `app.ts` now resolve too.
- */
-const discoverConfigFile = async (): Promise<string> => {
-  const { discoverDefaultConfigFile } = await lazyImportSchema()
-  const discovered = await discoverDefaultConfigFile(process.cwd())
-  if (discovered === undefined) return DEFAULT_CONFIG_FILE
-
-  Effect.runSync(Console.error(formatDiscoveredConfigNotice(discovered)))
-  return discovered
-}
-
-/** Load and decode the app config, refusing with the path the operator typed. */
-const requireApp = async (configFile: string): Promise<App> => {
-  if (!(await Bun.file(configFile).exists())) {
-    return refuse(`Error: File not found: ${configFile}`)
-  }
-
-  const { loadSchemaFromFile } = await lazyImportSchema()
-  const parsed = await loadSchemaFromFile(configFile).catch((error: unknown) =>
-    refuse(
-      `Error: Failed to parse ${configFile}: ${error instanceof Error ? error.message : String(error)}`
-    )
-  )
-
-  const { decodeAppConfigObject } = await import('@/application/use-cases/schema/decode-app-config')
-  const decoded = decodeAppConfigObject(parsed)
-  return decoded.valid
-    ? decoded.app
-    : refuse(
-        `Error: ${configFile} is not a valid configuration:\n` +
-          decoded.errors.map((error) => `  ${error}`).join('\n')
-      )
-}
-
-/**
- * The two boot steps, and only those two.
- *
- * `runMigrations` must precede `initializeSchema` — the app's own tables carry
- * foreign keys into `auth.user`, which the migrations create.
- */
-const migrate = async (app: App): Promise<void> => {
-  const { parseDatabaseDialectConfig } =
-    await import('@/domain/models/env/database/database-dialect')
-  const { runMigrations } = await import('@/infrastructure/database/drizzle/migrate')
-  const { initializeSchema } = await import('@/infrastructure/database/schema/schema-initializer')
-  return Effect.runPromise(
-    Effect.gen(function* () {
-      yield* runMigrations(parseDatabaseDialectConfig())
-      yield* initializeSchema(app)
-    })
-  )
-}
-
-/**
  * Handle `sovrium seed`.
  *
  * Exits 0 when every targeted table was seeded, skipped by `if-empty`, or
@@ -205,7 +134,7 @@ export const handleSeedCommand = async (options: SeedCommandOptions): Promise<vo
   const app = await requireApp(configFile)
   const seedDir = await requireSeedDir(options.seedDir, configFile)
 
-  const loaded = await migrate(app).then(() => loadSeedFiles(seedDir))
+  const loaded = await applyDatabaseMigrations(app).then(() => loadSeedFiles(seedDir))
   if (!loaded.ok) return refuse(`Error: seed files could not be read:\n${indent(loaded.errors)}`)
 
   const planned = buildSeedPlan({

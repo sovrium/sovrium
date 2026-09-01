@@ -79,12 +79,23 @@ export type PermissionValue = Schema.Schema.Type<typeof PermissionValueSchema>
  * is unconditionally satisfied here. Anonymous access must be decided by
  * `evaluatePermission`, whose caller is optional. This wrapper survives for the
  * dozen sites that genuinely run behind an auth gate and want a boolean.
+ *
+ * `groups` completes the caller. A grant entry of the form `group:<name>` is
+ * matched against the caller's MEMBERSHIPS and never against the role string,
+ * so omitting this argument makes every group-scoped grant unsatisfiable — the
+ * caller is built with no `groups` field and the entry can match nothing. It is
+ * optional because most call sites gate on a bare role and have no membership
+ * to offer; a site that DOES know the memberships must pass them.
  */
-export function hasPermission(permission: unknown, userRole: string): boolean {
+export function hasPermission(
+  permission: unknown,
+  userRole: string,
+  groups: readonly string[] = []
+): boolean {
   return permits(
     evaluatePermission(
       toPermissionValue(permission),
-      { role: userRole },
+      { role: userRole, groups },
       {
         whenUndeclared: DENY_WHEN_UNDECLARED,
         adminOverride: 'no-admin-override',
@@ -95,13 +106,17 @@ export function hasPermission(permission: unknown, userRole: string): boolean {
 
 /**
  * Check permission with admin override
+ *
+ * See {@link hasPermission} for why `groups` is part of the caller rather than
+ * something a role string can stand in for.
  */
 export function checkPermissionWithAdminOverride(
   isAdmin: boolean,
   permission: unknown,
-  userRole: string
+  userRole: string,
+  groups: readonly string[] = []
 ): boolean {
-  return isAdmin || hasPermission(permission, userRole)
+  return isAdmin || hasPermission(permission, userRole, groups)
 }
 
 /**

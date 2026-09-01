@@ -159,17 +159,17 @@ function resolveExpiresIn(raw: unknown): number | undefined {
  * the `Effect.gen → provideStorageLive → Effect.either` boilerplate shared by
  * the file-existence probe and the signed-download stream.
  */
-function downloadFromStorage(path: string) {
+function downloadFromStorage(path: string, bucket: string) {
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    return yield* storage.download(path)
+    return yield* storage.download(path, bucket)
   })
   return Effect.runPromise(program.pipe(provideStorageLive, Effect.result))
 }
 
 /** Check whether a stored object exists by attempting a download. */
-async function fileExists(path: string): Promise<boolean> {
-  const result = await downloadFromStorage(path)
+async function fileExists(path: string, bucket: string): Promise<boolean> {
+  const result = await downloadFromStorage(path, bucket)
   return result._tag === 'Success'
 }
 
@@ -244,7 +244,7 @@ async function signBatchEntries(
     resolved.map(async ({ file, expiresIn }): Promise<BatchResult> => {
       const operation = file.operation === 'upload' ? 'upload' : 'download'
       // Download entries must reference an existing file; upload entries do not.
-      if (operation === 'download' && !(await fileExists(file.path))) {
+      if (operation === 'download' && !(await fileExists(file.path, bucket))) {
         return { path: file.path, error: 'not_found' }
       }
       const { signedUrl, expiresAt } = buildSignedUrl({
@@ -295,21 +295,22 @@ export function createHandleSignedServe(app: App) {
       return c.json({ success: false, error: 'Signed URL expired', code: 'FORBIDDEN' }, 403)
     }
 
-    return streamSignedDownload(c, path)
+    return streamSignedDownload(c, path, bucketName)
   }
 }
 
 /** Upload `content` to `path` via the configured `StorageService`. */
-function uploadToStorage(path: string, content: Uint8Array, mimeType: string) {
+function uploadToStorage(path: string, content: Uint8Array, mimeType: string, bucket: string) {
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    return yield* storage.upload(path, content, mimeType)
+    return yield* storage.upload(path, content, mimeType, bucket)
   })
   return Effect.runPromise(program.pipe(provideStorageLive, Effect.result))
 }
 
 /** Parameters for a verified signed-upload request. */
 interface SignedUploadParams {
+  readonly bucket: string
   readonly path: string
   readonly token: string
   readonly expires: number
@@ -353,7 +354,7 @@ function verifySignedUpload(c: Context, bucketName: string): SignedUploadParams 
     return c.json({ success: false, error: 'Signed URL expired', code: 'FORBIDDEN' }, 403)
   }
 
-  return { path, token, expires, contentType, maxSize }
+  return { bucket: bucketName, path, token, expires, contentType, maxSize }
 }
 
 /**
@@ -367,7 +368,7 @@ function verifySignedUpload(c: Context, bucketName: string): SignedUploadParams 
  * - Stored successfully → 200
  */
 async function storeSignedUpload(c: Context, params: SignedUploadParams): Promise<Response> {
-  const { path, contentType, maxSize } = params
+  const { path, contentType, maxSize, bucket } = params
   const requestType = c.req.header('content-type')?.split(';')[0]?.trim() ?? ''
 
   // contentType constraint (empty string means "any type allowed").
@@ -381,9 +382,15 @@ async function storeSignedUpload(c: Context, params: SignedUploadParams): Promis
   }
 
   const mimeType = requestType !== '' ? requestType : inferMimeFromKey(path)
-  const result = await uploadToStorage(path, body, mimeType)
+  const result = await uploadToStorage(path, body, mimeType, bucket)
   if (result._tag === 'Failure') {
-    return c.json({ success: false, error: 'Upload failed', code: 'STORAGE_ERROR' }, 500)
+    // A token names bucket and path independently, so a caller who may sign here
+    // can aim one at a key another bucket owns. Storage refuses that write as
+    // not-found; answer 404 like an absent key, keeping the boundary hidden (S1).
+    const notFound = isNotFoundError((result.failure as { readonly cause?: unknown }).cause)
+    return notFound
+      ? c.json({ success: false, error: 'File not found', code: 'NOT_FOUND' }, 404)
+      : c.json({ success: false, error: 'Upload failed', code: 'STORAGE_ERROR' }, 500)
   }
   return c.json({ success: true, path })
 }
@@ -446,8 +453,8 @@ function buildSignedContentDisposition(path: string): string {
 }
 
 /** Download `path` via the StorageService and stream it back to the client. */
-async function streamSignedDownload(c: Context, path: string): Promise<Response> {
-  const result = await downloadFromStorage(path)
+async function streamSignedDownload(c: Context, path: string, bucket: string): Promise<Response> {
+  const result = await downloadFromStorage(path, bucket)
   if (result._tag === 'Failure') {
     const { cause } = result.failure as { readonly cause?: unknown }
     const isNotFound = isNotFoundError(cause)
@@ -578,7 +585,7 @@ async function buildSignResponse(
   }
 
   // Download URLs must reference an existing file; upload URLs need not.
-  if (operation === 'download' && !(await fileExists(path))) {
+  if (operation === 'download' && !(await fileExists(path, bucketName))) {
     return c.json({ success: false, error: 'File not found', code: 'NOT_FOUND' }, 404)
   }
 

@@ -18,7 +18,6 @@
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-BSL--1.1-blue" alt="License" /></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun_1.3-f472b6" alt="Bun" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-6.0-3178c6" alt="TypeScript" /></a>
-  <a href="https://www.npmjs.com/package/@sovrium/types"><img src="https://img.shields.io/npm/v/@sovrium/types?label=%40sovrium%2Ftypes" alt="@sovrium/types on npm" /></a>
 </p>
 
 <p align="center">
@@ -105,9 +104,19 @@ That config gives you a `contacts` table with a full REST API
 (`/api/tables/contacts/records`), an email/password sign-in flow, and a
 home page, with zero lines of application code.
 
-Configs can also be written in JSON or TypeScript. The zero-dependency
-[`@sovrium/types`](https://www.npmjs.com/package/@sovrium/types) package gives
-TypeScript configs full editor autocompletion and startup type-checking. See
+Configs can also be written in JSON or TypeScript. For TypeScript, run
+`sovrium types` and the binary writes the types it accepts next to your config —
+no `package.json`, no `node_modules`, no install:
+
+```ts
+// app.ts
+import type { AppConfig } from 'sovrium'
+
+export default { name: 'my-app' } satisfies AppConfig
+```
+
+You get editor autocompletion and compile-time checking, against the schema of
+the binary you actually run. See
 [Authoring with TypeScript](https://sovrium.com/en/docs/configuration-typescript).
 
 ---
@@ -173,10 +182,9 @@ docker pull ghcr.io/sovrium/sovrium:latest
 > installed: it self-replaces a raw binary, or delegates to `brew upgrade` /
 > `scoop update` for package-manager installs.
 
-> The `sovrium` npm package is **deprecated**. Sovrium ships as a binary.
-> Only [`@sovrium/types`](https://www.npmjs.com/package/@sovrium/types) is
-> published to npm: install it as a dev dependency for `defineConfig`
-> autocompletion when authoring TypeScript configs.
+> The `sovrium` npm package is **deprecated** — Sovrium ships as a binary, and
+> nothing is published to npm any more. Authoring a TypeScript config needs no
+> package either: `sovrium types` writes the declaration out of the binary.
 
 ### 2. Scaffold, validate, run
 
@@ -190,6 +198,9 @@ sovrium validate app.yaml
 sovrium start app.yaml --watch
 # → http://localhost:3000   (--watch hot-reloads on config changes)
 ```
+
+Add `--typescript` to `sovrium init` to scaffold a typed `app.ts` instead of
+`app.yaml`, with the declaration and `tsconfig.json` already written.
 
 `sovrium build app.yaml` exports a static site to `./dist` for content sites
 that need no server.
@@ -319,7 +330,7 @@ For bug reports and feature requests, see [Contributing](#contributing) above.
 
 [BSL-1.1](LICENSE.md) — free for internal and non-commercial use; prevents
 offering Sovrium as a competing hosted service. Automatically converts to
-**Apache 2.0** on **August 28, 2030**. A move to **full open source sooner** is
+**Apache 2.0** on **September 1, 2030**. A move to **full open source sooner** is
 under active evaluation. Commercial hosting licenses: license@sovrium.com.
 
 The **engine is free forever** in self-hosted mode (no license keys, no feature

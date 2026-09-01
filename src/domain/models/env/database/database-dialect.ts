@@ -7,6 +7,7 @@
 
 import * as path from 'node:path'
 import { Schema } from 'effect'
+import { redactConnectionUrl } from '@/domain/utils/redact-connection-url'
 import { defaultSqliteDbPath } from '../data-dir'
 
 /**
@@ -39,7 +40,7 @@ export type SovriumRuntimeLabel = Schema.Schema.Type<typeof SovriumRuntimeLabelT
 export const PostgresDialectSchema = Schema.Struct({
   dialect: Schema.Literal('postgres'),
   databaseUrl: Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^postgres(ql)?:\/\/.+/)),
+    Schema.check(Schema.isPattern(/^postgres(ql)?:\/\/.+/i)),
     Schema.annotate({
       description: 'PostgreSQL connection string (DATABASE_URL)',
       examples: ['postgresql://user:pass@localhost:5432/sovrium'],
@@ -97,16 +98,16 @@ const SQLITE_SCHEME_RE = /^(file:|sqlite:\/\/|sqlite:)/
  * - `file:/var/x.db`      → resolve('/var/x.db')
  * - `sqlite:./x.db`       → resolve('./x.db')
  * - `sqlite:///var/x.db`  → resolve('/var/x.db')  (triple-slash → absolute)
- * - anything else         → throw (unsupported scheme)
+ * - anything else         → throw (unsupported scheme, value redacted)
  */
 const parseSqliteUrl = (raw: string): string => {
   if (raw === SQLITE_MEMORY_PATH) return SQLITE_MEMORY_PATH
 
   const match = SQLITE_SCHEME_RE.exec(raw)
   if (!match) {
-    // eslint-disable-next-line functional/no-throw-statements -- mirrors parseStorageEnvConfig: throw so error.message surfaces the bad DATABASE_URL at startup
+    // eslint-disable-next-line functional/no-throw-statements -- mirrors parseStorageEnvConfig: throw so error.message surfaces the bad DATABASE_URL at startup. REDACTED: the value may carry a password, and the CLI wraps this throw in an invitation to paste it into a public issue.
     throw new Error(
-      `Unsupported DATABASE_URL scheme: "${raw}". Use postgres://, postgresql://, ` +
+      `Unsupported DATABASE_URL scheme: "${redactConnectionUrl(raw)}". Use postgres://, postgresql://, ` +
         `file:, sqlite:, or :memory:. A bare filesystem path is not accepted — ` +
         `prefix it with file: (e.g. file:./database.db).`
     )
@@ -114,9 +115,9 @@ const parseSqliteUrl = (raw: string): string => {
 
   const strippedPath = raw.slice(match[0].length)
   if (strippedPath === '') {
-    // eslint-disable-next-line functional/no-throw-statements -- mirrors parseStorageEnvConfig: throw so error.message surfaces the bad DATABASE_URL at startup
+    // eslint-disable-next-line functional/no-throw-statements -- mirrors parseStorageEnvConfig: throw so error.message surfaces the bad DATABASE_URL at startup. REDACTED: the value may carry a password, and the CLI wraps this throw in an invitation to paste it into a public issue.
     throw new Error(
-      `Empty path in DATABASE_URL: "${raw}". Provide a file path (e.g. file:./database.db).`
+      `Empty path in DATABASE_URL: "${redactConnectionUrl(raw)}". Provide a file path (e.g. file:./database.db).`
     )
   }
   return path.resolve(strippedPath)
@@ -129,7 +130,7 @@ const parseSqliteUrl = (raw: string): string => {
  * opt *out* of SQLite by configuring PostgreSQL, never *in*. The single
  * `DATABASE_URL` variable is scheme-discriminated:
  *
- * 1. `postgres://` / `postgresql://`  → PostgreSQL
+ * 1. `postgres://` / `postgresql://`  → PostgreSQL (scheme match is case-insensitive)
  * 2. unset / empty                    → SQLite at the default `<dataDir>/database.db`
  * 3. `file:` / `sqlite:` / `:memory:` → SQLite at the configured path
  * 4. anything else                    → throw at decode time (fail-loud)
@@ -143,8 +144,12 @@ const parseSqliteUrl = (raw: string): string => {
 export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
   const databaseUrl = process.env.DATABASE_URL
 
-  // 1. Postgres scheme → PostgreSQL (unchanged behavior).
-  if (databaseUrl && /^postgres(ql)?:\/\//.test(databaseUrl)) {
+  // 1. Postgres scheme → PostgreSQL. Case-insensitive per RFC 3986:
+  //    `Postgres://` is a valid DSN, and matching it case-sensitively routed it
+  //    into the SQLite parser's typo path — refusing a correct production URL.
+  //    This is a CASE fix, not an ALIAS one: `postgresql+psycopg://` and
+  //    `jdbc:postgresql://` are other tools' dialects and stay unsupported.
+  if (databaseUrl && /^postgres(ql)?:\/\//i.test(databaseUrl)) {
     return Schema.decodeSync(PostgresDialectSchema)({
       dialect: 'postgres',
       databaseUrl,

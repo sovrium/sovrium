@@ -79,6 +79,16 @@ import {
 } from '@/application/ports/repositories/links/link-repository'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import {
+  configSlugs,
+  createLink,
+  declaredLink,
+  deleteLink,
+  updateLink,
+  utmPatchFromFlat,
+  utmRecordFromFlat,
+  type LinkMutationConflictCode,
+} from '@/application/use-cases/links'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   adminLinkDetailResponseSchema,
@@ -91,7 +101,6 @@ import {
   type AdminLink,
 } from '@/domain/models/api/admin/links'
 import { linkTargets } from '@/domain/models/app/links'
-import { RESERVED_LINK_SLUGS } from '@/domain/models/app/links/slug'
 import { resolveLinkState, type ResolvableLink } from '@/domain/utils/matching/link-resolver'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
@@ -147,7 +156,7 @@ const internalError = (c: Context, message = 'Internal server error') =>
  * refused. A refusal that does not say which slug it means is unactionable when
  * a console posts several.
  */
-type ConflictCode = 'LINK_IS_CONFIG_DECLARED' | 'LINK_SLUG_TAKEN' | 'LINK_RESERVED_SLUG'
+type ConflictCode = LinkMutationConflictCode
 
 const CONFLICT_MESSAGES: Readonly<Record<ConflictCode, (slug: string) => string>> = {
   LINK_IS_CONFIG_DECLARED: (slug) =>
@@ -283,14 +292,6 @@ const dbEntry = (row: LinkRecord): CatalogEntry => ({
   archived: row.deletedAt !== null || row.archivedAt !== null,
   deletedAt: row.deletedAt,
 })
-
-/** Every slug the running config declares. */
-const configSlugs = (app: App): ReadonlySet<string> =>
-  new Set((app.links ?? []).map((link) => link.slug))
-
-/** The config entry claiming a slug, when the file claims it at all. */
-const declaredLink = (app: App, slug: string): Link | undefined =>
-  (app.links ?? []).find((link) => link.slug === slug)
 
 /**
  * Merge both populations into one catalog, ordered by slug.
@@ -467,57 +468,6 @@ const matchesStaticFilters = (entry: Readonly<CatalogEntry>, query: ListQuery): 
   return [entry.slug, entry.title ?? '', primaryDestination(entry)].some((haystack) =>
     haystack.toLowerCase().includes(needle)
   )
-}
-
-// ---------------------------------------------------------------------------
-// Request payload mapping
-// ---------------------------------------------------------------------------
-
-/** Flat request field ↔ stored utm key. */
-const UTM_FIELDS = [
-  ['utmSource', 'source'],
-  ['utmMedium', 'medium'],
-  ['utmCampaign', 'campaign'],
-  ['utmContent', 'content'],
-  ['utmTerm', 'term'],
-] as const
-
-type UtmKey = (typeof UTM_FIELDS)[number][1]
-
-/** Build the utm block a create request declares, or null when it declares none. */
-const utmFromCreate = (body: Readonly<Record<string, unknown>>): LinkUtmRecord | null => {
-  const entries = UTM_FIELDS.map(([field, key]) => [key, body[field]] as const).filter(
-    (entry): entry is readonly [UtmKey, string] => typeof entry[1] === 'string'
-  )
-  return entries.length === 0 ? null : (Object.fromEntries(entries) as LinkUtmRecord)
-}
-
-/**
- * Merge a PATCH's utm fields onto the stored block.
- *
- * `undefined` leaves a parameter alone, `null` removes it — the same absence
- * distinction the lifecycle fields carry, applied inside a single JSON column.
- * Returns `undefined` when the body mentions no utm field at all, so the column
- * is left untouched rather than rewritten with its own value.
- */
-const utmFromUpdate = (
-  body: Readonly<Record<string, unknown>>,
-  existing: LinkUtmRecord | null
-): LinkUtmRecord | null | undefined => {
-  const mentioned = UTM_FIELDS.filter(([field]) => field in body)
-  if (mentioned.length === 0) return undefined
-
-  const merged = mentioned.reduce<Record<string, string>>(
-    (acc, [field, key]) => {
-      const value = body[field]
-      if (typeof value === 'string') return { ...acc, [key]: value }
-      const { [key]: _removed, ...rest } = acc
-      return rest
-    },
-    { ...(existing ?? {}) } as Record<string, string>
-  )
-
-  return Object.keys(merged).length === 0 ? null : (merged as LinkUtmRecord)
 }
 
 // ---------------------------------------------------------------------------
@@ -727,41 +677,41 @@ async function handleCreateLink(c: Context, app: App): Promise<Response> {
   if (!parsed.success) return badRequest(c)
 
   const { slug } = parsed.data
-  // Checked BEFORE the config test: a reserved slug is refused whether or not
-  // the file also declares it, and naming the reservation is the more useful
-  // message of the two.
-  if (RESERVED_LINK_SLUGS.has(slug)) return conflict(c, 'LINK_RESERVED_SLUG', slug)
-  if (configSlugs(app).has(slug)) return conflict(c, 'LINK_IS_CONFIG_DECLARED', slug)
-
   const body = parsed.data as unknown as Record<string, unknown>
+
+  // Both reservation guards, and the slug-taken conflict, are the use-case's:
+  // the automation `link` action refuses exactly what this endpoint refuses.
   const result = await runLinks(
-    Effect.gen(function* () {
-      const repository = yield* LinkRepository
-      return yield* repository.create({
-        appName: app.name,
-        slug,
-        // Forwarded as the request supplied them: exactly one is present (the
-        // schema refuses both and neither), and the repository nulls the other
-        // column so a minted link is the same shape as a config-declared one.
-        destination: parsed.data.destination,
-        targets: parsed.data.targets,
-        enabled: parsed.data.enabled,
-        title: parsed.data.title,
-        tags: parsed.data.tags,
-        notes: parsed.data.notes,
-        validFrom: parsed.data.validFrom,
-        validUntil: parsed.data.validUntil,
-        maxClicks: parsed.data.maxClicks,
-        expiredTo: parsed.data.expiredTo,
-        utm: utmFromCreate(body),
-        createdBy: getSessionContext(c)?.userId ?? null,
-      })
+    createLink({
+      app,
+      slug,
+      // Forwarded as the request supplied them: exactly one is present (the
+      // schema refuses both and neither), and the repository nulls the other
+      // column so a minted link is the same shape as a config-declared one.
+      destination: parsed.data.destination,
+      targets: parsed.data.targets,
+      enabled: parsed.data.enabled,
+      title: parsed.data.title,
+      tags: parsed.data.tags,
+      notes: parsed.data.notes,
+      validFrom: parsed.data.validFrom,
+      validUntil: parsed.data.validUntil,
+      maxClicks: parsed.data.maxClicks,
+      expiredTo: parsed.data.expiredTo,
+      utm: utmRecordFromFlat(body),
+      createdBy: getSessionContext(c)?.userId ?? null,
     })
   )
 
   if (result._tag === 'Failure') {
-    const failure = result.failure as { readonly _tag?: string }
-    if (failure._tag === 'LinkSlugConflictError') return conflict(c, 'LINK_SLUG_TAKEN', slug)
+    const { failure } = result
+    if (failure._tag === 'LinkMutationConflictError') return conflict(c, failure.code, failure.slug)
+    // 400, not 500: the caller sent a value that is not a link. The Zod schema
+    // above already refuses a malformed slug, but it validates `destination`
+    // as a non-empty string only — so this is the branch that keeps a
+    // `javascript:` destination out of storage, which the config schema has
+    // always refused. The rule is the use-case's; rendering it is ours.
+    if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
     return internalError(c, 'Failed to create the link')
   }
 
@@ -773,6 +723,11 @@ async function handleCreateLink(c: Context, app: App): Promise<Response> {
 /** PATCH /api/admin/links/:slug — sparse edit. There is no rename. */
 async function handleUpdateLink(c: Context, app: App): Promise<Response> {
   const slug = c.req.param('slug') ?? ''
+  // Short-circuited BEFORE the payload is parsed, so a malformed edit of a
+  // config-declared slug still answers 409 rather than 400: the caller's first
+  // problem is that the slug is not theirs to write, and fixing the body would
+  // not change that. `updateLink` re-checks — this is status precedence, an
+  // HTTP concern, not a second copy of the rule.
   if (configSlugs(app).has(slug)) return conflict(c, 'LINK_IS_CONFIG_DECLARED', slug)
 
   const raw: unknown = await c.req.json().catch(() => undefined)
@@ -781,39 +736,35 @@ async function handleUpdateLink(c: Context, app: App): Promise<Response> {
 
   const body = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
   const result = await runLinks(
-    Effect.gen(function* () {
-      const repository = yield* LinkRepository
-      const current = yield* repository.findBySlug({ appName: app.name, slug, source: 'db' })
-      if (current === undefined) return undefined
-
-      const utm = utmFromUpdate(body, current.utm)
-      return yield* repository.update({
-        appName: app.name,
-        slug,
-        // Either form REPLACES the other; the repository clears the counterpart
-        // column so a re-pointed link cannot keep rotating to the destinations
-        // the operator has just replaced.
-        destination: parsed.data.destination,
-        targets: parsed.data.targets,
-        enabled: parsed.data.enabled,
-        title: parsed.data.title,
-        tags: parsed.data.tags,
-        notes: parsed.data.notes,
-        validFrom: parsed.data.validFrom,
-        validUntil: parsed.data.validUntil,
-        maxClicks: parsed.data.maxClicks,
-        expiredTo: parsed.data.expiredTo,
-        ...(utm === undefined ? {} : { utm }),
-      })
+    updateLink({
+      app,
+      slug,
+      // Either form REPLACES the other; the repository clears the counterpart
+      // column so a re-pointed link cannot keep rotating to the destinations
+      // the operator has just replaced.
+      destination: parsed.data.destination,
+      targets: parsed.data.targets,
+      enabled: parsed.data.enabled,
+      title: parsed.data.title,
+      tags: parsed.data.tags,
+      notes: parsed.data.notes,
+      validFrom: parsed.data.validFrom,
+      validUntil: parsed.data.validUntil,
+      maxClicks: parsed.data.maxClicks,
+      expiredTo: parsed.data.expiredTo,
+      // A sparse patch, merged against the stored block inside the use-case —
+      // the route has not read the row and must not have to.
+      utm: utmPatchFromFlat(body),
     })
   )
 
   if (result._tag === 'Failure') {
-    const failure = result.failure as { readonly _tag?: string }
+    const { failure } = result
+    if (failure._tag === 'LinkMutationConflictError') return conflict(c, failure.code, failure.slug)
+    if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
     if (failure._tag === 'LinkNotFoundError') return notFound(c)
     return internalError(c, 'Failed to update the link')
   }
-  if (result.success === undefined) return notFound(c)
 
   // eslint-disable-next-line functional/no-expression-statements -- the audit emit is a required side effect and must complete before the response: a spec reads the audit log the moment this endpoint answers. `ignoreVoid` does not cover `await`, so the suppression is the only lever; the sibling admin handlers (forms.ts) disable the same rule file-wide for this reason.
   await auditLinkMutation(c, AUDIT_ACTIONS.LINK_UPDATED, slug, 'info')
@@ -830,30 +781,20 @@ async function handleUpdateLink(c: Context, app: App): Promise<Response> {
  */
 async function handleDeleteLink(c: Context, app: App): Promise<Response> {
   const slug = c.req.param('slug') ?? ''
-  if (configSlugs(app).has(slug)) return conflict(c, 'LINK_IS_CONFIG_DECLARED', slug)
 
-  const result = await runLinks(
-    Effect.gen(function* () {
-      const repository = yield* LinkRepository
-      const current = yield* repository.findBySlug({
-        appName: app.name,
-        slug,
-        source: 'db',
-        includeArchived: true,
-      })
-      if (current === undefined) return undefined
-      if (current.deletedAt !== null) return { changed: false }
-      yield* repository.archive({ appName: app.name, slug })
-      return { changed: true }
-    })
-  )
+  const result = await runLinks(deleteLink({ app, slug }))
 
   if (result._tag === 'Failure') {
-    const failure = result.failure as { readonly _tag?: string }
+    const { failure } = result
+    if (failure._tag === 'LinkMutationConflictError') return conflict(c, failure.code, failure.slug)
+    // A slug that is not shaped like one could never have matched a row, so
+    // the alternative here is the anti-enumeration 404 — which would tell the
+    // caller their address is unknown when their real problem is that it is
+    // not an address.
+    if (failure._tag === 'LinkValueRejectedError') return badRequest(c, failure.reason)
     if (failure._tag === 'LinkNotFoundError') return notFound(c)
     return internalError(c, 'Failed to delete the link')
   }
-  if (result.success === undefined) return notFound(c)
 
   if (result.success.changed) {
     // `warning`, not `info`: a delete takes a live address out of service, and

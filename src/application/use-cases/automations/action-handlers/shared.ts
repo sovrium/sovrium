@@ -17,9 +17,11 @@ import type { AutomationDigestRepository } from '@/application/ports/repositorie
 import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
+import type { ServerOrigin } from '@/application/ports/services/server-origin'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
 
@@ -242,6 +244,8 @@ export type ActionHandler = (
   | StorageService
   | ImageTransformService
   | AnalyticsRepository
+  | LinkRepository
+  | ServerOrigin
 >
 
 /**
@@ -411,8 +415,7 @@ export const serializeActionBody = (
     return Effect.succeed(rawBody)
   }
   return Effect.try({
-    // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
-    // — Schema would be ceremonial here: props.body is intentionally
+    // Schema would be ceremonial here: props.body is intentionally
     // polymorphic user-supplied YAML (no single shape applies).
     try: () => JSON.stringify(rawBody),
     catch: (cause) =>

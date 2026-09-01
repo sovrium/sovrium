@@ -1,3 +1,53 @@
+## [0.24.0](https://github.com/sovrium/sovrium/compare/v0.23.0...v0.24.0) (2026-09-01)
+
+### BREAKING CHANGES
+
+- **automations**: split record read and list
+
+### Features
+
+- **agents**: let an agent read a filtered set of records
+- **cli**: add `sovrium types` for authoring a TypeScript config with no npm
+- **automations**: order, paginate and trim the record list operator
+- **cli**: add dry-run and check modes to the migrate command
+- **cli**: add a migrate command that brings the schema forward without booting
+- **automations**: mint, re-point and retire tracked short links from a workflow
+- **auth**: let a role invite people into its own tenant without full admin rights
+- **account**: let a signed-in user upload and remove their profile picture
+- **pages**: render a scannable QR code inline on a page
+- **tables**: continue a cursor-paginated data grid with load more
+- **admin**: invite people and take invitations back from the console
+- **auth**: show a consent screen that names where an app will send you
+- **automations**: expose mentioned users' email addresses on comment triggers
+
+### Bug Fixes
+
+- **automations**: refuse a record list that selects a column the table lacks
+- **tables**: return the columns a record listing was actually asked for
+- **automations**: keep a record's timestamps through a list field trim
+- **migrations**: refuse a field type change SQLite would silently mis-store
+- **database**: stop printing the DATABASE_URL password in connection errors
+- **automations**: accept a code action whose execute() parameter is unannotated
+- **cli**: silence an Effect diagnostic the dry-run plan cannot honour
+- **cli**: drop a banned separator and record that all three modes ship
+- **buckets**: confine every write to the bucket that owns the key
+- **storage**: confine a stored file to the bucket it was uploaded to
+- **auth**: reject client-supplied profile image URLs
+- **tables**: stop losing inline edits to a blip or to a concurrent change
+- **kanban**: persist a card drop to the bound table without extra configuration
+- **forms**: keep every step's answers when a multi-step form is submitted
+- **forms**: let a dropdown express "no answer" instead of preselecting one
+- **automations**: honour an app's top custom role in the comment read gate
+- **cli**: report a database as unreachable by driver code, not by message text
+- **config**: refuse a config carrying a __proto__ key instead of dropping it
+- **auth**: end existing sessions when an admin sets a user's password
+- **admin**: show a declared default the config author marked as non-secret
+- **records-api**: honor the timezone parameter when reading a single record
+- **auth**: keep database errors readable so an auth-enabled app can upgrade
+- **pages**: offer grid write affordances to group-granted callers
+- **tables**: honour group grants when exporting a table
+- **permissions**: honour group grants on the comment and row-level gates
+
 ## [0.23.0](https://github.com/sovrium/sovrium/compare/v0.22.2...v0.23.0) (2026-08-28)
 
 ### BREAKING CHANGES

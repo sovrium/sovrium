@@ -62,6 +62,32 @@ export function shouldShowSearch(
 }
 
 /**
+ * The search settings the toolbar renders from — `search` when the author wrote
+ * one, otherwise the defaults implied by `toolbar: { search: true }`.
+ *
+ * The two declarations are separate blocks that both say "this grid searches",
+ * and {@link shouldShowSearch} has always honoured either. The RENDER, however,
+ * required the `search` block itself (`showSearch && searchConfig` in
+ * `toolbar.tsx`), so `toolbar.search` on its own painted no box at all and
+ * `shouldShowSearch`'s second branch could never reach a visible control — a
+ * declared capability that did nothing, the same shape as the toolbar-gate
+ * defects above it.
+ *
+ * Resolving here rather than defaulting at the render site keeps ONE answer:
+ * the grid decides once whether it searches and with what settings, instead of
+ * the visibility gate and the render gate deriving it separately and disagreeing.
+ * NO new AppSchema — both blocks already exist; this only stops one of them
+ * being inert.
+ */
+export function resolveSearchConfig(
+  searchConfig: ComponentSearch | undefined,
+  toolbarConfig: DataTableToolbar | undefined
+): ComponentSearch | undefined {
+  if (searchConfig) return searchConfig
+  return toolbarConfig?.search ? { enabled: true } : undefined
+}
+
+/**
  * Resolved save-indicator settings for the data-table view.
  *
  * `show` defaults to true when `autoSave` is configured (saveMode auto/onBlur)

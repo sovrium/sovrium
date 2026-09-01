@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import {
   autoDelimiter,
   csvCell,
@@ -97,7 +97,7 @@ export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
     if (!key) return errorOutcome('file.download requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(key))
+    const downloaded = yield* Effect.result(storage.download(key, UNATTRIBUTED_BUCKET))
     if (downloaded._tag === 'Failure') return errorOutcome(`file not found: ${key}`)
 
     const bytes = downloaded.success
@@ -269,7 +269,7 @@ const loadCsvBytes = (ref: string): Effect.Effect<CsvBytes, never, StorageServic
         : ({ ok: true, bytes: resolved.success.bytes } as const)
     }
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(ref))
+    const downloaded = yield* Effect.result(storage.download(ref, UNATTRIBUTED_BUCKET))
     return downloaded._tag === 'Failure'
       ? ({ ok: false, message: `file not found: ${ref}` } as const)
       : ({ ok: true, bytes: downloaded.success } as const)

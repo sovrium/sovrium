@@ -21,6 +21,7 @@ import { buildDataAutomationsPage } from './data-automations-surface'
 import { buildDataBucketsPage } from './data-buckets-surface'
 import { buildDataConnectionsPage } from './data-connections-surface'
 import { buildDataFormsPage } from './data-forms-surface'
+import { buildDataInvitationsPage } from './data-invitations-surface'
 import {
   buildDataPagePlaceholder,
   readyDataPageLabel,
@@ -75,9 +76,15 @@ const DATA_PAGE_BUILDERS: Readonly<
   forms: buildDataFormsPage,
   buckets: buildDataBucketsPage,
   agents: buildDataAgentsPage,
-  // The Users directory is flat (one user population, not many objects), so
-  // it ignores the per-page object segment and mounts a single directory island.
-  users: (app, _object, shell) => buildDataUsersPage(shell, app),
+  // The Users directory is flat (one user population, not many objects), so it
+  // ignores the per-page object segment — with ONE exception. `invitations` is
+  // not an object of the directory; it is the neighbouring lifecycle surface,
+  // and it takes the object slot rather than a top-level key so it stays filed
+  // under Users in the breadcrumb, which is where an operator looks for it.
+  users: (app, object, shell) =>
+    object === 'invitations'
+      ? buildDataInvitationsPage(shell, app)
+      : buildDataUsersPage(shell, app),
   // Analytics is an app-wide analytics dashboard (not per-object), so it too
   // ignores the object segment. Threads whether the operator declared an
   // `analytics` block: enabled → live KPI/chart/table over the baked window;

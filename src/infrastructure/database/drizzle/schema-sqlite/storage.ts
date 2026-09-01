@@ -34,6 +34,17 @@ export const fileStorageMetadata = systemTable(
     size: integer('size').notNull(),
     storageProvider: text('storage_provider').notNull(),
     storagePath: text('storage_path'),
+    /**
+     * The declared bucket this object belongs to, or NULL when the writer
+     * declined to attribute one (see `UNATTRIBUTED_BUCKET`).
+     *
+     * Storage keys are FLAT — every bucket addresses the same physical
+     * keyspace — so this column is the only thing that binds an object to the
+     * bucket whose permission block guards it. Reads and deletes that name a
+     * bucket compare against it and refuse on mismatch, which is what stops a
+     * caller reaching an admin-only object through a sibling public bucket.
+     */
+    bucket: text('bucket'),
     uploadedById: text('uploaded_by_id').references(() => users.id, { onDelete: 'set null' }),
     tableName: text('table_name'),
     recordId: text('record_id'),
@@ -46,6 +57,7 @@ export const fileStorageMetadata = systemTable(
     index('file_storage_metadata_key_idx').on(table.key),
     index('file_storage_metadata_table_record_idx').on(table.tableName, table.recordId),
     index('file_storage_metadata_uploadedById_idx').on(table.uploadedById),
+    index('file_storage_metadata_bucket_idx').on(table.bucket),
   ]
 )
 

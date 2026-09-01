@@ -364,6 +364,97 @@ export function buildOrderByClause(
 }
 
 /**
+ * Build a parameterized `LIMIT` / `OFFSET` clause.
+ *
+ * Three properties are load-bearing:
+ *
+ * 1. **Both values are BOUND, never interpolated.** They arrive from author
+ *    config and, on the records API, from a query string. `sql.raw` here would
+ *    be an injection point in the one clause of the statement that is otherwise
+ *    entirely static (standing rule S3). `Number.isSafeInteger` rejects `NaN`,
+ *    `Infinity` and fractional values before either reaches the driver, so a
+ *    non-integer degrades to "no clause" rather than to a syntax error.
+ *
+ * 2. **Absent means EMPTY.** With neither value the function returns `sql`` `,
+ *    so every pre-existing caller — which passes neither — keeps emitting
+ *    byte-identical SQL. That is what makes the parameter additive rather than
+ *    a migration.
+ *
+ * 3. **A bare `OFFSET` is PostgreSQL-only.** SQLite's grammar requires a
+ *    `LIMIT` before `OFFSET`, where `LIMIT -1` means "no upper bound"; without
+ *    the sentinel an offset-only page is a syntax ERROR on the zero-config
+ *    default engine while passing on the Postgres the E2E suite defaults to.
+ *    Same shape as `user-entity-list-repository-live.ts`'s recent-items prune.
+ *
+ * An `offset` of 0 emits nothing on its own: skipping no rows is the absence of
+ * a clause, and emitting one would cost the SQLite sentinel for no effect.
+ */
+const pageBound = (value: number | undefined): number | undefined =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined
+
+export function buildPageClause(limit?: number, offset?: number): Readonly<SQL> {
+  const pageSize = pageBound(limit)
+  const start = pageBound(offset)
+  const skips = start !== undefined && start > 0
+
+  if (!skips) return pageSize === undefined ? sql`` : sql` LIMIT ${pageSize}`
+  if (pageSize !== undefined) return sql` LIMIT ${pageSize} OFFSET ${start}`
+
+  return parseDatabaseDialectConfig().dialect === 'sqlite'
+    ? sql` LIMIT -1 OFFSET ${start}`
+    : sql` OFFSET ${start}`
+}
+
+/**
+ * Build the SELECT list for a projected read, or `*` when there is nothing to
+ * project.
+ *
+ * `columns` arrives as a set of CANDIDATES — the caller's requested columns
+ * plus the always/optionally-present system ones — and is intersected here with
+ * the relation's live catalog. That intersection is the whole point of doing
+ * this in the infrastructure layer: `created_by`, `updated_by`, `deleted_by`
+ * and `deleted_at` exist only on some tables, and `id` itself is absent from a
+ * table that declared its own non-`id` primary key. Emitting a name that is not
+ * there is a hard database error, and no amount of reading the app config can
+ * settle it as reliably as asking the database.
+ *
+ * `listTableColumns` (which `getExistingColumnNames` wraps) answers for VIEWS as
+ * well as tables on both dialects — `information_schema.columns` includes views
+ * on Postgres, `pragma_table_info` accepts one on SQLite — so a lookup /
+ * rollup / count column resolves exactly as a stored one does. That is what
+ * lets a computed field be projected by name.
+ *
+ * Names go through `sql.identifier`, which quotes and escapes them; combined
+ * with the catalog intersection, every emitted name is one the database just
+ * told us it has.
+ *
+ * An empty intersection degrades to `*` rather than to `SELECT  FROM` — a
+ * selection naming nothing addressable returns the whole row and lets the
+ * in-memory trim answer, which is the same result by a slower route rather than
+ * a 500.
+ */
+export function buildSelectListClause(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  columns: readonly string[] | undefined
+): Effect.Effect<Readonly<SQL>, DatabaseError> {
+  if (columns === undefined || columns.length === 0) return Effect.succeed(sql.raw('*'))
+  return Effect.tryPromise({
+    try: async () => {
+      const existing = await getExistingColumnNames(tx, tableName, columns)
+      const projected = columns.filter((name) => existing.has(name))
+      return projected.length === 0
+        ? sql.raw('*')
+        : sql.join(
+            projected.map((name) => sql.identifier(name)),
+            sql`, `
+          )
+    },
+    catch: (error) => new DatabaseError(`Failed to resolve projection for ${tableName}`, error),
+  })
+}
+
+/**
  * Build a parameterized WHERE clause from filter conditions
  *
  * User-supplied filter values are bound as query parameters (not inlined).

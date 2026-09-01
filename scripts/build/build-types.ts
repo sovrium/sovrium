@@ -16,7 +16,14 @@
  *   1. Use tsc to type-check the project and build the type graph
  *   2. Extract the resolved structural types for exported type aliases
  *   3. Emit them as standalone interfaces/types in a single .d.ts file
- *   4. Build the minimal JS file (defineConfig identity function)
+ *   4. Build an empty JS entry point — this package is TYPES-ONLY and declares
+ *      no runtime value (see `buildJS` for why that is load-bearing)
+ *
+ * The emitted `.d.ts` is ALSO the payload the standalone binary ships: it is
+ * wrapped as `declare module 'sovrium'` by
+ * `scripts/build/generate-embedded-config-types.ts` and written out by
+ * `sovrium types`. So this output is no longer merely "what npm consumers get"
+ * — it is what EVERY TypeScript config author gets.
  *
  * Usage:
  *   bun run scripts/build/build-types.ts
@@ -178,25 +185,6 @@ function extractTypes(): string {
   lines.push('}')
   lines.push('')
 
-  // Add defineConfig declaration
-  lines.push('/**')
-  lines.push(
-    ' * Identity function that provides TypeScript autocompletion for Sovrium app configs.'
-  )
-  lines.push(' *')
-  lines.push(' * @example')
-  lines.push(' * ```typescript')
-  lines.push(" * import { defineConfig } from '@sovrium/types'")
-  lines.push(' *')
-  lines.push(' * export default defineConfig({')
-  lines.push(" *   name: 'my-app',")
-  lines.push(" *   description: 'My application',")
-  lines.push(' * })')
-  lines.push(' * ```')
-  lines.push(' */')
-  lines.push('export declare const defineConfig: <T extends AppConfig>(config: T) => T')
-  lines.push('')
-
   return lines.join('\n')
 }
 
@@ -205,18 +193,29 @@ function extractTypes(): string {
 // ---------------------------------------------------------------------------
 
 function buildJS(): void {
-  console.log('\n▸ Building minimal JS bundle')
+  console.log('\n▸ Building empty JS entry point')
 
+  // Deliberately EMPTY of exports. This package is types-only: it declares no
+  // runtime value, and the emitted `.d.ts` must not either.
+  //
+  // The reason is measured, not stylistic. The same declaration text is wrapped
+  // as `declare module 'sovrium'` and shipped inside the binary (see
+  // `scripts/build/generate-embedded-config-types.ts`), and the binary leaves
+  // bare-package specifiers UNRESOLVED at runtime while `import type` is erased
+  // before it ever looks. So a declaration exporting a `defineConfig` helper
+  // type-checks clean (tsc exit 0) and then fails at boot (binary exit 1) with
+  // `Cannot find package` — a type-checks-then-dies trap, strictly worse than a
+  // plain failure because it defers the error past the point where the author is
+  // looking. Keeping values out makes a value import unreachable BY
+  // CONSTRUCTION: it fails type-check for the ordinary reason that no such
+  // export exists.
+  //
+  // Enforced by `[internal ref]` (Config Types
+  // Declaration Drift) and pinned end-to-end by [internal ref].
   const jsContent = [
     '// @sovrium/types - TypeScript type definitions for Sovrium app configuration',
-    '// This package provides zero-dependency types for authoring Sovrium config files.',
-    '',
-    '/**',
-    ' * Identity function that provides TypeScript autocompletion for Sovrium app configs.',
-    ' * @param {object} config - The app configuration object',
-    ' * @returns {object} The same config object (identity)',
-    ' */',
-    'export const defineConfig = (config) => config;',
+    '// This package is TYPES-ONLY and intentionally exports no runtime value.',
+    'export {};',
     '',
   ].join('\n')
 
@@ -242,8 +241,14 @@ function verify(dtsContent: string): void {
     console.error('✗ Missing AppConfig export!')
     process.exit(1)
   }
-  if (!dtsContent.includes('defineConfig')) {
-    console.error('✗ Missing defineConfig export!')
+  // Inverted on purpose (see buildJS above): a VALUE export in this file is the
+  // one defect that type-checks clean and dies at boot.
+  if (dtsContent.includes('defineConfig')) {
+    console.error('✗ Generated .d.ts declares defineConfig — this package is types-only!')
+    process.exit(1)
+  }
+  if (/export\s+(declare\s+)?(const|function|var|let|class)\b/.test(dtsContent)) {
+    console.error('✗ Generated .d.ts declares a runtime VALUE — this package is types-only!')
     process.exit(1)
   }
   if (!dtsContent.includes('CodeContext')) {

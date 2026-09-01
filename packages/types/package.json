@@ -1,7 +1,8 @@
 {
   "name": "@sovrium/types",
   "version": "0.23.0",
-  "description": "TypeScript type definitions for Sovrium app configuration",
+  "description": "RETIRED — TypeScript config types now ship inside the Sovrium binary (`sovrium types`). Kept in-tree only as the source the emitter derives that payload from; never published.",
+  "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -30,8 +31,5 @@
     "type": "git",
     "url": "git+https://github.com/sovrium/sovrium.git",
     "directory": "packages/types"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

@@ -13,6 +13,7 @@ import {
   computeVideoPlayerClasses,
 } from '../../renderers/element-renderers/recipes/interactive-content-default-classes'
 import { mergePrestyle } from './interactive-prestyle-builders'
+import { qrCodeComponent } from './qr-code-component'
 import type { ComponentRenderer, DispatchableComponentType } from '../component-dispatch-config'
 
 /**
@@ -60,4 +61,10 @@ export const mediaComponents: Partial<Record<DispatchableComponentType, Componen
     const mergedClassName = mergePrestyle(computeIframeClasses(), authorClassName)
     return Renderers.renderIframe({ ...elementProps, className: mergedClassName }, renderedChildren)
   },
+
+  // `qr-code` — a scannable symbol rendered inline. Grouped with the media
+  // components because it is a static rendering of a value, but delegated to its
+  // own `.tsx` file: it needs JSX for `dangerouslySetInnerHTML`, which this `.ts`
+  // module cannot carry. Deliberately emits NO `data-island` — see the renderer.
+  'qr-code': qrCodeComponent,
 }

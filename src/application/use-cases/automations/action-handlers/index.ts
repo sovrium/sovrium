@@ -74,11 +74,13 @@ import {
   handleHttpPut,
   handleHttpRequest,
 } from './http'
+import { handleLinkCreate, handleLinkDelete, handleLinkUpdate } from './link'
 import { handleLoopEach } from './loop'
 import { handlePathBranch } from './path'
 import {
   handleRecordCreate,
   handleRecordDelete,
+  handleRecordList,
   handleRecordRead,
   handleRecordUpdate,
   handleRecordUpsert,
@@ -145,6 +147,9 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['ai/agent', handleAiAgent],
   ['analytics/track', handleAnalyticsTrack],
   ['approval/request', handleApprovalRequest],
+  ['link/create', handleLinkCreate],
+  ['link/update', handleLinkUpdate],
+  ['link/delete', handleLinkDelete],
   ['auth/assignRole', handleAuthAssignRole],
   ['auth/banUser', handleAuthBanUser],
   ['auth/createUser', handleAuthCreateUser],
@@ -152,6 +157,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['filter/continue', handleFilterContinue],
   ['record/create', handleRecordCreate],
   ['record/read', handleRecordRead],
+  ['record/list', handleRecordList],
   ['record/update', handleRecordUpdate],
   ['record/delete', handleRecordDelete],
   ['record/upsert', handleRecordUpsert],

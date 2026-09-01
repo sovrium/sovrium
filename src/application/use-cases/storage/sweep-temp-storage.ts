@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import { parseStorageTempCleanupAfter } from '@/domain/models/env/storage/storage-temp-cleanup-after'
 import type { StorageService } from '@/application/ports/services/storage-service'
@@ -66,7 +67,7 @@ const reclaimIfAged = (
   cutoff: number
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const metadata = yield* Effect.result(storage.getMetadata(key))
+    const metadata = yield* Effect.result(storage.getMetadata(key, UNATTRIBUTED_BUCKET))
     // No catalog row means the age is unknown (or the file is already gone).
     // Keeping it is the safe branch: an unsweepable file is a smaller problem
     // than a file deleted on a guess.
@@ -74,7 +75,7 @@ const reclaimIfAged = (
     const lastModified = Date.parse(metadata.success.lastModified)
     if (!Number.isFinite(lastModified) || lastModified > cutoff) return
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
-    yield* Effect.ignore(storage.delete(key))
+    yield* Effect.ignore(storage.delete(key, UNATTRIBUTED_BUCKET))
   })
 
 /**

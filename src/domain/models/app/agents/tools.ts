@@ -14,7 +14,11 @@ import { Schema } from 'effect'
  * Each entry follows the `type.operator` pattern from the automation action schema.
  *
  * Categories:
- * - **Record**: CRUD on allowed tables
+ * - **Record**: CRUD on allowed tables. `record.read` and `record.list` are two
+ *   distinct capabilities, not one granted twice: `read` fetches a single row by
+ *   primary key, `list` returns a filtered / ordered / bounded set. Granting
+ *   `read` alone therefore deliberately withholds the ability to sweep a table,
+ *   which is why `list` is its own grant rather than a mode of `read`.
  * - **State**: Cross-run key-value persistence
  * - **HTTP**: External API calls
  * - **AI**: Chain LLM sub-tasks (generate, classify, extract)
@@ -27,6 +31,7 @@ export const AgentActionSchema = Schema.Literals(
   // Record operations
   [
     'record.read',
+    'record.list',
     'record.create',
     'record.update',
     'record.delete',

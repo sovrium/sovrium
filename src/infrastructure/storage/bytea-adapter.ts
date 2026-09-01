@@ -7,10 +7,79 @@
 
 /* eslint-disable functional/no-expression-statements, functional/no-throw-statements */
 
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
+import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { toFiniteCount } from '@/domain/utils/database/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import type { BucketBinding } from '@/application/ports/services/storage-service'
+
+/**
+ * The value the `bucket` column takes for a binding.
+ *
+ * An unattributed write records NULL — the caller declined to name a bucket,
+ * and inventing one would expose the object through that bucket's route.
+ */
+/*
+ * `null`, not `undefined`: Drizzle treats the two differently. `null` writes SQL
+ * NULL and CLEARS a previous binding on conflict; `undefined` omits the column
+ * and would silently RETAIN it, letting an unattributed write inherit a bucket
+ * it never asserted.
+ */
+/* eslint-disable unicorn/no-null -- see above */
+export const bucketColumnValue = (bucket: BucketBinding): string | null =>
+  bucket === UNATTRIBUTED_BUCKET ? null : bucket
+/* eslint-enable unicorn/no-null */
+
+/**
+ * Does the bucket a caller named match the binding recorded for the object?
+ *
+ * FAIL CLOSED. A recorded NULL matches NOTHING: an object written before this
+ * binding existed, or by a caller that named no bucket, has no known owner, and
+ * an object with no known owner must not be reachable through a bucket that is
+ * merely guessing. Objects a boot-time repair can attribute are repaired; the
+ * rest stay dark until re-uploaded, which is the accepted cost of not serving
+ * an admin-only file through a public route.
+ *
+ * `UNATTRIBUTED_BUCKET` opts out of the comparison entirely — it is the marker
+ * for callers that have no bucket concept, and no HTTP route can reach it.
+ */
+export const bucketBindingMatches = (
+  bucket: BucketBinding,
+  recorded: string | null | undefined
+): boolean => bucket === UNATTRIBUTED_BUCKET || recorded === bucket
+
+/**
+ * May a write to this key record `bucket`, given the binding already on the row?
+ *
+ * A write to a key nobody owns CREATES the binding; a write to a key this same
+ * bucket already owns REPLACES the bytes, which is an ordinary re-upload. Any
+ * other pairing is a REBIND, and a rebind is what turns a permissive bucket's
+ * write right into a write right over every other bucket's objects: the catalog
+ * upsert used to end `bucket = EXCLUDED.bucket`, so the read-side ownership
+ * check introduced for the download path then compared against the value the
+ * attacker had just written, and agreed.
+ *
+ * Read the asymmetry with {@link bucketBindingMatches} deliberately, because the
+ * two treat `UNATTRIBUTED_BUCKET` in opposite ways and both are correct:
+ *
+ * - On READ it is a WAIVER — "I have no bucket concept, give me the object" —
+ *   so it skips the comparison and does not even require a catalog row. The
+ *   automation `file:*` actions address keys written out of band.
+ * - On WRITE it is a VALUE, the NULL that {@link bucketColumnValue} produces,
+ *   and so it must be compared like any other. An unattributed write that
+ *   silently cleared a real binding would be a rebind too — to nothing — and
+ *   under fail-closed reads that does not open the object up, it makes it dark.
+ *
+ * A recorded NULL is therefore claimable only by another unattributed write.
+ * Legacy rows from before this binding existed stay unwritable through a named
+ * bucket until the boot-time repair attributes them, which is the same
+ * fail-closed trade the read path already makes.
+ */
+export const bucketBindingPermitsWrite = (
+  bucket: BucketBinding,
+  recorded: string | null | undefined
+): boolean => recorded === undefined || recorded === bucketColumnValue(bucket)
 
 /**
  * PostgreSQL bytea storage adapter.
@@ -48,26 +117,37 @@ export const byteaValidateAndInit = async (): Promise<void> => {
 export const byteaUpload = async (
   key: string,
   content: Uint8Array,
-  mimeType: string
+  mimeType: string,
+  bucket: BucketBinding
 ): Promise<void> => {
   const filename = key.split('/').at(-1) ?? key
   const buf = Buffer.from(content)
 
   const result = (await db.execute(sql`
     INSERT INTO system.file_storage_metadata
-      (key, filename, mime_type, size, storage_provider)
-    VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea')
+      (key, filename, mime_type, size, storage_provider, bucket)
+    VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea', ${bucketColumnValue(bucket)})
     ON CONFLICT (key) DO UPDATE SET
       filename = EXCLUDED.filename,
       mime_type = EXCLUDED.mime_type,
       size = EXCLUDED.size,
       storage_provider = EXCLUDED.storage_provider
+    WHERE file_storage_metadata.bucket IS NOT DISTINCT FROM EXCLUDED.bucket
     RETURNING id
   `)) as readonly Record<string, unknown>[]
 
+  // `bucket` is no longer in the SET list, and the guarded `DO UPDATE` skips the
+  // row entirely when the recorded owner disagrees — so a rebind writes nothing
+  // and RETURNING is empty. `IS NOT DISTINCT FROM` rather than `=` so that a
+  // NULL binding matches only another NULL. See {@link bucketBindingPermitsWrite}.
+  //
+  // The content upsert below is deliberately downstream of this: refusing here
+  // means the stored bytes are never touched.
   const row = result[0] as { id: string } | undefined
   if (!row) {
-    throw new Error(`Failed to upsert metadata for key: ${key}`)
+    // Shaped as not-found so the route answers 404 and never distinguishes
+    // "owned by another bucket" from "absent" (S1 anti-enumeration).
+    throw new Error(`File not found: ${key}`)
   }
 
   await db.execute(sql`
@@ -77,12 +157,15 @@ export const byteaUpload = async (
   `)
 }
 
-export const byteaDownload = async (key: string): Promise<Uint8Array> => {
+export const byteaDownload = async (key: string, bucket: BucketBinding): Promise<Uint8Array> => {
+  // An unattributed caller compares nothing; a bucket-scoped one must match the
+  // recorded binding, and a NULL binding matches no bucket (fail closed).
+  const bucketPredicate = bucket === UNATTRIBUTED_BUCKET ? sql`` : sql`AND m.bucket = ${bucket}`
   const result = (await db.execute(sql`
     SELECT b.content
     FROM system.file_storage_bytea b
     JOIN system.file_storage_metadata m ON m.id = b.metadata_id
-    WHERE m.key = ${key} AND m.storage_provider = 'bytea'
+    WHERE m.key = ${key} AND m.storage_provider = 'bytea' ${bucketPredicate}
     LIMIT 1
   `)) as readonly Record<string, unknown>[]
 
@@ -101,10 +184,11 @@ export const byteaDownload = async (key: string): Promise<Uint8Array> => {
  * Throws "File not found: <key>" when no row matches, so the route handler
  * can return 404 via `isNotFoundError`.
  */
-export const byteaDelete = async (key: string): Promise<void> => {
+export const byteaDelete = async (key: string, bucket: BucketBinding): Promise<void> => {
+  const bucketPredicate = bucket === UNATTRIBUTED_BUCKET ? sql`` : sql`AND bucket = ${bucket}`
   const result = (await db.execute(sql`
     DELETE FROM system.file_storage_metadata
-    WHERE key = ${key} AND storage_provider = 'bytea'
+    WHERE key = ${key} AND storage_provider = 'bytea' ${bucketPredicate}
     RETURNING key
   `)) as readonly Record<string, unknown>[]
   if (result.length === 0) {
@@ -151,24 +235,42 @@ export const byteaGetTotalBytes = async (): Promise<number> => {
  * The local provider — the zero-config SQLite default — relies on this path, and
  * the bun:sqlite runtime has no `db.execute()`.
  */
-export const writeFileMetadata = async (
-  key: string,
-  mimeType: string,
-  size: number,
-  storageProvider: string
-): Promise<void> => {
+export const writeFileMetadata = async (file: {
+  readonly key: string
+  readonly mimeType: string
+  readonly size: number
+  readonly storageProvider: string
+  readonly bucket: BucketBinding
+}): Promise<void> => {
+  const { key, mimeType, size, storageProvider } = file
   const filename = key.split('/').at(-1) ?? key
   // Strip MIME type parameters (e.g. "text/plain;charset=utf-8" → "text/plain")
   // so the stored value is always the canonical base type.
   const baseMimeType = (mimeType.split(';').at(0) ?? mimeType).trim()
   const files = fileStorageMetadataTable()
-  await db
+  const bucketValue = bucketColumnValue(file.bucket)
+  // Only update a row whose recorded owner already equals the one this write
+  // asserts. Composed from `isNull` / `eq` rather than PostgreSQL's
+  // `IS NOT DISTINCT FROM` because this path must also run on SQLite, where that
+  // operator does not exist — the two-branch form says the same thing on both.
+  const ownerUnchanged = bucketValue === null ? isNull(files.bucket) : eq(files.bucket, bucketValue)
+  const written = await db
     .insert(files)
-    .values({ key, filename, mimeType: baseMimeType, size, storageProvider })
+    .values({ key, filename, mimeType: baseMimeType, size, storageProvider, bucket: bucketValue })
     .onConflictDoUpdate({
       target: files.key,
+      // `bucket` is absent from the SET list on purpose: a write REPLACES bytes,
+      // it never MOVES an object between buckets.
       set: { filename, mimeType: baseMimeType, size, storageProvider },
+      setWhere: ownerUnchanged,
     })
+    .returning({ key: files.key })
+  if (written.length === 0) {
+    // The conflicting row belongs to a different bucket, so the guarded update
+    // matched nothing. Not-found shaped for the same anti-enumeration reason as
+    // {@link byteaUpload}.
+    throw new Error(`File not found: ${key}`)
+  }
 }
 
 /**
@@ -181,9 +283,15 @@ export const writeFileMetadata = async (
  * Drizzle query builder so it works on both PostgreSQL and SQLite (same
  * rationale as {@link writeFileMetadata}).
  */
-export const deleteFileMetadata = async (key: string): Promise<boolean> => {
+export const deleteFileMetadata = async (key: string, bucket: BucketBinding): Promise<boolean> => {
   const files = fileStorageMetadataTable()
-  const deleted = await db.delete(files).where(eq(files.key, key)).returning({ key: files.key })
+  // `eq(files.bucket, bucket)` is never true for a NULL binding, so an object
+  // with no recorded owner is refused rather than deleted (fail closed).
+  const predicate =
+    bucket === UNATTRIBUTED_BUCKET
+      ? eq(files.key, key)
+      : and(eq(files.key, key), eq(files.bucket, bucket))
+  const deleted = await db.delete(files).where(predicate).returning({ key: files.key })
   return deleted.length > 0
 }
 
@@ -202,11 +310,22 @@ export const deleteFileMetadata = async (key: string): Promise<boolean> => {
 export const readFileMetadata = async (
   key: string
 ): Promise<
-  { readonly contentType: string; readonly size: number; readonly lastModified: string } | undefined
+  | {
+      readonly contentType: string
+      readonly size: number
+      readonly lastModified: string
+      readonly bucket: string | null
+    }
+  | undefined
 > => {
   const files = fileStorageMetadataTable()
   const rows = await db
-    .select({ mimeType: files.mimeType, size: files.size, modified: files.createdAt })
+    .select({
+      mimeType: files.mimeType,
+      size: files.size,
+      modified: files.createdAt,
+      bucket: files.bucket,
+    })
     .from(files)
     .where(eq(files.key, key))
     .limit(1)
@@ -218,5 +337,10 @@ export const readFileMetadata = async (
     row.modified instanceof Date
       ? row.modified.toISOString()
       : new Date(row.modified as unknown as string).toISOString()
-  return { contentType: row.mimeType, size: Number(row.size), lastModified: modified }
+  return {
+    contentType: row.mimeType,
+    size: Number(row.size),
+    lastModified: modified,
+    bucket: row.bucket,
+  }
 }

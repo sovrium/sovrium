@@ -13,9 +13,10 @@ import {
   scaffoldFromRemoteTemplate,
 } from '@/cli/commands/init-remote-template'
 import { CLAUDE_MD_BODY, PUBLIC_README_BODY } from '@/cli/commands/init-scaffold-content'
+import { writeConfigTypesFiles } from '@/cli/commands/types'
 import { ENV_EXAMPLE_CONTENT } from '@/cli/env-example-template'
 import { embeddedTemplateDir } from '@/infrastructure/assets/embedded-static-assets'
-import { printDocument } from '@/infrastructure/logging/cli-output'
+import { printDocument, printFailure } from '@/infrastructure/logging/cli-output'
 
 /**
  * Relative path of the starter Claude Code agent inside every template tree.
@@ -107,6 +108,34 @@ const sanitizeAppName = (dirName: string): string => {
  */
 const generateDefaultAppYaml = (appName: string): string =>
   [`name: ${sanitizeAppName(appName)}`, `description: A Sovrium application`, ''].join('\n')
+
+/**
+ * Generate the default `app.ts` for `sovrium init --typescript`.
+ *
+ * The import is TYPE-ONLY and the object is checked with `satisfies` — never a
+ * `defineConfig()` value import. The binary leaves bare-package specifiers
+ * unresolved, so a value import would type-check and then fail at boot, whereas
+ * `import type` is erased at transpile time and never resolved at all. That is
+ * why the emitted declaration exports no runtime value either
+ *.
+ *
+ * `satisfies` over an `AppConfig` annotation: it validates the literal against
+ * the type WITHOUT widening it, so the export keeps its precise shape and a
+ * misspelled property is still an excess-property error.
+ *
+ * `sanitizeAppName` restricts the name to `[a-z0-9-._~]`, so no quote escaping
+ * is required in the emitted single-quoted string.
+ */
+const generateDefaultAppTs = (appName: string): string =>
+  [
+    "import type { AppConfig } from 'sovrium'",
+    '',
+    'export default {',
+    `  name: '${sanitizeAppName(appName)}',`,
+    "  description: 'A Sovrium application',",
+    '} satisfies AppConfig',
+    '',
+  ].join('\n')
 
 /**
  * Generate default `.gitignore` content for a sovrium project.
@@ -203,13 +232,22 @@ const writeEnvExampleIfMissing = async (targetDir: string): Promise<boolean> => 
 const generateClaudeMd = (appName: string): string => `# ${appName}\n\n${CLAUDE_MD_BODY}`
 
 /**
- * Write scaffold files (app.yaml + CLAUDE.md) to the target directory
+ * Write scaffold files (the config file + CLAUDE.md) to the target directory.
+ *
+ * `configFilename` is `app.yaml` by default and `app.ts` under `--typescript`.
+ * Exactly ONE of them is written: `DEFAULT_CONFIG_FILENAMES` resolves
+ * `app.yaml` before `app.ts`, so scaffolding both would leave the typed config
+ * permanently shadowed — edited by its author and never read by the runtime.
  */
-const writeScaffoldFiles = async (targetDir: string, appYamlContent: string): Promise<string> => {
-  const targetPath = join(targetDir, 'app.yaml')
+const writeScaffoldFiles = async (
+  targetDir: string,
+  configFilename: string,
+  configContent: string
+): Promise<string> => {
+  const targetPath = join(targetDir, configFilename)
   const appName = basename(targetDir)
   // eslint-disable-next-line functional/no-expression-statements
-  await writeFile(targetPath, appYamlContent)
+  await writeFile(targetPath, configContent)
   // eslint-disable-next-line functional/no-expression-statements
   await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(appName))
   return targetPath
@@ -314,6 +352,13 @@ export interface InitCommandOptions {
   readonly positionalDir?: string
   readonly forceFlag?: boolean
   readonly appName?: string
+  /**
+   * `--typescript` — scaffold a typed `app.ts` (plus `sovrium.d.ts` and
+   * `tsconfig.json`) instead of `app.yaml`. Mutually exclusive with
+   * `--template`: a template ships its own config, so honouring both would mean
+   * silently discarding one of the two things the operator asked for.
+   */
+  readonly typescript?: boolean
 }
 
 /**
@@ -357,15 +402,32 @@ const writeStarterAgentIfMissing = async (targetDir: string): Promise<readonly s
   return wrote ? [destPath] : []
 }
 
+/**
+ * The no-template scaffold: a config file, CLAUDE.md, the starter agent — and,
+ * under `--typescript`, the two files that make the typed config check.
+ *
+ * `sovrium.d.ts` + `tsconfig.json` are written here rather than left to a
+ * follow-up `sovrium types` so the scaffolded directory type-checks and
+ * validates on the first try. Emitting `app.ts` alone would hand the author a
+ * config whose very first line — `import type { AppConfig } from 'sovrium'` —
+ * is an unresolved-module error.
+ */
 const scaffoldDefault = async (
   targetDir: string,
-  appName: string | undefined
+  appName: string | undefined,
+  typescript: boolean
 ): Promise<readonly string[]> => {
-  const createdPath = await writeScaffoldFiles(
-    targetDir,
-    generateDefaultAppYaml(appName || basename(targetDir))
-  )
-  return [createdPath, ...(await writeStarterAgentIfMissing(targetDir))]
+  const resolvedName = appName || basename(targetDir)
+  const createdPath = typescript
+    ? await writeScaffoldFiles(targetDir, 'app.ts', generateDefaultAppTs(resolvedName))
+    : await writeScaffoldFiles(targetDir, 'app.yaml', generateDefaultAppYaml(resolvedName))
+
+  const typesFiles = typescript ? await writeConfigTypesFiles(targetDir) : undefined
+  const typesPaths = typesFiles
+    ? [typesFiles.declarationPath, ...(typesFiles.tsconfigWritten ? [typesFiles.tsconfigPath] : [])]
+    : []
+
+  return [createdPath, ...typesPaths, ...(await writeStarterAgentIfMissing(targetDir))]
 }
 
 const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise<void> => {
@@ -402,8 +464,9 @@ const scaffoldTree = async (params: {
   readonly targetDir: string
   readonly forceFlag: boolean
   readonly appName: string | undefined
+  readonly typescript: boolean
 }): Promise<readonly string[]> => {
-  const { templateName, targetDir, forceFlag, appName } = params
+  const { templateName, targetDir, forceFlag, appName, typescript } = params
   if (templateName && isRemoteTemplateRef(templateName)) {
     // Remote-shaped refs (`owner/repo`, `gh:…`, GitHub URLs, optional #ref)
     // fetch from GitHub; bare names stay embedded-only (offline).
@@ -412,19 +475,67 @@ const scaffoldTree = async (params: {
     return []
   }
   if (templateName) return scaffoldFromTemplate(templateName, targetDir, forceFlag)
-  return scaffoldDefault(targetDir, appName)
+  return scaffoldDefault(targetDir, appName, typescript)
 }
 
+/**
+ * Refuse `--typescript` alongside `--template`, naming both.
+ *
+ * A template ships its own `app.yaml`, so there is no honest way to satisfy
+ * both flags: writing an `app.ts` next to the template's config would leave one
+ * of them permanently shadowed, and ignoring `--typescript` would report
+ * success for a flag that did nothing. Refusing is the only answer that does
+ * not silently discard part of the request.
+ */
+const assertFlagsCompatible = (templateName: string | undefined, typescript: boolean): void => {
+  if (!typescript || templateName === undefined) return
+  printFailure({
+    headline: 'Cannot combine --typescript with --template.',
+    detail: [
+      `The "${templateName}" template ships its own app.yaml, which would shadow a`,
+      'generated app.ts — Sovrium resolves app.yaml before app.ts.',
+    ],
+    guidance:
+      'Scaffold the template, then convert its config by hand:\n' +
+      `  sovrium init --template ${templateName}\n` +
+      '  sovrium types',
+  })
+  // eslint-disable-next-line functional/no-expression-statements
+  process.exit(1)
+}
+
+/**
+ * The config file this invocation will write.
+ *
+ * Hoisted out of `handleInitCommand` (rather than inlined as a ternary) to keep
+ * that function under the per-function complexity cap.
+ */
+const configFilenameFor = (typescript: boolean): string => (typescript ? 'app.ts' : 'app.yaml')
+
 export const handleInitCommand = async (options: InitCommandOptions = {}): Promise<void> => {
-  const { templateName, outputDir, positionalDir, forceFlag = false, appName } = options
+  const { templateName, outputDir, positionalDir, appName } = options
+  // `=== true` rather than a destructuring default: a default counts as a
+  // branch against this function's complexity budget, and it is already at it.
+  const forceFlag = options.forceFlag === true
+  const typescript = options.typescript === true
   const targetDir = positionalDir || outputDir || process.cwd()
 
+  assertFlagsCompatible(templateName, typescript)
+  // The conflict check follows the config file this invocation will actually
+  // write — otherwise `init --typescript` in a directory holding an `app.ts`
+  // would check `app.yaml`, find nothing, and overwrite the author's config.
   // eslint-disable-next-line functional/no-expression-statements
-  await assertNoConflict(join(targetDir, 'app.yaml'), forceFlag)
+  await assertNoConflict(join(targetDir, configFilenameFor(typescript)), forceFlag)
   // eslint-disable-next-line functional/no-expression-statements
   await mkdir(targetDir, { recursive: true })
 
-  const scaffolded = await scaffoldTree({ templateName, targetDir, forceFlag, appName })
+  const scaffolded = await scaffoldTree({
+    templateName,
+    targetDir,
+    forceFlag,
+    appName,
+    typescript,
+  })
 
   // Scaffold the additive support files (`.gitignore`, `.env.example`,
   // `public/`) the project doesn't already own.

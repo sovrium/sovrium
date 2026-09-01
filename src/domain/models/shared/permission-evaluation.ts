@@ -72,8 +72,35 @@ const ROLE_VIEWER = 'viewer'
 /** The built-in ordinary-user role. */
 const ROLE_MEMBER = 'member'
 
-/** Prefix marking a `group:<name>` reference inside a role array. */
+/**
+ * Prefix marking a `group:<name>` reference inside a role array.
+ *
+ * Spelled out here rather than imported from
+ * `@/domain/models/app/auth/groups/group-reference`, which owns the same
+ * literal: this module is a `domain-model-shared` element and that one is a
+ * `domain-model-feature`, a direction `[internal ref]` forbids.
+ * The duplication is the boundary's price, not an oversight.
+ */
 const GROUP_REFERENCE_PREFIX = 'group:'
+
+/** True when `entry` names a group membership rather than a role. */
+const isGroupReference = (entry: string): boolean => entry.startsWith(GROUP_REFERENCE_PREFIX)
+
+/** Strip the `group:` prefix, yielding the bare group name. */
+const stripGroupPrefix = (entry: string): string => entry.slice(GROUP_REFERENCE_PREFIX.length)
+
+/**
+ * Split an effective-roles list into real role names and bare group names.
+ *
+ * Mirrors `splitGroupReferences` in the group-reference module — see
+ * {@link GROUP_REFERENCE_PREFIX} for why it is not imported.
+ */
+const splitGroupReferences = (
+  entries: readonly string[]
+): { readonly roles: readonly string[]; readonly groups: readonly string[] } => ({
+  roles: entries.filter((entry) => !isGroupReference(entry)),
+  groups: entries.filter(isGroupReference).map(stripGroupPrefix),
+})
 
 // ---------------------------------------------------------------------------
 // Caller
@@ -311,11 +338,11 @@ export const classifyPermissionRung = (permission: PermissionValue | undefined):
 // ---------------------------------------------------------------------------
 
 /** Does any entry of a declared role array admit this caller? */
-const matchesRoleList = (roles: readonly string[], caller: PermissionCaller): boolean => {
+export const matchesRoleList = (roles: readonly string[], caller: PermissionCaller): boolean => {
   const groups = caller.groups ?? []
   return roles.some((entry) =>
-    entry.startsWith(GROUP_REFERENCE_PREFIX)
-      ? groups.includes(entry.slice(GROUP_REFERENCE_PREFIX.length))
+    isGroupReference(entry)
+      ? groups.includes(stripGroupPrefix(entry))
       : caller.role !== undefined && entry === caller.role
   )
 }
@@ -404,12 +431,29 @@ const evaluateDeclared = (
  * combining rule is union, not intersection: any one of them granting access
  * grants access. Applying the undeclared policy per-role is deliberate and
  * preserves the pre-existing semantics of `passesTableRoleGate`.
+ *
+ * A `group:<name>` entry is NOT a role and is never put in the role slot. It
+ * names a MEMBERSHIP, and {@link matchesRoleList} matches a `group:`-prefixed
+ * grant entry against `caller.groups` alone — so folding the pseudo-role
+ * `'group:ops'` into `{ role }` could never satisfy the grant `'group:ops'`,
+ * and every group grant on this path was inert. The list is therefore split
+ * first: the real roles become the role slot, the memberships ride alongside on
+ * every evaluation.
+ *
+ * The two degenerate inputs are distinguished on purpose. An EMPTY list is a
+ * caller with no entitlement at all and evaluates nothing, which fails closed
+ * exactly as before. A list of memberships ONLY still deserves one evaluation,
+ * with an unresolved role — the group half can grant, the role half cannot.
  */
 export const evaluatePermissionForRoles = (
   permission: PermissionValue | undefined,
   effectiveRoles: readonly string[],
   policy: PermissionPolicy
-): PermissionDecision =>
-  effectiveRoles.some((role) => permits(evaluatePermission(permission, { role }, policy)))
+): PermissionDecision => {
+  const { roles, groups } = splitGroupReferences(effectiveRoles)
+  const roleSlots: readonly (string | undefined)[] =
+    roles.length > 0 ? roles : groups.length > 0 ? [undefined] : []
+  return roleSlots.some((role) => permits(evaluatePermission(permission, { role, groups }, policy)))
     ? ALLOW
     : DENIED
+}

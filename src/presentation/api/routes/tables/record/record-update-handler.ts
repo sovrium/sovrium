@@ -18,8 +18,10 @@ import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/en
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
+import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { applyAiComputeBaseline } from '@/domain/services/ai-compute/apply-baseline'
 import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { DEFAULT_BUCKET_NAME } from '@/domain/utils/bucket-identity'
 import { filterReadableFields } from '@/domain/validators/field-read-filter'
 import { hasUpdatePermissionForRoles } from '@/domain/validators/permission-evaluators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
@@ -115,6 +117,15 @@ function mergeSqliteAiBaselineOnUpdate(
 }
 
 /**
+ * A superseded stored object, paired with the bucket that owns it. Keys are
+ * flat, so the delete must name the bucket the object was written under.
+ */
+interface ReplacedAttachment {
+  readonly key: string
+  readonly bucket: string
+}
+
+/**
  * Collect storage keys from single-attachment fields that are being replaced.
  * Returns only old keys that differ from the incoming update values.
  */
@@ -123,7 +134,7 @@ function collectReplacedAttachmentKeys(
   updateData: Record<string, unknown>,
   app: App,
   tableName: string
-): readonly string[] {
+): readonly ReplacedAttachment[] {
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table?.fields) return []
   return table.fields
@@ -132,19 +143,22 @@ function collectReplacedAttachmentKeys(
       const oldValue = oldRecord[f.name]
       return typeof oldValue === 'string' && oldValue.length > 0 && oldValue !== updateData[f.name]
     })
-    .map((f) => oldRecord[f.name] as string)
+    .map((f) => ({
+      key: oldRecord[f.name] as string,
+      bucket: resolveFieldBucket(app, tableName, f.name) ?? DEFAULT_BUCKET_NAME,
+    }))
 }
 
 /**
  * Delete files from storage by key, ignoring errors so a missing file
  * does not block the record update.
  */
-async function deleteStorageFiles(keys: readonly string[]): Promise<void> {
+async function deleteStorageFiles(refs: readonly ReplacedAttachment[]): Promise<void> {
   return Promise.all(
-    keys.map((key) => {
+    refs.map(({ key, bucket }) => {
       const program = Effect.gen(function* () {
         const storage = yield* StorageService
-        yield* storage['delete'](key)
+        yield* storage['delete'](key, bucket)
       })
       return Effect.runPromise(Effect.result(Effect.provide(program, StorageServiceLive)))
     })

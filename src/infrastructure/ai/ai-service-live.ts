@@ -287,7 +287,6 @@ const callChatCompletions = (
         // OpenAI-compatible wire format (an opaque `Record<string, unknown>`
         // assembled by `buildRequestBody`). The HTTP layer needs a JSON
         // string, not a decoded domain value.
-        // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
         body: JSON.stringify(buildRequestBody(model, conn.defaults, input)),
         ...(signal !== undefined ? { signal } : {}),
       })

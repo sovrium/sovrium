@@ -776,6 +776,13 @@ function emptyDataBoundComponent(component: Component): Component {
  * absent-value defaults differ, deliberately: create is OFFERED when unknown
  * (full-access model), edit is WITHHELD when unknown (fail-closed, and the
  * behaviour every grid has today).
+ *
+ * Both carry the caller's GROUPS as well as their role. A grant naming a group
+ * (`create: ['group:ops']`) is matched against memberships and never against
+ * the role string, so passing the role alone left every group-granted member
+ * silently un-offered a button they were entitled to press — while the CRUD
+ * form gate in this same layer (`render-page.tsx` → `gateCaller`) already
+ * forwarded them. One page, two treatments.
  */
 function withWritePermissionGates(ctx: {
   readonly component: Component
@@ -785,8 +792,9 @@ function withWritePermissionGates(ctx: {
 }): Component {
   if (ctx.component.type !== 'data-table' || !ctx.app.auth) return ctx.component
   const role = ctx.session?.role ?? ''
-  const _canCreate = hasCreatePermission(ctx.table, role, ctx.app.tables)
-  const _canUpdate = hasInlineEditDefault(ctx.table, role, ctx.app.tables)
+  const groups = ctx.session?.groups ?? []
+  const _canCreate = hasCreatePermission(ctx.table, role, ctx.app.tables, groups)
+  const _canUpdate = hasInlineEditDefault(ctx.table, role, ctx.app.tables, groups)
   return { ...ctx.component, props: { ...(ctx.component.props ?? {}), _canCreate, _canUpdate } }
 }
 

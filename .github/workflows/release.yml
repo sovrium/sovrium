@@ -60,82 +60,23 @@ jobs:
             --verify-tag \
             --draft
 
-  # ── Publish @sovrium/types to npm ──────────────────────────
-  # Uses npm Trusted Publishing (OIDC) — no NPM_TOKEN secret required.
-  # npm is configured to trust this repo + workflow file (release.yml).
-  # Provenance attestation is generated automatically by trusted publishing.
-  publish-types:
-    name: Publish @sovrium/types
-    needs: [release]
-    runs-on: ubuntu-latest
-    # Optional: gate publish behind a GitHub Actions Environment for an
-    # extra approval/protection layer. Configure the environment on the
-    # npm Trusted Publisher form too if you enable this.
-    # environment: npm-publish
-    permissions:
-      contents: read
-      id-token: write # Required: lets GitHub Actions mint the OIDC token npm verifies
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 'lts/*'
-          registry-url: 'https://registry.npmjs.org'
-
-      # Node 22 LTS ships npm 10.x; trusted publishing requires npm >= 11.5.1.
-      - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build @sovrium/types
-        run: bun run build:types
-
-      - name: Patch repository URL for provenance
-        run: |
-          node -e "
-            const pkg = JSON.parse(require('fs').readFileSync('packages/types/package.json', 'utf8'));
-            if (!pkg.repository) pkg.repository = {};
-            if (typeof pkg.repository === 'object') {
-              pkg.repository.url = 'git+https://github.com/sovrium/sovrium.git';
-            }
-            require('fs').writeFileSync('packages/types/package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-
-      # No NODE_AUTH_TOKEN: trusted publishing authenticates via the OIDC
-      # token. --provenance is omitted because trusted publishing implies it.
-      # `--tag latest` is explicit because the v1.0.0 → v0.7.0 rollback left
-      # npm's `latest` dist-tag pinned to the higher (dead) version, and npm
-      # refuses implicit-`latest` assignment when the new version is lower.
-      # Drop the flag once project version is again > 1.0.0.
-      #
-      # npm versions are immutable — a version can never be published twice.
-      # If an earlier attempt at this release already pushed the package and a
-      # later job failed, re-running the workflow would hit that wall here and
-      # fail permanently. So query the registry first and skip when the version
-      # is already there. `npm view` prints the version when it exists; for a
-      # version (or package) that is not published yet it prints nothing and may
-      # exit non-zero, which is the signal to go ahead and publish.
-      - name: Publish @sovrium/types to npm
-        working-directory: packages/types
-        run: |
-          NAME=$(node -p "require('./package.json').name")
-          VERSION=$(node -p "require('./package.json').version")
-          PUBLISHED=$(npm view "${NAME}@${VERSION}" version 2>/dev/null || true)
-          if [ -n "${PUBLISHED}" ]; then
-            echo "${NAME}@${VERSION} is already published — skipping."
-            exit 0
-          fi
-          npm publish --access public --tag latest
+  # ── @sovrium/types npm publish: RETIRED ─────────────────────
+  # The package is no longer published. TypeScript config types now ship INSIDE
+  # the binary and are written out by `sovrium types` — see
+  # `scripts/build/generate-embedded-config-types.ts`.
+  #
+  # Why this had to change: an app must be authorable in TypeScript with zero
+  # npm, and a published types package cannot deliver that. It needs a
+  # package.json, a node_modules and an install step in a directory that is
+  # supposed to contain only `app.ts`. Worse, the package's `defineConfig` helper
+  # was a VALUE, and the binary leaves bare-package specifiers unresolved — so
+  # `import { defineConfig } from '@sovrium/types'` type-checked clean and then
+  # failed at boot. The ambient `declare module 'sovrium'` the binary emits is
+  # type-only and erased at transpile time, so it cannot reproduce that trap.
+  #
+  # The existing npm versions are NOT unpublished: 36 versions with live weekly
+  # downloads, and unpublishing hard-breaks every lockfile naming the package.
+  # Deprecation is a deliberate manual step, run by hand — not from CI.
 
   # ── Build macOS binaries on native runners ──────────────────
   build-binary-macos:

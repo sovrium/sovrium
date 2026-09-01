@@ -29,7 +29,8 @@ import { ActionBaseFields } from '../base'
  *
  * The `actions` context provides programmatic access to ALL action types:
  *   actions.record.create({ table, data })
- *   actions.record.read({ table, filter })
+ *   actions.record.read({ table, id })
+ *   actions.record.list({ table, filter, sort, limit, offset, fields })
  *   actions.email.send({ to, subject, body })
  *   actions.http.request({ url, method, headers, body })
  *   actions.webhook.send({ url, event, data })

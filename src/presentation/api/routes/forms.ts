@@ -38,7 +38,9 @@ import {
 } from '@/presentation/api/routes/forms/file-upload-handler'
 import {
   handleGetStepFragment,
+  handlePostDraftReset,
   handlePostStepAdvance,
+  mergeStepDraftIntoBody,
 } from '@/presentation/api/routes/forms/step-handlers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
@@ -539,7 +541,10 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
     c,
     app,
     formName: name,
-    body: uploadResult.success,
+    // Multi-step: the browser only ever submits the LAST step's inputs, so
+    // recover the earlier steps' answers from the accumulated draft. No-op for
+    // single-page forms and for any caller that posts a complete payload.
+    body: mergeStepDraftIntoBody(c, form, name, uploadResult.success),
     isJsonClient,
     ...(session !== undefined ? { submitterUserId: session.userId } : {}),
   })
@@ -619,6 +624,10 @@ export function chainFormRoutes<T extends Hono>(
     // endpoint so the cross-validator's step-aware rules and the per-step
     // SSR share the same Hono app instance and access the same `app` payload.
     .post('/api/forms/:name/steps/:stepId/advance', (c) => handlePostStepAdvance(c, app))
+    // Draft reset backs `onSuccess: reset` on a multi-step form. Deliberately
+    // NOT under `/steps/` — a form is free to declare a step whose id is
+    // literally `reset`, and this must not be reachable by naming a step.
+    .post('/api/forms/:name/draft/reset', (c) => handlePostDraftReset(c, app))
     .get('/api/forms/:name/steps/:stepId', (c) =>
       handleGetStepFragment(c, app, {
         renderStepFragment: renderers.renderStepFragment,

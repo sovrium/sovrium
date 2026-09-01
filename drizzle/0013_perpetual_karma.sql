@@ -1,0 +1,2 @@
+ALTER TABLE "system"."file_storage_metadata" ADD COLUMN "bucket" text;--> statement-breakpoint
+CREATE INDEX "file_storage_metadata_bucket_idx" ON "system"."file_storage_metadata" USING btree ("bucket");

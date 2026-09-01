@@ -6,22 +6,26 @@
  */
 
 import { Schema } from 'effect'
-import { ConditionGroupSchema } from '../../conditions'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
 /**
  * Record Read Action (type: record, operator: read)
  *
- * Query records from a table either by primary key (`id`) or filter
- * conditions (`filter`). At least one of the two must be provided —
- * the schema-level `Schema.filter` rejects shapes that supply neither.
+ * Fetch a single record by primary key. `id` is REQUIRED — there is no
+ * filter form and no "at least one of" rule, because a required `id`
+ * states that in the type where a reader will find it.
  *
- * Both fields are individually optional so YAML authors can pick the
- * shorthand they prefer (id for canary "read by primary key", filter
- * for "read by business key" or multi-condition lookups). The runtime
- * handler treats `id` as a fast-path for `getRecord` and falls through
- * to `listRecords` when only `filter` is set.
+ * Condition-based reads live on the sibling `record/list` operator, which
+ * owns `filter` plus `sort`, `limit`, `offset` and `fields`. The split is
+ * not cosmetic: the removed filter form ran an UNORDERED `listRecords` and
+ * returned `records[0]`, so "the first match" was whichever row the engine
+ * happened to return first, and nothing in the config said which. Ordering
+ * is a property of a set, so it belongs on the operator that admits it has
+ * one.
+ *
+ * Both operators emit the same `{ record, records }` output envelope, so a
+ * config migrating a filtered read to `list` needs no template changes.
  */
 export const RecordReadActionSchema = Schema.Struct({
   ...ActionBaseFields,
@@ -33,39 +37,20 @@ export const RecordReadActionSchema = Schema.Struct({
       Schema.annotate({ description: 'Target table name' })
     ),
     /**
-     * Primary key shorthand. Equivalent to a single-condition filter
-     * `{ field: 'id', operator: 'equals', value: <id> }` but cheaper
-     * because the handler dispatches straight to `getRecord` without a
-     * SELECT-COUNT walk. Supports template variables
-     * (`{{trigger.data.userId}}`) so YAML authors can wire the id from
-     * the upstream payload.
+     * Primary key of the record to fetch. Dispatches straight to
+     * `getRecord` (a single SELECT by id). Supports template variables
+     * (`{{trigger.data.userId}}`) so YAML authors can wire the id from the
+     * upstream payload.
      */
-    id: Schema.optional(
-      TemplateStringSchema.pipe(
-        Schema.annotate({ description: 'Record id (or template) for primary-key reads' })
-      )
+    id: TemplateStringSchema.pipe(
+      Schema.annotate({ description: 'Record id (or template) to fetch by primary key' })
     ),
-    /**
-     * Multi-condition filter. Use when the lookup is by business key
-     * (email, name, status) or composite — the runtime walks the
-     * condition tree against `listRecords` and returns the first match.
-     */
-    filter: Schema.optional(ConditionGroupSchema),
   }),
 }).pipe(
-  Schema.check(
-    Schema.makeFilter((action) => {
-      const { id, filter } = action.props
-      if (id === undefined && filter === undefined) {
-        return 'record/read requires either props.id or props.filter to be provided'
-      }
-      return true
-    })
-  ),
   Schema.annotate({
     identifier: 'RecordReadAction',
     title: 'Record Read Action',
-    description: 'Query records from a table by primary key or filter conditions',
+    description: 'Fetch a single record from a table by its primary key',
   })
 )
 

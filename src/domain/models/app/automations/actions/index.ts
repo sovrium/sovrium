@@ -22,6 +22,7 @@ import { FileActionSchema } from './file'
 import { FilterActionSchema } from './filter'
 import { FlowActionSchema } from './flow'
 import { HttpActionSchema } from './http'
+import { LinkActionSchema } from './link'
 import { LoopActionSchema } from './loop'
 import { PathActionSchema } from './path'
 import { RecordActionSchema } from './record'
@@ -121,7 +122,7 @@ export type Action =
         readonly timeout?: number
         readonly connection?: string
       }>)
-  // ── record (5 single-record operator variants) ──
+  // ── record (6 single-record + set-read operator variants) ──
   | (ActionBase & {
       readonly type: 'record'
       readonly operator: 'create'
@@ -135,7 +136,25 @@ export type Action =
       readonly operator: 'read'
     } & Props<{
         readonly table: string
-        readonly filter: ConditionGroup
+        // Primary key only. `filter` was removed from `read` by [internal ref] —
+        // a condition-based read is `operator: 'list'`.
+        readonly id: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'record'
+      readonly operator: 'list'
+    } & Props<{
+        readonly table: string
+        // Omitted `filter` means every non-deleted row.
+        readonly filter?: ConditionGroup
+        readonly fields?: readonly string[]
+        readonly sort?: readonly {
+          readonly field: string
+          readonly direction?: 'asc' | 'desc'
+        }[]
+        // Page size, NOT a safety threshold — contrast `batchDelete.limit`.
+        readonly limit?: number
+        readonly offset?: number
       }>)
   | (ActionBase & {
       readonly type: 'record'
@@ -244,6 +263,53 @@ export type Action =
     } & Props<{
         readonly event: string
         readonly properties?: { readonly [key: string]: unknown }
+      }>)
+  // ── link (3 operator variants) ──
+  // Every string prop is a template resolved at run time, so none of them can
+  // be typed more narrowly than `string`: the archetypal destination is
+  // `{{trigger.record.website}}`, which no literal URL type would admit.
+  | (ActionBase & {
+      readonly type: 'link'
+      readonly operator: 'create'
+    } & Props<{
+        readonly slug: string
+        readonly destination: string
+        readonly title?: string
+        readonly tags?: readonly string[]
+        readonly notes?: string
+        readonly utm?: {
+          readonly source?: string
+          readonly medium?: string
+          readonly campaign?: string
+          readonly content?: string
+          readonly term?: string
+        }
+      }>)
+  // Sparse. `null` on `title` / `notes` clears the column; absence leaves it —
+  // the two are different instructions and collapsing them would make an
+  // operator note impossible to remove once written.
+  | (ActionBase & {
+      readonly type: 'link'
+      readonly operator: 'update'
+    } & Props<{
+        readonly slug: string
+        readonly destination?: string
+        readonly title?: string | null
+        readonly tags?: readonly string[]
+        readonly notes?: string | null
+        readonly utm?: {
+          readonly source?: string | null
+          readonly medium?: string | null
+          readonly campaign?: string | null
+          readonly content?: string | null
+          readonly term?: string | null
+        }
+      }>)
+  | (ActionBase & {
+      readonly type: 'link'
+      readonly operator: 'delete'
+    } & Props<{
+        readonly slug: string
       }>)
   // ── webhook (2 operator variants) ──
   | (ActionBase & {
@@ -365,7 +431,11 @@ export type Action =
       readonly operator: 'batchCreate'
     } & Props<{
         readonly table: string
-        readonly items: string
+        // Both spellings are optional in the schema, and `records` is a
+        // documented alias of `items` — declaring `items` required and
+        // omitting `records` made the alias unwritable in a typed config.
+        readonly items?: string
+        readonly records?: string
         readonly continueOnItemError?: boolean
       }>)
   | (ActionBase & {
@@ -841,6 +911,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   EmailActionSchema,
   AuthActionSchema,
   AnalyticsActionSchema,
+  LinkActionSchema,
   WebhookActionSchema,
   DelayActionSchema,
   AutomationActionSchema,
@@ -892,6 +963,7 @@ export * from './file'
 export * from './filter'
 export * from './flow'
 export * from './http'
+export * from './link'
 export * from './loop'
 export * from './path'
 export * from './record'

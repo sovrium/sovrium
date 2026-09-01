@@ -6,8 +6,7 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo } from 'react'
-import { subscribe as subscribeIslandEvent } from '../../_shared/event-bus'
+import { useCallback, useMemo } from 'react'
 import { useDataTableQuery } from '../../hooks/use-data-table-query'
 import { useDataTableState, ROW_HEIGHT_CLASSES } from '../../hooks/use-data-table-state'
 import { useInlineEditing, type FieldMetaMap } from '../../hooks/use-inline-editing'
@@ -23,6 +22,7 @@ import {
 } from '../../hooks/use-saved-views'
 import { useSharedFilter } from '../../hooks/use-shared-filter'
 import { useGridRefresh, useSortRefusal } from '../../hooks/use-sort-refusal'
+import { useCursorFeedView, useSystemCursorPages } from '../../hooks/use-system-cursor-pages'
 import {
   densityToHeight,
   heightToDensity,
@@ -37,14 +37,16 @@ import {
   buildGroupByParam,
   resolveEditableFields,
   resolveSaveIndicator,
+  resolveSearchConfig,
   shouldShowSearch,
   useColumnSizingPersistence,
 } from './island-setup-helpers'
 import { createRowActionHandler } from './row-actions'
-import { useSavedViewsOrchestration, computeViewSnapshot } from './use-saved-views-orchestration'
+import { useGridRefreshChannels } from './use-refresh-channels'
+import { useSavedViewsOrchestration } from './use-saved-views-orchestration'
+import { useSharedViewSync } from './use-shared-view-sync'
 import { useDataTableInstance } from './use-table'
-import { useDataTableUiState, type FilterRow, type SortRow } from './use-ui-state'
-import { useUrlSyncedActiveView } from './use-url-synced-active-view'
+import { useDataTableUiState } from './use-ui-state'
 import type { InlineAutoSave } from '../body'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
@@ -284,26 +286,44 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
 
   const groupByParam = buildGroupByParam(effectiveGroupByConfig)
 
-  const { data, isLoading, isError, error, queryKey, groupCounts, groupAggregations } =
-    useDataTableQuery({
-      table: tableKey,
-      ...(dataSource.system && {
-        system: dataSource.system,
-        systemQuery,
-        sourceId: searchSourceId,
-      }),
-      // DB-table grids merge the shared-filter publisher's value as raw query params.
-      ...(!dataSource.system && { sharedFilterParams }),
-      pagination: tableState.pagination,
-      sorting: effectiveSorting,
-      globalFilter: tableState.globalFilter,
-      ...(aggregateParam !== undefined && { aggregateParam }),
-      ...(groupByParam !== undefined && { groupByParam }),
-      dataSourceFilter: effectiveFilter,
-      dataSourceSort: dataSource.sort,
-      refreshMode: dataSource.refreshMode,
-      pollIntervalMs: dataSource.pollIntervalMs,
-    })
+  // Cursor-driven "load more" (US-…-DATA-BINDING-SYSTEM-LOAD-MORE). The feed key
+  // names WHAT is being enumerated: change the endpoint, its static or dynamic
+  // params, the sort, the term or the page size and the server is walking a
+  // different sequence, so the accumulated pages and the token that indexes them
+  // stop being answers to the question now being asked. A DB-table grid pages by
+  // number and never enters this path, which its empty feed key expresses.
+  const cursorPages = useSystemCursorPages(
+    dataSource.system && [
+      dataSource.system.endpoint,
+      dataSource.system.query,
+      systemQuery,
+      effectiveSorting,
+      tableState.globalFilter,
+      tableState.pagination.pageSize,
+    ]
+  )
+
+  const query = useDataTableQuery({
+    table: tableKey,
+    ...(dataSource.system && {
+      system: dataSource.system,
+      systemQuery,
+      sourceId: searchSourceId,
+    }),
+    cursor: cursorPages.cursor,
+    // DB-table grids merge the shared-filter publisher's value as raw query params.
+    ...(!dataSource.system && { sharedFilterParams }),
+    pagination: tableState.pagination,
+    sorting: effectiveSorting,
+    globalFilter: tableState.globalFilter,
+    ...(aggregateParam !== undefined && { aggregateParam }),
+    ...(groupByParam !== undefined && { groupByParam }),
+    dataSourceFilter: effectiveFilter,
+    dataSourceSort: dataSource.sort,
+    refreshMode: dataSource.refreshMode,
+    pollIntervalMs: dataSource.pollIntervalMs,
+  })
+  const { data, isLoading, isError, error, queryKey, groupCounts, groupAggregations } = query
 
   // A sort is adopted optimistically: the header click writes state, and that
   // state feeds the request. This makes the adoption REVERSIBLE — a read that
@@ -314,42 +334,15 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
 
   const handleRefresh = useGridRefresh(queryClient, queryKey, sortRefusal.clearReadError)
 
-  // PG-04: when a sibling crud-form (e.g. inside
-  // a quick-edit drawer) completes a successful mutation against this table,
-  // it dispatches `sovrium:crud-success` on `document`. Invalidate this
-  // data-table's query so the updated record value appears in the row without
-  // a full page reload.
-  //
-  // Event payload: `{ table: string; operation?: 'create' | 'update' | 'delete'; recordId?: string }`.
-  // We filter on `detail.table === dataSource.table` so unrelated tables on
-  // the same page don't refetch needlessly. The matcher is case-insensitive
-  // to be forgiving of casing drift between schema and runtime payloads.
-  useEffect(() => {
-    // A system-source grid has no bound DB table — there is no crud-success
-    // channel to listen on (records are observed via the endpoint, not mutated
-    // here).
-    if (!dataSource.table) return undefined
-    const targetTable = dataSource.table.toLowerCase()
-    return subscribeIslandEvent('sovrium:crud-success', (detail) => {
-      if (detail.table.toLowerCase() !== targetTable) return
-      handleRefresh()
-    })
-  }, [dataSource.table, handleRefresh])
-
-  // [internal ref] — a sibling fetch
-  // action's `onSuccess.refetch` names this grid by its `props.id`
-  // (`searchSourceId`) and dispatches `sovrium:refetch`. Re-query so a
-  // freshly-mutated row appears without a reload. Unlike `crud-success` (DB-table
-  // only, matched by table name), this channel is keyed on the COMPONENT id, so
-  // it composes with BOTH a DB-table `dataSource` AND a `dataSource.system` read
-  // endpoint (`handleRefresh` invalidates whichever query backs the grid).
-  useEffect(() => {
-    if (!searchSourceId) return undefined
-    return subscribeIslandEvent('sovrium:refetch', (detail) => {
-      if (detail.id !== searchSourceId) return
-      handleRefresh()
-    })
-  }, [searchSourceId, handleRefresh])
+  // The two out-of-band "re-read now" channels — a sibling crud-form's
+  // `sovrium:crud-success` (matched by table name) and a sibling fetch action's
+  // `sovrium:refetch` (matched by component id). See `useGridRefreshChannels`
+  // for why the two key on different things.
+  useGridRefreshChannels({
+    table: dataSource.table,
+    sourceId: searchSourceId,
+    onRefresh: handleRefresh,
+  })
 
   // Realtime mode: subscribe to live change events for the bound table. Each
   // `change` event invalidates the query, triggering a re-fetch that re-applies
@@ -377,7 +370,10 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
   // FilterOverlay / TableContent would otherwise be flagged by react-perf's
   // jsx-no-new-array-as-prop on every render.
 
-  const rawRecords = useMemo(() => [...(data?.records ?? [])], [data?.records])
+  // The rows on screen are every page the operator has asked for, not just the
+  // one the query cache currently holds.
+  const cursorFeed = useCursorFeedView(cursorPages, data, query.isPlaceholderData)
+  const rawRecords = useMemo(() => [...cursorFeed.records], [cursorFeed.records])
   // Apply the runtime filter-builder's active filters client-side
   //. The server returns the unfiltered page;
   // the filter-builder is purely client state, so narrowing happens here
@@ -386,7 +382,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     () => applyClientFilters(rawRecords, ui.activeFilters, ui.filterConjunction),
     [rawRecords, ui.activeFilters, ui.filterConjunction]
   )
-  const totalRecords = data?.total ?? 0
+  const totalRecords = cursorFeed.total
   const allColumns = buildColumns({
     columnConfig,
     records,
@@ -558,39 +554,10 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
   // sync with the active view as the user navigates between views (writes on
   // `sovrium:view-applied`, strips on `sovrium:view-deleted`).
   //
-  // The `onApplySharedView` adapter computes the snapshot the same way
-  // `useSavedViewsOrchestration.onSelectView` does so the modified-indicator
-  // base-snapshot diff stays correct for view applied via a share link.
-  const applyUiState = ui.applySavedView
-  const onApplySharedView = useCallback(
-    (input: {
-      readonly id: string
-      readonly filters: readonly FilterRow[]
-      readonly sorts: readonly SortRow[]
-      readonly groupBy: string | null
-    }) => {
-      const snapshot = computeViewSnapshot({
-        filters: input.filters.map((f) => ({
-          field: f.field,
-          operator: f.operator,
-          value: f.value,
-        })),
-        sorts: input.sorts.map((s) => ({ field: s.field, direction: s.direction })),
-        groupBy: input.groupBy,
-      })
-      applyUiState({
-        id: input.id,
-        source: 'personal',
-        filters: input.filters,
-        sorts: input.sorts,
-        groupBy: input.groupBy,
-        snapshot,
-        closeOverlays: true,
-      })
-    },
-    [applyUiState]
-  )
-  useUrlSyncedActiveView({ tableName: tableKey, onApplySharedView })
+  // The share-link adapter recomputes the base snapshot the same way
+  // `useSavedViewsOrchestration.onSelectView` does, so the modified-indicator
+  // diff stays correct for a view applied via a link — see `useSharedViewSync`.
+  useSharedViewSync(tableKey, ui.applySavedView)
 
   // Saved/user views are a DB-table-only feature — never offered for a system
   // source (there is no table id to key personal views on).
@@ -602,6 +569,12 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     records,
     allColumns,
     totalRecords,
+    /**
+     * Cursor-feed state (US-…-DATA-BINDING-SYSTEM-LOAD-MORE): whether the pager
+     * must yield to a continuation, whether more rows follow, and the action
+     * that fetches them. See `useCursorFeedView`.
+     */
+    cursorFeed,
     /**
      * Whole-view aggregates for the summary footer, computed server-side over
      * the filtered table. Undefined until the first records response lands (and
@@ -655,6 +628,13 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     cellClass: ROW_HEIGHT_CLASSES[tableState.currentRowHeight],
     borderClass: bordered ? 'border border-border' : '',
     showSearch: shouldShowSearch(searchConfig, toolbarConfig),
+    /**
+     * Search settings the toolbar renders from — the author's `search` block, or
+     * the defaults a bare `toolbar: { search: true }` implies. See
+     * `resolveSearchConfig`: the render gate used to require the block itself,
+     * so the toolbar flag alone painted nothing.
+     */
+    resolvedSearchConfig: resolveSearchConfig(searchConfig, toolbarConfig),
     // True until the first prefs+views fetch resolves; the orchestrator
     // suppresses the data rendering during this window so the very first
     // paint of a freshly-reloaded page already reflects persisted density

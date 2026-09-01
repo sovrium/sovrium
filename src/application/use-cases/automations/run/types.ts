@@ -26,9 +26,11 @@ import type { AutomationRunRepository } from '@/application/ports/repositories/a
 import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
+import type { ServerOrigin } from '@/application/ports/services/server-origin'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
 
@@ -195,6 +197,8 @@ export type StepRequirements =
   | AiService
   | StorageService
   | ImageTransformService
+  | LinkRepository
+  | ServerOrigin
 
 /**
  * Combined service requirement for the run-loop entry points. Aliased so
@@ -214,6 +218,8 @@ export type RunRequirements =
   | AiService
   | StorageService
   | ImageTransformService
+  | LinkRepository
+  | ServerOrigin
 
 /**
  * Locally re-typed `app.actions[]` template entry. The runtime invoker

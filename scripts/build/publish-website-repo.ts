@@ -29,6 +29,7 @@
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { CONFIG_TYPES_DECLARATION } from '../../src/infrastructure/assets/embedded-config-types.generated'
 import { syncInstallScript } from './sync-install-script'
 import { copyWebsitePayload } from './website-payload'
 
@@ -72,6 +73,13 @@ export const REQUIRED_FILES = [
   'package.json',
   'tsconfig.json',
   '.gitignore',
+  // The ambient `declare module 'sovrium'` the payload's ~30 type-only imports
+  // resolve against. Generated here rather than tracked, so it always matches
+  // the schema of the release being published. Required because without it the
+  // published repo's `bun run typecheck` fails on every config file with
+  // TS2307 — the exact breakage that made `@sovrium/types` a dependency in the
+  // first place.
+  'sovrium.d.ts',
   // Generated from install.sh, not tracked. Required here because it is the
   // target of `curl -fsSL https://sovrium.com/install | sh` — publishing a
   // website without it silently breaks the primary distribution path, and this
@@ -324,6 +332,13 @@ export function buildMirrorTree(
   )
   const appendix = readFileSync(join(roots.meta, 'LICENSE-APPENDIX.md'), 'utf-8')
   Bun.write(join(destDir, 'LICENSE.md'), `${license.trimEnd()}\n${appendix}`)
+
+  // The config types, written out exactly as `sovrium types` would write them
+  // into any user's project. This is what lets the published repo type-check
+  // with no npm dependency at all: every `import type … from 'sovrium'` in the
+  // payload resolves against this ambient declaration, and `import type` is
+  // erased before the binary ever loads the config.
+  Bun.write(join(destDir, 'sovrium.d.ts'), CONFIG_TYPES_DECLARATION)
 }
 
 const run = (cmd: readonly string[], cwd?: string): string => {

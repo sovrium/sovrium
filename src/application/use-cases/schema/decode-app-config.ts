@@ -48,6 +48,7 @@ import {
   validateRowColorFields,
 } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
 import { buildDecodeIssueReport } from '@/domain/utils/config-parsing/excess-property-report'
+import { reportPrototypePollutingKeys } from '@/domain/utils/config-parsing/prototype-key-guard'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -225,6 +226,23 @@ export const decodeAppConfigObject = (
   options: DecodeAppConfigOptions = {}
 ): DecodeAppConfigResult => {
   const { refSources = EMPTY_REF_SOURCES } = options
+
+  // BEFORE the decode, because the decode is where the evidence disappears. A
+  // `__proto__` key at a `Schema.Struct` position is refused by name below; at
+  // a `Schema.Record` position — `theme.colors`, `theme.fonts`, the rest —
+  // Effect v4 drops the entry silently and reports success, so running this
+  // afterwards would be asking a question of an object the key had already been
+  // removed from. Ordering it first also keeps the top-level case reported once
+  // rather than twice.
+  //
+  // This is the header's "never quietly repaired and never silently stripped"
+  // clause, enforced for the one key where the strip has a security reading.
+  // See `prototype-key-guard.ts` for why the other pollution-adjacent names are
+  // deliberately NOT covered.
+  const pollutingKeys = reportPrototypePollutingKeys(parsed)
+  if (pollutingKeys.length > 0) {
+    return { valid: false, errors: pollutingKeys }
+  }
 
   // `reportInput: true` is NOT cosmetic and NOT the v4 default. Without it a
   // type failure renders as `Expected number` where v3 rendered

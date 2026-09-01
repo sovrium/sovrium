@@ -71,7 +71,6 @@ export const embedOpenAi = (
           'Content-Type': 'application/json',
           ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
         },
-        // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
         body: JSON.stringify({ model, input: input.text }),
       })
       if (!response.ok) {
@@ -112,7 +111,6 @@ export const embedOllama = (
           'Content-Type': 'application/json',
           ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
         },
-        // @effect-diagnostics-next-line effect/preferSchemaOverJson:off
         body: JSON.stringify({ model, prompt: input.text }),
       })
       if (!response.ok) {

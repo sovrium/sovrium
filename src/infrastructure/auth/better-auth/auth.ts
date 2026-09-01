@@ -26,7 +26,9 @@ import * as authOauthResourceSqlite from '@/infrastructure/database/drizzle/sche
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
 import { logError } from '@/infrastructure/logging/logger'
 import { isTransportRelaxed } from '@/infrastructure/utils/security-posture'
+import { withDriverErrorMessages } from './adapter-errors'
 import { applyAdminRoleGuards } from './admin-role-guards'
+import { applyAvatarUrlGuard } from './avatar-url-guard'
 import { createEmailHandlers } from './email-handlers'
 import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
 import { buildAdminPlugin } from './plugins/admin'
@@ -179,9 +181,11 @@ const drizzleSchemaSqlite = {
  */
 function buildAuthDatabaseAdapter() {
   const { dialect } = parseDatabaseDialectConfig()
-  return dialect === 'postgres'
-    ? drizzleAdapter(db, { provider: 'pg', usePlural: false, schema: drizzleSchemaPg })
-    : drizzleAdapter(db, { provider: 'sqlite', usePlural: false, schema: drizzleSchemaSqlite })
+  return withDriverErrorMessages(
+    dialect === 'postgres'
+      ? drizzleAdapter(db, { provider: 'pg', usePlural: false, schema: drizzleSchemaPg })
+      : drizzleAdapter(db, { provider: 'sqlite', usePlural: false, schema: drizzleSchemaSqlite })
+  )
 }
 
 /**
@@ -351,6 +355,44 @@ async function handleDeleteUser(
 }
 
 /**
+ * Revoke every session of the user whose password an admin has just set.
+ *
+ * An admin resets a password for one reason: the old one can no longer be
+ * trusted. Leaving the sessions minted under it alive keeps whoever obtained it
+ * signed in indefinitely, and the reset that was supposed to lock them out
+ * instead only stops them signing in AGAIN. Rotating the credential and
+ * rotating what the credential already bought are one action, not two.
+ *
+ * Unconditional, deliberately. `POST /admin/set-user-password` accepts exactly
+ * `{ userId, newPassword }` — its body schema admits nothing else, so a
+ * `revokeOtherSessions` flag on the request is parsed away before any handler
+ * sees it. Branching on one would produce a condition that is never true and a
+ * gap that looks closed. There is also no case for the other branch: an admin
+ * who wants to change a password while preserving the sessions is describing
+ * the user's own self-service password change, not this endpoint.
+ *
+ * Runs `after` because Better Auth owns the write. It uses the same
+ * `internalAdapter.deleteUserSessions` that the plugin's own `ban-user`,
+ * `revoke-user-sessions` and `remove-user` routes call, so revocation stays one
+ * mechanism with one set of semantics rather than a parallel Sovrium-side
+ * implementation of session teardown.
+ *
+ * A failed set is left alone: on a 400 or a 404 nothing was rotated, and
+ * killing sessions anyway would turn a rejected request into a logout.
+ */
+async function handleAdminSetUserPassword(
+  ctx: Readonly<Parameters<Parameters<typeof createAuthMiddleware>[0]>[0]>
+): Promise<void> {
+  const { returned } = ctx.context
+  const isSuccess = returned instanceof Response ? returned.status === 200 : returned !== undefined
+  if (!isSuccess) return
+  const userId = (ctx.body as { readonly userId?: unknown } | undefined)?.userId
+  if (typeof userId !== 'string' || userId === '') return
+  // eslint-disable-next-line functional/no-expression-statements
+  await ctx.context.internalAdapter.deleteUserSessions(userId)
+}
+
+/**
  * Build auth hooks with request validation middleware
  *
  * Validates password length for admin createUser endpoint (Better Auth Issue #4651 workaround).
@@ -383,6 +425,11 @@ export function buildAuthHooks(
         // eslint-disable-next-line functional/no-expression-statements
         await validateAdminCreateUserPassword(ctx)
       }
+      // Refuse a client-supplied `auth.user.image` on every path that can write
+      // it. Better Auth stores that column verbatim and several readers project
+      // it into OTHER users' browsers, so this `before` hook is the only point
+      // at which the value can be rejected before the row changes.
+      applyAvatarUrlGuard(ctx)
       // eslint-disable-next-line functional/no-expression-statements
       await applyAdminRoleGuards(ctx, roleApp, deps)
     }),
@@ -394,6 +441,10 @@ export function buildAuthHooks(
       if (ctx.path === '/delete-user' && handlers?.accountDeletion) {
         // eslint-disable-next-line functional/no-expression-statements
         await handleDeleteUser(ctx, handlers.accountDeletion)
+      }
+      if (ctx.path === '/admin/set-user-password') {
+        // eslint-disable-next-line functional/no-expression-statements
+        await handleAdminSetUserPassword(ctx)
       }
     }),
   }

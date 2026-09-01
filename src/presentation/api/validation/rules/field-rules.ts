@@ -11,6 +11,7 @@ import { isAdminEquivalent } from '@/domain/models/app'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { hasPermission } from '@/domain/models/shared/permissions'
+import { DEFAULT_BUCKET_NAME } from '@/domain/utils/bucket-identity'
 import { inferMimeFromKey } from '@/domain/utils/mime-types'
 import { findColumnFormatViolations } from '@/domain/validators/column-formats'
 import { findMissingRequiredFieldNames } from '@/domain/validators/required-fields'
@@ -335,7 +336,8 @@ const validateAllowedTypes = (
  */
 const validateMaxFileSize = (
   field: AttachmentField,
-  keys: readonly string[]
+  keys: readonly string[],
+  bucket: string
 ): Effect.Effect<void, FieldValidationError, StorageService> => {
   if (field.maxFileSize === undefined) return Effect.void
   const max = field.maxFileSize
@@ -346,7 +348,7 @@ const validateMaxFileSize = (
       (key) =>
         Effect.gen(function* () {
           const content = yield* storage
-            .download(key)
+            .download(key, bucket)
             .pipe(Effect.orElseSucceed(() => new Uint8Array(0)))
           if (content.length > max) {
             return yield* Effect.fail(
@@ -365,7 +367,8 @@ const validateMaxFileSize = (
 /** Run all attachment-field validations for a single field. */
 const validateOneAttachmentField = (
   field: AttachmentField,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  bucket: string
 ): Effect.Effect<void, FieldValidationError, StorageService> => {
   if (!(field.name in fields)) return Effect.void
   const keys = extractAttachmentKeys(field, fields[field.name])
@@ -373,7 +376,7 @@ const validateOneAttachmentField = (
   if (maxFilesError) return Effect.fail(maxFilesError)
   const typeError = validateAllowedTypes(field, keys)
   if (typeError) return Effect.fail(typeError)
-  return validateMaxFileSize(field, keys)
+  return validateMaxFileSize(field, keys, bucket)
 }
 
 /**
@@ -389,9 +392,16 @@ export function validateAttachmentConstraints(
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
     if (!table) return
     const attachmentFields: readonly AttachmentField[] = table.fields.filter(isAttachmentField)
-    yield* Effect.forEach(attachmentFields, (field) => validateOneAttachmentField(field, fields), {
-      discard: true,
-    })
+    yield* Effect.forEach(
+      attachmentFields,
+      (field) =>
+        validateOneAttachmentField(
+          field,
+          fields,
+          resolveFieldBucket(ctx.app, ctx.tableName, field.name) ?? DEFAULT_BUCKET_NAME
+        ),
+      { discard: true }
+    )
   })
 }
 
@@ -447,7 +457,7 @@ export function enrichAttachmentMetadata(
         if (!(f.name in acc) || typeof acc[f.name] !== 'string') return Effect.succeed(acc)
         const key = acc[f.name] as string
         const bucket = resolveFieldBucket(ctx.app, ctx.tableName, f.name) ?? 'default'
-        return storage.download(key).pipe(
+        return storage.download(key, bucket).pipe(
           Effect.orElseSucceed(() => new Uint8Array(0)),
           Effect.map((content) => ({
             ...acc,
@@ -501,11 +511,14 @@ const isInlineAttachmentPayload = (
  * return the canonical key-plus-metadata JSONB shape that the read path
  * enriches with a signed URL.
  */
-const uploadInlinePayload = (payload: {
-  readonly name: string
-  readonly content: string
-  readonly mimeType?: string
-}): Effect.Effect<
+const uploadInlinePayload = (
+  bucket: string,
+  payload: {
+    readonly name: string
+    readonly content: string
+    readonly mimeType?: string
+  }
+): Effect.Effect<
   {
     readonly key: string
     readonly name: string
@@ -523,7 +536,7 @@ const uploadInlinePayload = (payload: {
     // Upload failures collapse to the same metadata object — the read path's
     // signed-URL serve will surface a 404 to the client, which is the correct
     // observable behaviour for a missing file.
-    yield* storage.upload(key, bytes, mimeType).pipe(Effect.ignore)
+    yield* storage.upload(key, bytes, mimeType, bucket).pipe(Effect.ignore)
     return { key, name: payload.name, mimeType, size: bytes.length }
   })
 
@@ -556,7 +569,10 @@ export function uploadInlineAttachmentContent(
       (acc, f) => {
         const value = acc[f.name]
         if (!isInlineAttachmentPayload(value)) return Effect.succeed(acc)
-        return uploadInlinePayload(value).pipe(Effect.map((meta) => ({ ...acc, [f.name]: meta })))
+        const bucket = resolveFieldBucket(ctx.app, ctx.tableName, f.name) ?? DEFAULT_BUCKET_NAME
+        return uploadInlinePayload(bucket, value).pipe(
+          Effect.map((meta) => ({ ...acc, [f.name]: meta }))
+        )
       }
     )
   })

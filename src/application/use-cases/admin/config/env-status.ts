@@ -31,13 +31,24 @@
  * (OS env when non-empty, then the declared default, then nothing) without
  * inheriting its collapse.
  *
- * ─── NO VALUE, BY CONSTRUCTION ──────────────────────────────────────────────
+ * ─── NO RESOLVED VALUE, BY CONSTRUCTION ─────────────────────────────────────
  *
- * Nothing here reads a resolved value into the output. `masked` is the fixed
- * `ENV_VALUE_MASK` constant — fixed-width so it cannot become a length oracle —
- * and the declared `default` is reported as a boolean, never echoed:
- * `EnvVarSchema` has no `secret` marker, so `default: '3000'` is
- * indistinguishable from `default: 'sk_live_…'`.
+ * Nothing here reads a RESOLVED value into the output. `masked` is the fixed
+ * `ENV_VALUE_MASK` constant — fixed-width so it cannot become a length oracle.
+ *
+ * The declared `default` is the one literal that can be released, and only
+ * because its author said so. `EnvVarSchema` carries a `secret` marker whose
+ * polarity does the safety work: it defaults to TRUE, so a config that predates
+ * it — or one whose author simply did not think about it — keeps every default
+ * withheld. `default: '3000'` on a port and `default: 'sk_live_…'` on an API key
+ * are the same field and only the author can tell them apart, so an unmarked
+ * default is treated as a credential.
+ *
+ * `hasDefault` stays unconditional and independent of that gate. It answers "is
+ * there a fallback at all?" for every variable, including the withheld
+ * majority, and pairs with `source: 'default'` to say whether that fallback is
+ * currently in force. Because it is always present, a missing `defaultValue` is
+ * never ambiguous: it means withheld, never absent.
  *
  * Keys and descriptions are config-declared IDENTIFIERS authored by the
  * operator and are emitted verbatim — running a substring scrub over them would
@@ -71,6 +82,18 @@ function resolveSource(
   return 'unset'
 }
 
+/**
+ * Whether this variable's declared default may be echoed back to the operator.
+ *
+ * Gated on an EXPLICIT `secret: false` rather than on falsiness: `undefined`
+ * must behave exactly as `true`, so that upgrading an app authored before the
+ * marker existed discloses nothing that was hidden the day before. A
+ * `!envVar.secret` test would invert precisely that case.
+ */
+function disclosesDefault(envVar: EnvVar): boolean {
+  return envVar.secret === false && envVar.default !== undefined
+}
+
 /** Project one declared variable to its status row. */
 function statusOf(
   envVar: EnvVar,
@@ -85,9 +108,13 @@ function statusOf(
     // `required` defaults to true per `EnvVarSchema`, resolved here so consumers
     // never branch on undefined.
     required: envVar.required ?? true,
-    // Presence only — the VALUE of a default is indistinguishable from a
-    // fallback credential, so it is never echoed.
+    // Presence, unconditionally — the diagnostic that must keep working for the
+    // withheld majority.
     hasDefault: envVar.default !== undefined,
+    // The literal, only where the author took responsibility for it. Absent —
+    // not empty-string — otherwise, so "withheld" never becomes
+    // indistinguishable from "declared with a blank default".
+    ...(disclosesDefault(envVar) ? { defaultValue: envVar.default } : {}),
     isSet,
     source,
     // eslint-disable-next-line unicorn/no-null -- the contract types `masked` as nullable, and `null` is the JSON-visible "no value resolved"

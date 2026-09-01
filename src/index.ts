@@ -29,6 +29,7 @@ import { generateSearchIndex } from '@/application/use-cases/server/generate-sea
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { startServer } from '@/application/use-cases/server/start-server'
 import { ConfigRejectedError, isConfigRejectedError } from '@/domain/errors/config-rejected'
+import { isDatabaseUnreachable } from '@/domain/errors/driver-failure'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
@@ -336,7 +337,19 @@ export interface CreateAdminCredentials {
 /** Result of `createAdmin` — never throws for expected failures (mirrors `validateConfig`). */
 export type CreateAdminResult =
   | { readonly ok: true; readonly created: boolean; readonly email: string }
-  | { readonly ok: false; readonly message: string }
+  | {
+      readonly ok: false
+      readonly message: string
+      /**
+       * The failure was the database being UNREACHABLE, not it rejecting the
+       * request. Classified here — by driver code, via `isDatabaseUnreachable` —
+       * because this is the last place the error OBJECT exists; `message` alone
+       * cannot answer it, and the CLI's previous attempt to do so from message
+       * fragments was wrong in both directions (see the doc comment on
+       * `UNREACHABLE_DRIVER_CODES`).
+       */
+      readonly databaseUnreachable?: boolean
+    }
 
 /**
  * Create an admin user from explicit credentials. Used internally by the CLI
@@ -388,10 +401,14 @@ export const createAdmin = async (
               ? error.cause.message
               : String(error.cause)
             : formatRuntimeError(error)
-    return { ok: false, message }
+    return { ok: false, message, databaseUnreachable: isDatabaseUnreachable(error) }
   } catch (error) {
     // Defects (e.g. migration connection failure) bypass the typed channel.
-    return { ok: false, message: formatRuntimeError(error) }
+    return {
+      ok: false,
+      message: formatRuntimeError(error),
+      databaseUnreachable: isDatabaseUnreachable(error),
+    }
   }
 }
 

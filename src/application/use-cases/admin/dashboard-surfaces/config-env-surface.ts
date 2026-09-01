@@ -83,11 +83,40 @@ const statusWord = (status: Readonly<EnvVarStatus>): Component =>
     ? text('span', 'text-foreground text-xs font-medium', 'Set')
     : text('span', 'text-foreground-subtle text-xs', 'Not set')
 
-/** The trailing metadata line: required, and whether a fallback default exists. */
+/**
+ * The trailing metadata line: required, and whether a fallback default exists.
+ *
+ * "has a default" is dropped when the default is DISCLOSED, because the literal
+ * on its own line below already says so and more precisely. A label repeating
+ * what the value beside it states is a word not doing work ([internal ref] D4).
+ */
 const rowMeta = (status: Readonly<EnvVarStatus>): string => {
   const required = status.required ? 'Required' : 'Optional'
+  if (status.defaultValue !== undefined) return required
   return status.hasDefault ? `${required} · has a default` : required
 }
+
+/**
+ * The declared default, verbatim — rendered ONLY for a variable whose author
+ * marked it `secret: false`, and only because the projection already made that
+ * decision: this reads `defaultValue`, never the config, so the page cannot
+ * disclose something the endpoint withholds.
+ *
+ * A withheld default gets no line here at all, rather than a masked one. A
+ * `Default ***` row would point at a value the operator cannot have and invite
+ * them to look for a reveal control that A1 forbids ever building; `rowMeta`
+ * already tells them a fallback exists.
+ */
+const defaultLine = (status: Readonly<EnvVarStatus>): readonly Component[] =>
+  status.defaultValue === undefined
+    ? []
+    : [
+        text(
+          'span',
+          'text-foreground-subtle font-mono text-xs break-all',
+          `Default ${status.defaultValue}`
+        ),
+      ]
 
 /**
  * One variable row. `data-testid="config-env-row-{KEY}"` so a spec can assert
@@ -115,6 +144,7 @@ const variableRow = (status: Readonly<EnvVarStatus>): Component =>
             ? []
             : [text('span', 'text-foreground-subtle text-xs', status.description)]),
           text('span', 'text-foreground-subtle text-xs', rowMeta(status)),
+          ...defaultLine(status),
         ],
       } as unknown as Component,
       {

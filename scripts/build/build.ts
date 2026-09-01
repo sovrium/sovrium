@@ -255,19 +255,6 @@ function addShebang(): void {
 // Main
 // ---------------------------------------------------------------------------
 
-function buildTypesPackage(): void {
-  console.log('\n▸ Building @sovrium/types package')
-  const proc = Bun.spawnSync(['bun', 'run', 'scripts/build/build-types.ts'], {
-    cwd: PROJECT_ROOT,
-    stdout: 'inherit',
-    stderr: 'inherit',
-  })
-  if (proc.exitCode !== 0) {
-    console.error('✗ @sovrium/types build failed')
-    process.exit(1)
-  }
-}
-
 async function main(): Promise<void> {
   console.log('Building Sovrium for npm publishing...')
 
@@ -277,7 +264,11 @@ async function main(): Promise<void> {
   fixPathAliases()
   await copyRuntimeAssets()
   addShebang()
-  buildTypesPackage()
+  // @sovrium/types is no longer built here: the package is RETIRED and is never
+  // published. `scripts/build/build-types.ts` still exists, but as an INPUT to
+  // the binary — `build-binary.ts` runs it, then wraps its output as the ambient
+  // `declare module 'sovrium'` payload `sovrium types` writes out. Building it
+  // during the npm build would produce an artifact nothing consumes.
 
   // Verify key outputs exist
   const required = ['index.js', 'cli.js', 'index.d.ts']

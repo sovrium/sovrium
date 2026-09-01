@@ -22,14 +22,18 @@ import {
 } from '@/infrastructure/database/account-purge'
 import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { chainAccountAvatarRoutes } from '@/presentation/api/routes/account/avatar'
 import { provideAccountLive } from '@/presentation/api/routes/account/effect-runner'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import type { AvatarProfileStore } from '@/application/ports/models/avatar-profile-store'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /**
  * Account self-service & GDPR API routes.
  *
+ *   - `POST /api/account/avatar`          — set the caller's profile image
+ *   - `DELETE /api/account/avatar`        — clear it (and remove the object)
  *   - `GET  /api/account/export`          — GDPR Art. 15 + 20 (D4)
  *   - `GET  /api/account/pending-erasure` — the caller's own pending erasure as
  *                                           a `{ items }` rows envelope (binds the
@@ -303,12 +307,23 @@ async function handleRetentionDue(c: Context): Promise<Response> {
  * instead gated by the `INTERNAL_SCHEDULER_TOKEN` shared secret inside
  * `handlePurgeDue` (404 without a matching header — see that handler).
  *
+ * The avatar verbs are chained from `account/avatar.ts` and take the injected
+ * {@link AvatarProfileStore}: they are the only writers of `auth.user.image`,
+ * and they reach Better Auth's own update path through that port rather than
+ * importing the auth instance (see the port's docblock for why both halves of
+ * that sentence are load-bearing).
+ *
  * @param honoApp - Hono instance to chain routes onto
  * @param app - Validated application configuration
+ * @param avatarStore - Reads/writes the caller's own `auth.user.image`
  * @returns Hono app with account routes chained
  */
-export function chainAccountRoutes<T extends Hono>(honoApp: T, app: App): T {
-  return honoApp
+export function chainAccountRoutes<T extends Hono>(
+  honoApp: T,
+  app: App,
+  avatarStore: AvatarProfileStore
+): T {
+  return chainAccountAvatarRoutes(honoApp, app, avatarStore)
     .get('/api/account/export', async (c) => handleExport(c, app))
     .get('/api/account/pending-erasure', async (c) => handlePendingErasure(c))
     .post('/api/account/delete', async (c) => handleDelete(c))

@@ -162,11 +162,13 @@ const handleAdminCreateCommand = async (
   const result = await createAdmin(app, { email, password })
 
   if (!result.ok) {
-    // When the message is a generic database-driver failure (ECONNREFUSED,
-    // SQLITE_CANTOPEN, ENOENT against the DB file) we replace it with an
-    // actionable diagnostic — operators bare-running `admin create` without
-    // a DB shouldn't see a raw Postgres / SQLite error stack.
-    Effect.runSync(Console.error(rewriteDbUnreachable(result.message)))
+    // A database that could not be REACHED (connection refused, unresolvable
+    // host, unopenable SQLite file) gets an actionable diagnostic instead of a
+    // raw driver stack — operators bare-running `admin create` without a DB
+    // shouldn't have to read one. Classified by driver code upstream.
+    Effect.runSync(
+      Console.error(formatAdminCreateFailure(result.message, result.databaseUnreachable ?? false))
+    )
     // eslint-disable-next-line functional/no-expression-statements -- CLI error exit
     process.exit(1)
   }
@@ -184,43 +186,30 @@ const handleAdminCreateCommand = async (
 }
 
 /**
- * Lower-cased fragments from the database driver layer that indicate the
- * connection itself failed (as opposed to a logical bootstrap error). When
- * any of these match, we replace the raw stack-trace-flavoured message with
- * an actionable diagnostic — the bare `sovrium admin create <email>` flow is
- * meant to feel forgiving, not expose driver internals.
+ * Turn a database-driver failure into a clean operator-facing diagnostic.
+ *
+ * `unreachable` is decided upstream in `createAdmin`, by DRIVER CODE
+ * (`isDatabaseUnreachable`), because that is the last place the error object
+ * exists. This function used to decide it here by matching lower-cased
+ * fragments against the message, which was wrong in both directions: it never
+ * fired for a real `bun:sql` connection failure (whose entire message is
+ * `Failed to connect`), and it DID fire for `permission denied for table
+ * "user"` — a GRANT problem on a perfectly reachable database — telling the
+ * operator to set `DATABASE_URL`.
+ *
+ * Pass-through for every other failure (weak password, invalid email,
+ * duplicate user, …) so domain-level rejections still surface verbatim.
  */
-const DB_UNREACHABLE_FRAGMENTS: readonly string[] = [
-  'econnrefused',
-  'enotfound',
-  'etimedout',
-  'getaddrinfo',
-  'sqlite_cantopen',
-  'sqlite_busy',
-  "couldn't connect",
-  'unable to open',
-  'permission denied',
-]
-
-/**
- * Turn a low-level DB-driver error message into a clean operator-facing
- * diagnostic. Pass-through for any non-connectivity failure (weak password,
- * invalid email, duplicate user, …) so domain-level rejections still
- * surface verbatim.
- */
-const rewriteDbUnreachable = (rawMessage: string): string => {
-  const lowered = rawMessage.toLowerCase()
-  if (DB_UNREACHABLE_FRAGMENTS.some((fragment) => lowered.includes(fragment))) {
-    return [
-      'Error: cannot reach database',
-      '',
-      'Set DATABASE_URL or run from a directory containing ./.sovrium/database.db.',
-      '',
-      `Underlying error: ${rawMessage}`,
-    ].join('\n')
-  }
-  return `Error: ${rawMessage}`
-}
+const formatAdminCreateFailure = (rawMessage: string, unreachable: boolean): string =>
+  unreachable
+    ? [
+        'Error: cannot reach database',
+        '',
+        'Set DATABASE_URL or run from a directory containing ./.sovrium/database.db.',
+        '',
+        `Underlying error: ${rawMessage}`,
+      ].join('\n')
+    : `Error: ${rawMessage}`
 
 /**
  * Handle the 'admin' command - dispatch to the 'create' verb.

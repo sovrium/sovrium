@@ -65,6 +65,24 @@ export interface FetchResult {
    * one naming none.
    */
   readonly appliedQuery?: string | null
+  /**
+   * The endpoint's own "there is more behind this page" token, read from the
+   * response's `nextCursor`.
+   *
+   * Present only when the endpoint both paginates by cursor AND has a further
+   * page to serve. Absent means the feed ended — which is why the grid's
+   * load-more affordance is derived from THIS value rather than declared in
+   * config: only the endpoint knows whether more rows exist, and a button that
+   * offers rows the server has already said do not exist is the same defect as
+   * the page-number pager it replaces.
+   *
+   * The cursor-paginated admin endpoints (`…/automations/runs`,
+   * `…/forms/submissions`, `…/buckets/:b/files`, `…/agents/conversations`) have
+   * always shipped this key and report NO total; it was read off the wire and
+   * discarded here, so the only paging param the client could send was `page=N`
+   * — which those handlers' query allow-lists drop.
+   */
+  readonly nextCursor?: string
 }
 
 /**
@@ -86,6 +104,16 @@ export interface SystemQueryInput {
   readonly pagination: SystemPagination
   readonly sortParam?: string
   readonly globalFilter?: string
+  /**
+   * A CONTINUATION token from a previous response's {@link FetchResult.nextCursor}.
+   *
+   * Present only on a "load more" request. When set, the request identifies its
+   * position by `?cursor=` and sends NO `?page=` — the two are alternative
+   * answers to the same question, and a cursor endpoint's allow-list drops
+   * `page` silently, so sending both would re-serve page 1 under a cursor the
+   * server never read.
+   */
+  readonly cursor?: string
 }
 
 export interface SystemFetchQuery extends SystemQueryInput {
@@ -140,7 +168,20 @@ function localizeRunStatusRows(
 /**
  * Build the merged query string for a system-endpoint request: static
  * `system.query` params first, then dynamic external-filter params (empty value
- * clears a param), then the read-side page / sort / search params.
+ * clears a param), then the read-side position / sort / search params.
+ *
+ * Two of those read-side params defer to what was already declared, because a
+ * declaration that the layer below silently overwrites is a declaration that
+ * does nothing:
+ *
+ *  - **position** — a {@link SystemQueryInput.cursor} REPLACES `page`. The
+ *    cursor-paginated endpoints drop `page` from their allow-list, so sending
+ *    both would ask by cursor and be answered by page 1.
+ *  - **`limit`** — a static `system.query.limit` is the author naming this
+ *    endpoint's page size, and it wins over the grid's own `pageSize`. It used
+ *    to be set first and then unconditionally overwritten a few lines later,
+ *    which made `query: { limit: '5' }` inert on every grid that did not also
+ *    declare the identical `pagination.pageSize`.
  */
 export function buildSystemQueryString({
   system,
@@ -148,6 +189,7 @@ export function buildSystemQueryString({
   pagination,
   sortParam,
   globalFilter,
+  cursor,
 }: SystemQueryInput): string {
   const params = new URLSearchParams()
   // Static query params merged into every request (e.g. { status: 'failed' }).
@@ -161,9 +203,12 @@ export function buildSystemQueryString({
     if (value === '') params.delete(key)
     else params.set(key, value)
   })
-  // Read-side params (endpoint-side / forwarded): page, sort, search.
-  params.set('page', String(pagination.pageIndex + 1))
-  if (pagination.pageSize) params.set('limit', String(pagination.pageSize))
+  // Read-side params (endpoint-side / forwarded): position, sort, search.
+  if (cursor === undefined) params.set('page', String(pagination.pageIndex + 1))
+  else params.set('cursor', cursor)
+  if (pagination.pageSize && !params.has('limit')) {
+    params.set('limit', String(pagination.pageSize))
+  }
   if (sortParam) params.set('sort', sortParam)
   if (globalFilter) params.set('q', globalFilter)
   return params.toString()
@@ -190,6 +235,31 @@ export function readAppliedQuery(json: { readonly appliedQuery?: unknown }): {
 } {
   const value = 'appliedQuery' in json ? json.appliedQuery : undefined
   return typeof value === 'string' || value === null ? { appliedQuery: value } : {}
+}
+
+/**
+ * Read a response's continuation token, as the `{ nextCursor }` spread a
+ * {@link FetchResult} takes.
+ *
+ * Unlike {@link readAppliedQuery} this reads by VALUE, not by key presence, and
+ * the two are different on purpose. `appliedQuery` is tri-state because `null`
+ * carries information ("this endpoint searches, and no term was supplied").
+ * `nextCursor` is binary: the cursor endpoints all ship the key on every
+ * response and set it to `null` at the end of the feed, so an absent key and a
+ * `null` value mean the same thing — there is nothing more to ask for. Both
+ * therefore collapse to "no continuation", and an EMPTY string does too, since
+ * a blank token would build `?cursor=` and ask the server to resume from
+ * nowhere.
+ *
+ * Returns `{}` rather than `{ nextCursor: undefined }` so the key stays absent
+ * from the result: the consumer decides whether to offer "load more" on
+ * presence.
+ */
+export function readNextCursor(json: { readonly nextCursor?: unknown }): {
+  readonly nextCursor?: string
+} {
+  const value = json.nextCursor
+  return typeof value === 'string' && value.length > 0 ? { nextCursor: value } : {}
 }
 
 /** How much of a failed response body reaches the operator's error alert. */
@@ -241,7 +311,7 @@ export function parseSystemEnvelope(
   const total = typeof totalRaw === 'number' ? totalRaw : records.length
   // PRESENCE, not truthiness — see `readAppliedQuery`, which both fetch paths
   // share so the three-state read cannot be spelled two ways.
-  return { records, total, ...readAppliedQuery(json) }
+  return { records, total, ...readAppliedQuery(json), ...readNextCursor(json) }
 }
 
 /**
@@ -256,6 +326,7 @@ export async function fetchSystemEndpoint({
   pagination,
   sortParam,
   globalFilter,
+  cursor,
 }: SystemFetchQuery): Promise<FetchResult> {
   const suffix = buildSystemQueryString({
     system,
@@ -263,6 +334,7 @@ export async function fetchSystemEndpoint({
     pagination,
     sortParam,
     globalFilter,
+    ...(cursor !== undefined && { cursor }),
   })
   const url = `${system.endpoint}${suffix ? `?${suffix}` : ''}`
   const res = await fetch(url, { credentials: 'include' })

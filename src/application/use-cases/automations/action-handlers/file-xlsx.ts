@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { isSelfContainedSource, resolveSource, tempKey, uploadArtifact } from './file-support'
 import { applyCellRange, parseCellRange, readXlsx, type XlsxCell } from './file-xlsx-parse'
 import { buildXlsx, type XlsxSheetInput } from './file-xlsx-write'
@@ -69,7 +69,7 @@ const loadWorkbookBytes = (ref: string): Effect.Effect<LoadedBytes, never, Stora
         : ({ ok: true, bytes: resolved.success.bytes } as const)
     }
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(ref))
+    const downloaded = yield* Effect.result(storage.download(ref, UNATTRIBUTED_BUCKET))
     return downloaded._tag === 'Failure'
       ? ({ ok: false, message: `file not found: ${ref}` } as const)
       : ({ ok: true, bytes: downloaded.success } as const)

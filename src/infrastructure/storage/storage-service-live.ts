@@ -8,13 +8,19 @@
 /* eslint-disable functional/prefer-immutable-types -- Effect Layer service object is mutated during construction by library design */
 
 import { Effect, Layer } from 'effect'
-import { StorageService, StorageError } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  StorageError,
+  UNATTRIBUTED_BUCKET,
+} from '@/application/ports/services/storage-service'
 import {
   parseStorageEnvConfig,
   validateStorageSizeLimits,
 } from '@/domain/models/env/storage/storage'
 import { logWarning } from '@/infrastructure/logging/logger'
 import {
+  bucketBindingMatches,
+  bucketBindingPermitsWrite,
   byteaUpload,
   byteaDownload,
   byteaDelete,
@@ -44,6 +50,7 @@ import {
   s3GetTotalBytes,
   s3ValidateBucket,
 } from './s3-adapter'
+import type { BucketBinding } from '@/application/ports/services/storage-service'
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
 
@@ -67,9 +74,69 @@ const unwrapS3Listing = <A>(value: A, truncated: boolean, operation: string, buc
   return value
 }
 
+/**
+ * Refuse an operation whose caller named a bucket the object does not belong
+ * to — or that belongs to no recorded bucket at all.
+ *
+ * Storage keys are FLAT, so without this every declared bucket addresses the
+ * same objects and the bucket in the URL only chooses which permission block
+ * runs. The failure is shaped as "File not found" so the route answers 404,
+ * never distinguishing "wrong bucket" from "absent" to a caller.
+ */
+const assertBucketBinding = (
+  key: string,
+  bucket: BucketBinding
+): Effect.Effect<void, StorageError> => {
+  // An unattributed caller asserts nothing about ownership, so there is nothing
+  // to check — and it must not require a catalog row either: automation actions
+  // address keys that may have been written to the object store out of band.
+  if (bucket === UNATTRIBUTED_BUCKET) return Effect.void
+  return Effect.tryPromise({
+    try: () => readFileMetadata(key),
+    catch: (e: unknown) => makeError(e),
+  }).pipe(
+    Effect.flatMap((meta) =>
+      meta && bucketBindingMatches(bucket, meta.bucket)
+        ? Effect.void
+        : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+    )
+  )
+}
+
+/**
+ * Refuse a write that would move an existing object into the caller's bucket.
+ *
+ * This runs BEFORE the bytes are handed to the object store, and that ordering
+ * is the whole point. S3 and local write the blob first and the catalog row
+ * second, so a refusal raised only by the catalog upsert would arrive after the
+ * victim's bytes had already been replaced — the object would survive with the
+ * right owner and the wrong content, which is precisely the silent data loss
+ * this gate exists to prevent. `byteaUpload` needs no pre-check because its
+ * metadata upsert is upstream of its content upsert in the same call.
+ *
+ * The guarded upsert inside {@link writeFileMetadata} is still load-bearing: it
+ * is what closes the window between this read and that write, and it is the
+ * seam every provider funnels through.
+ */
+const assertBucketWritable = (
+  key: string,
+  bucket: BucketBinding
+): Effect.Effect<void, StorageError> =>
+  Effect.tryPromise({
+    try: () => readFileMetadata(key),
+    catch: (e: unknown) => makeError(e),
+  }).pipe(
+    Effect.flatMap((meta) =>
+      bucketBindingPermitsWrite(bucket, meta?.bucket)
+        ? Effect.void
+        : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+    )
+  )
+
 /** File metadata lookup shared by every provider — reads `system.file_storage_metadata`. */
 const getMetadataFromCatalog = (
-  key: string
+  key: string,
+  bucket: BucketBinding
 ): Effect.Effect<
   {
     readonly key: string
@@ -81,8 +148,13 @@ const getMetadataFromCatalog = (
 > =>
   Effect.tryPromise({ try: () => readFileMetadata(key), catch: (e: unknown) => makeError(e) }).pipe(
     Effect.flatMap((meta) =>
-      meta
-        ? Effect.succeed({ key, ...meta })
+      meta && bucketBindingMatches(bucket, meta.bucket)
+        ? Effect.succeed({
+            key,
+            contentType: meta.contentType,
+            size: meta.size,
+            lastModified: meta.lastModified,
+          })
         : Effect.fail(makeError(new Error(`File not found: ${key}`)))
     )
   )
@@ -135,35 +207,49 @@ export const StorageServiceLive = Layer.effect(
 
     if (config?.provider === 's3') {
       const client = createS3Client(config)
-      const { bucket } = config
+      const { bucket: s3Bucket } = config
       yield* Effect.tryPromise({
-        try: () => s3ValidateBucket(client, bucket),
+        try: () => s3ValidateBucket(client, s3Bucket),
         catch: (e: unknown) =>
-          new StorageError({ cause: `S3 bucket "${bucket}" is not accessible: ${e}` }),
+          new StorageError({ cause: `S3 bucket "${s3Bucket}" is not accessible: ${e}` }),
       })
       return StorageService.of({
-        upload: (key: string, content: Uint8Array, mimeType: string) =>
+        upload: (key: string, content: Uint8Array, mimeType: string, bucket: BucketBinding) =>
+          assertBucketWritable(key, bucket).pipe(
+            Effect.flatMap(() =>
+              Effect.tryPromise({
+                try: () =>
+                  s3Upload({ client, bucket: s3Bucket, key, content, mimeType }).then(() =>
+                    writeFileMetadata({
+                      key,
+                      mimeType,
+                      size: content.length,
+                      storageProvider: 's3',
+                      bucket,
+                    })
+                  ),
+                catch: (e: unknown) => makeError(e),
+              })
+            )
+          ),
+        download: (key: string, bucket: BucketBinding) =>
+          assertBucketBinding(key, bucket).pipe(
+            Effect.flatMap(() =>
+              Effect.tryPromise({
+                try: () => s3Download(client, s3Bucket, key),
+                catch: (e: unknown) => makeError(e),
+              })
+            )
+          ),
+        delete: (key: string, bucket: BucketBinding) =>
           Effect.tryPromise({
-            try: () =>
-              s3Upload({ client, bucket, key, content, mimeType }).then(() =>
-                writeFileMetadata(key, mimeType, content.length, 's3')
-              ),
-            catch: (e: unknown) => makeError(e),
-          }),
-        download: (key: string) =>
-          Effect.tryPromise({
-            try: () => s3Download(client, bucket, key),
-            catch: (e: unknown) => makeError(e),
-          }),
-        delete: (key: string) =>
-          Effect.tryPromise({
-            try: () => deleteFileMetadata(key),
+            try: () => deleteFileMetadata(key, bucket),
             catch: (e: unknown) => makeError(e),
           }).pipe(
             Effect.flatMap((found) =>
               found
                 ? Effect.tryPromise({
-                    try: () => s3Delete(client, bucket, key),
+                    try: () => s3Delete(client, s3Bucket, key),
                     catch: (e: unknown) => makeError(e),
                   })
                 : Effect.fail(makeError(new Error(`File not found: ${key}`)))
@@ -171,26 +257,29 @@ export const StorageServiceLive = Layer.effect(
           ),
         getSignedUrl: (key: string, expiresIn: number) =>
           Effect.tryPromise({
-            try: () => s3GetSignedUrl(client, bucket, key, expiresIn),
+            try: () => s3GetSignedUrl(client, s3Bucket, key, expiresIn),
             catch: (e: unknown) => makeError(e),
           }),
         getSignedUploadUrl: (key: string, expiresIn: number, contentType?: string) =>
           Effect.tryPromise({
-            try: () => s3GetSignedUploadUrl({ client, bucket, key, expiresIn, contentType }),
+            try: () =>
+              s3GetSignedUploadUrl({ client, bucket: s3Bucket, key, expiresIn, contentType }),
             catch: (e: unknown) => makeError(e),
           }),
         getMetadata: getMetadataFromCatalog,
         list: (prefix: string) =>
           Effect.tryPromise({
-            try: () => s3List(client, bucket, prefix),
+            try: () => s3List(client, s3Bucket, prefix),
             catch: (e: unknown) => makeError(e),
-          }).pipe(Effect.map((page) => unwrapS3Listing(page.keys, page.truncated, 'list', bucket))),
+          }).pipe(
+            Effect.map((page) => unwrapS3Listing(page.keys, page.truncated, 'list', s3Bucket))
+          ),
         getTotalBytes: Effect.tryPromise({
-          try: () => s3GetTotalBytes(client, bucket),
+          try: () => s3GetTotalBytes(client, s3Bucket),
           catch: (e: unknown) => makeError(e),
         }).pipe(
           Effect.map((total) =>
-            unwrapS3Listing(total.bytes, total.truncated, 'getTotalBytes', bucket)
+            unwrapS3Listing(total.bytes, total.truncated, 'getTotalBytes', s3Bucket)
           )
         ),
       })
@@ -204,22 +293,36 @@ export const StorageServiceLive = Layer.effect(
           new StorageError({ cause: `Local storage directory "${dir}" is not accessible: ${e}` }),
       })
       return StorageService.of({
-        upload: (key: string, content: Uint8Array, mimeType: string) =>
+        upload: (key: string, content: Uint8Array, mimeType: string, bucket: BucketBinding) =>
+          assertBucketWritable(key, bucket).pipe(
+            Effect.flatMap(() =>
+              Effect.tryPromise({
+                try: () =>
+                  localUpload(dir, key, content).then(() =>
+                    writeFileMetadata({
+                      key,
+                      mimeType,
+                      size: content.length,
+                      storageProvider: 'local',
+                      bucket,
+                    })
+                  ),
+                catch: (e: unknown) => makeError(e),
+              })
+            )
+          ),
+        download: (key: string, bucket: BucketBinding) =>
+          assertBucketBinding(key, bucket).pipe(
+            Effect.flatMap(() =>
+              Effect.tryPromise({
+                try: () => localDownload(dir, key),
+                catch: (e: unknown) => makeError(e),
+              })
+            )
+          ),
+        delete: (key: string, bucket: BucketBinding) =>
           Effect.tryPromise({
-            try: () =>
-              localUpload(dir, key, content).then(() =>
-                writeFileMetadata(key, mimeType, content.length, 'local')
-              ),
-            catch: (e: unknown) => makeError(e),
-          }),
-        download: (key: string) =>
-          Effect.tryPromise({
-            try: () => localDownload(dir, key),
-            catch: (e: unknown) => makeError(e),
-          }),
-        delete: (key: string) =>
-          Effect.tryPromise({
-            try: () => deleteFileMetadata(key),
+            try: () => deleteFileMetadata(key, bucket),
             catch: (e: unknown) => makeError(e),
           }).pipe(
             Effect.flatMap((found) =>
@@ -265,14 +368,14 @@ export const StorageServiceLive = Layer.effect(
             'No storage provider configured. Set STORAGE_PROVIDER=s3|local or DATABASE_URL to enable file storage.',
         })
       return StorageService.of({
-        upload: (_key: string, _content: Uint8Array, _mimeType: string) =>
+        upload: (_key: string, _content: Uint8Array, _mimeType: string, _bucket: BucketBinding) =>
           Effect.fail(notConfigured()),
-        download: (_key: string) => Effect.fail(notConfigured()),
-        delete: (_key: string) => Effect.fail(notConfigured()),
+        download: (_key: string, _bucket: BucketBinding) => Effect.fail(notConfigured()),
+        delete: (_key: string, _bucket: BucketBinding) => Effect.fail(notConfigured()),
         getSignedUrl: (_key: string, _expiresIn: number) => Effect.fail(notConfigured()),
         getSignedUploadUrl: (_key: string, _expiresIn: number, _contentType?: string) =>
           Effect.fail(notConfigured()),
-        getMetadata: (_key: string) => Effect.fail(notConfigured()),
+        getMetadata: (_key: string, _bucket: BucketBinding) => Effect.fail(notConfigured()),
         list: (_prefix: string) => Effect.fail(notConfigured()),
         getTotalBytes: Effect.succeed(0),
       })
@@ -293,19 +396,19 @@ export const StorageServiceLive = Layer.effect(
     })
 
     return StorageService.of({
-      upload: (key: string, content: Uint8Array, mimeType: string) =>
+      upload: (key: string, content: Uint8Array, mimeType: string, bucket: BucketBinding) =>
         Effect.tryPromise({
-          try: () => byteaUpload(key, content, mimeType),
+          try: () => byteaUpload(key, content, mimeType, bucket),
           catch: (e: unknown) => makeError(e),
         }),
-      download: (key: string) =>
+      download: (key: string, bucket: BucketBinding) =>
         Effect.tryPromise({
-          try: () => byteaDownload(key),
+          try: () => byteaDownload(key, bucket),
           catch: (e: unknown) => makeError(e),
         }),
-      delete: (key: string) =>
+      delete: (key: string, bucket: BucketBinding) =>
         Effect.tryPromise({
-          try: () => byteaDelete(key),
+          try: () => byteaDelete(key, bucket),
           catch: (e: unknown) => makeError(e),
         }),
       getSignedUrl: (_key: string, _expiresIn: number) =>

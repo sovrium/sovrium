@@ -7,7 +7,6 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { StorageService } from '@/application/ports/services/storage-service'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import {
   rawGetRecordProgram,
@@ -18,7 +17,6 @@ import {
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
-import { parseJsonObjectCell } from '@/domain/utils/database/sqlite-json-cell'
 import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
 import {
   hasDeletePermission,
@@ -30,11 +28,14 @@ import {
 } from '@/infrastructure/layers/table-layer'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
-import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
-import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { handleRestoreRecordError, handleRouteError } from '../error-handlers'
+import {
+  collectAttachmentKeys,
+  deleteStorageFiles,
+  type AttachmentRef,
+} from './record-attachment-cleanup'
 import {
   enforceFormMutationGate,
   enforceRestoreGate,
@@ -269,33 +270,6 @@ function evaluateDeletePredicates(
 }
 
 /**
- * Extract the storage key from an attachment field value.
- * Handles both plain string keys and metadata objects (when storeMetadata: true).
- * Metadata objects store the key inside the url: "/api/buckets/default/files/<key>"
- *
- * The value arrives from a RAW database row, so the metadata object is only an
- * object on PostgreSQL. `storeMetadata: true` promotes the column to JSONB and
- * SQLite has no JSONB, so on the zero-config DEFAULT engine the same cell reads
- * back as the TEXT `'{"filename":…,"url":…}'`. Without the parse below, the bare-
- * string arm fired on the serialized document itself and handed the entire JSON
- * blob to `storage.delete()` as if it were a key: the delete matched nothing, and
- * purging a record left its file in the bucket forever. Postgres was unaffected,
- * so the leak was invisible on the engine the tests default to.
- */
-function extractAttachmentKey(value: unknown): string | undefined {
-  const parsed = parseJsonObjectCell(value) ?? value
-  if (typeof parsed === 'string' && parsed.length > 0) return parsed
-  if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-    const obj = parsed as Record<string, unknown>
-    if (typeof obj['url'] === 'string') {
-      const key = obj['url'].split('/').at(-1)
-      if (key && key.length > 0) return key
-    }
-  }
-  return undefined
-}
-
-/**
  * Z-3 delete gate enforcing read.when before the delete role gate so
  * users who can't see the record always get 404 (enumeration safety),
  * even when their role lacks delete authority.
@@ -326,45 +300,6 @@ async function checkDeleteGate(input: DeleteGateInput): Promise<Response | undef
   if (!table) return NOT_FOUND_RESPONSE(c)
 
   return evaluateDeletePredicates(c, table, guard, fetched.success)
-}
-
-/**
- * Collect storage keys from single-attachment fields in a raw DB record.
- * Handles both plain string keys and storeMetadata objects (url-embedded key).
- */
-function collectAttachmentKeys(
-  record: Record<string, unknown>,
-  app: App,
-  tableName: string
-): readonly string[] {
-  const table = app.tables?.find((t) => t.name === tableName)
-  if (!table?.fields) return []
-  return table.fields
-    .filter((f) => f.type === 'single-attachment')
-    .map((f) => extractAttachmentKey(record[f.name]))
-    .filter((k): k is string => k !== undefined)
-}
-
-/**
- * Delete files from storage by key, ignoring errors so a missing file
- * does not block the record purge.
- *
- * Each key's cached image transforms are evicted after the delete so a later
- * `GET .../files/<key>` (with or without transform params) correctly returns
- * 404 instead of serving stale cached transformed bytes.
- */
-async function deleteStorageFiles(keys: readonly string[]): Promise<void> {
-  return Promise.all(
-    keys.map((key) => {
-      const program = Effect.gen(function* () {
-        const storage = yield* StorageService
-        yield* storage['delete'](key)
-      })
-      return Effect.runPromise(Effect.result(Effect.provide(program, StorageServiceLive))).then(
-        () => evictTransformCacheForKey(key)
-      )
-    })
-  ).then(() => undefined)
 }
 
 /**
@@ -428,18 +363,18 @@ async function executePurge({
       table?.fields?.filter((f) => f.type === 'single-attachment').map((f) => f.name) ?? []
     const keysToDelete = (
       await Promise.all(
-        keys.map(async (key) => {
+        keys.map(async (ref) => {
           const referenced = await isFileKeyReferencedElsewhere({
             session,
             tableName,
             excludeRecordId: recordId,
-            fileKey: key,
+            fileKey: ref.key,
             attachmentFieldNames,
           })
-          return referenced ? undefined : key
+          return referenced ? undefined : ref
         })
       )
-    ).filter((k): k is string => k !== undefined)
+    ).filter((ref): ref is AttachmentRef => ref !== undefined)
     return deleteStorageFiles(keysToDelete).then(() =>
       executePermanentDelete({ session, tableName, recordId, c, app, userId })
     )

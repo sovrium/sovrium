@@ -16,6 +16,7 @@ import {
 import { triggerFormSubmissionAutomations } from '@/application/use-cases/automations/trigger-form-submission'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { coerceScalarsForArrayColumns } from '@/application/use-cases/forms/coerce-array-columns'
+import { coerceEmptySelectToNull } from '@/application/use-cases/forms/coerce-empty-select'
 import { emitFormSubmissionAnalyticsEvent } from '@/application/use-cases/forms/emit-form-analytics-event'
 import {
   FormFieldFormatError,
@@ -682,7 +683,15 @@ const writeBoundTableRecord = (input: {
           : buildGuestSession(),
       tableName,
       fields: {
-        ...coerceScalarsForArrayColumns(filterTableBoundFields(mapped, form), app, tableName),
+        // Order matters: `''` becomes `null` FIRST, so the array coercion
+        // below sees an absent value and passes it through rather than
+        // wrapping it into `['']` — which the option CHECK constraint would
+        // reject just as surely as the bare `''`.
+        ...coerceScalarsForArrayColumns(
+          coerceEmptySelectToNull(filterTableBoundFields(mapped, form), app, tableName),
+          app,
+          tableName
+        ),
         ...(submitterUserId !== undefined
           ? buildCreateAuthorshipOverrides(app.tables, tableName, submitterUserId)
           : {}),

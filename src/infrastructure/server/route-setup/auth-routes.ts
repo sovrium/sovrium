@@ -57,9 +57,23 @@ const PUBLIC_ADMIN_PATHS: ReadonlySet<string> = new Set(['/api/auth/admin/accept
  * remain reachable so the operator can drop impersonation and reclaim
  * their admin context. Better Auth itself validates the impersonation
  * lineage internally; the role-only gate must not pre-empt that.
+ *
+ * `/api/auth/admin/invite-user` is exempt for the same class of reason: the
+ * decision needs information this middleware does not have. A role holding the
+ * `auth.roles[].canInvite` grant may invite at or below its own level, and the
+ * INVITED level lives in the request body, which a path-matched middleware never
+ * reads. Exempting the path does not remove a gate — it moves the whole decision
+ * to `requireInviteCaller` (`admin-invitation-guard.ts`), whose first clause is
+ * this middleware's own `isAdminEquivalent` predicate, so an app declaring no
+ * grant is gated exactly as before, with the same 404.
+ *
+ * EXEMPT FROM THE ROLE CHECK ONLY. `applyAuthCheckMiddleware` still answers 401
+ * to an anonymous caller and `applyRateLimitMiddleware` still applies, because
+ * neither consults this set.
  */
 const ADMIN_ROLE_CHECK_EXEMPT_PATHS: ReadonlySet<string> = new Set([
   '/api/auth/admin/stop-impersonating',
+  '/api/auth/admin/invite-user',
 ])
 
 /**

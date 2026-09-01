@@ -33,6 +33,7 @@ import { NameSchema } from './name'
 import { validateAllPageAccessGroups } from './page-access-validation'
 import { PagesSchema } from './pages'
 import { PaletteSchema } from './palette'
+import { validateAllQrCodePayloads } from './qr-code-validation'
 import { RedirectsSchema } from './redirects'
 import { validateAllRedirectRules } from './redirects-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './role-validation'
@@ -81,30 +82,89 @@ const isRuntimeResolvedValue = (value: string): boolean =>
   value.includes('{{') || value.startsWith('$env.')
 
 /**
- * Every prop on a record action that becomes a SQL column identifier: the
- * condition fields of `filter` (update / delete / upsert / read / batchDelete)
- * and `batchUpsert`'s `matchField`.
+ * How a record action's config named a column, phrased for the refusal message.
+ *
+ * The verb carries real information: an author who mistyped a column now has
+ * THREE candidate surfaces to go and look at, and "'knid' does not exist" alone
+ * does not say which. `filters on` is byte-identical to what shipped and must
+ * stay so — two E2E criteria assert that sentence verbatim.
+ */
+type ColumnRefKind = 'filters on' | 'sorts on' | 'selects'
+
+interface ColumnRef {
+  readonly field: string
+  readonly kind: ColumnRefKind
+}
+
+/**
+ * Every prop on a record action that names a column: the condition fields of
+ * `filter` (update / delete / upsert / batchDelete), the `sort` keys and
+ * `fields` selection of `list`, and `batchUpsert`'s `matchField`.
+ *
+ * `sort` joined this set with [internal ref]'s `record/list`, and it is the WORSE of
+ * the filter/sort pair. An unknown filter field returns a visibly wrong row set;
+ * an unknown sort key returns the right rows in an arbitrary order and reports
+ * success — on SQLite the quoted unknown name resolves to a string constant, so
+ * every row sorts by the same value and no reordering happens at all. Combined
+ * with a `limit` that is an arbitrary page, delivered as if it were the top N.
+ *
+ * `fields` is here for a DIFFERENT reason, and the distinction is worth stating
+ * because it decides what this rule is for. Unlike the other three it does NOT
+ * reach SQL: an automation's `fields` is a payload trim applied in memory to
+ * rows already fetched, so no identifier is ever emitted and no dialect can
+ * misread one. It earns the check by being the quietest of the four — a typo
+ * yields rows without that key, every `{{…records.0.tittle}}` downstream
+ * expands to nothing, and the run reports success with no error anywhere. This
+ * rule is about names that do not exist, not solely about SQL injection
+ * surfaces.
+ *
+ * `record/read` left this set in the same change: since [internal ref] it is
+ * primary-key-only and has no author-supplied identifier left to adjudicate.
  *
  * `batchUpdate` is absent by nature, not by omission — its per-item filters
  * arrive inside a `{{...}}` template and do not exist at config time.
  */
-const recordActionColumnRefs = (props: Readonly<Record<string, unknown>>): readonly string[] => {
-  const { filter, matchField } = props as {
+const recordActionColumnRefs = (props: Readonly<Record<string, unknown>>): readonly ColumnRef[] => {
+  const { filter, matchField, sort, fields } = props as {
     readonly filter?: unknown
     readonly matchField?: unknown
+    readonly sort?: unknown
+    readonly fields?: unknown
   }
   const conditions =
     filter && typeof filter === 'object'
       ? (filter as { readonly conditions?: unknown }).conditions
       : undefined
-  const conditionRefs = Array.isArray(conditions)
+  const conditionRefs: readonly ColumnRef[] = Array.isArray(conditions)
     ? conditions.flatMap((condition) => {
         if (!condition || typeof condition !== 'object') return []
         const { field } = condition as { readonly field?: unknown }
-        return typeof field === 'string' ? [field] : []
+        return typeof field === 'string' ? [{ field, kind: 'filters on' as const }] : []
       })
     : []
-  return typeof matchField === 'string' ? [...conditionRefs, matchField] : conditionRefs
+  // `matchField` keeps the FILTER wording deliberately: it is `batchUpsert`'s
+  // equivalent of a filter condition, and a third verb for it would say the
+  // same thing in one more voice.
+  const matchRefs: readonly ColumnRef[] =
+    typeof matchField === 'string' ? [{ field: matchField, kind: 'filters on' as const }] : []
+  const sortRefs: readonly ColumnRef[] = Array.isArray(sort)
+    ? sort.flatMap((key) => {
+        if (!key || typeof key !== 'object') return []
+        const { field } = key as { readonly field?: unknown }
+        return typeof field === 'string' ? [{ field, kind: 'sorts on' as const }] : []
+      })
+    : []
+  // `record/create` and `record/update` also carry a `fields` prop, but theirs
+  // is a WRITE PAYLOAD — an object keyed by column name — while `list`'s is an
+  // array of names. Reading only the array shape is what keeps this from
+  // adjudicating the wrong prop on the wrong operator without needing to switch
+  // on `operator` here.
+  const selectionRefs: readonly ColumnRef[] = Array.isArray(fields)
+    ? fields.flatMap((name) =>
+        typeof name === 'string' ? [{ field: name, kind: 'selects' as const }] : []
+      )
+    : []
+  return [...conditionRefs, ...matchRefs, ...sortRefs, ...selectionRefs]
 }
 
 /**
@@ -618,18 +678,25 @@ export const AppSchema = Schema.Struct({
       return true
     })
   ),
-  // Automation cross-validation: record-action filter fields must name real columns.
+  // Automation cross-validation: record-action column references must name real
+  // columns.
   //
-  // A record action's `filter.conditions[].field` and `batchUpsert.matchField`
-  // become SQL IDENTIFIERS, and the two dialects disagree about an unknown one
-  // in the worst possible direction. Postgres raises 42703 and the action fails
-  // closed. SQLite — the zero-config DEFAULT engine — resolves a double-quoted
-  // name that matches no column to a string LITERAL, so `"knid" <> 'zzz'`
-  // compares the constant 'knid' against 'zzz' on every row and the predicate
-  // matches the WHOLE TABLE. Whether that happens turns on the OPERAND, not the
-  // operator: `equals 'knid'` and `contains 'ni'` are tautologies while
-  // `equals 'alpha'` fails closed, so no subset of operators is safe to exempt.
-  // On a `record/delete` that is a silent mass-deletion reported as success.
+  // A record action's `filter.conditions[].field`, `batchUpsert.matchField` and
+  // `list.sort[].field` become SQL IDENTIFIERS, and the two dialects disagree
+  // about an unknown one in the worst possible direction. Postgres raises 42703
+  // and the action fails closed. SQLite — the zero-config DEFAULT engine —
+  // resolves a double-quoted name that matches no column to a string LITERAL,
+  // so `"knid" <> 'zzz'` compares the constant 'knid' against 'zzz' on every
+  // row and the predicate matches the WHOLE TABLE. Whether that happens turns
+  // on the OPERAND, not the operator: `equals 'knid'` and `contains 'ni'` are
+  // tautologies while `equals 'alpha'` fails closed, so no subset of operators
+  // is safe to exempt. On a `record/delete` that is a silent mass-deletion
+  // reported as success.
+  //
+  // A `sort` key degrades differently and no less quietly: `ORDER BY "knid"`
+  // orders every row by that same string constant, so the rows come back in an
+  // arbitrary order with a SUCCESSFUL run and nothing saying the ordering was
+  // never applied — and under a `limit` that arbitrary order picks the page.
   //
   // Catching the typo here means it never reaches SQL, and `sovrium validate`
   // reports it without booting. It cannot cover every case — see the two
@@ -657,18 +724,19 @@ export const AppSchema = Schema.Struct({
               if (!tableFields) return []
               return (
                 recordActionColumnRefs(props)
-                  .filter((field) => !isRuntimeResolvedValue(field))
+                  .filter((ref) => !isRuntimeResolvedValue(ref.field))
                   // System columns (`id`, the timestamps, the authorship columns)
                   // exist without appearing in `fields[]`. Every record filter in
                   // `apps/partner` targets `field: 'id'`, so omitting this exemption
                   // would refuse to boot three shipped automations. The predicate is
                   // SHARED with the runtime check in `record-filters.ts` so the two
                   // halves cannot reach opposite verdicts on the same name.
-                  .filter((field) => !isResolvableColumnName(tableFields, field))
-                  .map((field) => ({
+                  .filter((ref) => !isResolvableColumnName(tableFields, ref.field))
+                  .map((ref) => ({
                     automation: a.name,
                     action: action.name,
-                    field,
+                    field: ref.field,
+                    kind: ref.kind,
                     table,
                     declared: [...tableFields],
                   }))
@@ -678,7 +746,7 @@ export const AppSchema = Schema.Struct({
         .at(0)
 
       if (filterFieldError) {
-        return `Automation '${filterFieldError.automation}' record action '${filterFieldError.action}' filters on field '${filterFieldError.field}' which does not exist in table '${filterFieldError.table}'. Available: ${filterFieldError.declared.join(', ')}`
+        return `Automation '${filterFieldError.automation}' record action '${filterFieldError.action}' ${filterFieldError.kind} field '${filterFieldError.field}' which does not exist in table '${filterFieldError.table}'. Available: ${filterFieldError.declared.join(', ')}`
       }
       return true
     })
@@ -926,6 +994,13 @@ export const AppSchema = Schema.Struct({
       // `App` to `never`, which fails silently at every consumer.
       const designError = validateAllDesignReferences(app)
       if (designError !== true) return designError
+      // QR payload cross-validation: a
+      // `qr-code` component encodes exactly one of `link` or `value`. Neither
+      // half can be stated at the field level, and the per-branch struct has no
+      // refinement hook. Bundled here (not a new `Schema.filter`) for the
+      // deep-instantiation reason documented above.
+      const qrCodeError = validateAllQrCodePayloads(app)
+      if (qrCodeError !== true) return qrCodeError
       return validateAllTablePermissionGroups(app)
     })
   )

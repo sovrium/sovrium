@@ -58,13 +58,14 @@
       "@/*": ["src/*"],
       "@/specs/*": ["specs/*"],
       "@apps/*": ["apps/*"],
-      // Resolve the workspace package to its source instead of the built
-      // dist/ output. dist/ is a gitignored build artifact (only produced by
-      // `bun run build:types`), so without this mapping a clean checkout fails
-      // typecheck with TS2307 the moment anything in the program imports
-      // @sovrium/types — e.g. the apps/* configs. Points at source, matching
+      // Resolve the `sovrium` config-types specifier to its source. Outside
+      // this repo that specifier is satisfied by the `sovrium.d.ts` that
+      // `sovrium types` generates; in-repo there is no generated declaration to
+      // pick up, so the alias points at the same source the generator reads.
+      // Without it a clean checkout fails typecheck with TS2307 the moment
+      // anything in the program imports it — e.g. the apps/* configs. Matches
       // the @apps/* / @/* source-alias pattern above.
-      "@sovrium/types": ["packages/types/src/index.ts"]
+      "sovrium": ["packages/types/src/index.ts"]
     }
   },
   // Bound the typecheck program to the three source roots only. Without an

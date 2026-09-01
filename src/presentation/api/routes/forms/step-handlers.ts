@@ -15,6 +15,12 @@
  *     per-session draft store. Backs the Previous button and any deep
  *     link to a non-first step.
  *
+ *   POST /api/forms/:name/draft/reset
+ *     Replaces the per-session draft with the posted values, discarding
+ *     everything else the submitter had entered. Backs `onSuccess: reset`
+ *     on a multi-step form: the flow restarts at step 1, and only the
+ *     `preserveFields` values keep prefilling later steps.
+ *
  *   POST /api/forms/:name/steps/:stepId/advance
  *     Validates the current step's required + visible fields, merges the
  *     submitted values into the per-session draft, evaluates `goToWhen`
@@ -40,7 +46,7 @@ import {
 } from '@/domain/models/shared/form-field-helpers'
 import { findStep, resolveNextStepId, isStepVisible } from '@/domain/models/shared/multi-step-flow'
 import { denyFormAccess, evaluateFormAccessForRequest } from './access-gate'
-import { generateDraftSessionId, mergeDraft, readDraft } from './step-draft-store'
+import { generateDraftSessionId, mergeDraft, readDraft, replaceDraft } from './step-draft-store'
 import type { App } from '@/domain/models/app'
 import type { Form, FormField } from '@/domain/models/app/forms'
 import type { Context } from 'hono'
@@ -220,4 +226,70 @@ function resolveVisibleNextStepId(
   const target = findStep(form, nextStepId)
   if (target === undefined || !isStepVisible(target, valueMap)) return undefined
   return nextStepId
+}
+
+/**
+ * `POST /api/forms/:name/draft/reset` — replace the per-session draft with
+ * the posted values. Returns 204 on success, 404 when the form is not
+ * registered.
+ *
+ * The client posts the values its `onSuccess.preserveFields` names, read off
+ * the DOM before the flow is rewound. Everything else is dropped: without
+ * this the submitter restarts at step 1 but every later step still prefills
+ * from the submission they just completed, so a "reset" form quietly
+ * re-proposes the previous answers.
+ *
+ * Gated by the form's `access.require` exactly as the sibling step endpoints
+ * are — it writes state keyed to the caller's own draft cookie, and a denied
+ * caller must not reach it.
+ */
+export async function handlePostDraftReset(c: Context, app: App): Promise<Response> {
+  const name = c.req.param('name')
+  if (!name) return c.notFound()
+  const form = findFormByName(app, name)
+  if (!form) return c.notFound()
+  const { decision } = await evaluateFormAccessForRequest(c, form)
+  const denied = denyFormAccess(c, form.name, decision, 'json')
+  if (denied !== undefined) return denied
+
+  const body = await readJsonBody(c)
+  replaceDraft(ensureDraftSession(c), name, body)
+  // eslint-disable-next-line unicorn/no-null -- Hono's 204 helper requires an explicit null body; `undefined` emits a body on a status that forbids one
+  return c.body(null, 204)
+}
+
+/**
+ * Fold the per-session step draft UNDER a multi-step form's final submission
+ * body.
+ *
+ * A multi-step form renders exactly one step at a time — earlier steps are
+ * REPLACED in the DOM, not hidden — so the browser's final submit carries only
+ * the last step's inputs. Every answer from every earlier step is simply not in
+ * the payload, and the submission is rejected for a required field the
+ * submitter did fill. (This never surfaced because the shipped multi-step
+ * specs post a complete payload straight to the submissions endpoint, skipping
+ * the browser entirely; the browser path had no coverage.)
+ *
+ * The draft is already the accumulated flow — it is what `goToWhen` branches
+ * on and what later steps prefill from — so it is the natural place to recover
+ * those values. The posted body wins on every key: the visible step is the
+ * submitter's most recent word, and a value they just changed must not be
+ * overwritten by the copy the draft recorded on the way through.
+ *
+ * Scoped to stepped forms and further limited by the cookie: only the step
+ * endpoints ever write a draft, and a caller that posts a complete payload
+ * without walking the flow has no draft cookie, so this is a no-op for them.
+ * The cookie is READ, never created — a submission is not a reason to open a
+ * draft session.
+ */
+export function mergeStepDraftIntoBody(
+  c: Context,
+  form: Readonly<Form>,
+  formName: string,
+  body: Record<string, unknown>
+): Record<string, unknown> {
+  if (form.steps === undefined || form.steps.length === 0) return body
+  const sessionId = getCookie(c, DRAFT_COOKIE_NAME)
+  if (typeof sessionId !== 'string' || sessionId.length === 0) return body
+  return { ...readDraft(sessionId, formName), ...body }
 }

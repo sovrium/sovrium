@@ -16,132 +16,132 @@ import _r0 from '../../../dist/client-bundle.js' with { type: 'file' }
 import _r1 from '../../../dist/client-scripts/banner-dismiss.js' with { type: 'file' }
 import _r2 from '../../../dist/client-scripts/language-switcher.js' with { type: 'file' }
 import _r3 from '../../../dist/client-scripts/scroll-animation.js' with { type: 'file' }
-import _r4 from '../../../dist/island-chunks/accordion-island-aj9km6dd.js' with { type: 'file' }
-import _r5 from '../../../dist/island-chunks/admin-sidebar-island-h5fvess8.js' with { type: 'file' }
-import _r6 from '../../../dist/island-chunks/api-key-manager-island-nqnt4jkd.js' with { type: 'file' }
-import _r7 from '../../../dist/island-chunks/calendar-island-h4jcdyjw.js' with { type: 'file' }
-import _r8 from '../../../dist/island-chunks/chart-island-kc0xac01.js' with { type: 'file' }
-import _r9 from '../../../dist/island-chunks/checkbox-island-mn83z4xt.js' with { type: 'file' }
-import _r10 from '../../../dist/island-chunks/comment-count-island-3w4xhz0w.js' with { type: 'file' }
-import _r11 from '../../../dist/island-chunks/comment-thread-island-yqrfc8az.js' with { type: 'file' }
-import _r12 from '../../../dist/island-chunks/design-system-share-island-ha7hded0.js' with { type: 'file' }
-import _r13 from '../../../dist/island-chunks/dialog-island-rdy38d83.js' with { type: 'file' }
-import _r14 from '../../../dist/island-chunks/drawer-island-2x73mf8c.js' with { type: 'file' }
-import _r15 from '../../../dist/island-chunks/gallery-island-vxvhejrw.js' with { type: 'file' }
-import _r16 from '../../../dist/island-chunks/hover-card-island-0q2e2m50.js' with { type: 'file' }
-import _r17 from '../../../dist/island-chunks/index-apev4anb.js' with { type: 'file' }
-import _r18 from '../../../dist/island-chunks/index-m3shyakj.js' with { type: 'file' }
-import _r19 from '../../../dist/island-chunks/index-m606f314.js' with { type: 'file' }
-import _r20 from '../../../dist/island-chunks/island-client-08awjf3s.js' with { type: 'file' }
-import _r21 from '../../../dist/island-chunks/island-client-0cbj4m9h.js' with { type: 'file' }
-import _r22 from '../../../dist/island-chunks/island-client-0vbj49nr.js' with { type: 'file' }
-import _r23 from '../../../dist/island-chunks/island-client-0x9acd14.js' with { type: 'file' }
-import _r24 from '../../../dist/island-chunks/island-client-1mpve24z.js' with { type: 'file' }
-import _r25 from '../../../dist/island-chunks/island-client-1twknb7g.js' with { type: 'file' }
-import _r26 from '../../../dist/island-chunks/island-client-1zpr6rq6.js' with { type: 'file' }
-import _r27 from '../../../dist/island-chunks/island-client-244gt8ct.js' with { type: 'file' }
-import _r28 from '../../../dist/island-chunks/island-client-34xr0nmt.js' with { type: 'file' }
-import _r29 from '../../../dist/island-chunks/island-client-3cn571td.js' with { type: 'file' }
-import _r30 from '../../../dist/island-chunks/island-client-3qprt6f6.js' with { type: 'file' }
-import _r31 from '../../../dist/island-chunks/island-client-3w46c4k1.js' with { type: 'file' }
-import _r32 from '../../../dist/island-chunks/island-client-3wnx5sx3.js' with { type: 'file' }
-import _r33 from '../../../dist/island-chunks/island-client-47y3kdpc.js' with { type: 'file' }
-import _r34 from '../../../dist/island-chunks/island-client-4py0b71q.js' with { type: 'file' }
-import _r35 from '../../../dist/island-chunks/island-client-4rre3j9b.js' with { type: 'file' }
-import _r36 from '../../../dist/island-chunks/island-client-4vpfe2s7.js' with { type: 'file' }
-import _r37 from '../../../dist/island-chunks/island-client-50jx0bqn.js' with { type: 'file' }
-import _r38 from '../../../dist/island-chunks/island-client-5rzk5shv.js' with { type: 'file' }
-import _r39 from '../../../dist/island-chunks/island-client-6g5m1e5q.js' with { type: 'file' }
-import _r40 from '../../../dist/island-chunks/island-client-6tr2gved.js' with { type: 'file' }
-import _r41 from '../../../dist/island-chunks/island-client-7861afs4.js' with { type: 'file' }
-import _r42 from '../../../dist/island-chunks/island-client-7kxxkq9h.js' with { type: 'file' }
-import _r43 from '../../../dist/island-chunks/island-client-84vgs23d.js' with { type: 'file' }
-import _r44 from '../../../dist/island-chunks/island-client-8yepghrp.js' with { type: 'file' }
-import _r45 from '../../../dist/island-chunks/island-client-983v620p.js' with { type: 'file' }
-import _r46 from '../../../dist/island-chunks/island-client-9dsv6b82.js' with { type: 'file' }
-import _r47 from '../../../dist/island-chunks/island-client-9skwygqm.js' with { type: 'file' }
-import _r48 from '../../../dist/island-chunks/island-client-9t82ax5b.js' with { type: 'file' }
-import _r49 from '../../../dist/island-chunks/island-client-9yq173d8.js' with { type: 'file' }
-import _r50 from '../../../dist/island-chunks/island-client-ahjhdztq.js' with { type: 'file' }
-import _r51 from '../../../dist/island-chunks/island-client-b3zmep66.js' with { type: 'file' }
-import _r52 from '../../../dist/island-chunks/island-client-b79pm438.js' with { type: 'file' }
-import _r53 from '../../../dist/island-chunks/island-client-c59xa6jz.js' with { type: 'file' }
-import _r54 from '../../../dist/island-chunks/island-client-c5f8wth4.js' with { type: 'file' }
-import _r55 from '../../../dist/island-chunks/island-client-cejkmr8g.js' with { type: 'file' }
-import _r56 from '../../../dist/island-chunks/island-client-cfknen96.js' with { type: 'file' }
-import _r57 from '../../../dist/island-chunks/island-client-cgh622v9.js' with { type: 'file' }
-import _r58 from '../../../dist/island-chunks/island-client-ctd9k9tw.js' with { type: 'file' }
-import _r59 from '../../../dist/island-chunks/island-client-d8hvmfrb.js' with { type: 'file' }
-import _r60 from '../../../dist/island-chunks/island-client-ec2fgwty.js' with { type: 'file' }
-import _r61 from '../../../dist/island-chunks/island-client-eqegqyx0.js' with { type: 'file' }
-import _r62 from '../../../dist/island-chunks/island-client-fh3pwfav.js' with { type: 'file' }
-import _r63 from '../../../dist/island-chunks/island-client-ftf26t1j.js' with { type: 'file' }
-import _r64 from '../../../dist/island-chunks/island-client-gsqtaj4g.js' with { type: 'file' }
-import _r65 from '../../../dist/island-chunks/island-client-gty78str.js' with { type: 'file' }
-import _r66 from '../../../dist/island-chunks/island-client-gwbbf1rx.js' with { type: 'file' }
-import _r67 from '../../../dist/island-chunks/island-client-hbp674nb.js' with { type: 'file' }
-import _r68 from '../../../dist/island-chunks/island-client-hftwkxbj.js' with { type: 'file' }
-import _r69 from '../../../dist/island-chunks/island-client-hw8cwngp.js' with { type: 'file' }
-import _r70 from '../../../dist/island-chunks/island-client-hx8jwxc9.js' with { type: 'file' }
-import _r71 from '../../../dist/island-chunks/island-client-j9hk176g.js' with { type: 'file' }
-import _r72 from '../../../dist/island-chunks/island-client-jq9ynfd8.js' with { type: 'file' }
-import _r73 from '../../../dist/island-chunks/island-client-jqee5v8b.js' with { type: 'file' }
-import _r74 from '../../../dist/island-chunks/island-client-jrkb7a1n.js' with { type: 'file' }
-import _r75 from '../../../dist/island-chunks/island-client-mm5gwc2v.js' with { type: 'file' }
-import _r76 from '../../../dist/island-chunks/island-client-mwdseve2.js' with { type: 'file' }
-import _r77 from '../../../dist/island-chunks/island-client-n13p6agp.js' with { type: 'file' }
-import _r78 from '../../../dist/island-chunks/island-client-nae164fk.js' with { type: 'file' }
-import _r79 from '../../../dist/island-chunks/island-client-nj1q1xzy.js' with { type: 'file' }
-import _r80 from '../../../dist/island-chunks/island-client-njtndy79.js' with { type: 'file' }
-import _r81 from '../../../dist/island-chunks/island-client-nkee2mb2.js' with { type: 'file' }
-import _r82 from '../../../dist/island-chunks/island-client-nstb01dc.js' with { type: 'file' }
-import _r83 from '../../../dist/island-chunks/island-client-p3qgt26r.js' with { type: 'file' }
-import _r84 from '../../../dist/island-chunks/island-client-pn08480j.js' with { type: 'file' }
-import _r85 from '../../../dist/island-chunks/island-client-pzv5nt95.js' with { type: 'file' }
-import _r86 from '../../../dist/island-chunks/island-client-qmf58hjf.js' with { type: 'file' }
-import _r87 from '../../../dist/island-chunks/island-client-sgsy3tx5.js' with { type: 'file' }
-import _r88 from '../../../dist/island-chunks/island-client-t2fssp26.js' with { type: 'file' }
-import _r89 from '../../../dist/island-chunks/island-client-t8e3tc94.js' with { type: 'file' }
-import _r90 from '../../../dist/island-chunks/island-client-tpy5n78b.js' with { type: 'file' }
-import _r91 from '../../../dist/island-chunks/island-client-vhbxw8mj.js' with { type: 'file' }
-import _r92 from '../../../dist/island-chunks/island-client-wb6f6c67.js' with { type: 'file' }
-import _r93 from '../../../dist/island-chunks/island-client-wcjzhq6t.js' with { type: 'file' }
-import _r94 from '../../../dist/island-chunks/island-client-wmqds76x.js' with { type: 'file' }
-import _r95 from '../../../dist/island-chunks/island-client-wyswke4g.js' with { type: 'file' }
-import _r96 from '../../../dist/island-chunks/island-client-x9dmrhbb.js' with { type: 'file' }
-import _r97 from '../../../dist/island-chunks/island-client-xejnm0fx.js' with { type: 'file' }
-import _r98 from '../../../dist/island-chunks/island-client-xqtb0ttc.js' with { type: 'file' }
-import _r99 from '../../../dist/island-chunks/island-client-ybf7dtag.js' with { type: 'file' }
-import _r100 from '../../../dist/island-chunks/island-client-yf06a6e7.js' with { type: 'file' }
-import _r101 from '../../../dist/island-chunks/island-client-ym6jr9tk.js' with { type: 'file' }
-import _r102 from '../../../dist/island-chunks/island-client-z123amnm.js' with { type: 'file' }
-import _r103 from '../../../dist/island-chunks/island-client-z4gpe2rb.js' with { type: 'file' }
+import _r4 from '../../../dist/island-chunks/accordion-island-8kj2x4sf.js' with { type: 'file' }
+import _r5 from '../../../dist/island-chunks/admin-sidebar-island-cjabamkk.js' with { type: 'file' }
+import _r6 from '../../../dist/island-chunks/api-key-manager-island-9bnkna3n.js' with { type: 'file' }
+import _r7 from '../../../dist/island-chunks/calendar-island-kc8ajtq1.js' with { type: 'file' }
+import _r8 from '../../../dist/island-chunks/chart-island-yzyc4t2x.js' with { type: 'file' }
+import _r9 from '../../../dist/island-chunks/checkbox-island-tffewmn1.js' with { type: 'file' }
+import _r10 from '../../../dist/island-chunks/comment-count-island-czaqms22.js' with { type: 'file' }
+import _r11 from '../../../dist/island-chunks/comment-thread-island-syhxh3r8.js' with { type: 'file' }
+import _r12 from '../../../dist/island-chunks/design-system-share-island-xghwdfs8.js' with { type: 'file' }
+import _r13 from '../../../dist/island-chunks/dialog-island-gfa43c6s.js' with { type: 'file' }
+import _r14 from '../../../dist/island-chunks/drawer-island-h9ywdyhh.js' with { type: 'file' }
+import _r15 from '../../../dist/island-chunks/gallery-island-79r5xaky.js' with { type: 'file' }
+import _r16 from '../../../dist/island-chunks/hover-card-island-sycayd3n.js' with { type: 'file' }
+import _r17 from '../../../dist/island-chunks/index-d54adh60.js' with { type: 'file' }
+import _r18 from '../../../dist/island-chunks/index-m98cpx6j.js' with { type: 'file' }
+import _r19 from '../../../dist/island-chunks/index-zfm45kd6.js' with { type: 'file' }
+import _r20 from '../../../dist/island-chunks/island-client-0bpjtryx.js' with { type: 'file' }
+import _r21 from '../../../dist/island-chunks/island-client-0te8rwgw.js' with { type: 'file' }
+import _r22 from '../../../dist/island-chunks/island-client-1j9srqcx.js' with { type: 'file' }
+import _r23 from '../../../dist/island-chunks/island-client-1rdsjmdn.js' with { type: 'file' }
+import _r24 from '../../../dist/island-chunks/island-client-241r2se3.js' with { type: 'file' }
+import _r25 from '../../../dist/island-chunks/island-client-27sxq85h.js' with { type: 'file' }
+import _r26 from '../../../dist/island-chunks/island-client-2cgjrh15.js' with { type: 'file' }
+import _r27 from '../../../dist/island-chunks/island-client-2h2vqvdm.js' with { type: 'file' }
+import _r28 from '../../../dist/island-chunks/island-client-2rheeja5.js' with { type: 'file' }
+import _r29 from '../../../dist/island-chunks/island-client-2ycvkyhk.js' with { type: 'file' }
+import _r30 from '../../../dist/island-chunks/island-client-365h15dv.js' with { type: 'file' }
+import _r31 from '../../../dist/island-chunks/island-client-3smzfqvv.js' with { type: 'file' }
+import _r32 from '../../../dist/island-chunks/island-client-3wpk5ga3.js' with { type: 'file' }
+import _r33 from '../../../dist/island-chunks/island-client-4bjk70c2.js' with { type: 'file' }
+import _r34 from '../../../dist/island-chunks/island-client-4vqmkzmz.js' with { type: 'file' }
+import _r35 from '../../../dist/island-chunks/island-client-5m0th1be.js' with { type: 'file' }
+import _r36 from '../../../dist/island-chunks/island-client-61mc86jm.js' with { type: 'file' }
+import _r37 from '../../../dist/island-chunks/island-client-6gknahte.js' with { type: 'file' }
+import _r38 from '../../../dist/island-chunks/island-client-6khfecft.js' with { type: 'file' }
+import _r39 from '../../../dist/island-chunks/island-client-7bmpetfc.js' with { type: 'file' }
+import _r40 from '../../../dist/island-chunks/island-client-7c3cgw6j.js' with { type: 'file' }
+import _r41 from '../../../dist/island-chunks/island-client-7fsb84v5.js' with { type: 'file' }
+import _r42 from '../../../dist/island-chunks/island-client-7vtw9v9w.js' with { type: 'file' }
+import _r43 from '../../../dist/island-chunks/island-client-84gb1f3c.js' with { type: 'file' }
+import _r44 from '../../../dist/island-chunks/island-client-84vgs23d.js' with { type: 'file' }
+import _r45 from '../../../dist/island-chunks/island-client-860vk7mw.js' with { type: 'file' }
+import _r46 from '../../../dist/island-chunks/island-client-99mz3a9y.js' with { type: 'file' }
+import _r47 from '../../../dist/island-chunks/island-client-9ak4yeyy.js' with { type: 'file' }
+import _r48 from '../../../dist/island-chunks/island-client-9bbh5pfe.js' with { type: 'file' }
+import _r49 from '../../../dist/island-chunks/island-client-9d1byvsg.js' with { type: 'file' }
+import _r50 from '../../../dist/island-chunks/island-client-9k3spsdc.js' with { type: 'file' }
+import _r51 from '../../../dist/island-chunks/island-client-9yq173d8.js' with { type: 'file' }
+import _r52 from '../../../dist/island-chunks/island-client-a2kyy3g3.js' with { type: 'file' }
+import _r53 from '../../../dist/island-chunks/island-client-aep463pj.js' with { type: 'file' }
+import _r54 from '../../../dist/island-chunks/island-client-be6msknr.js' with { type: 'file' }
+import _r55 from '../../../dist/island-chunks/island-client-br8v6p0t.js' with { type: 'file' }
+import _r56 from '../../../dist/island-chunks/island-client-c0m9ad1q.js' with { type: 'file' }
+import _r57 from '../../../dist/island-chunks/island-client-c54vdte4.js' with { type: 'file' }
+import _r58 from '../../../dist/island-chunks/island-client-c7pbjyge.js' with { type: 'file' }
+import _r59 from '../../../dist/island-chunks/island-client-cfknen96.js' with { type: 'file' }
+import _r60 from '../../../dist/island-chunks/island-client-cgh622v9.js' with { type: 'file' }
+import _r61 from '../../../dist/island-chunks/island-client-ch2a8vjf.js' with { type: 'file' }
+import _r62 from '../../../dist/island-chunks/island-client-d85eypkd.js' with { type: 'file' }
+import _r63 from '../../../dist/island-chunks/island-client-dxt0wkd9.js' with { type: 'file' }
+import _r64 from '../../../dist/island-chunks/island-client-e1wdkkvg.js' with { type: 'file' }
+import _r65 from '../../../dist/island-chunks/island-client-essq8ps9.js' with { type: 'file' }
+import _r66 from '../../../dist/island-chunks/island-client-ftz9stqe.js' with { type: 'file' }
+import _r67 from '../../../dist/island-chunks/island-client-fz94da83.js' with { type: 'file' }
+import _r68 from '../../../dist/island-chunks/island-client-fze2yfns.js' with { type: 'file' }
+import _r69 from '../../../dist/island-chunks/island-client-gfrvn6db.js' with { type: 'file' }
+import _r70 from '../../../dist/island-chunks/island-client-gtde2h17.js' with { type: 'file' }
+import _r71 from '../../../dist/island-chunks/island-client-gzay3xft.js' with { type: 'file' }
+import _r72 from '../../../dist/island-chunks/island-client-h7dc3b70.js' with { type: 'file' }
+import _r73 from '../../../dist/island-chunks/island-client-hbp674nb.js' with { type: 'file' }
+import _r74 from '../../../dist/island-chunks/island-client-hpqqywc1.js' with { type: 'file' }
+import _r75 from '../../../dist/island-chunks/island-client-j3zmx7jk.js' with { type: 'file' }
+import _r76 from '../../../dist/island-chunks/island-client-j8srp76w.js' with { type: 'file' }
+import _r77 from '../../../dist/island-chunks/island-client-k1ddk8py.js' with { type: 'file' }
+import _r78 from '../../../dist/island-chunks/island-client-m6qmndd1.js' with { type: 'file' }
+import _r79 from '../../../dist/island-chunks/island-client-m87rnvby.js' with { type: 'file' }
+import _r80 from '../../../dist/island-chunks/island-client-mj5xm5e9.js' with { type: 'file' }
+import _r81 from '../../../dist/island-chunks/island-client-mxz1gwe8.js' with { type: 'file' }
+import _r82 from '../../../dist/island-chunks/island-client-mzkbp253.js' with { type: 'file' }
+import _r83 from '../../../dist/island-chunks/island-client-n0jdpz2r.js' with { type: 'file' }
+import _r84 from '../../../dist/island-chunks/island-client-p3tf3hg7.js' with { type: 'file' }
+import _r85 from '../../../dist/island-chunks/island-client-p8mm8kny.js' with { type: 'file' }
+import _r86 from '../../../dist/island-chunks/island-client-paek684y.js' with { type: 'file' }
+import _r87 from '../../../dist/island-chunks/island-client-pj6dgyep.js' with { type: 'file' }
+import _r88 from '../../../dist/island-chunks/island-client-pn2sp1ym.js' with { type: 'file' }
+import _r89 from '../../../dist/island-chunks/island-client-qecbzewc.js' with { type: 'file' }
+import _r90 from '../../../dist/island-chunks/island-client-r32td23y.js' with { type: 'file' }
+import _r91 from '../../../dist/island-chunks/island-client-rxam6m1q.js' with { type: 'file' }
+import _r92 from '../../../dist/island-chunks/island-client-s401x8ha.js' with { type: 'file' }
+import _r93 from '../../../dist/island-chunks/island-client-secpc6xe.js' with { type: 'file' }
+import _r94 from '../../../dist/island-chunks/island-client-tdrf27yc.js' with { type: 'file' }
+import _r95 from '../../../dist/island-chunks/island-client-tj7975ab.js' with { type: 'file' }
+import _r96 from '../../../dist/island-chunks/island-client-tn56p9mp.js' with { type: 'file' }
+import _r97 from '../../../dist/island-chunks/island-client-vgevn9av.js' with { type: 'file' }
+import _r98 from '../../../dist/island-chunks/island-client-w6qfys1a.js' with { type: 'file' }
+import _r99 from '../../../dist/island-chunks/island-client-xct9kx4q.js' with { type: 'file' }
+import _r100 from '../../../dist/island-chunks/island-client-xqtb0ttc.js' with { type: 'file' }
+import _r101 from '../../../dist/island-chunks/island-client-y6ktafp2.js' with { type: 'file' }
+import _r102 from '../../../dist/island-chunks/island-client-ybf7dtag.js' with { type: 'file' }
+import _r103 from '../../../dist/island-chunks/island-client-zfh9d31y.js' with { type: 'file' }
 import _r104 from '../../../dist/island-chunks/island-entry.js' with { type: 'file' }
-import _r105 from '../../../dist/island-chunks/kanban-island-y7tqpc55.js' with { type: 'file' }
-import _r106 from '../../../dist/island-chunks/kpi-island-ts9rwakh.js' with { type: 'file' }
-import _r107 from '../../../dist/island-chunks/list-island-yk6pbnmr.js' with { type: 'file' }
-import _r108 from '../../../dist/island-chunks/menu-island-a56z97rh.js' with { type: 'file' }
-import _r109 from '../../../dist/island-chunks/menubar-island-hhe920sw.js' with { type: 'file' }
-import _r110 from '../../../dist/island-chunks/nav-menu-island-wdv5ysgn.js' with { type: 'file' }
-import _r111 from '../../../dist/island-chunks/page-search-island-v5ksr2j0.js' with { type: 'file' }
-import _r112 from '../../../dist/island-chunks/popover-island-gfe3c1zh.js' with { type: 'file' }
-import _r113 from '../../../dist/island-chunks/presence-indicator-island-hb5a0bwg.js' with { type: 'file' }
-import _r114 from '../../../dist/island-chunks/radio-island-q3mktwd0.js' with { type: 'file' }
-import _r115 from '../../../dist/island-chunks/record-field-system-island-cjwn0snk.js' with { type: 'file' }
-import _r116 from '../../../dist/island-chunks/rich-text-editor-qxen2dbq.js' with { type: 'file' }
-import _r117 from '../../../dist/island-chunks/schema-ai-agent-island-jrs9ppz1.js' with { type: 'file' }
-import _r118 from '../../../dist/island-chunks/schema-form-editor-island-aztkkmv3.js' with { type: 'file' }
-import _r119 from '../../../dist/island-chunks/schema-json-editor-island-ahm47hn1.js' with { type: 'file' }
-import _r120 from '../../../dist/island-chunks/schema-yaml-editor-island-q9b7wswr.js' with { type: 'file' }
-import _r121 from '../../../dist/island-chunks/scroll-area-island-8d0712hn.js' with { type: 'file' }
-import _r122 from '../../../dist/island-chunks/search-list-island-f677rh67.js' with { type: 'file' }
-import _r123 from '../../../dist/island-chunks/select-island-k6v08f81.js' with { type: 'file' }
-import _r124 from '../../../dist/island-chunks/slider-island-ds0ezcew.js' with { type: 'file' }
-import _r125 from '../../../dist/island-chunks/switch-island-mg10m48r.js' with { type: 'file' }
-import _r126 from '../../../dist/island-chunks/timeline-island-nzg0s3an.js' with { type: 'file' }
-import _r127 from '../../../dist/island-chunks/toggle-group-island-4rzeqgpg.js' with { type: 'file' }
-import _r128 from '../../../dist/island-chunks/toggle-island-2vg2bzs7.js' with { type: 'file' }
-import _r129 from '../../../dist/island-chunks/tooltip-island-jf5chvr3.js' with { type: 'file' }
+import _r105 from '../../../dist/island-chunks/kanban-island-0wry6dpx.js' with { type: 'file' }
+import _r106 from '../../../dist/island-chunks/kpi-island-3q0r2zkw.js' with { type: 'file' }
+import _r107 from '../../../dist/island-chunks/list-island-rgyjbxg3.js' with { type: 'file' }
+import _r108 from '../../../dist/island-chunks/menu-island-g05j0hj0.js' with { type: 'file' }
+import _r109 from '../../../dist/island-chunks/menubar-island-tfxzwwjp.js' with { type: 'file' }
+import _r110 from '../../../dist/island-chunks/nav-menu-island-365jwr9z.js' with { type: 'file' }
+import _r111 from '../../../dist/island-chunks/page-search-island-4sgmhzy1.js' with { type: 'file' }
+import _r112 from '../../../dist/island-chunks/popover-island-7z8ar2a0.js' with { type: 'file' }
+import _r113 from '../../../dist/island-chunks/presence-indicator-island-k12xh3x7.js' with { type: 'file' }
+import _r114 from '../../../dist/island-chunks/radio-island-m9z6nt4s.js' with { type: 'file' }
+import _r115 from '../../../dist/island-chunks/record-field-system-island-j5q2y4e0.js' with { type: 'file' }
+import _r116 from '../../../dist/island-chunks/rich-text-editor-ma2jaz6y.js' with { type: 'file' }
+import _r117 from '../../../dist/island-chunks/schema-ai-agent-island-dt6ce4n2.js' with { type: 'file' }
+import _r118 from '../../../dist/island-chunks/schema-form-editor-island-1yc9dqp7.js' with { type: 'file' }
+import _r119 from '../../../dist/island-chunks/schema-json-editor-island-pjendqmq.js' with { type: 'file' }
+import _r120 from '../../../dist/island-chunks/schema-yaml-editor-island-khjqen9p.js' with { type: 'file' }
+import _r121 from '../../../dist/island-chunks/scroll-area-island-p5h70183.js' with { type: 'file' }
+import _r122 from '../../../dist/island-chunks/search-list-island-nzhs0esd.js' with { type: 'file' }
+import _r123 from '../../../dist/island-chunks/select-island-7rgk8rsf.js' with { type: 'file' }
+import _r124 from '../../../dist/island-chunks/slider-island-2k9meveh.js' with { type: 'file' }
+import _r125 from '../../../dist/island-chunks/switch-island-212d2c5m.js' with { type: 'file' }
+import _r126 from '../../../dist/island-chunks/timeline-island-h1y2n07j.js' with { type: 'file' }
+import _r127 from '../../../dist/island-chunks/toggle-group-island-55phqhxm.js' with { type: 'file' }
+import _r128 from '../../../dist/island-chunks/toggle-island-vedsj6w4.js' with { type: 'file' }
+import _r129 from '../../../dist/island-chunks/tooltip-island-q3f0txqs.js' with { type: 'file' }
 
 /** Pre-built client/island/script assets, keyed by served filename. */
 export const RUNTIME_ASSETS = {
@@ -152,131 +152,131 @@ export const RUNTIME_ASSETS = {
     "scroll-animation.js": _r3,
   },
   islands: {
-    "accordion-island-aj9km6dd.js": _r4,
-    "admin-sidebar-island-h5fvess8.js": _r5,
-    "api-key-manager-island-nqnt4jkd.js": _r6,
-    "calendar-island-h4jcdyjw.js": _r7,
-    "chart-island-kc0xac01.js": _r8,
-    "checkbox-island-mn83z4xt.js": _r9,
-    "comment-count-island-3w4xhz0w.js": _r10,
-    "comment-thread-island-yqrfc8az.js": _r11,
-    "design-system-share-island-ha7hded0.js": _r12,
-    "dialog-island-rdy38d83.js": _r13,
-    "drawer-island-2x73mf8c.js": _r14,
-    "gallery-island-vxvhejrw.js": _r15,
-    "hover-card-island-0q2e2m50.js": _r16,
-    "index-apev4anb.js": _r17,
-    "index-m3shyakj.js": _r18,
-    "index-m606f314.js": _r19,
-    "island-client-08awjf3s.js": _r20,
-    "island-client-0cbj4m9h.js": _r21,
-    "island-client-0vbj49nr.js": _r22,
-    "island-client-0x9acd14.js": _r23,
-    "island-client-1mpve24z.js": _r24,
-    "island-client-1twknb7g.js": _r25,
-    "island-client-1zpr6rq6.js": _r26,
-    "island-client-244gt8ct.js": _r27,
-    "island-client-34xr0nmt.js": _r28,
-    "island-client-3cn571td.js": _r29,
-    "island-client-3qprt6f6.js": _r30,
-    "island-client-3w46c4k1.js": _r31,
-    "island-client-3wnx5sx3.js": _r32,
-    "island-client-47y3kdpc.js": _r33,
-    "island-client-4py0b71q.js": _r34,
-    "island-client-4rre3j9b.js": _r35,
-    "island-client-4vpfe2s7.js": _r36,
-    "island-client-50jx0bqn.js": _r37,
-    "island-client-5rzk5shv.js": _r38,
-    "island-client-6g5m1e5q.js": _r39,
-    "island-client-6tr2gved.js": _r40,
-    "island-client-7861afs4.js": _r41,
-    "island-client-7kxxkq9h.js": _r42,
-    "island-client-84vgs23d.js": _r43,
-    "island-client-8yepghrp.js": _r44,
-    "island-client-983v620p.js": _r45,
-    "island-client-9dsv6b82.js": _r46,
-    "island-client-9skwygqm.js": _r47,
-    "island-client-9t82ax5b.js": _r48,
-    "island-client-9yq173d8.js": _r49,
-    "island-client-ahjhdztq.js": _r50,
-    "island-client-b3zmep66.js": _r51,
-    "island-client-b79pm438.js": _r52,
-    "island-client-c59xa6jz.js": _r53,
-    "island-client-c5f8wth4.js": _r54,
-    "island-client-cejkmr8g.js": _r55,
-    "island-client-cfknen96.js": _r56,
-    "island-client-cgh622v9.js": _r57,
-    "island-client-ctd9k9tw.js": _r58,
-    "island-client-d8hvmfrb.js": _r59,
-    "island-client-ec2fgwty.js": _r60,
-    "island-client-eqegqyx0.js": _r61,
-    "island-client-fh3pwfav.js": _r62,
-    "island-client-ftf26t1j.js": _r63,
-    "island-client-gsqtaj4g.js": _r64,
-    "island-client-gty78str.js": _r65,
-    "island-client-gwbbf1rx.js": _r66,
-    "island-client-hbp674nb.js": _r67,
-    "island-client-hftwkxbj.js": _r68,
-    "island-client-hw8cwngp.js": _r69,
-    "island-client-hx8jwxc9.js": _r70,
-    "island-client-j9hk176g.js": _r71,
-    "island-client-jq9ynfd8.js": _r72,
-    "island-client-jqee5v8b.js": _r73,
-    "island-client-jrkb7a1n.js": _r74,
-    "island-client-mm5gwc2v.js": _r75,
-    "island-client-mwdseve2.js": _r76,
-    "island-client-n13p6agp.js": _r77,
-    "island-client-nae164fk.js": _r78,
-    "island-client-nj1q1xzy.js": _r79,
-    "island-client-njtndy79.js": _r80,
-    "island-client-nkee2mb2.js": _r81,
-    "island-client-nstb01dc.js": _r82,
-    "island-client-p3qgt26r.js": _r83,
-    "island-client-pn08480j.js": _r84,
-    "island-client-pzv5nt95.js": _r85,
-    "island-client-qmf58hjf.js": _r86,
-    "island-client-sgsy3tx5.js": _r87,
-    "island-client-t2fssp26.js": _r88,
-    "island-client-t8e3tc94.js": _r89,
-    "island-client-tpy5n78b.js": _r90,
-    "island-client-vhbxw8mj.js": _r91,
-    "island-client-wb6f6c67.js": _r92,
-    "island-client-wcjzhq6t.js": _r93,
-    "island-client-wmqds76x.js": _r94,
-    "island-client-wyswke4g.js": _r95,
-    "island-client-x9dmrhbb.js": _r96,
-    "island-client-xejnm0fx.js": _r97,
-    "island-client-xqtb0ttc.js": _r98,
-    "island-client-ybf7dtag.js": _r99,
-    "island-client-yf06a6e7.js": _r100,
-    "island-client-ym6jr9tk.js": _r101,
-    "island-client-z123amnm.js": _r102,
-    "island-client-z4gpe2rb.js": _r103,
+    "accordion-island-8kj2x4sf.js": _r4,
+    "admin-sidebar-island-cjabamkk.js": _r5,
+    "api-key-manager-island-9bnkna3n.js": _r6,
+    "calendar-island-kc8ajtq1.js": _r7,
+    "chart-island-yzyc4t2x.js": _r8,
+    "checkbox-island-tffewmn1.js": _r9,
+    "comment-count-island-czaqms22.js": _r10,
+    "comment-thread-island-syhxh3r8.js": _r11,
+    "design-system-share-island-xghwdfs8.js": _r12,
+    "dialog-island-gfa43c6s.js": _r13,
+    "drawer-island-h9ywdyhh.js": _r14,
+    "gallery-island-79r5xaky.js": _r15,
+    "hover-card-island-sycayd3n.js": _r16,
+    "index-d54adh60.js": _r17,
+    "index-m98cpx6j.js": _r18,
+    "index-zfm45kd6.js": _r19,
+    "island-client-0bpjtryx.js": _r20,
+    "island-client-0te8rwgw.js": _r21,
+    "island-client-1j9srqcx.js": _r22,
+    "island-client-1rdsjmdn.js": _r23,
+    "island-client-241r2se3.js": _r24,
+    "island-client-27sxq85h.js": _r25,
+    "island-client-2cgjrh15.js": _r26,
+    "island-client-2h2vqvdm.js": _r27,
+    "island-client-2rheeja5.js": _r28,
+    "island-client-2ycvkyhk.js": _r29,
+    "island-client-365h15dv.js": _r30,
+    "island-client-3smzfqvv.js": _r31,
+    "island-client-3wpk5ga3.js": _r32,
+    "island-client-4bjk70c2.js": _r33,
+    "island-client-4vqmkzmz.js": _r34,
+    "island-client-5m0th1be.js": _r35,
+    "island-client-61mc86jm.js": _r36,
+    "island-client-6gknahte.js": _r37,
+    "island-client-6khfecft.js": _r38,
+    "island-client-7bmpetfc.js": _r39,
+    "island-client-7c3cgw6j.js": _r40,
+    "island-client-7fsb84v5.js": _r41,
+    "island-client-7vtw9v9w.js": _r42,
+    "island-client-84gb1f3c.js": _r43,
+    "island-client-84vgs23d.js": _r44,
+    "island-client-860vk7mw.js": _r45,
+    "island-client-99mz3a9y.js": _r46,
+    "island-client-9ak4yeyy.js": _r47,
+    "island-client-9bbh5pfe.js": _r48,
+    "island-client-9d1byvsg.js": _r49,
+    "island-client-9k3spsdc.js": _r50,
+    "island-client-9yq173d8.js": _r51,
+    "island-client-a2kyy3g3.js": _r52,
+    "island-client-aep463pj.js": _r53,
+    "island-client-be6msknr.js": _r54,
+    "island-client-br8v6p0t.js": _r55,
+    "island-client-c0m9ad1q.js": _r56,
+    "island-client-c54vdte4.js": _r57,
+    "island-client-c7pbjyge.js": _r58,
+    "island-client-cfknen96.js": _r59,
+    "island-client-cgh622v9.js": _r60,
+    "island-client-ch2a8vjf.js": _r61,
+    "island-client-d85eypkd.js": _r62,
+    "island-client-dxt0wkd9.js": _r63,
+    "island-client-e1wdkkvg.js": _r64,
+    "island-client-essq8ps9.js": _r65,
+    "island-client-ftz9stqe.js": _r66,
+    "island-client-fz94da83.js": _r67,
+    "island-client-fze2yfns.js": _r68,
+    "island-client-gfrvn6db.js": _r69,
+    "island-client-gtde2h17.js": _r70,
+    "island-client-gzay3xft.js": _r71,
+    "island-client-h7dc3b70.js": _r72,
+    "island-client-hbp674nb.js": _r73,
+    "island-client-hpqqywc1.js": _r74,
+    "island-client-j3zmx7jk.js": _r75,
+    "island-client-j8srp76w.js": _r76,
+    "island-client-k1ddk8py.js": _r77,
+    "island-client-m6qmndd1.js": _r78,
+    "island-client-m87rnvby.js": _r79,
+    "island-client-mj5xm5e9.js": _r80,
+    "island-client-mxz1gwe8.js": _r81,
+    "island-client-mzkbp253.js": _r82,
+    "island-client-n0jdpz2r.js": _r83,
+    "island-client-p3tf3hg7.js": _r84,
+    "island-client-p8mm8kny.js": _r85,
+    "island-client-paek684y.js": _r86,
+    "island-client-pj6dgyep.js": _r87,
+    "island-client-pn2sp1ym.js": _r88,
+    "island-client-qecbzewc.js": _r89,
+    "island-client-r32td23y.js": _r90,
+    "island-client-rxam6m1q.js": _r91,
+    "island-client-s401x8ha.js": _r92,
+    "island-client-secpc6xe.js": _r93,
+    "island-client-tdrf27yc.js": _r94,
+    "island-client-tj7975ab.js": _r95,
+    "island-client-tn56p9mp.js": _r96,
+    "island-client-vgevn9av.js": _r97,
+    "island-client-w6qfys1a.js": _r98,
+    "island-client-xct9kx4q.js": _r99,
+    "island-client-xqtb0ttc.js": _r100,
+    "island-client-y6ktafp2.js": _r101,
+    "island-client-ybf7dtag.js": _r102,
+    "island-client-zfh9d31y.js": _r103,
     "island-entry.js": _r104,
-    "kanban-island-y7tqpc55.js": _r105,
-    "kpi-island-ts9rwakh.js": _r106,
-    "list-island-yk6pbnmr.js": _r107,
-    "menu-island-a56z97rh.js": _r108,
-    "menubar-island-hhe920sw.js": _r109,
-    "nav-menu-island-wdv5ysgn.js": _r110,
-    "page-search-island-v5ksr2j0.js": _r111,
-    "popover-island-gfe3c1zh.js": _r112,
-    "presence-indicator-island-hb5a0bwg.js": _r113,
-    "radio-island-q3mktwd0.js": _r114,
-    "record-field-system-island-cjwn0snk.js": _r115,
-    "rich-text-editor-qxen2dbq.js": _r116,
-    "schema-ai-agent-island-jrs9ppz1.js": _r117,
-    "schema-form-editor-island-aztkkmv3.js": _r118,
-    "schema-json-editor-island-ahm47hn1.js": _r119,
-    "schema-yaml-editor-island-q9b7wswr.js": _r120,
-    "scroll-area-island-8d0712hn.js": _r121,
-    "search-list-island-f677rh67.js": _r122,
-    "select-island-k6v08f81.js": _r123,
-    "slider-island-ds0ezcew.js": _r124,
-    "switch-island-mg10m48r.js": _r125,
-    "timeline-island-nzg0s3an.js": _r126,
-    "toggle-group-island-4rzeqgpg.js": _r127,
-    "toggle-island-2vg2bzs7.js": _r128,
-    "tooltip-island-jf5chvr3.js": _r129,
+    "kanban-island-0wry6dpx.js": _r105,
+    "kpi-island-3q0r2zkw.js": _r106,
+    "list-island-rgyjbxg3.js": _r107,
+    "menu-island-g05j0hj0.js": _r108,
+    "menubar-island-tfxzwwjp.js": _r109,
+    "nav-menu-island-365jwr9z.js": _r110,
+    "page-search-island-4sgmhzy1.js": _r111,
+    "popover-island-7z8ar2a0.js": _r112,
+    "presence-indicator-island-k12xh3x7.js": _r113,
+    "radio-island-m9z6nt4s.js": _r114,
+    "record-field-system-island-j5q2y4e0.js": _r115,
+    "rich-text-editor-ma2jaz6y.js": _r116,
+    "schema-ai-agent-island-dt6ce4n2.js": _r117,
+    "schema-form-editor-island-1yc9dqp7.js": _r118,
+    "schema-json-editor-island-pjendqmq.js": _r119,
+    "schema-yaml-editor-island-khjqen9p.js": _r120,
+    "scroll-area-island-p5h70183.js": _r121,
+    "search-list-island-nzhs0esd.js": _r122,
+    "select-island-7rgk8rsf.js": _r123,
+    "slider-island-2k9meveh.js": _r124,
+    "switch-island-212d2c5m.js": _r125,
+    "timeline-island-h1y2n07j.js": _r126,
+    "toggle-group-island-55phqhxm.js": _r127,
+    "toggle-island-vedsj6w4.js": _r128,
+    "tooltip-island-q3f0txqs.js": _r129,
   },
 }

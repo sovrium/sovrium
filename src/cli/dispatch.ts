@@ -38,6 +38,14 @@ export interface ParsedArgs {
   readonly templateName?: string
   readonly subcommand?: string
   readonly appName?: string
+  /**
+   * `--typescript` — scaffold a typed `app.ts` instead of `app.yaml` (`init`).
+   *
+   * Deliberately an EITHER/OR rather than an addition: `app.yaml` shadows
+   * `app.ts` in `DEFAULT_CONFIG_FILENAMES`, so scaffolding both would leave the
+   * typed config inert and edited-but-never-read.
+   */
+  readonly typescript?: boolean
   readonly forceFlag: boolean
   /**
    * Static-asset directory for `start` / `build`.
@@ -81,6 +89,15 @@ export interface ParsedArgs {
   readonly seedTables?: readonly string[]
   /** `--dry-run` — report the plan, write nothing. */
   readonly dryRun?: boolean
+  /**
+   * `--check` — answer whether the database is safe to migrate, write nothing.
+   *
+   * Distinct from `--dry-run` rather than a mode of it: a dry run answers "what
+   * would change", a check answers "would it survive". They exit on different
+   * grounds — a check exits 1 on an unsafe database that a dry run would happily
+   * describe — so collapsing them would make one of the two exit codes a lie.
+   */
+  readonly check?: boolean
   /**
    * `--format <value>` — the RAW string, deliberately unvalidated here.
    *
@@ -152,8 +169,15 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '-w',
   '--force',
   '--no-publicDir',
-  // `sovrium seed --dry-run`
+  // `sovrium init --typescript`. Absent from this set, `findUnknownFlag`
+  // rejects it outright — a refusal that reads like operator error rather
+  // than a gap.
+  '--typescript',
+  // `sovrium seed --dry-run`, `sovrium migrate --dry-run`
   '--dry-run',
+  // `sovrium migrate --check`. Absent from this set, `findUnknownFlag` rejects
+  // the flag outright, so the mode is unreachable however well it is wired.
+  '--check',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -264,11 +288,13 @@ interface ParsedFlags {
    */
   readonly publicDir: string | false | undefined
   readonly appName: string | undefined
+  readonly typescript: boolean
   readonly password: string | undefined
   readonly seedDir: string | undefined
   readonly seedMode: string | undefined
   readonly seedTables: readonly string[]
   readonly dryRun: boolean
+  readonly check: boolean
   readonly format: string | undefined
 }
 
@@ -290,11 +316,13 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   templateName: getFlagValue(argv, '--template'),
   publicDir: resolvePublicDirFlag(argv),
   appName: getFlagValue(argv, '--name'),
+  typescript: argv.includes('--typescript'),
   password: getFlagValue(argv, '--password'),
   seedDir: getFlagValue(argv, '--dir'),
   seedMode: getFlagValue(argv, '--mode'),
   seedTables: getFlagValues(argv, '--table'),
   dryRun: argv.includes('--dry-run'),
+  check: argv.includes('--check'),
   format: getFlagValue(argv, '--format'),
 })
 
@@ -326,6 +354,7 @@ const buildStandardResult = (
     templateName: flags.templateName,
     subcommand,
     appName: flags.appName,
+    typescript: flags.typescript,
     forceFlag: flags.forceFlag,
     publicDir: flags.publicDir,
     positionalArg,
@@ -335,6 +364,7 @@ const buildStandardResult = (
     seedMode: flags.seedMode,
     seedTables: flags.seedTables,
     dryRun: flags.dryRun,
+    check: flags.check,
     format: flags.format,
   }
 }

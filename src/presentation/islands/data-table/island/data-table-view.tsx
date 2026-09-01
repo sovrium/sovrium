@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useState } from 'react'
 import { ImportCsvDialog } from '../import-csv-dialog'
 import { SaveStatusIndicator } from '../save-status-indicator'
 import { AlternateView } from './alternate-view'
@@ -13,6 +14,7 @@ import { ConflictToast } from './conflict-toast'
 import { CreateRecordDialog } from './create-record-dialog'
 import { DeleteViewConfirmDialog } from './delete-view-confirm-dialog'
 import { FilterOverlay } from './filter-overlay'
+import { LoadMoreControl } from './load-more'
 import { PaginationControls } from './pagination'
 import { SaveViewDialog } from './save-view-dialog'
 import { SortOverlay } from './sort-overlay'
@@ -63,6 +65,20 @@ interface DataTableViewProps {
   readonly toolbarConfig?: DataTableToolbar
   readonly bulkActionsConfig?: readonly DataTableBulkAction[]
   readonly paginationConfig?: DataTablePagination
+  /**
+   * The grid is reading a CURSOR feed. Suppresses the page-number pager and its
+   * "x–y of N" summary even when `paginationConfig` is declared: a cursor
+   * envelope reports no total, so the pager could only invent one from the page
+   * length — which is precisely what produced "1–25 of 25" over 30 rows, beside
+   * a "Page 1 of 1" and a permanently disabled Next.
+   */
+  readonly cursorPaged?: boolean
+  /** The endpoint reports more rows behind the ones on screen. */
+  readonly hasMore?: boolean
+  /** A continuation is in flight. */
+  readonly isLoadingMore?: boolean
+  /** Fetch the next page and append it to the rows already shown. */
+  readonly onLoadMore?: () => void
   readonly groupByConfig?: DataTableGroupBy
   /** Whole-view record count per group value backing the group headers. */
   readonly groupCounts?: Readonly<Record<string, number>>
@@ -101,6 +117,15 @@ interface DataTableViewProps {
   readonly editingCell?: EditingCell
   readonly autoSave?: InlineAutoSave
   readonly saveError?: string
+  /**
+   * Set when the most recent save was REFUSED because the record changed
+   * underneath it, rather than failing. Surfaced separately from
+   * {@link saveError} because the two call for opposite responses: a failed
+   * save should be retried, a refused one must not be.
+   */
+  readonly saveConflict?: string
+  /** Re-issues the write that exhausted its automatic retries. */
+  readonly onRetrySave?: () => void
   /** Current lifecycle of the most recent inline save. */
   readonly saveStatus?: SaveStatus
   /** The cell the {@link saveStatus} is reporting on. */
@@ -212,6 +237,10 @@ export function DataTableView({
   toolbarConfig,
   bulkActionsConfig,
   paginationConfig,
+  cursorPaged = false,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
   groupByConfig,
   groupCounts,
   groupAggregations,
@@ -235,6 +264,8 @@ export function DataTableView({
   editingCell,
   autoSave,
   saveError,
+  saveConflict,
+  onRetrySave,
   saveStatus,
   saveTarget,
   saveIndicator,
@@ -279,6 +310,12 @@ export function DataTableView({
   // Export is built-in native behavior — toolbar always shown
   const showToolbar = true
 
+  // A typed search term that has not yet reached the grid (the debounce window).
+  // While it is open, everything on screen answers the previous question, so the
+  // continuation affordance must not act on it — see `SearchToolbar`'s
+  // `onPendingChange`.
+  const [searchPending, setSearchPending] = useState(false)
+
   // The grid and the alternate views are mutually exclusive: a switch REPLACES
   // the table rather than rendering a second surface beside it. Pagination
   // belongs to the grid, so it goes with it.
@@ -322,9 +359,35 @@ export function DataTableView({
         <div
           role="alert"
           data-save-status="error"
-          className="border-error-border bg-error-bg text-error-fg border-b px-4 py-2 text-sm"
+          className="border-error-border bg-error-bg text-error-fg flex items-center gap-3 border-b px-4 py-2 text-sm"
         >
-          Error saving changes: {saveError}
+          <span>Error saving changes: {saveError}</span>
+          {onRetrySave && (
+            <button
+              type="button"
+              onClick={onRetrySave}
+              className="border-error-border hover:bg-error-bg cursor-pointer rounded-sm border px-2 py-0.5 font-medium underline-offset-2 hover:underline"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+      {/*
+        A refused save, not a failed one. It gets its own alert because the
+        remedy differs: there is nothing to retry — the record moved on — so
+        offering a retry control here would invite the user to walk into the
+        same refusal. The wording names the conflict rather than describing a
+        failure, since from the user's point of view nothing broke.
+      */}
+      {saveConflict && (
+        <div
+          role="alert"
+          data-save-status="conflict"
+          className="border-warning-border bg-warning-bg text-warning-fg border-b px-4 py-2 text-sm"
+        >
+          Save conflict: this record was changed by another user. Reload to see the latest version
+          before editing again.
         </div>
       )}
       {conflict && onDismissConflict && (
@@ -343,6 +406,7 @@ export function DataTableView({
           selectionConfig={selectionConfig}
           globalFilter={globalFilter}
           setGlobalFilter={setGlobalFilter}
+          onSearchPendingChange={setSearchPending}
           importDialogOpen={ui.importDialogOpen}
           onOpenImportDialog={ui.onOpenImportDialog}
           onOpenFilterOverlay={ui.onOpenFilterOverlay}
@@ -509,11 +573,21 @@ export function DataTableView({
           onToggleGroupCollapsed={ui.toggleGroupCollapsed}
         />
       )}
-      {!ui.importDialogOpen && showGrid && paginationConfig && (
+      {/* A numbered pager and a cursor continuation are alternative answers to
+          "where am I in this list", never both — so a declared `pagination`
+          yields to the feed's own shape rather than inventing a total for it. */}
+      {!ui.importDialogOpen && showGrid && paginationConfig && !cursorPaged && (
         <PaginationControls
           table={table}
           total={totalRecords}
           pageSizeOptions={paginationConfig.pageSizeOptions}
+        />
+      )}
+      {!ui.importDialogOpen && showGrid && onLoadMore && (
+        <LoadMoreControl
+          hasMore={hasMore}
+          isLoading={isLoadingMore || searchPending}
+          onLoadMore={onLoadMore}
         />
       )}
       <ImportCsvDialog

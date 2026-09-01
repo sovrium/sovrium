@@ -113,6 +113,16 @@ export interface TriggerData {
    */
   readonly mentions?: readonly string[]
   /**
+   * EMAIL ADDRESSES of the mentioned users, in mention order and excluding
+   * the comment's own author. Surfaces at `{{trigger.mentionedEmails}}`.
+   *
+   * A sibling of `mentions` rather than a change to it: `mentions` is the
+   * documented `UUID[]` payload and stays that way, but an id list is not a
+   * usable `email.send` `to`. This is the same split GAP-13 made for
+   * `threadParticipants`.
+   */
+  readonly mentionedEmails?: readonly string[]
+  /**
    * User payload emitted by the auth-event trigger (AU-03 — sign-up /
    * sign-in / sign-out / password-reset / email-verified). Surfaces at
    * `{{trigger.data.user.<field>}}` so action props can reference fields
@@ -231,6 +241,7 @@ export const buildAutomationContext = (
     'record',
     'threadParticipants',
     'mentions',
+    'mentionedEmails',
     'input',
     'caller',
     'depth',

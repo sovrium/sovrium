@@ -6,17 +6,22 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { Effect } from 'effect'
+import { StorageService } from '@/application/ports/services/storage-service'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   createdByFieldNames,
   deletedByFieldNames,
   updatedByFieldNames,
 } from '@/domain/services/authorship-fields'
+import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/utils/avatar-url'
 import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { appendAuditEntryToDbTx } from '@/infrastructure/audit-log/drizzle-store'
 import { db } from '@/infrastructure/database'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
-import { logInfo } from '@/infrastructure/logging/logger'
+import { logError, logInfo } from '@/infrastructure/logging/logger'
+import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
+import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { PURGED_AUTH_TABLES, PURGED_SYSTEM_TABLES } from './account-purge-coverage'
 import { nowEpochMsSqlLiteral } from './sql/dialect-ddl'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
@@ -612,10 +617,68 @@ function buildPurgeAuditEntry(
  *   (see {@link PurgeTableAuthorship}); build them with
  *   {@link resolvePurgeTableAuthorship}.
  */
+/**
+ * The user's stored `auth.user.image`, read BEFORE the erasure transaction runs.
+ *
+ * The purge deletes the row, so this value is unrecoverable afterwards — and it
+ * is the only reachable handle on the user's avatar object. Attribution cannot
+ * substitute for it: `file_storage_metadata.uploaded_by_id` is written by
+ * NOTHING (it appears only in schema and manifest files), so a purge predicate
+ * on that column matches zero rows for every user. The column the avatar route
+ * itself wrote is what names the object.
+ */
+async function readStoredAvatarImage(userId: string): Promise<string | null> {
+  const rows = (await executeRaw(
+    db,
+    sql`SELECT image FROM ${authTableRef('user')} WHERE id = ${userId}`
+  )) as unknown as readonly { image: string | null }[]
+  // eslint-disable-next-line unicorn/no-null -- `null` is the column's own "no avatar" value
+  return rows[0]?.image ?? null
+}
+
+/**
+ * Delete the erased user's avatar object from the blob store.
+ *
+ * Runs AFTER the transaction commits, deliberately. Storage is not
+ * transactional, so a delete issued inside the transaction would be permanent
+ * even if the transaction then rolled back — erasing the file of an account
+ * that still exists. Committing first means the worst case is the opposite and
+ * far safer one: a row that is gone and an object that is not, which the log
+ * line below makes findable.
+ *
+ * The transform-cache eviction is not housekeeping either. `serveFileDownload`
+ * answers from a process-local LRU before it ever reaches storage, so any avatar
+ * that has been fetched once would keep being served over HTTP after erasure —
+ * retained personal data (Art. 17) that no amount of SQL would remove.
+ *
+ * A value the instance did not issue (a legacy external URL) names no local
+ * object and is skipped.
+ */
+async function removeErasedAvatarObject(userId: string, image: string | null): Promise<void> {
+  const key = avatarStorageKeyFromUrl(image)
+  if (key === undefined) return
+
+  const program = Effect.gen(function* () {
+    const storage = yield* StorageService
+    // Bracket notation dodges a `drizzle/enforce-delete-with-where` false
+    // positive on the storage port's `delete` — same workaround as `buckets.ts`.
+    yield* storage['delete'](key, AVATAR_BUCKET_NAME)
+  }).pipe(Effect.provide(StorageServiceLive), Effect.result)
+
+  const result = await Effect.runPromise(program)
+  if (result._tag === 'Failure') {
+    logError(`[account-purge] avatar object ${key} survived erasure of ${userId}`, result.failure)
+  }
+  evictTransformCacheForKey(key)
+}
+
 export async function purgeAccount(
   userId: string,
   appTables: readonly PurgeTableAuthorship[]
 ): Promise<void> {
+  // Read the avatar BEFORE the row is deleted — see {@link readStoredAvatarImage}.
+  const storedAvatarImage = await readStoredAvatarImage(userId)
+
   // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside a transaction boundary
   await db.transaction(async (tx) => {
     // Capture the email BEFORE deleting the user row — it lands in the
@@ -760,6 +823,11 @@ export async function purgeAccount(
     // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await executeRaw(tx, sql`DELETE FROM ${authTableRef('user')} WHERE id = ${userId}`)
   })
+
+  // The row is gone; now shed the personal-data OBJECT it pointed at. Post-commit
+  // for the reason given on {@link removeErasedAvatarObject}.
+  // eslint-disable-next-line functional/no-expression-statements -- storage side effect
+  await removeErasedAvatarObject(userId, storedAvatarImage)
 
   logInfo(`[account-purge] Hard-deleted account ${userId}`)
 }

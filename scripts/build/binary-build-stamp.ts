@@ -36,7 +36,7 @@
  *     restored backup, some editors' atomic-save paths). The binary then looks
  *     newer than inputs it was never built from.
  *   - `bun run build:binary` REGENERATES several inputs in place
- *     (`generated-css-assets.ts`, the three `*.generated.ts` manifests) before
+ *     (`generated-css-assets.ts`, the four `*.generated.ts` manifests) before
  *     compiling, so the mtime ordering after a build depends on step ordering
  *     inside the build script rather than on anything the gate controls.
  *

@@ -11,9 +11,37 @@ import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from '.
 import type { App } from '@/domain/models/app'
 
 /**
+ * The names `?fields=` accepts that are NOT user columns.
+ *
+ * They live at the ROOT of the response envelope rather than inside `fields`,
+ * so a selection may name one but never places it in the selected object.
+ *
+ * Exported because two layers held two different vocabularies for the same
+ * question: this module has always served `id`, `createdAt` AND `updatedAt`,
+ * while `validateFieldsParam` allowed only `id` — so `?fields=id,createdAt` was
+ * refused with a 400 before reaching the selection that knew exactly how to
+ * answer it. One set, imported by both, is what keeps them from drifting apart
+ * again.
+ */
+export const SELECTABLE_SYSTEM_FIELDS: ReadonlySet<string> = new Set([
+  'id',
+  'createdAt',
+  'updatedAt',
+])
+
+/**
  * Apply field selection to transform records into flat structure
  * When fields parameter is specified, returns records with only selected fields
  * Maintains Airtable-style structure: { id, fields: { ... }, createdAt, updatedAt }
+ *
+ * The envelope is carried through UNTOUCHED and only `fields` is rebuilt, which
+ * is the whole of the correction here. The previous version reconstructed each
+ * record from four named keys, so `createdBy` / `updatedBy` / `deletedBy`
+ * silently vanished whenever a selection was supplied — authorship metadata
+ * that sits beside `id` at the root and has no business disappearing because
+ * the caller narrowed which USER columns it wanted. Spreading also means the
+ * next root-level key is preserved by default instead of needing this function
+ * edited to keep it.
  */
 export function applyFieldSelection(
   records: readonly TransformedRecord[],
@@ -27,7 +55,7 @@ export function applyFieldSelection(
       Record<string, RecordFieldValue | FormattedFieldValue>
     >((acc, fieldName) => {
       // Skip system fields (id, createdAt, updatedAt) - they're at root level
-      if (fieldName === 'id' || fieldName === 'createdAt' || fieldName === 'updatedAt') {
+      if (SELECTABLE_SYSTEM_FIELDS.has(fieldName)) {
         return acc
       }
 
@@ -39,13 +67,7 @@ export function applyFieldSelection(
       return acc
     }, {})
 
-    // Return record with Airtable structure, only selected fields
-    return {
-      id: record.id,
-      fields: selectedFields,
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-    }
+    return { ...record, fields: selectedFields }
   })
 }
 
@@ -59,8 +81,57 @@ export function applyFieldSelection(
  */
 export const DEFAULT_PAGE_SIZE = 10
 
+/** The pagination block of a list response. */
+export interface PaginationMeta {
+  readonly page: number
+  readonly limit: number
+  readonly offset: number
+  readonly total: number
+  readonly totalPages: number
+  readonly hasNextPage: boolean
+  readonly hasPreviousPage: boolean
+}
+
 /**
- * Apply pagination to records and calculate pagination metadata
+ * Describe the page a request asked for, WITHOUT cutting it.
+ *
+ * Split out from {@link applyPagination} because the two halves stopped being
+ * inseparable the moment `LIMIT`/`OFFSET` moved into SQL. On that path the
+ * engine has already returned exactly one page, and slicing it a second time
+ * with the same offset is not a no-op — `page2.slice(4, 8)` over four rows is
+ * EMPTY. The failure has the nastiest possible shape: page 1 (offset 0) stays
+ * perfect while every later page silently returns nothing.
+ *
+ * `total` is therefore a parameter rather than something inferred from the
+ * array. Under pushdown the array is one window and the count comes from a
+ * separate `COUNT(*)` over the same filter.
+ */
+export function buildPaginationMeta(
+  totalRecords: number,
+  limit?: number,
+  offset?: number
+): PaginationMeta {
+  const paginationLimit = limit ?? DEFAULT_PAGE_SIZE
+  const paginationOffset = offset ?? 0
+
+  return {
+    page: Math.floor(paginationOffset / paginationLimit) + 1,
+    limit: paginationLimit,
+    offset: paginationOffset,
+    total: totalRecords,
+    totalPages: Math.ceil(totalRecords / paginationLimit),
+    hasNextPage: paginationOffset + paginationLimit < totalRecords,
+    hasPreviousPage: paginationOffset > 0,
+  }
+}
+
+/**
+ * Apply pagination to records and calculate pagination metadata.
+ *
+ * The in-memory route: the caller holds every matching row and this cuts the
+ * window out of it. Still used wherever the whole result set is genuinely
+ * needed in memory — the `groupBy` path, which partitions the FULL array, and
+ * the trash listing.
  */
 export function applyPagination(
   records: readonly TransformedRecord[],
@@ -69,34 +140,13 @@ export function applyPagination(
   offset?: number
 ): {
   readonly paginatedRecords: readonly TransformedRecord[]
-  readonly pagination: {
-    readonly page: number
-    readonly limit: number
-    readonly offset: number
-    readonly total: number
-    readonly totalPages: number
-    readonly hasNextPage: boolean
-    readonly hasPreviousPage: boolean
-  }
+  readonly pagination: PaginationMeta
 } {
-  const paginationLimit = limit ?? DEFAULT_PAGE_SIZE
-  const paginationOffset = offset ?? 0
-  const paginatedRecords = records.slice(paginationOffset, paginationOffset + paginationLimit)
-
-  const totalPages = Math.ceil(totalRecords / paginationLimit)
-  const currentPage = Math.floor(paginationOffset / paginationLimit) + 1
+  const pagination = buildPaginationMeta(totalRecords, limit, offset)
 
   return {
-    paginatedRecords,
-    pagination: {
-      page: currentPage,
-      limit: paginationLimit,
-      offset: paginationOffset,
-      total: totalRecords,
-      totalPages,
-      hasNextPage: paginationOffset + paginationLimit < totalRecords,
-      hasPreviousPage: paginationOffset > 0,
-    },
+    paginatedRecords: records.slice(pagination.offset, pagination.offset + pagination.limit),
+    pagination,
   }
 }
 

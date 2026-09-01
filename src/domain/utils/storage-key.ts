@@ -10,8 +10,8 @@
  *
  * Sovrium uploads store files under a `<uuid>-<filename>` key (the random
  * per-upload prefix avoids filename collisions while keeping the human-readable
- * filename as a suffix). The presentation layer's `buildUploadStorageKey`
- * produces that key; the download / signed-URL paths strip the prefix again so
+ * filename as a suffix). The infrastructure layer's `buildUploadStorageKey`
+ * (`@/infrastructure/storage/upload-key`) produces that key; the download / signed-URL paths strip the prefix again so
  * the original filename surfaces in `Content-Disposition`.
  *
  * This module is the DOMAIN-LAYER home of the prefix-strip so the application

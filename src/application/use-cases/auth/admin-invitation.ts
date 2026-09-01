@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { assignableRoleNames, isAssignableRole } from '@/domain/models/app/auth/roles'
+import {
+  assignableRoleNames,
+  isAdminEquivalent,
+  isAssignableRole,
+} from '@/domain/models/app/auth/roles'
 import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
 import { isValidEmail } from '@/domain/utils/email-validation'
 import { parseDuration } from '@/domain/utils/parse-duration'
@@ -21,6 +25,7 @@ import {
   markUserEmailVerified,
   userHasCredentialPassword,
 } from '@/infrastructure/auth/better-auth/invitation-queries'
+import { inheritScopeAssignments } from '@/infrastructure/auth/better-auth/invitation-scope-queries'
 import { logError } from '@/infrastructure/logging/logger'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
@@ -105,6 +110,19 @@ export interface InviteUserFailure {
 export type InviteUserResult = InviteUserSuccess | InviteUserFailure
 
 /**
+ * A legible stand-in display name for an invitation issued without one.
+ *
+ * The address's local part with its separators turned into spaces — enough for
+ * an operator to recognise the row in a directory, and never presented as a
+ * name the person chose.
+ */
+const displayNameFromEmail = (email: string): string => {
+  const local = email.split('@')[0] ?? email
+  const spaced = local.replaceAll(/[._-]+/g, ' ').trim()
+  return spaced.length > 0 ? spaced : email
+}
+
+/**
  * Validate the inviteUser request body.
  *
  * Returns a sanitized payload, or an error result the route can hand back
@@ -127,9 +145,19 @@ const validateInviteInput = (
   if (!isValidEmail(email)) {
     return { status: 'invalid-input', message: 'email must be a valid email address' }
   }
-  if (typeof body.name !== 'string' || body.name.trim().length === 0) {
-    return { status: 'invalid-input', message: 'name is required' }
-  }
+  // A display name is accepted but not demanded. The operator issuing an
+  // invitation reliably knows the address and often not how the person spells
+  // their own name, so requiring it puts a guess in front of the one fact that
+  // is certain — and a guessed name is worse than none, since the invitee never
+  // gets to correct it (the accept page asks only for a password). Falling back
+  // to the address's local part gives the account a legible label until then.
+  //
+  // Strictly more permissive than the previous "name is required": a supplied
+  // name still wins, so no caller that worked before behaves differently.
+  const name =
+    typeof body.name === 'string' && body.name.trim().length > 0
+      ? body.name.trim()
+      : displayNameFromEmail(email)
   if (typeof body.role !== 'string' || body.role.trim().length === 0) {
     return { status: 'invalid-input', message: 'role is required' }
   }
@@ -162,7 +190,7 @@ const validateInviteInput = (
       message: 'password is not accepted for invitations; the customer sets their own',
     }
   }
-  return { email, name: body.name.trim(), role }
+  return { email, name, role }
 }
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
@@ -307,6 +335,14 @@ export const inviteUser = async (params: {
    * to attribute (tooling) still issues a valid invitation rather than failing.
    */
   readonly inviterId?: string | undefined
+  /**
+   * The inviting caller's role. Present only when a session issued the
+   * invitation. It answers one question: is this a SCOPED inviter, whose tenant
+   * the invitee must inherit, or an admin-equivalent one, who has no tenant to
+   * pass on? Absent, the invitation behaves exactly as it did before scoped
+   * invitations existed.
+   */
+  readonly inviterRole?: string | undefined
   /** The app whose role vocabulary the invitation's `role` must belong to. */
   readonly app: AdminRoleResolvable
   readonly body: {
@@ -326,6 +362,23 @@ export const inviteUser = async (params: {
     return findOrCreate
   }
   const { user } = findOrCreate
+
+  // A scoped inviter passes their tenant on; an admin-equivalent one has none to
+  // pass. Gating on `isAdminEquivalent` keeps the long-standing admin-issued
+  // invitation byte-identical to what it was: it never touched `user_access`, and
+  // it still does not.
+  if (
+    params.inviterId !== undefined &&
+    params.inviterRole !== undefined &&
+    !isAdminEquivalent(params.inviterRole, params.app)
+  ) {
+    // eslint-disable-next-line functional/no-expression-statements -- scope inheritance is a side effect
+    await inheritScopeAssignments({
+      inviterId: params.inviterId,
+      inviteeId: user.id,
+      role: validation.role,
+    })
+  }
 
   const token = generateInvitationToken()
   const expiresAt = new Date(Date.now() + resolveInvitationExpiryMs(params.authConfig))

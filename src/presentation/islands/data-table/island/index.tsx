@@ -496,11 +496,15 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         // so the table doesn't render rows in the schema-default density
         // before the persisted density lands.
         isLoading={isLoading}
-        searchConfig={props.search}
+        searchConfig={setup.resolvedSearchConfig}
         selectionConfig={props.selection}
         toolbarConfig={props.toolbar}
         bulkActionsConfig={props.bulkActions}
         paginationConfig={props.pagination}
+        cursorPaged={setup.cursorFeed.cursorPaged}
+        hasMore={setup.cursorFeed.hasMore}
+        isLoadingMore={setup.cursorFeed.isLoadingMore}
+        onLoadMore={setup.cursorFeed.onLoadMore}
         groupByConfig={setup.effectiveGroupByConfig}
         {...(setup.groupCounts && { groupCounts: setup.groupCounts })}
         {...(setup.groupAggregations && { groupAggregations: setup.groupAggregations })}
@@ -524,6 +528,9 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         editingCell={setup.inlineEditing.editingCell}
         autoSave={setup.inlineAutoSave}
         saveError={setup.inlineEditing.saveError}
+        saveConflict={setup.inlineEditing.saveConflict}
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- discards the click event so the retry is not passed a MouseEvent as its argument; the alert this lands on only renders after a save has already failed.
+        onRetrySave={() => void setup.inlineEditing.retryFailedSave()}
         saveStatus={setup.inlineEditing.saveStatus}
         saveTarget={setup.inlineEditing.saveTarget}
         saveIndicator={setup.saveIndicator}

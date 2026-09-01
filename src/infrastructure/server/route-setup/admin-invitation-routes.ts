@@ -10,9 +10,10 @@ import {
   inviteUser as inviteUserUseCase,
 } from '@/application/use-cases/auth/admin-invitation'
 import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
+import { findInvitationToken } from '@/infrastructure/auth/better-auth/invitation-queries'
 import { logError } from '@/infrastructure/logging/logger'
 import {
-  requireAdminCaller,
+  requireInviteCaller,
   resolveBaseURL,
 } from '@/infrastructure/server/route-setup/admin-invitation-guard'
 import { chainAdminInvitationLifecycleRoutes } from '@/infrastructure/server/route-setup/admin-invitation-lifecycle-routes'
@@ -59,10 +60,18 @@ const respondToInviteFailure = (
  * `/accept-invitation?token=...`.
  *
  * - 401 when caller has no session
- * - 404 when caller is not admin-equivalent (S1 — never 403)
+ * - 404 when the caller may not invite this role (S1 — never 403): neither
+ *   admin-equivalent, nor holding `auth.roles[].canInvite` at a level at or
+ *   above the invited role. See `canInviteRole`.
  * - 400 when the requested role is not assignable for this app
  * - 422 when the email maps to a fully-onboarded user
  * - 200 with `{ user, invitationSent: true }` on success
+ *
+ * The body is parsed BEFORE the guard runs, because the guard's ceiling is a
+ * comparison against the invited role and that role arrives in the body. Parsing
+ * first is not a widening: it is a `JSON.parse` with no side effects, anonymous
+ * callers are already 401ed by the upstream auth middleware, and an unparseable
+ * body yields `{}`, whose absent role denies every non-admin-equivalent caller.
  *
  * NOT a Better Auth plugin endpoint — implemented in the Sovrium engine.
  * `allowSignUp:false` does NOT block this endpoint (admin-driven invitation
@@ -78,10 +87,12 @@ const createInviteUserHandler =
   // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   async (c: Context) => {
     try {
-      const authorized = await requireAdminCaller(authInstance, c, app)
+      const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+      const requestedRole = typeof body['role'] === 'string' ? body['role'].trim() : undefined
+
+      const authorized = await requireInviteCaller(authInstance, c, app, requestedRole)
       if (authorized instanceof Response) return authorized
 
-      const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
       const inviterName = authorized.session.user.name ?? 'An administrator'
 
       const result = await inviteUserUseCase({
@@ -90,6 +101,10 @@ const createInviteUserHandler =
         emailHandlers,
         baseURL: resolveBaseURL(c),
         inviterName,
+        // The inviter's own role, so the flow can tell a SCOPED inviter (whose
+        // tenant the invitee must inherit) from an admin-equivalent one (who has
+        // no tenant to pass on).
+        inviterRole: authorized.role,
         // Recorded on the invitation so the pending list can answer "who sent
         // this?" — previously persisted nowhere, which is why an operator
         // could not tell their own outstanding invitations from a colleague's.
@@ -324,6 +339,40 @@ const buildAcceptInvitationScript = (minPasswordLength: number): string => `
 `
 
 /**
+ * The dead-end page for a link that no longer opens anything.
+ *
+ * An invitation can stop working while it is still sitting in someone's inbox —
+ * the operator revoked it, it lapsed, or it was already accepted — and the link
+ * looks identical either way. Serving the password form anyway meant the invitee
+ * chose a password, submitted, and only then learned the link was dead: they had
+ * to do work to be told no. The page now says so on arrival.
+ *
+ * Deliberately vague about WHICH of those happened, and deliberately identical
+ * for a token that never existed: a page that distinguished "revoked" from
+ * "unknown" would confirm to anyone guessing tokens that a particular guess had
+ * once been real.
+ *
+ * No retry control. There is nothing the holder of a dead link can do except ask
+ * the person who invited them, so that is what it says.
+ */
+const renderInvitationUnavailablePage = (): string => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Invitation unavailable</title>
+  <style>${ACCEPT_INVITATION_STYLE}</style>
+</head>
+<body>
+  <main>
+    <h1>This invitation is no longer available</h1>
+    <p class="error" role="alert">This invitation link has expired or been withdrawn. Ask whoever invited you to send a new one.</p>
+  </main>
+</body>
+</html>`
+
+/**
  * Render the SSR HTML for the accept-invitation page.
  *
  * The form is intentionally minimal — it relies on plain HTML + a tiny
@@ -362,20 +411,45 @@ const renderAcceptInvitationPage = (token: string, minPasswordLength: number): s
 }
 
 /**
+ * Whether this token still opens an invitation.
+ *
+ * A read, never a mutation: the row is consumed by `POST /accept-invitation`,
+ * which re-checks everything this checks. A database failure answers `true` so a
+ * transient outage shows the form (and the POST refuses properly) rather than
+ * telling a legitimate invitee their link is dead.
+ */
+const isInvitationOpenable = async (token: string): Promise<boolean> => {
+  if (token.length === 0) return false
+  try {
+    const invitation = await findInvitationToken(token)
+    return invitation !== undefined && invitation.expiresAt.getTime() > Date.now()
+  } catch (error) {
+    logError('[admin-invitation] accept-invitation page token check failed', error)
+    return true
+  }
+}
+
+/**
  * GET /accept-invitation
  *
  * Server-rendered HTML form so the customer can set their password.
  * Submits to POST /api/auth/admin/accept-invitation via fetch, then
  * redirects to "/" (the standard authenticated entry point) on success.
+ *
+ * A token that no longer opens anything gets the dead-end page instead of the
+ * form. Still 200, not 404: the ROUTE exists and the invitee reached the right
+ * place — the thing that is gone is their invitation, and a 404 would send them
+ * looking for a broken link instead of for the person who invited them.
  */
 const createAcceptInvitationPageHandler =
   (authConfig: Auth | undefined) =>
   // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is third-party mutable type
   async (c: Context) => {
     const token = c.req.query('token') ?? ''
+    if (!(await isInvitationOpenable(token))) {
+      return c.html(renderInvitationUnavailablePage(), 200)
+    }
     const { minLength } = resolvePasswordPolicy(authConfig)
-    // The page is always served — even if `token` is empty — so the customer
-    // gets a clear error instead of a 404 when they click a malformed link.
     const html = renderAcceptInvitationPage(token, minLength)
     return c.html(html, 200)
   }

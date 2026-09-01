@@ -30,7 +30,13 @@ import {
   enrichRecordWithAttachmentUrls,
 } from './utils/attachment-url-enricher'
 import { formatFieldForDisplay } from './utils/display-formatter'
-import { processRecords, applyPagination } from './utils/list-helpers'
+import { buildProjectionColumns } from './utils/field-projection'
+import {
+  processRecords,
+  applyPagination,
+  buildPaginationMeta,
+  DEFAULT_PAGE_SIZE,
+} from './utils/list-helpers'
 import { getManyToManyFieldSpecs, type ManyToManyFieldSpec } from './utils/many-to-many-fields'
 import { preserveIdType } from './utils/preserve-id-type'
 import { transformRecord } from './utils/record-transformer'
@@ -184,16 +190,41 @@ const splitManyToManyFields = (
 }
 
 /**
+ * The many-to-many fields a read should resolve, honouring a `?fields=`
+ * selection.
+ *
+ * A many-to-many column has no base column, so it survives `applyFieldSelection`
+ * by not being there at all and is then re-injected from the table's DECLARED
+ * specs. Left unfiltered that is a selection bypass: `?fields=title` came back
+ * carrying `tags` because the enrichment never consulted the requested list.
+ *
+ * The intersection runs only when a selection is present — an absent `fields`
+ * still means "every column", junction-backed ones included.
+ */
+const selectedManyToManySpecs = (
+  app: App | undefined,
+  tableName: string,
+  fields: string | undefined
+): readonly ManyToManyFieldSpec[] => {
+  const specs = getManyToManyFieldSpecs(app?.tables, tableName)
+  if (fields === undefined) return specs
+  const requested = new Set(fields.split(',').map((name) => name.trim()))
+  return specs.filter((spec) => requested.has(spec.fieldName))
+}
+
+/**
  * Resolve many-to-many field values from junction tables for a set of records.
- * No-op (empty map) when the table declares no many-to-many fields.
+ * No-op (empty map) when the table declares no many-to-many fields, or when a
+ * field selection named none of them.
  */
 const readManyToManyLinks = (
   app: App | undefined,
   tableName: string,
-  ids: readonly (string | number)[]
+  ids: readonly (string | number)[],
+  fields?: string
 ): Effect.Effect<ManyToManyLinkMap, DatabaseError, TableRepository> =>
   Effect.gen(function* () {
-    const specs = getManyToManyFieldSpecs(app?.tables, tableName)
+    const specs = selectedManyToManySpecs(app, tableName, fields)
     if (specs.length === 0 || ids.length === 0) return {}
     const repo = yield* TableRepository
     return yield* repo.readManyToMany({
@@ -234,13 +265,15 @@ const writeManyToManyLinks = (
 const enrichRecordsWithManyToMany = (
   app: App | undefined,
   tableName: string,
-  records: readonly TransformedRecord[]
+  records: readonly TransformedRecord[],
+  fields?: string
 ): Effect.Effect<readonly TransformedRecord[], DatabaseError, TableRepository> =>
   Effect.gen(function* () {
     const linkMap = yield* readManyToManyLinks(
       app,
       tableName,
-      records.map((r) => r.id)
+      records.map((r) => r.id),
+      fields
     )
     return records.map(
       (record) =>
@@ -285,8 +318,21 @@ const enrichRecordsWithRelatedLabels = (
  * (B-01) → paginate → many-to-many enrich → relationship labels.
  * Extracted so `createListRecordsProgram` stays under the per-function line
  * budget.
+ *
+ * `page.total` is passed in rather than read off `records.length` because the
+ * two stop agreeing under SQL pushdown: `records` is then ONE window and the
+ * count comes from a separate `COUNT(*)` over the same filter.
+ *
+ * `page.preSliced` says the engine already cut the window. Slicing it again
+ * with the same offset is the defect this flag exists to prevent — page 1
+ * (offset 0) would stay perfect while every later page silently returned
+ * nothing.
  */
-const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<string, unknown>[]) =>
+const buildRecordPage = (
+  config: ListRecordsConfig,
+  records: readonly Record<string, unknown>[],
+  page: { readonly total: number; readonly preSliced: boolean }
+) =>
   Effect.gen(function* () {
     const processed = processRecords({
       records,
@@ -304,16 +350,15 @@ const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<str
       tableName: config.tableName,
       origin: config.origin ?? '',
     })
-    const { paginatedRecords, pagination } = applyPagination(
-      enriched,
-      records.length,
-      config.limit,
-      config.offset
-    )
+    const pagination = buildPaginationMeta(page.total, config.limit, config.offset)
+    const paginatedRecords = page.preSliced
+      ? enriched
+      : enriched.slice(pagination.offset, pagination.offset + pagination.limit)
     const withM2m = yield* enrichRecordsWithManyToMany(
       config.app,
       config.tableName,
-      paginatedRecords
+      paginatedRecords,
+      config.fields
     )
     // Labels for every relationship column that declared one. Enriched after
     // pagination and after the junction read, so the lookup covers ONE page of
@@ -337,6 +382,81 @@ const buildRecordPage = (config: ListRecordsConfig, records: readonly Record<str
     return { records: withAiCompute, pagination }
   })
 
+/**
+ * How many rows match a list request, independent of the page it asked for.
+ *
+ * Under SQL pushdown the returned array is one window, so `records.length` no
+ * longer answers `pagination.total`. `computeAggregations` already emits
+ * `SELECT COUNT(*) … WHERE …` through the exact same filter and soft-delete
+ * clause the listing uses, so the count and the page cannot describe different
+ * row sets — which is why this reuses it instead of adding a second count query
+ * with its own copy of the WHERE builder.
+ *
+ * A count that fails to parse falls back to the page length rather than to 0:
+ * under-reporting a total is a wrong answer, but reporting zero rows on a
+ * response that visibly carries some is a self-contradicting one.
+ */
+const countMatchingRecords = (
+  repo: TableRepository['Service'],
+  params: {
+    readonly session: Readonly<UserSession>
+    readonly tableName: string
+    readonly filter?: QueryFilter
+    readonly includeDeleted?: boolean
+  },
+  fallback: number
+): Effect.Effect<number, DatabaseError> =>
+  Effect.gen(function* () {
+    const result = yield* repo.computeAggregations({ ...params, aggregate: { count: true } })
+    const total = Number(result.count)
+    return Number.isFinite(total) ? total : fallback
+  })
+
+/**
+ * Read the rows a list request needs, and say how many matched overall.
+ *
+ * Two routes, chosen by whether the request GROUPS:
+ *
+ *   - `groupBy` absent → `LIMIT`/`OFFSET` are pushed into SQL and `total` comes
+ *     from a separate `COUNT(*)` over the same filter. `preSliced` is then true
+ *     and nothing downstream may slice again.
+ *   - `groupBy` present → the whole result set is fetched, because
+ *     `computeGroupPartitions` partitions the raw array in memory. Paging in SQL
+ *     would silently group ONE page: three status groups summing to 24 would come
+ *     back as whatever happened to land in the first five rows, with no error.
+ *
+ * Pushing `limit ?? DEFAULT_PAGE_SIZE` rather than a bare `limit` is
+ * load-bearing on both counts — an absent limit would otherwise fetch the whole
+ * table, and an `OFFSET` with no `LIMIT` beside it is a syntax error on SQLite.
+ */
+const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service']) =>
+  Effect.gen(function* () {
+    const { session, tableName, filter, includeDeleted, groupBy } = config
+    const preSliced = groupBy === undefined
+    const records = yield* repo.listRecords({
+      session,
+      tableName,
+      filter,
+      includeDeleted,
+      sort: config.sort,
+      ...(preSliced ? { limit: config.limit ?? DEFAULT_PAGE_SIZE, offset: config.offset } : {}),
+      columns: buildProjectionColumns({
+        app: config.app,
+        tableName,
+        fields: config.fields,
+        groupBy,
+      }),
+    })
+    const total = preSliced
+      ? yield* countMatchingRecords(
+          repo,
+          { session, tableName, filter, includeDeleted },
+          records.length
+        )
+      : records.length
+    return { records, total, preSliced }
+  })
+
 export function createListRecordsProgram(
   config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, DatabaseError, TableRepository> {
@@ -344,15 +464,15 @@ export function createListRecordsProgram(
     const repo = yield* TableRepository
     const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config
 
-    const records = yield* repo.listRecords({
-      session,
-      tableName,
-      filter,
-      includeDeleted,
-      sort: config.sort,
+    const { records, total, preSliced } = yield* readListRows(config, repo)
+    const { records: pageRecords, pagination } = yield* buildRecordPage(config, records, {
+      total,
+      preSliced,
     })
-    const { records: pageRecords, pagination } = yield* buildRecordPage(config, records)
 
+    // `records` is ONE PAGE whenever `preSliced` is true — safe to hand on here
+    // only because both consumers below are gated on `groupBy`, which is exactly
+    // the condition that turns the pushdown off.
     const aggBlock = aggregate
       ? yield* computeListRecordsAggregationBlock({
           repo,
@@ -463,9 +583,48 @@ interface GetRecordConfig {
   readonly userRole: string
   readonly includeDeleted?: boolean
   readonly format?: 'display'
+  /** See {@link ListRecordsConfig.timezone}. */
+  readonly timezone?: string
   /** See {@link ListRecordsConfig.origin}. */
   readonly origin?: string
 }
+
+/**
+ * Collapse the single-record read's fields to FLAT display strings.
+ *
+ * The list route keeps the `{ value, displayValue, timezone }` object; this
+ * route deliberately does not, and nine sibling `format=display` specs read
+ * `fields.X` as a string. Changing that here would silently re-spec a contract
+ * they pin, so the collapse stays.
+ *
+ * Two paths reach a display string, and BOTH need the caller's zone.
+ * `transformRecord` has already formatted every field it recognised, leaving an
+ * object to unwrap; anything it passed through unformatted is formatted here
+ * instead. Passing the override to only one of them made the rendered clock
+ * depend on which branch a field happened to take.
+ */
+const toDisplayFields = (
+  fields: Readonly<TransformedRecord['fields']>,
+  config: GetRecordConfig
+): Readonly<TransformedRecord['fields']> =>
+  Object.fromEntries(
+    Object.entries(fields).map(
+      ([key, value]): readonly [string, TransformedRecord['fields'][string]] => {
+        const isObj = typeof value === 'object' && value !== null && !Array.isArray(value)
+        if (isObj && 'displayValue' in (value as object)) {
+          return [key, (value as { displayValue: string }).displayValue]
+        }
+        const formatted = formatFieldForDisplay({
+          fieldName: key,
+          value,
+          app: config.app,
+          tableName: config.tableName,
+          timezoneOverride: config.timezone,
+        })
+        return [key, formatted ? formatted.displayValue : value]
+      }
+    )
+  )
 
 export function createGetRecordProgram(
   config: GetRecordConfig
@@ -482,6 +641,7 @@ export function createGetRecordProgram(
       app,
       tableName,
       format: config.format,
+      timezone: config.timezone,
     })
     // B-01: same attachment-URL enrichment as the list path.
     const transformed = enrichRecordWithAttachmentUrls(transformedRaw, {
@@ -491,17 +651,7 @@ export function createGetRecordProgram(
     })
 
     const fields =
-      config.format === 'display'
-        ? Object.fromEntries(
-            Object.entries(transformed.fields).map(([k, v]) => {
-              const isObj = typeof v === 'object' && v !== null && !Array.isArray(v)
-              if (isObj && 'displayValue' in (v as object))
-                return [k, (v as { displayValue: string }).displayValue]
-              const r = formatFieldForDisplay({ fieldName: k, value: v, app, tableName })
-              return [k, r ? r.displayValue : v]
-            })
-          )
-        : transformed.fields
+      config.format === 'display' ? toDisplayFields(transformed.fields, config) : transformed.fields
 
     // Preserve TEXT primary keys (e.g. scope tables in `auth.scopeTables`)
     // as strings; only coerce when the value *looks* numeric. Avoids NaN

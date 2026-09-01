@@ -81,6 +81,15 @@ interface UseDataTableQueryParams {
    * they ride along harmlessly server-side while staying observable on the request.
    */
   readonly sharedFilterParams?: Record<string, string>
+  /**
+   * Continuation token for a cursor-paginated system endpoint
+   *. Set only after the
+   * operator asks for more, and only from a token the previous response
+   * actually carried. Part of the query key, so each page is its own cache
+   * entry; the pages already shown are remembered by `useSystemCursorPages`.
+   * Inert for the DB-table path, which pages by number.
+   */
+  readonly cursor?: string
   readonly pagination: PaginationState
   readonly sorting: SortingState
   readonly globalFilter: string
@@ -299,6 +308,7 @@ interface ResolvedQuery {
   readonly systemQuery?: Record<string, string>
   readonly sourceId?: string
   readonly sharedFilterParams?: Record<string, string>
+  readonly cursor?: string
   readonly pagination: PaginationState
   readonly sortParam?: string
   readonly globalFilter: string
@@ -323,6 +333,10 @@ function buildQueryKey(q: ResolvedQuery, sortParam: string | undefined): readonl
         q.pagination,
         sortParam,
         q.globalFilter,
+        // A continuation is a DIFFERENT page of the same feed, so it must not
+        // resolve from the previous page's entry. Keying on it is also what
+        // gives `keepPreviousData` something to keep while the next page loads.
+        q.cursor,
       ]
     : [
         'table-records',
@@ -347,6 +361,7 @@ function runDataTableFetch(q: ResolvedQuery): Promise<DataTableFetchResult> {
         pagination: q.pagination,
         sortParam: q.sortParam,
         globalFilter: q.globalFilter,
+        ...(q.cursor !== undefined && { cursor: q.cursor }),
       })
     : fetchTableRecords({
         table: q.table,
@@ -400,6 +415,7 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
     systemQuery,
     sourceId,
     sharedFilterParams,
+    cursor,
     pagination,
     sorting,
     globalFilter,
@@ -427,6 +443,7 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
     systemQuery,
     sourceId,
     sharedFilterParams,
+    ...(cursor !== undefined && { cursor }),
     pagination,
     sortParam,
     globalFilter,

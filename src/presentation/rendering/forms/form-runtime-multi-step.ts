@@ -20,9 +20,9 @@
  *   - `renderOnError` (inline error rendering helper)
  *
  * Defines a no-arg `bindStepNav` function the surrounding code calls
- * once on mount and again after a step replacement. Defines a stub
- * `showStep(_index)` so the existing `applyReset` call site keeps
- * working without changes.
+ * once on mount and again after a step replacement, and a
+ * `showStep(index, preserveFields)` the `applyReset` call site uses to
+ * rewind the flow to its first step.
  */
 export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
   // ---- Multi-step navigation -------------------------------------------------
@@ -140,11 +140,43 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
       btn.addEventListener('click', handlePrevious)
     })
   }
-  function showStep(_index) {
-    // No-op for server-mediated flow: SSR already renders the active
-    // step. Kept as a stub so the existing applyReset call site compiles
-    // without further changes.
-    return
+  // Rewind the flow to \`stepIds[index]\` — the client half of
+  // \`onSuccess: { type: 'reset' }\` on a multi-step form.
+  //
+  // Two things have to happen, and neither is sufficient alone. The DOM only
+  // ever holds the ACTIVE step, so returning to step 1 means fetching its
+  // fragment and swapping it in; and every later step prefills from the
+  // server-side draft, so unless the draft is replaced too the submitter
+  // restarts at step 1 only to be handed back the answers they just
+  // submitted. \`preserveFields\` is what makes it a replacement rather than a
+  // clear: those values are read off the DOM as it stands NOW — before the
+  // swap discards it — and posted as the draft's entire new contents.
+  function showStep(index, preserveFields) {
+    var targetId = stepIds[index]
+    if (!targetId) return
+    var preserve = preserveFields || []
+    var seed = {}
+    namedInputs().forEach(function (input) {
+      if (preserve.indexOf(input.name) < 0) return
+      seed[input.name] = input.type === 'checkbox' ? input.checked : input.value
+    })
+    fetch('/api/forms/' + formName + '/draft/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(seed),
+    })
+      .then(function () {
+        return fetch('/api/forms/' + formName + '/steps/' + targetId, {
+          method: 'GET',
+          headers: { Accept: 'text/html' },
+        })
+      })
+      .then(function (r) {
+        return r.text()
+      })
+      .then(function (html) {
+        replaceActiveStep(html, targetId)
+      })
   }
   if (isMultiStep) bindStepNav()
 `
